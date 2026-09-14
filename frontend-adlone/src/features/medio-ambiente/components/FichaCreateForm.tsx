@@ -9,23 +9,9 @@ import { facturacionService } from '../../facturacion/services/facturacion.servi
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
-import { 
-    Modal, 
-    Button, 
-    Text, 
-    Title, 
-    Stack, 
-    Group, 
-    ThemeIcon, 
-    Paper, 
-    Divider,
-    Box,
-    Tabs,
-    Container,
-    Alert
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { Modal, Button, Typography, Tabs, Alert, Card, Divider } from 'antd';
 import {
     IconCheck,
     IconChevronLeft,
@@ -37,6 +23,8 @@ import {
     IconEye
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
+
+const { Title, Text } = Typography;
 
 const SuccessModal = ({
     isOpen,
@@ -51,48 +39,47 @@ const SuccessModal = ({
 }) => {
     return (
         <Modal
-            opened={isOpen}
-            onClose={onClose}
+            open={isOpen}
+            onCancel={onClose}
             title="¡Ficha Creada Exitosamente!"
             centered
-            size="md"
-            radius="lg"
-            withCloseButton={false}
+            width={420}
+            closable={false}
+            footer={null}
         >
-            <Stack align="center" py="xl">
-                <ThemeIcon size={80} radius="xl" color="green" variant="light">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 0' }}>
+                <div style={{
+                    width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(47,158,68,0.12)', color: '#2f9e44',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
                     <IconCheck size={40} />
-                </ThemeIcon>
+                </div>
 
-                <Title order={3} ta="center">Registro Confirmado</Title>
+                <Title level={4} style={{ margin: 0, textAlign: 'center' }}>Registro Confirmado</Title>
 
-                <Text ta="center" c="dimmed">
-                    Se ha generado la Ficha N° <Text span fw={700} c="blue">{fichaId}</Text> correctamente en el sistema.
+                <Text type="secondary" style={{ textAlign: 'center' }}>
+                    Se ha generado la Ficha N° <Text strong style={{ color: 'var(--app-accent-text)' }}>{fichaId}</Text> correctamente en el sistema.
                 </Text>
 
-                <Group w="100%" mt="lg">
+                <div style={{ display: 'flex', width: '100%', gap: 12, marginTop: 16 }}>
                     <Button
-                        flex={1}
-                        size="md"
-                        variant="light"
-                        color="blue"
-                        radius="md"
-                        leftSection={<IconEye size={18} />}
+                        style={{ flex: 1 }}
+                        size="large"
+                        icon={<IconEye size={18} />}
                         onClick={onViewFicha}
                     >
                         Ver Ficha
                     </Button>
                     <Button
-                        flex={1}
-                        size="md"
-                        color="green"
-                        radius="md"
+                        style={{ flex: 1 }}
+                        size="large"
+                        type="primary"
                         onClick={onClose}
                     >
                         Volver al Menú
                     </Button>
-                </Group>
-            </Stack>
+                </div>
+            </div>
         </Modal>
     );
 };
@@ -114,7 +101,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const [isObservacionesValid, setIsObservacionesValid] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [, startTransition] = useTransition();
-    const [activeTab, setActiveTab] = useState<string | null>('antecedentes');
+    const [activeTab, setActiveTab] = useState<string>('antecedentes');
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
     const observacionesRef = useRef<ObservacionesFormHandle>(null);
     const topRef = useRef<HTMLDivElement>(null);
@@ -211,7 +198,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             // con normativa/tabla, y quitar el array `opciones` (solo de UI).
             const analisisPayload = savedAnalysis
                 .filter((a: any) => !a._fijo || a.id_referenciaanalisis)
-                .map(({ opciones, ...rest }: any) => rest);
+                .map((a: any) => { const rest = { ...a }; delete rest.opciones; return rest; });
 
             const payload = {
                 antecedentes: antData,
@@ -273,8 +260,25 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
         setShowSuccessModal(false);
     };
 
+    const tabIconSize = isVerySmall ? 16 : (isMobile ? 18 : 22);
+    const panelPadding = isMobile ? 16 : 50;
+
+    const handleTabChange = (val: string) => {
+        // F-11: bloquear salto de tabs sin haber completado las anteriores
+        if (val === 'analisis' && !isAntecedentesValid) {
+            showToast({ type: 'warning', message: 'Complete primero los antecedentes obligatorios' });
+            return;
+        }
+        if (val === 'observaciones' && (!isAntecedentesValid || savedAnalysis.length === 0)) {
+            showToast({ type: 'warning', message: 'Complete antecedentes y al menos un análisis primero' });
+            return;
+        }
+        setActiveTab(val);
+        scrollToTop();
+    };
+
     return (
-        <Container fluid w="100%" mx="auto" px={0} py="md" style={{ maxWidth: '100% !important' }}>
+        <div>
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={handleCloseSuccess}
@@ -282,177 +286,154 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 fichaId={createdFichaId}
             />
 
-            <Stack gap="lg">
-                <div ref={topRef} style={{ height: 0, overflow: 'hidden' }} />
-                <PageHeader 
-                    title="Nueva Ficha de Ingreso"
-                    onBack={onBackToMenu}
-                    breadcrumbItems={[
-                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
-                        { label: 'Creación Manual' }
+            <div ref={topRef} style={{ height: 0, overflow: 'hidden' }} />
+            <PageHeader
+                title="Nueva Ficha de Ingreso"
+                onBack={onBackToMenu}
+                breadcrumbItems={[
+                    { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                    { label: 'Creación Manual' }
+                ]}
+            />
+
+            <Card styles={{ body: { padding: 0 } }}>
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={handleTabChange}
+                    centered
+                    tabBarStyle={{ margin: 0, padding: `0 ${isMobile ? 16 : 50}px`, borderBottom: '1px solid var(--app-border)' }}
+                    items={[
+                        {
+                            key: 'antecedentes',
+                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15), fontWeight: 600 }}><IconFileText size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}</span>,
+                            children: (
+                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px`, minHeight: '70vh' }}>
+                                    {cargandoCotizacion ? (
+                                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 32 }}>
+                                            Cargando los datos de la cotización…
+                                        </Text>
+                                    ) : (
+                                        <>
+                                            {prefillCotizacion && (
+                                                <Alert
+                                                    type="info"
+                                                    showIcon
+                                                    style={{ marginBottom: 24 }}
+                                                    message={`Desde la cotización N° ${prefillCotizacion.numero_cotizacion}`}
+                                                    description={
+                                                        <>
+                                                            El cliente, el centro y {prefillCotizacion.analisis?.length || 0} análisis vienen cargados
+                                                            con el precio que el cliente aceptó. Falta completar objetivo, punto de muestreo y programación.
+                                                            {prefillCotizacion.avisos?.length > 0 && (
+                                                                <> <b>{prefillCotizacion.avisos.length} análisis no se pudieron traer</b> y hay que agregarlos a mano.</>
+                                                            )}
+                                                        </>
+                                                    }
+                                                />
+                                            )}
+                                            <AntecedentesForm
+                                                ref={antecedentesRef}
+                                                initialData={prefillCotizacion?.antecedentes}
+                                                onValidationChange={handleValidationChange}
+                                            />
+                                        </>
+                                    )}
+                                </div>
+                            ),
+                        },
+                        {
+                            key: 'analisis',
+                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isMobile ? 13.5 : 15, fontWeight: 600 }}><IconTable size={tabIconSize} />Análisis</span>,
+                            children: (
+                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}>
+                                    <AnalysisForm
+                                        savedAnalysis={savedAnalysis}
+                                        onSavedAnalysisChange={setSavedAnalysis}
+                                        costoOperativo={costoOperativo}
+                                        onCostoOperativoChange={setCostoOperativo}
+                                    />
+                                </div>
+                            ),
+                        },
+                        {
+                            key: 'observaciones',
+                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15), fontWeight: 600 }}><IconEdit size={tabIconSize} />{isVerySmall ? 'Obs.' : 'Observaciones'}</span>,
+                            children: (
+                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}>
+                                    <ObservacionesForm
+                                        ref={observacionesRef}
+                                        label="Instrucciones comerciales"
+                                        onValidationChange={handleObsValidationChange}
+                                    />
+                                </div>
+                            ),
+                        },
                     ]}
                 />
 
-                <Paper withBorder p={0} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important', overflow: 'hidden' }}>
-                    <Tabs
-                        value={activeTab}
-                        onChange={(val) => {
-                            // F-11: bloquear salto de tabs sin haber completado las anteriores
-                            if (val === 'analisis' && !isAntecedentesValid) {
-                                showToast({ type: 'warning', message: 'Complete primero los antecedentes obligatorios' });
-                                return;
-                            }
-                            if (val === 'observaciones' && (!isAntecedentesValid || savedAnalysis.length === 0)) {
-                                showToast({ type: 'warning', message: 'Complete antecedentes y al menos un análisis primero' });
-                                return;
-                            }
-                            setActiveTab(val);
-                            scrollToTop();
-                        }}
-                        variant="outline"
-                        radius="md"
-                        style={{ width: '100% !important' }}
-                    >
-                        <Tabs.List grow style={{ borderBottom: '1px solid #dee2e6' }}>
-                            <Tabs.Tab 
-                                value="antecedentes" 
-                                leftSection={<IconFileText size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />}
-                                px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
-                                py={isMobile ? 'xs' : 'md'}
-                                style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0 }}
+                <div style={{ padding: `0 ${panelPadding}px ${panelPadding}px` }}>
+                    <Divider style={{ margin: '0 0 24px' }} />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                        {activeTab === 'antecedentes' && (
+                            <Button
+                                type="primary"
+                                size="large"
+                                iconPosition="end"
+                                icon={<IconArrowRight size={20} />}
+                                onClick={() => { setActiveTab('analisis'); scrollToTop(); }}
+                                disabled={!isAntecedentesValid}
                             >
-                                {isVerySmall ? 'Antec.' : 'Antecedentes'}
-                            </Tabs.Tab>
-                            <Tabs.Tab 
-                                value="analisis" 
-                                leftSection={<IconTable size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />}
-                                px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
-                                py={isMobile ? 'xs' : 'md'}
-                                style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0 }}
-                            >
-                                Análisis
-                            </Tabs.Tab>
-                            <Tabs.Tab 
-                                value="observaciones" 
-                                leftSection={<IconEdit size={isVerySmall ? 16 : (isMobile ? 18 : 22)} />}
-                                px={isVerySmall ? 4 : (isMobile ? 'xs' : 'xl')} 
-                                py={isMobile ? 'xs' : 'md'}
-                                style={{ flex: '1 1 0%', fontSize: isVerySmall ? '0.75rem' : (isMobile ? '0.85rem' : '1rem'), fontWeight: 600, minWidth: 0 }}
-                            >
-                                {isVerySmall ? 'Obs.' : 'Observaciones'}
-                            </Tabs.Tab>
-                        </Tabs.List>
+                                Siguiente
+                            </Button>
+                        )}
 
-                        <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important', minHeight: '70vh' }}>
-                            {cargandoCotizacion ? (
-                                <Text ta="center" c="dimmed" mt="xl">Cargando los datos de la cotización…</Text>
-                            ) : (
-                                <>
-                                    {prefillCotizacion && (
-                                        <Alert color="blue" variant="light" mb="lg" title={`Desde la cotización N° ${prefillCotizacion.numero_cotizacion}`}>
-                                            El cliente, el centro y {prefillCotizacion.analisis?.length || 0} análisis vienen cargados
-                                            con el precio que el cliente aceptó. Falta completar objetivo, punto de muestreo y programación.
-                                            {prefillCotizacion.avisos?.length > 0 && (
-                                                <> <b>{prefillCotizacion.avisos.length} análisis no se pudieron traer</b> y hay que agregarlos a mano.</>
-                                            )}
-                                        </Alert>
-                                    )}
-                                    <AntecedentesForm
-                                        ref={antecedentesRef}
-                                        initialData={prefillCotizacion?.antecedentes}
-                                        onValidationChange={handleValidationChange}
-                                    />
-                                </>
-                            )}
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="analisis" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
-                            <AnalysisForm
-                                savedAnalysis={savedAnalysis}
-                                onSavedAnalysisChange={setSavedAnalysis}
-                                costoOperativo={costoOperativo}
-                                onCostoOperativoChange={setCostoOperativo}
-                            />
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 50} pt="xl" style={{ width: '100% !important' }}>
-                            <ObservacionesForm
-                                ref={observacionesRef}
-                                label="Instrucciones comerciales"
-                                onValidationChange={handleObsValidationChange}
-                            />
-                        </Tabs.Panel>
-                    </Tabs>
-
-                    <Box px={isMobile ? 'md' : 50} pb={isMobile ? 'md' : 50}>
-                        <Divider mb="xl" />
-                        <Group justify="flex-end" gap="md">
-                            {activeTab === 'antecedentes' && (
+                        {activeTab === 'analisis' && (
+                            <>
                                 <Button
-                                    size="md"
-                                    rightSection={<IconArrowRight size={20} />}
-                                    onClick={() => {
-                                        setActiveTab('analisis');
-                                        scrollToTop();
-                                    }}
-                                    disabled={!isAntecedentesValid}
+                                    size="large"
+                                    icon={<IconChevronLeft size={20} />}
+                                    onClick={() => setActiveTab('antecedentes')}
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    size="large"
+                                    iconPosition="end"
+                                    icon={<IconArrowRight size={20} />}
+                                    onClick={() => { setActiveTab('observaciones'); scrollToTop(); }}
+                                    disabled={savedAnalysis.length === 0}
                                 >
                                     Siguiente
                                 </Button>
-                            )}
+                            </>
+                        )}
 
-                            {activeTab === 'analisis' && (
-                                <>
-                                    <Button
-                                        variant="outline"
-                                        color="gray"
-                                        size="md"
-                                        leftSection={<IconChevronLeft size={20} />}
-                                        onClick={() => setActiveTab('antecedentes')}
-                                    >
-                                        Anterior
-                                    </Button>
-                                    <Button
-                                        size="md"
-                                        rightSection={<IconArrowRight size={20} />}
-                                        onClick={() => {
-                                            setActiveTab('observaciones');
-                                            scrollToTop();
-                                        }}
-                                        disabled={savedAnalysis.length === 0}
-                                    >
-                                        Siguiente
-                                    </Button>
-                                </>
-                            )}
-
-                            {activeTab === 'observaciones' && (
-                                <>
-                                    <Button
-                                        variant="outline"
-                                        color="gray"
-                                        size="md"
-                                        leftSection={<IconChevronLeft size={20} />}
-                                        onClick={() => setActiveTab('analisis')}
-                                    >
-                                        Anterior
-                                    </Button>
-                                    <Button
-                                        color="green"
-                                        size="md"
-                                        leftSection={<IconPlus size={20} />}
-                                        onClick={handleSave}
-                                        disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid}
-                                        loading={isSaving}
-                                    >
-                                        Grabar Ficha
-                                    </Button>
-                                </>
-                            )}
-                        </Group>
-                    </Box>
-                </Paper>
-            </Stack>
-        </Container>
+                        {activeTab === 'observaciones' && (
+                            <>
+                                <Button
+                                    size="large"
+                                    icon={<IconChevronLeft size={20} />}
+                                    onClick={() => setActiveTab('analisis')}
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    size="large"
+                                    style={{ backgroundColor: '#2f9e44' }}
+                                    icon={<IconPlus size={20} />}
+                                    onClick={handleSave}
+                                    disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid}
+                                    loading={isSaving}
+                                >
+                                    Grabar Ficha
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
 };

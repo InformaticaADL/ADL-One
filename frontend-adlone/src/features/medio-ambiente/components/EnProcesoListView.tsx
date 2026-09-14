@@ -3,34 +3,16 @@ import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-import { 
-    Stack, 
-    Paper, 
-    SimpleGrid, 
-    TextInput, 
-    Select, 
-    Button, 
-    Table, 
-    Badge, 
-    Group, 
-    ActionIcon, 
-    Tooltip,
-    ScrollArea,
-    Text,
-    Pagination,
-    Center,
-    Loader,
-    Divider,
-    Box
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconSearch, 
-    IconEraser, 
+import { Card, Input, Select, Button, Table, Tag, Tooltip, Typography } from 'antd';
+import {
+    IconSearch,
+    IconEraser,
     IconEdit,
     IconFilter,
     IconClockPlay
 } from '@tabler/icons-react';
+
+const { Text } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
@@ -50,7 +32,6 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
         return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
     });
     const { showToast } = useToast();
-    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const [searchTipo, setSearchTipo] = useState<string | null>(null);
     const [searchEmpresaServicio, setSearchEmpresaServicio] = useState<string | null>(null);
@@ -156,216 +137,150 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
         });
     }, [filteredFichas]);
 
-    const totalPages = Math.ceil(sortedFichas.length / itemsPerPage) || 1;
-    const displayedFichas = sortedFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    // Columnas consolidadas: 6 en vez de 9 — Empresa+Contacto y
+    // Objetivo+Sub Área comparten celda apilada, como en las otras bandejas
+    // ya migradas.
+    const columns = [
+        {
+            title: 'N° Ficha', width: 90,
+            render: (_: any, f: any) => <Text strong style={{ color: '#0d9488' }}>{f.correlativo || f.id || '-'}</Text>,
+        },
+        {
+            title: 'Fecha M.', width: 110,
+            render: (_: any, f: any) => <Text style={{ fontSize: 12.5, fontWeight: 500 }}>{f.fecha ? new Date(f.fecha).toLocaleDateString('es-ES') : 'Sin Fecha'}</Text>,
+        },
+        {
+            title: 'Muestreador', width: 160,
+            render: (_: any, f: any) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <IconClockPlay size={14} color="var(--app-accent-text)" />
+                    <Text style={{ fontSize: 12.5, fontWeight: 500 }}>{f.muestreador || 'Por Asignar'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Tipo', width: 120,
+            render: (_: any, f: any) => <Tag color="blue">{f.tipo_ficha || '-'}</Tag>,
+        },
+        {
+            title: 'Empresa / Contacto', width: 220,
+            render: (_: any, f: any) => (
+                <div>
+                    <Text style={{ fontSize: 12.5, fontWeight: 500, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.empresa_servicio}>
+                        {f.empresa_servicio || '-'}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={f.contacto}>
+                        {f.contacto || f.correo_empresa || '-'}
+                    </Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Objetivo / Sub Área', width: 220,
+            render: (_: any, f: any) => (
+                <div>
+                    <Text style={{ fontSize: 12.5, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.objetivo}>
+                        {f.objetivo || '-'}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{f.subarea || '-'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: '', width: 60, align: 'center' as const,
+            render: (_: any, f: any) => (
+                <ProtectedContent permission="FI_VER">
+                    <Tooltip title="Gestionar Ficha">
+                        <Button type="primary" style={{ backgroundColor: '#0d9488' }} shape="circle" size="small" icon={<IconEdit size={16} />} onClick={() => onViewDetail(f.id)} />
+                    </Tooltip>
+                </ProtectedContent>
+            ),
+        },
+    ];
+
+    const selectProps = { showSearch: true, allowClear: true, style: { width: '100%' }, placeholder: 'Todos' } as const;
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
-            <Stack gap="lg">
-                <PageHeader 
-                    title="Fichas en Proceso" 
-                    subtitle="Seguimiento de servicios programados y en ejecución"
-                    onBack={onBackToMenu}
-                    breadcrumbItems={[
-                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
-                        { label: 'En Proceso' }
-                    ]}
-                    rightSection={
-                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
-                            <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} registros</Text>
-                            <Button variant="light" color="gray" size="xs" leftSection={<IconEraser size={14} />} onClick={handleClearFilters}>
-                                Limpiar Filtros
-                            </Button>
-                        </Group>
-                    }
+        <div>
+            <PageHeader
+                title="Fichas en Proceso"
+                subtitle="Seguimiento de servicios programados y en ejecución"
+                onBack={onBackToMenu}
+                breadcrumbItems={[
+                    { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                    { label: 'En Proceso' }
+                ]}
+                rightSection={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{filteredFichas.length} registros</Text>
+                        <Button icon={<IconEraser size={14} />} onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    </div>
+                }
+            />
+
+            <Card
+                title={
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--app-accent-text)' }}>
+                        <IconFilter size={18} /> Filtros de búsqueda
+                    </span>
+                }
+                styles={{ header: { border: 'none' } }}
+                style={{ marginBottom: 16 }}
+            >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                    <Field label="N° Ficha">
+                        <Input placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} prefix={<IconSearch size={14} />} />
+                    </Field>
+                    <Field label="Desde">
+                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                    </Field>
+                    <Field label="Hasta">
+                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                    </Field>
+                    <Field label="Tipo Ficha">
+                        <Select options={uniqueTipos} value={searchTipo || undefined} onChange={(v) => setSearchTipo(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Empresa Servicio">
+                        <Select options={uniqueEmpServicio} value={searchEmpresaServicio || undefined} onChange={(v) => setSearchEmpresaServicio(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Muestreador">
+                        <Select options={uniqueMuestreadores} value={searchMuestreador || undefined} onChange={(v) => setSearchMuestreador(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Objetivo">
+                        <Select options={uniqueObjetivos} value={searchObjetivo || undefined} onChange={(v) => setSearchObjetivo(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Sub Área">
+                        <Select options={uniqueSubAreas} value={searchSubArea || undefined} onChange={(v) => setSearchSubArea(v || null)} {...selectProps} />
+                    </Field>
+                </div>
+            </Card>
+
+            <Card styles={{ body: { padding: 0 } }}>
+                <Table
+                    rowKey={(f) => `${f.id}-${f.correlativo}`}
+                    columns={columns}
+                    dataSource={sortedFichas}
+                    loading={loading}
+                    scroll={{ x: 900 }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: itemsPerPage,
+                        total: sortedFichas.length,
+                        onChange: setCurrentPage,
+                        style: { paddingInline: 16 },
+                    }}
+                    locale={{ emptyText: 'No se encontraron fichas en proceso.' }}
                 />
-
-                <Paper withBorder p="md" radius="md" shadow="xs">
-                    <Stack gap="md">
-                        <Group gap="xs" align="center">
-                            <IconFilter size={18} color="var(--mantine-color-blue-6)" />
-                            <Text fw={700} size="sm" c="blue.7">Filtros de Búsqueda</Text>
-                        </Group>
-                        <SimpleGrid cols={{ base: 1, sm: 3, md: 4, lg: 6 }} spacing="sm">
-                            <TextInput 
-                                label="N° Ficha" 
-                                placeholder="Eje: 1234" 
-                                value={searchId} 
-                                onChange={(e) => setSearchId(e.target.value)} 
-                                size="xs"
-                                leftSection={<IconSearch size={14} />}
-                            />
-                            <TextInput 
-                                label="Desde" 
-                                type="date" 
-                                value={dateFrom} 
-                                onChange={(e) => setDateFrom(e.target.value)} 
-                                size="xs"
-                            />
-                            <TextInput 
-                                label="Hasta" 
-                                type="date" 
-                                value={dateTo} 
-                                onChange={(e) => setDateTo(e.target.value)} 
-                                size="xs"
-                            />
-                            <Select 
-                                label="Tipo Ficha" 
-                                placeholder="Todos" 
-                                data={uniqueTipos} 
-                                value={searchTipo} 
-                                onChange={setSearchTipo} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Empresa Servicio" 
-                                placeholder="Todos" 
-                                data={uniqueEmpServicio} 
-                                value={searchEmpresaServicio} 
-                                onChange={setSearchEmpresaServicio} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Muestreador" 
-                                placeholder="Todos" 
-                                data={uniqueMuestreadores} 
-                                value={searchMuestreador} 
-                                onChange={setSearchMuestreador} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Objetivo" 
-                                placeholder="Todos" 
-                                data={uniqueObjetivos} 
-                                value={searchObjetivo} 
-                                onChange={setSearchObjetivo} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Sub Área" 
-                                placeholder="Todos" 
-                                data={uniqueSubAreas} 
-                                value={searchSubArea} 
-                                onChange={setSearchSubArea} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                        </SimpleGrid>
-                    </Stack>
-                </Paper>
-
-                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
-                    <ScrollArea h="auto">
-                        {loading ? (
-                            <Center p="xl">
-                                <Stack align="center" gap="xs">
-                                    <Loader size="lg" />
-                                    <Text size="sm" c="dimmed">Cargando fichas en proceso...</Text>
-                                </Stack>
-                            </Center>
-                        ) : (
-                            <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
-                                <Table.Thead bg="gray.1">
-                                    <Table.Tr>
-                                        <Table.Th w={100}>N° Ficha</Table.Th>
-                                        <Table.Th w={120}>Fecha M.</Table.Th>
-                                        <Table.Th>Muestreador</Table.Th>
-                                        <Table.Th w={120}>Tipo</Table.Th>
-                                        <Table.Th>Empresa Srv.</Table.Th>
-                                        <Table.Th>Contacto</Table.Th>
-                                        <Table.Th>Objetivo</Table.Th>
-                                        <Table.Th w={100}>Sub Área</Table.Th>
-                                        <Table.Th ta="center" w={80}>Gesti.</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {displayedFichas.map((ficha) => (
-                                        <Table.Tr key={`${ficha.id}-${ficha.correlativo}`}>
-                                            <Table.Td fw={700} c="emerald.8">{ficha.correlativo || ficha.id || '-'}</Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs" fw={500}>
-                                                    {ficha.fecha ? new Date(ficha.fecha).toLocaleDateString('es-ES') : 'Sin Fecha'}
-                                                </Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap="xs">
-                                                    <IconClockPlay size={14} color="var(--mantine-color-blue-6)" />
-                                                    <Text size="xs" fw={500}>{ficha.muestreador || 'Por Asignar'}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Badge variant="dot" size="sm" color="blue">{ficha.tipo_ficha || '-'}</Badge>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Stack gap={0}>
-                                                    <Text size="xs" fw={500} truncate title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</Text>
-                                                    {ficha.correo_empresa && <Text size="10px" c="dimmed">{ficha.correo_empresa}</Text>}
-                                                </Stack>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Stack gap={0}>
-                                                    <Text size="xs" fw={500} truncate title={ficha.contacto}>{ficha.contacto || '-'}</Text>
-                                                    {ficha.correo_contacto && <Text size="10px" c="dimmed">{ficha.correo_contacto}</Text>}
-                                                </Stack>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs" truncate title={ficha.objetivo}>{ficha.objetivo || '-'}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="xs">{ficha.subarea || '-'}</Text>
-                                            </Table.Td>
-                                            <Table.Td ta="center">
-                                                <ProtectedContent permission="FI_VER">
-                                                    <Tooltip label="Gestionar Ficha">
-                                                        <ActionIcon 
-                                                            color="emerald" 
-                                                            variant="filled" 
-                                                            onClick={() => onViewDetail(ficha.id)}
-                                                        >
-                                                            <IconEdit size={18} />
-                                                        </ActionIcon>
-                                                    </Tooltip>
-                                                </ProtectedContent>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))}
-                                    {displayedFichas.length === 0 && (
-                                        <Table.Tr>
-                                            <Table.Td colSpan={9} ta="center" py="xl">
-                                                <Text c="dimmed">No se encontraron fichas en proceso.</Text>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    )}
-                                </Table.Tbody>
-                            </Table>
-                        )}
-                    </ScrollArea>
-                    
-                    <Divider />
-                    
-                    <Center p="md">
-                        <Pagination 
-                            total={totalPages} 
-                            value={currentPage} 
-                            onChange={setCurrentPage} 
-                            radius="md" 
-                            size={isMobile ? "xs" : "sm"}
-                            siblings={isMobile ? 0 : 1}
-                            boundaries={isMobile ? 0 : 1}
-                            withEdges={!isMobile}
-                        />
-                    </Center>
-                </Paper>
-            </Stack>
-        </Box>
+            </Card>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

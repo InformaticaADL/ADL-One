@@ -1,18 +1,25 @@
 import React from 'react';
-import { Badge, type MantineColor } from '@mantine/core';
+import { Tag } from 'antd';
 
 interface StatusBadgeProps {
     status: string;
     size?: 'xs' | 'sm' | 'md' | 'lg';
-    variant?: 'filled' | 'light' | 'outline' | 'dot';
 }
 
-export const StatusBadge: React.FC<StatusBadgeProps> = ({ 
-    status, 
-    size = 'sm', 
-    variant = 'light' 
+// Tamaño de fuente/alto por `size` — Tag de antd no tiene una prop de tamaño
+// propia, así que se aplica como estilo.
+const SIZE_STYLE: Record<NonNullable<StatusBadgeProps['size']>, React.CSSProperties> = {
+    xs: { fontSize: 10, lineHeight: '16px', padding: '0 6px' },
+    sm: { fontSize: 11, lineHeight: '18px', padding: '0 7px' },
+    md: { fontSize: 12, lineHeight: '20px', padding: '0 8px' },
+    lg: { fontSize: 13, lineHeight: '22px', padding: '0 10px' },
+};
+
+export const StatusBadge: React.FC<StatusBadgeProps> = ({
+    status,
+    size = 'sm',
 }) => {
-    const getStatusConfig = (s: string): { color: MantineColor; label: string } => {
+    const getStatusConfig = (s: string): { color: string; label: string } => {
         const normalized = s.toUpperCase();
         switch (normalized) {
             case 'PENDIENTE':
@@ -21,7 +28,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
                 return { color: 'orange', label: 'Pendiente' };
             case 'ACEPTADA':
             case 'APROBADA':
-                return { color: 'teal', label: 'Aceptada' };
+                return { color: 'cyan', label: 'Aceptada' };
             case 'REALIZADA':
                 return { color: 'green', label: 'Realizada' };
             case 'APROBADO':
@@ -36,7 +43,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
                 return { color: 'red', label: 'Rechazado' };
             case 'CANCELADA':
             case 'CANCELADO':
-                return { color: 'gray', label: 'Cancelada' };
+                return { color: 'default', label: 'Cancelada' };
             case 'EN_REVISION':
             case 'EN_REVISION_TECNICA':
             case 'PROCESANDO':
@@ -45,24 +52,27 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
                 return { color: 'blue', label: 'En Revisión' };
             case 'DERIVADO':
             case 'DERIVACION':
-                return { color: 'indigo', label: 'Derivado' };
+                return { color: 'geekblue', label: 'Derivado' };
             case 'OBSERVADO':
-                return { color: 'yellow', label: 'Observado' };
+                return { color: 'gold', label: 'Observado' };
             default:
-                return { color: 'gray', label: s };
+                return { color: 'default', label: s };
         }
     };
 
     const config = getStatusConfig(status);
 
     return (
-        <Badge 
-            color={config.color} 
-            size={size} 
-            variant={variant}
-            tt="uppercase"
+        <Tag
+            color={config.color}
+            style={{
+                ...SIZE_STYLE[size],
+                textTransform: 'uppercase',
+                fontWeight: 700,
+                marginInlineEnd: 0,
+            }}
         >
             {config.label}
-        </Badge>
+        </Tag>
     );
 };

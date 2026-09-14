@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Select, Stack, Group, Text, Paper, Textarea, Loader, Badge } from '@mantine/core';
+import { Input, Select, Typography, Card, Spin, Tag } from 'antd';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface ReporteProblemaFormProps {
     onDataChange: (data: any) => void;
@@ -14,7 +17,7 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
     const [equipoId, setEquipoId] = useState<string | null>(null);
     const [descripcion, setDescripcion] = useState('');
     const [gravedad, setGravedad] = useState<string | null>('MEDIO');
-    
+
     const [equipos, setEquipos] = useState<any[]>([]);
     const [loadingEquipos, setLoadingEquipos] = useState(false);
 
@@ -30,6 +33,7 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
             })
             .catch(() => showToast({ type: 'error', message: 'Error al cargar inventario de equipos' }))
             .finally(() => setLoadingEquipos(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -44,86 +48,96 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
             gravedad: gravedad,
             _form_type: 'REPORTE_PROBLEMA'
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [asunto, categoria, equipoId, descripcion, gravedad, equipos]);
 
     return (
-        <Paper withBorder p="md" radius="md" bg="orange.0">
-            <Stack gap="md">
-                <Group justify="space-between" mb={4}>
-                    <Text fw={700} size="sm" c="orange.9" style={{ textTransform: 'uppercase' }}>
+        <Card size="small" style={{ backgroundColor: 'rgba(232,140,0,0.06)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: 13, color: '#d9480f', textTransform: 'uppercase' }}>
                         Reporte de Incidencia / Problema Técnico
                     </Text>
-                    <Badge color="orange" variant="light">SERVICIO TÉCNICO</Badge>
-                </Group>
+                    <Tag color="orange">SERVICIO TÉCNICO</Tag>
+                </div>
 
-                <TextInput
-                    label="Asunto / Resumen corto"
-                    placeholder="Ej: Fallo en sensor de pH, No conecta a red, etc."
-                    value={asunto}
-                    onChange={(e) => setAsunto(e.currentTarget.value)}
-                    required
-                    radius="md"
-                    maxLength={50}
-                    description={`Describa brevemente el problema (${asunto.length}/50 caract.)`}
-                />
-
-                <Group grow>
-                    <Select
-                        label="Categoría del Problema"
-                        placeholder="Seleccione categoría"
-                        data={[
-                            { value: 'HARDWARE', label: 'Fallo de Hardware / Piezas' },
-                            { value: 'SOFTWARE', label: 'Error de Software / App' },
-                            { value: 'CONECTIVIDAD', label: 'Problema de Conectividad / Red' },
-                            { value: 'CALIBRACION', label: 'Descalibración / Medición Errónea' },
-                            { value: 'DANIO_FISICO', label: 'Daño Físico Visible' },
-                            { value: 'OTRO', label: 'Otro / No especificado' }
-                        ]}
-                        value={categoria}
-                        onChange={setCategoria}
-                        required
-                        radius="md"
+                <Field label="Asunto / Resumen corto *" hint={`Describa brevemente el problema (${asunto.length}/50 caract.)`}>
+                    <Input
+                        placeholder="Ej: Fallo en sensor de pH, No conecta a red, etc."
+                        value={asunto}
+                        onChange={(e) => setAsunto(e.target.value)}
+                        maxLength={50}
                     />
+                </Field>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <Field label="Categoría del Problema *">
+                        <Select
+                            placeholder="Seleccione categoría"
+                            options={[
+                                { value: 'HARDWARE', label: 'Fallo de Hardware / Piezas' },
+                                { value: 'SOFTWARE', label: 'Error de Software / App' },
+                                { value: 'CONECTIVIDAD', label: 'Problema de Conectividad / Red' },
+                                { value: 'CALIBRACION', label: 'Descalibración / Medición Errónea' },
+                                { value: 'DANIO_FISICO', label: 'Daño Físico Visible' },
+                                { value: 'OTRO', label: 'Otro / No especificado' }
+                            ]}
+                            value={categoria ?? undefined}
+                            onChange={(v) => setCategoria(v ?? null)}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
+                    <Field label="Nivel de Gravedad *">
+                        <Select
+                            placeholder="Seleccione nivel"
+                            options={[
+                                { value: 'BAJO', label: '🟢 Bajo (Sin impacto crítico)' },
+                                { value: 'MEDIO', label: '🔵 Medio (Impacto parcial)' },
+                                { value: 'ALTO', label: '🟡 Alto (Urgente)' },
+                                { value: 'CRITICO', label: '🔴 Crítico (Bloqueante)' }
+                            ]}
+                            value={gravedad ?? undefined}
+                            onChange={(v) => setGravedad(v ?? null)}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
+                </div>
+
+                <Field label="Equipo Afectado (Opcional)">
                     <Select
-                        label="Nivel de Gravedad"
-                        placeholder="Seleccione nivel"
-                        data={[
-                            { value: 'BAJO', label: '🟢 Bajo (Sin impacto crítico)' },
-                            { value: 'MEDIO', label: '🔵 Medio (Impacto parcial)' },
-                            { value: 'ALTO', label: '🟡 Alto (Urgente)' },
-                            { value: 'CRITICO', label: '🔴 Crítico (Bloqueante)' }
-                        ]}
-                        value={gravedad}
-                        onChange={setGravedad}
-                        required
-                        radius="md"
+                        placeholder={loadingEquipos ? "Cargando inventario..." : "Busque equipo afectado"}
+                        suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
+                        options={equipos}
+                        value={equipoId ?? undefined}
+                        onChange={(v) => setEquipoId(v ?? null)}
+                        showSearch
+                        allowClear
+                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                        style={{ width: '100%' }}
                     />
-                </Group>
+                </Field>
 
-                <Select
-                    label="Equipo Afectado (Opcional)"
-                    placeholder={loadingEquipos ? "Cargando inventario..." : "Busque equipo afectado"}
-                    rightSection={loadingEquipos ? <Loader size={12} /> : null}
-                    data={equipos}
-                    value={equipoId}
-                    onChange={setEquipoId}
-                    searchable
-                    clearable
-                    radius="md"
-                />
-
-                <Textarea
-                    label="Descripción detallada"
-                    placeholder="Explique qué sucedió, cuándo, frecuencia del fallo y si hay algún mensaje de error específico..."
-                    minRows={4}
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.currentTarget.value)}
-                    required
-                    radius="md"
-                />
-            </Stack>
-        </Paper>
+                <Field label="Descripción detallada *">
+                    <TextArea
+                        placeholder="Explique qué sucedió, cuándo, frecuencia del fallo y si hay algún mensaje de error específico..."
+                        autoSize={{ minRows: 4 }}
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                    />
+                </Field>
+            </div>
+        </Card>
     );
 };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+        </div>
+    );
+}
 
 export default ReporteProblemaForm;

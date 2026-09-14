@@ -1,28 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-    Paper, 
-    Title, 
-    Text, 
-    Select, 
-    SegmentedControl, 
-    Textarea, 
-    Button, 
-    Group, 
-    Stack, 
-    ActionIcon, 
-    Tooltip, 
-    Loader, 
-    Center, 
-    Box, 
-    FileButton, 
-    Badge,
-    Transition,
-    LoadingOverlay
-} from '@mantine/core';
-import { 
-    IconSearch, 
-    IconCheck, 
-    IconUpload, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    Typography,
+    Select,
+    Segmented,
+    Input,
+    Button,
+    Tooltip,
+    Spin,
+    Card,
+    Tag
+} from 'antd';
+import {
+    IconSearch,
+    IconCheck,
+    IconUpload,
     IconSettings,
     IconX
 } from '@tabler/icons-react';
@@ -37,6 +28,9 @@ import VigenciaExtensionForm from '../components/VigenciaExtensionForm';
 import { useNavStore } from '../../../store/navStore';
 import FileIcon from '../components/FileIcon';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 // Memoize sub-forms to prevent heavy parent re-renders when local state changes
 const MemoizedEquipoTraspasoForm = React.memo(EquipoTraspasoForm);
@@ -54,10 +48,10 @@ interface NewRequestPageProps {
 const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     const { setPendingRequestId, setUrsInboxMode, setActiveSubmodule } = useNavStore();
     const { showToast } = useToast();
-    
+
     // Navigation
     const goToInbox = () => setActiveSubmodule('');
-    
+
     // State
     const [types, setTypes] = useState<any[]>([]);
     const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
@@ -65,11 +59,12 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
     const [observations, setObservations] = useState('');
     const [files, setFiles] = useState<File[]>([]);
     const [subFormData, setSubFormData] = useState<any>(null);
-    
+
     const [loading, setLoading] = useState(true);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSuccess, setShowSuccess] = useState(false);
     const [createdRequestId, setCreatedRequestId] = useState<number | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         ursService.getRequestTypes()
@@ -81,13 +76,10 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                 showToast({ type: 'error', message: 'Error al cargar los tipos de solicitud. Recarga la página.' });
                 setLoading(false);
             });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const selectedType = types.find(t => t.id_tipo.toString() === selectedTypeId);
-
-    const handleFileChange = (payload: File[]) => {
-        setFiles(prev => [...prev, ...payload]);
-    };
 
     const removeFile = (index: number) => {
         setFiles(prev => prev.filter((_, i) => i !== index));
@@ -154,15 +146,15 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                 datos_json: { ...subFormData },
                 archivos: files
             };
-            
+
             const result = await ursService.createRequest(payload);
-            
+
             setCreatedRequestId(result.id_solicitud);
             setUrsInboxMode('SENT');
             setPendingRequestId(result.id_solicitud);
             setIsSubmitting(false);
             setShowSuccess(true);
-            
+
             setTimeout(() => {
                 goToInbox();
             }, 1500);
@@ -175,27 +167,26 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
 
     if (loading) {
         return (
-            <Center h="80vh">
-                <Stack align="center" gap="md">
-                    <Loader size="xl" type="bars" color="blue" />
-                    <Text size="sm" c="dimmed" fw={500}>Cargando opciones ADL...</Text>
-                </Stack>
-            </Center>
+            <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                    <Spin size="large" />
+                    <Text type="secondary" strong style={{ fontSize: 13 }}>Cargando opciones ADL...</Text>
+                </div>
+            </div>
         );
     }
 
     return (
-        <Box p="xl" pos="relative" style={{ width: '100%' }}>
-            <LoadingOverlay 
-                visible={isSubmitting} 
-                zIndex={1000} 
-                overlayProps={{ radius: 'md', blur: 3 }} 
-                loaderProps={{ type: 'dots', size: 'xl', color: 'blue' }} 
-            />
+        <div style={{ padding: 32, position: 'relative', width: '100%' }}>
+            {isSubmitting && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(3px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin size="large" />
+                </div>
+            )}
 
             {/* Success Overlay */}
             {showSuccess && (
-                <Box
+                <div
                     style={{
                         position: 'fixed',
                         top: 0,
@@ -211,288 +202,256 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                         animation: 'fadeIn 0.4s ease-out'
                     }}
                 >
-                    <Paper
-                        shadow="xl"
-                        p="xl"
-                        radius="lg"
-                        withBorder
+                    <Card
                         style={{
                             width: 420,
                             maxWidth: '90vw',
-                            borderColor: 'var(--mantine-color-green-3)',
+                            borderColor: '#8ce99a',
                             background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,255,240,0.95) 100%)',
                             animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
                         }}
                     >
-                        <Stack align="center" gap="lg" py="lg">
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '24px 0' }}>
                             <div style={{
                                 width: 80,
                                 height: 80,
                                 borderRadius: '50%',
-                                background: 'linear-gradient(135deg, var(--mantine-color-green-5) 0%, var(--mantine-color-teal-5) 100%)',
+                                background: 'linear-gradient(135deg, #40c057 0%, #12b886 100%)',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
                                 boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
                                 animation: 'bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both'
                             }}>
-                                <IconCheck size={44} color="white" stroke={3} />
+                                <IconCheck size={44} color="white" strokeWidth={3} />
                             </div>
-                            <Stack align="center" gap={4}>
-                                <Title order={2} style={{ letterSpacing: '-0.5px' }}>¡Solicitud Enviada!</Title>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                <Title level={2} style={{ margin: 0, letterSpacing: '-0.5px' }}>¡Solicitud Enviada!</Title>
                                 {createdRequestId && (
-                                    <Badge
-                                        size="lg"
-                                        variant="light"
-                                        color="blue"
-                                        radius="md"
-                                        style={{ fontWeight: 700, fontSize: '0.85rem' }}
-                                    >
+                                    <Tag color="blue" style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>
                                         Solicitud #{createdRequestId}
-                                    </Badge>
+                                    </Tag>
                                 )}
-                            </Stack>
-                            <Text size="sm" c="dimmed" ta="center" maw={300}>
+                            </div>
+                            <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', maxWidth: 300 }}>
                                 Tu solicitud ha sido registrada correctamente. Redirigiendo a tu solicitud...
                             </Text>
-                            <Box w="60%" style={{ overflow: 'hidden', borderRadius: 999, backgroundColor: 'var(--mantine-color-gray-2)' }}>
+                            <div style={{ width: '60%', overflow: 'hidden', borderRadius: 999, backgroundColor: 'var(--app-border)' }}>
                                 <div style={{
                                     height: 4,
                                     borderRadius: 999,
-                                    background: 'linear-gradient(90deg, var(--mantine-color-green-5), var(--mantine-color-teal-5))',
+                                    background: 'linear-gradient(90deg, #40c057, #12b886)',
                                     animation: 'progressBar 2.5s ease-in-out forwards'
                                 }} />
-                            </Box>
-                        </Stack>
-                    </Paper>
+                            </div>
+                        </div>
+                    </Card>
                     <style>{`
                         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                         @keyframes scaleIn { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
                         @keyframes bounceIn { from { opacity: 0; transform: scale(0); } to { opacity: 1; transform: scale(1); } }
                         @keyframes progressBar { from { width: 0%; } to { width: 100%; } }
                     `}</style>
-                </Box>
+                </div>
             )}
 
-            <Paper shadow="sm" p="lg" withBorder radius="md" style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
-                <Stack gap="xl">
+            <Card style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     {/* Header */}
-                    <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <Stack gap={0}>
-                            <Title order={1} fw={800} style={{ fontSize: '1.8rem', letterSpacing: '-0.5px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                        <div>
+                            <Title level={1} style={{ margin: 0, fontSize: '1.8rem', letterSpacing: '-0.5px' }}>
                                 Nueva Solicitud
                             </Title>
-                            <Text c="dimmed" size="sm">
+                            <Text type="secondary" style={{ fontSize: 13 }}>
                                 Complete la información requerida para su trámite de forma unificada.
                             </Text>
-                        </Stack>
-                        <Tooltip label="Cerrar y volver a bandeja">
-                            <ActionIcon 
-                                variant="subtle" 
-                                color="gray" 
-                                size="lg" 
-                                onClick={onBack || goToInbox}
-                                radius="md"
-                            >
-                                <IconX size={24} />
-                            </ActionIcon>
+                        </div>
+                        <Tooltip title="Cerrar y volver a bandeja">
+                            <Button type="text" shape="circle" size="large" icon={<IconX size={24} />} onClick={onBack || goToInbox} />
                         </Tooltip>
-                    </Group>
+                    </div>
 
                     {/* Section 1: Selector & Priority */}
-                    <Paper shadow="xs" p="md" withBorder radius="md">
-                        <Stack gap="md">
-                            <Select
-                                label="Tipo de Solicitud"
-                                placeholder="Seleccione el trámite a realizar"
-                                data={types.map(t => ({ value: t.id_tipo.toString(), label: t.nombre }))}
-                                value={selectedTypeId}
-                                onChange={setSelectedTypeId}
-                                searchable
-                                clearable
-                                leftSection={<IconSearch size={16} />}
-                                nothingFoundMessage="No se encontraron trámites"
-                                size="md"
-                                radius="md"
-                                comboboxProps={{ transitionProps: { transition: 'pop-top-left', duration: 200 } }}
-                            />
+                    <Card size="small">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <Field label="Tipo de Solicitud">
+                                <Select
+                                    placeholder="Seleccione el trámite a realizar"
+                                    options={types.map(t => ({ value: t.id_tipo.toString(), label: t.nombre }))}
+                                    value={selectedTypeId ?? undefined}
+                                    onChange={(v) => setSelectedTypeId(v ?? null)}
+                                    showSearch
+                                    allowClear
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                    notFoundContent="No se encontraron trámites"
+                                    size="large"
+                                    suffixIcon={<IconSearch size={16} />}
+                                    style={{ width: '100%' }}
+                                />
+                            </Field>
 
                             {selectedTypeId && (
-                                <Box mt="xs">
-                                    <Text size="sm" fw={600} mb={5}>Prioridad del Trámite</Text>
-                                    <SegmentedControl
+                                <div style={{ marginTop: 4 }}>
+                                    <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 5 }}>Prioridad del Trámite</Text>
+                                    <Segmented
+                                        block
                                         value={priority}
-                                        onChange={setPriority}
-                                        data={[
+                                        onChange={(v) => setPriority(v as string)}
+                                        options={[
                                             { label: 'Baja', value: 'BAJA' },
                                             { label: 'Media', value: 'MEDIA' },
                                             { label: 'Alta', value: 'ALTA' },
                                         ]}
-                                        color={priority === 'ALTA' ? 'orange' : priority === 'MEDIA' ? 'blue' : 'gray'}
-                                        fullWidth
-                                        radius="md"
-                                        size="md"
                                     />
-                                </Box>
+                                </div>
                             )}
-                        </Stack>
-                    </Paper>
+                        </div>
+                    </Card>
 
                     {/* Section 2: Dynamic Form Area */}
-                    <Transition mounted={!!selectedTypeId} transition="scale-y" duration={200}>
-                        {(styles) => (
-                            <div style={styles}>
-                                <Paper shadow="xs" p="md" withBorder radius="md">
-                                    <Group mb="md" gap="xs">
-                                        <IconSettings size={20} color="var(--mantine-color-blue-6)" />
-                                        <Title order={4}>Información de {selectedType?.nombre}</Title>
-                                    </Group>
-
-                                    <Box py="sm">
-                                        {/* ID 1: Activación de Equipo */}
-                                        {selectedType?.id_tipo === 1 || selectedType?.nombre === 'Activación de Equipo' ? (
-                                            <MemoizedEquipoActivationForm 
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : selectedType?.id_tipo === 2 || selectedType?.id_tipo === 6 || selectedType?.id_tipo === 10 || selectedType?.nombre?.includes('Baja de Equipo') ? (
-                                            <MemoizedEquipoBajaForm 
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : selectedType?.id_tipo === 3 || selectedType?.nombre?.includes('Traspaso de Equipo') ? (
-                                            <MemoizedEquipoTraspasoForm 
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : selectedType?.id_tipo === 4 || selectedType?.nombre?.includes('Nuevo Equipo') ? (
-                                            <MemoizedNuevoEquipoForm 
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : selectedType?.id_tipo === 5 || selectedType?.id_tipo === 9 || selectedType?.nombre?.includes('Problema') ? (
-                                            <MemoizedReporteProblemaForm 
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : selectedType?.id_tipo === 7 || selectedType?.nombre?.includes('Vigencia') ? (
-                                            <MemoizedVigenciaExtensionForm 
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : (selectedType?.id_tipo === 8 || selectedType?.nombre === 'Deshabilitar muestreador') ? (
-                                            <MemoizedMuestreadorDeactivationForm 
-                                                isEmbedded
-                                                onDataChange={setSubFormData}
-                                            />
-                                        ) : (
-                                            <Box p="lg" style={{ 
-                                                border: '1px dashed var(--mantine-color-gray-4)', 
-                                                borderRadius: 'var(--mantine-radius-md)',
-                                                backgroundColor: 'var(--mantine-color-gray-0)',
-                                                textAlign: 'center'
-                                            }}>
-                                                <Text size="sm" c="dimmed">
-                                                    Este trámite no requiere campos adicionales. <br />
-                                                    Por favor complete los detalles en la sección de observaciones.
-                                                </Text>
-                                            </Box>
-                                        )}
-                                    </Box>
-                                </Paper>
+                    {!!selectedTypeId && (
+                        <Card size="small">
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                <IconSettings size={20} color="#1c7ed6" />
+                                <Title level={4} style={{ margin: 0 }}>Información de {selectedType?.nombre}</Title>
                             </div>
-                        )}
-                    </Transition>
+
+                            <div style={{ padding: '8px 0' }}>
+                                {/* ID 1: Activación de Equipo */}
+                                {selectedType?.id_tipo === 1 || selectedType?.nombre === 'Activación de Equipo' ? (
+                                    <MemoizedEquipoActivationForm
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : selectedType?.id_tipo === 2 || selectedType?.id_tipo === 6 || selectedType?.id_tipo === 10 || selectedType?.nombre?.includes('Baja de Equipo') ? (
+                                    <MemoizedEquipoBajaForm
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : selectedType?.id_tipo === 3 || selectedType?.nombre?.includes('Traspaso de Equipo') ? (
+                                    <MemoizedEquipoTraspasoForm
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : selectedType?.id_tipo === 4 || selectedType?.nombre?.includes('Nuevo Equipo') ? (
+                                    <MemoizedNuevoEquipoForm
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : selectedType?.id_tipo === 5 || selectedType?.id_tipo === 9 || selectedType?.nombre?.includes('Problema') ? (
+                                    <MemoizedReporteProblemaForm
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : selectedType?.id_tipo === 7 || selectedType?.nombre?.includes('Vigencia') ? (
+                                    <MemoizedVigenciaExtensionForm
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : (selectedType?.id_tipo === 8 || selectedType?.nombre === 'Deshabilitar muestreador') ? (
+                                    <MemoizedMuestreadorDeactivationForm
+                                        isEmbedded
+                                        onDataChange={setSubFormData}
+                                    />
+                                ) : (
+                                    <div style={{
+                                        padding: 24,
+                                        border: '1px dashed var(--app-border)',
+                                        borderRadius: 8,
+                                        backgroundColor: 'var(--app-hover-bg)',
+                                        textAlign: 'center'
+                                    }}>
+                                        <Text type="secondary" style={{ fontSize: 13 }}>
+                                            Este trámite no requiere campos adicionales. <br />
+                                            Por favor complete los detalles en la sección de observaciones.
+                                        </Text>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    )}
 
                     {/* Section 3: Observations & Files */}
-                    <Transition mounted={!!selectedTypeId} transition="scale-y" duration={300}>
-                        {(styles) => (
-                            <div style={styles}>
-                                <Stack gap="md">
-                                    <Textarea
-                                        label="Observaciones"
-                                        description="Explique brevemente los detalles de su solicitud"
-                                        placeholder="Detalle su solicitud aquí..."
-                                        value={observations}
-                                        onChange={(e) => setObservations(e.target.value)}
-                                        required
-                                        minRows={3}
-                                        autosize
-                                        size="md"
-                                        radius="md"
+                    {!!selectedTypeId && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <Field label="Observaciones *" hint="Explique brevemente los detalles de su solicitud">
+                                <TextArea
+                                    placeholder="Detalle su solicitud aquí..."
+                                    value={observations}
+                                    onChange={(e) => setObservations(e.target.value)}
+                                    autoSize={{ minRows: 3 }}
+                                />
+                            </Field>
+
+                            <div>
+                                <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 5 }}>Archivos Adjuntos</Text>
+                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        multiple
+                                        accept="image/png,image/jpeg,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                        style={{ display: 'none' }}
+                                        onChange={(e) => {
+                                            if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                            e.target.value = '';
+                                        }}
                                     />
+                                    <Button icon={<IconUpload size={18} />} onClick={() => fileInputRef.current?.click()}>
+                                        Adjuntar Archivos
+                                    </Button>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>(PDF, Excel, Imágenes)</Text>
+                                </div>
 
-                                    <Box>
-                                        <Text size="sm" fw={500} mb={5}>Archivos Adjuntos</Text>
-                                        <Group gap="sm">
-                                            <FileButton onChange={handleFileChange} accept="image/png,image/jpeg,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" multiple>
-                                                {(props) => (
-                                                    <Button 
-                                                        {...props} 
-                                                        variant="light" 
-                                                        leftSection={<IconUpload size={18} />}
-                                                        radius="md"
-                                                    >
-                                                        Adjuntar Archivos
-                                                    </Button>
-                                                )}
-                                            </FileButton>
-                                            <Text size="xs" c="dimmed">(PDF, Excel, Imágenes)</Text>
-                                        </Group>
-
-                                        {files.length > 0 && (
-                                            <Box mt="md" p="xs" style={{ 
-                                                backgroundColor: 'white', 
-                                                borderRadius: 'var(--mantine-radius-md)',
-                                                border: '1px solid var(--mantine-color-gray-2)'
-                                            }}>
-                                                <Stack gap="xs">
-                                                    {files.map((file, idx) => (
-                                                        <Group key={idx} justify="space-between" p={8} style={{ 
-                                                            borderBottom: idx < files.length - 1 ? '1px solid var(--mantine-color-gray-1)' : 'none'
-                                                        }}>
-                                                            <Group gap="sm">
-                                                                <FileIcon filename={file.name} mimetype={file.type} />
-                                                                <Text size="sm" fw={500} truncate maw={300}>{file.name}</Text>
-                                                                <Badge variant="dot" color="gray" size="sm">{(file.size / 1024).toFixed(0)} KB</Badge>
-                                                            </Group>
-                                                            <ActionIcon 
-                                                                variant="subtle" 
-                                                                color="red" 
-                                                                size="sm" 
-                                                                onClick={() => removeFile(idx)}
-                                                            >
-                                                                <IconX size={14} />
-                                                            </ActionIcon>
-                                                        </Group>
-                                                    ))}
-                                                </Stack>
-                                            </Box>
-                                        )}
-                                    </Box>
-                                </Stack>
+                                {files.length > 0 && (
+                                    <div style={{ marginTop: 16, padding: 8, backgroundColor: 'var(--app-bg-elevated)', borderRadius: 8, border: '1px solid var(--app-border)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {files.map((file, idx) => (
+                                                <div key={idx} style={{
+                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 8,
+                                                    borderBottom: idx < files.length - 1 ? '1px solid var(--app-border)' : 'none'
+                                                }}>
+                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                        <FileIcon filename={file.name} mimetype={file.type} />
+                                                        <Text strong style={{ fontSize: 13, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Text>
+                                                        <Tag>{(file.size / 1024).toFixed(0)} KB</Tag>
+                                                    </div>
+                                                    <Button type="text" danger size="small" icon={<IconX size={14} />} onClick={() => removeFile(idx)} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        )}
-                    </Transition>
+                        </div>
+                    )}
 
                     {/* Footer Actions */}
-                    <Box pt="md" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Group justify="flex-end">
-                            <Button variant="subtle" color="gray" onClick={goToInbox} disabled={isSubmitting}>
+                    <div style={{ paddingTop: 16, borderTop: '1px solid var(--app-border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                            <Button onClick={goToInbox} disabled={isSubmitting}>
                                 Cancelar
                             </Button>
-                            <Button 
-                                size="md" 
-                                radius="md" 
+                            <Button
+                                type="primary"
                                 onClick={handleSubmit}
                                 loading={isSubmitting}
                                 disabled={!selectedTypeId || !observations.trim()}
-                                leftSection={!isSubmitting && <IconCheck size={18} />}
-                                color="blue"
-                                px="xl"
+                                icon={!isSubmitting && <IconCheck size={18} />}
                             >
                                 Enviar Solicitud ADL
                             </Button>
-                        </Group>
-                    </Box>
-                </Stack>
-            </Paper>
-        </Box>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
 };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+        </div>
+    );
+}
 
 export default NewRequestPage;

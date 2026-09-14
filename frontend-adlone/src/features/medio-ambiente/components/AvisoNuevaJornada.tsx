@@ -1,14 +1,13 @@
 import { useEffect } from 'react';
-import { Paper, Text, Group, ThemeIcon } from '@mantine/core';
+import { Typography } from 'antd';
 import { IconPlayerPlay } from '@tabler/icons-react';
 import { useTrackingStore } from '../../../store/trackingStore';
 
+const { Text } = Typography;
 const DURACION_MS = 6_000;
 
-// Toast efímero propio de esta pantalla (no se instaló @mantine/notifications
-// — no se usa en ningún otro lado de ADL ONE todavía, y esto es lo único que
-// lo necesita por ahora). Se posiciona fijo arriba a la derecha del mapa, se
-// autodescarta solo después de DURACION_MS.
+// Toast efímero propio de esta pantalla — se posiciona fijo arriba a la
+// derecha del mapa, se autodescarta solo después de DURACION_MS.
 export function AvisoNuevaJornada() {
     const avisoJornadaIniciada = useTrackingStore((s) => s.avisoJornadaIniciada);
     const limpiarAvisoJornadaIniciada = useTrackingStore((s) => s.limpiarAvisoJornadaIniciada);
@@ -23,29 +22,34 @@ export function AvisoNuevaJornada() {
     if (!avisoJornadaIniciada) return null;
 
     return (
-        <Paper
+        <div
             key={avisoJornadaIniciada.id}
-            shadow="md"
-            radius="md"
-            p="sm"
-            withBorder
             style={{
                 position: 'absolute',
                 top: 16,
                 right: 16,
                 zIndex: 1000,
                 maxWidth: 320,
-                backgroundColor: 'var(--mantine-color-body)',
+                padding: 12,
+                borderRadius: 10,
+                border: '1px solid var(--app-border)',
+                backgroundColor: 'var(--app-bg-elevated)',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
             }}
         >
-            <Group gap="xs" wrap="nowrap">
-                <ThemeIcon color="green" variant="light" radius="xl" size={28}>
-                    <IconPlayerPlay size={14} />
-                </ThemeIcon>
-                <Text size="sm">
-                    <strong>{avisoJornadaIniciada.nombreMuestreador}</strong> ha iniciado su ruta
-                </Text>
-            </Group>
-        </Paper>
+            <div style={{
+                flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                backgroundColor: 'rgba(47,158,68,0.15)', color: '#2f9e44',
+            }}>
+                <IconPlayerPlay size={14} />
+            </div>
+            <Text style={{ fontSize: 13 }}>
+                <strong>{avisoJornadaIniciada.nombreMuestreador}</strong> ha iniciado su ruta
+            </Text>
+        </div>
     );
 }

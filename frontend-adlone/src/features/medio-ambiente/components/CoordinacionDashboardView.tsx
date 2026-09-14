@@ -1,16 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
 } from 'recharts';
-import { 
-  Paper, Text, Title, Group, Stack, SimpleGrid, Select, Box, Tabs, Button, ActionIcon, Grid, Progress, Timeline, Badge, ThemeIcon, Avatar, Center, SegmentedControl, Modal, ScrollArea
-} from '@mantine/core';
-import { 
-  IconChevronLeft, IconFilter, IconX, IconChartBar, IconBuilding, IconMapPin, IconCalendar, IconAdjustmentsHorizontal, IconUsers, IconInfoCircle, IconPlayerPauseFilled, IconPlayerPlayFilled, IconClock
+import {
+  Select, Button, Tag, Progress, Timeline, Modal, Segmented, Typography, DatePicker
+} from 'antd';
+import dayjs from 'dayjs';
+import {
+  IconChevronLeft, IconX, IconBuilding, IconMapPin, IconUsers, IconInfoCircle, IconPlayerPauseFilled, IconPlayerPlayFilled, IconClock
 } from '@tabler/icons-react';
-import { DateInput } from '@mantine/dates';
 import { fichaService } from '../services/ficha.service';
+
+const { Text, Title } = Typography;
 
 interface Props {
   onBack: () => void;
@@ -18,8 +20,24 @@ interface Props {
 
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280', '#ec4899', '#14b8a6'];
 
-const normalize = (s: string) => 
-    (s || '').normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+const normalize = (s: string) =>
+    (s || '').normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+// Tarjeta base compartida por todos los widgets del dashboard.
+function DashCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
+    <div style={{
+      borderRadius: 20, padding: 24, backgroundColor: 'var(--app-bg)',
+      border: '1px solid var(--app-border)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+      position: 'relative', height: '100%', boxSizing: 'border-box',
+      ...style,
+    }}>
+      {children}
+    </div>
+  );
+}
+
+const tooltipStyle = { borderRadius: 12, border: '1px solid var(--app-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--app-bg-elevated)' };
 
 export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
@@ -36,7 +54,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const [filterSubArea, setFilterSubArea] = useState<string | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
   const [filterDateTo, setFilterDateTo] = useState<Date | null>(null);
-  const [activeTab, setActiveTab] = useState<string | null>('operativa');
+  const [activeTab, setActiveTab] = useState<string>('operativa');
   const [infoModal, setInfoModal] = useState<{ title: string, definition: string, operation: string, data: string } | null>(null);
 
   const [empresasServicio, setEmpresasServicio] = useState<any[]>([]);
@@ -57,12 +75,12 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
         if (Array.isArray(fichasRes)) fichas = fichasRes;
         else if ((fichasRes as any)?.data && Array.isArray((fichasRes as any).data)) fichas = (fichasRes as any).data;
         else if ((fichasRes as any)?.recordset && Array.isArray((fichasRes as any).recordset)) fichas = (fichasRes as any).recordset;
-        
+
         let events = [];
         if (Array.isArray(opRes)) events = opRes;
         else if ((opRes as any)?.data && Array.isArray((opRes as any).data)) events = (opRes as any).data;
         else if ((opRes as any)?.recordset && Array.isArray((opRes as any).recordset)) events = (opRes as any).recordset;
-        
+
         setOperationalEvents(events || []);
 
         const enriched: any[] = [];
@@ -72,7 +90,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
           const fichaId = e.id_fichaingresoservicio || e.fichaingresoservicio || e.id;
           eventFichaIds.add(String(fichaId));
           const parentFicha = (fichas || []).find((f: any) => String(f.id_fichaingresoservicio || f.id || f.fichaingresoservicio) === String(fichaId));
-          
+
           enriched.push({
             ...(parentFicha || {}),
             ...e,
@@ -286,9 +304,9 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
     const days: string[] = [];
     const now = new Date();
     const daysToSubtract = parseInt(trendFilter) - 1;
-    for(let i=daysToSubtract; i>=0; i--) { 
+    for(let i=daysToSubtract; i>=0; i--) {
         const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
-        days.push(d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })); 
+        days.push(d.toLocaleDateString('es-ES', { day: '2-digit', month: 'short' }));
     }
 
     const dailyData: Record<string, { name: string, inicios: number, retiros: number }> = {};
@@ -321,48 +339,36 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
     return Object.values(dailyData);
   }, [operationalEvents, trendFilter]);
 
-  const StatCard = ({ title, value, sub, color, data }: { title: string, value: string | number, sub: string, color: string, data?: any[] }) => (
-    <Paper radius="xl" p="lg" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-      <Stack gap="xs">
-        <Group justify="space-between" align="center">
-          <Text size="sm" fw={700} c="dark.4">{title}</Text>
-          <Badge color={color} variant="light" size="sm">Filtrado</Badge>
-        </Group>
-        <Group align="flex-end" justify="space-between">
-          <Text size="2.5rem" fw={800} c="dark.9" lh={1}>{value}</Text>
+  const StatCard = ({ title, value, color, data }: { title: string, value: string | number, color: string, data?: any[] }) => (
+    <DashCard>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text strong style={{ fontSize: 13 }}>{title}</Text>
+          <Tag color={color}>Filtrado</Tag>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
+          <Text style={{ fontSize: 40, fontWeight: 800, lineHeight: 1 }}>{value}</Text>
           {data && (
-             <Box w={80} h={40}>
+             <div style={{ width: 80, height: 40 }}>
                 <ResponsiveContainer width="100%" height="100%">
                    <AreaChart data={data}>
-                      <Area type="monotone" dataKey="value" stroke={`var(--mantine-color-${color}-5)`} fill={`var(--mantine-color-${color}-1)`} strokeWidth={2} />
+                      <Area type="monotone" dataKey="value" stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.15} strokeWidth={2} />
                    </AreaChart>
                 </ResponsiveContainer>
-             </Box>
+             </div>
           )}
-        </Group>
-      </Stack>
-    </Paper>
+        </div>
+      </div>
+    </DashCard>
   );
 
   const InfoButton = ({ title, detail }: { title: string, detail: any }) => (
-    <button 
+    <button
       onClick={() => setInfoModal({ title, ...detail })}
       style={{
-        position: 'absolute',
-        top: '1rem',
-        right: '1rem',
-        width: '28px',
-        height: '28px',
-        borderRadius: '8px',
-        backgroundColor: 'white',
-        border: '1px solid var(--mantine-color-gray-2)',
-        color: 'var(--mantine-color-gray-5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        zIndex: 10
+        position: 'absolute', top: '1rem', right: '1rem', width: 28, height: 28, borderRadius: 8,
+        backgroundColor: 'var(--app-bg)', border: '1px solid var(--app-border)', color: 'var(--app-text-secondary)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10,
       }}
       title="Explicación detallada"
     >
@@ -416,8 +422,8 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '500px', gap: '1rem' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid #f8fafc', borderTopColor: '#0ea5e9', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <p style={{ color: '#64748b', fontWeight: 600 }}>Cargando Inteligencia Operativa...</p>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--app-hover-bg)', borderTopColor: '#0ea5e9', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        <Text type="secondary" strong>Cargando Inteligencia Operativa...</Text>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -427,380 +433,373 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const activePieData = activeTab === 'operativa' ? statusAnalytics : activeTab === 'comercial' ? objectiveAnalytics : subAreaAnalytics;
 
   return (
-    <Box p="md" style={{ width: '100%', animation: 'fadeIn 0.6s ease-out', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
-      
-      <Box mb="xl">
-        <Group justify="space-between" align="center">
-          <Group>
-            <ActionIcon variant="white" color="gray" size="xl" onClick={onBack} radius="xl" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-              <IconChevronLeft size={24} />
-            </ActionIcon>
-            <Stack gap={0}>
-              <Title order={3} fw={800} c="dark.9">Dashboard Operativo</Title>
-              <Text c="dimmed" fw={600} size="xs" tt="uppercase" lts={1}>Análisis Minimalista</Text>
-            </Stack>
-          </Group>
-          <Button variant="white" color="red" leftSection={<IconX size={16} />} onClick={() => { 
-              setFilterMuestreador(null); setFilterEstado(null); setFilterEmpresaServicio(null); setFilterCentro(null); setFilterDateFrom(null); setFilterDateTo(null);
-          }} radius="xl" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-            Limpiar Filtros
-          </Button>
-        </Group>
-      </Box>
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <Button shape="circle" size="large" icon={<IconChevronLeft size={24} />} onClick={onBack} />
+          <div>
+            <Title level={3} style={{ margin: 0 }}>Dashboard Operativo</Title>
+            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Análisis Minimalista</Text>
+          </div>
+        </div>
+        <Button danger icon={<IconX size={16} />} onClick={() => {
+            setFilterMuestreador(null); setFilterEstado(null); setFilterEmpresaServicio(null); setFilterCentro(null); setFilterDateFrom(null); setFilterDateTo(null);
+        }}>
+          Limpiar Filtros
+        </Button>
+      </div>
 
-      <Tabs value={activeTab} onChange={setActiveTab} variant="pills" radius="xl" mb="xl" color="dark">
-        <Tabs.List>
-          <Tabs.Tab value="operativa" leftSection={<IconUsers size={16} />}>Operativa</Tabs.Tab>
-          <Tabs.Tab value="comercial" leftSection={<IconBuilding size={16} />}>Comercial</Tabs.Tab>
-          <Tabs.Tab value="logistica" leftSection={<IconMapPin size={16} />}>Logística</Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+      <Segmented
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as string)}
+        style={{ marginBottom: 24 }}
+        options={[
+          { label: 'Operativa', value: 'operativa', icon: <IconUsers size={16} /> },
+          { label: 'Comercial', value: 'comercial', icon: <IconBuilding size={16} /> },
+          { label: 'Logística', value: 'logistica', icon: <IconMapPin size={16} /> },
+        ]}
+      />
 
-      <Paper radius="xl" p="md" bg="white" shadow="xs" mb="xl" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 5 }} spacing="md">
+      <DashCard style={{ marginBottom: 24, height: 'auto' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
           {activeTab === 'operativa' && (
             <>
-              <Select label="Muestreador" placeholder="Todos" data={muestreadores} value={filterMuestreador} onChange={setFilterMuestreador} clearable radius="md" />
-              <Select label="Estado" placeholder="Todos" data={estados} value={filterEstado} onChange={setFilterEstado} clearable radius="md" />
+              <Field label="Muestreador"><Select placeholder="Todos" options={muestreadores} value={filterMuestreador || undefined} onChange={(v) => setFilterMuestreador(v || null)} allowClear style={{ width: '100%' }} /></Field>
+              <Field label="Estado"><Select placeholder="Todos" options={estados} value={filterEstado || undefined} onChange={(v) => setFilterEstado(v || null)} allowClear style={{ width: '100%' }} /></Field>
             </>
           )}
           {activeTab === 'comercial' && (
             <>
-              <Select label="Empresa" placeholder="Todas" data={empresasServicio} value={filterEmpresaServicio} onChange={(v) => { setFilterEmpresaServicio(v); setFilterCentro(null); }} clearable radius="md" />
-              <Select label="Objetivo" placeholder="Todos" data={objetivos} value={filterObjetivo} onChange={setFilterObjetivo} clearable radius="md" />
+              <Field label="Empresa"><Select placeholder="Todas" options={empresasServicio} value={filterEmpresaServicio || undefined} onChange={(v) => { setFilterEmpresaServicio(v || null); setFilterCentro(null); }} allowClear style={{ width: '100%' }} /></Field>
+              <Field label="Objetivo"><Select placeholder="Todos" options={objetivos} value={filterObjetivo || undefined} onChange={(v) => setFilterObjetivo(v || null)} allowClear style={{ width: '100%' }} /></Field>
             </>
           )}
           {activeTab === 'logistica' && (
             <>
-              <Select label="Centro" placeholder="Todos" data={Array.from(new Map(centros.filter(c => !filterEmpresaServicio || c.empresa === filterEmpresaServicio).map(c => [c.value, c])).values())} value={filterCentro} onChange={setFilterCentro} clearable searchable radius="md" />
-              <Select label="Sub-Área" placeholder="Todas" data={subAreas} value={filterSubArea} onChange={setFilterSubArea} clearable radius="md" />
+              <Field label="Centro">
+                <Select
+                  placeholder="Todos"
+                  options={Array.from(new Map(centros.filter(c => !filterEmpresaServicio || c.empresa === filterEmpresaServicio).map(c => [c.value, c])).values())}
+                  value={filterCentro || undefined} onChange={(v) => setFilterCentro(v || null)} allowClear showSearch style={{ width: '100%' }}
+                />
+              </Field>
+              <Field label="Sub-Área"><Select placeholder="Todas" options={subAreas} value={filterSubArea || undefined} onChange={(v) => setFilterSubArea(v || null)} allowClear style={{ width: '100%' }} /></Field>
             </>
           )}
-          <DateInput label="Desde" placeholder="Inicio" value={filterDateFrom} onChange={(val: any) => setFilterDateFrom(val)} clearable radius="md" />
-          <DateInput label="Hasta" placeholder="Fin" value={filterDateTo} onChange={(val: any) => setFilterDateTo(val)} clearable radius="md" />
-        </SimpleGrid>
-      </Paper>
+          <Field label="Desde">
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" value={filterDateFrom ? dayjs(filterDateFrom) : null} onChange={(d) => setFilterDateFrom(d ? d.toDate() : null)} />
+          </Field>
+          <Field label="Hasta">
+            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" value={filterDateTo ? dayjs(filterDateTo) : null} onChange={(d) => setFilterDateTo(d ? d.toDate() : null)} />
+          </Field>
+        </div>
+      </DashCard>
 
-      <Grid gutter="lg">
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper radius="xl" p="lg" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', height: '100%' }}>
-            <Group justify="space-between" mb="md">
-              <Text fw={700} size="sm">Inicios Hoy</Text>
-              <Badge size="sm" color="gray" variant="light">{todayAgenda.filter(a => a.tipo_display === 'INICIO').length}</Badge>
-            </Group>
-            <Stack gap="sm">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
+        <div style={{ gridColumn: 'span 12 / span 12' }} className="dash-col-4">
+          <DashCard>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text strong style={{ fontSize: 13 }}>Inicios Hoy</Text>
+              <Tag>{todayAgenda.filter(a => a.tipo_display === 'INICIO').length}</Tag>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                {todayAgenda.filter(a => a.tipo_display === 'INICIO').slice(0, 3).map((ev, i) => (
-                 <Group key={i} p="sm" style={{ border: '1px solid var(--mantine-color-gray-1)', borderRadius: 16 }}>
-                   <ThemeIcon radius="xl" color="blue" variant="light"><IconPlayerPlayFilled size={12} /></ThemeIcon>
-                   <Box style={{ flex: 1, minWidth: 0 }}>
-                     <Text size="xs" fw={700} truncate>{ev._centro_name}</Text>
-                     <Text size="xs" c="dimmed" truncate>{ev.muestreador_display}</Text>
-                   </Box>
-                 </Group>
+                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, border: '1px solid var(--app-border)', borderRadius: 16 }}>
+                   <IconCircle color="#0062a8"><IconPlayerPlayFilled size={12} /></IconCircle>
+                   <div style={{ flex: 1, minWidth: 0 }}>
+                     <Text strong style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev._centro_name}</Text>
+                     <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.muestreador_display}</Text>
+                   </div>
+                 </div>
                ))}
-               {todayAgenda.filter(a => a.tipo_display === 'INICIO').length === 0 && <Text c="dimmed" size="xs" ta="center">Sin inicios programados</Text>}
-            </Stack>
-          </Paper>
-        </Grid.Col>
+               {todayAgenda.filter(a => a.tipo_display === 'INICIO').length === 0 && <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>Sin inicios programados</Text>}
+            </div>
+          </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper radius="xl" p="lg" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', height: '100%' }}>
-            <Group justify="space-between" mb="md">
-              <Text fw={700} size="sm">Retiros Hoy</Text>
-              <Badge size="sm" color="gray" variant="light">{todayAgenda.filter(a => a.tipo_display === 'RETIRO').length}</Badge>
-            </Group>
-            <Stack gap="sm">
+        <div className="dash-col-4">
+          <DashCard>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text strong style={{ fontSize: 13 }}>Retiros Hoy</Text>
+              <Tag>{todayAgenda.filter(a => a.tipo_display === 'RETIRO').length}</Tag>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                {todayAgenda.filter(a => a.tipo_display === 'RETIRO').slice(0, 3).map((ev, i) => (
-                 <Group key={i} p="sm" style={{ border: '1px solid var(--mantine-color-gray-1)', borderRadius: 16 }}>
-                   <ThemeIcon radius="xl" color="red" variant="light"><IconPlayerPauseFilled size={12} /></ThemeIcon>
-                   <Box style={{ flex: 1, minWidth: 0 }}>
-                     <Text size="xs" fw={700} truncate>{ev._centro_name}</Text>
-                     <Text size="xs" c="dimmed" truncate>{ev.muestreador_display}</Text>
-                   </Box>
-                 </Group>
+                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, border: '1px solid var(--app-border)', borderRadius: 16 }}>
+                   <IconCircle color="#e03131"><IconPlayerPauseFilled size={12} /></IconCircle>
+                   <div style={{ flex: 1, minWidth: 0 }}>
+                     <Text strong style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev._centro_name}</Text>
+                     <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.muestreador_display}</Text>
+                   </div>
+                 </div>
                ))}
-               {todayAgenda.filter(a => a.tipo_display === 'RETIRO').length === 0 && <Text c="dimmed" size="xs" ta="center">Sin retiros programados</Text>}
-            </Stack>
-          </Paper>
-        </Grid.Col>
+               {todayAgenda.filter(a => a.tipo_display === 'RETIRO').length === 0 && <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>Sin retiros programados</Text>}
+            </div>
+          </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper radius="xl" p="lg" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', height: '100%', position: 'relative' }}>
+        <div className="dash-col-4">
+          <DashCard>
             <InfoButton title="Actividad" detail={chartExplanations['Actividad']} />
-            <Text fw={700} size="sm">Actividad <Badge color="green" variant="light">{(filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length / (filteredData.length || 1) * 100).toFixed(0)}%</Badge></Text>
-            <Text size="2rem" fw={800} mt="xs" mb="md">{filteredData.length}</Text>
-            <Box h={90}>
+            <Text strong style={{ fontSize: 13 }}>Actividad <Tag color="green">{(filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length / (filteredData.length || 1) * 100).toFixed(0)}%</Tag></Text>
+            <Text style={{ fontSize: 32, fontWeight: 800, display: 'block', margin: '8px 0 12px' }}>{filteredData.length}</Text>
+            <div style={{ height: 90 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trendAnalytics.slice(-6)}>
-                  <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{fill: '#f8fafc'}} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
                   <Bar dataKey="ejecutados" radius={[4,4,0,0]} fill="#10b981" name="Completados" />
-                  <Bar dataKey="pendientes" radius={[4,4,0,0]} fill="#e2e8f0" name="Activos" />
+                  <Bar dataKey="pendientes" radius={[4,4,0,0]} fill="#cbd5e1" name="Activos" />
                 </BarChart>
               </ResponsiveContainer>
-            </Box>
-          </Paper>
-        </Grid.Col>
+            </div>
+          </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <StatCard title="Total Fichas" value={filteredData.length} sub="" color="blue" data={trendAnalytics.map(t => ({ value: t.ejecutados + t.pendientes }))} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <StatCard title="En Proceso" value={filteredData.filter(f => normalize(f._status_name).includes('proceso')).length} sub="" color="orange" data={trendAnalytics.map(t => ({ value: t.pendientes }))} />
-        </Grid.Col>
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <StatCard title="Ejecutados" value={filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length} sub="" color="green" data={trendAnalytics.map(t => ({ value: t.ejecutados }))} />
-        </Grid.Col>
+        <div className="dash-col-4"><StatCard title="Total Fichas" value={filteredData.length} color="blue" data={trendAnalytics.map(t => ({ value: t.ejecutados + t.pendientes }))} /></div>
+        <div className="dash-col-4"><StatCard title="En Proceso" value={filteredData.filter(f => normalize(f._status_name).includes('proceso')).length} color="orange" data={trendAnalytics.map(t => ({ value: t.pendientes }))} /></div>
+        <div className="dash-col-4"><StatCard title="Ejecutados" value={filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length} color="green" data={trendAnalytics.map(t => ({ value: t.ejecutados }))} /></div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', height: '100%', position: 'relative' }}>
+        <div className="dash-col-4">
+           <DashCard>
              <InfoButton title="Carga Operativa" detail={chartExplanations['Carga Operativa']} />
-             <Text fw={700} size="sm" mb="xl">Resumen de Carga</Text>
-             <Stack gap="lg" mt="md">
+             <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 24 }}>Resumen de Carga</Text>
+             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                 {activeAnalyticsList.slice(0, 5).map((item, i) => (
-                  <Box key={i}>
-                    <Group justify="space-between" mb={6}>
-                      <Text size="xs" fw={700} c="dark.7">{item.name}</Text>
-                      <Text size="xs" fw={800}>{item.value} Fts.</Text>
-                    </Group>
-                    <Progress value={(item.value / (filteredData.length || 1)) * 100} color={COLORS[i % COLORS.length]} size="md" radius="xl" />
-                  </Box>
+                  <div key={i}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text style={{ fontSize: 12, fontWeight: 700 }}>{item.name}</Text>
+                      <Text style={{ fontSize: 12, fontWeight: 800 }}>{item.value} Fts.</Text>
+                    </div>
+                    <Progress percent={(item.value / (filteredData.length || 1)) * 100} showInfo={false} strokeColor={COLORS[i % COLORS.length]} />
+                  </div>
                 ))}
-             </Stack>
-           </Paper>
-        </Grid.Col>
+             </div>
+           </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', height: '100%', position: 'relative' }}>
+        <div className="dash-col-4">
+           <DashCard>
              <InfoButton title="Agenda para Hoy" detail={chartExplanations['Agenda para Hoy']} />
-             <Group justify="space-between" mb="xl">
-               <Text fw={700} size="sm">Cronograma</Text>
-               <Badge variant="light" color="gray">Hoy</Badge>
-             </Group>
-             <Timeline active={todayAgenda.length > 0 ? 1 : 0} bulletSize={24} lineWidth={2} color="blue">
-                {todayAgenda.slice(0, 4).map((ev, i) => (
-                  <Timeline.Item key={i} bullet={<IconClock size={12} />} title={<Text size="xs" fw={700}>{ev._centro_name}</Text>} color={ev.tipo_display === 'INICIO' ? 'blue' : 'red'}>
-                    <Text c="dimmed" size="xs" mt={4}>{ev.tipo_display} - {ev.muestreador_display}</Text>
-                  </Timeline.Item>
-                ))}
-             </Timeline>
-             {todayAgenda.length === 0 && <Text c="dimmed" size="sm" ta="center" mt="xl">No hay eventos para hoy</Text>}
-           </Paper>
-        </Grid.Col>
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+               <Text strong style={{ fontSize: 13 }}>Cronograma</Text>
+               <Tag>Hoy</Tag>
+             </div>
+             <Timeline
+                items={todayAgenda.slice(0, 4).map((ev, i) => ({
+                    key: i,
+                    dot: <IconClock size={12} />,
+                    color: ev.tipo_display === 'INICIO' ? 'blue' : 'red',
+                    children: (
+                        <>
+                            <Text strong style={{ fontSize: 12, display: 'block' }}>{ev._centro_name}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{ev.tipo_display} - {ev.muestreador_display}</Text>
+                        </>
+                    ),
+                }))}
+             />
+             {todayAgenda.length === 0 && <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', display: 'block', marginTop: 24 }}>No hay eventos para hoy</Text>}
+           </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', height: '100%', position: 'relative' }}>
+        <div className="dash-col-4">
+           <DashCard>
              <InfoButton title="Distribución Global" detail={chartExplanations['Distribución Global']} />
-             <Group justify="space-between" mb="md">
-               <Text fw={700} size="sm">Distribución</Text>
-               <Badge color="red" variant="light">{filteredData.filter(f => normalize(f._status_name).includes('cancela')).length} Anulados</Badge>
-             </Group>
-             <Center mt="md">
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+               <Text strong style={{ fontSize: 13 }}>Distribución</Text>
+               <Tag color="red">{filteredData.filter(f => normalize(f._status_name).includes('cancela')).length} Anulados</Tag>
+             </div>
+             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
                <div style={{ height: 180, width: '100%' }}>
                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie
-                        data={activePieData}
-                        innerRadius={50}
-                        outerRadius={75}
-                        paddingAngle={3}
-                        dataKey="value"
-                        stroke="none"
-                      >
-                        {activePieData.map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
+                      <Pie data={activePieData} innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value" stroke="none">
+                        {activePieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                       </Pie>
-                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                      <Tooltip contentStyle={tooltipStyle} />
                     </PieChart>
                  </ResponsiveContainer>
                </div>
-             </Center>
-             <SimpleGrid cols={2} mt="lg">
+             </div>
+             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 20 }}>
                 {activePieData.slice(0, 4).map((item, i) => (
-                  <Group key={i} gap="xs">
-                    <Box w={8} h={8} style={{ borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length] }} />
-                    <Stack gap={0}>
-                      <Text size="xs" c="dimmed" truncate w={90}>{item.name}</Text>
-                      <Text size="xs" fw={800}>{((item.value / (filteredData.length || 1)) * 100).toFixed(1)}%</Text>
-                    </Stack>
-                  </Group>
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                    <div>
+                      <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90 }}>{item.name}</Text>
+                      <Text strong style={{ fontSize: 12 }}>{((item.value / (filteredData.length || 1)) * 100).toFixed(1)}%</Text>
+                    </div>
+                  </div>
                 ))}
-             </SimpleGrid>
-           </Paper>
-        </Grid.Col>
+             </div>
+           </DashCard>
+        </div>
 
-        <Grid.Col span={12}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
+        <div style={{ gridColumn: 'span 12 / span 12' }}>
+           <DashCard>
              <InfoButton title="Balance Diario" detail={chartExplanations['Balance Diario']} />
-             <Group justify="space-between" mb="md">
-               <Text fw={700} size="sm">Balance Operativo Diario (Inicios vs Retiros)</Text>
-               <SegmentedControl 
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+               <Text strong style={{ fontSize: 13 }}>Balance Operativo Diario (Inicios vs Retiros)</Text>
+               <Segmented
                  value={trendFilter}
-                 onChange={setTrendFilter}
-                 data={[
+                 onChange={(v) => setTrendFilter(v as string)}
+                 options={[
                    { label: '15 Días', value: '15' },
                    { label: '30 Días', value: '30' },
                    { label: '3 Meses', value: '90' },
                    { label: '1 Año', value: '365' },
                  ]}
-                 size="xs"
-                 radius="xl"
-                 color="blue"
                />
-             </Group>
-             <Box h={300} w="100%">
+             </div>
+             <div style={{ height: 300, width: '100%' }}>
                <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={dailyInOutTrend} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} minTickGap={30} />
                    <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                   <Tooltip contentStyle={tooltipStyle} />
                    <Line type="monotone" dataKey="inicios" stroke="#0ea5e9" strokeWidth={2} dot={false} activeDot={{ r: 6 }} name="Inicios" />
                    <Line type="monotone" dataKey="retiros" stroke="#f59e0b" strokeWidth={2} dot={false} activeDot={{ r: 6 }} name="Retiros" />
                  </LineChart>
                </ResponsiveContainer>
-             </Box>
-           </Paper>
-        </Grid.Col>
+             </div>
+           </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', position: 'relative' }}>
+        <div className="dash-col-4">
+           <DashCard>
              <InfoButton title="Top Centros" detail={chartExplanations['Top Centros']} />
-             <Group justify="space-between" mb="md">
-               <Text fw={700} size="sm">Top Centros Logísticos</Text>
-               <Badge color="blue" variant="light">Zonas</Badge>
-             </Group>
-             <Box h={250} w="100%">
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+               <Text strong style={{ fontSize: 13 }}>Top Centros Logísticos</Text>
+               <Tag color="blue">Zonas</Tag>
+             </div>
+             <div style={{ height: 250, width: '100%' }}>
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={centroAnalytics} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--app-border)" />
                    <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                    <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{fill: '#f8fafc'}} />
+                   <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
                    <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#0ea5e9" name="Servicios" />
                  </BarChart>
                </ResponsiveContainer>
-             </Box>
-           </Paper>
-        </Grid.Col>
+             </div>
+           </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', position: 'relative' }}>
+        <div className="dash-col-4">
+           <DashCard>
              <InfoButton title="Carga por Día" detail={chartExplanations['Carga por Día']} />
-             <Group justify="space-between" mb="md">
-               <Text fw={700} size="sm">Carga por Día de la Semana</Text>
-               <Badge color="grape" variant="light">Patrón</Badge>
-             </Group>
-             <Box h={250} w="100%">
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+               <Text strong style={{ fontSize: 13 }}>Carga por Día de la Semana</Text>
+               <Tag color="purple">Patrón</Tag>
+             </div>
+             <div style={{ height: 250, width: '100%' }}>
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={weekdayAnalytics} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                    <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{fill: '#f8fafc'}} />
+                   <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#d946ef" name="Fichas Históricas" />
                  </BarChart>
                </ResponsiveContainer>
-             </Box>
-           </Paper>
-        </Grid.Col>
+             </div>
+           </DashCard>
+        </div>
 
-        <Grid.Col span={{ base: 12, md: 4 }}>
-           <Paper radius="xl" p="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)', position: 'relative' }}>
+        <div className="dash-col-4">
+           <DashCard>
              <InfoButton title="Motivos de Cancelación" detail={chartExplanations['Motivos de Cancelación']} />
-             <Group justify="space-between" mb="md">
-               <Text fw={700} size="sm">Motivos de Cancelación</Text>
-               <Badge color="red" variant="light">Pérdidas</Badge>
-             </Group>
-             <Box h={250} w="100%">
+             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+               <Text strong style={{ fontSize: 13 }}>Motivos de Cancelación</Text>
+               <Tag color="red">Pérdidas</Tag>
+             </div>
+             <div style={{ height: 250, width: '100%' }}>
                {cancellationAnalytics.length > 0 ? (
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={cancellationAnalytics} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--app-border)" />
                      <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                      <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                     <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} cursor={{fill: '#f8fafc'}} />
+                     <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
                      <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#ef4444" name="Anulados" />
                    </BarChart>
                  </ResponsiveContainer>
                ) : (
-                 <Center h="100%">
-                   <Text c="dimmed" size="sm">No se registran anulaciones</Text>
-                 </Center>
+                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                   <Text type="secondary" style={{ fontSize: 13 }}>No se registran anulaciones</Text>
+                 </div>
                )}
-             </Box>
-           </Paper>
-        </Grid.Col>
-
-      </Grid>
+             </div>
+           </DashCard>
+        </div>
+      </div>
 
       <Modal
-        opened={!!infoModal}
-        onClose={() => setInfoModal(null)}
-        withCloseButton={false}
-        size="lg"
-        radius="32px"
-        zIndex={1000}
-        overlayProps={{
-            backgroundOpacity: 0.4,
-            blur: 8,
-            color: '#0f172a'
-        }}
-        styles={{
-            header: { borderBottom: 'none', paddingBottom: 0, backgroundColor: 'transparent' },
-            body: { padding: '2rem' },
-            content: { boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: 'none' }
-        }}
+        open={!!infoModal}
+        onCancel={() => setInfoModal(null)}
+        closable={false}
+        width={640}
+        footer={null}
+        styles={{ root: { borderRadius: 24 }, body: { padding: 32 } }}
       >
         {infoModal && (
-          <ScrollArea.Autosize mah="80vh" offsetScrollbars>
-            <Box style={{ position: 'relative' }}>
-              <ActionIcon 
-                variant="subtle" 
-                color="gray" 
-                radius="xl" 
-                onClick={() => setInfoModal(null)}
-                style={{ position: 'absolute', top: 0, right: 0 }}
-              >
-                <IconX size={20} />
-              </ActionIcon>
-              
-              <Group gap="md" align="center" wrap="nowrap" mb="xl">
-                <ThemeIcon size={56} radius="xl" color="blue" variant="light" style={{ flexShrink: 0 }}>
-                  <IconInfoCircle size={28} />
-                </ThemeIcon>
-                <Box>
-                  <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1}>Explicación Detallada</Text>
-                  <Title order={3} fw={800} c="dark.9">{infoModal.title}</Title>
-                </Box>
-              </Group>
+          <div style={{ maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
+              <Button type="text" shape="circle" icon={<IconX size={20} />} onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 0, right: 0 }} />
 
-              <Stack gap="xl">
-                <Box>
-                  <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Qué muestra este gráfico?</Text>
-                  <Text c="dark.7" size="sm" lh={1.6}>{infoModal.definition}</Text>
-                </Box>
-                <Box>
-                  <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Cómo se procesa la información?</Text>
-                  <Text c="dark.7" size="sm" lh={1.6}>{infoModal.operation}</Text>
-                </Box>
-                <Box>
-                  <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">Interpretación y Uso</Text>
-                  <Text c="dark.7" size="sm" lh={1.6}>{infoModal.data}</Text>
-                </Box>
-              </Stack>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                <IconCircle color="#0062a8" size={56}><IconInfoCircle size={28} /></IconCircle>
+                <div>
+                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>Explicación Detallada</Text>
+                  <Title level={4} style={{ margin: 0 }}>{infoModal.title}</Title>
+                </div>
+              </div>
 
-              <Button fullWidth size="lg" radius="xl" mt="xl" onClick={() => setInfoModal(null)} variant="light" color="blue">
-                Entendido
-              </Button>
-            </Box>
-          </ScrollArea.Autosize>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                <div>
+                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Qué muestra este gráfico?</Text>
+                  <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.definition}</Text>
+                </div>
+                <div>
+                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Cómo se procesa la información?</Text>
+                  <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.operation}</Text>
+                </div>
+                <div>
+                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>Interpretación y Uso</Text>
+                  <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.data}</Text>
+                </div>
+              </div>
+
+              <Button block size="large" style={{ marginTop: 24 }} onClick={() => setInfoModal(null)}>Entendido</Button>
+          </div>
         )}
       </Modal>
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
+        @media (min-width: 768px) { .dash-col-4 { grid-column: span 4 / span 4 !important; } }
       `}</style>
-    </Box>
+    </div>
   );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+      {children}
+    </div>
+  );
+}
+
+function IconCircle({ children, color, size = 32 }: { children: React.ReactNode; color: string; size?: number }) {
+  return (
+    <div style={{
+      flexShrink: 0, width: size, height: size, borderRadius: '50%',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      backgroundColor: `${color}1f`, color,
+    }}>
+      {children}
+    </div>
+  );
+}

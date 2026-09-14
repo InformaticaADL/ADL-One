@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Stack, Group, Text, Paper, Loader, TextInput, Textarea, Badge, Box } from '@mantine/core';
+import { Select, Typography, Card, Spin, Input, Tag } from 'antd';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface VigenciaExtensionFormProps {
     onDataChange: (data: any) => void;
@@ -30,7 +33,7 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
     const [fechaRevision, setFechaRevision] = useState('');
     const [siguienteVerif, setSiguienteVerif] = useState('');
     const [justificacion, setJustificacion] = useState('');
-    
+
     const [equipos, setEquipos] = useState<{ value: string; label: string }[]>([]);
     const [equiposRaw, setEquiposRaw] = useState<any[]>([]);
     const [loadingEquipos, setLoadingEquipos] = useState(false);
@@ -50,6 +53,7 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
             })
             .catch(() => showToast({ type: 'error', message: 'Error al cargar inventario de equipos' }))
             .finally(() => setLoadingEquipos(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Calcular fecha de siguiente verificación (+90 días) al ingresar fecha de revisión
@@ -74,78 +78,83 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
             justificacion: justificacion,
             _form_type: 'EXTENSION_VIGENCIA'
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [equipoId, fechaRevision, siguienteVerif, justificacion, selectedEquipoRaw]);
 
     return (
-        <Paper withBorder p="md" radius="md" bg="violet.0">
-            <Stack gap="md">
-                <Group justify="space-between" mb={4}>
-                    <Text fw={700} size="sm" c="violet.9" style={{ textTransform: 'uppercase' }}>
+        <Card size="small" style={{ backgroundColor: 'rgba(156,54,181,0.06)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: 13, color: '#862e9c', textTransform: 'uppercase' }}>
                         Solicitud de Extensión de Vigencia
                     </Text>
-                    <Badge color="violet" variant="light">CALIDAD / MA</Badge>
-                </Group>
+                    <Tag color="purple">CALIDAD / MA</Tag>
+                </div>
 
-                <Select
-                    label="Seleccionar Equipo"
-                    placeholder={loadingEquipos ? "Cargando..." : "Busque equipo por nombre o código"}
-                    rightSection={loadingEquipos ? <Loader size={12} /> : null}
-                    data={equipos}
-                    value={equipoId}
-                    onChange={setEquipoId}
-                    searchable
-                    required
-                    radius="md"
-                />
+                <Field label="Seleccionar Equipo *">
+                    <Select
+                        placeholder={loadingEquipos ? "Cargando..." : "Busque equipo por nombre o código"}
+                        suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
+                        options={equipos}
+                        value={equipoId ?? undefined}
+                        onChange={(v) => setEquipoId(v ?? null)}
+                        showSearch
+                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                        style={{ width: '100%' }}
+                    />
+                </Field>
 
                 {selectedEquipoRaw?.vigencia && (
-                    <Box p="sm" style={{ background: 'var(--mantine-color-violet-1)', borderRadius: 'var(--mantine-radius-md)' }}>
-                        <Text size="xs" c="violet.8" fw={700} tt="uppercase">Vigencia actual</Text>
-                        <Text size="sm" fw={700} c="violet.9">
+                    <div style={{ padding: 10, background: 'rgba(156,54,181,0.1)', borderRadius: 8 }}>
+                        <Text strong style={{ fontSize: 11, color: '#862e9c', textTransform: 'uppercase', display: 'block' }}>Vigencia actual</Text>
+                        <Text strong style={{ fontSize: 13, color: '#862e9c' }}>
                             {(() => {
                                 const d = parseDate(selectedEquipoRaw.vigencia);
                                 return d ? d.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Fecha Inválida';
                             })()}
                         </Text>
-                    </Box>
+                    </div>
                 )}
 
-                <Group grow align="flex-end">
-                    <TextInput
-                        label="Fecha de Revisión / Verificación"
-                        type="date"
-                        value={fechaRevision}
-                        onChange={(e) => setFechaRevision(e.currentTarget.value)}
-                        required
-                        radius="md"
-                    />
-                    {siguienteVerif ? (
-                        <Box p="xs" style={{ background: 'var(--mantine-color-teal-0)', border: '1px solid var(--mantine-color-teal-2)', borderRadius: 'var(--mantine-radius-md)' }}>
-                            <Text size="xs" c="teal.8" fw={700} tt="uppercase">Nueva Vigencia Autocalculada</Text>
-                            <Text size="sm" fw={700} c="teal.9">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'end' }}>
+                    <Field label="Fecha de Revisión / Verificación *">
+                        <Input
+                            type="date"
+                            value={fechaRevision}
+                            onChange={(e) => setFechaRevision(e.target.value)}
+                        />
+                    </Field>
+                    {siguienteVerif && (
+                        <div style={{ padding: 8, background: 'rgba(9,143,131,0.08)', border: '1px solid rgba(9,143,131,0.2)', borderRadius: 8 }}>
+                            <Text strong style={{ fontSize: 11, color: '#087f5b', textTransform: 'uppercase', display: 'block' }}>Nueva Vigencia Autocalculada</Text>
+                            <Text strong style={{ fontSize: 13, color: '#087f5b', display: 'block' }}>
                                 {new Date(siguienteVerif + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
                             </Text>
-                            <Text size="xs" c="teal.6">(Auto: Revisión + 90 días)</Text>
-                        </Box>
-                    ) : (
-                        <Box style={{ visibility: 'hidden' }}>
-                            <TextInput label="-" />
-                        </Box>
+                            <Text style={{ fontSize: 11, color: '#0ca678' }}>(Auto: Revisión + 90 días)</Text>
+                        </div>
                     )}
-                </Group>
+                </div>
 
-                <Textarea
-                    label="Justificación de la Extensión"
-                    placeholder="Explique por qué se requiere extender el plazo de uso de este equipo..."
-                    minRows={3}
-                    value={justificacion}
-                    onChange={(e) => setJustificacion(e.currentTarget.value)}
-                    required
-                    radius="md"
-                />
-            </Stack>
-        </Paper>
+                <Field label="Justificación de la Extensión *">
+                    <TextArea
+                        placeholder="Explique por qué se requiere extender el plazo de uso de este equipo..."
+                        autoSize={{ minRows: 3 }}
+                        value={justificacion}
+                        onChange={(e) => setJustificacion(e.target.value)}
+                    />
+                </Field>
+            </div>
+        </Card>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default VigenciaExtensionForm;

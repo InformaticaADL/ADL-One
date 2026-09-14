@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Box, Center, Loader, Text, SegmentedControl } from '@mantine/core';
+import { Spin, Typography, Segmented } from 'antd';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTrackingStore } from '../../../store/trackingStore';
 import { TrackingMapa } from '../components/TrackingMapa';
@@ -8,6 +8,8 @@ import { DetalleJornadaDrawer } from '../components/DetalleJornadaDrawer';
 import { HistorialJornadasTab } from '../components/HistorialJornadasTab';
 import { AlertasSinSenal } from '../components/AlertasSinSenal';
 import { AvisoNuevaJornada } from '../components/AvisoNuevaJornada';
+
+const { Text } = Typography;
 
 export function HoyEnVivoPage() {
     const { token } = useAuth();
@@ -53,54 +55,54 @@ export function HoyEnVivoPage() {
     const jornadaSeleccionada = jornadas.find((j) => j.id_muestreador === selectedMuestreadorId) ?? null;
 
     return (
-        <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 500 }}>
-            <Box p="sm" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                <SegmentedControl
-                    size="xs"
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 500 }}>
+            <div style={{ padding: 12, borderBottom: '1px solid var(--app-border)' }}>
+                <Segmented
+                    size="small"
                     value={vista}
                     onChange={(v) => setVista(v as 'hoy' | 'historial')}
-                    data={[
+                    options={[
                         { label: 'Hoy', value: 'hoy' },
                         { label: 'Historial', value: 'historial' },
                     ]}
                 />
-            </Box>
+            </div>
 
             {vista === 'historial' ? (
                 <HistorialJornadasTab />
             ) : loading && jornadas.length === 0 ? (
-                <Center style={{ flex: 1 }}>
-                    <Loader />
-                </Center>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin />
+                </div>
             ) : error ? (
-                <Center style={{ flex: 1 }}>
-                    <Text c="red">{error}</Text>
-                </Center>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text type="danger">{error}</Text>
+                </div>
             ) : (
                 <>
                     <AlertasSinSenal jornadas={jornadas} />
-                    <Box style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                    <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
                         <FlotaPanel
                             jornadas={jornadas}
                             selectedMuestreadorId={selectedMuestreadorId}
                             onSelectMuestreador={selectMuestreador}
                         />
-                        <Box style={{ flex: 1, position: 'relative' }}>
+                        <div style={{ flex: 1, position: 'relative' }}>
                             <TrackingMapa
                                 jornadas={jornadas}
                                 selectedMuestreadorId={selectedMuestreadorId}
                                 onSelectMuestreador={selectMuestreador}
                             />
                             <AvisoNuevaJornada />
-                        </Box>
+                        </div>
                         <DetalleJornadaDrawer
                             jornada={jornadaSeleccionada}
                             opened={selectedMuestreadorId !== null}
                             onClose={() => selectMuestreador(null)}
                         />
-                    </Box>
+                    </div>
                 </>
             )}
-        </Box>
+        </div>
     );
 }

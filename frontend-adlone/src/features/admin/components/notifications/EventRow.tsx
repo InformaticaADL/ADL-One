@@ -1,16 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Group, 
-    Stack, 
-    Text, 
-    Paper, 
-    Switch, 
-    Button, 
-    Badge, 
-    Tooltip,
-    useMantineTheme
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { Typography, Card, Switch, Button, Tag, Tooltip } from 'antd';
+import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 import {
     IconSettings,
     IconMail,
@@ -23,6 +13,8 @@ import {
 import { notificationService } from '../../../../services/notification.service';
 import apiClient from '../../../../config/axios.config';
 import { useToast } from '../../../../contexts/ToastContext';
+
+const { Text } = Typography;
 
 interface Props {
     event: {
@@ -37,12 +29,12 @@ interface Props {
 }
 
 export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChange }) => {
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [localConfig, setLocalConfig] = useState(event.config || []);
+    const [hovering, setHovering] = useState(false);
 
     useEffect(() => {
         setLocalConfig(event.config || []);
@@ -108,90 +100,82 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
     };
 
     return (
-        <Paper
-            p="md"
-            mb="sm"
-            shadow="xs"
-            withBorder
-            styles={{
-                root: {
-                    transition: 'transform 150ms ease, border-color 150ms ease',
-                    cursor: 'default',
-                    '&:hover': {
-                        transform: 'translateX(4px)',
-                        borderColor: 'var(--mantine-color-adl-blue-2)',
-                    }
-                }
+        <Card
+            size="small"
+            style={{
+                marginBottom: 8,
+                transition: 'transform 150ms ease, border-color 150ms ease',
+                transform: hovering ? 'translateX(4px)' : 'none',
+                borderColor: hovering ? 'var(--app-accent-bg)' : undefined,
             }}
+            onMouseEnter={() => setHovering(true)}
+            onMouseLeave={() => setHovering(false)}
         >
-            <Group justify="space-between" wrap={isMobile ? "wrap" : "nowrap"} align={isMobile ? "stretch" : "center"}>
-                <Stack gap={4} style={{ flex: 1, minWidth: isMobile ? '100%' : 0 }}>
-                    <Group gap="xs">
-                        <Text style={{ fontSize: '10px' }} fw={800} c="dimmed" tt="uppercase" lts="1px">
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: isMobile ? 'stretch' : 'center', gap: 12 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <Text type="secondary" strong style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
                             {event.codigo}
                         </Text>
-                        
+
                         {event.es_transaccional ? (
-                            <Badge variant="light" color="violet" size="xs" leftSection={<IconBolt size={10} />}>
+                            <Tag color="purple" icon={<IconBolt size={10} style={{ verticalAlign: 'text-bottom' }} />}>
                                 Dinámico
-                            </Badge>
+                            </Tag>
                         ) : localConfig.length > 0 ? (
-                            <Badge variant="light" color="green" size="xs" leftSection={<IconCheck size={10} />}>
+                            <Tag color="green" icon={<IconCheck size={10} style={{ verticalAlign: 'text-bottom' }} />}>
                                 Configurado
-                            </Badge>
+                            </Tag>
                         ) : (
-                            <Badge variant="light" color="orange" size="xs" leftSection={<IconAlertCircle size={10} />}>
+                            <Tag color="orange" icon={<IconAlertCircle size={10} style={{ verticalAlign: 'text-bottom' }} />}>
                                 Sin Destinatarios
-                            </Badge>
+                            </Tag>
                         )}
-                    </Group>
-                    
-                    <Text fw={600} size="sm" c="dark.4">
+                    </div>
+
+                    <Text strong style={{ fontSize: 13 }}>
                         {event.descripcion}
                     </Text>
-                </Stack>
+                </div>
 
-                <Group gap={isMobile ? "sm" : "xl"} wrap={isMobile ? "wrap" : "nowrap"} style={{ width: isMobile ? '100%' : 'auto' }} justify={isMobile ? "space-between" : "flex-end"}>
-                    <Group gap="md">
-                        <Tooltip label="E-mail" position="top" withArrow>
-                            <Group gap={8}>
-                                <IconMail 
-                                    size={18} 
-                                    color={hasEmail ? 'var(--mantine-color-adl-blue-6)' : 'var(--mantine-color-gray-4)'} 
+                <div style={{ display: 'flex', gap: isMobile ? 12 : 32, flexWrap: isMobile ? 'wrap' : 'nowrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                        <Tooltip title="E-mail">
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <IconMail
+                                    size={18}
+                                    color={hasEmail ? '#0062a8' : 'var(--app-border)'}
                                 />
-                                <Switch 
+                                <Switch
                                     checked={hasEmail}
                                     onChange={() => toggleQuickChannel('email', hasEmail)}
                                     disabled={saving}
-                                    size="sm"
-                                    color="adl-blue"
+                                    size="small"
                                 />
-                            </Group>
+                            </div>
                         </Tooltip>
 
-                        <Tooltip label="Notificación Web" position="top" withArrow>
-                            <Group gap={8}>
-                                <IconBell 
-                                    size={18} 
-                                    color={hasWeb ? 'var(--mantine-color-adl-blue-6)' : 'var(--mantine-color-gray-4)'} 
+                        <Tooltip title="Notificación Web">
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <IconBell
+                                    size={18}
+                                    color={hasWeb ? '#0062a8' : 'var(--app-border)'}
                                 />
-                                <Switch 
+                                <Switch
                                     checked={hasWeb}
                                     onChange={() => toggleQuickChannel('web', hasWeb)}
                                     disabled={saving}
-                                    size="sm"
-                                    color="adl-blue"
+                                    size="small"
                                 />
-                            </Group>
+                            </div>
                         </Tooltip>
-                    </Group>
+                    </div>
 
-                    <Tooltip label="Enviar notificación de prueba a los destinatarios configurados" withArrow>
+                    <Tooltip title="Enviar notificación de prueba a los destinatarios configurados">
                         <Button
-                            variant="light"
-                            color="teal"
-                            size="xs"
-                            leftSection={<IconPlayerPlay size={14} />}
+                            size="small"
+                            style={{ color: '#0c8599' }}
+                            icon={<IconPlayerPlay size={14} />}
                             loading={testing}
                             onClick={handleTest}
                         >
@@ -199,16 +183,16 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
                         </Button>
                     </Tooltip>
                     <Button
-                        variant="filled"
-                        color="dark"
-                        size="xs"
-                        leftSection={<IconSettings size={14} />}
+                        type="primary"
+                        style={{ backgroundColor: '#212529' }}
+                        size="small"
+                        icon={<IconSettings size={14} />}
                         onClick={() => onOpenSettings(event)}
                     >
                         Configurar
                     </Button>
-                </Group>
-            </Group>
-        </Paper>
+                </div>
+            </div>
+        </Card>
     );
 };

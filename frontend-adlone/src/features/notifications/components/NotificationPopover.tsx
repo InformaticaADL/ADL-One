@@ -1,9 +1,9 @@
 import React from 'react';
-import { 
-    IconBell, 
-    IconInfoCircle, 
-    IconAlertTriangle, 
-    IconCircleCheck, 
+import {
+    IconBell,
+    IconInfoCircle,
+    IconAlertTriangle,
+    IconCircleCheck,
     IconCircleX,
     IconChevronRight,
     IconX
@@ -12,8 +12,9 @@ import { useNotificationStore, type Notification } from '../../../store/notifica
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
-import { Box, Group, Text, Badge, Button, Divider, ScrollArea, Stack, UnstyledButton, Popover, Portal, ActionIcon } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { Popover, Button, Divider, Tag } from 'antd';
+import { createPortal } from 'react-dom';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
@@ -33,8 +34,8 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
     const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode } = useNavStore();
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
-    
-    // Referencia para saber dónde está el botón
+
+    // Referencia para saber dónde está el botón (panel móvil flotante)
     const targetRef = React.useRef<HTMLDivElement>(null);
     const [targetRect, setTargetRect] = React.useState<DOMRect | null>(null);
 
@@ -129,10 +130,10 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
 
     const getIcon = (tipo: string) => {
         switch (tipo) {
-            case 'SUCCESS': return <IconCircleCheck size={16} color="var(--mantine-color-green-6)" />;
-            case 'WARNING': return <IconAlertTriangle size={16} color="var(--mantine-color-orange-6)" />;
-            case 'ERROR': return <IconCircleX size={16} color="var(--mantine-color-red-6)" />;
-            default: return <IconInfoCircle size={16} color="var(--mantine-color-blue-6)" />;
+            case 'SUCCESS': return <IconCircleCheck size={16} color="#2f9e44" />;
+            case 'WARNING': return <IconAlertTriangle size={16} color="#e8590c" />;
+            case 'ERROR': return <IconCircleX size={16} color="#e03131" />;
+            default: return <IconInfoCircle size={16} color="#1c7ed6" />;
         }
     };
 
@@ -148,86 +149,95 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
     /* ── Contenido original del panel (compartido mobile/desktop) ── */
     const panelContent = (
         <>
-            <Box p="md" style={{ backgroundColor: 'transparent' }}>
-                <Group justify="space-between" mb="xs">
-                    <Text fw={700} size="sm">Notificaciones Recientes</Text>
-                    <Group gap={6}>
+            <div style={{ padding: 16 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--app-text)' }}>Notificaciones Recientes</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         {unreadNotifications.length > 0 && (
-                            <Badge size="xs" color="red" variant="filled">
+                            <Tag color="red" bordered={false} style={{ marginInlineEnd: 0, fontSize: 11 }}>
                                 {unreadNotifications.length} nuevas
-                            </Badge>
+                            </Tag>
                         )}
                         {unreadNotifications.length > 0 && (
-                            <Button variant="subtle" size="compact-xs" color="gray" onClick={markAllAsRead}>
+                            <Button type="text" size="small" onClick={markAllAsRead} style={{ fontSize: 11, color: 'var(--app-text-secondary)', height: 22, padding: '0 6px' }}>
                                 Marcar todas como leídas
                             </Button>
                         )}
                         {isMobile && (
-                            <ActionIcon variant="subtle" color="gray" onClick={onClose} size="sm" radius="xl" ml={4}>
-                                <IconX size={18} />
-                            </ActionIcon>
+                            <Button type="text" shape="circle" size="small" icon={<IconX size={16} />} onClick={onClose} />
                         )}
-                    </Group>
-                </Group>
-                <Divider my="xs" />
+                    </div>
+                </div>
+                <Divider style={{ margin: '8px 0' }} />
 
-                <ScrollArea.Autosize mah={400} type="hover">
+                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
                     {notifications.length === 0 ? (
-                        <Box py="xl" style={{ textAlign: 'center' }}>
-                            <IconBell size={32} color="var(--mantine-color-gray-4)" stroke={1} />
-                            <Text size="xs" c="dimmed" mt="sm">No tienes notificaciones pendientes</Text>
-                        </Box>
+                        <div style={{ padding: '32px 0', textAlign: 'center' }}>
+                            <IconBell size={32} color="var(--app-border)" stroke={1} />
+                            <div style={{ fontSize: 12, color: 'var(--app-text-secondary)', marginTop: 8 }}>No tienes notificaciones pendientes</div>
+                        </div>
                     ) : (
-                        <Stack gap={4}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {recentNotifications.map((notif) => (
-                                <UnstyledButton
+                                <div
                                     key={notif.id_notificacion}
+                                    role="button"
+                                    tabIndex={0}
                                     onPointerDown={(e) => e.preventDefault()}
                                     onClick={(e) => {
                                         e.preventDefault();
                                         e.stopPropagation();
                                         handleItemClick(notif);
                                     }}
-                                    p="xs"
                                     style={{
-                                        borderRadius: '8px',
-                                        backgroundColor: notif.leido ? 'transparent' : 'var(--mantine-color-adl-blue-0)',
+                                        borderRadius: 8,
+                                        padding: 8,
+                                        backgroundColor: notif.leido ? 'transparent' : 'var(--app-accent-bg)',
                                         transition: 'background-color 0.2s',
                                         width: '100%',
                                         display: 'block',
-                                        textAlign: 'left'
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        border: 'none',
                                     }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)')}
-                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = notif.leido ? 'transparent' : 'var(--mantine-color-adl-blue-0)')}
+                                    onMouseEnter={(e) => { if (notif.leido) e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)'; }}
+                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = notif.leido ? 'transparent' : 'var(--app-accent-bg)')}
                                 >
-                                    <Group wrap="nowrap" align="flex-start" gap="sm">
-                                        <Box style={{ paddingTop: 2 }}>{getIcon(notif.tipo)}</Box>
-                                        <div style={{ flex: 1 }}>
-                                            <Text size="xs" fw={700} lineClamp={1} c={notif.leido ? 'dark.3' : 'dark.7'}>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-start', gap: 8 }}>
+                                        <div style={{ paddingTop: 2 }}>{getIcon(notif.tipo)}</div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{
+                                                fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                color: notif.leido ? 'var(--app-text-secondary)' : 'var(--app-text)',
+                                            }}>
                                                 {formatTitle(notif.titulo)}
-                                            </Text>
-                                            <Text size="xs" c="dimmed" lineClamp={2} mb={2}>
+                                            </div>
+                                            <div style={{
+                                                fontSize: 12, color: 'var(--app-text-secondary)', marginBottom: 2,
+                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                            }}>
                                                 {notif.mensaje}
-                                            </Text>
-                                            <Text size="10px" c="blue.7" fw={500}>
+                                            </div>
+                                            <div style={{ fontSize: 10, color: 'var(--app-accent-text)', fontWeight: 500 }}>
                                                 {dayjs(notif.fecha).fromNow()}
-                                            </Text>
+                                            </div>
                                         </div>
-                                    </Group>
-                                </UnstyledButton>
+                                    </div>
+                                </div>
                             ))}
-                        </Stack>
+                        </div>
                     )}
-                </ScrollArea.Autosize>
-            </Box>
+                </div>
+            </div>
 
-            <Divider color="rgba(0,0,0,0.05)" />
-            <Box p="xs" style={{ backgroundColor: 'rgba(248, 249, 250, 0.4)' }}>
+            <Divider style={{ margin: 0 }} />
+            <div style={{ padding: 8 }}>
                 <Button
-                    variant="subtle"
-                    fullWidth
-                    size="compact-xs"
-                    rightSection={<IconChevronRight size={14} />}
+                    type="text"
+                    block
+                    size="small"
+                    icon={<IconChevronRight size={14} />}
+                    iconPosition="end"
                     onPointerDown={(e) => e.preventDefault()}
                     onClick={(e) => {
                         e.preventDefault();
@@ -237,92 +247,67 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                 >
                     Ver todas las notificaciones
                 </Button>
-            </Box>
+            </div>
         </>
     );
 
-    /* ── MOBILE: Portal con diseño original, posicionado sobre el sidebar ── */
+    /* ── MOBILE: panel flotante posicionado sobre el sidebar ── */
     if (isMobile) {
         return (
             <>
                 <div ref={targetRef} style={{ width: '100%' }}>
                     {children}
                 </div>
-                {opened && (
-                    <Portal>
+                {opened && createPortal(
+                    <>
                         {/* Overlay para cerrar al tocar fuera */}
-                        <div
-                            onClick={onClose}
-                            style={{
-                                position: 'fixed',
-                                inset: 0,
-                                zIndex: 299,
-                                backgroundColor: 'transparent',
-                            }}
-                        />
-                        {/* Panel con diseño original flotante */}
+                        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 299, backgroundColor: 'transparent' }} />
                         <div
                             style={{
                                 position: 'fixed',
-                                top: targetRect ? targetRect.bottom + 8 : 70, // Aparece justo debajo del botón
+                                top: targetRect ? targetRect.bottom + 8 : 70,
                                 left: 10,
                                 width: 'calc(100% - 20px)',
                                 maxWidth: 340,
                                 zIndex: 300,
-                                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                                backgroundColor: 'var(--app-glass-bg-strong)',
                                 backdropFilter: 'blur(12px)',
                                 WebkitBackdropFilter: 'blur(12px)',
                                 display: 'flex',
                                 flexDirection: 'column',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-                                borderRadius: '12px',
+                                boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
+                                borderRadius: 12,
                                 overflow: 'hidden',
-                                border: '1px solid var(--mantine-color-gray-2)',
+                                border: '1px solid var(--app-border)',
                             }}
                         >
                             <div style={{ flex: 1, overflowY: 'auto' }}>
                                 {panelContent}
                             </div>
                         </div>
-                    </Portal>
+                    </>,
+                    document.body
                 )}
             </>
         );
     }
 
-    /* ── DESKTOP: Popover original ── */
+    /* ── DESKTOP: Popover de Ant Design — cierre por click-afuera confiable
+       vía rc-trigger (a diferencia del Popover de Mantine, que en este panel
+       no lo detectaba de forma consistente). ── */
     return (
-        <Popover 
-            opened={opened} 
-            onClose={onClose} 
-            width={350} 
-            position="right-start" 
-            withArrow 
-            shadow="xl"
-            offset={15}
-            zIndex={400}
-            transitionProps={{ transition: 'pop-top-left', duration: 200 }}
-            styles={{
-                dropdown: {
-                    padding: 0,
-                    borderRadius: '12px',
-                    border: '1px solid var(--mantine-color-gray-2)',
-                    overflow: 'hidden',
-                    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                }
-            }}
+        <Popover
+            open={opened}
+            onOpenChange={(next) => { if (!next) onClose(); }}
+            trigger="click"
+            placement="rightTop"
+            arrow={{ pointAtCenter: true }}
+            styles={{ container: { padding: 0, borderRadius: 12, overflow: 'hidden', width: 350 } }}
+            content={panelContent}
         >
-            <Popover.Target>
-                <div style={{ width: '100%' }}>
-                    {children}
-                </div>
-            </Popover.Target>
-
-            <Popover.Dropdown>
-                {panelContent}
-            </Popover.Dropdown>
+            <div style={{ width: '100%' }}>
+                {children}
+            </div>
         </Popover>
     );
 };

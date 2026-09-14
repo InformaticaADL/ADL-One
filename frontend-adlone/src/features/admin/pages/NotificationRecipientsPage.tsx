@@ -1,34 +1,26 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    Grid, 
-    Card, 
-    Text, 
-    Stack, 
-    Group, 
-    Select, 
-    TextInput, 
-    Checkbox, 
-    Button, 
-    ActionIcon, 
-    Badge, 
-    Loader, 
-    Modal, 
-    Table, 
+import {
+    Card,
+    Typography,
+    Select,
+    Input,
+    Checkbox,
+    Button,
+    Tag,
+    Spin,
+    Modal,
+    Table,
     Alert,
     Divider,
-    Paper,
-    ScrollArea,
-    Center,
-    Tooltip,
-    Box
-} from '@mantine/core';
-import { 
-    IconUserPlus, 
-    IconUsers, 
-    IconMail, 
-    IconBell, 
-    IconTrash, 
-    IconSearch, 
+    Tooltip
+} from 'antd';
+import {
+    IconUserPlus,
+    IconUsers,
+    IconMail,
+    IconBell,
+    IconTrash,
+    IconSearch,
     IconInfoCircle,
     IconUser,
     IconBriefcase
@@ -38,6 +30,8 @@ import { rbacService } from '../services/rbac.service';
 import type { Role, User } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+
+const { Text } = Typography;
 
 interface NotificationEvent {
     id_evento: number;
@@ -98,6 +92,7 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
     useEffect(() => {
         loadCatalogs();
         loadRecipients(event.id_evento);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [event]);
 
     // Reset selections when changing type
@@ -218,9 +213,54 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
 
     const selectedRole = roles.find(r => r.id_rol === modalRoleId);
 
+    const recipientColumns = [
+        {
+            title: 'Tipo', key: 'tipo',
+            render: (_: unknown, rec: Recipient) => (
+                <Tag color={rec.id_rol ? 'geekblue' : 'default'} icon={rec.id_rol ? <IconBriefcase size={10} style={{ verticalAlign: 'text-bottom' }} /> : <IconUser size={10} style={{ verticalAlign: 'text-bottom' }} />}>
+                    {rec.id_rol ? 'ROL' : 'USR'}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Destinatario', key: 'destinatario',
+            render: (_: unknown, rec: Recipient) => (
+                <div>
+                    <Text strong style={{ fontSize: 13, display: 'block' }}>{rec.nombre_rol || rec.nombre_usuario}</Text>
+                    {rec.area_destino && <Text type="secondary" style={{ fontSize: 12 }}>Área: {rec.area_destino}</Text>}
+                </div>
+            ),
+        },
+        {
+            title: 'Canales', key: 'canales',
+            render: (_: unknown, rec: Recipient) => (
+                <div style={{ display: 'flex', gap: 4 }}>
+                    {rec.envia_email && (
+                        <Tooltip title={`Modo: ${rec.tipo_envio}`}>
+                            <Tag color="cyan" icon={<IconMail size={10} style={{ verticalAlign: 'text-bottom' }} />}>
+                                {rec.tipo_envio}
+                            </Tag>
+                        </Tooltip>
+                    )}
+                    {rec.envia_web && (
+                        <Tag color="blue" icon={<IconBell size={10} style={{ verticalAlign: 'text-bottom' }} />}>
+                            WEB
+                        </Tag>
+                    )}
+                </div>
+            ),
+        },
+        {
+            title: '', key: 'acciones', width: 50,
+            render: (_: unknown, rec: Recipient) => (
+                <Button type="text" danger size="small" icon={<IconTrash size={16} />} onClick={() => handleRemove(rec.id_relacion)} />
+            ),
+        },
+    ];
+
     return (
-        <Box p="md" style={{ width: '100%' }}>
-            <PageHeader 
+        <div style={{ padding: 16, width: '100%' }}>
+            <PageHeader
                 title="Configuración de Destinatarios"
                 subtitle={`Evento: ${event.codigo_evento} - ${event.descripcion}`}
                 onBack={onBack}
@@ -231,313 +271,233 @@ export const NotificationRecipientsPage: React.FC<Props> = ({ event, onBack }) =
                 ]}
             />
 
-            <Grid mt="xl" gutter="lg">
-                <Grid.Col span={{ base: 12, md: 5 }}>
-                    <Card withBorder radius="md" padding="lg" h="100%">
-                        <Group mb="md">
-                            <IconUserPlus size={20} color="var(--mantine-color-blue-6)" />
-                            <Text fw={700}>Agregar Destinatarios</Text>
-                        </Group>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 24, marginTop: 32, alignItems: 'start' }}>
+                <Card>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                        <IconUserPlus size={20} color="#1c7ed6" />
+                        <Text strong>Agregar Destinatarios</Text>
+                    </div>
 
-                        <Stack gap="md">
-                            <Grid gutter="sm">
-                                <Grid.Col span={6}>
-                                    <Select 
-                                        label="Tipo Destinatario"
-                                        value={addType}
-                                        onChange={(val) => setAddType(val || 'ROLE')}
-                                        data={[
-                                            { value: 'ROLE', label: 'Rol (Grupo)' },
-                                            { value: 'USER', label: 'Usuario Individual' }
-                                        ]}
-                                        radius="md"
-                                    />
-                                </Grid.Col>
-                                <Grid.Col span={6}>
-                                    <Select 
-                                        label="Modo de Envío"
-                                        value={sendType}
-                                        onChange={(val) => setSendType(val || 'TO')}
-                                        disabled={!enviaEmail}
-                                        data={[
-                                            { value: 'TO', label: 'Para (TO)' },
-                                            { value: 'CC', label: 'Copia (CC)' },
-                                            { value: 'BCC', label: 'Copia Oculta (BCC)' }
-                                        ]}
-                                        radius="md"
-                                    />
-                                </Grid.Col>
-                            </Grid>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                            <Field label="Tipo Destinatario">
+                                <Select
+                                    value={addType}
+                                    onChange={(val) => setAddType(val || 'ROLE')}
+                                    options={[
+                                        { value: 'ROLE', label: 'Rol (Grupo)' },
+                                        { value: 'USER', label: 'Usuario Individual' }
+                                    ]}
+                                    style={{ width: '100%' }}
+                                />
+                            </Field>
+                            <Field label="Modo de Envío">
+                                <Select
+                                    value={sendType}
+                                    onChange={(val) => setSendType(val || 'TO')}
+                                    disabled={!enviaEmail}
+                                    options={[
+                                        { value: 'TO', label: 'Para (TO)' },
+                                        { value: 'CC', label: 'Copia (CC)' },
+                                        { value: 'BCC', label: 'Copia Oculta (BCC)' }
+                                    ]}
+                                    style={{ width: '100%' }}
+                                />
+                            </Field>
+                        </div>
 
-                            <Group grow align="flex-end">
-                                <Stack gap={4}>
-                                    <Text size="xs" fw={700} c="dimmed">Canales Habilitados</Text>
-                                    <Group>
-                                        <Checkbox 
-                                            label="Email" 
-                                            checked={enviaEmail} 
-                                            onChange={(e) => setEnviaEmail(e.currentTarget.checked)} 
-                                        />
-                                        <Checkbox 
-                                            label="Web" 
-                                            checked={enviaWeb} 
-                                            onChange={(e) => setEnviaWeb(e.currentTarget.checked)} 
-                                        />
-                                    </Group>
-                                </Stack>
-                                <TextInput 
-                                    label="Área Destino (Opcional)"
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'end' }}>
+                            <div>
+                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Canales Habilitados</Text>
+                                <div style={{ display: 'flex', gap: 16 }}>
+                                    <Checkbox checked={enviaEmail} onChange={(e) => setEnviaEmail(e.target.checked)}>Email</Checkbox>
+                                    <Checkbox checked={enviaWeb} onChange={(e) => setEnviaWeb(e.target.checked)}>Web</Checkbox>
+                                </div>
+                            </div>
+                            <Field label="Área Destino (Opcional)">
+                                <Input
                                     placeholder="Ej: Lab, Bioq..."
                                     value={areaDestino}
-                                    onChange={(e) => setAreaDestino(e.currentTarget.value)}
-                                    radius="md"
+                                    onChange={(e) => setAreaDestino(e.target.value)}
                                 />
-                            </Group>
+                            </Field>
+                        </div>
 
-                            {enviaWeb && (
-                                <Alert icon={<IconInfoCircle size={16} />} color="blue" radius="md" variant="light">
-                                    El sistema generará notificaciones automáticas en la campanita para este evento.
-                                </Alert>
-                            )}
-
-                            <Divider label="Selección de elementos" labelPosition="center" />
-
-                            <TextInput 
-                                placeholder={`Buscar ${addType === 'ROLE' ? 'rol' : 'usuario'}...`}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                leftSection={<IconSearch size={16} />}
-                                radius="md"
-                            />
-
-                            <Paper withBorder radius="md">
-                                <ScrollArea h={300} p="xs">
-                                    <Stack gap={4}>
-                                        {filteredItems.map(item => {
-                                            const id = addType === 'ROLE' ? (item as Role).id_rol : (item as User).id_usuario;
-                                            const isSelected = selectedItems.has(id);
-                                            const name = addType === 'ROLE' ? (item as Role).nombre_rol : (item as User).nombre_usuario;
-                                            const sub = addType === 'USER' ? (item as User).correo_electronico : null;
-
-                                            return (
-                                                <Group 
-                                                    key={id} 
-                                                    wrap="nowrap" 
-                                                    p="xs" 
-                                                    onClick={() => handleToggleItem(id)}
-                                                    style={{ 
-                                                        cursor: 'pointer', 
-                                                        borderRadius: 'var(--mantine-radius-sm)',
-                                                        backgroundColor: isSelected ? 'var(--mantine-color-blue-light)' : 'transparent',
-                                                        transition: 'background-color 0.1s ease'
-                                                    }}
-                                                >
-                                                    <Checkbox 
-                                                        checked={isSelected} 
-                                                        onChange={() => {}} 
-                                                        tabIndex={-1} 
-                                                        styles={{ input: { cursor: 'pointer' } }}
-                                                    />
-                                                    <Stack gap={0} flex={1}>
-                                                        <Text size="sm" fw={isSelected ? 600 : 400}>{name}</Text>
-                                                        {sub && <Text size="xs" c="dimmed">{sub}</Text>}
-                                                    </Stack>
-                                                    {addType === 'ROLE' && (
-                                                        <ActionIcon 
-                                                            variant="light" 
-                                                            onClick={(e) => { e.stopPropagation(); handleViewRoleMembers(id); }}
-                                                            size="sm"
-                                                        >
-                                                            <IconUsers size={14} />
-                                                        </ActionIcon>
-                                                    )}
-                                                </Group>
-                                            );
-                                        })}
-                                        {filteredItems.length === 0 && (
-                                            <Center py="xl">
-                                                <Text size="sm" c="dimmed">No se encontraron resultados</Text>
-                                            </Center>
-                                        )}
-                                    </Stack>
-                                </ScrollArea>
-                            </Paper>
-
-                            <Button 
-                                onClick={handleAddSelected} 
-                                loading={actionLoading} 
-                                disabled={selectedItems.size === 0}
-                                fullWidth
-                                radius="md"
-                                leftSection={<IconUserPlus size={18} />}
-                            >
-                                Vincular Seleccionados ({selectedItems.size})
-                            </Button>
-                        </Stack>
-                    </Card>
-                </Grid.Col>
-
-                <Grid.Col span={{ base: 12, md: 7 }}>
-                    <Card withBorder radius="md" padding="lg" h="100%">
-                        <Group justify="space-between" mb="lg">
-                            <Group>
-                                <IconUsers size={20} color="var(--mantine-color-teal-6)" />
-                                <Text fw={700}>Destinatarios Configurados</Text>
-                            </Group>
-                            <Badge variant="light" color="teal">{recipients.length} reglas</Badge>
-                        </Group>
-
-                        {loading ? (
-                            <Center h={400}>
-                                <Loader type="dots" />
-                            </Center>
-                        ) : (
-                            <ScrollArea h={600}>
-                                <Table verticalSpacing="sm">
-                                    <Table.Thead>
-                                        <Table.Tr>
-                                            <Table.Th>Tipo</Table.Th>
-                                            <Table.Th>Destinatario</Table.Th>
-                                            <Table.Th>Canales</Table.Th>
-                                            <Table.Th w={50}></Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {recipients.map(rec => (
-                                            <Table.Tr key={rec.id_relacion}>
-                                                <Table.Td>
-                                                    <Badge 
-                                                        size="xs" 
-                                                        variant="light" 
-                                                        color={rec.id_rol ? 'indigo' : 'gray'}
-                                                        leftSection={rec.id_rol ? <IconBriefcase size={10} /> : <IconUser size={10} />}
-                                                    >
-                                                        {rec.id_rol ? 'ROL' : 'USR'}
-                                                    </Badge>
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <Stack gap={2}>
-                                                        <Text size="sm" fw={600}>{rec.nombre_rol || rec.nombre_usuario}</Text>
-                                                        {rec.area_destino && <Text size="xs" c="dimmed">Área: {rec.area_destino}</Text>}
-                                                    </Stack>
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <Group gap={4}>
-                                                        {rec.envia_email && (
-                                                            <Tooltip label={`Modo: ${rec.tipo_envio}`}>
-                                                                <Badge size="xs" color="teal" variant="outline" leftSection={<IconMail size={10} />}>
-                                                                    {rec.tipo_envio}
-                                                                </Badge>
-                                                            </Tooltip>
-                                                        )}
-                                                        {rec.envia_web && (
-                                                            <Badge size="xs" color="blue" variant="outline" leftSection={<IconBell size={10} />}>
-                                                                WEB
-                                                            </Badge>
-                                                        )}
-                                                    </Group>
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <ActionIcon color="red" variant="subtle" onClick={() => handleRemove(rec.id_relacion)}>
-                                                        <IconTrash size={16} />
-                                                    </ActionIcon>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ))}
-                                        {recipients.length === 0 && (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={4}>
-                                                    <Center py={100}>
-                                                        <Stack align="center" gap="xs">
-                                                            <IconUsers size={40} color="var(--mantine-color-gray-3)" />
-                                                            <Text c="dimmed" size="sm">Sin destinatarios configurados</Text>
-                                                        </Stack>
-                                                    </Center>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea>
+                        {enviaWeb && (
+                            <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="El sistema generará notificaciones automáticas en la campanita para este evento." />
                         )}
-                    </Card>
-                </Grid.Col>
-            </Grid>
+
+                        <Divider style={{ margin: 0 }}>Selección de elementos</Divider>
+
+                        <Input
+                            placeholder={`Buscar ${addType === 'ROLE' ? 'rol' : 'usuario'}...`}
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
+                        />
+
+                        <Card size="small" styles={{ body: { padding: 8 } }}>
+                            <div style={{ height: 300, overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {filteredItems.map(item => {
+                                        const id = addType === 'ROLE' ? (item as Role).id_rol : (item as User).id_usuario;
+                                        const isSelected = selectedItems.has(id);
+                                        const name = addType === 'ROLE' ? (item as Role).nombre_rol : (item as User).nombre_usuario;
+                                        const sub = addType === 'USER' ? (item as User).correo_electronico : null;
+
+                                        return (
+                                            <div
+                                                key={id}
+                                                onClick={() => handleToggleItem(id)}
+                                                style={{
+                                                    display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 8, padding: 8,
+                                                    cursor: 'pointer',
+                                                    borderRadius: 6,
+                                                    backgroundColor: isSelected ? 'var(--app-accent-bg)' : 'transparent',
+                                                    transition: 'background-color 0.1s ease'
+                                                }}
+                                            >
+                                                <Checkbox checked={isSelected} onChange={() => {}} />
+                                                <div style={{ flex: 1 }}>
+                                                    <Text strong={isSelected} style={{ fontSize: 13, display: 'block' }}>{name}</Text>
+                                                    {sub && <Text type="secondary" style={{ fontSize: 12 }}>{sub}</Text>}
+                                                </div>
+                                                {addType === 'ROLE' && (
+                                                    <Button
+                                                        type="text"
+                                                        size="small"
+                                                        icon={<IconUsers size={14} />}
+                                                        onClick={(e) => { e.stopPropagation(); handleViewRoleMembers(id); }}
+                                                    />
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                    {filteredItems.length === 0 && (
+                                        <div style={{ padding: '32px 0', textAlign: 'center' }}>
+                                            <Text type="secondary" style={{ fontSize: 13 }}>No se encontraron resultados</Text>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </Card>
+
+                        <Button
+                            onClick={handleAddSelected}
+                            loading={actionLoading}
+                            disabled={selectedItems.size === 0}
+                            block
+                            type="primary"
+                            icon={<IconUserPlus size={18} />}
+                        >
+                            Vincular Seleccionados ({selectedItems.size})
+                        </Button>
+                    </div>
+                </Card>
+
+                <Card>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <IconUsers size={20} color="#0c8599" />
+                            <Text strong>Destinatarios Configurados</Text>
+                        </div>
+                        <Tag color="cyan">{recipients.length} reglas</Tag>
+                    </div>
+
+                    {loading ? (
+                        <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Spin />
+                        </div>
+                    ) : (
+                        <Table
+                            rowKey="id_relacion"
+                            columns={recipientColumns}
+                            dataSource={recipients}
+                            pagination={false}
+                            size="small"
+                            scroll={{ y: 600 }}
+                            locale={{
+                                emptyText: (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '60px 0' }}>
+                                        <IconUsers size={40} color="var(--app-border)" />
+                                        <Text type="secondary" style={{ fontSize: 13 }}>Sin destinatarios configurados</Text>
+                                    </div>
+                                ),
+                            }}
+                        />
+                    )}
+                </Card>
+            </div>
 
             {/* Modal: Role Members */}
             <Modal
-                opened={membersModalOpened}
-                onClose={() => setMembersModalOpened(false)}
+                open={membersModalOpened}
+                onCancel={() => setMembersModalOpened(false)}
+                footer={null}
+                width={700}
                 title={
-                    <Group gap="xs">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <IconUsers size={20} />
-                        <Text fw={700}>Usuarios del Rol: {selectedRole?.nombre_rol}</Text>
-                    </Group>
+                        <Text strong>Usuarios del Rol: {selectedRole?.nombre_rol}</Text>
+                    </div>
                 }
-                size="lg"
-                radius="md"
             >
                 {membersLoading ? (
-                    <Center py="xl"><Loader /></Center>
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin /></div>
                 ) : (
-                    <Stack>
-                        <Alert color="blue" variant="light">
-                            {modalRoleMembers.length} usuario(s) activo(s) recibirán notificaciones a través de este rol.
-                        </Alert>
-                        <ScrollArea h={400}>
-                            <Table verticalSpacing="xs">
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>Usuario</Table.Th>
-                                        <Table.Th>Correo</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {modalRoleMembers.map(member => (
-                                        <Table.Tr key={member.id_usuario}>
-                                            <Table.Td>
-                                                <Stack gap={0}>
-                                                    <Text size="sm" fw={600}>{member.nombre_usuario}</Text>
-                                                    <Text size="xs" c="dimmed">{member.nombre_real}</Text>
-                                                </Stack>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Text size="sm">{member.correo_electronico || '-'}</Text>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))}
-                                    {modalRoleMembers.length === 0 && (
-                                        <Table.Tr>
-                                            <Table.Td colSpan={2}>
-                                                <Center py="xl">Este rol no tiene usuarios asignados actualmente.</Center>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    )}
-                                </Table.Tbody>
-                            </Table>
-                        </ScrollArea>
-                    </Stack>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                        <Alert type="info" message={`${modalRoleMembers.length} usuario(s) activo(s) recibirán notificaciones a través de este rol.`} />
+                        <Table
+                            rowKey="id_usuario"
+                            dataSource={modalRoleMembers}
+                            pagination={false}
+                            size="small"
+                            scroll={{ y: 400 }}
+                            locale={{ emptyText: 'Este rol no tiene usuarios asignados actualmente.' }}
+                            columns={[
+                                {
+                                    title: 'Usuario', key: 'usuario',
+                                    render: (_: unknown, member: User) => (
+                                        <div>
+                                            <Text strong style={{ fontSize: 13, display: 'block' }}>{member.nombre_usuario}</Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>{member.nombre_real}</Text>
+                                        </div>
+                                    ),
+                                },
+                                { title: 'Correo', key: 'correo', render: (_: unknown, member: User) => <Text style={{ fontSize: 13 }}>{member.correo_electronico || '-'}</Text> },
+                            ]}
+                        />
+                    </div>
                 )}
             </Modal>
 
             {/* Modal: Confirm Delete */}
             <Modal
-                opened={deleteModalOpened}
-                onClose={() => setDeleteModalOpened(false)}
-                title="Confirmar eliminación"
+                open={deleteModalOpened}
+                onCancel={() => setDeleteModalOpened(false)}
+                footer={null}
                 centered
-                radius="md"
+                title="Confirmar eliminación"
             >
-                <Stack>
-                    <Text size="sm">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                    <Text style={{ fontSize: 13 }}>
                         ¿Está seguro que desea eliminar este destinatario? Esta regla de notificación dejará de aplicarse inmediatamente.
                     </Text>
-                    <Group justify="flex-end" mt="md">
-                        <Button variant="light" color="gray" onClick={() => setDeleteModalOpened(false)}>Cancelar</Button>
-                        <Button color="red" loading={actionLoading} onClick={confirmDelete}>Eliminar regla</Button>
-                    </Group>
-                </Stack>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={() => setDeleteModalOpened(false)}>Cancelar</Button>
+                        <Button danger type="primary" loading={actionLoading} onClick={confirmDelete}>Eliminar regla</Button>
+                    </div>
+                </div>
             </Modal>
-        </Box>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

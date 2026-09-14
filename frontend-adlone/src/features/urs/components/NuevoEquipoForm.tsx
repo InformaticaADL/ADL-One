@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Select, Stack, Group, Text, Paper, Textarea } from '@mantine/core';
+import { Input, Select, Typography, Card } from 'antd';
 import { TIPOS_EQUIPO } from '../constants/equipoTypes';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface NuevoEquipoFormProps {
     onDataChange: (data: any) => void;
@@ -26,74 +29,89 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
             observaciones: observaciones,
             _form_type: 'NUEVO_EQUIPO'
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [nombre, tipo, marca, modelo, serie, fechaAdquisicion, observaciones]);
 
     return (
-        <Paper withBorder p="md" radius="md" bg="teal.0">
-            <Stack gap="md">
-                <Text fw={700} size="sm" c="teal.8" style={{ textTransform: 'uppercase' }}>
+        <Card size="small" style={{ backgroundColor: 'rgba(12,133,153,0.06)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <Text strong style={{ fontSize: 13, color: '#0c8599', textTransform: 'uppercase' }}>
                     Solicitud de Registro / Adquisición de Nuevo Equipo
                 </Text>
 
-                <Group grow>
-                    <TextInput
-                        label="Nombre descriptivo"
-                        placeholder="Ej: Multiparámetro de Campo"
-                        value={nombre}
-                        onChange={(e) => setNombre(e.currentTarget.value)}
-                        required
-                    />
-                    <Select
-                        label="Categoría / Tipo"
-                        placeholder="Seleccione tipo"
-                        data={TIPOS_EQUIPO}
-                        value={tipo}
-                        onChange={setTipo}
-                        required
-                    />
-                </Group>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <Field label="Nombre descriptivo *">
+                        <Input
+                            placeholder="Ej: Multiparámetro de Campo"
+                            value={nombre}
+                            onChange={(e) => setNombre(e.target.value)}
+                        />
+                    </Field>
+                    <Field label="Categoría / Tipo *">
+                        <Select
+                            placeholder="Seleccione tipo"
+                            options={TIPOS_EQUIPO.map((t: string) => ({ value: t, label: t }))}
+                            value={tipo ?? undefined}
+                            onChange={(v) => setTipo(v ?? null)}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
+                </div>
 
-                <Group grow>
-                    <TextInput
-                        label="Marca"
-                        placeholder="Ej: WTW, YSI, etc."
-                        value={marca}
-                        onChange={(e) => setMarca(e.currentTarget.value)}
-                    />
-                    <TextInput
-                        label="Modelo"
-                        placeholder="Ej: Multi 3630"
-                        value={modelo}
-                        onChange={(e) => setModelo(e.currentTarget.value)}
-                    />
-                </Group>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <Field label="Marca">
+                        <Input
+                            placeholder="Ej: WTW, YSI, etc."
+                            value={marca}
+                            onChange={(e) => setMarca(e.target.value)}
+                        />
+                    </Field>
+                    <Field label="Modelo">
+                        <Input
+                            placeholder="Ej: Multi 3630"
+                            value={modelo}
+                            onChange={(e) => setModelo(e.target.value)}
+                        />
+                    </Field>
+                </div>
 
-                <Group grow>
-                    <TextInput
-                        label="Número de Serie (si aplica)"
-                        placeholder="Serie de fábrica"
-                        value={serie}
-                        onChange={(e) => setSerie(e.currentTarget.value)}
-                    />
-                    <TextInput
-                        label="Fecha Estimada Ingreso"
-                        type="date"
-                        value={fechaAdquisicion}
-                        onChange={(e) => setFechaAdquisicion(e.currentTarget.value)}
-                        required
-                    />
-                </Group>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <Field label="Número de Serie (si aplica)">
+                        <Input
+                            placeholder="Serie de fábrica"
+                            value={serie}
+                            onChange={(e) => setSerie(e.target.value)}
+                        />
+                    </Field>
+                    <Field label="Fecha Estimada Ingreso *">
+                        <Input
+                            type="date"
+                            value={fechaAdquisicion}
+                            onChange={(e) => setFechaAdquisicion(e.target.value)}
+                        />
+                    </Field>
+                </div>
 
-                <Textarea
-                    label="Detalles / Justificación"
-                    placeholder="Indique por qué se requiere este equipo o detalles adicionales..."
-                    minRows={3}
-                    value={observaciones}
-                    onChange={(e) => setObservaciones(e.currentTarget.value)}
-                />
-            </Stack>
-        </Paper>
+                <Field label="Detalles / Justificación">
+                    <TextArea
+                        placeholder="Indique por qué se requiere este equipo o detalles adicionales..."
+                        autoSize={{ minRows: 3 }}
+                        value={observaciones}
+                        onChange={(e) => setObservaciones(e.target.value)}
+                    />
+                </Field>
+            </div>
+        </Card>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default NuevoEquipoForm;

@@ -1,21 +1,16 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import {
-    Stack,
-    Title,
-    Text,
-    SimpleGrid,
-    Box,
-    Divider,
-    Paper,
-    Container,
-    Loader,
-    Center,
-} from '@mantine/core';
+import { Spin, Typography } from 'antd';
 import { SelectionCard } from '../components/SelectionCard';
+import { PageHeader } from '../../../components/layout/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useNavStore } from '../../../store/navStore';
 import { CatalogosProvider } from '../context/CatalogosContext';
+
+const { Text } = Typography;
+const NoPermiso = ({ children }: { children: React.ReactNode }) => (
+    <Text type="danger" style={{ display: 'block', textAlign: 'center', marginTop: 32 }}>{children}</Text>
+);
 
 // Carga estática: componentes livianos usados frecuentemente
 import { FichaCreateChoice } from '../components/FichaCreateChoice';
@@ -35,7 +30,9 @@ const RutasListView = lazy(() => import('../components/RutasListView').then(m =>
 const KpiAnalystDashboardView = lazy(() => import('../components/KpiAnalystDashboardView').then(m => ({ default: m.KpiAnalystDashboardView })));
 
 const LazyFallback = () => (
-    <Center h={300}><Loader size="md" /></Center>
+    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" />
+    </div>
 );
 
 import { 
@@ -49,8 +46,8 @@ import {
 } from '@tabler/icons-react';
 
 export const FichasIngresoPage = () => {
-    useAuth();
-    const { 
+    const { hasPermission } = useAuth();
+    const {
         fichasMode, 
         setFichasMode,
         pendingRequestId,
@@ -82,7 +79,7 @@ export const FichasIngresoPage = () => {
         switch (fichasMode) {
             case 'create_choice':
                 return (
-                    <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
+                    <ProtectedContent permission="FI_CREAR" fallback={<NoPermiso>No tiene permisos para crear fichas</NoPermiso>}>
                         <FichaCreateChoice 
                             onBack={() => setFichasMode('menu')}
                             onManual={() => setFichasMode('create_manual')}
@@ -92,7 +89,7 @@ export const FichasIngresoPage = () => {
                 );
             case 'create_manual':
                 return (
-                    <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
+                    <ProtectedContent permission="FI_CREAR" fallback={<NoPermiso>No tiene permisos para crear fichas</NoPermiso>}>
                         <FichaCreateForm
                             onBackToMenu={() => setFichasMode('create_choice')}
                             onSuccess={() => setFichasMode('list_fichas')}
@@ -101,7 +98,7 @@ export const FichasIngresoPage = () => {
                 );
             case 'create_bulk':
                 return (
-                    <ProtectedContent permission="FI_CREAR" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos para crear fichas</Text>}>
+                    <ProtectedContent permission="FI_CREAR" fallback={<NoPermiso>No tiene permisos para crear fichas</NoPermiso>}>
                         <Suspense fallback={<LazyFallback />}>
                             <BulkFichaCreator
                                 onBack={() => setFichasMode('create_choice')}
@@ -112,7 +109,7 @@ export const FichasIngresoPage = () => {
                 );
         case 'list_fichas':
             return (
-                <ProtectedContent permission={['FI_CONSULTAR', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']} fallback={<Text ta="center" mt="xl" c="red">No tiene permisos consultar fichas</Text>}>
+                <ProtectedContent permission={['FI_CONSULTAR', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']} fallback={<NoPermiso>No tiene permisos consultar fichas</NoPermiso>}>
                     <FichasExploradorView 
                         onBackToMenu={() => setFichasMode('menu')} 
                         onViewDetail={(id) => {
@@ -131,7 +128,7 @@ export const FichasIngresoPage = () => {
             ) : null;
         case 'list_assign':
             return (
-                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <AssignmentListView 
                         onBackToMenu={() => setFichasMode('menu')} 
                         onViewAssignment={(id) => {
@@ -150,7 +147,7 @@ export const FichasIngresoPage = () => {
             ) : null;
         case 'calendar':
             return (
-                <ProtectedContent permission="MA_CALENDARIO_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission="MA_CALENDARIO_ACCESO" fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <Suspense fallback={<LazyFallback />}>
                         <EnProcesoCalendarView onBackToMenu={() => setFichasMode('menu')} />
                     </Suspense>
@@ -158,7 +155,7 @@ export const FichasIngresoPage = () => {
             );
         case 'list_ejecutados':
             return (
-                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC']} fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC']} fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <Suspense fallback={<LazyFallback />}>
                         <MuestreosEjecutadosListView onBackToMenu={() => setFichasMode('menu')} />
                     </Suspense>
@@ -166,7 +163,7 @@ export const FichasIngresoPage = () => {
             );
         case 'dashboard':
             return (
-                <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <Suspense fallback={<LazyFallback />}>
                         <CoordinacionDashboardView onBack={() => setFichasMode('menu')} />
                     </Suspense>
@@ -174,7 +171,7 @@ export const FichasIngresoPage = () => {
             );
         case 'kpi_dashboard':
             return (
-                <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission="MA_COORDINACION_ACCESO" fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <Suspense fallback={<LazyFallback />}>
                         <KpiAnalystDashboardView onBack={() => setFichasMode('menu')} />
                     </Suspense>
@@ -182,7 +179,7 @@ export const FichasIngresoPage = () => {
             );
         case 'route_planner':
             return (
-                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <Suspense fallback={<LazyFallback />}>
                         <RutasListView
                             onBackToMenu={() => setFichasMode('menu')}
@@ -194,7 +191,7 @@ export const FichasIngresoPage = () => {
             );
         case 'route_planner_map':
             return (
-                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<Text ta="center" mt="xl" c="red">No tiene permisos</Text>}>
+                <ProtectedContent permission="FI_ASIG_GRUPO" fallback={<NoPermiso>No tiene permisos</NoPermiso>}>
                     <Suspense fallback={<LazyFallback />}>
                         <RouteMapPlannerView
                             onBack={() => { setEditingRutaId(null); setFichasMode('route_planner'); }}
@@ -205,99 +202,75 @@ export const FichasIngresoPage = () => {
             );
 
         case 'menu':
-        default:
+        default: {
+            // Se filtra ANTES de dibujar la grilla (no con <ProtectedContent> envolviendo
+            // cada ítem): así se sabe cuántos van a quedar visibles y se puede hacer que
+            // el último ocupe el ancho completo cuando sobra impar, en vez de dejar un
+            // hueco vacío al lado — eso es lo que se veía mal con 7 ítems en 2 columnas.
+            const items = [
+                {
+                    permission: 'FI_CREAR', title: 'Nueva Ficha',
+                    description: 'Crear una nueva solicitud de análisis desde cero, ingresando antecedentes y parámetros.',
+                    icon: <IconPlus size={22} />, onClick: () => setFichasMode('create_choice'),
+                },
+                {
+                    permission: ['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR'],
+                    title: 'Explorador y Validación',
+                    description: 'Buscador universal. Permite visualizar, editar, aprobar o rechazar fichas según el área correspondiente.',
+                    icon: <IconTable size={22} />, onClick: () => setFichasMode('list_fichas'),
+                },
+                {
+                    permission: 'FI_ASIG_GRUPO', title: 'Asignación Terreno',
+                    description: 'Programar logística. Asignar fechas, vehículos y equipos a las fichas aprobadas.',
+                    icon: <IconMapPin size={22} />, onClick: () => setFichasMode('list_assign'),
+                },
+                {
+                    permission: 'MA_CALENDARIO_ACCESO', title: 'Calendario Terreno',
+                    description: 'Visualizar la programación mensual de muestreos en terreno de forma gráfica.',
+                    icon: <IconCalendar size={22} />, onClick: () => setFichasMode('calendar'),
+                },
+                {
+                    permission: ['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC'], title: 'Muestreos Completados',
+                    description: 'Histórico unificado de servicios ejecutados y reportes generados. Permite remuestreos.',
+                    icon: <IconHistory size={22} />, onClick: () => setFichasMode('list_ejecutados'),
+                },
+                {
+                    permission: 'FI_ASIG_GRUPO', title: 'Planificador de Rutas',
+                    description: 'Visualice fichas en el mapa, arme rutas de muestreo y asigne recursos geográficamente.',
+                    icon: <IconRoute size={22} />, onClick: () => setFichasMode('route_planner'),
+                },
+                {
+                    permission: 'MA_COORDINACION_ACCESO', title: 'Dashboard Operativo',
+                    description: 'Vista minimalista de la coordinación diaria, carga de trabajo y estados.',
+                    icon: <IconChartBar size={22} />, onClick: () => setFichasMode('dashboard'),
+                },
+            ].filter((item) => hasPermission(item.permission));
+
             return (
-                <Container fluid p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
-                    <Paper withBorder p={50} radius="lg" shadow="sm" style={{ width: '100% !important', maxWidth: '100% !important' }}>
-                        <Stack gap="xl">
-                            <Box>
-                                <Title order={1} fw={800} ta="center" fz={32} c="blue.8">
-                                    Fichas de Ingreso (Universal)
-                                </Title>
-                                <Text size="md" c="dimmed" ta="center" mt="xs" fw={500}>
-                                    Gestión unificada según su nivel de acceso
-                                </Text>
-                            </Box>
+                <div>
+                    <PageHeader title="Fichas de Ingreso" subtitle="Gestión unificada según su nivel de acceso" />
 
-                            <Divider variant="dashed" />
-
-                            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={40} mt="xl">
-                                <ProtectedContent permission="FI_CREAR">
-                                    <SelectionCard
-                                        title="Nueva Ficha"
-                                        description="Crear una nueva solicitud de análisis desde cero, ingresando antecedentes y parámetros."
-                                        icon={<IconPlus size={32} />}
-                                        color="#228be6"
-                                        onClick={() => setFichasMode('create_choice')}
-                                    />
-                                </ProtectedContent>
-
-                                <ProtectedContent permission={['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']}>
-                                    <SelectionCard
-                                        title="Explorador y Validación"
-                                        description="Buscador universal. Permite visualizar, editar, aprobar o rechazar fichas según el área correspondiente."
-                                        icon={<IconTable size={32} />}
-                                        color="#7950f2"
-                                        onClick={() => setFichasMode('list_fichas')}
-                                    />
-                                </ProtectedContent>
-
-                                <ProtectedContent permission="FI_ASIG_GRUPO">
-                                    <SelectionCard
-                                        title="Asignación Terreno"
-                                        description="Programar logística. Asignar fechas, vehículos y equipos a las fichas aprobadas."
-                                        icon={<IconMapPin size={32} />}
-                                        color="#f59f00"
-                                        onClick={() => setFichasMode('list_assign')}
-                                    />
-                                </ProtectedContent>
-
-                                <ProtectedContent permission="MA_CALENDARIO_ACCESO">
-                                    <SelectionCard
-                                        title="Calendario Terreno"
-                                        description="Visualizar la programación mensual de muestreos en terreno de forma gráfica."
-                                        icon={<IconCalendar size={32} />}
-                                        color="#12b886"
-                                        onClick={() => setFichasMode('calendar')}
-                                    />
-                                </ProtectedContent>
-
-                                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC']}>
-                                    <SelectionCard
-                                        title="Muestreos Completados"
-                                        description="Histórico unificado de servicios ejecutados y reportes generados. Permite remuestreos."
-                                        icon={<IconHistory size={32} />}
-                                        color="#15aabf"
-                                        onClick={() => setFichasMode('list_ejecutados')}
-                                    />
-                                </ProtectedContent>
-
-                                <ProtectedContent permission="FI_ASIG_GRUPO">
-                                    <SelectionCard
-                                        title="Planificador de Rutas"
-                                        description="Visualice fichas en el mapa, arme rutas de muestreo y asigne recursos geográficamente."
-                                        icon={<IconRoute size={32} />}
-                                        color="#20c997"
-                                        onClick={() => setFichasMode('route_planner')}
-                                    />
-                                </ProtectedContent>
-
-
-                                <ProtectedContent permission="MA_COORDINACION_ACCESO">
-                                    <SelectionCard
-                                        title="Dashboard Operativo"
-                                        description="Vista minimalista de la coordinación diaria, carga de trabajo y estados (Nuevo Diseño)."
-                                        icon={<IconChartBar size={32} />}
-                                        color="#0ea5e9"
-                                        onClick={() => setFichasMode('dashboard')}
-                                    />
-                                </ProtectedContent>
-
-                            </SimpleGrid>
-                        </Stack>
-                    </Paper>
-                </Container>
+                    <div style={{
+                        display: 'grid',
+                        // maxWidth 880 con minmax 320 nunca deja entrar una tercera columna:
+                        // 2 en pantallas normales, 1 sola en angostas — sin media query aparte.
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                        gap: 12,
+                        maxWidth: 880,
+                        margin: '0 auto',
+                    }}>
+                        {items.map((item, idx) => (
+                            <div
+                                key={item.title}
+                                style={idx === items.length - 1 && items.length % 2 === 1 ? { gridColumn: '1 / -1' } : undefined}
+                            >
+                                <SelectionCard {...item} />
+                            </div>
+                        ))}
+                    </div>
+                </div>
             );
+        }
         }
     };
 

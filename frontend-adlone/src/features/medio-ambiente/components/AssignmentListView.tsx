@@ -2,34 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-import { 
-    Stack, 
-    Paper, 
-    SimpleGrid, 
-    TextInput, 
-    Select, 
-    Button, 
-    Table, 
-    Badge, 
-    Group, 
-    ActionIcon, 
-    Tooltip,
-    ScrollArea,
-    Text,
-    Pagination,
-    Center,
-    Loader,
-    Divider,
-    Box
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconSearch, 
+import { Card, Input, Select, Button, Table, Tag, Tooltip, Typography } from 'antd';
+import {
+    IconSearch,
     IconEraser,
     IconCalendarStats,
     IconFilter
 } from '@tabler/icons-react';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
@@ -54,7 +36,6 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
     const [assignmentCounts, setAssignmentCounts] = useState<Record<number, { assigned: number; total: number }>>({});
-    const isMobile = useMediaQuery('(max-width: 768px)');
 
     const itemsPerPage = 12;
 
@@ -132,7 +113,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     }, [fichas]);
 
     const uniqueEmpFacturar = useMemo(() => getUniqueValues('empresa_facturar'), [fichas]);
-    
+
     const uniqueEmpServicio = useMemo(() => {
         const set = new Set<string>();
         fichas.forEach(f => {
@@ -245,260 +226,188 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         });
     }, [filteredFichas, assignmentCounts]);
 
-    const totalPages = Math.ceil(sortedFichas.length / itemsPerPage);
-    const displayedFichas = sortedFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const getStatusBadge = (status: string) => {
+    const getStatusColor = (status: string) => {
         const s = (status || '').toUpperCase();
-        let color = 'gray';
-        if (s.includes('COORDINACIÓN')) color = 'red';
-        else if (s.includes('PROGRAMACIÓN')) color = 'orange';
-        else if (s.includes('EN PROCESO') || s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) color = 'green';
-        else if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) color = 'yellow';
-        else if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) color = 'red';
-
-        return (
-            <Badge color={color} variant="light" size="xs" fullWidth style={{ whiteSpace: 'normal', height: 'auto', textAlign: 'center', padding: '4px' }}>
-                {status || '-'}
-            </Badge>
-        );
+        if (s.includes('COORDINACIÓN')) return 'red';
+        if (s.includes('PROGRAMACIÓN')) return 'orange';
+        if (s.includes('EN PROCESO') || s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return 'green';
+        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return 'gold';
+        if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) return 'red';
+        return 'default';
     };
 
-    return (
-        <Box p="md" style={{ width: '100%' }}>
-            <Stack gap="lg">
-                <PageHeader 
-                    title="Planificación y Asignación" 
-                    subtitle="Gestión de recursos y programación de muestreos"
-                    onBack={onBackToMenu}
-                    breadcrumbItems={[
-                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
-                        { label: 'Asignación' }
-                    ]}
-                    rightSection={
-                        <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"}>
-                            <Text size="xs" fw={500} c="dimmed">{filteredFichas.length} registros encontrados</Text>
-                            <Button variant="light" color="gray" size="xs" leftSection={<IconEraser size={14} />} onClick={handleClearFilters}>
-                                Limpiar Filtros
-                            </Button>
-                        </Group>
-                    }
-                />
-
-                <Paper withBorder p="md" radius="md" shadow="xs">
-                    <Stack gap="md">
-                        <Group gap="xs" align="center">
-                            <IconFilter size={18} color="var(--mantine-color-blue-6)" />
-                            <Text fw={700} size="sm" c="blue.7">Filtros de Búsqueda</Text>
-                        </Group>
-                        <SimpleGrid cols={{ base: 1, sm: 3, md: 5, lg: 6 }} spacing="sm">
-                            <TextInput 
-                                label="N° Ficha" 
-                                placeholder="Eje: 1234" 
-                                value={searchId} 
-                                onChange={(e) => setSearchId(e.target.value)} 
-                                size="xs"
-                                leftSection={<IconSearch size={14} />}
-                            />
-                            <Select 
-                                label="Estado" 
-                                placeholder="Todos" 
-                                data={uniqueEstados} 
-                                value={searchEstado} 
-                                onChange={setSearchEstado} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Monitoreo" 
-                                placeholder="Todos" 
-                                data={uniqueMonitoreo} 
-                                value={searchMonitoreo} 
-                                onChange={setSearchMonitoreo} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="E. Facturar" 
-                                placeholder="Todos" 
-                                data={uniqueEmpFacturar} 
-                                value={searchEmpresaFacturar} 
-                                onChange={setSearchEmpresaFacturar} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="E. Servicio" 
-                                placeholder="Todos" 
-                                data={uniqueEmpServicio} 
-                                value={searchEmpresaServicio} 
-                                onChange={setSearchEmpresaServicio} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Fuente Emisora" 
-                                placeholder="Todos" 
-                                data={uniqueCentros} 
-                                value={searchCentro} 
-                                onChange={setSearchCentro} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Obj. Muestreo" 
-                                placeholder="Todos" 
-                                data={uniqueObjetivos} 
-                                value={searchObjetivo} 
-                                onChange={setSearchObjetivo} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <Select 
-                                label="Sub Área" 
-                                placeholder="Todos" 
-                                data={uniqueSubAreas} 
-                                value={searchSubArea} 
-                                onChange={setSearchSubArea} 
-                                searchable 
-                                size="xs"
-                                clearable
-                            />
-                            <TextInput 
-                                label="Desde" 
-                                type="date" 
-                                value={dateFrom} 
-                                onChange={(e) => setDateFrom(e.target.value)} 
-                                size="xs"
-                            />
-                            <TextInput 
-                                label="Hasta" 
-                                type="date" 
-                                value={dateTo} 
-                                onChange={(e) => setDateTo(e.target.value)} 
-                                size="xs"
-                            />
-                        </SimpleGrid>
-                    </Stack>
-                </Paper>
-
-                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden' }}>
-                    <ScrollArea h="auto">
-                            <Text fw={600} size="sm" c="dimmed">Resultados ({displayedFichas.length})</Text>
-
-                        {loading ? (
-                            <Center p="xl">
-                                <Stack align="center" gap="xs">
-                                    <Loader size="lg" />
-                                    <Text size="sm" c="dimmed">Cargando asignaciones...</Text>
-                                </Stack>
-                            </Center>
+    const columns = [
+        {
+            title: 'N° Ficha', width: 80,
+            render: (_: any, row: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{row.fichaingresoservicio || row.id_fichaingresoservicio}</Text>,
+        },
+        {
+            title: 'Estado', width: 150,
+            render: (_: any, row: any) => {
+                const status = row.estado_ficha || row.nombre_estadomuestreo;
+                return <Tag color={getStatusColor(status)} style={{ whiteSpace: 'normal', textAlign: 'center', width: '100%' }}>{status || '-'}</Tag>;
+            },
+        },
+        {
+            title: 'Cliente / E. Servicio', width: 180,
+            render: (_: any, row: any) => (
+                <div>
+                    <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.empresa_facturar}>
+                        {row.empresa_facturar || '-'}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.empresa_servicio || row.nombre_empresaservicios}>
+                        {row.empresa_servicio || row.nombre_empresaservicios || '-'}
+                    </Text>
+                </div>
+            ),
+        },
+        {
+            title: 'F. Emisora', width: 180,
+            render: (_: any, row: any) => (
+                <div>
+                    <Text style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.centro || row.nombre_centro}>
+                        {row.centro || row.nombre_centro || '-'}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{row.nombre_frecuencia || row.frecuencia || '-'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Asignación', width: 130, align: 'center' as const,
+            render: (_: any, row: any) => {
+                const fichId = row.id_fichaingresoservicio || row.fichaingresoservicio;
+                const counts = assignmentCounts[fichId];
+                if (!counts) return <Text type="secondary" style={{ fontSize: 12 }}>-</Text>;
+                const pending = counts.total - counts.assigned;
+                return (
+                    <div>
+                        <Text style={{ fontSize: 12, fontWeight: 600, color: counts.assigned > 0 ? '#2f9e44' : 'var(--app-text-secondary)' }}>
+                            {counts.assigned} asignados
+                        </Text>
+                        {pending > 0 && <Text style={{ fontSize: 12, color: '#e8590c', display: 'block' }}>{pending} pendientes</Text>}
+                    </div>
+                );
+            },
+        },
+        {
+            title: 'Asignar', width: 70, align: 'center' as const,
+            render: (_: any, row: any) => (
+                <ProtectedContent permission="FI_GEST_ASIG">
+                    {(() => {
+                        const status = (row.estado_ficha || row.nombre_estadomuestreo || '').toUpperCase();
+                        const isPendingCoordinacion = status.includes('COORDINAC');
+                        return isPendingCoordinacion ? (
+                            <Tooltip title="Pendiente de aprobación por Área de Coordinación. No es posible gestionar la asignación hasta que sea aprobado.">
+                                <Button type="text" shape="circle" disabled icon={<IconCalendarStats size={18} />} />
+                            </Tooltip>
                         ) : (
-                            <Box>
-                                <Table striped highlightOnHover withTableBorder={false} verticalSpacing="xs">
-                                    <Table.Thead bg="gray.1">
-                                        <Table.Tr>
-                                            <Table.Th w={80}>N° Ficha</Table.Th>
-                                            <Table.Th w={140}>Estado</Table.Th>
-                                            <Table.Th miw={140}>Cliente / E. Servicio</Table.Th>
-                                            <Table.Th miw={140}>F. Emisora</Table.Th>
-                                            <Table.Th ta="center" w={120}>Asignación</Table.Th>
-                                            <Table.Th ta="center" w={70}>Asignar</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {displayedFichas.map((row) => (
-                                            <Table.Tr key={row.id_fichaingresoservicio || row.fichaingresoservicio}>
-                                                <Table.Td fw={700} c="blue.8">{row.fichaingresoservicio || row.id_fichaingresoservicio}</Table.Td>
-                                                <Table.Td>{getStatusBadge(row.estado_ficha || row.nombre_estadomuestreo)}</Table.Td>
-                                                <Table.Td>
-                                                    <Stack gap={0}>
-                                                        <Text size="xs" fw={600} truncate title={row.empresa_facturar}>{row.empresa_facturar || '-'}</Text>
-                                                        <Text size="xs" c="dimmed" truncate title={row.empresa_servicio || row.nombre_empresaservicios}>{row.empresa_servicio || row.nombre_empresaservicios || '-'}</Text>
-                                                    </Stack>
-                                                </Table.Td>
-                                                <Table.Td>
-                                                    <Stack gap={0}>
-                                                        <Text size="xs" truncate title={row.centro || row.nombre_centro}>{row.centro || row.nombre_centro || '-'}</Text>
-                                                        <Text size="xs" c="dimmed">{row.nombre_frecuencia || row.frecuencia || '-'}</Text>
-                                                    </Stack>
-                                                </Table.Td>
+                            <Tooltip title="Gestionar Asignación">
+                                <Button
+                                    type="primary"
+                                    shape="circle"
+                                    style={{ backgroundColor: '#9c36b5' }}
+                                    icon={<IconCalendarStats size={18} />}
+                                    onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
+                                />
+                            </Tooltip>
+                        );
+                    })()}
+                </ProtectedContent>
+            ),
+        },
+    ];
 
-                                                <Table.Td ta="center">
-                                                    {(() => {
-                                                        const fichId = row.id_fichaingresoservicio || row.fichaingresoservicio;
-                                                        const counts = assignmentCounts[fichId];
-                                                        if (!counts) return <Text size="xs" c="dimmed">-</Text>;
-                                                        const pending = counts.total - counts.assigned;
-                                                        return (
-                                                            <Stack gap={0} align="center">
-                                                                <Text size="xs" fw={600} c={counts.assigned > 0 ? 'green.7' : 'gray.6'}>
-                                                                    {counts.assigned} asignados
-                                                                </Text>
-                                                                {pending > 0 && (
-                                                                    <Text size="xs" c="orange.7">{pending} pendientes</Text>
-                                                                )}
-                                                            </Stack>
-                                                        );
-                                                    })()}
-                                                </Table.Td>
+    const selectProps = { showSearch: true, allowClear: true, style: { width: '100%' }, placeholder: 'Todos' } as const;
 
-                                                <Table.Td ta="center">
-                                                    <ProtectedContent permission="FI_GEST_ASIG">
-                                                        {(() => {
-                                                            const status = (row.estado_ficha || row.nombre_estadomuestreo || '').toUpperCase();
-                                                            const isPendingCoordinacion = status.includes('COORDINAC');
-                                                            return isPendingCoordinacion ? (
-                                                                <Tooltip label="Pendiente de aprobación por Área de Coordinación. No es posible gestionar la asignación hasta que sea aprobado." multiline maw={240}>
-                                                                    <ActionIcon color="gray" variant="light" disabled>
-                                                                        <IconCalendarStats size={18} />
-                                                                    </ActionIcon>
-                                                                </Tooltip>
-                                                            ) : (
-                                                                <Tooltip label="Gestionar Asignación">
-                                                                    <ActionIcon
-                                                                        color="grape"
-                                                                        variant="filled"
-                                                                        onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
-                                                                    >
-                                                                        <IconCalendarStats size={18} />
-                                                                    </ActionIcon>
-                                                                </Tooltip>
-                                                            );
-                                                        })()}
-                                                    </ProtectedContent>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ))}
-                                    </Table.Tbody>
-                                </Table>
-                            </Box>
-                        )}
+    return (
+        <div>
+            <PageHeader
+                title="Planificación y Asignación"
+                subtitle="Gestión de recursos y programación de muestreos"
+                onBack={onBackToMenu}
+                breadcrumbItems={[
+                    { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                    { label: 'Asignación' }
+                ]}
+                rightSection={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{filteredFichas.length} registros encontrados</Text>
+                        <Button icon={<IconEraser size={14} />} onClick={handleClearFilters}>
+                            Limpiar Filtros
+                        </Button>
+                    </div>
+                }
+            />
 
-                    </ScrollArea>
-                    
-                    <Divider />
-                    
-                    <Center p="md">
-                        <Pagination 
-                            total={totalPages} 
-                            value={currentPage} 
-                            onChange={setCurrentPage} 
-                            radius="md" 
-                            size={isMobile ? "xs" : "sm"}
-                            siblings={isMobile ? 0 : 1}
-                            boundaries={isMobile ? 0 : 1}
-                            withEdges={!isMobile}
-                        />
-                    </Center>
-                </Paper>
-            </Stack>
-        </Box>
+            <Card
+                title={
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--app-accent-text)' }}>
+                        <IconFilter size={18} /> Filtros de búsqueda
+                    </span>
+                }
+                styles={{ header: { border: 'none' } }}
+                style={{ marginBottom: 16 }}
+            >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                    <Field label="N° Ficha">
+                        <Input placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} prefix={<IconSearch size={14} />} />
+                    </Field>
+                    <Field label="Estado">
+                        <Select options={uniqueEstados} value={searchEstado || undefined} onChange={(v) => setSearchEstado(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Monitoreo">
+                        <Select options={uniqueMonitoreo} value={searchMonitoreo || undefined} onChange={(v) => setSearchMonitoreo(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="E. Facturar">
+                        <Select options={uniqueEmpFacturar} value={searchEmpresaFacturar || undefined} onChange={(v) => setSearchEmpresaFacturar(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="E. Servicio">
+                        <Select options={uniqueEmpServicio} value={searchEmpresaServicio || undefined} onChange={(v) => setSearchEmpresaServicio(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Fuente Emisora">
+                        <Select options={uniqueCentros} value={searchCentro || undefined} onChange={(v) => setSearchCentro(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Obj. Muestreo">
+                        <Select options={uniqueObjetivos} value={searchObjetivo || undefined} onChange={(v) => setSearchObjetivo(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Sub Área">
+                        <Select options={uniqueSubAreas} value={searchSubArea || undefined} onChange={(v) => setSearchSubArea(v || null)} {...selectProps} />
+                    </Field>
+                    <Field label="Desde">
+                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                    </Field>
+                    <Field label="Hasta">
+                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                    </Field>
+                </div>
+            </Card>
+
+            <Card styles={{ body: { padding: 0 } }}>
+                <Table
+                    rowKey={(row) => `${row.id_fichaingresoservicio || row.fichaingresoservicio}`}
+                    columns={columns}
+                    dataSource={sortedFichas}
+                    loading={loading}
+                    scroll={{ x: 900 }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: itemsPerPage,
+                        total: sortedFichas.length,
+                        onChange: setCurrentPage,
+                        showTotal: (total) => `Resultados (${total})`,
+                        style: { paddingInline: 16 },
+                    }}
+                />
+            </Card>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

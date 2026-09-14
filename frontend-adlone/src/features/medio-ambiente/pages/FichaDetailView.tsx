@@ -1,31 +1,18 @@
 import { useEffect, useState } from 'react';
 import { fichaService } from '../services/ficha.service';
 import {
-    Grid,
-    Paper,
-    Text,
-    Title,
-    Badge,
-    Group,
+    Typography,
+    Tag,
     Tabs,
     Button,
-    ActionIcon,
-    Divider,
-    Stack,
-    Box,
-    Loader,
     Alert,
-    Table,
-    SimpleGrid,
     Card,
-    Image,
     Modal,
-    ThemeIcon,
-    Collapse,
-    TextInput,
+    Input,
     Tooltip,
-    Switch
-} from '@mantine/core';
+    Switch,
+    Spin
+} from 'antd';
 import {
     IconArrowLeft,
     IconDatabase,
@@ -54,6 +41,8 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 
+const { Text, Title } = Typography;
+
 // El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
 // como si fueran UTC. Usamos los componentes UTC para evitar que el navegador
 // reste el offset horario nuevamente.
@@ -63,6 +52,30 @@ const formatFechaHoraServidor = (value: string | Date) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 };
+
+function Th({ children, center = false }: { children?: React.ReactNode; center?: boolean }) {
+    return (
+        <th style={{ textAlign: center ? 'center' : 'left', padding: '8px 12px', fontSize: 12, fontWeight: 700, color: 'var(--app-text-secondary)', borderBottom: '1px solid var(--app-border)' }}>
+            {children}
+        </th>
+    );
+}
+function Td({ children, center = false, bold = false, colSpan }: { children?: React.ReactNode; center?: boolean; bold?: boolean; colSpan?: number }) {
+    return (
+        <td colSpan={colSpan} style={{ textAlign: center ? 'center' : 'left', padding: '8px 12px', fontSize: 13, fontWeight: bold ? 600 : 400, borderBottom: '1px solid var(--app-border)' }}>
+            {children}
+        </td>
+    );
+}
+
+function KV({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+            <Text type="secondary" style={{ fontSize: 13 }}>{label}</Text>
+            <Text strong style={{ fontSize: 13, color }}>{value}</Text>
+        </div>
+    );
+}
 
 export const FichaDetailView = () => {
     const {
@@ -90,7 +103,6 @@ export const FichaDetailView = () => {
     const [resendError, setResendError] = useState('');
     const [resendSuccess, setResendSuccess] = useState(false);
 
-    const { user: _user } = useAuth();
     const [realizadoGem, setRealizadoGem] = useState<{realizado: boolean, userName: string, fecha: string} | null>(null);
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const [realizadoLoading, setRealizadoLoading] = useState(false);
@@ -268,25 +280,23 @@ export const FichaDetailView = () => {
 
     if (loading) {
         return (
-            <Box p="xl" style={{ width: '100%' }}>
-                <Stack align="center" justify="center" style={{ height: '50vh' }}>
-                    <Loader size="xl" />
-                    <Text size="lg">Cargando detalles de la ejecución...</Text>
-                </Stack>
-            </Box>
+            <div style={{ padding: 32, width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, height: '50vh' }}>
+                    <Spin size="large" />
+                    <Text style={{ fontSize: 16 }}>Cargando detalles de la ejecución...</Text>
+                </div>
+            </div>
         );
     }
 
     if (error || !data) {
         return (
-            <Box p="xl" style={{ width: '100%' }}>
-                <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red" variant="filled">
-                    {error || 'No se pudo cargar la información'}
-                </Alert>
-                <Button variant="light" mt="md" onClick={handleBack} leftSection={<IconArrowLeft size={16} />}>
+            <div style={{ padding: 32, width: '100%' }}>
+                <Alert type="error" showIcon icon={<IconAlertCircle size={16} />} message="Error" description={error || 'No se pudo cargar la información'} />
+                <Button icon={<IconArrowLeft size={16} />} style={{ marginTop: 16 }} onClick={handleBack}>
                     Volver
                 </Button>
-            </Box>
+            </div>
         );
     }
 
@@ -316,1212 +326,963 @@ export const FichaDetailView = () => {
         }
     };
 
+    const isRechazada = (ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA');
 
     return (
-        <Box p="md" style={{ width: '100%', maxWidth: '100%', scrollbarGutter: 'stable', overflowX: 'hidden' }}>
+        <div style={{ padding: 16, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
 
             {/* Header */}
-            {/* Header */}
-            <Paper p="lg" radius="md" mb="md" withBorder shadow="sm" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
-                <Grid align="center" gutter="lg" style={{ width: '100%', margin: 0 }}>
-                    <Grid.Col span={{ base: 12, md: 3 }}>
-                        <Group align="flex-start" wrap="nowrap">
-                            <ActionIcon variant="light" color="blue" onClick={handleBack} size="lg" mt={5}>
-                                <IconArrowLeft size={20} />
-                            </ActionIcon>
-                            <div>
-                                <Title order={2} c="blue.9" style={{ lineHeight: 1.2 }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
-                                <Text size="xs" c="dimmed" fw={700} mt={4}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
-                                <Badge color="green" variant="filled" size="sm" mt={6}>EJECUTADO</Badge>
-                            </div>
-                        </Group>
-                    </Grid.Col>
+            <Card style={{ marginBottom: 16, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr 2fr', gap: 24, alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                        <Button type="text" shape="circle" icon={<IconArrowLeft size={20} />} onClick={handleBack} style={{ marginTop: 5 }} />
+                        <div>
+                            <Title level={2} style={{ margin: 0, lineHeight: 1.2, color: '#1864ab' }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
+                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginTop: 4 }}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
+                            <Tag color="green" style={{ marginTop: 6 }}>EJECUTADO</Tag>
+                        </div>
+                    </div>
 
-                    <Grid.Col span={{ base: 12, md: 7 }}>
-                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
-                            {/* Group 1: Empresa Context */}
-                            <Stack gap={4}>
-                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
-                                <Text size="sm" fw={700} c="blue.9">{ficha?.nombre_empresa || '—'}</Text>
-                                <Text size="xs" fw={500} c="dimmed">{ficha?.nombre_contacto || '—'}</Text>
-                                <Group gap={4} mt={4}>
-                                    <IconMapPin size={12} color="gray" />
-                                    <Text size="xs" fw={500} c="dimmed" truncate>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
-                                    {ficha?.referencia_googlemaps && (
-                                        <ActionIcon
-                                            variant="subtle"
-                                            color="blue"
-                                            size="sm"
-                                            component="a"
-                                            href={ficha.referencia_googlemaps}
-                                            target="_blank"
-                                        >
-                                            <IconMapPin size={14} />
-                                        </ActionIcon>
-                                    )}
-                                </Group>
-                            </Stack>
-
-                            {/* Group 2: Technical Context */}
-                            <Stack gap={4}>
-                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
-                                <Text size="sm" fw={700}>{ficha?.nombre_centro || '—'}</Text>
-                                <Text size="xs" fw={500} c="dimmed" style={{ whiteSpace: 'normal' }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
-                            </Stack>
-
-                            {/* Group 3: Operational */}
-                            <Stack gap={4}>
-                                <Text size="xs" fw={700} c="blue.7" style={{ whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
-                                {isPuntual ? (
-                                    <Box>
-                                        <Text size="10px" fw={700} c="dimmed">FECHA MUESTREO</Text>
-                                        <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                        <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
-                                    </Box>
-                                ) : (
-                                    <SimpleGrid cols={2} spacing="xs">
-                                        <Box>
-                                            <Text size="10px" fw={700} c="dimmed">INICIO</Text>
-                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                            <Text size="xs" c="dimmed" truncate title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
-                                        </Box>
-                                        <Box>
-                                            <Text size="10px" fw={700} c="dimmed">TÉRMINO</Text>
-                                            <Text size="xs" fw={600}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
-                                            <Text size="xs" c="dimmed" truncate title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
-                                        </Box>
-                                    </SimpleGrid>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+                        {/* Group 1: Empresa Context */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <Text strong style={{ fontSize: 11, color: '#1864ab', whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
+                            <Text strong style={{ fontSize: 13, color: '#1864ab' }}>{ficha?.nombre_empresa || '—'}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{ficha?.nombre_contacto || '—'}</Text>
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 }}>
+                                <IconMapPin size={12} color="gray" />
+                                <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
+                                {ficha?.referencia_googlemaps && (
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<IconMapPin size={14} />}
+                                        href={ficha.referencia_googlemaps}
+                                        target="_blank"
+                                    />
                                 )}
-                            </Stack>
-                        </SimpleGrid>
-                    </Grid.Col>
+                            </div>
+                        </div>
 
-                    <Grid.Col span={{ base: 12, md: 2 }}>
-                        <Stack gap="xs" align="flex-end" justify="center" h="100%">
-                            {/* Botón Información — abre el HelpCenter */}
-                            <Button
-                                variant="light"
-                                color="adl-blue"
-                                size="xs"
-                                radius="md"
-                                fullWidth
-                                leftSection={<IconInfoCircle size={14} stroke={2} />}
-                                onClick={() => setHelpCenterOpen(true)}
-                                styles={{ root: { fontWeight: 600, border: '1px solid var(--mantine-color-adl-blue-2)' } }}
-                            >
-                                Información
-                            </Button>
+                        {/* Group 2: Technical Context */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <Text strong style={{ fontSize: 11, color: '#1864ab', whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
+                            <Text strong style={{ fontSize: 13 }}>{ficha?.nombre_centro || '—'}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
+                        </div>
 
-                            {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
-                                <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
-                                    <Button
-                                        variant="light"
-                                        color="grape"
-                                        fullWidth
-                                        leftSection={<IconRefresh size={18} />}
-                                        onClick={() => setActiveSubmodule('ma-remuestreo')}
-                                    >
-                                        Remuestreo
-                                    </Button>
-                                </ProtectedContent>
+                        {/* Group 3: Operational */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <Text strong style={{ fontSize: 11, color: '#1864ab', whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
+                            {isPuntual ? (
+                                <div>
+                                    <Text type="secondary" strong style={{ fontSize: 10 }}>FECHA MUESTREO</Text>
+                                    <Text strong style={{ fontSize: 12, display: 'block' }}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
+                                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                    <div>
+                                        <Text type="secondary" strong style={{ fontSize: 10 }}>INICIO</Text>
+                                        <Text strong style={{ fontSize: 12, display: 'block' }}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                    </div>
+                                    <div>
+                                        <Text type="secondary" strong style={{ fontSize: 10 }}>TÉRMINO</Text>
+                                        <Text strong style={{ fontSize: 12, display: 'block' }}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
+                                    </div>
+                                </div>
                             )}
-                            <ProtectedContent permission="FI_EXP_MC">
-                                <Tooltip
-                                    label={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
-                                    color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', justifyContent: 'center', height: '100%' }}>
+                        {/* Botón Información — abre el HelpCenter */}
+                        <Button
+                            block
+                            icon={<IconInfoCircle size={14} />}
+                            onClick={() => setHelpCenterOpen(true)}
+                            style={{ fontWeight: 600 }}
+                        >
+                            Información
+                        </Button>
+
+                        {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
+                            <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
+                                <Button
+                                    block
+                                    style={{ color: '#9c36b5' }}
+                                    icon={<IconRefresh size={18} />}
+                                    onClick={() => setActiveSubmodule('ma-remuestreo')}
                                 >
-                                    <Button
-                                        fullWidth
-                                        leftSection={<IconDownload size={16} />}
-                                        variant="filled"
-                                        color={(ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
-                                        onClick={async () => {
-                                            try {
-                                                const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
-                                                const url = window.URL.createObjectURL(pdfBlob);
-                                                const link = document.createElement('a');
-                                                const fileName = ficha?.caso_adlab || selectedCorrelativo || `Ficha_${selectedFichaId}`;
-                                                link.href = url;
-                                                link.setAttribute('download', `${fileName}.pdf`);
-                                                document.body.appendChild(link);
-                                                link.click();
-                                                document.body.removeChild(link);
-                                                window.URL.revokeObjectURL(url);
-                                            } catch (err) {
-                                                console.error('Error downloading PDF:', err);
-                                            }
-                                        }}
-                                    >
-                                        Exportar PDF
-                                    </Button>
-                                </Tooltip>
+                                    Remuestreo
+                                </Button>
                             </ProtectedContent>
+                        )}
+                        <ProtectedContent permission="FI_EXP_MC">
+                            <Tooltip
+                                title={isRechazada ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
+                            >
+                                <Button
+                                    block
+                                    icon={<IconDownload size={16} />}
+                                    type="primary"
+                                    danger={isRechazada}
+                                    onClick={async () => {
+                                        try {
+                                            const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
+                                            const url = window.URL.createObjectURL(pdfBlob);
+                                            const link = document.createElement('a');
+                                            const fileName = ficha?.caso_adlab || selectedCorrelativo || `Ficha_${selectedFichaId}`;
+                                            link.href = url;
+                                            link.setAttribute('download', `${fileName}.pdf`);
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            window.URL.revokeObjectURL(url);
+                                        } catch (err) {
+                                            console.error('Error downloading PDF:', err);
+                                        }
+                                    }}
+                                >
+                                    Exportar PDF
+                                </Button>
+                            </Tooltip>
+                        </ProtectedContent>
 
-                            {/* Realizado por GEM - solo visible para rol GEM MAM PM */}
-                            {(activeModule === 'gem' || activeModule === 'unidades-gem') && isGemMamPm && (
-                                <Paper withBorder radius="md" p="xs" style={{ width: '100%', borderColor: realizadoGem?.realizado ? 'var(--mantine-color-teal-4)' : undefined, background: realizadoGem?.realizado ? 'rgba(34,197,94,0.07)' : undefined }}>
-                                    <Stack gap={4} align="center">
-                                        <Text size="xs" fw={700} c={realizadoGem?.realizado ? 'teal.7' : 'dimmed'} ta="center">
-                                            Realizado por GEM
-                                        </Text>
-                                        <Switch
-                                            size="md"
-                                            color="teal"
-                                            checked={realizadoGem?.realizado || false}
-                                            disabled={realizadoGem?.realizado || realizadoLoading}
-                                            onChange={() => { if (!realizadoGem?.realizado) setConfirmModalOpen(true); }}
-                                        />
-                                        {realizadoGem?.realizado && (
-                                            <Stack gap={0} align="center">
-                                                <Text size="10px" fw={600} c="teal.7">✓ Confirmado</Text>
-                                                <Text size="10px" c="dimmed"><strong>Por:</strong> {realizadoGem.userName}</Text>
-                                                <Text size="10px" c="dimmed"><strong>Fecha:</strong> {realizadoGem.fecha}</Text>
-                                            </Stack>
-                                        )}
-                                    </Stack>
-                                </Paper>
-                            )}
-                        </Stack>
-                    </Grid.Col>
-                </Grid>
-            </Paper>
+                        {/* Realizado por GEM - solo visible para rol GEM MAM PM */}
+                        {(activeModule === 'gem' || activeModule === 'unidades-gem') && isGemMamPm && (
+                            <div style={{
+                                width: '100%', border: `1px solid ${realizadoGem?.realizado ? '#38d9a9' : 'var(--app-border)'}`, borderRadius: 8, padding: 8,
+                                background: realizadoGem?.realizado ? 'rgba(34,197,94,0.07)' : undefined,
+                            }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                    <Text strong style={{ fontSize: 11, color: realizadoGem?.realizado ? '#0c8599' : 'var(--app-text-secondary)', textAlign: 'center' }}>
+                                        Realizado por GEM
+                                    </Text>
+                                    <Switch
+                                        checked={realizadoGem?.realizado || false}
+                                        disabled={realizadoGem?.realizado || realizadoLoading}
+                                        onChange={() => { if (!realizadoGem?.realizado) setConfirmModalOpen(true); }}
+                                    />
+                                    {realizadoGem?.realizado && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                            <Text strong style={{ fontSize: 10, color: '#0c8599' }}>✓ Confirmado</Text>
+                                            <Text type="secondary" style={{ fontSize: 10 }}><strong>Por:</strong> {realizadoGem.userName}</Text>
+                                            <Text type="secondary" style={{ fontSize: 10 }}><strong>Fecha:</strong> {realizadoGem.fecha}</Text>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Card>
 
             {/* Modal de confirmación Realizado por GEM + OI */}
             <Modal
-                opened={confirmModalOpen}
-                onClose={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
-                title={
-                    <Group gap="xs">
-                        <IconAlertTriangle size={18} color="var(--mantine-color-orange-6)" />
-                        <Text fw={700} size="md" c="orange.8">Confirmar ingreso en ADL Soft</Text>
-                    </Group>
-                }
+                open={confirmModalOpen}
+                onCancel={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
+                footer={null}
+                width={520}
                 centered
-                size="md"
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <IconAlertTriangle size={18} color="#e8590c" />
+                        <Text strong style={{ fontSize: 15, color: '#d9480f' }}>Confirmar ingreso en ADL Soft</Text>
+                    </div>
+                }
             >
-                <Stack gap="lg">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
                     {/* Texto explicativo */}
                     <Alert
-                        color="orange"
-                        variant="light"
-                        radius="md"
+                        type="warning"
+                        showIcon
                         icon={<IconAlertTriangle size={16} />}
-                    >
-                        <Text size="sm">
-                            Estás a punto de marcar como <strong>Realizado por GEM</strong> este muestreo.
-                            Esto significa que la información ya fue ingresada <strong>correctamente</strong> en el sistema{' '}
-                            <strong>ADL Soft</strong>.
-                        </Text>
-                        <Text size="sm" mt="xs">
-                            Si es así, ingresa el <strong>ID de caso</strong> generado por ADL Soft:
-                        </Text>
-                    </Alert>
+                        message={
+                            <div>
+                                <Text style={{ fontSize: 13 }}>
+                                    Estás a punto de marcar como <strong>Realizado por GEM</strong> este muestreo.
+                                    Esto significa que la información ya fue ingresada <strong>correctamente</strong> en el sistema{' '}
+                                    <strong>ADL Soft</strong>.
+                                </Text>
+                                <Text style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
+                                    Si es así, ingresa el <strong>ID de caso</strong> generado por ADL Soft:
+                                </Text>
+                            </div>
+                        }
+                    />
 
                     {/* Input OI */}
-                    <Box>
-                        <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase" lts="0.5px">Código de caso (ADL Soft)</Text>
-                        <Group gap={0} align="flex-start">
+                    <div>
+                        <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>Código de caso (ADL Soft)</Text>
+                        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
                             {/* Prefijo fijo */}
-                            <Box
+                            <div
                                 style={{
                                     height: 36,
                                     padding: '0 12px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    background: 'var(--mantine-color-gray-1)',
-                                    border: '1.5px solid var(--mantine-color-gray-4)',
+                                    background: 'var(--app-hover-bg)',
+                                    border: '1.5px solid var(--app-border)',
                                     borderRight: 'none',
                                     borderRadius: '6px 0 0 6px',
                                     fontWeight: 800,
                                     fontSize: 15,
-                                    color: 'var(--mantine-color-blue-7)',
+                                    color: '#1864ab',
                                     letterSpacing: 1,
                                     userSelect: 'none',
                                     whiteSpace: 'nowrap'
                                 }}
                             >
                                 OI-
-                            </Box>
+                            </div>
                             {/* Input numérico */}
-                            <TextInput
+                            <Input
                                 placeholder="ingrese el id"
                                 value={oiNumero}
                                 onChange={(e) => {
                                     setOiError('');
-                                    setOiNumero(e.currentTarget.value.replace(/\D/g, ''));
+                                    setOiNumero(e.target.value.replace(/\D/g, ''));
                                 }}
-                                error={oiError || undefined}
-                                style={{ flex: 1 }}
-                                styles={{
-                                    input: {
-                                        borderRadius: '0 6px 6px 0',
-                                        fontWeight: 700,
-                                        fontSize: 15,
-                                        letterSpacing: 1
-                                    }
-                                }}
+                                status={oiError ? 'error' : undefined}
+                                style={{ flex: 1, borderRadius: '0 6px 6px 0', fontWeight: 700, fontSize: 15, letterSpacing: 1 }}
                                 maxLength={7}
                                 autoFocus
                                 onKeyDown={(e) => { if (e.key === 'Enter' && oiNumero.trim()) handleConfirmRealizado(); }}
                             />
-                        </Group>
+                        </div>
+                        {oiError && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{oiError}</Text>}
                         {/* Preview */}
                         {oiNumero.trim() && !oiError && (
-                            <Text size="xs" c="blue.6" fw={700} mt={6}>
+                            <Text strong style={{ fontSize: 12, color: '#1c7ed6', display: 'block', marginTop: 6 }}>
                                 Resultado: <strong>OI-{oiNumero.trim()}</strong>
                             </Text>
                         )}
-                    </Box>
+                    </div>
 
-                    <Box>
-                        <Text size="xs" fw={700} c="dimmed" mb={6} tt="uppercase" lts="0.5px">Regenerar documentos con este Caso</Text>
-                        <Stack gap="xs">
-                            <Switch
-                                label="Generar FoMa"
-                                description="Reemplaza el encabezado 'Folio' por 'ID CASO' en el FoMa ya generado por la app móvil."
-                                checked={generarFoma}
-                                onChange={(e) => setGenerarFoma(e.currentTarget.checked)}
-                                color="teal"
-                            />
-                            <Switch
-                                label="Generar Cadena de Custodia"
-                                description="Regenera todas las Cadenas de Custodia ya generadas (una por laboratorio) con el nuevo encabezado."
-                                checked={generarCadena}
-                                onChange={(e) => setGenerarCadena(e.currentTarget.checked)}
-                                color="teal"
-                            />
-                        </Stack>
-                    </Box>
+                    <div>
+                        <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>Regenerar documentos con este Caso</Text>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <Switch checked={generarFoma} onChange={(checked) => setGenerarFoma(checked)} />
+                                <div>
+                                    <Text style={{ fontSize: 13, display: 'block' }}>Generar FoMa</Text>
+                                    <Text type="secondary" style={{ fontSize: 11 }}>Reemplaza el encabezado 'Folio' por 'ID CASO' en el FoMa ya generado por la app móvil.</Text>
+                                </div>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                <Switch checked={generarCadena} onChange={(checked) => setGenerarCadena(checked)} />
+                                <div>
+                                    <Text style={{ fontSize: 13, display: 'block' }}>Generar Cadena de Custodia</Text>
+                                    <Text type="secondary" style={{ fontSize: 11 }}>Regenera todas las Cadenas de Custodia ya generadas (una por laboratorio) con el nuevo encabezado.</Text>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Divider />
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: 0 }} />
 
-                    <Group justify="flex-end" gap="sm">
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                         <Button
-                            variant="default"
                             onClick={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
                             disabled={realizadoLoading}
                         >
                             Cancelar
                         </Button>
                         <Button
-                            color="teal"
+                            type="primary"
+                            style={{ backgroundColor: '#0c8599' }}
                             loading={realizadoLoading}
-                            leftSection={<IconCheck size={16} />}
+                            icon={<IconCheck size={16} />}
                             onClick={handleConfirmRealizado}
                             disabled={!oiNumero.trim()}
                         >
                             Confirmar y Guardar
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
-            <Tabs defaultValue="datos_ingresados" color="blue" variant="pills" radius="md" style={{ width: '100%' }}>
-                <Tabs.List mb="md">
-                    <Tabs.Tab value="datos_ingresados" leftSection={<IconDatabase size={16} />}>
-                        Datos ingresados
-                    </Tabs.Tab>
-                    <Tabs.Tab value="documentos" leftSection={<IconFileText size={16} />}>
-                        Documentos
-                    </Tabs.Tab>
-                </Tabs.List>
+            <Tabs
+                defaultActiveKey="datos_ingresados"
+                style={{ width: '100%' }}
+                items={[
+                    {
+                        key: 'datos_ingresados',
+                        label: <span><IconDatabase size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Datos ingresados</span>,
+                        children: (
+                            <Card style={{ width: '100%', overflow: 'hidden' }} styles={{ body: { padding: 0 } }}>
+                                <Tabs
+                                    defaultActiveKey="equipos"
+                                    style={{ width: '100%', padding: '0 16px' }}
+                                    items={[
+                                        {
+                                            key: 'equipos',
+                                            label: <span><IconTool size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Equipos</span>,
+                                            children: (
+                                                <div style={{ padding: 16 }}>
+                                                    {isPuntual ? (
+                                                        <div>
+                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                <IconTool color="orange" size={20} />
+                                                                <Title level={5} style={{ margin: 0 }}>Equipos Utilizados</Title>
+                                                            </div>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                {equipos?.filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S').length > 0 ? (
+                                                                    equipos
+                                                                        .filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S')
+                                                                        .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx)
+                                                                        .map((eq: any, i: number) => (
+                                                                            <div key={i} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
+                                                                                <Text strong style={{ fontSize: 13, display: 'block' }}>{eq.nombre}</Text>
+                                                                                <Text type="secondary" style={{ fontSize: 12 }}>Código: {eq.codigo}</Text>
+                                                                            </div>
+                                                                        ))
+                                                                ) : <Text type="secondary" italic style={{ fontSize: 13 }}>No hay equipos registrados.</Text>}
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
+                                                            <div>
+                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                    <IconTool color="orange" size={20} />
+                                                                    <Title level={5} style={{ margin: 0 }}>Equipos Instalación</Title>
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                    {equipos?.filter((e: any) => e.usado_instalacion === 'S').length > 0 ? (
+                                                                        equipos.filter((e: any) => e.usado_instalacion === 'S').map((eq: any, i: number) => (
+                                                                            <div key={i} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
+                                                                                <Text strong style={{ fontSize: 13, display: 'block' }}>{eq.nombre}</Text>
+                                                                                <Text type="secondary" style={{ fontSize: 12 }}>Código: {eq.codigo}</Text>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : <Text type="secondary" italic style={{ fontSize: 13 }}>No hay equipos registrados.</Text>}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                    <IconTool color="#1c7ed6" size={20} />
+                                                                    <Title level={5} style={{ margin: 0 }}>Equipos Retiro</Title>
+                                                                </div>
+                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                    {equipos?.filter((e: any) => e.usado_retiro === 'S').length > 0 ? (
+                                                                        equipos.filter((e: any) => e.usado_retiro === 'S').map((eq: any, i: number) => (
+                                                                            <div key={i} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
+                                                                                <Text strong style={{ fontSize: 13, display: 'block' }}>{eq.nombre}</Text>
+                                                                                <Text type="secondary" style={{ fontSize: 12 }}>Código: {eq.codigo}</Text>
+                                                                            </div>
+                                                                        ))
+                                                                    ) : <Text type="secondary" italic style={{ fontSize: 13 }}>No hay equipos registrados.</Text>}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0' }}>
+                                                        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>Condiciones de Medición</Text>
+                                                        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                                                    </div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
+                                                        <div>
+                                                            <Text strong type="secondary" style={{ fontSize: 11, display: 'block' }}>FLUJO LAMINAR</Text>
+                                                            <Tag color={procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'green' : 'default'}>
+                                                                {procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'SÍ' : 'NO'}
+                                                            </Tag>
+                                                        </div>
+                                                        <div>
+                                                            <Text strong type="secondary" style={{ fontSize: 11, display: 'block' }}>VELOCIDAD UNIFORME</Text>
+                                                            <Tag color={procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'green' : 'default'}>
+                                                                {procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'SÍ' : 'NO'}
+                                                            </Tag>
+                                                        </div>
+                                                    </div>
+                                                    <Text strong type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 16 }}>OBSERVACIONES TÉCNICAS</Text>
+                                                    <Text type="secondary" italic style={{ fontSize: 13 }}>{procesos?.instalacion?.condiciones?.observaciones || 'Sin observaciones.'}</Text>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'datos',
+                                            label: <span><IconCalendarTime size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Datos</span>,
+                                            children: (
+                                                <div style={{ padding: 16 }}>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(260px, 1fr))`, gap: 20 }}>
+                                                        {isPuntual ? (
+                                                            <div style={{ maxWidth: 360 }}>
+                                                                <Title level={5} style={{ marginBottom: 8, color: '#e8590c' }}>Muestreo</Title>
+                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                        <KV label="Fecha Muestreo" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
+                                                                        <KV label="Hora Muestreo" value={fmt(ficha?.ma_muestreo_horai)} />
+                                                                        <KV label="Temperatura" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
+                                                                        <KV label="Temperatura corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
+                                                                        <KV label="pH" value={fmt(ficha?.ma_phi)} color="#d9480f" />
+                                                                        {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
+                                                                        {ficha?.totalizador_final && <KV label="Totalizador Término" value={`${fmt(ficha?.totalizador_final)} m³`} />}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div>
+                                                                    <Title level={5} style={{ marginBottom: 8, color: '#e8590c' }}>Instalación</Title>
+                                                                    <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                            <KV label="Fecha Inicio" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
+                                                                            <KV label="Hora Inicio" value={fmt(ficha?.ma_muestreo_horai)} />
+                                                                            <KV label="Temp. Inicio" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
+                                                                            <KV label="Temp. Inicio corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
+                                                                            <KV label="pH Inicio" value={fmt(ficha?.ma_phi)} color="#d9480f" />
+                                                                            {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                                <div>
+                                                                    <Title level={5} style={{ marginBottom: 8, color: '#1864ab' }}>Retiro</Title>
+                                                                    <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                            <KV label="Fecha Término" value={parseFechaStr(ficha?.ma_muestreo_fechat)} />
+                                                                            <KV label="Hora Término" value={fmt(ficha?.ma_muestreo_horat)} />
+                                                                            <KV label="Temp. Término" value={`${fmt(ficha?.ma_temperaturat)} °C`} color="#1864ab" />
+                                                                            <KV label="Temp. Término corregida" value={`${fmt(ficha?.temperatura_corregidat)} °C`} color="#1864ab" />
+                                                                            <KV label="pH Término" value={fmt(ficha?.ma_pht)} color="#1864ab" />
+                                                                            {ficha?.totalizador_final && <KV label="Totalizador Final" value={`${fmt(ficha?.totalizador_final)} m³`} />}
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </>
+                                                        )}
 
-                <Tabs.Panel value="datos_ingresados" style={{ width: '100%', overflow: 'hidden', scrollbarGutter: 'stable' }}>
-                    <Box p="0" style={{ width: '100%' }}>
-                        <Paper withBorder radius="md" shadow="xs" style={{ width: '100%', overflow: 'hidden' }}>
-                            <Tabs defaultValue="equipos" variant="outline" style={{ width: '100%' }}>
-                                <Tabs.List grow>
-                                    <Tabs.Tab value="equipos" leftSection={<IconTool size={16} />}>Equipos</Tabs.Tab>
-                                    <Tabs.Tab value="datos" leftSection={<IconCalendarTime size={16} />}>Datos</Tabs.Tab>
-                                    <Tabs.Tab value="analisis" leftSection={<IconFlask size={16} />}>Análisis</Tabs.Tab>
-                                    <Tabs.Tab value="fotos" leftSection={<IconPhoto size={16} />}>Fotos</Tabs.Tab>
-                                    <Tabs.Tab value="firmas" leftSection={<IconSignature size={16} />}>Firmas</Tabs.Tab>
-                                </Tabs.List>
-
-                                {/* --- SUB-TAB: EQUIPOS --- */}
-                                <Tabs.Panel value="equipos" style={{ width: '100%', overflow: 'hidden' }}>
-                                    <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
-                                        {isPuntual ? (
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconTool color="orange" size={20} />
-                                                    <Title order={5}>Equipos Utilizados</Title>
-                                                </Group>
-                                                <Stack gap="xs">
-                                                    {equipos?.filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S').length > 0 ? (
-                                                        equipos
-                                                            .filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S')
-                                                            .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx)
-                                                            .map((eq: any, i: number) => (
-                                                                <Paper key={i} withBorder p="xs" radius="sm">
-                                                                    <Text fw={600} size="sm">{eq.nombre}</Text>
-                                                                    <Text size="xs" c="dimmed">Código: {eq.codigo}</Text>
-                                                                </Paper>
-                                                            ))
-                                                    ) : <Text fs="italic" size="sm" c="dimmed">No hay equipos registrados.</Text>}
-                                                </Stack>
-                                            </Box>
-                                        ) : (
-                                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconTool color="orange" size={20} />
-                                                    <Title order={5}>Equipos Instalación</Title>
-                                                </Group>
-                                                <Stack gap="xs">
-                                                    {equipos?.filter((e: any) => e.usado_instalacion === 'S').length > 0 ? (
-                                                        equipos.filter((e: any) => e.usado_instalacion === 'S').map((eq: any, i: number) => (
-                                                            <Paper key={i} withBorder p="xs" radius="sm">
-                                                                <Text fw={600} size="sm">{eq.nombre}</Text>
-                                                                <Text size="xs" c="dimmed">Código: {eq.codigo}</Text>
-                                                            </Paper>
-                                                        ))
-                                                    ) : <Text fs="italic" size="sm" c="dimmed">No hay equipos registrados.</Text>}
-                                                </Stack>
-                                            </Box>
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconTool color="blue" size={20} />
-                                                    <Title order={5}>Equipos Retiro</Title>
-                                                </Group>
-                                                <Stack gap="xs">
-                                                    {equipos?.filter((e: any) => e.usado_retiro === 'S').length > 0 ? (
-                                                        equipos.filter((e: any) => e.usado_retiro === 'S').map((eq: any, i: number) => (
-                                                            <Paper key={i} withBorder p="xs" radius="sm">
-                                                                <Text fw={600} size="sm">{eq.nombre}</Text>
-                                                                <Text size="xs" c="dimmed">Código: {eq.codigo}</Text>
-                                                            </Paper>
-                                                        ))
-                                                    ) : <Text fs="italic" size="sm" c="dimmed">No hay equipos registrados.</Text>}
-                                                </Stack>
-                                            </Box>
-                                        </SimpleGrid>
-                                        )}
-                                        <Divider my="lg" label="Condiciones de Medición" labelPosition="center" />
-                                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl">
-                                            <Box style={{ minWidth: 0 }}>
-                                                <Text fw={700} size="xs" c="dimmed">FLUJO LAMINAR</Text>
-                                                <Badge color={procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'green' : 'gray'}>
-                                                    {procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'SÍ' : 'NO'}
-                                                </Badge>
-                                            </Box>
-                                            <Box style={{ minWidth: 0 }}>
-                                                <Text fw={700} size="xs" c="dimmed">VELOCIDAD UNIFORME</Text>
-                                                <Badge color={procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'green' : 'gray'}>
-                                                    {procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'SÍ' : 'NO'}
-                                                </Badge>
-                                            </Box>
-                                        </SimpleGrid>
-                                        <Text fw={700} size="xs" c="dimmed" mt="md">OBSERVACIONES TÉCNICAS</Text>
-                                        <Text fs="italic" size="sm" c="dimmed">{procesos?.instalacion?.condiciones?.observaciones || 'Sin observaciones.'}</Text>
-                                    </Box>
-                                </Tabs.Panel>
-
-                                {/* --- SUB-TAB: DATOS --- */}
-                                <Tabs.Panel value="datos" style={{ width: '100%', overflow: 'hidden' }}>
-                                    <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
-                                        <Stack gap="xl" style={{ width: '100%' }}>
-                                            <SimpleGrid cols={{ base: 1, md: isPuntual ? 1 : (ficha?.tipo_fichaingresoservicio !== 'Puntual' ? 3 : 2) }} spacing="lg" style={{ width: '100%', minWidth: 0 }}>
-                                                {isPuntual ? (
-                                                    /* Puntual: un solo proceso de muestreo (sin instalación/retiro separados) */
-                                                    <Box style={{ minWidth: 0, maxWidth: 360 }}>
-                                                        <Title order={5} mb="sm" c="orange.7">Muestreo</Title>
-                                                        <Paper withBorder p="md" radius="md" style={{ width: '100%', overflow: 'hidden' }}>
-                                                            <Stack gap="xs">
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Fecha Muestreo</Text>
-                                                                    <Text fw={600} size="sm">{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Hora Muestreo</Text>
-                                                                    <Text fw={600} size="sm">{fmt(ficha?.ma_muestreo_horai)}</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Temperatura</Text>
-                                                                    <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.ma_temperaturai)} °C</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Temperatura corregida</Text>
-                                                                    <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.temperatura_corregidai)} °C</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">pH</Text>
-                                                                    <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.ma_phi)}</Text>
-                                                                </Group>
-                                                                {ficha?.totalizador_inicio && (
-                                                                    <Group justify="space-between" wrap="wrap">
-                                                                        <Text size="sm" c="dimmed">Totalizador Inicio</Text>
-                                                                        <Text fw={600} size="sm">{fmt(ficha?.totalizador_inicio)} m³</Text>
-                                                                    </Group>
-                                                                )}
-                                                                {ficha?.totalizador_final && (
-                                                                    <Group justify="space-between" wrap="wrap">
-                                                                        <Text size="sm" c="dimmed">Totalizador Término</Text>
-                                                                        <Text fw={600} size="sm">{fmt(ficha?.totalizador_final)} m³</Text>
-                                                                    </Group>
-                                                                )}
-                                                            </Stack>
-                                                        </Paper>
-                                                    </Box>
-                                                ) : (
-                                                <>
-                                                {/* Instalación */}
-                                                <Box style={{ minWidth: 0 }}>
-                                                    <Title order={5} mb="sm" c="orange.7">Instalación</Title>
-                                                    <Paper withBorder p="md" radius="md" style={{ width: '100%', overflow: 'hidden' }}>
-                                                        <Stack gap="xs">
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Fecha Inicio</Text>
-                                                                <Text fw={600} size="sm">{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Hora Inicio</Text>
-                                                                <Text fw={600} size="sm">{fmt(ficha?.ma_muestreo_horai)}</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Temp. Inicio</Text>
-                                                                <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.ma_temperaturai)} °C</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Temp. Inicio corregida</Text>
-                                                                <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.temperatura_corregidai)} °C</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">pH Inicio</Text>
-                                                                <Text fw={600} size="sm" c="orange.8">{fmt(ficha?.ma_phi)}</Text>
-                                                            </Group>
-                                                            {ficha?.totalizador_inicio && (
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Totalizador Inicio</Text>
-                                                                    <Text fw={600} size="sm">{fmt(ficha?.totalizador_inicio)} m³</Text>
-                                                                </Group>
-                                                            )}
-                                                        </Stack>
-                                                    </Paper>
-                                                </Box>
-
-                                                {/* Retiro */}
-                                                <Box style={{ minWidth: 0 }}>
-                                                    <Title order={5} mb="sm" c="blue.7">Retiro</Title>
-                                                    <Paper withBorder p="md" radius="md" style={{ width: '100%', overflow: 'hidden' }}>
-                                                        <Stack gap="xs">
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Fecha Término</Text>
-                                                                <Text fw={600} size="sm">{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Hora Término</Text>
-                                                                <Text fw={600} size="sm">{fmt(ficha?.ma_muestreo_horat)}</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Temp. Término</Text>
-                                                                <Text fw={600} size="sm" c="blue.8">{fmt(ficha?.ma_temperaturat)} °C</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">Temp. Término corregida</Text>
-                                                                <Text fw={600} size="sm" c="blue.8">{fmt(ficha?.temperatura_corregidat)} °C</Text>
-                                                            </Group>
-                                                            <Group justify="space-between" wrap="wrap">
-                                                                <Text size="sm" c="dimmed">pH Término</Text>
-                                                                <Text fw={600} size="sm" c="blue.8">{fmt(ficha?.ma_pht)}</Text>
-                                                            </Group>
-                                                            {ficha?.totalizador_final && (
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Totalizador Final</Text>
-                                                                    <Text fw={600} size="sm">{fmt(ficha?.totalizador_final)} m³</Text>
-                                                                </Group>
-                                                            )}
-                                                        </Stack>
-                                                    </Paper>
-                                                </Box>
-                                                </>
-                                                )}
-
-                                                {/* Datos Compuestos / VDD */}
-                                                {ficha?.tipo_fichaingresoservicio !== 'Puntual' && (
-                                                    <Box style={{ minWidth: 0 }}>
-                                                        <Title order={5} mb="sm" c="teal.7">Datos Compuestos / VDD</Title>
-                                                        <Paper withBorder p="md" radius="md" style={{ width: '100%', overflow: 'hidden' }}>
-                                                            <Stack gap="xs">
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Fecha Compuesta</Text>
-                                                                    <Text fw={600} size="sm">{parseFechaStr(ficha?.ma_fecha_compuesta)}</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Hora Compuesta</Text>
-                                                                    <Text fw={600} size="sm">{fmt(ficha?.ma_hora_compuesta)}</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Temp. Compuesta</Text>
-                                                                    <Text fw={600} size="sm" c="teal.8">{fmt(ficha?.ma_temperatura_compuesta)} °C</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">Temp. Compuesta corregida</Text>
-                                                                    <Text fw={600} size="sm" c="teal.8">{fmt(ficha?.temperatura_corregidacompuesta)} °C</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed">pH Compuesto</Text>
-                                                                    <Text fw={600} size="sm" c="teal.8">{fmt(ficha?.ma_ph_compuesta)}</Text>
-                                                                </Group>
-                                                                <Group justify="space-between" wrap="wrap">
-                                                                    <Text size="sm" c="dimmed" fw={700}>VDD</Text>
-                                                                    <Text fw={800} c="blue.8" size="md">{fmt(ficha?.vdd)} m³/h</Text>
-                                                                </Group>
-                                                            </Stack>
-                                                        </Paper>
-                                                    </Box>
-                                                )}
-                                            </SimpleGrid>
-                                        </Stack>
-                                    </Box>
-                                </Tabs.Panel>
-
-                                {/* --- SUB-TAB: ANÁLISIS --- */}
-                                <Tabs.Panel value="analisis" style={{ width: '100%', overflow: 'hidden' }}>
-                                    <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
-                                        <Stack gap="xl" style={{ width: '100%' }}>
-                                            {/* Análisis de Terreno */}
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconTool color="teal" size={20} />
-                                                    <Title order={5}>Análisis de Terreno</Title>
-                                                </Group>
-                                                <Paper withBorder radius="md" p="0" style={{ overflow: 'hidden', width: '100%' }}>
-                                                    <Table withTableBorder={false} withColumnBorders>
-                                                        <Table.Thead bg="teal.0">
-                                                            <Table.Tr>
-                                                                <Table.Th>Parámetro</Table.Th>
-                                                                <Table.Th ta="center">Valor</Table.Th>
-                                                                {hasPermission('FI_EXP_VER_UF') && <Table.Th ta="center">UF</Table.Th>}
-                                                            </Table.Tr>
-                                                        </Table.Thead>
-                                                        <Table.Tbody>
-                                                            {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').map((item: any, i: number) => (
-                                                                <Table.Tr key={i}>
-                                                                    <Table.Td fw={500}>{item.parametro}</Table.Td>
-                                                                    <Table.Td ta="center">
-                                                                        <Badge variant="light" color="teal">{item.valor}</Badge>
-                                                                    </Table.Td>
-                                                                    {hasPermission('FI_EXP_VER_UF') && (
-                                                                        <Table.Td ta="center">
-                                                                            <Text size="sm" fw={700} c="blue.7">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Text>
-                                                                        </Table.Td>
-                                                                    )}
-                                                                </Table.Tr>
-                                                            ))}
-                                                            {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').length === 0 && (
-                                                                <Table.Tr>
-                                                                    <Table.Td colSpan={2} style={{ textAlign: 'center' }} p="md">
-                                                                        <Text fs="italic" c="dimmed" size="sm">No hay parámetros de terreno registrados.</Text>
-                                                                    </Table.Td>
-                                                                </Table.Tr>
-                                                            )}
-                                                        </Table.Tbody>
-                                                    </Table>
-                                                </Paper>
-                                            </Box>
-
-                                            {/* Análisis de Laboratorio */}
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconFlask color="blue" size={20} />
-                                                    <Title order={5}>Análisis de Laboratorio</Title>
-                                                </Group>
-                                                <Paper withBorder radius="md" p="0" style={{ overflow: 'hidden', width: '100%' }}>
-                                                    <Table withTableBorder={false} withColumnBorders>
-                                                        <Table.Thead bg="blue.0">
-                                                            <Table.Tr>
-                                                                <Table.Th>Parámetro</Table.Th>
-                                                                <Table.Th>Laboratorio Asignado</Table.Th>
-                                                                {hasPermission('FI_EXP_VER_UF') && <Table.Th ta="center">UF</Table.Th>}
-                                                            </Table.Tr>
-                                                        </Table.Thead>
-                                                        <Table.Tbody>
-                                                            {analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio').map((item: any, i: number) => {
-                                                                return (
-                                                                    <Table.Tr key={i}>
-                                                                        <Table.Td fw={500}>{item.parametro}</Table.Td>
-                                                                        <Table.Td>
-                                                                            <Text size="xs" fw={500} c={item.id_laboratorioensayo_2 > 0 ? 'orange.8' : 'blue.8'}>
-                                                                                {item.nombre_laboratorioensayo || '—'}
-                                                                            </Text>
-                                                                        </Table.Td>
-                                                                        {hasPermission('FI_EXP_VER_UF') && (
-                                                                            <Table.Td ta="center">
-                                                                                <Text size="sm" fw={700} c="blue.7">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Text>
-                                                                            </Table.Td>
+                                                        {/* Datos Compuestos / VDD */}
+                                                        {ficha?.tipo_fichaingresoservicio !== 'Puntual' && (
+                                                            <div>
+                                                                <Title level={5} style={{ marginBottom: 8, color: '#0c8599' }}>Datos Compuestos / VDD</Title>
+                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                                        <KV label="Fecha Compuesta" value={parseFechaStr(ficha?.ma_fecha_compuesta)} />
+                                                                        <KV label="Hora Compuesta" value={fmt(ficha?.ma_hora_compuesta)} />
+                                                                        <KV label="Temp. Compuesta" value={`${fmt(ficha?.ma_temperatura_compuesta)} °C`} color="#0c8599" />
+                                                                        <KV label="Temp. Compuesta corregida" value={`${fmt(ficha?.temperatura_corregidacompuesta)} °C`} color="#0c8599" />
+                                                                        <KV label="pH Compuesto" value={fmt(ficha?.ma_ph_compuesta)} color="#0c8599" />
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                                            <Text type="secondary" strong style={{ fontSize: 13 }}>VDD</Text>
+                                                                            <Text strong style={{ fontSize: 15, color: '#1864ab' }}>{fmt(ficha?.vdd)} m³/h</Text>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'analisis',
+                                            label: <span><IconFlask size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Análisis</span>,
+                                            children: (
+                                                <div style={{ padding: 16 }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                                        {/* Análisis de Terreno */}
+                                                        <div>
+                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                <IconTool color="#0c8599" size={20} />
+                                                                <Title level={5} style={{ margin: 0 }}>Análisis de Terreno</Title>
+                                                            </div>
+                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'auto' }}>
+                                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                                    <thead style={{ backgroundColor: 'rgba(12,133,153,0.06)' }}>
+                                                                        <tr>
+                                                                            <Th>Parámetro</Th>
+                                                                            <Th center>Valor</Th>
+                                                                            {hasPermission('FI_EXP_VER_UF') && <Th center>UF</Th>}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').map((item: any, i: number) => (
+                                                                            <tr key={i}>
+                                                                                <Td bold>{item.parametro}</Td>
+                                                                                <Td center><Tag color="cyan">{item.valor}</Tag></Td>
+                                                                                {hasPermission('FI_EXP_VER_UF') && (
+                                                                                    <Td center bold>{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Td>
+                                                                                )}
+                                                                            </tr>
+                                                                        ))}
+                                                                        {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').length === 0 && (
+                                                                            <tr>
+                                                                                <Td colSpan={3} center>
+                                                                                    <Text type="secondary" italic style={{ fontSize: 13 }}>No hay parámetros de terreno registrados.</Text>
+                                                                                </Td>
+                                                                            </tr>
                                                                         )}
-                                                                    </Table.Tr>
-                                                                );
-                                                            })}
-                                                            {analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio').length === 0 && (
-                                                                <Table.Tr>
-                                                                    <Table.Td colSpan={2} style={{ textAlign: 'center' }} p="md">
-                                                                        <Text fs="italic" c="dimmed" size="sm">No hay parámetros de laboratorio registrados.</Text>
-                                                                    </Table.Td>
-                                                                </Table.Tr>
-                                                            )}
-                                                        </Table.Tbody>
-                                                    </Table>
-                                                </Paper>
-                                            </Box>
-                                        </Stack>
-                                    </Box>
-                                </Tabs.Panel>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
 
-                                {/* --- SUB-TAB: FOTOS --- */}
-                                <Tabs.Panel value="fotos" style={{ width: '100%', overflow: 'hidden' }}>
-                                    <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
-                                        {isPuntual ? (
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconPhoto color="orange" size={20} />
-                                                    <Title order={5}>Fotos Muestreo</Title>
-                                                </Group>
-                                                <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 5 }} spacing="md">
-                                                        {media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro')).length > 0 ? (
-                                                            media.ma_fotografia.split(';')
-                                                                .filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro'))
-                                                                .filter((p: string, idx: number, arr: string[]) => arr.indexOf(p) === idx)
-                                                                .map((photo: string, idx: number) => (
-                                                                    <Card key={idx} padding="xs" radius="md" withBorder shadow="sm" style={{ cursor: 'pointer' }} onClick={() => setOpenedImage(`${apiClient.defaults.baseURL}${photo}`)}>
-                                                                        <Card.Section>
-                                                                            <Image
-                                                                                src={`${apiClient.defaults.baseURL}${photo}`}
-                                                                                height={140}
-                                                                                fallbackSrc="https://placehold.co/400x300?text=Sin+Imagen"
-                                                                            />
-                                                                        </Card.Section>
-                                                                    </Card>
-                                                                ))
-                                                        ) : <Text fs="italic" size="sm" c="dimmed">No hay fotos de muestreo.</Text>}
-                                                    </SimpleGrid>
-                                                </Paper>
-                                            </Box>
-                                        ) : (
-                                        <Stack gap="xl" style={{ width: '100%' }}>
-                                            {/* Fotos Instalación */}
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconPhoto color="orange" size={20} />
-                                                    <Title order={5}>Fotos Instalación</Title>
-                                                </Group>
-                                                <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 5 }} spacing="md">
-                                                        {media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion')).length > 0 ? (
-                                                            media.ma_fotografia.split(';').filter((p: string) => p.toLowerCase().includes('instalacion')).map((photo: string, idx: number) => (
-                                                                <Card key={idx} padding="xs" radius="md" withBorder shadow="sm" style={{ cursor: 'pointer' }} onClick={() => setOpenedImage(`${apiClient.defaults.baseURL}${photo}`)}>
-                                                                    <Card.Section>
-                                                                        <Image
-                                                                            src={`${apiClient.defaults.baseURL}${photo}`}
-                                                                            height={140}
-                                                                            fallbackSrc="https://placehold.co/400x300?text=Sin+Imagen"
-                                                                        />
-                                                                    </Card.Section>
-                                                                </Card>
-                                                            ))
-                                                        ) : <Text fs="italic" size="sm" c="dimmed">No hay fotos de instalación.</Text>}
-                                                    </SimpleGrid>
-                                                </Paper>
-                                            </Box>
-
-                                            <Divider />
-
-                                            {/* Fotos Retiro */}
-                                            <Box>
-                                                <Group mb="md">
-                                                    <IconPhoto color="blue" size={20} />
-                                                    <Title order={5}>Fotos Retiro</Title>
-                                                </Group>
-                                                <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 5 }} spacing="md">
-                                                        {media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('retiro')).length > 0 ? (
-                                                            media.ma_fotografia.split(';').filter((p: string) => p.toLowerCase().includes('retiro')).map((photo: string, idx: number) => (
-                                                                <Card key={idx} padding="xs" radius="md" withBorder shadow="sm" style={{ cursor: 'pointer' }} onClick={() => setOpenedImage(`${apiClient.defaults.baseURL}${photo}`)}>
-                                                                    <Card.Section>
-                                                                        <Image
-                                                                            src={`${apiClient.defaults.baseURL}${photo}`}
-                                                                            height={140}
-                                                                            fallbackSrc="https://placehold.co/400x300?text=Sin+Imagen"
-                                                                        />
-                                                                    </Card.Section>
-                                                                </Card>
-                                                            ))
-                                                        ) : <Text fs="italic" size="sm" c="dimmed">No hay fotos de retiro.</Text>}
-                                                    </SimpleGrid>
-                                                </Paper>
-                                            </Box>
-                                        </Stack>
-                                        )}
-                                    </Box>
-                                </Tabs.Panel>
-
-                                {/* --- SUB-TAB: FIRMAS --- */}
-                                <Tabs.Panel value="firmas" style={{ width: '100%', overflow: 'hidden' }}>
-                                    <Box p="md" style={{ width: '100%', boxSizing: 'border-box' }}>
-                                        {isPuntual ? (
-                                            <Stack gap="xl" style={{ width: '100%' }}>
-                                                {/* Muestreador Section */}
-                                                <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                    <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                                        <Box>
-                                                            <Title order={6} mb="xs" c="dimmed">MUESTREADOR</Title>
-                                                            <Text size="lg" fw={700}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
-                                                            <Box mt="md" p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                {procesos?.instalacion?.firmas?.find((f: any) => f.rol === 'muestreador') ? (
-                                                                    <Image
-                                                                        src={`${apiClient.defaults.baseURL}${procesos.instalacion.firmas.find((f: any) => f.rol === 'muestreador').ruta}`}
-                                                                        height={100}
-                                                                        fit="contain"
+                                                        {/* Análisis de Laboratorio */}
+                                                        <div>
+                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                <IconFlask color="#1c7ed6" size={20} />
+                                                                <Title level={5} style={{ margin: 0 }}>Análisis de Laboratorio</Title>
+                                                            </div>
+                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'auto' }}>
+                                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                                    <thead style={{ backgroundColor: 'var(--app-accent-bg)' }}>
+                                                                        <tr>
+                                                                            <Th>Parámetro</Th>
+                                                                            <Th>Laboratorio Asignado</Th>
+                                                                            {hasPermission('FI_EXP_VER_UF') && <Th center>UF</Th>}
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio').map((item: any, i: number) => (
+                                                                            <tr key={i}>
+                                                                                <Td bold>{item.parametro}</Td>
+                                                                                <Td>
+                                                                                    <Text style={{ fontSize: 12, color: item.id_laboratorioensayo_2 > 0 ? '#d9480f' : '#1864ab' }}>
+                                                                                        {item.nombre_laboratorioensayo || '—'}
+                                                                                    </Text>
+                                                                                </Td>
+                                                                                {hasPermission('FI_EXP_VER_UF') && (
+                                                                                    <Td center bold>{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Td>
+                                                                                )}
+                                                                            </tr>
+                                                                        ))}
+                                                                        {analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio').length === 0 && (
+                                                                            <tr>
+                                                                                <Td colSpan={3} center>
+                                                                                    <Text type="secondary" italic style={{ fontSize: 13 }}>No hay parámetros de laboratorio registrados.</Text>
+                                                                                </Td>
+                                                                            </tr>
+                                                                        )}
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'fotos',
+                                            label: <span><IconPhoto size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Fotos</span>,
+                                            children: (
+                                                <div style={{ padding: 16 }}>
+                                                    {isPuntual ? (
+                                                        <div>
+                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                <IconPhoto color="orange" size={20} />
+                                                                <Title level={5} style={{ margin: 0 }}>Fotos Muestreo</Title>
+                                                            </div>
+                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                <PhotoGrid
+                                                                    photos={media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro'))
+                                                                        .filter((p: string, idx: number, arr: string[]) => arr.indexOf(p) === idx)}
+                                                                    emptyText="No hay fotos de muestreo."
+                                                                    onOpen={setOpenedImage}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                                            <div>
+                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                    <IconPhoto color="orange" size={20} />
+                                                                    <Title level={5} style={{ margin: 0 }}>Fotos Instalación</Title>
+                                                                </div>
+                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                    <PhotoGrid
+                                                                        photos={media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion'))}
+                                                                        emptyText="No hay fotos de instalación."
+                                                                        onOpen={setOpenedImage}
                                                                     />
-                                                                ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
-                                                            </Box>
-                                                        </Box>
-                                                        <Box>
-                                                            <Title order={6} mb="xs" c="dimmed">OBSERVACIONES MUESTREADOR</Title>
-                                                            <Box p="md" bg="gray.0" style={{ borderRadius: 8, height: 160, overflowY: 'auto' }}>
-                                                                <Text size="sm" fs="italic">
-                                                                    {procesos?.instalacion?.observaciones || 'Sin observaciones.'}
-                                                                </Text>
-                                                            </Box>
-                                                        </Box>
-                                                    </SimpleGrid>
-                                                </Paper>
-
-                                                <Divider label="Observador de terreno" labelPosition="center" />
-
-                                                {/* Observador Section */}
-                                                {procesos?.instalacion?.nombreObservador && procesos?.instalacion?.nombreObservador !== 'S/D' ? (
-                                                    <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                                            <Box>
-                                                                <Title order={6} mb="xs" c="dimmed">NOMBRE OBSERVADOR</Title>
-                                                                <Text size="md" fw={600}>{procesos.instalacion.nombreObservador}</Text>
-                                                                <Title order={6} mt="md" mb="xs" c="dimmed">CARGO</Title>
-                                                                <Text size="sm">{procesos.instalacion.cargoObservador || '—'}</Text>
-                                                            </Box>
-                                                            <Box>
-                                                                <Title order={6} mb="xs" c="dimmed">FIRMA OBSERVADOR</Title>
-                                                                <Box p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {procesos?.instalacion?.firmas?.find((f: any) => f.rol === 'observador') ? (
-                                                                        <Image
-                                                                            src={`${apiClient.defaults.baseURL}${procesos.instalacion.firmas.find((f: any) => f.rol === 'observador').ruta}`}
-                                                                            height={100}
-                                                                            fit="contain"
-                                                                        />
-                                                                    ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
-                                                                </Box>
-                                                            </Box>
-                                                        </SimpleGrid>
-                                                    </Paper>
-                                                ) : (
-                                                    <Alert color="blue" variant="light" icon={<IconAlertCircle size={16} />}>
-                                                        Observador de terreno no registrado en el proceso
-                                                    </Alert>
-                                                )}
-                                            </Stack>
-                                        ) : (
-                                        <Tabs defaultValue="instalacion_f" variant="pills" radius="xl" mb="md" style={{ width: '100%' }}>
-                                            <Tabs.List justify="center">
-                                                <Tabs.Tab value="instalacion_f" color="orange">Instalación</Tabs.Tab>
-                                                <Tabs.Tab value="retiro_f" color="blue">Retiro</Tabs.Tab>
-                                            </Tabs.List>
-
-                                            <Tabs.Panel value="instalacion_f" pt="md" style={{ width: '100%', overflow: 'hidden', scrollbarGutter: 'stable' }}>
-                                                <Stack gap="xl" style={{ width: '100%' }}>
-                                                    {/* Muestreador Section */}
-                                                    <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                                            <Box>
-                                                                <Title order={6} mb="xs" c="dimmed">MUESTREADOR</Title>
-                                                                <Text size="lg" fw={700}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
-                                                                <Box mt="md" p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {procesos?.instalacion?.firmas?.find((f: any) => f.rol === 'muestreador') ? (
-                                                                        <Image
-                                                                            src={`${apiClient.defaults.baseURL}${procesos.instalacion.firmas.find((f: any) => f.rol === 'muestreador').ruta}`}
-                                                                            height={100}
-                                                                            fit="contain"
-                                                                        />
-                                                                    ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
-                                                                </Box>
-                                                            </Box>
-                                                            <Box>
-                                                                <Title order={6} mb="xs" c="dimmed">OBSERVACIONES MUESTREADOR</Title>
-                                                                <Box p="md" bg="gray.0" style={{ borderRadius: 8, height: 160, overflowY: 'auto' }}>
-                                                                    <Text size="sm" fs="italic">
-                                                                        {procesos?.instalacion?.observaciones || 'Sin observaciones.'}
-                                                                    </Text>
-                                                                </Box>
-                                                            </Box>
-                                                        </SimpleGrid>
-                                                    </Paper>
-
-                                                    <Divider label="Observador de terreno" labelPosition="center" />
-
-                                                    {/* Observador Section */}
-                                                    {procesos?.instalacion?.nombreObservador && procesos?.instalacion?.nombreObservador !== 'S/D' ? (
-                                                        <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                                                <Box>
-                                                                    <Title order={6} mb="xs" c="dimmed">NOMBRE OBSERVADOR</Title>
-                                                                    <Text size="md" fw={600}>{procesos.instalacion.nombreObservador}</Text>
-                                                                    <Title order={6} mt="md" mb="xs" c="dimmed">CARGO</Title>
-                                                                    <Text size="sm">{procesos.instalacion.cargoObservador || '—'}</Text>
-                                                                </Box>
-                                                                <Box>
-                                                                    <Title order={6} mb="xs" c="dimmed">FIRMA OBSERVADOR</Title>
-                                                                    <Box p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                        {procesos?.instalacion?.firmas?.find((f: any) => f.rol === 'observador') ? (
-                                                                            <Image
-                                                                                src={`${apiClient.defaults.baseURL}${procesos.instalacion.firmas.find((f: any) => f.rol === 'observador').ruta}`}
-                                                                                height={100}
-                                                                                fit="contain"
-                                                                            />
-                                                                        ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
-                                                                    </Box>
-                                                                </Box>
-                                                            </SimpleGrid>
-                                                        </Paper>
-                                                    ) : (
-                                                        <Alert color="blue" variant="light" icon={<IconAlertCircle size={16} />}>
-                                                            Observador de terreno no registrado en el proceso
-                                                        </Alert>
+                                                                </div>
+                                                            </div>
+                                                            <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                                                            <div>
+                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                                                                    <IconPhoto color="#1c7ed6" size={20} />
+                                                                    <Title level={5} style={{ margin: 0 }}>Fotos Retiro</Title>
+                                                                </div>
+                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                                                    <PhotoGrid
+                                                                        photos={media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('retiro'))}
+                                                                        emptyText="No hay fotos de retiro."
+                                                                        onOpen={setOpenedImage}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
                                                     )}
-                                                </Stack>
-                                            </Tabs.Panel>
-
-                                            <Tabs.Panel value="retiro_f" pt="md" style={{ width: '100%', overflow: 'hidden', scrollbarGutter: 'stable' }}>
-                                                <Stack gap="xl" style={{ width: '100%' }}>
-                                                    {/* Muestreador Section */}
-                                                    <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                                            <Box>
-                                                                <Title order={6} mb="xs" c="dimmed">MUESTREADOR</Title>
-                                                                <Text size="lg" fw={700}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
-                                                                <Box mt="md" p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                    {procesos?.retiro?.firmas?.find((f: any) => f.rol === 'muestreador') ? (
-                                                                        <Image
-                                                                            src={`${apiClient.defaults.baseURL}${procesos.retiro.firmas.find((f: any) => f.rol === 'muestreador').ruta}`}
-                                                                            height={100}
-                                                                            fit="contain"
-                                                                        />
-                                                                    ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
-                                                                </Box>
-                                                            </Box>
-                                                            <Box>
-                                                                <Title order={6} mb="xs" c="dimmed">OBSERVACIONES MUESTREADOR</Title>
-                                                                <Box p="md" bg="gray.0" style={{ borderRadius: 8, height: 160, overflowY: 'auto' }}>
-                                                                    <Text size="sm" fs="italic">
-                                                                        {procesos?.retiro?.observaciones || 'Sin observaciones.'}
-                                                                    </Text>
-                                                                </Box>
-                                                            </Box>
-                                                        </SimpleGrid>
-                                                    </Paper>
-
-                                                    <Divider label="Observador de terreno" labelPosition="center" />
-
-                                                    {/* Observador Section */}
-                                                    {procesos?.retiro?.nombreObservador && procesos?.retiro?.nombreObservador !== 'S/D' ? (
-                                                        <Paper withBorder p="md" radius="md" style={{ width: '100%' }}>
-                                                            <SimpleGrid cols={{ base: 1, md: 2 }} spacing="xl" style={{ width: '100%' }}>
-                                                                <Box>
-                                                                    <Title order={6} mb="xs" c="dimmed">NOMBRE OBSERVADOR</Title>
-                                                                    <Text size="md" fw={600}>{procesos.retiro.nombreObservador}</Text>
-                                                                    <Title order={6} mt="md" mb="xs" c="dimmed">CARGO</Title>
-                                                                    <Text size="sm">{procesos.retiro.cargoObservador || '—'}</Text>
-                                                                </Box>
-                                                                <Box>
-                                                                    <Title order={6} mb="xs" c="dimmed">FIRMA OBSERVADOR</Title>
-                                                                    <Box p="xs" bg="gray.0" style={{ borderRadius: 8, border: '1px dashed #ced4da', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                                        {procesos?.retiro?.firmas?.find((f: any) => f.rol === 'observador') ? (
-                                                                            <Image
-                                                                                src={`${apiClient.defaults.baseURL}${procesos.retiro.firmas.find((f: any) => f.rol === 'observador').ruta}`}
-                                                                                height={100}
-                                                                                fit="contain"
-                                                                            />
-                                                                        ) : <Text fs="italic" size="xs" c="dimmed">Sin firma registrada.</Text>}
-                                                                    </Box>
-                                                                </Box>
-                                                            </SimpleGrid>
-                                                        </Paper>
+                                                </div>
+                                            ),
+                                        },
+                                        {
+                                            key: 'firmas',
+                                            label: <span><IconSignature size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Firmas</span>,
+                                            children: (
+                                                <div style={{ padding: 16 }}>
+                                                    {isPuntual ? (
+                                                        <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" />
                                                     ) : (
-                                                        <Alert color="blue" variant="light" icon={<IconAlertCircle size={16} />}>
-                                                            Observador de terreno no registrado en el proceso
-                                                        </Alert>
+                                                        <Tabs
+                                                            defaultActiveKey="instalacion_f"
+                                                            centered
+                                                            items={[
+                                                                { key: 'instalacion_f', label: 'Instalación', children: <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" /> },
+                                                                { key: 'retiro_f', label: 'Retiro', children: <FirmasBloque proceso={procesos?.retiro} nombreOrigen="retiro" /> },
+                                                            ]}
+                                                        />
                                                     )}
-                                                </Stack>
-                                            </Tabs.Panel>
-                                        </Tabs>
-                                        )}
-                                    </Box>
-                                </Tabs.Panel>
-                            </Tabs>
-                        </Paper>
-                    </Box>
-                </Tabs.Panel>
+                                                </div>
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </Card>
+                        ),
+                    },
+                    {
+                        key: 'documentos',
+                        label: <span><IconFileText size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Documentos</span>,
+                        children: (
+                            <Card style={{ width: '100%' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                    <div>
+                                        <Title level={4} style={{ margin: 0, color: '#1864ab' }}>Documentos de Respaldo</Title>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>Archivos PDF generados para el cliente y laboratorios</Text>
+                                    </div>
 
-                <Tabs.Panel value="documentos" style={{ width: '100%', scrollbarGutter: 'stable' }}>
-                    <Paper p="md" withBorder radius="md" style={{ width: '100%' }}>
-                        <Stack gap="xl">
-                            <Group justify="space-between">
-                                <Stack gap={0}>
-                                    <Title order={4} c="blue.8">Documentos de Respaldo</Title>
-                                    <Text size="xs" c="dimmed">Archivos PDF generados para el cliente y laboratorios</Text>
-                                </Stack>
-                            </Group>
-
-                            {media?.documentos && media.documentos.length > 0 ? (
-                                <Stack gap="xl">
-                                    {/* FoMa Group */}
-                                    {media.documentos.filter((d: any) => d.tipo === 'FoMa').length > 0 && (
-                                        <Box>
-                                            <Divider label="FOMA" labelPosition="left" mb="md" />
-                                            <Stack gap="sm">
-                                                {media.documentos.filter((d: any) => d.tipo === 'FoMa').map((doc: any, index: number) => (
-                                                    <Card key={`foma-${index}`} withBorder radius="md" p="xs">
-                                                        <Group justify="space-between" wrap="nowrap">
-                                                            <Group wrap="nowrap">
-                                                                <ThemeIcon variant="light" color="red" size="md">
-                                                                    <IconFileText size={18} />
-                                                                </ThemeIcon>
-                                                                <Box>
-                                                                    <Text fw={700} size="sm">{doc.label}</Text>
-                                                                    <Text size="xs" c="dimmed">{doc.nombre}</Text>
-                                                                </Box>
-                                                            </Group>
-                                                            <Group gap="xs">
-                                                                <Button
-                                                                    size="compact-xs"
-                                                                    variant="light"
-                                                                    leftSection={<IconExternalLink size={12} />}
-                                                                    onClick={() => window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank')}
-                                                                >
-                                                                    Abrir
-                                                                </Button>
-                                                                <Button
-                                                                    size="compact-xs"
-                                                                    variant="light"
-                                                                    color="green"
-                                                                    leftSection={<IconSend size={12} />}
-                                                                    onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
-                                                                >
-                                                                    Reenviar
-                                                                </Button>
-                                                                <Button
-                                                                    size="compact-xs"
-                                                                    variant="subtle"
-                                                                    color="gray"
-                                                                    leftSection={<IconDownload size={12} />}
-                                                                    onClick={() => handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre)}
-                                                                >
-                                                                    Descargar
-                                                                </Button>
-                                                            </Group>
-                                                        </Group>
-                                                    </Card>
-                                                ))}
-                                            </Stack>
-                                        </Box>
-                                    )}
-
-                                    {/* Cadena de Custodia Group */}
-                                    {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').length > 0 && (
-                                        <Box>
-                                            <Divider label="CADENAS DE CUSTODIA" labelPosition="left" mb="md" />
-                                            <Stack gap="sm">
-                                                {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').map((doc: any, index: number) => {
-                                                    const isExpanded = expandedDocs.includes(doc.nombre);
-                                                    const labTests = analisis?.filter((a: any) =>
-                                                        a.tipo_analisis === 'Laboratorio' &&
-                                                        doc.label && a.nombre_laboratorioensayo &&
-                                                        (a.nombre_laboratorioensayo.toLowerCase().includes(doc.label.toLowerCase()) ||
-                                                            doc.label.toLowerCase().includes(a.nombre_laboratorioensayo.toLowerCase()))
-                                                    ) || [];
-
-                                                    return (
-                                                        <Card key={`cadena-${index}`} withBorder radius="md" p={0}>
-                                                            <Box p="xs" style={{ cursor: 'pointer' }} onClick={() => toggleDoc(doc.nombre)}>
-                                                                <Group justify="space-between" wrap="nowrap">
-                                                                    <Group wrap="nowrap">
-                                                                        <ThemeIcon variant="light" color="blue" size="md">
-                                                                            <IconFileText size={18} />
-                                                                        </ThemeIcon>
-                                                                        <Box>
-                                                                            <Group gap="xs">
-                                                                                <Text fw={700} size="sm">{doc.label}</Text>
-                                                                                {isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-                                                                            </Group>
-                                                                            <Text size="xs" c="dimmed">{doc.nombre}</Text>
-                                                                        </Box>
-                                                                    </Group>
-                                                                    <Group gap="xs">
-                                                                        <Button
-                                                                            size="compact-xs"
-                                                                            variant="light"
-                                                                            leftSection={<IconExternalLink size={12} />}
-                                                                            onClick={(e) => { e.stopPropagation(); window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank'); }}
-                                                                        >
+                                    {media?.documentos && media.documentos.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                            {/* FoMa Group */}
+                                            {media.documentos.filter((d: any) => d.tipo === 'FoMa').length > 0 && (
+                                                <div>
+                                                    <SectionDivider label="FOMA" />
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                        {media.documentos.filter((d: any) => d.tipo === 'FoMa').map((doc: any, index: number) => (
+                                                            <Card key={`foma-${index}`} size="small">
+                                                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                                                        <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)"><IconFileText size={18} /></IconWrap>
+                                                                        <div>
+                                                                            <Text strong style={{ fontSize: 13, display: 'block' }}>{doc.label}</Text>
+                                                                            <Text type="secondary" style={{ fontSize: 12 }}>{doc.nombre}</Text>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ display: 'flex', gap: 8 }}>
+                                                                        <Button size="small" icon={<IconExternalLink size={12} />} onClick={() => window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank')}>
                                                                             Abrir
                                                                         </Button>
                                                                         <Button
-                                                                            size="compact-xs"
-                                                                            variant="light"
-                                                                            color="green"
-                                                                            leftSection={<IconSend size={12} />}
+                                                                            size="small"
+                                                                            style={{ color: '#2f9e44' }}
+                                                                            icon={<IconSend size={12} />}
                                                                             onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
                                                                         >
                                                                             Reenviar
                                                                         </Button>
                                                                         <Button
-                                                                            size="compact-xs"
-                                                                            variant="subtle"
-                                                                            color="gray"
-                                                                            leftSection={<IconDownload size={12} />}
-                                                                            onClick={(e) => { e.stopPropagation(); handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre); }}
+                                                                            type="text"
+                                                                            size="small"
+                                                                            icon={<IconDownload size={12} />}
+                                                                            onClick={() => handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre)}
                                                                         >
                                                                             Descargar
                                                                         </Button>
-                                                                    </Group>
-                                                                </Group>
-                                                            </Box>
+                                                                    </div>
+                                                                </div>
+                                                            </Card>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
 
-                                                            <Collapse in={isExpanded}>
-                                                                <Box p="md" bg="gray.0" style={{ borderTop: '1px solid #dee2e6' }}>
-                                                                    <Text size="xs" fw={700} mb="xs" c="dimmed">ANÁLISIS ASOCIADOS A ESTA CADENA:</Text>
-                                                                    {labTests.length > 0 ? (
-                                                                        <Table withTableBorder withColumnBorders bg="white">
-                                                                            <Table.Thead>
-                                                                                <Table.Tr>
-                                                                                    <Table.Th>Parámetro</Table.Th>
-                                                                                </Table.Tr>
-                                                                            </Table.Thead>
-                                                                            <Table.Tbody>
-                                                                                {labTests.map((t: any, idx: number) => (
-                                                                                    <Table.Tr key={idx}>
-                                                                                        <Table.Td>{t.parametro}</Table.Td>
-                                                                                    </Table.Tr>
-                                                                                ))}
-                                                                            </Table.Tbody>
-                                                                        </Table>
-                                                                    ) : (
-                                                                        <Text size="xs" fs="italic" c="dimmed">No se pudieron vincular análisis automáticamente por nombre.</Text>
+                                            {/* Cadena de Custodia Group */}
+                                            {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').length > 0 && (
+                                                <div>
+                                                    <SectionDivider label="CADENAS DE CUSTODIA" />
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                        {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').map((doc: any, index: number) => {
+                                                            const isExpanded = expandedDocs.includes(doc.nombre);
+                                                            const labTests = analisis?.filter((a: any) =>
+                                                                a.tipo_analisis === 'Laboratorio' &&
+                                                                doc.label && a.nombre_laboratorioensayo &&
+                                                                (a.nombre_laboratorioensayo.toLowerCase().includes(doc.label.toLowerCase()) ||
+                                                                    doc.label.toLowerCase().includes(a.nombre_laboratorioensayo.toLowerCase()))
+                                                            ) || [];
+
+                                                            return (
+                                                                <Card key={`cadena-${index}`} size="small" styles={{ body: { padding: 0 } }}>
+                                                                    <div style={{ padding: 8, cursor: 'pointer' }} onClick={() => toggleDoc(doc.nombre)}>
+                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                                                                <IconWrap color="#1864ab" bg="var(--app-accent-bg)"><IconFileText size={18} /></IconWrap>
+                                                                                <div>
+                                                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                                                        <Text strong style={{ fontSize: 13 }}>{doc.label}</Text>
+                                                                                        {isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                                                                                    </div>
+                                                                                    <Text type="secondary" style={{ fontSize: 12 }}>{doc.nombre}</Text>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div style={{ display: 'flex', gap: 8 }}>
+                                                                                <Button size="small" icon={<IconExternalLink size={12} />} onClick={(e) => { e.stopPropagation(); window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank'); }}>
+                                                                                    Abrir
+                                                                                </Button>
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    style={{ color: '#2f9e44' }}
+                                                                                    icon={<IconSend size={12} />}
+                                                                                    onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
+                                                                                >
+                                                                                    Reenviar
+                                                                                </Button>
+                                                                                <Button
+                                                                                    type="text"
+                                                                                    size="small"
+                                                                                    icon={<IconDownload size={12} />}
+                                                                                    onClick={(e) => { e.stopPropagation(); handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre); }}
+                                                                                >
+                                                                                    Descargar
+                                                                                </Button>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {isExpanded && (
+                                                                        <div style={{ padding: 16, backgroundColor: 'var(--app-hover-bg)', borderTop: '1px solid var(--app-border)' }}>
+                                                                            <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>ANÁLISIS ASOCIADOS A ESTA CADENA:</Text>
+                                                                            {labTests.length > 0 ? (
+                                                                                <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'var(--app-bg-elevated)' }}>
+                                                                                    <thead>
+                                                                                        <tr><Th>Parámetro</Th></tr>
+                                                                                    </thead>
+                                                                                    <tbody>
+                                                                                        {labTests.map((t: any, idx: number) => (
+                                                                                            <tr key={idx}><Td>{t.parametro}</Td></tr>
+                                                                                        ))}
+                                                                                    </tbody>
+                                                                                </table>
+                                                                            ) : (
+                                                                                <Text type="secondary" italic style={{ fontSize: 12 }}>No se pudieron vincular análisis automáticamente por nombre.</Text>
+                                                                            )}
+                                                                        </div>
                                                                     )}
-                                                                </Box>
-                                                            </Collapse>
-                                                        </Card>
-                                                    );
-                                                })}
-                                            </Stack>
-                                        </Box>
+                                                                </Card>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '32px 0' }}>
+                                            <IconFileText size={40} color="gray" />
+                                            <Text type="secondary">No se encontraron documentos (FoMa/Cadenas) en la carpeta del correlativo.</Text>
+                                        </div>
                                     )}
-                                </Stack>
-                            ) : (
-                                <Stack align="center" py="xl" gap="sm">
-                                    <IconFileText size={40} color="gray" />
-                                    <Text c="dimmed">No se encontraron documentos (FoMa/Cadenas) en la carpeta del correlativo.</Text>
-                                </Stack>
-                            )}
-                        </Stack>
-                    </Paper>
-                </Tabs.Panel>
-            </Tabs>
+                                </div>
+                            </Card>
+                        ),
+                    },
+                ]}
+            />
 
-            <Modal opened={!!openedImage} onClose={() => setOpenedImage(null)} size="xl" centered padding={0}>
+            <Modal open={!!openedImage} onCancel={() => setOpenedImage(null)} footer={null} width="80%" centered styles={{ body: { padding: 0 } }}>
                 {openedImage && (
-                    <Image
+                    <img
                         src={openedImage}
-                        fit="contain"
-                        style={{ maxHeight: '90vh' }}
+                        style={{ maxHeight: '90vh', width: '100%', objectFit: 'contain' }}
+                        alt=""
                     />
                 )}
             </Modal>
 
             <Modal
-                opened={resendModalOpen}
-                onClose={() => setResendModalOpen(false)}
-                title={
-                    <Group align="center" gap="sm">
-                        <ThemeIcon size="md" variant="light" color="blue">
-                            <IconSend size={16} />
-                        </ThemeIcon>
-                        <Text fw={600} c="blue.8">Gestión de Reenvío de Documentos</Text>
-                    </Group>
-                }
-                size="md"
+                open={resendModalOpen}
+                onCancel={() => setResendModalOpen(false)}
+                footer={null}
+                width={520}
                 centered
-                padding="xl"
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <IconWrap color="#1864ab" bg="var(--app-accent-bg)" size={28}><IconSend size={16} /></IconWrap>
+                        <Text strong style={{ color: '#1864ab' }}>Gestión de Reenvío de Documentos</Text>
+                    </div>
+                }
             >
                 {selectedDocument && (
-                    <Stack gap="md">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
                         {resendSuccess ? (
-                            <Stack align="center" gap="md" py="xl">
-                                <ThemeIcon color="green" size={80} radius="100%">
-                                    <IconCheck size={40} />
-                                </ThemeIcon>
-                                <Title order={3} ta="center">¡Documento Enviado!</Title>
-                                <Text c="dimmed" ta="center">El documento ha sido despachado exitosamente.</Text>
-                                <Button color="blue" variant="light" onClick={() => setResendModalOpen(false)} mt="md">
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '32px 0' }}>
+                                <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.15)" size={80}><IconCheck size={40} /></IconWrap>
+                                <Title level={3} style={{ margin: 0, textAlign: 'center' }}>¡Documento Enviado!</Title>
+                                <Text type="secondary" style={{ textAlign: 'center' }}>El documento ha sido despachado exitosamente.</Text>
+                                <Button onClick={() => setResendModalOpen(false)} style={{ marginTop: 16 }}>
                                     Cerrar y volver a la ficha
                                 </Button>
-                            </Stack>
+                            </div>
                         ) : (
                             <>
-                                <Alert color="blue" variant="light" icon={<IconMailForward size={16} />}>
-                                    Está preparando el envío de: <b>{selectedDocument.label}</b> ({selectedDocument.tipo || 'Documento'})
-                                </Alert>
+                                <Alert type="info" showIcon icon={<IconMailForward size={16} />} message={<>Está preparando el envío de: <b>{selectedDocument.label}</b> ({selectedDocument.tipo || 'Documento'})</>} />
 
-                                <Stack gap="md" mt="md">
-                                    <TextInput
-                                        label="Para (To)"
-                                        placeholder="correo@ejemplo.com"
-                                        value={resendTo}
-                                        onChange={(e) => setResendTo(e.currentTarget.value)}
-                                        disabled // Temporary for testing phase
-                                        description="Destinatario bloqueado en fase de pruebas."
-                                    />
-                                    <TextInput
-                                        label="Copia (CC)"
-                                        placeholder="copia@ejemplo.com"
-                                        value={resendCc}
-                                        onChange={(e) => setResendCc(e.currentTarget.value)}
-                                        description="Separar multiplicidad con comas."
-                                    />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                                    <div>
+                                        <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>Para (To)</Text>
+                                        <Input
+                                            placeholder="correo@ejemplo.com"
+                                            value={resendTo}
+                                            onChange={(e) => setResendTo(e.target.value)}
+                                            disabled // Temporary for testing phase
+                                        />
+                                        <Text type="secondary" style={{ fontSize: 11 }}>Destinatario bloqueado en fase de pruebas.</Text>
+                                    </div>
+                                    <div>
+                                        <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>Copia (CC)</Text>
+                                        <Input
+                                            placeholder="copia@ejemplo.com"
+                                            value={resendCc}
+                                            onChange={(e) => setResendCc(e.target.value)}
+                                        />
+                                        <Text type="secondary" style={{ fontSize: 11 }}>Separar multiplicidad con comas.</Text>
+                                    </div>
 
-                                    <Card withBorder p="sm" radius="md" bg="gray.0">
-                                        <Group wrap="nowrap">
-                                            <ThemeIcon size="lg" variant="light" color="red" radius="md">
-                                                <IconFileText size={20} />
-                                            </ThemeIcon>
-                                            <Box style={{ flex: 1, overflow: 'hidden' }}>
-                                                <Text size="sm" fw={500} truncate>Archivo Adjunto</Text>
-                                                <Text size="xs" c="dimmed" truncate>
+                                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                            <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)" size={36}><IconFileText size={20} /></IconWrap>
+                                            <div style={{ flex: 1, overflow: 'hidden' }}>
+                                                <Text style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>Archivo Adjunto</Text>
+                                                <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
                                                     {selectedDocument.nombre || 'Documento.pdf'}
                                                 </Text>
-                                            </Box>
-                                        </Group>
+                                            </div>
+                                        </div>
                                     </Card>
 
-                                    {resendError && <Alert color="red" variant="filled" title="Error de envío">{resendError}</Alert>}
+                                    {resendError && <Alert type="error" message="Error de envío" description={resendError} />}
 
-                                    <Group justify="flex-end" mt="md">
-                                        <Button variant="subtle" color="gray" onClick={() => setResendModalOpen(false)} disabled={resendLoading}>Cancelar</Button>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                        <Button onClick={() => setResendModalOpen(false)} disabled={resendLoading}>Cancelar</Button>
                                         <Button
-                                            color="green"
+                                            type="primary"
+                                            style={{ backgroundColor: '#2f9e44' }}
                                             onClick={handleResend}
                                             loading={resendLoading}
-                                            leftSection={<IconSend size={16} />}
+                                            icon={<IconSend size={16} />}
                                         >
                                             Enviar Correo
                                         </Button>
-                                    </Group>
-                                </Stack>
+                                    </div>
+                                </div>
                             </>
                         )}
-                    </Stack>
+                    </div>
                 )}
             </Modal>
-        </Box>
+        </div>
     );
 };
+
+function IconWrap({ children, color, bg, size = 24 }: { children: React.ReactNode; color: string; bg: string; size?: number }) {
+    return (
+        <div style={{
+            width: size, height: size, borderRadius: '50%', backgroundColor: bg, color,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+            {children}
+        </div>
+    );
+}
+
+function SectionDivider({ label }: { label: string }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <Text type="secondary" strong style={{ fontSize: 11 }}>{label}</Text>
+            <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+        </div>
+    );
+}
+
+function PhotoGrid({ photos, emptyText, onOpen }: { photos?: string[]; emptyText: string; onOpen: (url: string) => void }) {
+    if (!photos || photos.length === 0) {
+        return <Text type="secondary" italic style={{ fontSize: 13 }}>{emptyText}</Text>;
+    }
+    return (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+            {photos.map((photo, idx) => {
+                const url = `${apiClient.defaults.baseURL}${photo}`;
+                return (
+                    <Card key={idx} size="small" hoverable style={{ cursor: 'pointer' }} styles={{ body: { padding: 4 } }} onClick={() => onOpen(url)}>
+                        <img
+                            src={url}
+                            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4 }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x300?text=Sin+Imagen'; }}
+                            alt=""
+                        />
+                    </Card>
+                );
+            })}
+        </div>
+    );
+}
+
+function FirmasBloque({ proceso, nombreOrigen }: { proceso: any; nombreOrigen: string }) {
+    const firmaMuestreador = proceso?.firmas?.find((f: any) => f.rol === 'muestreador');
+    const firmaObservador = proceso?.firmas?.find((f: any) => f.rol === 'observador');
+    const tieneObservador = proceso?.nombreObservador && proceso?.nombreObservador !== 'S/D';
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <Card>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+                    <div>
+                        <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>MUESTREADOR</Text>
+                        <Text strong style={{ fontSize: 16 }}>{proceso?.nombreMuestreador || '—'}</Text>
+                        <div style={{ marginTop: 16, padding: 8, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, border: '1px dashed var(--app-border)', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {firmaMuestreador ? (
+                                <img src={`${apiClient.defaults.baseURL}${firmaMuestreador.ruta}`} style={{ height: 100, objectFit: 'contain' }} alt={`Firma muestreador ${nombreOrigen}`} />
+                            ) : <Text type="secondary" italic style={{ fontSize: 12 }}>Sin firma registrada.</Text>}
+                        </div>
+                    </div>
+                    <div>
+                        <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>OBSERVACIONES MUESTREADOR</Text>
+                        <div style={{ padding: 16, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, height: 160, overflowY: 'auto' }}>
+                            <Text italic style={{ fontSize: 13 }}>
+                                {proceso?.observaciones || 'Sin observaciones.'}
+                            </Text>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+
+            <SectionDivider label="Observador de terreno" />
+
+            {tieneObservador ? (
+                <Card>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+                        <div>
+                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>NOMBRE OBSERVADOR</Text>
+                            <Text strong style={{ fontSize: 14 }}>{proceso.nombreObservador}</Text>
+                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginTop: 16, marginBottom: 4 }}>CARGO</Text>
+                            <Text style={{ fontSize: 13 }}>{proceso.cargoObservador || '—'}</Text>
+                        </div>
+                        <div>
+                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>FIRMA OBSERVADOR</Text>
+                            <div style={{ padding: 8, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, border: '1px dashed var(--app-border)', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {firmaObservador ? (
+                                    <img src={`${apiClient.defaults.baseURL}${firmaObservador.ruta}`} style={{ height: 100, objectFit: 'contain' }} alt={`Firma observador ${nombreOrigen}`} />
+                                ) : <Text type="secondary" italic style={{ fontSize: 12 }}>Sin firma registrada.</Text>}
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+            ) : (
+                <Alert type="info" showIcon icon={<IconAlertCircle size={16} />} message="Observador de terreno no registrado en el proceso" />
+            )}
+        </div>
+    );
+}

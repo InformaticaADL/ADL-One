@@ -1,32 +1,19 @@
-import React, { useState, useEffect } from 'react';
-import { 
-    Paper, 
-    TextInput, 
-    PasswordInput, 
-    Button, 
-    Group, 
-    Stack, 
-    Text, 
-    Image, 
-    Box, 
-    LoadingOverlay, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+    Input,
+    Button,
+    Typography,
+    Spin,
     Alert,
-    FileButton,
-    FileInput,
-    Anchor,
     Checkbox,
-    Badge,
-    ActionIcon,
-    Affix,
-    Transition,
-    SimpleGrid,
-    Container
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconDeviceFloppy, 
-    IconTrash, 
-    IconUpload, 
+    Tag,
+    Card
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import {
+    IconDeviceFloppy,
+    IconTrash,
+    IconUpload,
     IconAlertCircle,
     IconSignature,
     IconMail,
@@ -37,6 +24,8 @@ import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+
+const { Text } = Typography;
 
 interface Muestreador {
     id_muestreador?: number;
@@ -54,10 +43,10 @@ interface Props {
     onViewRequests?: () => void;
 }
 
-export const MuestreadorForm: React.FC<Props> = ({ 
-    initialData, 
+export const MuestreadorForm: React.FC<Props> = ({
+    initialData,
     pendingRequests = [],
-    onSave, 
+    onSave,
     onCancel,
     onViewRequests
 }) => {
@@ -80,6 +69,8 @@ export const MuestreadorForm: React.FC<Props> = ({
     const [docFile, setDocFile] = useState<File | null>(null);
     const [docNombre, setDocNombre] = useState('');
     const [docUploading, setDocUploading] = useState(false);
+    const docFileInputRef = useRef<HTMLInputElement>(null);
+    const firmaFileInputRef = useRef<HTMLInputElement>(null);
 
     // --- Competencias ---
     const [allCompetencias, setAllCompetencias] = useState<any[]>([]);      // activas (asignables)
@@ -220,9 +211,13 @@ export const MuestreadorForm: React.FC<Props> = ({
     };
 
     return (
-        <Container size="md" py={isMobile ? "md" : "xl"} px={isMobile ? "xs" : "md"}>
-            <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
-            
+        <div style={{ maxWidth: 720, margin: '0 auto', padding: isMobile ? '16px 8px' : '32px 16px' }}>
+            {loading && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin size="large" />
+                </div>
+            )}
+
             <PageHeader
                 title={initialData ? 'Editar Muestreador' : 'Nuevo Muestreador'}
                 subtitle={!isMobile ? (initialData ? `Actualizando información de ${initialData.nombre_muestreador}` : 'Registra un nuevo técnico para toma de muestras') : undefined}
@@ -230,216 +225,233 @@ export const MuestreadorForm: React.FC<Props> = ({
             />
 
             <form onSubmit={handleSubmit}>
-                <Stack gap="lg" mt="xl">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
                     {error && (
-                        <Alert icon={<IconAlertCircle size={16} />} title="Error" color="red" variant="light" withCloseButton onClose={() => setError(null)}>
-                            {error}
-                        </Alert>
+                        <Alert type="error" showIcon icon={<IconAlertCircle size={16} />} message="Error" description={error} closable onClose={() => setError(null)} />
                     )}
 
                     {duplicateWarning && (
-                        <Alert icon={<IconAlertCircle size={16} />} title="Advertencia" color="orange" variant="light">
-                            {duplicateWarning}
-                        </Alert>
+                        <Alert type="warning" showIcon icon={<IconAlertCircle size={16} />} message="Advertencia" description={duplicateWarning} />
                     )}
 
-                    <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
-                        <Stack gap="md">
-                            <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Información Personal</Text>
-                            
-                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                                <TextInput
-                                    label="Nombre Completo"
-                                    placeholder="Ej: Juan Pérez"
-                                    required
-                                    leftSection={<IconUser size={18} stroke={1.5} />}
-                                    value={formData.nombre_muestreador}
-                                    onChange={(e) => setFormData({ ...formData, nombre_muestreador: e.target.value })}
-                                    radius="md"
-                                />
-                                <TextInput
-                                    label="Correo Electrónico"
-                                    placeholder="ejemplo@adldiagnostic.cl"
-                                    required
-                                    leftSection={<IconMail size={18} stroke={1.5} />}
-                                    value={formData.correo_electronico}
-                                    onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
-                                    radius="md"
-                                />
-                            </SimpleGrid>
+                    <Card>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Información Personal</Text>
 
-                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                                <PasswordInput
-                                    label={initialData?.id_muestreador ? "Clave de Acceso (opcional)" : "Clave de Acceso"}
-                                    placeholder={initialData?.id_muestreador ? "Dejar vacío para conservar la actual" : "******"}
-                                    required={!initialData?.id_muestreador}
-                                    maxLength={6}
-                                    description={initialData?.id_muestreador
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                                <Field label="Nombre Completo *">
+                                    <Input
+                                        placeholder="Ej: Juan Pérez"
+                                        prefix={<IconUser size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                        value={formData.nombre_muestreador}
+                                        onChange={(e) => setFormData({ ...formData, nombre_muestreador: e.target.value })}
+                                    />
+                                </Field>
+                                <Field label="Correo Electrónico *">
+                                    <Input
+                                        placeholder="ejemplo@adldiagnostic.cl"
+                                        prefix={<IconMail size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                        value={formData.correo_electronico}
+                                        onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
+                                    />
+                                </Field>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                                <Field
+                                    label={initialData?.id_muestreador ? "Clave de Acceso (opcional)" : "Clave de Acceso *"}
+                                    hint={initialData?.id_muestreador
                                         ? `${claveLength} / 6 caracteres — solo escriba si desea cambiarla`
                                         : `${claveLength} / 6 caracteres`}
-                                    value={formData.clave_usuario ?? ''}
-                                    onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
-                                    radius="md"
-                                />
-                                {!isMobile && <Box />} {/* Spacer only for desktop */}
-                            </SimpleGrid>
-                        </Stack>
-                    </Paper>
+                                >
+                                    <Input.Password
+                                        placeholder={initialData?.id_muestreador ? "Dejar vacío para conservar la actual" : "******"}
+                                        maxLength={6}
+                                        value={formData.clave_usuario ?? ''}
+                                        onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
+                                    />
+                                </Field>
+                                {!isMobile && <div />}
+                            </div>
+                        </div>
+                    </Card>
 
-                    <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
-                        <Stack gap="md">
-                            <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Firma Digital</Text>
-                            <Text size="sm" c="dimmed" ta={isMobile ? "center" : "left"}>Esta firma se utilizará para validar las fichas de muestreo electrónicamente.</Text>
-                            
-                            <Box 
-                                style={{ 
-                                    border: '2px dashed var(--mantine-color-gray-3)', 
-                                    borderRadius: '12px',
-                                    padding: '2rem',
-                                    backgroundColor: 'var(--mantine-color-gray-0)',
+                    <Card>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Firma Digital</Text>
+                            <Text type="secondary" style={{ fontSize: 13, textAlign: isMobile ? 'center' : 'left' }}>Esta firma se utilizará para validar las fichas de muestreo electrónicamente.</Text>
+
+                            <div
+                                style={{
+                                    border: '2px dashed var(--app-border)',
+                                    borderRadius: 12,
+                                    padding: 32,
+                                    backgroundColor: 'var(--app-hover-bg)',
                                     display: 'flex',
                                     flexDirection: 'column',
                                     alignItems: 'center',
                                     justifyContent: 'center',
-                                    minHeight: '200px'
+                                    minHeight: 200
                                 }}
                             >
                                 {formData.firma_muestreador ? (
-                                    <Stack align="center">
-                                        <Paper withBorder p="md" bg="white" radius="md" shadow="xs">
-                                            <Image 
-                                                src={formData.firma_muestreador} 
-                                                h={120} 
-                                                fit="contain" 
-                                                alt="Vista previa firma" 
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                                        <Card size="small">
+                                            <img
+                                                src={formData.firma_muestreador}
+                                                style={{ height: 120, objectFit: 'contain' }}
+                                                alt="Vista previa firma"
                                             />
-                                        </Paper>
+                                        </Card>
                                         <ProtectedContent permission="MU_FIRMA">
-                                            <Button 
-                                                variant="light" 
-                                                color="red" 
-                                                size="xs" 
-                                                leftSection={<IconTrash size={14} />}
+                                            <Button
+                                                danger
+                                                size="small"
+                                                icon={<IconTrash size={14} />}
                                                 onClick={() => setFormData({ ...formData, firma_muestreador: '' })}
                                             >
                                                 Eliminar Firma
                                             </Button>
                                         </ProtectedContent>
-                                    </Stack>
+                                    </div>
                                 ) : (
-                                    <Stack align="center" gap="xs">
-                                        <IconSignature size={48} stroke={1} color="var(--mantine-color-gray-5)" />
-                                        <Text size="sm" c="dimmed">No hay firma registrada</Text>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                        <IconSignature size={48} strokeWidth={1} color="var(--app-text-secondary)" />
+                                        <Text type="secondary" style={{ fontSize: 13 }}>No hay firma registrada</Text>
                                         <ProtectedContent permission="MU_FIRMA">
-                                            <FileButton onChange={handleFileChange} accept="image/png,image/jpeg">
-                                                {(props) => (
-                                                    <Button 
-                                                        {...props} 
-                                                        variant="outline" 
-                                                        leftSection={<IconUpload size={16} />}
-                                                        radius="md"
-                                                        mt="sm"
-                                                    >
-                                                        Subir Imagen de Firma
-                                                    </Button>
-                                                )}
-                                            </FileButton>
+                                            <input
+                                                ref={firmaFileInputRef}
+                                                type="file"
+                                                accept="image/png,image/jpeg"
+                                                style={{ display: 'none' }}
+                                                onChange={(e) => { handleFileChange(e.target.files?.[0] ?? null); e.target.value = ''; }}
+                                            />
+                                            <Button
+                                                icon={<IconUpload size={16} />}
+                                                style={{ marginTop: 8 }}
+                                                onClick={() => firmaFileInputRef.current?.click()}
+                                            >
+                                                Subir Imagen de Firma
+                                            </Button>
                                         </ProtectedContent>
-                                    </Stack>
+                                    </div>
                                 )}
-                            </Box>
-                        </Stack>
-                    </Paper>
+                            </div>
+                        </div>
+                    </Card>
 
                     {/* --- Competencias --- */}
-                    <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
-                        <Stack gap="md">
-                            <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Competencias</Text>
-                            <Text size="sm" c="dimmed">Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</Text>
-                            <SimpleGrid cols={{ base: 1, sm: 2 }} spacing={4}>
+                    <Card>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Competencias</Text>
+                            <Text type="secondary" style={{ fontSize: 13 }}>Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</Text>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 4 }}>
                                 {allCompetencias.map(c => (
                                     <Checkbox
                                         key={c.id_competencia}
-                                        label={c.nombre_competencia}
                                         checked={compSeleccionadas.includes(c.id_competencia)}
                                         onChange={(e) => {
-                                            const on = e.currentTarget.checked;
+                                            const on = e.target.checked;
                                             setCompSeleccionadas(prev => on ? [...prev, c.id_competencia] : prev.filter(x => x !== c.id_competencia));
                                         }}
-                                    />
+                                    >
+                                        {c.nombre_competencia}
+                                    </Checkbox>
                                 ))}
-                            </SimpleGrid>
+                            </div>
                             {compAsignadas.filter(c => c.activo !== 'S').length > 0 && (
-                                <Box>
-                                    <Text size="xs" fw={600} c="dimmed" mt="sm">Competencias inactivas (conservadas):</Text>
-                                    <Group gap={4} mt={4}>
+                                <div>
+                                    <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginTop: 8 }}>Competencias inactivas (conservadas):</Text>
+                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
                                         {compAsignadas.filter(c => c.activo !== 'S').map(c => (
-                                            <Badge key={c.id_competencia} color="gray" variant="light">{c.nombre_competencia}</Badge>
+                                            <Tag key={c.id_competencia}>{c.nombre_competencia}</Tag>
                                         ))}
-                                    </Group>
-                                </Box>
+                                    </div>
+                                </div>
                             )}
-                        </Stack>
-                    </Paper>
+                        </div>
+                    </Card>
 
                     {/* --- Documentos / Certificados (solo en edición) --- */}
                     {initialData?.id_muestreador && (
-                        <Paper withBorder p={isMobile ? "md" : "xl"} radius="md" shadow="sm">
-                            <Stack gap="md">
-                                <Text fw={700} size="lg" c="blue.7" ta={isMobile ? "center" : "left"}>Documentos / Certificados</Text>
-                                <Text size="sm" c="dimmed">Adjunte respaldos de cursos o capacitaciones (disponible para cualquier muestreador).</Text>
-                                <Stack gap="xs">
-                                    {documentos.length === 0 && <Text size="xs" c="dimmed">Sin documentos.</Text>}
+                        <Card>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Documentos / Certificados</Text>
+                                <Text type="secondary" style={{ fontSize: 13 }}>Adjunte respaldos de cursos o capacitaciones (disponible para cualquier muestreador).</Text>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    {documentos.length === 0 && <Text type="secondary" style={{ fontSize: 12 }}>Sin documentos.</Text>}
                                     {documentos.map(d => (
-                                        <Group key={d.id_documento} justify="space-between" wrap="nowrap">
-                                            <Anchor href={d.ruta_archivo} target="_blank" size="sm" truncate>{d.nombre_documento}</Anchor>
-                                            <ActionIcon color="red" variant="subtle" onClick={() => handleDeleteDoc(d.id_documento)}><IconTrash size={16} /></ActionIcon>
-                                        </Group>
+                                        <div key={d.id_documento} style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
+                                            <a href={d.ruta_archivo} target="_blank" rel="noreferrer" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre_documento}</a>
+                                            <Button type="text" danger size="small" icon={<IconTrash size={16} />} onClick={() => handleDeleteDoc(d.id_documento)} />
+                                        </div>
                                     ))}
-                                </Stack>
-                                <Group align="flex-end" gap="xs">
-                                    <FileInput placeholder="Seleccionar archivo" value={docFile} onChange={setDocFile} accept="application/pdf,image/*" style={{ flex: 1 }} clearable />
-                                    <TextInput placeholder="Nombre/Título (opcional)" value={docNombre} onChange={e => setDocNombre(e.currentTarget.value)} style={{ flex: 1 }} />
-                                    <Button onClick={handleUploadDoc} loading={docUploading} disabled={!docFile} leftSection={<IconUpload size={16} />}>Subir</Button>
-                                </Group>
-                            </Stack>
-                        </Paper>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                                    <div style={{ flex: 1, minWidth: 160 }}>
+                                        <input
+                                            ref={docFileInputRef}
+                                            type="file"
+                                            accept="application/pdf,image/*"
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+                                        />
+                                        <Input
+                                            readOnly
+                                            placeholder="Seleccionar archivo"
+                                            value={docFile?.name ?? ''}
+                                            onClick={() => docFileInputRef.current?.click()}
+                                            suffix={docFile ? <IconTrash size={14} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setDocFile(null); }} /> : undefined}
+                                        />
+                                    </div>
+                                    <Input style={{ flex: 1, minWidth: 160 }} placeholder="Nombre/Título (opcional)" value={docNombre} onChange={e => setDocNombre(e.target.value)} />
+                                    <Button onClick={handleUploadDoc} loading={docUploading} disabled={!docFile} icon={<IconUpload size={16} />}>Subir</Button>
+                                </div>
+                            </div>
+                        </Card>
                     )}
 
-                    <Group justify="flex-end" mt="xl" grow={isMobile}>
-                        <Button variant="subtle" color="gray" onClick={onCancel} radius="md" size={isMobile ? "md" : "sm"}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24, flexDirection: isMobile ? 'column' : 'row' }}>
+                        <Button onClick={onCancel} block={isMobile}>
                             Cancelar
                         </Button>
-                        <Button 
-                            type="submit" 
-                            leftSection={<IconDeviceFloppy size={18} />} 
+                        <Button
+                            htmlType="submit"
+                            type="primary"
+                            icon={<IconDeviceFloppy size={18} />}
                             loading={loading}
-                            radius="md"
-                            px="xl"
-                            size={isMobile ? "md" : "sm"}
+                            block={isMobile}
                         >
                             Guardar {isMobile ? '' : 'Muestreador'}
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </form>
 
-            <Affix position={{ bottom: 20, right: 20 }}>
-                <Transition transition="slide-up" mounted={pendingRequests.length > 0}>
-                    {(transitionStyles) => (
-                        <Button
-                            leftSection={<IconBell size={20} />}
-                            style={{ ...transitionStyles, boxShadow: 'var(--mantine-shadow-md)' }}
-                            color="orange"
-                            size="lg"
-                            radius="xl"
-                            onClick={onViewRequests}
-                        >
-                            Solicitudes ({pendingRequests.length})
-                        </Button>
-                    )}
-                </Transition>
-            </Affix>
-        </Container>
+            {pendingRequests.length > 0 && (
+                <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 100 }}>
+                    <Button
+                        type="primary"
+                        style={{ backgroundColor: '#e8590c', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                        icon={<IconBell size={20} />}
+                        size="large"
+                        shape="round"
+                        onClick={onViewRequests}
+                    >
+                        Solicitudes ({pendingRequests.length})
+                    </Button>
+                </div>
+            )}
+        </div>
     );
 };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+        </div>
+    );
+}

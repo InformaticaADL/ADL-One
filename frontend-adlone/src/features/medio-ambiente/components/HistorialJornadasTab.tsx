@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Group, Table, Text, TextInput, Loader, Center, Badge, ScrollArea, Button, Paper, SimpleGrid } from '@mantine/core';
-import { DatePickerInput } from '@mantine/dates';
-import { IconCalendar, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
-import dayjs from 'dayjs';
+import { Typography, Input, DatePicker, Spin, Tag, Button, Card, Table } from 'antd';
+import { IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
+import dayjs, { Dayjs } from 'dayjs';
 import { trackingService, type HistorialDia } from '../services/tracking.service';
 import { HistorialDiaReplayModal } from './HistorialDiaReplayModal';
+
+const { Text } = Typography;
 
 function formatearMinutos(totalMin: number): string {
     const min = Math.max(0, Math.floor(totalMin));
@@ -33,9 +34,9 @@ function exportarHistorialCSV(dias: HistorialDia[]) {
         d.fichas_total,
         d.num_jornadas,
     ]);
-    // ﻿ (BOM): sin esto, Excel en Windows abre el CSV con tildes/ñ
-    // rotas (asume Windows-1252 en vez de UTF-8) — el BOM le indica que lea
-    // el archivo como UTF-8.
+    // Prefijo BOM (U+FEFF): sin esto, Excel en Windows abre el CSV con
+    // tildes/ñ rotas (asume Windows-1252 en vez de UTF-8) — el BOM le indica
+    // que lea el archivo como UTF-8.
     const contenido = '﻿' + [encabezado, ...filas].map((fila) => fila.map(celdaCSV).join(',')).join('\n');
     const blob = new Blob([contenido], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
@@ -89,8 +90,8 @@ const HOY = dayjs();
 const HACE_7_DIAS = HOY.subtract(6, 'day');
 
 export function HistorialJornadasTab() {
-    const [fechaDesde, setFechaDesde] = useState<Date | null>(HACE_7_DIAS.toDate());
-    const [fechaHasta, setFechaHasta] = useState<Date | null>(HOY.toDate());
+    const [fechaDesde, setFechaDesde] = useState<Dayjs | null>(HACE_7_DIAS);
+    const [fechaHasta, setFechaHasta] = useState<Dayjs | null>(HOY);
     const [busqueda, setBusqueda] = useState('');
     const [dias, setDias] = useState<HistorialDia[]>([]);
     const [loading, setLoading] = useState(false);
@@ -108,7 +109,7 @@ export function HistorialJornadasTab() {
         setLoading(true);
         setError(null);
         trackingService
-            .getHistorial(dayjs(fechaDesde).format('YYYY-MM-DD'), dayjs(fechaHasta).format('YYYY-MM-DD'))
+            .getHistorial(fechaDesde.format('YYYY-MM-DD'), fechaHasta.format('YYYY-MM-DD'))
             .then((resultado) => {
                 if (idSolicitud !== solicitudActual.current) return;
                 setDias(resultado);
@@ -130,138 +131,121 @@ export function HistorialJornadasTab() {
 
     const resumenPorMuestreador = useMemo(() => calcularResumenPorMuestreador(diasFiltrados), [diasFiltrados]);
 
+    const columns = [
+        { title: 'Fecha', dataIndex: 'dia', key: 'dia', render: (v: string) => dayjs(v).format('DD/MM/YYYY') },
+        { title: 'Muestreador', dataIndex: 'nombre_muestreador', key: 'nombre_muestreador' },
+        { title: 'Tiempo de ruta', key: 'tiempo', render: (_: unknown, d: HistorialDia) => formatearMinutos(d.horas_trabajadas_minutos) },
+        { title: 'Km recorridos', key: 'km', render: (_: unknown, d: HistorialDia) => `${d.km_recorridos.toFixed(1)} km` },
+        {
+            title: 'Fichas', key: 'fichas', render: (_: unknown, d: HistorialDia) => {
+                const sinNingunaCompletada = d.fichas_total > 0 && d.fichas_completadas === 0;
+                return (
+                    <Tag color={sinNingunaCompletada ? 'red' : (d.fichas_total > 0 && d.fichas_completadas === d.fichas_total ? 'green' : 'blue')}>
+                        {d.fichas_completadas}/{d.fichas_total}
+                    </Tag>
+                );
+            }
+        },
+        { title: 'Jornadas', key: 'jornadas', render: (_: unknown, d: HistorialDia) => (d.num_jornadas > 1 ? `${d.num_jornadas} tramos` : '1 tramo') },
+    ];
+
     return (
-        <Box style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 16 }}>
-            <Group mb="md" gap="sm">
-                <DatePickerInput
-                    label="Desde"
-                    value={fechaDesde}
-                    onChange={(val: any) => setFechaDesde(val)}
-                    locale="es"
-                    size="xs"
-                    maxDate={fechaHasta ?? undefined}
-                    leftSection={<IconCalendar size={14} />}
-                    valueFormat="DD/MM/YYYY"
-                    w={150}
-                />
-                <DatePickerInput
-                    label="Hasta"
-                    value={fechaHasta}
-                    onChange={(val: any) => setFechaHasta(val)}
-                    locale="es"
-                    size="xs"
-                    minDate={fechaDesde ?? undefined}
-                    maxDate={new Date()}
-                    leftSection={<IconCalendar size={14} />}
-                    valueFormat="DD/MM/YYYY"
-                    w={150}
-                />
-                <TextInput
-                    label="Muestreador"
-                    placeholder="Buscar por nombre..."
-                    size="xs"
-                    leftSection={<IconSearch size={14} />}
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.currentTarget.value)}
-                    w={220}
-                />
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 16 }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap' }}>
+                <Field label="Desde">
+                    <DatePicker
+                        value={fechaDesde}
+                        onChange={(val) => setFechaDesde(val)}
+                        format="DD/MM/YYYY"
+                        maxDate={fechaHasta ?? undefined}
+                        style={{ width: 150 }}
+                    />
+                </Field>
+                <Field label="Hasta">
+                    <DatePicker
+                        value={fechaHasta}
+                        onChange={(val) => setFechaHasta(val)}
+                        format="DD/MM/YYYY"
+                        minDate={fechaDesde ?? undefined}
+                        maxDate={dayjs()}
+                        style={{ width: 150 }}
+                    />
+                </Field>
+                <Field label="Muestreador">
+                    <Input
+                        placeholder="Buscar por nombre..."
+                        prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        style={{ width: 220 }}
+                    />
+                </Field>
                 <Button
-                    variant="light"
-                    size="xs"
-                    mt={18}
-                    leftSection={<IconFileSpreadsheet size={14} />}
+                    icon={<IconFileSpreadsheet size={14} />}
                     disabled={diasFiltrados.length === 0}
                     onClick={() => exportarHistorialCSV(diasFiltrados)}
                 >
                     Exportar CSV
                 </Button>
-            </Group>
+            </div>
 
             {!loading && !error && resumenPorMuestreador.length > 0 && (
-                <Paper withBorder p="sm" mb="md">
-                    <Text size="xs" fw={700} c="dimmed" mb={8} tt="uppercase">Resumen del período por muestreador</Text>
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="xs">
+                <Card size="small" style={{ marginBottom: 16 }}>
+                    <Text strong type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
+                        Resumen del período por muestreador
+                    </Text>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 8 }}>
                         {resumenPorMuestreador.map((r) => (
-                            <Group key={r.id_muestreador} justify="space-between" wrap="nowrap" gap="xs">
-                                <Text size="sm" truncate>{r.nombre_muestreador}</Text>
-                                <Group gap={6} wrap="nowrap">
-                                    <Badge size="sm" variant="light" color="blue">{formatearMinutos(r.minutos)}</Badge>
-                                    <Badge size="sm" variant="light" color="grape">{r.km.toFixed(1)} km</Badge>
-                                    <Badge size="sm" variant="light" color={r.fichasTotal > 0 && r.fichasCompletadas === r.fichasTotal ? 'green' : 'gray'}>
+                            <div key={r.id_muestreador} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
+                                <Text style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.nombre_muestreador}</Text>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'nowrap' }}>
+                                    <Tag color="blue">{formatearMinutos(r.minutos)}</Tag>
+                                    <Tag color="purple">{r.km.toFixed(1)} km</Tag>
+                                    <Tag color={r.fichasTotal > 0 && r.fichasCompletadas === r.fichasTotal ? 'green' : 'default'}>
                                         {r.fichasCompletadas}/{r.fichasTotal}
-                                    </Badge>
-                                </Group>
-                            </Group>
+                                    </Tag>
+                                </div>
+                            </div>
                         ))}
-                    </SimpleGrid>
-                </Paper>
+                    </div>
+                </Card>
             )}
 
             {loading && (
-                <Center style={{ flex: 1 }}>
-                    <Loader />
-                </Center>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin />
+                </div>
             )}
 
             {!loading && error && (
-                <Center style={{ flex: 1 }}>
-                    <Text c="red">{error}</Text>
-                </Center>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text type="danger">{error}</Text>
+                </div>
             )}
 
             {!loading && !error && diasFiltrados.length === 0 && (
-                <Center style={{ flex: 1 }}>
-                    <Text size="sm" c="dimmed">Sin jornadas registradas en este rango.</Text>
-                </Center>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Sin jornadas registradas en este rango.</Text>
+                </div>
             )}
 
             {!loading && !error && diasFiltrados.length > 0 && (
-                <ScrollArea style={{ flex: 1 }}>
-                    <Table stickyHeader striped highlightOnHover verticalSpacing="xs">
-                        <Table.Thead>
-                            <Table.Tr>
-                                <Table.Th>Fecha</Table.Th>
-                                <Table.Th>Muestreador</Table.Th>
-                                <Table.Th>Tiempo de ruta</Table.Th>
-                                <Table.Th>Km recorridos</Table.Th>
-                                <Table.Th>Fichas</Table.Th>
-                                <Table.Th>Jornadas</Table.Th>
-                            </Table.Tr>
-                        </Table.Thead>
-                        <Table.Tbody>
-                            {diasFiltrados.map((d) => {
-                                // Jornada con fichas asignadas ese día pero NINGUNA
-                                // completada — posible ruta que no se concretó
-                                // (problema técnico, cancelación de último minuto no
-                                // reflejada, etc.), vale la pena que salte a la vista
-                                // en vez de perderse entre el resto de filas normales.
-                                const sinNingunaCompletada = d.fichas_total > 0 && d.fichas_completadas === 0;
-                                return (
-                                <Table.Tr
-                                    key={`${d.id_muestreador}|${d.dia}`}
-                                    onClick={() => setDiaSeleccionado(d)}
-                                    style={{ cursor: 'pointer', backgroundColor: sinNingunaCompletada ? 'var(--mantine-color-red-0)' : undefined }}
-                                >
-                                    <Table.Td>{dayjs(d.dia).format('DD/MM/YYYY')}</Table.Td>
-                                    <Table.Td>{d.nombre_muestreador}</Table.Td>
-                                    <Table.Td>{formatearMinutos(d.horas_trabajadas_minutos)}</Table.Td>
-                                    <Table.Td>{d.km_recorridos.toFixed(1)} km</Table.Td>
-                                    <Table.Td>
-                                        <Badge
-                                            size="sm"
-                                            variant="light"
-                                            color={sinNingunaCompletada ? 'red' : (d.fichas_total > 0 && d.fichas_completadas === d.fichas_total ? 'green' : 'blue')}
-                                        >
-                                            {d.fichas_completadas}/{d.fichas_total}
-                                        </Badge>
-                                    </Table.Td>
-                                    <Table.Td>{d.num_jornadas > 1 ? `${d.num_jornadas} tramos` : '1 tramo'}</Table.Td>
-                                </Table.Tr>
-                                );
-                            })}
-                        </Table.Tbody>
-                    </Table>
-                </ScrollArea>
+                <Card size="small" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} styles={{ body: { padding: 0, flex: 1, overflow: 'auto' } }}>
+                    <Table
+                        rowKey={(d) => `${d.id_muestreador}|${d.dia}`}
+                        columns={columns}
+                        dataSource={diasFiltrados}
+                        pagination={false}
+                        size="small"
+                        onRow={(d) => ({
+                            onClick: () => setDiaSeleccionado(d),
+                            style: {
+                                cursor: 'pointer',
+                                backgroundColor: (d.fichas_total > 0 && d.fichas_completadas === 0) ? 'rgba(224,49,49,0.06)' : undefined,
+                            },
+                        })}
+                    />
+                </Card>
             )}
 
             <HistorialDiaReplayModal
@@ -271,6 +255,15 @@ export function HistorialJornadasTab() {
                 nombreMuestreador={diaSeleccionado?.nombre_muestreador ?? ''}
                 dia={diaSeleccionado?.dia ?? null}
             />
-        </Box>
+        </div>
+    );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
     );
 }

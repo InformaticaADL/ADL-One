@@ -1,9 +1,11 @@
-import { Box, ScrollArea, Text, TextInput, Badge, Stack, UnstyledButton, Group, Avatar } from '@mantine/core';
+import { Typography, Input, Tag, Avatar } from 'antd';
 import { IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
 import type { JornadaHoy } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 import { contarFichasCompletadas, siguienteFichaPendiente, distanciaKm } from '../utils/fichaHoyHelpers';
+
+const { Text } = Typography;
 
 interface FlotaPanelProps {
     jornadas: JornadaHoy[];
@@ -16,9 +18,9 @@ const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000; // 10 minutos, per diseño "Hoy en V
 function estadoDeJornada(jornada: JornadaHoy): { label: string; color: string } {
     if (jornada.estado === 'pausada') return { label: 'En pausa', color: 'orange' };
     if (jornada.estado === 'finalizada') return { label: 'Día finalizado', color: 'blue' };
-    if (!jornada.ultima_posicion) return { label: 'Sin posición', color: 'gray' };
+    if (!jornada.ultima_posicion) return { label: 'Sin posición', color: 'default' };
     const msDesdeUltimoPing = Date.now() - new Date(jornada.ultima_posicion.timestamp_reporte).getTime();
-    if (msDesdeUltimoPing > UMBRAL_SIN_SENAL_MS) return { label: 'Sin señal', color: 'gray' };
+    if (msDesdeUltimoPing > UMBRAL_SIN_SENAL_MS) return { label: 'Sin señal', color: 'default' };
     return { label: 'En ruta', color: 'green' };
 }
 
@@ -50,26 +52,26 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
     );
 
     return (
-        <Box style={{ width: 280, borderRight: '1px solid var(--mantine-color-gray-3)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <Box p="sm">
-                <Group justify="space-between" mb="xs">
-                    <Text fw={700} size="sm">Hoy en vivo</Text>
-                    <Badge size="sm" variant="light">
+        <div style={{ width: 280, borderRight: '1px solid var(--app-border)', display: 'flex', flexDirection: 'column', height: '100%' }}>
+            <div style={{ padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text strong style={{ fontSize: 13 }}>Hoy en vivo</Text>
+                    <Tag style={{ marginInlineEnd: 0 }}>
                         {jornadas.filter((j) => j.estado === 'en_ruta').length} en terreno
-                    </Badge>
-                </Group>
-                <TextInput
+                    </Tag>
+                </div>
+                <Input
                     placeholder="Buscar muestreador..."
-                    size="xs"
-                    leftSection={<IconSearch size={14} />}
+                    size="small"
+                    prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
                     value={busqueda}
-                    onChange={(e) => setBusqueda(e.currentTarget.value)}
+                    onChange={(e) => setBusqueda(e.target.value)}
                 />
-            </Box>
-            <ScrollArea style={{ flex: 1 }} p="sm" pt={0}>
-                <Stack gap="xs">
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingTop: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {jornadasFiltradas.length === 0 && (
-                        <Text size="sm" c="dimmed" ta="center" mt="md">
+                        <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', marginTop: 16 }}>
                             No hay muestreadores en terreno en este momento.
                         </Text>
                     )}
@@ -77,30 +79,33 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                         const estado = estadoDeJornada(j);
                         const seleccionada = j.id_muestreador === selectedMuestreadorId;
                         return (
-                            <UnstyledButton
+                            <button
                                 key={j.id_muestreador}
                                 onClick={() => onSelectMuestreador(j.id_muestreador)}
-                                p="xs"
                                 style={{
+                                    padding: 8,
                                     borderRadius: 8,
-                                    border: `1px solid ${seleccionada ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-gray-3)'}`,
-                                    backgroundColor: seleccionada ? 'var(--mantine-color-blue-0)' : 'transparent',
+                                    border: `1px solid ${seleccionada ? '#0062a8' : 'var(--app-border)'}`,
+                                    backgroundColor: seleccionada ? 'var(--app-accent-bg)' : 'transparent',
+                                    textAlign: 'left',
+                                    cursor: 'pointer',
+                                    width: '100%',
                                 }}
                             >
                                 {/* Sin truncate ni nowrap a propósito: un nombre largo o el
                                     label "Día finalizado" terminaban cortados en "..." al
                                     forzarlos a compartir una sola línea angosta. Se prefiere
                                     que la card crezca en alto antes que recortar texto. */}
-                                <Group gap={8} align="flex-start" wrap="nowrap" mb={4}>
-                                    <Avatar size={22} radius="xl" color="white" style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0, marginTop: 1 }}>
-                                        <Text fz={10} fw={700} c="white">{inicialesDe(j.nombre_muestreador)}</Text>
+                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'nowrap', marginBottom: 4 }}>
+                                    <Avatar size={22} style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0, marginTop: 1, fontSize: 10, fontWeight: 700 }}>
+                                        {inicialesDe(j.nombre_muestreador)}
                                     </Avatar>
-                                    <Text size="sm" fw={600} style={{ flex: 1 }}>{j.nombre_muestreador}</Text>
-                                </Group>
-                                <Badge size="xs" color={estado.color} variant="dot" mb={4} style={{ alignSelf: 'flex-start' }}>
+                                    <Text strong style={{ fontSize: 13, flex: 1 }}>{j.nombre_muestreador}</Text>
+                                </div>
+                                <Tag color={estado.color} style={{ marginBottom: 4, marginInlineEnd: 0 }}>
                                     {estado.label}
-                                </Badge>
-                                <Text size="xs" c="dimmed">
+                                </Tag>
+                                <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
                                     {j.estado !== 'en_ruta'
                                         ? (() => {
                                               const { completadas, total } = contarFichasCompletadas(j.fichas_hoy);
@@ -125,16 +130,16 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                         { lat: Number(siguiente.ubicacion_lat), lon: Number(siguiente.ubicacion_lon) }
                                     );
                                     return (
-                                        <Text size="xs" c="blue" mt={2}>
+                                        <Text style={{ fontSize: 12, color: '#0062a8', display: 'block', marginTop: 2 }}>
                                             {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} a {siguiente.centro || 'la próxima ficha'}
                                         </Text>
                                     );
                                 })()}
-                            </UnstyledButton>
+                            </button>
                         );
                     })}
-                </Stack>
-            </ScrollArea>
-        </Box>
+                </div>
+            </div>
+        </div>
     );
 }

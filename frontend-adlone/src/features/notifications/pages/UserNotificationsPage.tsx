@@ -1,20 +1,14 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-    Title,
-    Text,
-    Paper,
-    Stack,
-    Group,
-    Badge,
-    Divider,
-    Box,
-    SegmentedControl,
+    Typography,
+    Card,
+    Tag,
+    Segmented,
     Select,
-    TextInput,
+    Input,
     Button,
-    Loader,
-    Center
-} from '@mantine/core';
+    Spin
+} from 'antd';
 import {
     IconBell,
     IconCalendar,
@@ -34,6 +28,8 @@ import { handleNotificationNavigation } from '../utils/notificationNavigation';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
+const { Title, Text } = Typography;
+
 dayjs.locale('es');
 
 export const UserNotificationsPage = () => {
@@ -50,6 +46,7 @@ export const UserNotificationsPage = () => {
     const [typeFilter, setTypeFilter] = useState<string | null>(null);
     const [searchFilter, setSearchFilter] = useState('');
     const [markingAll, setMarkingAll] = useState(false);
+    const [hoveredId, setHoveredId] = useState<number | null>(null);
 
     useEffect(() => {
         fetchNotifications();
@@ -82,10 +79,10 @@ export const UserNotificationsPage = () => {
 
     const getIcon = (tipo: string) => {
         switch (tipo) {
-            case 'SUCCESS': return <IconCircleCheck size={20} color="var(--mantine-color-green-6)" />;
-            case 'WARNING': return <IconAlertTriangle size={20} color="var(--mantine-color-orange-6)" />;
-            case 'ERROR': return <IconCircleX size={20} color="var(--mantine-color-red-6)" />;
-            default: return <IconInfoCircle size={20} color="var(--mantine-color-blue-6)" />;
+            case 'SUCCESS': return <IconCircleCheck size={20} color="#2f9e44" />;
+            case 'WARNING': return <IconAlertTriangle size={20} color="#e8590c" />;
+            case 'ERROR': return <IconCircleX size={20} color="#e03131" />;
+            default: return <IconInfoCircle size={20} color="#1c7ed6" />;
         }
     };
 
@@ -140,147 +137,142 @@ export const UserNotificationsPage = () => {
     const grouped = groupNotifications();
 
     return (
-        <Box p="xl" style={{ width: '100%' }}>
-            <Box mb="xl">
-                <Group justify="space-between" align="flex-end" mb="md" wrap="wrap">
+        <div style={{ padding: 32, width: '100%' }}>
+            <div style={{ marginBottom: 32 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
                     <div>
-                        <Title order={1} fw={800} style={{ letterSpacing: '-0.02em' }}>Notificaciones</Title>
-                        <Text c="dimmed" size="sm">Historial completo de alertas y mensajes del sistema.</Text>
+                        <Title level={1} style={{ margin: 0, letterSpacing: '-0.02em' }}>Notificaciones</Title>
+                        <Text type="secondary" style={{ fontSize: 13 }}>Historial completo de alertas y mensajes del sistema.</Text>
                     </div>
-                    <Group gap="sm" align="center" wrap="wrap">
-                        <TextInput
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <Input
                             placeholder="Buscar notificaciones..."
-                            leftSection={<IconSearch size={16} />}
+                            prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
                             value={searchFilter}
-                            onChange={(e) => setSearchFilter(e.currentTarget.value)}
+                            onChange={(e) => setSearchFilter(e.target.value)}
                             style={{ minWidth: 200, flex: 1 }}
                         />
                         <Select
                             placeholder="Tipo"
-                            data={[
+                            options={[
                                 { label: 'Éxito', value: 'SUCCESS' },
                                 { label: 'Advertencia', value: 'WARNING' },
                                 { label: 'Error', value: 'ERROR' },
                                 { label: 'Información', value: 'INFO' }
                             ]}
-                            value={typeFilter}
-                            onChange={setTypeFilter}
-                            clearable
+                            value={typeFilter ?? undefined}
+                            onChange={(v) => setTypeFilter(v ?? null)}
+                            allowClear
                             style={{ minWidth: 160 }}
                         />
                         {areas.length > 0 && (
                             <Select
                                 placeholder="Área"
-                                data={areas}
-                                value={areaFilter}
-                                onChange={setAreaFilter}
-                                clearable
+                                options={areas.map(a => ({ value: a, label: a }))}
+                                value={areaFilter ?? undefined}
+                                onChange={(v) => setAreaFilter(v ?? null)}
+                                allowClear
                                 style={{ minWidth: 160 }}
                             />
                         )}
-                        <SegmentedControl
+                        <Segmented
                             value={statusFilter}
-                            onChange={setStatusFilter}
-                            data={[
+                            onChange={(v) => setStatusFilter(v as string)}
+                            options={[
                                 { label: 'Todas', value: 'ALL' },
                                 { label: 'No leídas', value: 'UNREAD' },
                             ]}
                         />
                         {unreadCount > 0 && (
                             <Button
-                                variant="light"
-                                color="gray"
-                                size="sm"
-                                leftSection={<IconChecks size={16} />}
+                                icon={<IconChecks size={16} />}
                                 loading={markingAll}
                                 onClick={handleMarkAllAsRead}
                             >
                                 Marcar todas como leídas
                             </Button>
                         )}
-                    </Group>
-                </Group>
-            </Box>
+                    </div>
+                </div>
+            </div>
 
             {loading ? (
-                <Center h={300}>
-                    <Loader size="lg" />
-                </Center>
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin size="large" />
+                </div>
             ) : filteredNotifications.length === 0 ? (
-                <Paper p="xl" radius="md" withBorder style={{ textAlign: 'center', backgroundColor: 'transparent', borderStyle: 'dashed' }}>
-                    <Stack align="center" gap="xs">
-                        <IconBell size={48} color="var(--mantine-color-gray-4)" stroke={1} />
-                        <Title order={3} c="dimmed">
+                <Card style={{ textAlign: 'center', backgroundColor: 'transparent', borderStyle: 'dashed' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                        <IconBell size={48} color="var(--app-text-secondary)" strokeWidth={1} />
+                        <Title level={3} type="secondary" style={{ margin: 0 }}>
                             {notifications.length === 0 ? 'No tienes notificaciones' : 'No hay resultados'}
                         </Title>
-                        <Text c="dimmed" size="sm">
+                        <Text type="secondary" style={{ fontSize: 13 }}>
                             {notifications.length === 0 ? 'Te avisaremos cuando haya algo nuevo para ti.' : 'Intenta cambiar los filtros seleccionados.'}
                         </Text>
-                    </Stack>
-                </Paper>
+                    </div>
+                </Card>
             ) : (
-                <Stack gap="xl">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     {grouped.map(([groupName, items]) => (
                         <div key={groupName}>
-                            <Group gap="xs" mb="md">
-                                <IconCalendar size={16} color="var(--mantine-color-dimmed)" />
-                                <Text size="xs" fw={700} c="dimmed" tt="uppercase" lts={1}>{groupName}</Text>
-                                <Divider style={{ flex: 1 }} />
-                            </Group>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                                <IconCalendar size={16} color="var(--app-text-secondary)" />
+                                <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>{groupName}</Text>
+                                <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                            </div>
 
-                            <Stack gap="sm">
-                                {items.map((notif) => (
-                                    <Paper
-                                        key={notif.id_notificacion}
-                                        p="md"
-                                        radius="md"
-                                        withBorder
-                                        onClick={() => handleNotificationClick(notif)}
-                                        styles={{
-                                            root: {
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                {items.map((notif) => {
+                                    const hovering = hoveredId === notif.id_notificacion;
+                                    return (
+                                        <Card
+                                            key={notif.id_notificacion}
+                                            size="small"
+                                            onClick={() => handleNotificationClick(notif)}
+                                            onMouseEnter={() => setHoveredId(notif.id_notificacion)}
+                                            onMouseLeave={() => setHoveredId(null)}
+                                            style={{
                                                 cursor: 'pointer',
                                                 transition: 'all 0.2s ease',
-                                                borderLeft: notif.leido ? undefined : '4px solid var(--mantine-color-adl-blue-6)',
-                                                backgroundColor: notif.leido ? undefined : 'var(--mantine-color-adl-blue-0)',
-                                                '&:hover': {
-                                                    transform: 'translateY(-2px)',
-                                                    boxShadow: 'var(--mantine-shadow-md)',
-                                                    borderColor: 'var(--mantine-color-adl-blue-2)',
-                                                }
-                                            }
-                                        }}
-                                    >
-                                        <Group wrap="nowrap" align="flex-start">
-                                            <Box style={{ paddingTop: 4 }}>
-                                                {getIcon(notif.tipo)}
-                                            </Box>
-                                            <div style={{ flex: 1 }}>
-                                                <Group justify="space-between" mb={4}>
-                                                    <Text size="sm" fw={700} c={notif.leido ? 'dark.4' : 'dark.7'}>
-                                                        {formatTitle(notif.titulo)}
+                                                borderLeft: notif.leido ? undefined : '4px solid #0062a8',
+                                                backgroundColor: notif.leido ? undefined : 'var(--app-accent-bg)',
+                                                transform: hovering ? 'translateY(-2px)' : 'none',
+                                                boxShadow: hovering ? '0 8px 20px rgba(0,0,0,0.08)' : undefined,
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-start', gap: 12 }}>
+                                                <div style={{ paddingTop: 4 }}>
+                                                    {getIcon(notif.tipo)}
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                        <Text strong style={{ fontSize: 13 }}>
+                                                            {formatTitle(notif.titulo)}
+                                                        </Text>
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                                            {dayjs(notif.fecha).format('HH:mm')}
+                                                        </Text>
+                                                    </div>
+                                                    <Text type="secondary" style={{ fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                        {notif.mensaje}
                                                     </Text>
-                                                    <Text size="xs" c="dimmed">
-                                                        {dayjs(notif.fecha).format('HH:mm')}
-                                                    </Text>
-                                                </Group>
-                                                <Text size="sm" c="dimmed" lineClamp={2}>
-                                                    {notif.mensaje}
-                                                </Text>
-                                                {notif.area && (
-                                                    <Badge size="xs" variant="light" color="gray" mt="xs">
-                                                        {notif.area}
-                                                    </Badge>
-                                                )}
+                                                    {notif.area && (
+                                                        <Tag style={{ marginTop: 8 }}>
+                                                            {notif.area}
+                                                        </Tag>
+                                                    )}
+                                                </div>
+                                                <IconChevronRight size={18} color="var(--app-text-secondary)" style={{ alignSelf: 'center' }} />
                                             </div>
-                                            <IconChevronRight size={18} color="var(--mantine-color-gray-4)" style={{ alignSelf: 'center' }} />
-                                        </Group>
-                                    </Paper>
-                                ))}
-                            </Stack>
+                                        </Card>
+                                    );
+                                })}
+                            </div>
                         </div>
                     ))}
-                </Stack>
+                </div>
             )}
-        </Box>
+        </div>
     );
 };

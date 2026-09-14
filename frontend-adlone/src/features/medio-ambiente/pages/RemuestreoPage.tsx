@@ -3,28 +3,17 @@ import { useNavStore } from '../../../store/navStore';
 import { fichaService } from '../services/ficha.service';
 import { AntecedentesForm, type AntecedentesFormHandle } from '../components/AntecedentesForm';
 import { AnalysisForm } from '../components/AnalysisForm';
-import { ObservacionesForm } from '../components/ObservacionesForm';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { mapToAntecedentes } from '../utils/fichaMapping';
-import { 
-    Stack, 
-    Paper, 
-    Tabs, 
-    LoadingOverlay, 
-    Box, 
-    Button,
-    Group,
-    Alert,
-    Textarea
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconClipboardList, 
-    IconFlask, 
-    IconDeviceFloppy, 
+import { Card, Tabs, Spin, Button, Alert, Input } from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import {
+    IconClipboardList,
+    IconFlask,
+    IconDeviceFloppy,
     IconX,
     IconInfoCircle,
     IconFileText,
@@ -32,6 +21,8 @@ import {
 } from '@tabler/icons-react';
 
 import { CatalogosProvider } from '../context/CatalogosContext';
+
+const { TextArea } = Input;
 
 const RemuestreoPageContent: React.FC = () => {
     const { selectedFichaId, setActiveSubmodule, setFichasMode } = useNavStore();
@@ -47,12 +38,13 @@ const RemuestreoPageContent: React.FC = () => {
     const [analysisList, setAnalysisList] = useState<any[]>([]);
     const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
     const [observaciones, setObservaciones] = useState<string>('');
-    
+
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
     const mappedInitialDataRef = useRef<any>(null);
 
     useEffect(() => {
         loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedFichaId]);
 
     const loadData = async () => {
@@ -143,7 +135,7 @@ const RemuestreoPageContent: React.FC = () => {
                 showToast({ type: 'success', message: 'Remuestreo creado exitosamente' });
                 // Return to Muestreos Ejecutados List
                 setFichasMode('list_ejecutados');
-                setActiveSubmodule('ma-fichas-ingreso'); 
+                setActiveSubmodule('ma-fichas-ingreso');
             } else {
                 showToast({ type: 'error', message: response.message || 'Error al crear remuestreo' });
             }
@@ -154,20 +146,24 @@ const RemuestreoPageContent: React.FC = () => {
         }
     };
 
-    if (loading) return <LoadingOverlay visible />;
+    if (loading) return (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
+            <Spin size="large" />
+        </div>
+    );
+
+    const tabPadding = isMobile ? 16 : 32;
 
     return (
-        <Box p="md">
-            <Stack gap="lg">
-                <PageHeader 
+        <div style={{ padding: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <PageHeader
                     title="Nuevo Remuestreo"
                     subtitle={`Basado en Ficha N° ${originalFicha?.fichaingresoservicio || '-'}`}
                     onBack={() => setActiveSubmodule('ma-ficha-detalle')}
                     rightSection={
-                        <Button 
-                            variant="light" 
-                            color="gray" 
-                            leftSection={<IconX size={18} />} 
+                        <Button
+                            icon={<IconX size={18} />}
                             onClick={() => setActiveSubmodule('ma-ficha-detalle')}
                         >
                             Cancelar
@@ -175,88 +171,97 @@ const RemuestreoPageContent: React.FC = () => {
                     }
                 />
 
-                <Alert icon={<IconInfoCircle size={16} />} title="Información de Remuestreo" color="blue" variant="light" radius="md">
-                    Se ha pre-llenado la información basándose en la ficha original. Por favor revise y ajuste los datos si es necesario antes de confirmar la creación de la nueva ficha.
-                </Alert>
+                <Alert
+                    type="info"
+                    showIcon
+                    icon={<IconInfoCircle size={16} />}
+                    message="Información de Remuestreo"
+                    description="Se ha pre-llenado la información basándose en la ficha original. Por favor revise y ajuste los datos si es necesario antes de confirmar la creación de la nueva ficha."
+                />
 
-                <Paper withBorder p={0} radius="lg" shadow="sm" style={{ overflow: 'hidden' }}>
-                    <Tabs value={activeTab} onChange={(v) => setActiveTab(v || 'antecedentes')} variant="outline" radius="md">
-                        <Tabs.List grow>
-                            <Tabs.Tab value="antecedentes" leftSection={<IconClipboardList size={20} />} py="md">
-                                Antecedentes
-                            </Tabs.Tab>
-                            <Tabs.Tab value="analisis" leftSection={<IconFlask size={20} />} py="md">
-                                Análisis
-                            </Tabs.Tab>
-                            <Tabs.Tab value="observaciones" leftSection={<IconFileText size={20} />} py="md">
-                                Observaciones
-                            </Tabs.Tab>
-                        </Tabs.List>
-
-                        <Tabs.Panel value="antecedentes" p={isMobile ? 'md' : 'xl'} pt="xl">
-                            <Stack gap="lg">
-                                <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
-                                <Group justify="flex-end">
-                                    <Button 
-                                        rightSection={<IconArrowRight size={18} />} 
-                                        color="blue" 
-                                        variant="light"
-                                        onClick={() => setActiveTab('analisis')}
-                                    >
-                                        Siguiente
-                                    </Button>
-                                </Group>
-                            </Stack>
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="analisis" p={isMobile ? 'md' : 'xl'} pt="xl">
-                            <Stack gap="lg">
-                                <AnalysisForm
-                                    savedAnalysis={analysisList}
-                                    onSavedAnalysisChange={setAnalysisList}
-                                    costoOperativo={costoOperativo}
-                                    onCostoOperativoChange={setCostoOperativo}
-                                />
-                                <Group justify="flex-end">
-                                    <Button 
-                                        rightSection={<IconArrowRight size={18} />} 
-                                        color="blue" 
-                                        variant="light"
-                                        onClick={() => setActiveTab('observaciones')}
-                                    >
-                                        Siguiente
-                                    </Button>
-                                </Group>
-                            </Stack>
-                        </Tabs.Panel>
-
-                        <Tabs.Panel value="observaciones" p={isMobile ? 'md' : 'xl'} pt="xl">
-                            <Stack gap="lg">
-                                <Textarea 
-                                    value={observaciones} 
-                                    onChange={(e) => setObservaciones(e.currentTarget.value)} 
-                                    label="Observaciones del Remuestreo *" 
-                                    placeholder="Especifique las observaciones de este remuestreo..."
-                                    minRows={5}
-                                />
-                                <Group justify="center">
-                                    <Button 
-                                        size="lg"
-                                        color="grape" 
-                                        leftSection={<IconDeviceFloppy size={20} />} 
-                                        onClick={handleCreateRemuestreo} 
-                                        loading={saving}
-                                        disabled={!observaciones.trim()}
-                                    >
-                                        Crear Ficha de Remuestreo
-                                    </Button>
-                                </Group>
-                            </Stack>
-                        </Tabs.Panel>
-                    </Tabs>
-                </Paper>
-            </Stack>
-        </Box>
+                <Card style={{ borderRadius: 16, overflow: 'hidden' }} styles={{ body: { padding: 0 } }}>
+                    <Tabs
+                        activeKey={activeTab}
+                        onChange={(v) => setActiveTab(v)}
+                        centered
+                        style={{ padding: `0 ${tabPadding}px` }}
+                        items={[
+                            {
+                                key: 'antecedentes',
+                                label: <span><IconClipboardList size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Antecedentes</span>,
+                                children: (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: `24px ${tabPadding}px` }}>
+                                        <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <Button
+                                                iconPosition="end"
+                                                icon={<IconArrowRight size={18} />}
+                                                onClick={() => setActiveTab('analisis')}
+                                            >
+                                                Siguiente
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: 'analisis',
+                                label: <span><IconFlask size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Análisis</span>,
+                                children: (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: `24px ${tabPadding}px` }}>
+                                        <AnalysisForm
+                                            savedAnalysis={analysisList}
+                                            onSavedAnalysisChange={setAnalysisList}
+                                            costoOperativo={costoOperativo}
+                                            onCostoOperativoChange={setCostoOperativo}
+                                        />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <Button
+                                                iconPosition="end"
+                                                icon={<IconArrowRight size={18} />}
+                                                onClick={() => setActiveTab('observaciones')}
+                                            >
+                                                Siguiente
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ),
+                            },
+                            {
+                                key: 'observaciones',
+                                label: <span><IconFileText size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Observaciones</span>,
+                                children: (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: `24px ${tabPadding}px` }}>
+                                        <div>
+                                            <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Observaciones del Remuestreo *</label>
+                                            <TextArea
+                                                value={observaciones}
+                                                onChange={(e) => setObservaciones(e.target.value)}
+                                                placeholder="Especifique las observaciones de este remuestreo..."
+                                                autoSize={{ minRows: 5 }}
+                                            />
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                                            <Button
+                                                size="large"
+                                                type="primary"
+                                                style={{ backgroundColor: '#9c36b5' }}
+                                                icon={<IconDeviceFloppy size={20} />}
+                                                onClick={handleCreateRemuestreo}
+                                                loading={saving}
+                                                disabled={!observaciones.trim()}
+                                            >
+                                                Crear Ficha de Remuestreo
+                                            </Button>
+                                        </div>
+                                    </div>
+                                ),
+                            },
+                        ]}
+                    />
+                </Card>
+            </div>
+        </div>
     );
 };
 

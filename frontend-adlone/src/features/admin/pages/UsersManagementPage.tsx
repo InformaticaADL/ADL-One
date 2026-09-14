@@ -1,26 +1,20 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    Stack, 
-    Group, 
-    Text, 
-    Button, 
-    TextInput, 
-    Select, 
-    Table, 
-    Badge, 
-    ActionIcon, 
-    Paper, 
-    Modal, 
-    PasswordInput,
-    Box,
+import {
+    Typography,
+    Button,
+    Input,
+    Select,
+    Table,
+    Tag,
+    Card,
+    Modal,
     Checkbox,
-    ScrollArea,
-    LoadingOverlay,
+    Spin,
     Tooltip,
-    useMantineTheme,
     Avatar
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+} from 'antd';
+import { IconEye, IconEyeOff } from '@tabler/icons-react';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconSearch,
     IconPlus,
@@ -39,13 +33,14 @@ import { useToast } from '../../../contexts/ToastContext';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
 
+const { Text } = Typography;
+
 interface Props {
     onBack?: () => void;
 }
 
 export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
@@ -300,8 +295,80 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             );
     }, [roles, roleSearchTerm]);
 
+    const columns = [
+        {
+            title: 'Usuario', key: 'usuario',
+            render: (_: unknown, user: User) => (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <Avatar size="small" style={{ backgroundColor: 'var(--app-accent-bg)', color: '#0062a8' }}>
+                        <IconUser size={14} />
+                    </Avatar>
+                    <Text strong style={{ fontSize: 13 }}>{user.nombre_usuario}</Text>
+                </div>
+            ),
+        },
+        { title: 'Nombre Real', key: 'nombre_real', render: (_: unknown, user: User) => <Text style={{ fontSize: 13 }}>{user.nombre_real}</Text> },
+        { title: 'Cargo', key: 'cargo', render: (_: unknown, user: User) => <Text style={{ fontSize: 13 }}>{user.nombre_cargo || '-'}</Text> },
+        {
+            title: 'Roles', key: 'roles',
+            render: (_: unknown, user: User) => (
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {user.roles?.map((rol, i) => <Tag key={i}>{rol}</Tag>)}
+                </div>
+            ),
+        },
+        {
+            title: 'Email', key: 'email',
+            render: (_: unknown, user: User) => (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <IconMail size={14} color="gray" />
+                    <Text style={{ fontSize: 12, color: '#1c7ed6' }}>{user.correo_electronico || '-'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Último Acceso', key: 'ultimo_acceso',
+            render: (_: unknown, user: User) => (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <IconClock size={14} color="gray" />
+                    <Text type="secondary" style={{ fontSize: 12 }}>{user.ultimo_acceso ?? 'Nunca'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Estado', key: 'estado', align: 'center' as const,
+            render: (_: unknown, user: User) => (
+                <Tag color={user.habilitado === 'S' ? 'green' : 'red'}>
+                    {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Acciones', key: 'acciones', align: 'right' as const,
+            render: (_: unknown, user: User) => (
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <Tooltip title="Editar datos">
+                        <Button type="text" size="small" icon={<IconEdit size={16} />} onClick={() => openEditModal(user)} />
+                    </Tooltip>
+                    <Tooltip title="Cambiar contraseña">
+                        <Button type="text" size="small" icon={<IconKey size={16} />} onClick={() => openPasswordModal(user)} />
+                    </Tooltip>
+                    <Tooltip title={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}>
+                        <Button
+                            type="text"
+                            size="small"
+                            danger={user.habilitado === 'S'}
+                            icon={user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
+                            onClick={() => openConfirmModal(user)}
+                        />
+                    </Tooltip>
+                </div>
+            ),
+        },
+    ];
+
     return (
-        <Box p={isMobile ? "xs" : "md"} style={{ width: '100%' }}>
+        <div style={{ padding: isMobile ? 8 : 16, width: '100%' }}>
             <PageHeader
                 title="Gestión de Usuarios"
                 subtitle="Administra accesos y roles del personal."
@@ -311,399 +378,312 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     { label: 'Usuarios' }
                 ]}
                 rightSection={
-                    <Button 
-                        leftSection={<IconPlus size={18} />}
+                    <Button
+                        type="primary"
+                        icon={<IconPlus size={18} />}
                         onClick={openCreateModal}
-                        radius="md"
-                        color="blue"
-                        fullWidth={isMobile}
-                        mt={isMobile ? "md" : 0}
+                        block={isMobile}
+                        style={{ marginTop: isMobile ? 16 : 0 }}
                     >
                         Nuevo Usuario
                     </Button>
                 }
             />
 
-            <Stack gap="lg" mt="xl">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
 
                 {/* Filters Section */}
-                <Paper withBorder p="md" radius="md" shadow="sm">
-                    <Group grow={!isMobile} align="flex-end">
-                        <TextInput 
-                            label="Búsqueda"
-                            placeholder="Nombre o email..."
-                            leftSection={<IconSearch size={16} />}
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                            radius="md"
-                        />
-                        <Select 
-                            label="Estado"
-                            value={filterStatus}
-                            onChange={(val) => setFilterStatus(val || 'all')}
-                            data={[
-                                { value: 'all', label: 'Todos' },
-                                { value: 'active', label: 'Solo Activos' },
-                                { value: 'inactive', label: 'Solo Inactivos' }
-                            ]}
-                            radius="md"
-                        />
-                        <Select 
-                            label="Rol"
-                            placeholder="Filtrar por rol..."
-                            value={filterRole}
-                            onChange={(val) => setFilterRole(val || 'all')}
-                            data={[
-                                { value: 'all', label: 'Todos los roles' },
-                                ...roles
-                                    .filter(r => r.nombre_rol)
-                                    .map(r => ({ value: String(r.nombre_rol), label: String(r.nombre_rol) }))
-                            ]}
-                            radius="md"
-                            searchable
-                            clearable
-                        />
-                    </Group>
-                </Paper>
+                <Card size="small">
+                    <div style={{ display: 'flex', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: 'flex-end' }}>
+                        <Field label="Búsqueda" style={{ flex: 1 }}>
+                            <Input
+                                placeholder="Nombre o email..."
+                                prefix={<IconSearch size={16} />}
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </Field>
+                        <Field label="Estado" style={{ flex: 1 }}>
+                            <Select
+                                value={filterStatus}
+                                onChange={(val) => setFilterStatus(val || 'all')}
+                                options={[
+                                    { value: 'all', label: 'Todos' },
+                                    { value: 'active', label: 'Solo Activos' },
+                                    { value: 'inactive', label: 'Solo Inactivos' }
+                                ]}
+                                style={{ width: '100%' }}
+                            />
+                        </Field>
+                        <Field label="Rol" style={{ flex: 1 }}>
+                            <Select
+                                placeholder="Filtrar por rol..."
+                                value={filterRole}
+                                onChange={(val) => setFilterRole(val || 'all')}
+                                options={[
+                                    { value: 'all', label: 'Todos los roles' },
+                                    ...roles
+                                        .filter(r => r.nombre_rol)
+                                        .map(r => ({ value: String(r.nombre_rol), label: String(r.nombre_rol) }))
+                                ]}
+                                showSearch
+                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                allowClear
+                                style={{ width: '100%' }}
+                            />
+                        </Field>
+                    </div>
+                </Card>
 
                 {/* Content Section */}
-                <Box pos="relative">
-                    {/* RB-01: solo mostrar LoadingOverlay si NO hay ningún modal abierto (evita parpadeo residual) */}
-                    <LoadingOverlay
-                        visible={loading && !showCreateModal && !showEditModal && !showPasswordModal && !showConfirmModal}
-                        overlayProps={{ blur: 2 }}
-                    />
-                    
+                <div style={{ position: 'relative' }}>
+                    {loading && !showCreateModal && !showEditModal && !showPasswordModal && !showConfirmModal && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                            <Spin size="large" />
+                        </div>
+                    )}
+
                     {isMobile ? (
-                        <Stack gap="sm">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {filteredUsers.length > 0 ? (
                                 filteredUsers.map((user) => (
-                                    <Paper key={user.id_usuario} withBorder p="md" radius="md" shadow="xs">
-                                        <Group justify="space-between" align="flex-start" mb="sm" wrap="nowrap">
-                                            <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                                                <Avatar radius="md" color="blue" variant="light" size={40}>
+                                    <Card key={user.id_usuario} size="small">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8, flexWrap: 'nowrap' }}>
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', flex: 1, minWidth: 0 }}>
+                                                <Avatar style={{ backgroundColor: 'var(--app-accent-bg)', color: '#0062a8' }} size={40}>
                                                     <IconUser size={24} />
                                                 </Avatar>
-                                                <Box style={{ flex: 1, minWidth: 0 }}>
-                                                    <Text size="sm" fw={700} truncate>{user.nombre_real}</Text>
-                                                    <Text size="xs" c="dimmed">@{user.nombre_usuario}</Text>
-                                                </Box>
-                                            </Group>
-                                            <Badge 
-                                                color={user.habilitado === 'S' ? 'green' : 'red'} 
-                                                variant="light"
-                                                size="xs"
-                                            >
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text strong style={{ fontSize: 13, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.nombre_real}</Text>
+                                                    <Text type="secondary" style={{ fontSize: 12 }}>@{user.nombre_usuario}</Text>
+                                                </div>
+                                            </div>
+                                            <Tag color={user.habilitado === 'S' ? 'green' : 'red'}>
                                                 {user.habilitado === 'S' ? 'ACTIVO' : 'INACTIVO'}
-                                            </Badge>
-                                        </Group>
+                                            </Tag>
+                                        </div>
 
-                                        <Stack gap={8} mb="md">
-                                            <Group gap="xs">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                                 <IconMail size={14} color="gray" />
-                                                <Text size="xs" c="blue" truncate>{user.correo_electronico || '-'}</Text>
-                                            </Group>
-                                            <Group gap="xs">
+                                                <Text style={{ fontSize: 12, color: '#1c7ed6', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.correo_electronico || '-'}</Text>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                                 <IconShield size={14} color="gray" />
-                                                <Text size="xs" fw={500}>{user.nombre_cargo || 'Sin Cargo'}</Text>
-                                            </Group>
-                                            <Group gap="xs">
+                                                <Text style={{ fontSize: 12, fontWeight: 500 }}>{user.nombre_cargo || 'Sin Cargo'}</Text>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                                                 <IconClock size={14} color="gray" />
-                                                <Text size="xs" c="dimmed">{user.ultimo_acceso ?? 'Nunca'}</Text>
-                                            </Group>
-                                            <Group gap={4} wrap="wrap">
-                                                {user.roles?.map((rol, i) => (
-                                                    <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
-                                                ))}
-                                            </Group>
-                                        </Stack>
+                                                <Text type="secondary" style={{ fontSize: 12 }}>{user.ultimo_acceso ?? 'Nunca'}</Text>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                                                {user.roles?.map((rol, i) => <Tag key={i}>{rol}</Tag>)}
+                                            </div>
+                                        </div>
 
-                                        <Group gap="xs" justify="flex-end" pt="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-1)' }}>
-                                            <ActionIcon variant="light" color="blue" onClick={() => openEditModal(user)} size="lg">
-                                                <IconEdit size={18} />
-                                            </ActionIcon>
-                                            <ActionIcon variant="light" color="orange" onClick={() => openPasswordModal(user)} size="lg">
-                                                <IconKey size={18} />
-                                            </ActionIcon>
-                                            <ActionIcon variant="light" color={user.habilitado === 'S' ? 'red' : 'green'} onClick={() => openConfirmModal(user)} size="lg">
-                                                {user.habilitado === 'S' ? <IconBan size={18} /> : <IconCheck size={18} />}
-                                            </ActionIcon>
-                                        </Group>
-                                    </Paper>
+                                        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', paddingTop: 8, borderTop: '1px solid var(--app-border)' }}>
+                                            <Button type="text" icon={<IconEdit size={18} />} onClick={() => openEditModal(user)} />
+                                            <Button type="text" icon={<IconKey size={18} />} onClick={() => openPasswordModal(user)} />
+                                            <Button
+                                                type="text"
+                                                danger={user.habilitado === 'S'}
+                                                icon={user.habilitado === 'S' ? <IconBan size={18} /> : <IconCheck size={18} />}
+                                                onClick={() => openConfirmModal(user)}
+                                            />
+                                        </div>
+                                    </Card>
                                 ))
                             ) : (
-                                <Paper withBorder p="xl" radius="md" ta="center">
-                                    <Text c="dimmed">No se encontraron usuarios</Text>
-                                </Paper>
+                                <Card style={{ textAlign: 'center' }}>
+                                    <Text type="secondary">No se encontraron usuarios</Text>
+                                </Card>
                             )}
-                        </Stack>
+                        </div>
                     ) : (
-                        <Paper withBorder radius="md" shadow="sm">
-                            <Table.ScrollContainer minWidth={800}>
-                                <Table verticalSpacing="sm" highlightOnHover>
-                                    <Table.Thead bg="gray.0">
-                                        <Table.Tr>
-                                            <Table.Th>Usuario</Table.Th>
-                                            <Table.Th>Nombre Real</Table.Th>
-                                            <Table.Th>Cargo</Table.Th>
-                                            <Table.Th>Roles</Table.Th>
-                                            <Table.Th>Email</Table.Th>
-                                            <Table.Th>Último Acceso</Table.Th>
-                                            <Table.Th ta="center">Estado</Table.Th>
-                                            <Table.Th ta="right">Acciones</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {filteredUsers.length > 0 ? (
-                                            filteredUsers.map((user) => (
-                                                <Table.Tr key={user.id_usuario}>
-                                                    <Table.Td>
-                                                        <Group gap="sm">
-                                                            <Avatar size="sm" color="blue" radius="xl" variant="light">
-                                                                <IconUser size={14} />
-                                                            </Avatar>
-                                                            <Text size="sm" fw={600}>{user.nombre_usuario}</Text>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm">{user.nombre_real}</Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm">{user.nombre_cargo || '-'}</Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group gap={4}>
-                                                            {user.roles?.map((rol, i) => (
-                                                                <Badge key={i} size="xs" variant="gray" radius="xs">{rol}</Badge>
-                                                            ))}
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group gap="xs">
-                                                            <IconMail size={14} color="gray" />
-                                                            <Text size="xs" c="blue">{user.correo_electronico || '-'}</Text>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group gap="xs">
-                                                            <IconClock size={14} color="gray" />
-                                                            <Text size="xs" c="dimmed">{user.ultimo_acceso ?? 'Nunca'}</Text>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group justify="center">
-                                                            <Badge
-                                                                color={user.habilitado === 'S' ? 'green' : 'red'}
-                                                                variant="light"
-                                                                radius="sm"
-                                                            >
-                                                                {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                                            </Badge>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group gap={8} justify="flex-end">
-                                                            <Tooltip label="Editar datos">
-                                                                <ActionIcon variant="light" color="blue" onClick={() => openEditModal(user)}>
-                                                                    <IconEdit size={16} />
-                                                                </ActionIcon>
-                                                            </Tooltip>
-                                                            <Tooltip label="Cambiar contraseña">
-                                                                <ActionIcon variant="light" color="orange" onClick={() => openPasswordModal(user)}>
-                                                                    <IconKey size={16} />
-                                                                </ActionIcon>
-                                                            </Tooltip>
-                                                            <Tooltip label={user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}>
-                                                                <ActionIcon variant="light" color={user.habilitado === 'S' ? 'red' : 'green'} onClick={() => openConfirmModal(user)}>
-                                                                    {user.habilitado === 'S' ? <IconBan size={16} /> : <IconCheck size={16} />}
-                                                                </ActionIcon>
-                                                            </Tooltip>
-                                                        </Group>
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))
-                                        ) : (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={8} ta="center" py="xl">
-                                                    <Text c="dimmed">No se encontraron usuarios</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </Table.ScrollContainer>
-                        </Paper>
+                        <Card size="small" styles={{ body: { padding: 0 } }}>
+                            <Table
+                                rowKey="id_usuario"
+                                columns={columns}
+                                dataSource={filteredUsers}
+                                pagination={false}
+                                size="small"
+                                scroll={{ x: 900 }}
+                                locale={{ emptyText: <Text type="secondary">No se encontraron usuarios</Text> }}
+                            />
+                        </Card>
                     )}
-                </Box>
-            </Stack>
+                </div>
+            </div>
 
             {/* Create / Edit Modal */}
             <Modal
-                opened={showCreateModal || showEditModal}
-                onClose={() => {
+                open={showCreateModal || showEditModal}
+                onCancel={() => {
                     setShowCreateModal(false);
                     setShowEditModal(false);
                     resetForm();
                 }}
                 title={
-                    <Group gap="xs">
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                         {showCreateModal ? <IconPlus size={20} /> : <IconEdit size={20} />}
-                        <Text fw={700}>{showCreateModal ? 'Crear Nuevo Usuario' : 'Editar Usuario'}</Text>
-                    </Group>
+                        <Text strong>{showCreateModal ? 'Crear Nuevo Usuario' : 'Editar Usuario'}</Text>
+                    </div>
                 }
-                size="lg"
-                radius="md"
-                fullScreen={isMobile}
+                width={isMobile ? '100%' : 640}
+                style={isMobile ? { top: 0, maxWidth: '100%', margin: 0 } : undefined}
+                footer={null}
             >
-                <Stack gap="md">
-                    <Group grow={!isMobile}>
-                        <TextInput 
-                            label="Nombre de Usuario (Login)"
-                            placeholder="ej: jdoe"
-                            required
-                            value={formData.nombre_usuario}
-                            onChange={(e) => setFormData({...formData, nombre_usuario: e.currentTarget.value})}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ display: 'flex', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
+                        <Field label="Nombre de Usuario (Login)" required style={{ flex: 1 }}>
+                            <Input
+                                placeholder="ej: jdoe"
+                                value={formData.nombre_usuario}
+                                onChange={(e) => setFormData({ ...formData, nombre_usuario: e.target.value })}
+                            />
+                        </Field>
+                        <Field label="Nombre Real" required style={{ flex: 1 }}>
+                            <Input
+                                placeholder="ej: Juan Doe"
+                                value={formData.nombre_real}
+                                onChange={(e) => setFormData({ ...formData, nombre_real: e.target.value })}
+                            />
+                        </Field>
+                    </div>
+
+                    <Field label="Correo Electrónico">
+                        <Input
+                            placeholder="usuario@ejemplo.com"
+                            type="email"
+                            value={formData.correo_electronico}
+                            onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
                         />
-                        <TextInput 
-                            label="Nombre Real"
-                            placeholder="ej: Juan Doe"
-                            required
-                            value={formData.nombre_real}
-                            onChange={(e) => setFormData({...formData, nombre_real: e.currentTarget.value})}
-                        />
-                    </Group>
-                    
-                    <TextInput 
-                        label="Correo Electrónico"
-                        placeholder="usuario@ejemplo.com"
-                        type="email"
-                        value={formData.correo_electronico}
-                        onChange={(e) => setFormData({...formData, correo_electronico: e.currentTarget.value})}
-                    />
+                    </Field>
 
                     {showCreateModal && (
-                        <PasswordInput 
-                            label="Contraseña"
-                            placeholder="Ingresa la contraseña inicial"
-                            required
-                            value={formData.clave_usuario}
-                            onChange={(e) => setFormData({...formData, clave_usuario: e.currentTarget.value})}
-                        />
+                        <Field label="Contraseña" required>
+                            <Input.Password
+                                placeholder="Ingresa la contraseña inicial"
+                                value={formData.clave_usuario}
+                                onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
+                                iconRender={(visible) => (visible ? <IconEyeOff size={16} /> : <IconEye size={16} />)}
+                            />
+                        </Field>
                     )}
 
-                    <Select 
-                        label="Cargo"
-                        placeholder="Selecciona el cargo"
-                        data={cargos.map(c => ({ value: String(c.id_cargo), label: c.nombre_cargo }))}
-                        value={formData.id_cargo ? String(formData.id_cargo) : undefined}
-                        onChange={(val) => setFormData({...formData, id_cargo: val ? Number(val) : undefined})}
-                        radius="md"
-                        searchable
-                        leftSection={<IconShield size={16} />}
-                    />
+                    <Field label="Cargo">
+                        <Select
+                            placeholder="Selecciona el cargo"
+                            options={cargos.map(c => ({ value: String(c.id_cargo), label: c.nombre_cargo }))}
+                            value={formData.id_cargo ? String(formData.id_cargo) : undefined}
+                            onChange={(val) => setFormData({ ...formData, id_cargo: val ? Number(val) : undefined })}
+                            showSearch
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
 
-                    <Box mt="md">
-                        <Group justify="space-between" mb="xs">
-                            <Text size="sm" fw={600} display="flex" style={{ alignItems: 'center', gap: '8px' }}>
-                                <IconShield size={16} color="var(--mantine-color-blue-filled)" /> Roles Asignados
+                    <div style={{ marginTop: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' }}>
+                            <Text strong style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <IconShield size={16} color="#1c7ed6" /> Roles Asignados
                             </Text>
-                            <Text size="xs" c="dimmed">{selectedRoles.length} seleccionados</Text>
-                        </Group>
-                        
-                        <TextInput 
+                            <Text type="secondary" style={{ fontSize: 12 }}>{selectedRoles.length} seleccionados</Text>
+                        </div>
+
+                        <Input
                             placeholder="Filtrar roles..."
-                            size="xs"
-                            mb="xs"
-                            leftSection={<IconSearch size={14} />}
+                            size="small"
+                            style={{ marginBottom: 8 }}
+                            prefix={<IconSearch size={14} />}
                             value={roleSearchTerm}
-                            onChange={(e) => setRoleSearchTerm(e.currentTarget.value)}
+                            onChange={(e) => setRoleSearchTerm(e.target.value)}
                         />
 
-                        <Paper withBorder p="xs" radius="sm" bg="gray.0">
-                            <ScrollArea h={isMobile ? 250 : 180} scrollbarSize={6}>
-                                <Stack gap={4}>
-                                    {/* RB-01: lista filtrada memoizada (ver memoizedRoles arriba) */}
-                                    {memoizedRoles.map((role) => (
-                                            <Paper 
-                                                key={role.id_rol} 
-                                                p="xs" 
-                                                radius="xs" 
-                                                withBorder={selectedRoles.includes(role.id_rol)}
-                                                style={{ 
-                                                    cursor: 'pointer',
-                                                    backgroundColor: selectedRoles.includes(role.id_rol) ? 'var(--mantine-color-blue-0)' : 'transparent',
-                                                    borderColor: selectedRoles.includes(role.id_rol) ? 'var(--mantine-color-blue-2)' : 'transparent'
+                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }} styles={{ body: { padding: 8 } }}>
+                            <div style={{ height: isMobile ? 250 : 180, overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {memoizedRoles.map((role) => {
+                                        const checked = selectedRoles.includes(role.id_rol);
+                                        return (
+                                            <div
+                                                key={role.id_rol}
+                                                style={{
+                                                    padding: 8, borderRadius: 4, cursor: 'pointer',
+                                                    border: `1px solid ${checked ? '#a5d8ff' : 'transparent'}`,
+                                                    backgroundColor: checked ? 'var(--app-accent-bg)' : 'transparent',
                                                 }}
                                                 onClick={() => toggleRole(role.id_rol)}
                                             >
-                                                <Group gap="sm" wrap="nowrap">
-                                                    <Checkbox 
-                                                        checked={selectedRoles.includes(role.id_rol)} 
-                                                        onChange={() => {}} // Controlled by Paper click
-                                                        tabIndex={-1}
-                                                        styles={{ input: { cursor: 'pointer' } }}
-                                                    />
-                                                    <Box>
-                                                        <Text size="sm" fw={500}>{role.nombre_rol}</Text>
-                                                        {role.descripcion && <Text size="xs" c="dimmed" lineClamp={1}>{role.descripcion}</Text>}
-                                                    </Box>
-                                                </Group>
-                                            </Paper>
-                                        ))
-                                    }
-                                </Stack>
-                            </ScrollArea>
-                        </Paper>
-                    </Box>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                                    <Checkbox checked={checked} onChange={() => {}} onClick={(e) => e.stopPropagation()} />
+                                                    <div>
+                                                        <Text style={{ fontSize: 13, fontWeight: 500 }}>{role.nombre_rol}</Text>
+                                                        {role.descripcion && (
+                                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role.descripcion}</Text>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </Card>
+                    </div>
 
-                    <Group justify="flex-end" mt="xl">
-                        <Button variant="subtle" color="gray" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+                        <Button type="text" onClick={() => { setShowCreateModal(false); setShowEditModal(false); resetForm(); }}>
                             Cancelar
                         </Button>
                         <Button
+                            type="primary"
                             onClick={showCreateModal ? handleCreateUser : handleUpdateUser}
                             loading={savingUser}
-                            radius="md"
-                            color="blue"
-                            fullWidth={isMobile}
+                            block={isMobile}
                         >
                             {showCreateModal ? 'Crear Usuario' : 'Guardar Cambios'}
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
             {/* Password Modal */}
             <Modal
-                opened={showPasswordModal}
-                onClose={() => { setShowPasswordModal(false); setSelectedUser(null); }}
-                title={<Group gap="xs"><IconKey size={20} /><Text fw={700}>Cambiar Contraseña</Text></Group>}
-                radius="md"
-                fullScreen={isMobile}
+                open={showPasswordModal}
+                onCancel={() => { setShowPasswordModal(false); setSelectedUser(null); }}
+                title={<div style={{ display: 'flex', gap: 8, alignItems: 'center' }}><IconKey size={20} /><Text strong>Cambiar Contraseña</Text></div>}
+                width={isMobile ? '100%' : 480}
+                style={isMobile ? { top: 0, maxWidth: '100%', margin: 0 } : undefined}
+                footer={null}
             >
-                <Stack gap="md">
-                    <Text size="sm">Usuario: <strong>{selectedUser?.nombre_usuario}</strong></Text>
-                    <PasswordInput 
-                        label="Nueva Contraseña"
-                        placeholder="Ingresa la nueva contraseña"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.currentTarget.value)}
-                    />
-                    <PasswordInput 
-                        label="Confirmar Contraseña"
-                        placeholder="Repite la contraseña"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.currentTarget.value)}
-                    />
-                    <Group justify="flex-end" mt="lg">
-                        <Button variant="subtle" color="gray" onClick={() => setShowPasswordModal(false)}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Text style={{ fontSize: 13 }}>Usuario: <strong>{selectedUser?.nombre_usuario}</strong></Text>
+                    <Field label="Nueva Contraseña">
+                        <Input.Password
+                            placeholder="Ingresa la nueva contraseña"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            iconRender={(visible) => (visible ? <IconEyeOff size={16} /> : <IconEye size={16} />)}
+                        />
+                    </Field>
+                    <Field label="Confirmar Contraseña">
+                        <Input.Password
+                            placeholder="Repite la contraseña"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            iconRender={(visible) => (visible ? <IconEyeOff size={16} /> : <IconEye size={16} />)}
+                        />
+                    </Field>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 16 }}>
+                        <Button type="text" onClick={() => setShowPasswordModal(false)}>
                             Cancelar
                         </Button>
-                        <Button color="orange" onClick={handleUpdatePassword} loading={savingUser} fullWidth={isMobile}>
+                        <Button danger type="primary" onClick={handleUpdatePassword} loading={savingUser} block={isMobile}>
                             Actualizar Contraseña
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
             {/* Confirm Status Modal */}
@@ -717,13 +697,26 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                 }
                 confirmText={selectedUser?.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar'}
                 cancelText="Cancelar"
-                confirmColor={selectedUser?.habilitado === 'S' ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-green-6)'}
+                confirmColor={selectedUser?.habilitado === 'S' ? '#e03131' : '#2f9e44'}
                 onConfirm={handleToggleStatus}
                 onCancel={() => {
                     setShowConfirmModal(false);
                     setSelectedUser(null);
                 }}
             />
-        </Box>
+        </div>
     );
 };
+
+function Field({ label, required, style, children }: { label: string; required?: boolean; style?: React.CSSProperties; children: React.ReactNode }) {
+    return (
+        <div style={style}>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>
+                {label}{required && <span style={{ color: '#e03131' }}> *</span>}
+            </Text>
+            {children}
+        </div>
+    );
+}
+
+export default UsersManagementPage;

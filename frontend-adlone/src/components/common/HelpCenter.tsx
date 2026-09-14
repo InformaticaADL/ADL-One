@@ -1,14 +1,29 @@
-import { Modal, Stack, Group, Text, ThemeIcon, Paper, Badge, Box, List, ScrollArea, Divider, Title, rem, Button } from '@mantine/core';
+import { Modal, Typography, Divider, Button } from 'antd';
 import {
     IconChevronRight,
     IconInfoCircle,
-    IconListCheck,
     IconBulb,
     IconBook2,
     IconMail,
     IconMessageCircle
 } from '@tabler/icons-react';
 import { useNavStore } from '../../store/navStore';
+
+const { Title, Text } = Typography;
+
+// Círculo de ícono liviano — reemplaza al ThemeIcon de Mantine, usado por
+// todo este panel para las viñetas de "paso a paso" y consejos.
+function IconCircle({ children, color, size = 24 }: { children: React.ReactNode; color: string; size?: number }) {
+    return (
+        <div style={{
+            flexShrink: 0, width: size, height: size, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: `${color}1a`, color,
+        }}>
+            {children}
+        </div>
+    );
+}
 
 interface HelpCenterProps {
     opened: boolean;
@@ -770,195 +785,155 @@ export const HelpCenter = ({ opened, onClose }: HelpCenterProps) => {
 
     return (
         <Modal
-            opened={opened}
-            onClose={onClose}
+            open={opened}
+            onCancel={onClose}
+            footer={null}
+            width={720}
             title={
-                <Group gap="md" align="center">
-                    <ThemeIcon
-                        variant="light"
-                        color="blue"
-                        size={rem(48)}
-                        radius="xl"
-                    >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                    <IconCircle color="#1c7ed6" size={48}>
                         <IconBook2 size={24} stroke={1.5} />
-                    </ThemeIcon>
-                    <Stack gap={0}>
-                        <Title order={4} style={{ fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
+                    </IconCircle>
+                    <div>
+                        <Title level={4} style={{ margin: 0, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
                             Centro de Ayuda
                         </Title>
-                        <Text size="xs" c="dimmed" fw={600} mt={4}>ADL ONE — Manual de Usuario</Text>
-                    </Stack>
-                </Group>
+                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginTop: 4 }}>
+                            ADL ONE — Manual de Usuario
+                        </Text>
+                    </div>
+                </div>
             }
-            size="lg"
-            radius="32px"
-            zIndex={1000}
-            overlayProps={{
-                backgroundOpacity: 0.4,
-                blur: 8,
-                color: '#0f172a',
-                zIndex: 999,
-            }}
             styles={{
-                header: {
-                    borderBottom: 'none',
-                    paddingBottom: 0,
-                    backgroundColor: 'transparent',
-                },
-                body: {
-                    backgroundColor: 'white',
-                    padding: rem(24),
-                },
-                content: {
-                    boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
-                    border: 'none',
-                }
+                header: { borderBottom: 'none', paddingBottom: 0 },
+                body: { padding: '24px 0 8px', maxHeight: '72vh', overflowY: 'auto' },
+                root: { borderRadius: 24 },
             }}
         >
-            <ScrollArea.Autosize mah="78vh" scrollbarSize={6} offsetScrollbars>
-                {help ? (
-                    <Stack gap="md">
+            {help ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-                        {/* ── Header de sección ── */}
-                        <Box mb="md">
-                            <Group gap="md" align="center" wrap="nowrap">
-                                <ThemeIcon
-                                    variant="light"
-                                    size={rem(56)}
-                                    radius="xl"
-                                    color="blue"
-                                    style={{ flexShrink: 0 }}
-                                >
-                                    <IconInfoCircle size={28} stroke={2} />
-                                </ThemeIcon>
-                                <Stack gap={4} style={{ flex: 1 }}>
-                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1}>
-                                        Módulo Activo
-                                    </Text>
-                                    <Title order={3} fw={800} c="dark.9" style={{ letterSpacing: '-0.02em' }}>
-                                        {help.title}
-                                    </Title>
-                                </Stack>
-                            </Group>
-                        </Box>
-
-                        {/* ── ¿Qué es? y ¿Qué hace? ── */}
-                        <Stack gap="xl" mt="sm">
-                            <Box>
-                                <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">
-                                    ¿Qué es?
-                                </Text>
-                                <Text size="sm" c="dark.6" lh={1.6}>
-                                    {help.queEs}
-                                </Text>
-                            </Box>
-
-                            <Box>
-                                <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">
-                                    ¿Qué hace?
-                                </Text>
-                                <Text size="sm" c="dark.6" lh={1.6}>
-                                    {help.queHace}
-                                </Text>
-                            </Box>
-                        </Stack>
-
-                        {/* ── Paso a Paso ── */}
-                        <Box mt="md">
-                            <Text size="xs" fw={800} c="orange.6" tt="uppercase" lts={1} mb="md">
-                                Paso a Paso — ¿Cómo funciona?
+                    {/* ── Header de sección ── */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'nowrap' }}>
+                        <IconCircle color="#1c7ed6" size={56}>
+                            <IconInfoCircle size={28} stroke={2} />
+                        </IconCircle>
+                        <div style={{ flex: 1 }}>
+                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#1c7ed6', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>
+                                Módulo Activo
                             </Text>
-                            <Stack gap="sm">
-                                {help.comoFunciona.map((item, index) => (
-                                    <Group key={index} gap="md" align="flex-start" wrap="nowrap" p="sm" style={{ border: '1px solid var(--mantine-color-gray-1)', borderRadius: 16, backgroundColor: '#f8fafc' }}>
-                                        <ThemeIcon
-                                            variant="light"
-                                            color="orange"
-                                            size={rem(24)}
-                                            radius="xl"
-                                            style={{ flexShrink: 0 }}
-                                        >
-                                            <IconChevronRight size={14} stroke={2.5} />
-                                        </ThemeIcon>
-                                        <Text size="sm" c="dark.7" lh={1.5} style={{ flex: 1, marginTop: 2 }}>
-                                            {item}
-                                        </Text>
-                                    </Group>
-                                ))}
-                            </Stack>
-                        </Box>
+                            <Title level={3} style={{ margin: '4px 0 0', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                                {help.title}
+                            </Title>
+                        </div>
+                    </div>
 
-                        {/* ── Consejos ── */}
-                        {help.tips && help.tips.length > 0 && (
-                            <Box mt="md">
-                                <Text size="xs" fw={800} c="green.6" tt="uppercase" lts={1} mb="md">
-                                    Consejos útiles
-                                </Text>
-                                <Stack gap="sm">
-                                    {help.tips.map((tip, index) => (
-                                        <Group key={index} gap="md" align="flex-start" wrap="nowrap" p="sm" style={{ border: '1px solid var(--mantine-color-green-1)', borderRadius: 16, backgroundColor: '#f0fdf4' }}>
-                                            <ThemeIcon variant="light" color="green" size={rem(24)} radius="xl">
-                                                <IconBulb size={14} />
-                                            </ThemeIcon>
-                                            <Text size="sm" c="dark.7" lh={1.5} fs="italic" style={{ flex: 1, marginTop: 2 }}>
-                                                {tip}
-                                            </Text>
-                                        </Group>
-                                    ))}
-                                </Stack>
-                            </Box>
-                        )}
+                    {/* ── ¿Qué es? y ¿Qué hace? ── */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
+                        <div>
+                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#1c7ed6', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
+                                ¿Qué es?
+                            </Text>
+                            <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{help.queEs}</Text>
+                        </div>
 
-                        {/* ── Tarjetas de Contacto TI (Solo Global) ── */}
-                        {helpCenterIsGlobal && (
-                            <Box mt="xl">
-                                <Divider label={<Text size="xs" fw={700} c="dimmed">CONTACTO SOPORTE</Text>} labelPosition="center" mb="lg" />
-                                <Group grow>
-                                    <Paper p="md" radius="xl" bg="#f8fafc" style={{ border: '1px solid var(--mantine-color-gray-2)', textAlign: 'center' }}>
-                                        <Stack align="center" gap="xs">
-                                            <ThemeIcon size={40} radius="xl" color="blue" variant="light">
-                                                <IconMail size={20} />
-                                            </ThemeIcon>
-                                            <Box>
-                                                <Text fw={700} size="sm">Correo Soporte</Text>
-                                                <Text size="xs" c="dimmed">informatica@adldiagnostic.cl</Text>
-                                            </Box>
-                                            <Button variant="light" size="xs" radius="xl" component="a" href="mailto:informatica@adldiagnostic.cl" fullWidth>
-                                                Enviar
-                                            </Button>
-                                        </Stack>
-                                    </Paper>
+                        <div>
+                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#1c7ed6', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
+                                ¿Qué hace?
+                            </Text>
+                            <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{help.queHace}</Text>
+                        </div>
+                    </div>
 
-                                    <Paper p="md" radius="xl" bg="#f8fafc" style={{ border: '1px solid var(--mantine-color-gray-2)', textAlign: 'center' }}>
-                                        <Stack align="center" gap="xs">
-                                            <ThemeIcon size={40} radius="xl" color="green" variant="light">
-                                                <IconMessageCircle size={20} />
-                                            </ThemeIcon>
-                                            <Box>
-                                                <Text fw={700} size="sm">WhatsApp</Text>
-                                                <Text size="xs" c="dimmed">+56 9 5721 8268</Text>
-                                            </Box>
-                                            <Button variant="light" size="xs" radius="xl" color="green" component="a" href="https://wa.me/56957218268" target="_blank" fullWidth>
-                                                Chat
-                                            </Button>
-                                        </Stack>
-                                    </Paper>
-                                </Group>
-                            </Box>
-                        )}
-
-                    </Stack>
-                ) : (
-                    <Paper withBorder radius="md" p="xl" ta="center">
-                        <ThemeIcon variant="light" color="gray" size="xl" radius="xl" mx="auto" mb="sm">
-                            <IconBook2 size={24} />
-                        </ThemeIcon>
-                        <Text c="dimmed" size="sm">
-                            No hay contenido de ayuda disponible para esta sección.
+                    {/* ── Paso a Paso ── */}
+                    <div style={{ marginTop: 8 }}>
+                        <Text style={{ fontSize: 11, fontWeight: 800, color: '#e8590c', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 12 }}>
+                            Paso a Paso — ¿Cómo funciona?
                         </Text>
-                    </Paper>
-                )}
-            </ScrollArea.Autosize>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {help.comoFunciona.map((item, index) => (
+                                <div key={index} style={{
+                                    display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'nowrap',
+                                    padding: 12, border: '1px solid var(--app-border)', borderRadius: 16, backgroundColor: 'var(--app-hover-bg)',
+                                }}>
+                                    <IconCircle color="#e8590c" size={24}>
+                                        <IconChevronRight size={14} stroke={2.5} />
+                                    </IconCircle>
+                                    <Text style={{ fontSize: 13.5, lineHeight: 1.5, flex: 1, marginTop: 2 }}>{item}</Text>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* ── Consejos ── */}
+                    {help.tips && help.tips.length > 0 && (
+                        <div style={{ marginTop: 8 }}>
+                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#2f9e44', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 12 }}>
+                                Consejos útiles
+                            </Text>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {help.tips.map((tip, index) => (
+                                    <div key={index} style={{
+                                        display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'nowrap',
+                                        padding: 12, border: '1px solid rgba(47,158,68,0.25)', borderRadius: 16, backgroundColor: 'rgba(47,158,68,0.08)',
+                                    }}>
+                                        <IconCircle color="#2f9e44" size={24}>
+                                            <IconBulb size={14} />
+                                        </IconCircle>
+                                        <Text style={{ fontSize: 13.5, lineHeight: 1.5, fontStyle: 'italic', flex: 1, marginTop: 2 }}>{tip}</Text>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Tarjetas de Contacto TI (Solo Global) ── */}
+                    {helpCenterIsGlobal && (
+                        <div style={{ marginTop: 24 }}>
+                            <Divider>
+                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)' }}>CONTACTO SOPORTE</Text>
+                            </Divider>
+                            <div style={{ display: 'flex', gap: 16 }}>
+                                <div style={{ flex: 1, padding: 16, borderRadius: 20, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                        <IconCircle color="#1c7ed6" size={40}><IconMail size={20} /></IconCircle>
+                                        <div>
+                                            <Text strong style={{ fontSize: 13, display: 'block' }}>Correo Soporte</Text>
+                                            <Text type="secondary" style={{ fontSize: 11 }}>informatica@adldiagnostic.cl</Text>
+                                        </div>
+                                        <Button type="text" size="small" block href="mailto:informatica@adldiagnostic.cl" style={{ color: '#1c7ed6' }}>
+                                            Enviar
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div style={{ flex: 1, padding: 16, borderRadius: 20, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', textAlign: 'center' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                        <IconCircle color="#2f9e44" size={40}><IconMessageCircle size={20} /></IconCircle>
+                                        <div>
+                                            <Text strong style={{ fontSize: 13, display: 'block' }}>WhatsApp</Text>
+                                            <Text type="secondary" style={{ fontSize: 11 }}>+56 9 5721 8268</Text>
+                                        </div>
+                                        <Button type="text" size="small" block href="https://wa.me/56957218268" target="_blank" style={{ color: '#2f9e44' }}>
+                                            Chat
+                                        </Button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                </div>
+            ) : (
+                <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 32, textAlign: 'center' }}>
+                    <IconCircle color="#868e96" size={48}>
+                        <IconBook2 size={24} />
+                    </IconCircle>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 12 }}>
+                        No hay contenido de ayuda disponible para esta sección.
+                    </Text>
+                </div>
+            )}
         </Modal>
     );
 };

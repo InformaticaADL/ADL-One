@@ -1,4 +1,4 @@
-import { StrictMode } from 'react'
+import { StrictMode, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '@mantine/core/styles.css'
 import '@mantine/dates/styles.css'
@@ -7,8 +7,89 @@ import './index.css'
 import App from './App.tsx'
 import { MantineProvider, createTheme } from '@mantine/core'
 import { ModalsProvider } from '@mantine/modals'
+import { ConfigProvider, theme as antdAlgorithms } from 'antd'
+import esES from 'antd/locale/es_ES'
+import { useThemeStore } from './store/themeStore'
 
-const theme = createTheme({
+// Tokens de Ant Design — mismo azul de marca (#0062a8) y radios que el tema
+// Mantine de abajo, para que ambos convivan sin salto visual mientras dura
+// la migración módulo por módulo. Ant Design queda como envoltorio EXTERNO:
+// MantineProvider se mantiene montado porque el resto de la app (92 archivos)
+// todavía depende de sus variables CSS (--mantine-color-*) y componentes.
+// Claro/oscuro lo decide useThemeStore — ver getAntdTheme() más abajo, que
+// intercambia el algoritmo y los tonos que sí necesitan valor explícito por modo.
+function getAntdTheme(mode: 'light' | 'dark') {
+  const dark = mode === 'dark';
+  return {
+    algorithm: dark ? antdAlgorithms.darkAlgorithm : antdAlgorithms.defaultAlgorithm,
+    token: {
+      colorPrimary: '#0062a8',
+      colorInfo: '#0062a8',
+      borderRadius: 8,
+      fontFamily: 'Inter, system-ui, sans-serif',
+      // Borde y texto secundario más suaves (línea zinc-200 en vez de gris
+      // corporativo) — sostiene el look minimalista en toda la app sin tocar
+      // archivo por archivo.
+      colorBorder: dark ? 'rgba(255,255,255,0.12)' : '#e4e4e7',
+      colorBorderSecondary: dark ? 'rgba(255,255,255,0.08)' : '#f0f0f2',
+      colorTextSecondary: dark ? '#a1a1aa' : '#71717a',
+      colorTextTertiary: dark ? '#71717a' : '#a1a1aa',
+    },
+    components: {
+      Menu: {
+        itemSelectedBg: dark ? 'rgba(0,98,168,0.25)' : '#e6f0fa',
+        itemSelectedColor: dark ? '#4c9fe0' : '#0062a8',
+        itemHoverBg: dark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.03)',
+        itemHeight: 40,
+        itemBorderRadius: 8,
+        subMenuItemBg: 'transparent',
+      },
+      Button: {
+        fontWeight: 600,
+        controlHeight: 38,
+      },
+      Card: {
+        borderRadiusLG: 10,
+      },
+      Input: {
+        controlHeight: 38,
+        borderRadius: 8,
+      },
+      InputNumber: {
+        controlHeight: 38,
+        borderRadius: 8,
+      },
+      Select: {
+        controlHeight: 38,
+        borderRadius: 8,
+      },
+      DatePicker: {
+        controlHeight: 38,
+        borderRadius: 8,
+      },
+      // El "look Shadcn": sin el fondo gris clásico del header, más aire
+      // entre filas, línea divisoria apenas visible.
+      Table: {
+        headerBg: dark ? '#1c1c1c' : '#ffffff',
+        headerColor: dark ? '#a1a1aa' : '#71717a',
+        headerSplitColor: 'transparent',
+        borderColor: dark ? 'rgba(255,255,255,0.1)' : '#e4e4e7',
+        rowHoverBg: dark ? 'rgba(255,255,255,0.04)' : '#f4f4f5',
+        cellPaddingBlock: 14,
+        cellPaddingInline: 16,
+        cellFontSize: 13,
+      },
+      // Los Tag de estado ya salen como píldora suave (fondo claro + texto de
+      // color, sin relleno sólido) en vez de las etiquetas planas de antes.
+      Tag: {
+        borderRadiusSM: 6,
+        defaultBg: dark ? 'rgba(255,255,255,0.06)' : '#f4f4f5',
+      },
+    },
+  };
+}
+
+const mantineTheme = createTheme({
   primaryColor: 'adl-blue',
   primaryShade: { light: 6, dark: 4 },
   colors: {
@@ -122,12 +203,29 @@ const theme = createTheme({
   },
 });
 
+// eslint-disable-next-line react-refresh/only-export-components -- entry point, not fast-refreshed
+function Root() {
+  const mode = useThemeStore((s) => s.mode);
+
+  // Refleja el modo en <html data-theme>, que leen index.css (--app-*) y
+  // cualquier CSS module fuera de Ant Design / Mantine (p.ej. Sidebar).
+  useEffect(() => {
+    document.documentElement.dataset.theme = mode;
+  }, [mode]);
+
+  return (
+    <ConfigProvider theme={getAntdTheme(mode)} locale={esES}>
+      <MantineProvider theme={mantineTheme} forceColorScheme={mode}>
+        <ModalsProvider>
+          <App />
+        </ModalsProvider>
+      </MantineProvider>
+    </ConfigProvider>
+  );
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <MantineProvider theme={theme} forceColorScheme="light">
-      <ModalsProvider>
-        <App />
-      </ModalsProvider>
-    </MantineProvider>
+    <Root />
   </StrictMode>,
 )

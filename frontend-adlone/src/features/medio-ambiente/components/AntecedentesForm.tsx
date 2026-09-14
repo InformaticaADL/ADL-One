@@ -4,23 +4,15 @@ import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import {
-    Stack,
-    SimpleGrid,
-    TextInput as MantineTextInput,
-    Select,
-    Text,
-    Paper,
+    Input,
+    Select as AntSelect,
+    Typography,
     Divider,
-    Badge,
-    Box,
-    Group,
-    ActionIcon,
     Button,
     Alert,
-    Loader,
-    Anchor
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+    Spin,
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconInfoCircle,
     IconBuilding,
@@ -38,6 +30,8 @@ import {
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
 import apiClient from '../../../config/axios.config';
 import { FieldLabel } from '../../../components/common/FieldHelp';
+
+const { Text } = Typography;
 
 // Validates a Google Maps reference string client-side before hitting the backend.
 // Defined outside the component so it is never recreated on re-renders.
@@ -72,7 +66,7 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
 // Extremely Fast TextInput Wrapper to isolate typing updates.
 // Uses startTransition for the parent callback so AntecedentesForm (30+ states)
 // only re-renders at low priority — the local input state updates immediately.
-const TextInput = React.memo(({ value: parentValue, onChange, ...props }: any) => {
+const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, style, ...props }: any) => {
     const [localValue, setLocalValue] = useState(parentValue || '');
 
     // Sincronizar desde arriba sólo si difiere
@@ -88,25 +82,77 @@ const TextInput = React.memo(({ value: parentValue, onChange, ...props }: any) =
         if (onChange) React.startTransition(() => onChange({ target: { value: next } } as any));
     };
 
-    return <MantineTextInput value={localValue} onChange={handleChange} {...props} />;
+    return (
+        <div style={style}>
+            {label && <div style={{ marginBottom: 6 }}>{typeof label === 'string' ? <Text style={{ fontSize: 13, fontWeight: 500 }}>{label}</Text> : label}</div>}
+            <Input value={localValue} onChange={handleChange} status={error ? 'error' : undefined} {...props} />
+            {error && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{error}</Text>}
+            {description && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{description}</Text>}
+        </div>
+    );
 });
+
+// Select con label (FieldLabel u otro nodo) arriba, al estilo Mantine — antd's
+// Select no acepta `label` directamente.
+const Select = ({ label, data, value, onChange, disabled, searchable, placeholder, size, style, rightSection, onDropdownOpen, error, ...rest }: any) => {
+    const options = (data || []).map((opt: any) => (typeof opt === 'string' ? { value: opt, label: opt } : opt));
+    return (
+        <div style={{ position: 'relative' }}>
+            {label && <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>{typeof label === 'string' ? <Text style={{ fontSize: 13, fontWeight: 500 }}>{label}</Text> : label}</div>}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <AntSelect
+                    style={{ width: '100%', ...style }}
+                    options={options}
+                    value={value || undefined}
+                    onChange={(v) => onChange?.(v ?? null)}
+                    disabled={disabled}
+                    showSearch={searchable}
+                    placeholder={placeholder}
+                    status={error ? 'error' : undefined}
+                    onOpenChange={(open) => { if (open) onDropdownOpen?.(); }}
+                    filterOption={(input, option) => String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                    {...rest}
+                />
+                {rightSection}
+            </div>
+        </div>
+    );
+};
 
 // Module-level memoized component (avoids recreation on every parent render)
 const StaticField = React.memo(({ label, value, icon: Icon }: { label: string, value: string, icon: any }) => (
-    <Stack gap={2}>
-        <Group gap={4}>
-            <Icon size={12} color="var(--mantine-color-dimmed)" />
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
-        </Group>
-        <Paper withBorder px="xs" py={6} radius="md" bg="gray.1">
-            <Text size="sm" fw={500} truncate title={value}>{value || '-'}</Text>
-        </Paper>
-    </Stack>
+    <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+            <Icon size={12} color="var(--app-text-secondary)" />
+            <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase' }}>{label}</Text>
+        </div>
+        <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: '6px 10px', backgroundColor: 'var(--app-hover-bg)' }}>
+            <Text style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }} title={value}>{value || '-'}</Text>
+        </div>
+    </div>
 ));
 
 // Define interface for exposed methods
 export interface AntecedentesFormHandle {
     getData: () => any;
+}
+
+// Tarjeta de bloque compartida — reemplaza Paper withBorder p="md" radius="lg".
+function Block({ children }: { children: React.ReactNode }) {
+    return (
+        <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 20, backgroundColor: 'var(--app-bg)' }}>
+            {children}
+        </div>
+    );
+}
+
+function BlockTitle({ icon: Icon, color, children }: { icon: any; color: string; children: React.ReactNode }) {
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+            <Icon size={18} color={color} />
+            <Text strong style={{ fontSize: 13, color }}>{children}</Text>
+        </div>
+    );
 }
 
 export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean) => void }>((props, ref) => {
@@ -162,7 +208,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [selectedComponente, setSelectedComponente] = useState<string | null>(null);
     const [subAreas, setSubAreas] = useState<any[]>([]);
     const [selectedSubArea, setSelectedSubArea] = useState<string | null>(null);
-    
+
     const [glosa, setGlosa] = useState<string>('');
     const [esETFA, setEsETFA] = useState<string>('No');
     const [inspectores, setInspectores] = useState<any[]>([]);
@@ -287,7 +333,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     // Initial Data Hydration
     useEffect(() => {
         if (initialData && !hasHydrated.current) {
-            console.log('Hydrating AntecedentesForm', initialData);
             isHydrating.current = true;
 
             setTipoMonitoreo(initialData.tipoMonitoreo || null);
@@ -574,7 +619,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: item.id_lugaranalisis || item.IdLugarAnalisis || item.ID || item.id,
                 nombre: item.nombre_lugaranalisis || item.NombreLugar || item.Nombre || item.nombre
             })));
-        } catch (err) {}
+        } catch { /* noop */ }
     };
 
     const loadEmpresas = async () => {
@@ -587,7 +632,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 contacto: item.contacto_empresaservicios || '',
                 email_contacto: item.email_contacto || ''
             })));
-        } catch (err) {}
+        } catch { /* noop */ }
     };
 
     const loadClientes = async () => {
@@ -597,9 +642,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: item.id_empresa,
                 nombre: item.nombre_empresa,
                 email: item.email_empresa || '',
-                id_empresaservicio: item.id_empresaservicio || 0 
+                id_empresaservicio: item.id_empresaservicio || 0
             })));
-        } catch (err) {}
+        } catch { /* noop */ }
     };
 
     const loadContactos = async (clienteId?: number, empresaServicioId?: number) => {
@@ -611,7 +656,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 email: item.email || item.email_contacto,
                 telefono: item.telefono || item.fono_contacto
             })));
-        } catch (err) {}
+        } catch { /* noop */ }
     };
 
     const loadFuentesEmisoras = async (clienteId?: number, empresaServicioId?: number) => {
@@ -629,7 +674,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             }));
             setFuentesEmisoras(mapped);
             if (!isHydrating.current && mapped.length > 0) setSelectedFuente(String(mapped[0].id));
-        } catch (err) {}
+        } catch { /* noop */ }
     };
 
     const loadObjetivos = async (clienteId?: number, empresaServicioId?: number) => {
@@ -639,7 +684,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: o.id_objetivomuestreo_ma || o.id,
                 nombre: o.nombre_objetivomuestreo_ma || o.nombre
             })));
-        } catch (error) {}
+        } catch { /* noop */ }
     };
 
     const loadSubAreas = async (componenteId: string) => {
@@ -649,21 +694,21 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 id: s.id_subarea || s.id,
                 nombre: s.nombre_subarea || s.nombre
             })));
-        } catch (error) {}
+        } catch { /* noop */ }
     };
 
     const loadTiposMuestra = async (tipoMuestreoId: string) => {
         try {
             const data = await catalogos.getTiposMuestra(tipoMuestreoId);
             setTiposMuestra(data || []);
-        } catch (error) {}
+        } catch { /* noop */ }
     };
 
     const loadActividades = async (tipoMuestraId: string) => {
         try {
             const data = await catalogos.getActividadesMuestreo(tipoMuestraId);
             setActividades(data || []);
-        } catch (error) {}
+        } catch { /* noop */ }
     };
 
     const loadCatalogosComplementarios = async () => {
@@ -697,7 +742,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 await Promise.all(depLoads);
                 isHydrating.current = false;
             } else { isHydrating.current = false; }
-        } catch (error) {}
+        } catch { /* noop */ }
     };
 
     useEffect(() => {
@@ -780,606 +825,512 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
     }, [frecuencia, factor]);
 
-    // StaticField moved to module level for performance
+    const gridCols = (n: number) => ({ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : `repeat(${n}, 1fr)`, gap: 16 });
 
     return (
-        <Stack gap={isMobile ? "md" : "xl"} p={isMobile ? 0 : "xs"} style={{ width: '100% !important' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 24 }}>
             {/* Block 1: Identificación */}
-            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
-                <Stack gap="md">
-                    <Group gap="xs">
-                        <IconBuilding size={18} color="var(--mantine-color-blue-6)" />
-                        <Text fw={700} size="sm" c="blue.7">Identificación y Ubicación</Text>
-                    </Group>
-                    
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-                        <Select 
-                            label={<FieldLabel label="Monitoreo agua/RIL *" help="Tipo de toma de muestra: Puntual es una sola extracción en un momento dado; Compuesta mezcla varias extracciones a lo largo del tiempo para obtener un promedio." />}
-                            placeholder="Seleccione..."
-                            data={['Compuesta', 'Puntual']}
-                            value={tipoMonitoreo}
-                            onChange={setTipoMonitoreo}
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Base de operaciones *" help="Laboratorio o sede de ADL desde la cual partirá el equipo de muestreo. Determina la logística del viaje." />}
-                            placeholder="Cargando..."
-                            data={lugaresData}
-                            value={selectedLugar}
-                            onChange={setSelectedLugar}
-                            disabled={!tipoMonitoreo}
-                            searchable
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Empresa a Facturar *" help="Empresa o cliente al que se emitirá la factura por el servicio de análisis. Puede ser diferente de la empresa de servicio." />}
-                            placeholder="Buscar cliente..."
-                            data={clientesData}
-                            value={selectedCliente}
-                            onChange={(v) => setSelectedCliente(v || '')}
-                            searchable
-                            size="sm"
-                            radius="md"
-                        />
-                        <Box style={{ position: 'relative' }}>
-                            <Select 
-                                label={<FieldLabel label="Empresa de servicio *" help="Empresa que opera el establecimiento a muestrear (ej. salmonicultura, industria). Al seleccionarla se cargarán automáticamente sus centros, contactos y objetivos." />}
-                                placeholder="Buscar empresa..."
-                                data={empresasData}
-                                value={selectedEmpresa}
-                                onChange={handleEmpresaChange}
-                                searchable
-                                size="sm"
-                                radius="md"
-                                rightSection={
-                                    hasPermission('FI_CREAR_EMPRESA') && (
-                                        <ActionIcon 
-                                            variant="subtle" 
-                                            color="teal" 
-                                            onClick={() => setCreateEmpresaOpened(true)}
-                                            title="Crear nueva empresa"
-                                        >
-                                            <IconPlus size={16} />
-                                        </ActionIcon>
-                                    )
-                                }
-                            />
-                        </Box>
-                    </SimpleGrid>
+            <Block>
+                <BlockTitle icon={IconBuilding} color="var(--app-accent-text)">Identificación y Ubicación</BlockTitle>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="md">
-                        <Box style={{ gridColumn: 'span 2' }}>
-                            <Select 
-                                label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
-                                placeholder="Seleccione empresa primero"
-                                data={fuentesData}
-                                value={selectedFuente}
-                                onChange={(val) => setSelectedFuente(val || '')}
-                                disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                                searchable
-                                size="sm"
-                                radius="md"
-                            />
-                        </Box>
-                        <StaticField label="Tipo agua" value={tipoAgua} icon={IconFlask} />
-                        <StaticField label="Comuna" value={comuna} icon={IconMapPin} />
-                        <StaticField label="Región" value={region} icon={IconMapPin} />
-                    </SimpleGrid>
+                <div style={{ ...gridCols(4), marginBottom: 16 }}>
+                    <Select
+                        label={<FieldLabel label="Monitoreo agua/RIL *" help="Tipo de toma de muestra: Puntual es una sola extracción en un momento dado; Compuesta mezcla varias extracciones a lo largo del tiempo para obtener un promedio." />}
+                        placeholder="Seleccione..."
+                        data={['Compuesta', 'Puntual']}
+                        value={tipoMonitoreo}
+                        onChange={setTipoMonitoreo}
+                    />
+                    <Select
+                        label={<FieldLabel label="Base de operaciones *" help="Laboratorio o sede de ADL desde la cual partirá el equipo de muestreo. Determina la logística del viaje." />}
+                        placeholder="Cargando..."
+                        data={lugaresData}
+                        value={selectedLugar}
+                        onChange={setSelectedLugar}
+                        disabled={!tipoMonitoreo}
+                        searchable
+                    />
+                    <Select
+                        label={<FieldLabel label="Empresa a Facturar *" help="Empresa o cliente al que se emitirá la factura por el servicio de análisis. Puede ser diferente de la empresa de servicio." />}
+                        placeholder="Buscar cliente..."
+                        data={clientesData}
+                        value={selectedCliente}
+                        onChange={(v: string | null) => setSelectedCliente(v || '')}
+                        searchable
+                    />
+                    <Select
+                        label={<FieldLabel label="Empresa de servicio *" help="Empresa que opera el establecimiento a muestrear (ej. salmonicultura, industria). Al seleccionarla se cargarán automáticamente sus centros, contactos y objetivos." />}
+                        placeholder="Buscar empresa..."
+                        data={empresasData}
+                        value={selectedEmpresa}
+                        onChange={handleEmpresaChange}
+                        searchable
+                        rightSection={
+                            hasPermission('FI_CREAR_EMPRESA') && (
+                                <Button
+                                    type="text"
+                                    shape="circle"
+                                    icon={<IconPlus size={16} />}
+                                    onClick={() => setCreateEmpresaOpened(true)}
+                                    title="Crear nueva empresa"
+                                />
+                            )
+                        }
+                    />
+                </div>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-                        <TextInput 
-                            label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
-                            value={ubicacion} 
-                            onChange={(e: any) => setUbicacion(e.target.value)}
-                            size="sm"
-                            radius="md"
-                        />
-                        <StaticField label="Código Centro" value={codigo} icon={IconInfoCircle} />
-                        <StaticField label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
-                        <Select 
-                            label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
-                            placeholder="Seleccione..."
-                            data={[
-                                ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto ? [{ value: 'primary', label: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] : []),
-                                ...contactos.map(c => ({ value: String(c.id), label: c.nombre }))
-                            ]}
-                            value={selectedContacto}
-                            onChange={(v) => setSelectedContacto(v || '')}
-                            disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                            searchable
-                            size="sm"
-                            radius="md"
-                        />
-                        <StaticField 
-                            label="E-mail Contacto" 
-                            value={selectedContacto === 'primary' ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-') : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')} 
-                            icon={IconMail} 
-                        />
-                    </SimpleGrid>
-                </Stack>
-            </Paper>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+                    <Select
+                        label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
+                        placeholder="Seleccione empresa primero"
+                        data={fuentesData}
+                        value={selectedFuente}
+                        onChange={(v: string | null) => setSelectedFuente(v || '')}
+                        disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
+                        searchable
+                    />
+                    <StaticField label="Tipo agua" value={tipoAgua} icon={IconFlask} />
+                    <StaticField label="Comuna" value={comuna} icon={IconMapPin} />
+                    <StaticField label="Región" value={region} icon={IconMapPin} />
+                </div>
+
+                <div style={gridCols(4)}>
+                    <TextInput
+                        label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
+                        value={ubicacion}
+                        onChange={(e: any) => setUbicacion(e.target.value)}
+                    />
+                    <StaticField label="Código Centro" value={codigo} icon={IconInfoCircle} />
+                    <StaticField label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
+                    <Select
+                        label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
+                        placeholder="Seleccione..."
+                        data={[
+                            ...(empresas.find(e => String(e.id) === selectedEmpresa)?.contacto ? [{ value: 'primary', label: empresas.find(e => String(e.id) === selectedEmpresa)?.contacto || '' }] : []),
+                            ...contactos.map(c => ({ value: String(c.id), label: c.nombre }))
+                        ]}
+                        value={selectedContacto}
+                        onChange={(v: string | null) => setSelectedContacto(v || '')}
+                        disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
+                        searchable
+                    />
+                </div>
+                <div style={{ marginTop: 16 }}>
+                    <StaticField
+                        label="E-mail Contacto"
+                        value={selectedContacto === 'primary' ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-') : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')}
+                        icon={IconMail}
+                    />
+                </div>
+            </Block>
 
             {/* Block 2: Datos del Servicio */}
-            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
-                <Stack gap="md">
-                    <Group gap="xs">
-                        <IconAdjustmentsHorizontal size={18} color="var(--mantine-color-grape-6)" />
-                        <Text fw={700} size="sm" c="grape.7">Datos del Servicio y Frecuencia</Text>
-                    </Group>
+            <Block>
+                <BlockTitle icon={IconAdjustmentsHorizontal} color="#9c36b5">Datos del Servicio y Frecuencia</BlockTitle>
 
-                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-                        <Select 
-                            label={<FieldLabel label="Objetivo del Muestreo *" help="Propósito regulatorio o técnico del muestreo. Ejemplos: Autocontrol (obligación legal), Patología (diagnóstico de enfermedad), Fisicoquímica (análisis de parámetros físicos)." />}
-                            placeholder="Seleccione..."
-                            data={objetivosData}
-                            value={selectedObjetivo}
-                            onChange={(v) => setSelectedObjetivo(v || '')}
-                            disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                            searchable
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
-                            data={['ADL', 'Cliente']}
-                            value={responsableMuestreo}
-                            onChange={setResponsableMuestreo}
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Cargo *" help="Cargo profesional del responsable del muestreo. Si el responsable es ADL, se asigna automáticamente el cargo de Muestreador." />}
-                            placeholder="Seleccione..."
-                            data={cargosData}
-                            value={cargoResponsable}
-                            onChange={(v) => setCargoResponsable(v || '')}
-                            disabled={responsableMuestreo === 'ADL'}
-                            size="sm"
-                            radius="md"
-                        />
-                    </SimpleGrid>
+                <div style={{ ...gridCols(3), marginBottom: 16 }}>
+                    <Select
+                        label={<FieldLabel label="Objetivo del Muestreo *" help="Propósito regulatorio o técnico del muestreo. Ejemplos: Autocontrol (obligación legal), Patología (diagnóstico de enfermedad), Fisicoquímica (análisis de parámetros físicos)." />}
+                        placeholder="Seleccione..."
+                        data={objetivosData}
+                        value={selectedObjetivo}
+                        onChange={(v: string | null) => setSelectedObjetivo(v || '')}
+                        disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
+                        searchable
+                    />
+                    <Select
+                        label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
+                        data={['ADL', 'Cliente']}
+                        value={responsableMuestreo}
+                        onChange={setResponsableMuestreo}
+                    />
+                    <Select
+                        label={<FieldLabel label="Cargo *" help="Cargo profesional del responsable del muestreo. Si el responsable es ADL, se asigna automáticamente el cargo de Muestreador." />}
+                        placeholder="Seleccione..."
+                        data={cargosData}
+                        value={cargoResponsable}
+                        onChange={(v: string | null) => setCargoResponsable(v || '')}
+                        disabled={responsableMuestreo === 'ADL'}
+                    />
+                </div>
 
-                    <Divider />
+                <Divider style={{ margin: '8px 0 16px' }} />
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 5 }} spacing="sm">
-                        <TextInput 
-                            label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
-                            value={puntoMuestreo} 
-                            onChange={(e: any) => setPuntoMuestreo(e.target.value)}
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
-                            data={frecuenciasData}
-                            value={periodo}
-                            onChange={handlePeriodoChange}
-                            onDropdownOpen={() => {
-                                if (!puntoMuestreo.trim()) showToast({ type: 'warning', message: 'Debe ingresar el Punto de Muestreo' });
-                            }}
-                            size="sm"
-                            radius="md"
-                        />
-                        <TextInput 
-                            label={<FieldLabel label="Cant. Frecuencia" help="Número de veces que se realiza el muestreo dentro del período seleccionado. Se completa automáticamente según la frecuencia, pero puede ajustarse." />}
-                            value={frecuencia}
-                            onChange={(e: any) => setFrecuencia(e.target.value)}
-                            size="sm"
-                            radius="md"
-                        />
-                        <TextInput 
-                            label={<FieldLabel label="Factor" help="Multiplicador que ajusta el número total de servicios. Útil cuando hay más de una ubicación o muestra por visita. Total = Cantidad × Factor." />}
-                            value={factor} 
-                            onChange={(e: any) => setFactor(e.target.value)}
-                            size="sm"
-                            radius="md"
-                        />
-                        <Box>
-                            <Text size="xs" fw={700} c="dimmed" mb={4} tt="uppercase">Total Servicios</Text>
-                            <Badge size="xl" radius="md" fullWidth h={34} variant="filled" color="blue">
-                                {totalServicios || '0'}
-                            </Badge>
-                        </Box>
-                    </SimpleGrid>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: 12 }}>
+                    <TextInput
+                        label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
+                        value={puntoMuestreo}
+                        onChange={(e: any) => setPuntoMuestreo(e.target.value)}
+                    />
+                    <Select
+                        label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
+                        data={frecuenciasData}
+                        value={periodo}
+                        onChange={handlePeriodoChange}
+                        onDropdownOpen={() => {
+                            if (!puntoMuestreo.trim()) showToast({ type: 'warning', message: 'Debe ingresar el Punto de Muestreo' });
+                        }}
+                    />
+                    <TextInput
+                        label={<FieldLabel label="Cant. Frecuencia" help="Número de veces que se realiza el muestreo dentro del período seleccionado. Se completa automáticamente según la frecuencia, pero puede ajustarse." />}
+                        value={frecuencia}
+                        onChange={(e: any) => setFrecuencia(e.target.value)}
+                    />
+                    <TextInput
+                        label={<FieldLabel label="Factor" help="Multiplicador que ajusta el número total de servicios. Útil cuando hay más de una ubicación o muestra por visita. Total = Cantidad × Factor." />}
+                        value={factor}
+                        onChange={(e: any) => setFactor(e.target.value)}
+                    />
+                    <div>
+                        <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Total Servicios</Text>
+                        <div style={{ height: 34, borderRadius: 8, backgroundColor: 'var(--app-accent-text)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15 }}>
+                            {totalServicios || '0'}
+                        </div>
+                    </div>
+                </div>
 
-                    {periodo && periodo !== 'No Aplica' && frecuencia && factor && totalServicios && (
-                        <Text size="xs" c="dimmed" fs="italic" mt={-4} ta="center">
-                            Se realizarán <Text component="span" fw={700} size="xs">{totalServicios}</Text> muestreo(s) en total, con una frecuencia de <Text component="span" fw={700} size="xs">{frecuencia}</Text> vez/veces cada periodo <Text component="span" fw={700} size="xs">{frecuenciasData.find(f => f.value === periodo)?.label?.toLowerCase() || periodo}</Text>, multiplicado por un factor de <Text component="span" fw={700} size="xs">{factor}</Text>.
-                        </Text>
-                    )}
-                </Stack>
-            </Paper>
+                {periodo && periodo !== 'No Aplica' && frecuencia && factor && totalServicios && (
+                    <Text type="secondary" italic style={{ fontSize: 12, display: 'block', textAlign: 'center', marginTop: 8 }}>
+                        Se realizarán <b>{totalServicios}</b> muestreo(s) en total, con una frecuencia de <b>{frecuencia}</b> vez/veces cada periodo <b>{frecuenciasData.find(f => f.value === periodo)?.label?.toLowerCase() || periodo}</b>, multiplicado por un factor de <b>{factor}</b>.
+                    </Text>
+                )}
+            </Block>
 
             {/* Block 3: Clasificación Técnica */}
-            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
-                <Stack gap="md">
-                    <Group gap="xs">
-                        <IconCertificate size={18} color="var(--mantine-color-teal-6)" />
-                        <Text fw={700} size="sm" c="teal.7">Clasificación Técnica y Geográfica</Text>
-                    </Group>
+            <Block>
+                <BlockTitle icon={IconCertificate} color="#0d9488">Clasificación Técnica y Geográfica</BlockTitle>
 
-                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-                        <Select 
-                            label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
-                            data={zonasUTMData}
-                            value={zona}
-                            onChange={(v) => setZona(v || '')}
-                            size="sm"
-                            radius="md"
-                        />
-                        <TextInput 
-                            label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
-                            value={utmNorte} 
-                            onChange={(e: any) => setUtmNorte(e.target.value)} 
-                            disabled={!zona || zona === 'No aplica'}
-                            size="sm"
-                            radius="md"
-                        />
-                        <TextInput 
-                            label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
-                            value={utmEste} 
-                            onChange={(e: any) => setUtmEste(e.target.value)} 
-                            disabled={!zona || zona === 'No aplica'}
-                            size="sm"
-                            radius="md"
-                        />
-                    </SimpleGrid>
+                <div style={{ ...gridCols(3), marginBottom: 16 }}>
+                    <Select
+                        label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
+                        data={zonasUTMData}
+                        value={zona}
+                        onChange={(v: string | null) => setZona(v || '')}
+                    />
+                    <TextInput
+                        label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
+                        value={utmNorte}
+                        onChange={(e: any) => setUtmNorte(e.target.value)}
+                        disabled={!zona || zona === 'No aplica'}
+                    />
+                    <TextInput
+                        label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
+                        value={utmEste}
+                        onChange={(e: any) => setUtmEste(e.target.value)}
+                        disabled={!zona || zona === 'No aplica'}
+                    />
+                </div>
 
-                    <Divider />
+                <Divider style={{ margin: '8px 0 16px' }} />
 
-                    <SimpleGrid cols={{ base: 1, xs: 2, md: 4 }} spacing="md">
-                        <Box style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
-                            <Select
-                                label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
-                                data={instrumentosAmbientales}
-                                value={selectedInstrumento}
-                                onChange={(val) => {
-                                    setSelectedInstrumento(val || '');
-                                    // F-15: limpiar campos dependientes al elegir "No aplica"
-                                    if (val === 'No aplica') {
-                                        setEsETFA('No');
-                                        setNroInstrumento('');
-                                        setAnioInstrumento('');
-                                    } else {
-                                        setEsETFA('Si');
-                                    }
-                                }}
-                                searchable
-                                size="sm"
-                                radius="md"
-                            />
-                        </Box>
-                        <TextInput
-                            // F-01f: con "Otro" el número/año NO son obligatorios (solo "Otro" + texto libre)
-                            label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'} help="Número o código identificador del instrumento ambiental (ej: número de RCA, decreto o resolución). Solo se aceptan números salvo cuando el instrumento es 'Otro'." />}
-                            placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre (ej: Resolución SISS 2122/2023)' : 'Solo número (ej: 123)'}
-                            value={nroInstrumento}
-                            disabled={selectedInstrumento === 'No aplica'}
-                            inputMode={selectedInstrumento?.toLowerCase() === 'otro' ? 'text' : 'numeric'}
-                            onChange={(e: any) => {
-                                const val = String(e.target.value || '');
-                                // F-01c: si no es "Otro", solo permitir números (filtro estricto en input)
-                                if (selectedInstrumento?.toLowerCase() === 'otro') {
-                                    setNroInstrumento(val);
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isVerySmall ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)'), gap: 16, marginBottom: 16 }}>
+                    <div style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
+                        <Select
+                            label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
+                            data={instrumentosAmbientales}
+                            value={selectedInstrumento}
+                            onChange={(val: string | null) => {
+                                setSelectedInstrumento(val || '');
+                                // F-15: limpiar campos dependientes al elegir "No aplica"
+                                if (val === 'No aplica') {
+                                    setEsETFA('No');
+                                    setNroInstrumento('');
+                                    setAnioInstrumento('');
                                 } else {
-                                    setNroInstrumento(val.replace(/[^0-9]/g, ''));
+                                    setEsETFA('Si');
                                 }
                             }}
-                            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                                // F-01c: bloquear teclas no numéricas si NO es "Otro"
-                                if (selectedInstrumento?.toLowerCase() !== 'otro' && selectedInstrumento !== 'No aplica') {
-                                    const allowedKeys = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
-                                    if (!allowedKeys.includes(e.key) && !/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
-                                        e.preventDefault();
-                                    }
-                                }
-                            }}
-                            size="sm"
-                            radius="md"
+                            searchable
                         />
-                        <TextInput
-                            // F-01f: con "Otro" el año tampoco es obligatorio
-                            label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'} help="Año de emisión o vigencia del instrumento ambiental. Debe ser un año de 4 dígitos entre 1900 y el año actual." />}
-                            placeholder="YYYY (ej: 2024)"
-                            value={anioInstrumento}
-                            disabled={selectedInstrumento === 'No aplica' || selectedInstrumento?.toLowerCase() === 'otro'}
-                            onChange={(e: any) => {
-                                // F-01d: solo dígitos, máx 4
-                                const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
-                                setAnioInstrumento(cleaned);
-                            }}
-                            error={(() => {
-                                if (!anioInstrumento) return null;
-                                const n = Number(anioInstrumento);
-                                const currentYear = new Date().getFullYear();
-                                if (anioInstrumento.length !== 4 || n < 1900 || n > currentYear + 1) {
-                                    return `Año inválido (1900-${currentYear + 1})`;
+                    </div>
+                    <TextInput
+                        // F-01f: con "Otro" el número/año NO son obligatorios (solo "Otro" + texto libre)
+                        label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'} help="Número o código identificador del instrumento ambiental (ej: número de RCA, decreto o resolución). Solo se aceptan números salvo cuando el instrumento es 'Otro'." />}
+                        placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre (ej: Resolución SISS 2122/2023)' : 'Solo número (ej: 123)'}
+                        value={nroInstrumento}
+                        disabled={selectedInstrumento === 'No aplica'}
+                        inputMode={selectedInstrumento?.toLowerCase() === 'otro' ? 'text' : 'numeric'}
+                        onChange={(e: any) => {
+                            const val = String(e.target.value || '');
+                            // F-01c: si no es "Otro", solo permitir números (filtro estricto en input)
+                            if (selectedInstrumento?.toLowerCase() === 'otro') {
+                                setNroInstrumento(val);
+                            } else {
+                                setNroInstrumento(val.replace(/[^0-9]/g, ''));
+                            }
+                        }}
+                        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                            // F-01c: bloquear teclas no numéricas si NO es "Otro"
+                            if (selectedInstrumento?.toLowerCase() !== 'otro' && selectedInstrumento !== 'No aplica') {
+                                const allowedKeys = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End'];
+                                if (!allowedKeys.includes(e.key) && !/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey) {
+                                    e.preventDefault();
                                 }
-                                return null;
-                            })()}
-                            maxLength={4}
-                            size="sm"
-                            radius="md"
-                        />
-                    </SimpleGrid>
+                            }
+                        }}
+                    />
+                    <TextInput
+                        // F-01f: con "Otro" el año tampoco es obligatorio
+                        label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'} help="Año de emisión o vigencia del instrumento ambiental. Debe ser un año de 4 dígitos entre 1900 y el año actual." />}
+                        placeholder="YYYY (ej: 2024)"
+                        value={anioInstrumento}
+                        disabled={selectedInstrumento === 'No aplica' || selectedInstrumento?.toLowerCase() === 'otro'}
+                        onChange={(e: any) => {
+                            // F-01d: solo dígitos, máx 4
+                            const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+                            setAnioInstrumento(cleaned);
+                        }}
+                        error={(() => {
+                            if (!anioInstrumento) return null;
+                            const n = Number(anioInstrumento);
+                            const currentYear = new Date().getFullYear();
+                            if (anioInstrumento.length !== 4 || n < 1900 || n > currentYear + 1) {
+                                return `Año inválido (1900-${currentYear + 1})`;
+                            }
+                            return null;
+                        })()}
+                        maxLength={4}
+                    />
+                </div>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                        <Select 
-                            label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Ejemplos: Agua Superficial, Agua Marina, Sedimento, Atmósfera. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
-                            data={componentesData}
-                            value={selectedComponente}
-                            onChange={handleComponenteChange}
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Sub Área *" help="Clasificación más específica dentro del componente ambiental seleccionado. Depende del Componente elegido anteriormente." />}
-                            data={subAreasData}
-                            value={selectedSubArea}
-                            onChange={(v) => setSelectedSubArea(v || '')}
-                            disabled={!selectedComponente}
-                            size="sm"
-                            radius="md"
-                        />
-                    </SimpleGrid>
+                <div style={{ ...gridCols(2), marginBottom: 16 }}>
+                    <Select
+                        label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Ejemplos: Agua Superficial, Agua Marina, Sedimento, Atmósfera. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
+                        data={componentesData}
+                        value={selectedComponente}
+                        onChange={handleComponenteChange}
+                    />
+                    <Select
+                        label={<FieldLabel label="Sub Área *" help="Clasificación más específica dentro del componente ambiental seleccionado. Depende del Componente elegido anteriormente." />}
+                        data={subAreasData}
+                        value={selectedSubArea}
+                        onChange={(v: string | null) => setSelectedSubArea(v || '')}
+                        disabled={!selectedComponente}
+                    />
+                </div>
 
-                    <TextInput 
+                <div style={{ marginBottom: 16 }}>
+                    <TextInput
                         label={<FieldLabel label="Nombre de la Tabla (Glosa) *" help="Nombre descriptivo que identificará la tabla de resultados en el informe final. Se autocompleta como: 'Nombre del Centro - Objetivo del Muestreo'. Puede editarse libremente. Máximo 100 caracteres." />}
-                        value={glosa} 
-                        onChange={(e: any) => setGlosa(e.target.value)} 
+                        value={glosa}
+                        onChange={(e: any) => setGlosa(e.target.value)}
                         maxLength={100}
                         description={`${glosa.length}/100 caracteres`}
-                        size="sm"
-                        radius="md"
                     />
+                </div>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-                        <Select label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(val) => setEsETFA(val || 'No')} size="sm" radius="md" />
-                        <Select 
-                            label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
-                            data={inspectoresData}
-                            value={selectedInspector}
-                            onChange={(val) => setSelectedInspector(val || '')}
-                            disabled={responsableMuestreo !== 'ADL'}
-                            size="sm"
-                            radius="md"
-                        />
-                    </SimpleGrid>
-                </Stack>
-            </Paper>
+                <div style={gridCols(2)}>
+                    <Select label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
+                    <Select
+                        label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
+                        data={inspectoresData}
+                        value={selectedInspector}
+                        onChange={(v: string | null) => setSelectedInspector(v || '')}
+                        disabled={responsableMuestreo !== 'ADL'}
+                    />
+                </div>
+            </Block>
 
             {/* Block 4: Detalles Operativos */}
-            <Paper withBorder p="md" radius="lg" shadow="xs">
-                <Stack gap="md">
-                    <Group gap="xs">
-                        <IconClock size={18} color="var(--mantine-color-orange-6)" />
-                        <Text fw={700} size="sm" c="orange.7">Detalles Operativos y Descarga</Text>
-                    </Group>
+            <Block>
+                <BlockTitle icon={IconClock} color="#e8590c">Detalles Operativos y Descarga</BlockTitle>
 
-                    <SimpleGrid cols={{ base: 1, sm: 3, md: 5 }} spacing="sm">
-                        <Select 
-                            label={<FieldLabel label="Tipo Muestreo *" help="Metodología general de recolección de la muestra. Ejemplos: Simple (grab), Integrado, Compuesto. Al seleccionarlo se cargarán los Tipos de Muestra disponibles." />}
-                            data={tiposMuestreoData}
-                            value={selectedTipoMuestreo}
-                            onChange={handleTipoMuestreoChange}
-                            size="sm"
-                            radius="md"
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: 12, marginBottom: 16 }}>
+                    <Select
+                        label={<FieldLabel label="Tipo Muestreo *" help="Metodología general de recolección de la muestra. Ejemplos: Simple (grab), Integrado, Compuesto. Al seleccionarlo se cargarán los Tipos de Muestra disponibles." />}
+                        data={tiposMuestreoData}
+                        value={selectedTipoMuestreo}
+                        onChange={handleTipoMuestreoChange}
+                    />
+                    <Select
+                        label={<FieldLabel label="Tipo Muestra *" help="Material físico que se recolectará. Ejemplos: Agua Superficial, Sedimento, Biota, Efluente. Depende del Tipo de Muestreo seleccionado." />}
+                        data={tiposMuestraData}
+                        value={selectedTipoMuestra}
+                        onChange={handleTipoMuestraChange}
+                        disabled={!selectedTipoMuestreo}
+                    />
+                    <Select
+                        label={<FieldLabel label="Actividad *" help="Técnica o procedimiento específico para obtener la muestra. Ejemplos: Tomada con balde, Bomba peristáltica, Red de arrastre. Depende del Tipo de Muestra." />}
+                        data={actividadesData}
+                        value={selectedActividad}
+                        onChange={(v: string | null) => setSelectedActividad(v || '')}
+                        disabled={!selectedTipoMuestra}
+                    />
+                    {/* ✅ PUNTUAL: muestreo de un solo día → no se pide duración. Solo aplica en Compuesta. */}
+                    {tipoMonitoreo !== 'Puntual' && (
+                        <TextInput
+                            label={<FieldLabel label="Duración (Hrs) *" help="Tiempo estimado en horas enteras que tomará el muestreo completo en el centro. No incluir el tiempo de traslado. Solo se aceptan números enteros." />}
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            step={1}
+                            value={duracion}
+                            placeholder="Solo horas enteras"
+                            onChange={(e: any) => {
+                                // F-16: solo enteros, sin decimal ni letras
+                                const cleaned = String(e.target.value).replace(/[^0-9]/g, '');
+                                setDuracion(cleaned);
+                            }}
+                            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+                                // Bloquear punto, coma, e, +, -
+                                if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
+                                    e.preventDefault();
+                                }
+                            }}
                         />
-                        <Select 
-                            label={<FieldLabel label="Tipo Muestra *" help="Material físico que se recolectará. Ejemplos: Agua Superficial, Sedimento, Biota, Efluente. Depende del Tipo de Muestreo seleccionado." />}
-                            data={tiposMuestraData}
-                            value={selectedTipoMuestra}
-                            onChange={handleTipoMuestraChange}
-                            disabled={!selectedTipoMuestreo}
-                            size="sm"
-                            radius="md"
-                        />
-                        <Select 
-                            label={<FieldLabel label="Actividad *" help="Técnica o procedimiento específico para obtener la muestra. Ejemplos: Tomada con balde, Bomba peristáltica, Red de arrastre. Depende del Tipo de Muestra." />}
-                            data={actividadesData}
-                            value={selectedActividad}
-                            onChange={(val) => setSelectedActividad(val || '')}
-                            disabled={!selectedTipoMuestra}
-                            size="sm"
-                            radius="md"
-                        />
-                        {/* ✅ PUNTUAL: muestreo de un solo día → no se pide duración. Solo aplica en Compuesta. */}
-                        {tipoMonitoreo !== 'Puntual' && (
+                    )}
+                    <Select
+                        label={<FieldLabel label="Tipo Descarga *" help="Clasificación del tipo de descarga del establecimiento según la normativa ambiental. Ejemplos: Punto de Descarga, Cuerpo Receptor. Requerido para la clasificación del informe." />}
+                        data={tiposDescargaData}
+                        value={selectedTipoDescarga}
+                        onChange={(v: string | null) => setSelectedTipoDescarga(v || '')}
+                    />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                        <div style={{ flex: 1 }}>
                             <TextInput
-                                label={<FieldLabel label="Duración (Hrs) *" help="Tiempo estimado en horas enteras que tomará el muestreo completo en el centro. No incluir el tiempo de traslado. Solo se aceptan números enteros." />}
-                                type="number"
-                                inputMode="numeric"
-                                min={0}
-                                step={1}
-                                value={duracion}
-                                placeholder="Solo horas enteras"
-                                onChange={(e: any) => {
-                                    // F-16: solo enteros, sin decimal ni letras
-                                    const cleaned = String(e.target.value).replace(/[^0-9]/g, '');
-                                    setDuracion(cleaned);
-                                }}
-                                onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-                                    // Bloquear punto, coma, e, +, -
-                                    if (['.', ',', 'e', 'E', '+', '-'].includes(e.key)) {
-                                        e.preventDefault();
-                                    }
-                                }}
-                                size="sm"
-                                radius="md"
+                                label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
+                                description="Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas."
+                                placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
+                                value={refGoogle}
+                                onChange={(e: any) => setRefGoogle(e.target.value)}
+                                onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
+                                error={verifyStatus === 'invalid' ? verifyError : undefined}
+                                suffix={verifyStatus === 'loading' ? <Spin size="small" /> : undefined}
                             />
-                        )}
-                        <Select 
-                            label={<FieldLabel label="Tipo Descarga *" help="Clasificación del tipo de descarga del establecimiento según la normativa ambiental. Ejemplos: Punto de Descarga, Cuerpo Receptor. Requerido para la clasificación del informe." />}
-                            data={tiposDescargaData}
-                            value={selectedTipoDescarga}
-                            onChange={(val) => setSelectedTipoDescarga(val || '')}
-                            size="sm"
-                            radius="md"
-                        />
-                    </SimpleGrid>
+                        </div>
+                        <Button
+                            onClick={handleVerifyLink}
+                            loading={verifyStatus === 'loading'}
+                            disabled={!refGoogle.trim()}
+                            style={{ flexShrink: 0 }}
+                        >
+                            Verificar
+                        </Button>
+                    </div>
 
-                    <Stack gap={6}>
-                        <Group align="flex-end" gap="xs">
-                            <Box style={{ flex: 1 }}>
-                                <TextInput
-                                    label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
-                                    description="Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas."
-                                    placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
-                                    value={refGoogle}
-                                    onChange={(e: any) => setRefGoogle(e.target.value)}
-                                    onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
-                                    size="sm"
-                                    radius="md"
-                                    error={verifyStatus === 'invalid' ? verifyError : undefined}
-                                    rightSection={verifyStatus === 'loading' ? <Loader size={14} /> : undefined}
-                                />
-                            </Box>
-                            <Button
-                                size="sm"
-                                variant="light"
-                                color="blue"
-                                onClick={handleVerifyLink}
-                                loading={verifyStatus === 'loading'}
-                                disabled={!refGoogle.trim()}
-                                style={{ flexShrink: 0 }}
-                            >
-                                Verificar
-                            </Button>
-                        </Group>
-
-                        {verifyStatus === 'ok' && verifiedCoords && (
-                            <Stack gap={6}>
-                                <Alert color="green" icon={<IconCheck size={16} />} p="xs" radius="md">
-                                    <Group gap="xs" justify="space-between" wrap="nowrap">
-                                        <Text size="xs" fw={500}>
+                    {verifyStatus === 'ok' && verifiedCoords && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            <Alert
+                                type="success"
+                                showIcon
+                                icon={<IconCheck size={16} />}
+                                message={
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
+                                        <Text style={{ fontSize: 12 }}>
                                             Ubicación detectada — Lat: {verifiedCoords.lat.toFixed(6)} · Lon: {verifiedCoords.lon.toFixed(6)}
                                         </Text>
-                                        <Anchor
+                                        <a
                                             href={`https://www.google.com/maps?q=${verifiedCoords.lat},${verifiedCoords.lon}`}
                                             target="_blank"
-                                            size="xs"
-                                            style={{ flexShrink: 0 }}
+                                            rel="noopener noreferrer"
+                                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--app-accent-text)' }}
                                         >
-                                            <Group gap={4} wrap="nowrap">
-                                                <IconExternalLink size={12} />
-                                                Abrir
-                                            </Group>
-                                        </Anchor>
-                                    </Group>
-                                </Alert>
-                                <Box style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid var(--mantine-color-green-3)', height: 200 }}>
-                                    <iframe
-                                        title="Ubicación en mapa"
-                                        src={`https://www.openstreetmap.org/export/embed.html?bbox=${verifiedCoords.lon - 0.01},${verifiedCoords.lat - 0.01},${verifiedCoords.lon + 0.01},${verifiedCoords.lat + 0.01}&layer=mapnik&marker=${verifiedCoords.lat},${verifiedCoords.lon}`}
-                                        width="100%"
-                                        height="200"
-                                        style={{ border: 'none', display: 'block' }}
-                                        loading="lazy"
-                                    />
-                                </Box>
-                            </Stack>
-                        )}
+                                            <IconExternalLink size={12} /> Abrir
+                                        </a>
+                                    </div>
+                                }
+                            />
+                            <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(47,158,68,0.3)', height: 200 }}>
+                                <iframe
+                                    title="Ubicación en mapa"
+                                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${verifiedCoords.lon - 0.01},${verifiedCoords.lat - 0.01},${verifiedCoords.lon + 0.01},${verifiedCoords.lat + 0.01}&layer=mapnik&marker=${verifiedCoords.lat},${verifiedCoords.lon}`}
+                                    width="100%"
+                                    height="200"
+                                    style={{ border: 'none', display: 'block' }}
+                                    loading="lazy"
+                                />
+                            </div>
+                        </div>
+                    )}
 
-                        {verifyStatus === 'warn' && (
-                            <Alert color="orange" icon={<IconAlertTriangle size={16} />} p="xs" radius="md">
-                                <Text size="xs">{verifyError}</Text>
-                            </Alert>
-                        )}
-                    </Stack>
+                    {verifyStatus === 'warn' && (
+                        <Alert type="warning" showIcon icon={<IconAlertTriangle size={16} />} message={<Text style={{ fontSize: 12 }}>{verifyError}</Text>} />
+                    )}
+                </div>
 
-                    <Divider label="Hidráulica y Caudal" labelPosition="center" />
+                <Divider titlePlacement="center" style={{ margin: '8px 0 16px' }}>
+                    <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)' }}>Hidráulica y Caudal</Text>
+                </Divider>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-                        <Select 
-                            label={<FieldLabel label="Medición Caudal" help="Indica si se medirá el caudal de la descarga y cómo. Manual: se mide en terreno por el muestreador. Automático: existe un caudalímetro instalado. No Aplica: no se mide caudal." />}
-                            data={['Manual', 'Automático', 'No Aplica']} 
-                            value={medicionCaudal} 
-                            onChange={(val) => setMedicionCaudal(val || '')}
-                            size="sm"
-                            radius="md"
-                        />
+                <div style={gridCols(4)}>
+                    <Select
+                        label={<FieldLabel label="Medición Caudal" help="Indica si se medirá el caudal de la descarga y cómo. Manual: se mide en terreno por el muestreador. Automático: existe un caudalímetro instalado. No Aplica: no se mide caudal." />}
+                        data={['Manual', 'Automático', 'No Aplica']}
+                        value={medicionCaudal}
+                        onChange={(v: string | null) => setMedicionCaudal(v || '')}
+                    />
+                    <Select
+                        label={<FieldLabel label="Modalidad" help="Método hidráulico para medir el caudal. Se activa solo si la Medición de Caudal no es 'No Aplica'. Determina qué campos de canal y dispositivo se requieren." />}
+                        data={modalidadesData}
+                        value={selectedModalidad}
+                        onChange={(v: string | null) => setSelectedModalidad(v || '')}
+                        disabled={isNoAplicaValue(medicionCaudal)}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <Select
-                            label={<FieldLabel label="Modalidad" help="Método hidráulico para medir el caudal. Se activa solo si la Medición de Caudal no es 'No Aplica'. Determina qué campos de canal y dispositivo se requieren." />}
-                            data={modalidadesData}
-                            value={selectedModalidad}
-                            onChange={(val) => setSelectedModalidad(val || '')}
-                            disabled={isNoAplicaValue(medicionCaudal)}
-                            size="sm"
-                            radius="md"
+                            label={<FieldLabel label="Forma Canal" help="Geometría del canal o sección de descarga donde se medirá el caudal. Ejemplos: Rectangular, Trapezoidal, Circular. Determina la fórmula hidráulica que se aplicará." />}
+                            data={formasCanalData}
+                            value={formaCanal}
+                            onChange={(v: string | null) => setFormaCanal(v || '')}
+                            disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
-                        <Stack gap={4}>
+                        <div style={{ display: 'flex', gap: 4 }}>
                             <Select
-                                label={<FieldLabel label="Forma Canal" help="Geometría del canal o sección de descarga donde se medirá el caudal. Ejemplos: Rectangular, Trapezoidal, Circular. Determina la fórmula hidráulica que se aplicará." />}
-                                data={formasCanalData}
-                                value={formaCanal}
-                                onChange={(val) => setFormaCanal(val || '')}
-                                disabled={isNoAplicaValue(selectedModalidad, modalidades)}
-                                size="xs"
-                                radius="md"
+                                placeholder="Unidad"
+                                data={unidadesMedida}
+                                value={tipoMedidaCanal}
+                                onChange={(v: string | null) => setTipoMedidaCanal(v || '')}
+                                disabled={isNoAplicaValue(formaCanal, formasCanal)}
+                                style={{ flex: 1 }}
                             />
-                            <Group gap={4} grow>
-                                <Select
-                                    placeholder="Unidad"
-                                    data={unidadesMedida}
-                                    value={tipoMedidaCanal}
-                                    onChange={(val) => setTipoMedidaCanal(val || '')}
-                                    disabled={isNoAplicaValue(formaCanal, formasCanal)}
-                                    size="xs"
-                                    radius="md"
-                                />
-                                <TextInput
-                                    placeholder="Valor"
-                                    value={detalleCanal}
-                                    onChange={(e: any) => setDetalleCanal(e.target.value)}
-                                    disabled={!tipoMedidaCanal}
-                                    size="xs"
-                                    radius="md"
-                                />
-                            </Group>
-                        </Stack>
-                        <Stack gap={4}>
+                            <TextInput
+                                placeholder="Valor"
+                                value={detalleCanal}
+                                onChange={(e: any) => setDetalleCanal(e.target.value)}
+                                disabled={!tipoMedidaCanal}
+                                style={{ flex: 1 }}
+                            />
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <Select
+                            label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
+                            data={dispositivosData}
+                            value={dispositivo}
+                            onChange={(v: string | null) => setDispositivo(v || '')}
+                            disabled={isNoAplicaValue(selectedModalidad, modalidades)}
+                        />
+                        <div style={{ display: 'flex', gap: 4 }}>
                             <Select
-                                label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
-                                data={dispositivosData}
-                                value={dispositivo}
-                                onChange={(val) => setDispositivo(val || '')}
-                                disabled={isNoAplicaValue(selectedModalidad, modalidades)}
-                                size="xs"
-                                radius="md"
+                                placeholder="Unidad"
+                                data={unidadesMedida}
+                                value={tipoMedidaDispositivo}
+                                onChange={(v: string | null) => setTipoMedidaDispositivo(v || '')}
+                                disabled={isNoAplicaValue(dispositivo, dispositivos)}
+                                style={{ flex: 1 }}
                             />
-                            <Group gap={4} grow>
-                                <Select
-                                    placeholder="Unidad"
-                                    data={unidadesMedida}
-                                    value={tipoMedidaDispositivo}
-                                    onChange={(val) => setTipoMedidaDispositivo(val || '')}
-                                    disabled={isNoAplicaValue(dispositivo, dispositivos)}
-                                    size="xs"
-                                    radius="md"
-                                />
-                                <TextInput 
-                                    placeholder="Valor" 
-                                    value={detalleDispositivo} 
-                                    onChange={(e: any) => setDetalleDispositivo(e.target.value)} 
-                                    disabled={!tipoMedidaDispositivo}
-                                    size="xs"
-                                    radius="md"
-                                />
-                            </Group>
-                        </Stack>
-                    </SimpleGrid>
-                </Stack>
-            </Paper>
+                            <TextInput
+                                placeholder="Valor"
+                                value={detalleDispositivo}
+                                onChange={(e: any) => setDetalleDispositivo(e.target.value)}
+                                disabled={!tipoMedidaDispositivo}
+                                style={{ flex: 1 }}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </Block>
 
-            <CreateEmpresaServicioModal 
+            <CreateEmpresaServicioModal
                 opened={createEmpresaOpened}
                 onClose={() => setCreateEmpresaOpened(false)}
                 onCreated={() => {
                     loadEmpresas(); // Refrescar catálogo
                 }}
             />
-        </Stack>
+        </div>
     );
 });

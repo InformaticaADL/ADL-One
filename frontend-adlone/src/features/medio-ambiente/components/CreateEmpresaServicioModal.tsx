@@ -1,17 +1,10 @@
 import React, { useState } from 'react';
-import { 
-    Modal, 
-    TextInput, 
-    Button, 
-    Stack, 
-    Group, 
-    Text, 
-    ThemeIcon,
-    SimpleGrid
-} from '@mantine/core';
+import { Modal, Input, Button, Typography } from 'antd';
 import { IconBuilding, IconCheck, IconX, IconMail, IconUser } from '@tabler/icons-react';
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text } = Typography;
 
 interface CreateEmpresaServicioModalProps {
     opened: boolean;
@@ -19,10 +12,10 @@ interface CreateEmpresaServicioModalProps {
     onCreated: (newId: string) => void;
 }
 
-export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProps> = ({ 
-    opened, 
-    onClose, 
-    onCreated 
+export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProps> = ({
+    opened,
+    onClose,
+    onCreated
 }) => {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
@@ -36,7 +29,7 @@ export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProp
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (!formData.nombre_empresaservicios.trim()) {
             showToast({ type: 'error', message: 'El nombre de la empresa es obligatorio' });
             return;
@@ -46,15 +39,15 @@ export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProp
         try {
             // Usamos el servicio genérico de maestros para crear
             const result = await catalogosService.createMaestro('mae_empresaservicios', formData);
-            
+
             if (result.success) {
                 showToast({ type: 'success', message: 'Empresa de servicio creada correctamente' });
-                
+
                 // Intentamos recuperar el ID de la empresa recién creada.
                 // Como createMaestro genérico no devuelve el ID, tendremos que confiar en que
                 // el componente padre refrescará la lista y buscará por nombre o simplemente refrescará.
                 // En un sistema ideal, el backend devolvería el INSERTED.id.
-                onCreated(''); 
+                onCreated('');
                 handleClose();
             }
         } catch (error: any) {
@@ -78,83 +71,96 @@ export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProp
 
     return (
         <Modal
-            opened={opened}
-            onClose={handleClose}
+            open={opened}
+            onCancel={handleClose}
+            footer={null}
+            width={600}
+            centered
             title={
-                <Group gap="xs">
-                    <ThemeIcon size="lg" radius="md" color="teal">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{
+                        width: 36, height: 36, borderRadius: 8, backgroundColor: 'rgba(9,143,131,0.12)',
+                        color: '#098f83', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
                         <IconBuilding size={20} />
-                    </ThemeIcon>
-                    <Text size="xl" fw={800} c="teal.9">
+                    </div>
+                    <Text style={{ fontSize: 18, fontWeight: 800, color: '#0b7285' }}>
                         Nueva Empresa de Servicio
                     </Text>
-                </Group>
+                </div>
             }
-            size="lg"
-            radius="lg"
-            centered
         >
             <form onSubmit={handleSubmit}>
-                <Stack gap="md">
-                    <Text size="sm" c="dimmed">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>
                         Ingrese los datos básicos de la nueva empresa prestadora de servicios de muestreo.
                     </Text>
 
-                    <TextInput
-                        label="Nombre de la Empresa"
-                        placeholder="Ej: ADL Servicios Ambientales"
-                        required
-                        value={formData.nombre_empresaservicios}
-                        onChange={(e) => setFormData({ ...formData, nombre_empresaservicios: e.target.value })}
-                        leftSection={<IconBuilding size={16} />}
-                        radius="md"
-                    />
-
-                    <SimpleGrid cols={2}>
-                        <TextInput
-                            label="Contacto Principal"
-                            placeholder="Nombre del contacto"
-                            value={formData.contacto_empresaservicios}
-                            onChange={(e) => setFormData({ ...formData, contacto_empresaservicios: e.target.value })}
-                            leftSection={<IconUser size={16} />}
-                            radius="md"
+                    <Field label="Nombre de la Empresa *">
+                        <Input
+                            placeholder="Ej: ADL Servicios Ambientales"
+                            required
+                            value={formData.nombre_empresaservicios}
+                            onChange={(e) => setFormData({ ...formData, nombre_empresaservicios: e.target.value })}
+                            prefix={<IconBuilding size={16} style={{ color: 'var(--app-text-secondary)' }} />}
                         />
-                        <TextInput
-                            label="Email Contacto"
-                            placeholder="contacto@empresa.cl"
+                    </Field>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <Field label="Contacto Principal">
+                            <Input
+                                placeholder="Nombre del contacto"
+                                value={formData.contacto_empresaservicios}
+                                onChange={(e) => setFormData({ ...formData, contacto_empresaservicios: e.target.value })}
+                                prefix={<IconUser size={16} style={{ color: 'var(--app-text-secondary)' }} />}
+                            />
+                        </Field>
+                        <Field label="Email Contacto">
+                            <Input
+                                placeholder="contacto@empresa.cl"
+                                type="email"
+                                value={formData.email_contacto}
+                                onChange={(e) => setFormData({ ...formData, email_contacto: e.target.value })}
+                                prefix={<IconMail size={16} style={{ color: 'var(--app-text-secondary)' }} />}
+                            />
+                        </Field>
+                    </div>
+
+                    <Field label="Email Institucional (Facturación/Reportes)">
+                        <Input
+                            placeholder="operaciones@empresa.cl"
                             type="email"
-                            value={formData.email_contacto}
-                            onChange={(e) => setFormData({ ...formData, email_contacto: e.target.value })}
-                            leftSection={<IconMail size={16} />}
-                            radius="md"
+                            value={formData.email_empresaservicios}
+                            onChange={(e) => setFormData({ ...formData, email_empresaservicios: e.target.value })}
+                            prefix={<IconMail size={16} style={{ color: 'var(--app-text-secondary)' }} />}
                         />
-                    </SimpleGrid>
+                    </Field>
 
-                    <TextInput
-                        label="Email Institucional (Facturación/Reportes)"
-                        placeholder="operaciones@empresa.cl"
-                        type="email"
-                        value={formData.email_empresaservicios}
-                        onChange={(e) => setFormData({ ...formData, email_empresaservicios: e.target.value })}
-                        leftSection={<IconMail size={16} />}
-                        radius="md"
-                    />
-
-                    <Group justify="flex-end" mt="xl">
-                        <Button variant="subtle" color="gray" onClick={handleClose} leftSection={<IconX size={16} />}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+                        <Button onClick={handleClose} icon={<IconX size={16} />}>
                             Cancelar
                         </Button>
-                        <Button 
-                            type="submit" 
-                            color="teal" 
+                        <Button
+                            htmlType="submit"
+                            type="primary"
+                            style={{ backgroundColor: '#0b7285' }}
                             loading={loading}
-                            leftSection={<IconCheck size={16} />}
+                            icon={<IconCheck size={16} />}
                         >
                             Crear Empresa
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </form>
         </Modal>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

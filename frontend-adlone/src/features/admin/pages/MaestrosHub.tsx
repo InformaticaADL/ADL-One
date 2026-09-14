@@ -1,22 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { 
-    Box, 
-    SimpleGrid, 
-    Card, 
-    Text, 
-    ThemeIcon, 
-    UnstyledButton,
-    Badge,
-    Group,
-    Tabs,
-    TextInput,
-    rem
-} from '@mantine/core';
-import { 
-    IconBuildingStore, 
-    IconBuilding, 
-    IconMapPin, 
-    IconUser, 
+import { Typography, Card, Tag, Tabs, Input } from 'antd';
+import {
+    IconBuildingStore,
+    IconBuilding,
+    IconMapPin,
+    IconUser,
     IconTarget,
     IconFlask,
     IconTable,
@@ -51,6 +39,8 @@ import { MaestroDataManager } from '../components';
 import { EmpresaServicioFormView } from '../../medio-ambiente/components/EmpresaServicioFormView';
 import '../../../App.css';
 
+const { Text } = Typography;
+
 type MaestroArea = 'general' | 'medio-ambiente' | 'logistica' | 'tecnica' | 'sistema';
 
 interface MaestroConfig {
@@ -80,17 +70,38 @@ interface Props {
     onBack: () => void;
 }
 
+const COLOR_HEX: Record<string, { base: string; bg: string; light: string }> = {
+    blue: { base: '#1c7ed6', bg: 'rgba(28,126,214,0.08)', light: '#4dabf7' },
+    teal: { base: '#0c8599', bg: 'rgba(12,133,153,0.08)', light: '#3bc9db' },
+    indigo: { base: '#4c6ef5', bg: 'rgba(76,110,245,0.08)', light: '#748ffc' },
+    violet: { base: '#7048e8', bg: 'rgba(112,72,232,0.08)', light: '#9775fa' },
+    green: { base: '#2f9e44', bg: 'rgba(47,158,68,0.08)', light: '#69db7c' },
+    cyan: { base: '#15aabf', bg: 'rgba(21,170,191,0.08)', light: '#66d9e8' },
+    red: { base: '#e03131', bg: 'rgba(224,49,49,0.08)', light: '#ff8787' },
+    grape: { base: '#9c36b5', bg: 'rgba(156,54,181,0.08)', light: '#da77f2' },
+    pink: { base: '#e64980', bg: 'rgba(230,73,128,0.08)', light: '#f783ac' },
+    orange: { base: '#e8590c', bg: 'rgba(232,89,12,0.08)', light: '#ffa94d' },
+    yellow: { base: '#f08c00', bg: 'rgba(240,140,0,0.08)', light: '#ffd43b' },
+    gray: { base: '#868e96', bg: 'rgba(134,142,150,0.08)', light: '#adb5bd' },
+    lime: { base: '#82c91e', bg: 'rgba(130,201,30,0.08)', light: '#a9e34b' },
+    dark: { base: '#1a1b1e', bg: 'rgba(26,27,30,0.08)', light: '#495057' },
+};
+
+function colorOf(name: string) {
+    return COLOR_HEX[name] || COLOR_HEX.gray;
+}
+
 export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
     const [selectedMaestro, setSelectedMaestro] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<string | null>('general');
+    const [activeTab, setActiveTab] = useState<string>('general');
     const [hubSearch, setHubSearch] = useState('');
 
     const MAESTROS_CONFIG = useMemo(() => ([
         // AREA: GESTIÓN ORGANIZACIONAL
-        { 
-            id: 'clientes', 
-            label: 'Clientes', 
-            icon: <IconBuildingStore size={24} />, 
+        {
+            id: 'clientes',
+            label: 'Clientes',
+            icon: <IconBuildingStore size={24} />,
             color: 'blue',
             description: 'Gestión de empresas mandantes para facturación.',
             tableName: 'mae_empresa',
@@ -103,10 +114,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 id_empresaservicio: { tableName: 'mae_empresaservicios', idColumn: 'id_empresaservicio', displayColumn: 'nombre_empresaservicios' }
             }
         },
-        { 
-            id: 'empresas-servicio', 
-            label: 'Empresas de Servicio', 
-            icon: <IconBuilding size={24} />, 
+        {
+            id: 'empresas-servicio',
+            label: 'Empresas de Servicio',
+            icon: <IconBuilding size={24} />,
             color: 'teal',
             description: 'Empresas que prestan el servicio de muestreo.',
             tableName: 'mae_empresaservicios',
@@ -116,10 +127,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             summaryColumns: ['nombre_empresaservicios', 'email_empresaservicios'],
             statusColumn: 'habilitado'
         },
-        { 
-            id: 'contactos', 
-            label: 'Contactos', 
-            icon: <IconUser size={24} />, 
+        {
+            id: 'contactos',
+            label: 'Contactos',
+            icon: <IconUser size={24} />,
             color: 'indigo',
             description: 'Personas de contacto en empresas mandantes.',
             tableName: 'mae_contacto',
@@ -134,10 +145,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 id_cargo: { tableName: 'mae_cargo', idColumn: 'id_cargo', displayColumn: 'nombre_cargo' }
             }
         },
-        { 
-            id: 'cargos', 
-            label: 'Cargos', 
-            icon: <IconBriefcase size={24} />, 
+        {
+            id: 'cargos',
+            label: 'Cargos',
+            icon: <IconBriefcase size={24} />,
             color: 'blue',
             description: 'Definición de cargos para el personal.',
             tableName: 'mae_cargo',
@@ -146,10 +157,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_cargo',
             summaryColumns: ['nombre_cargo', 'lab', 'mam', 'obsterreno', 'cliente']
         },
-        { 
-            id: 'roles', 
-            label: 'Roles de Sistema', 
-            icon: <IconId size={24} />, 
+        {
+            id: 'roles',
+            label: 'Roles de Sistema',
+            icon: <IconId size={24} />,
             color: 'violet',
             description: 'Perfiles y niveles de acceso al sistema.',
             tableName: 'mae_rol',
@@ -157,10 +168,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'general',
             displayColumn: 'nombre_rol'
         },
-        { 
-            id: 'usuarios', 
-            label: 'Usuarios', 
-            icon: <IconUsers size={24} />, 
+        {
+            id: 'usuarios',
+            label: 'Usuarios',
+            icon: <IconUsers size={24} />,
             color: 'blue',
             description: 'Cuentas de usuario para acceso a la plataforma.',
             tableName: 'mae_usuario',
@@ -176,10 +187,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         },
 
         // AREA: MEDIO AMBIENTE
-        { 
-            id: 'componentes', 
-            label: 'Componentes Ambientales', 
-            icon: <IconFlask size={24} />, 
+        {
+            id: 'componentes',
+            label: 'Componentes Ambientales',
+            icon: <IconFlask size={24} />,
             color: 'green',
             description: 'Matrices ambientales (Agua, RIL, etc).',
             tableName: 'mae_tipomuestra_ma',
@@ -188,10 +199,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_tipomuestra_ma',
             statusColumn: 'habilitado'
         },
-        { 
-            id: 'subareas', 
-            label: 'Sub Áreas', 
-            icon: <IconHierarchy2 size={24} />, 
+        {
+            id: 'subareas',
+            label: 'Sub Áreas',
+            icon: <IconHierarchy2 size={24} />,
             color: 'cyan',
             description: 'Divisiones por componente ambiental.',
             tableName: 'mae_subarea',
@@ -205,10 +216,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 id_tipomuestra: { tableName: 'mae_tipomuestra_ma', idColumn: 'id_tipomuestra_ma', displayColumn: 'nombre_tipomuestra_ma' }
             }
         },
-        { 
-            id: 'objetivos', 
-            label: 'Objetivos de Muestreo', 
-            icon: <IconTarget size={24} />, 
+        {
+            id: 'objetivos',
+            label: 'Objetivos de Muestreo',
+            icon: <IconTarget size={24} />,
             color: 'red',
             description: 'Finalidades del monitoreo y cumplimiento.',
             tableName: 'mae_objetivomuestreo_ma',
@@ -217,10 +228,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_objetivomuestreo_ma',
             statusColumn: 'habilitado'
         },
-        { 
-            id: 'tipos-muestreo', 
-            label: 'Tipos de Muestreo', 
-            icon: <IconTable size={24} />, 
+        {
+            id: 'tipos-muestreo',
+            label: 'Tipos de Muestreo',
+            icon: <IconTable size={24} />,
             color: 'grape',
             description: 'Modalidades de toma de muestra.',
             tableName: 'mae_tipomuestreo',
@@ -230,10 +241,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'habilitado',
             summaryColumns: ['nombre_tipomuestreo', 'aplicado_a']
         },
-        { 
-            id: 'tipos-muestra', 
-            label: 'Tipos de Muestra', 
-            icon: <IconDroplet size={24} />, 
+        {
+            id: 'tipos-muestra',
+            label: 'Tipos de Muestra',
+            icon: <IconDroplet size={24} />,
             color: 'blue',
             description: 'Clasificación de la muestra según su origen (Potable, RIL, etc).',
             tableName: 'mae_tipomuestra',
@@ -242,19 +253,19 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_tipomuestra',
             statusColumn: 'activo',
             summaryColumns: [
-                'nombre_tipomuestra', 
-                'modo_ingreso', 
-                'aplicado_a', 
-                'nombre_sernapesca', 
-                'metodologia', 
-                'realiza_screening', 
+                'nombre_tipomuestra',
+                'modo_ingreso',
+                'aplicado_a',
+                'nombre_sernapesca',
+                'metodologia',
+                'realiza_screening',
                 'guia'
             ]
         },
-        { 
-            id: 'actividades', 
-            label: 'Actividades de Muestreo', 
-            icon: <IconRun size={24} />, 
+        {
+            id: 'actividades',
+            label: 'Actividades de Muestreo',
+            icon: <IconRun size={24} />,
             color: 'pink',
             description: 'Acciones específicas durante el terreno.',
             tableName: 'mae_actividadmuestreo',
@@ -263,10 +274,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_actividadmuestreo',
             statusColumn: 'activo'
         },
-        { 
-            id: 'tipos-descarga', 
-            label: 'Tipos de Descarga', 
-            icon: <IconDroplet size={24} />, 
+        {
+            id: 'tipos-descarga',
+            label: 'Tipos de Descarga',
+            icon: <IconDroplet size={24} />,
             color: 'blue',
             description: 'Categorización de puntos de vertido.',
             tableName: 'mae_tipodescarga',
@@ -274,10 +285,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'medio-ambiente',
             displayColumn: 'nombre_tipodescarga'
         },
-        { 
-            id: 'inspectores', 
-            label: 'Inspectores Ambientales', 
-            icon: <IconUserCheck size={24} />, 
+        {
+            id: 'inspectores',
+            label: 'Inspectores Ambientales',
+            icon: <IconUserCheck size={24} />,
             color: 'teal',
             description: 'Personal autorizado para inspecciones.',
             tableName: 'mae_inspectorambiental',
@@ -289,10 +300,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         },
 
         // AREA: LOGÍSTICA Y TERRENO
-        { 
-            id: 'muestreadores', 
-            label: 'Muestreadores', 
-            icon: <IconTruckDelivery size={24} />, 
+        {
+            id: 'muestreadores',
+            label: 'Muestreadores',
+            icon: <IconTruckDelivery size={24} />,
             color: 'orange',
             description: 'Técnicos encargados de la toma de muestras.',
             tableName: 'mae_muestreador',
@@ -331,10 +342,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'activo',
             summaryColumns: ['nombre_competencia', 'descripcion', 'orden']
         },
-        { 
-            id: 'centros', 
-            label: 'Fuentes Emisoras (Centros)', 
-            icon: <IconMapPin size={24} />, 
+        {
+            id: 'centros',
+            label: 'Fuentes Emisoras (Centros)',
+            icon: <IconMapPin size={24} />,
             color: 'orange',
             description: 'Puntos de monitoreo específicos por cliente.',
             tableName: 'mae_centro',
@@ -347,10 +358,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 id_empresa: { tableName: 'mae_empresa', idColumn: 'id_empresa', displayColumn: 'nombre_empresa' }
             }
         },
-        { 
-            id: 'modalidades', 
-            label: 'Modalidades', 
-            icon: <IconLayoutGrid size={24} />, 
+        {
+            id: 'modalidades',
+            label: 'Modalidades',
+            icon: <IconLayoutGrid size={24} />,
             color: 'indigo',
             description: 'Formas de ejecución del servicio.',
             tableName: 'mae_modalidad',
@@ -358,10 +369,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'logistica',
             displayColumn: 'nombre_modalidad'
         },
-        { 
-            id: 'frecuencias', 
-            label: 'Frecuencias de Periodo', 
-            icon: <IconHistory size={24} />, 
+        {
+            id: 'frecuencias',
+            label: 'Frecuencias de Periodo',
+            icon: <IconHistory size={24} />,
             color: 'gray',
             description: 'Periodicidades de monitoreo.',
             tableName: 'mae_frecuencia',
@@ -371,10 +382,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'habilitado',
             summaryColumns: ['nombre_frecuencia', 'multiplicadopor', 'cantidad', 'dias', 'orden']
         },
-        { 
-            id: 'estados-muestreo', 
-            label: 'Estados de Muestreo', 
-            icon: <IconActivity size={24} />, 
+        {
+            id: 'estados-muestreo',
+            label: 'Estados de Muestreo',
+            icon: <IconActivity size={24} />,
             color: 'lime',
             description: 'Ciclo de vida de una muestra.',
             tableName: 'mae_estadomuestreo',
@@ -386,10 +397,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         },
 
         // AREA: INSTRUMENTAL Y TÉCNICA
-        { 
-            id: 'equipos', 
-            label: 'Equipos', 
-            icon: <IconDeviceAnalytics size={24} />, 
+        {
+            id: 'equipos',
+            label: 'Equipos',
+            icon: <IconDeviceAnalytics size={24} />,
             color: 'blue',
             description: 'Inventario de equipos de medición y monitoreo.',
             tableName: 'mae_equipo',
@@ -407,10 +418,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 Estado: { tableName: 'mae_estado_equipo', idColumn: 'nombre', displayColumn: 'nombre' }
             }
         },
-        { 
-            id: 'instrumentos', 
-            label: 'Instrumentos Ambientales', 
-            icon: <IconTool size={24} />, 
+        {
+            id: 'instrumentos',
+            label: 'Instrumentos Ambientales',
+            icon: <IconTool size={24} />,
             color: 'teal',
             description: 'Instrumental específico para análisis ambiental.',
             tableName: 'mae_instrumentoambiental',
@@ -420,10 +431,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'estado',
             summaryColumns: ['nombre']
         },
-        { 
-            id: 'unidades', 
-            label: 'Unidades de Medida', 
-            icon: <IconRuler2 size={24} />, 
+        {
+            id: 'unidades',
+            label: 'Unidades de Medida',
+            icon: <IconRuler2 size={24} />,
             color: 'indigo',
             description: 'Estándares de medición del sistema.',
             tableName: 'mae_umedida',
@@ -432,10 +443,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_umedida',
             summaryColumns: ['nombre_umedida']
         },
-        { 
-            id: 'estado-equipo', 
-            label: 'Estados de Equipo', 
-            icon: <IconSettings size={24} />, 
+        {
+            id: 'estado-equipo',
+            label: 'Estados de Equipo',
+            icon: <IconSettings size={24} />,
             color: 'blue',
             description: 'Estados operativos que pueden tener los equipos.',
             tableName: 'mae_estado_equipo',
@@ -445,10 +456,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'activo',
             summaryColumns: ['nombre', 'activo']
         },
-        { 
-            id: 'equipo-catalogo', 
-            label: 'Catálogo de Modelos (Equipos)', 
-            icon: <IconDeviceAnalytics size={24} />, 
+        {
+            id: 'equipo-catalogo',
+            label: 'Catálogo de Modelos (Equipos)',
+            icon: <IconDeviceAnalytics size={24} />,
             color: 'teal',
             description: 'Catálogo de modelos de equipos, variables de medición y unidades de medida.',
             tableName: 'mae_equipo_catalogo',
@@ -457,10 +468,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre',
             summaryColumns: ['nombre', 'tipo_equipo', 'que_mide', 'unidad_medida_textual', 'unidad_medida_sigla']
         },
-        { 
-            id: 'lugares-analisis', 
-            label: 'Lugares de Análisis', 
-            icon: <IconMicroscope size={24} />, 
+        {
+            id: 'lugares-analisis',
+            label: 'Lugares de Análisis',
+            icon: <IconMicroscope size={24} />,
             color: 'cyan',
             description: 'Laboratorios y puntos de procesamiento.',
             tableName: 'mae_lugaranalisis',
@@ -470,10 +481,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'habilitado',
             summaryColumns: ['nombre_lugaranalisis', 'sigla', 'cod_contable']
         },
-        { 
-            id: 'formas-canal', 
-            label: 'Formas de Canal', 
-            icon: <IconArrowMerge size={24} />, 
+        {
+            id: 'formas-canal',
+            label: 'Formas de Canal',
+            icon: <IconArrowMerge size={24} />,
             color: 'blue',
             description: 'Geometría de canales de vertido.',
             tableName: 'mae_formacanal',
@@ -481,10 +492,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'tecnica',
             displayColumn: 'nombre_formacanal'
         },
-        { 
-            id: 'dispositivos', 
-            label: 'Dispositivos Hidráulicos', 
-            icon: <IconWaveSine size={24} />, 
+        {
+            id: 'dispositivos',
+            label: 'Dispositivos Hidráulicos',
+            icon: <IconWaveSine size={24} />,
             color: 'blue',
             description: 'Elementos de control hidráulico.',
             tableName: 'mae_dispositivohidraulico',
@@ -492,10 +503,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'tecnica',
             displayColumn: 'nombre_dispositivohidraulico'
         },
-        { 
-            id: 'zonas-utm', 
-            label: 'Zonas UTM', 
-            icon: <IconMapPin size={24} />, 
+        {
+            id: 'zonas-utm',
+            label: 'Zonas UTM',
+            icon: <IconMapPin size={24} />,
             color: 'orange',
             description: 'Zonas UTM para referenciación geográfica.',
             tableName: 'mae_zonautm',
@@ -507,10 +518,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         },
 
         // AREA: SISTEMA
-        { 
-            id: 'tipos-solicitud', 
-            label: 'Tipos de Solicitud (URS)', 
-            icon: <IconSettings size={24} />, 
+        {
+            id: 'tipos-solicitud',
+            label: 'Tipos de Solicitud (URS)',
+            icon: <IconSettings size={24} />,
             color: 'dark',
             description: 'Configuración de tipos de requerimiento de servicio.',
             tableName: 'mae_solicitud_tipo',
@@ -520,10 +531,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'estado',
             summaryColumns: ['nombre', 'area_destino', 'modulo_destino', 'cod_permiso_crear']
         },
-        { 
-            id: 'permisos', 
-            label: 'Permisos del Sistema', 
-            icon: <IconShield size={24} />, 
+        {
+            id: 'permisos',
+            label: 'Permisos del Sistema',
+            icon: <IconShield size={24} />,
             color: 'red',
             description: 'Define qué acciones puede realizar cada rol en la plataforma.',
             tableName: 'mae_permiso',
@@ -532,10 +543,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre',
             summaryColumns: ['codigo', 'nombre', 'modulo', 'submodulo', 'tipo']
         },
-        { 
-            id: 'notificacion-reglas', 
-            label: 'Reglas de Notificación', 
-            icon: <IconBell size={24} />, 
+        {
+            id: 'notificacion-reglas',
+            label: 'Reglas de Notificación',
+            icon: <IconBell size={24} />,
             color: 'yellow',
             description: 'Configura cuándo y a quién se envían alertas automáticas.',
             tableName: 'mae_notificacion_regla',
@@ -550,10 +561,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 id_tipo_solicitud: { tableName: 'mae_solicitud_tipo', idColumn: 'id_tipo', displayColumn: 'nombre' }
             }
         },
-        { 
-            id: 'eventos-notificacion', 
-            label: 'Eventos de Notificación', 
-            icon: <IconBolt size={24} />, 
+        {
+            id: 'eventos-notificacion',
+            label: 'Eventos de Notificación',
+            icon: <IconBolt size={24} />,
             color: 'orange',
             description: 'Catálogo de eventos del sistema que pueden disparar notificaciones.',
             tableName: 'mae_evento_notificacion',
@@ -562,7 +573,6 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'codigo_evento',
             summaryColumns: ['codigo_evento', 'descripcion', 'modulo', 'es_transaccional']
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     ] as MaestroConfig[]), []);
 
     // Hook must be declared before any conditional return
@@ -580,12 +590,12 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             setSelectedMaestro(null);
             return null;
         }
-        
+
         // ESPECIALIZADO: Si es Empresa de Servicio, usar el componente premium dedicado
         if (config?.tableName === 'mae_empresaservicios') {
             return (
-                <EmpresaServicioFormView 
-                    onBack={() => setSelectedMaestro(null)} 
+                <EmpresaServicioFormView
+                    onBack={() => setSelectedMaestro(null)}
                 />
             );
         }
@@ -603,84 +613,93 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
 
         if (filtered.length === 0) {
             return (
-                <Text c="dimmed" ta="center" mt="xl" py="xl">
+                <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 32, padding: '32px 0' }}>
                     No se encontraron maestros para "{hubSearch}" en esta área.
                 </Text>
             );
         }
 
         return (
-            <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg" mt="xl">
-                {filtered.map((m) => (
-                <UnstyledButton 
-                    key={m.id} 
-                    onClick={() => setSelectedMaestro(m.id)}
-                    style={{ height: '100%' }}
-                >
-                    <Card 
-                        withBorder 
-                        padding="lg" 
-                        radius="lg"
-                        style={{
-                            height: '100%',
-                            transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
-                            cursor: 'pointer',
-                            borderTop: `3px solid var(--mantine-color-${m.color}-6)`,
-                            position: 'relative',
-                            overflow: 'hidden'
-                        }}
-                        className="maestro-card"
-                    >
-                        {/* Subtle background gradient */}
-                        <div style={{
-                            position: 'absolute', top: 0, right: 0,
-                            width: 120, height: 120, borderRadius: '50%',
-                            background: `var(--mantine-color-${m.color}-0)`,
-                            transform: 'translate(40px, -40px)',
-                            pointerEvents: 'none'
-                        }} />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24, marginTop: 32 }}>
+                {filtered.map((m) => {
+                    const c = colorOf(m.color);
+                    return (
+                        <div
+                            key={m.id}
+                            onClick={() => setSelectedMaestro(m.id)}
+                            style={{ height: '100%', cursor: 'pointer' }}
+                        >
+                            <Card
+                                className="maestro-card"
+                                style={{
+                                    height: '100%',
+                                    transition: 'transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease',
+                                    borderTop: `3px solid ${c.base}`,
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                {/* Subtle background gradient */}
+                                <div style={{
+                                    position: 'absolute', top: 0, right: 0,
+                                    width: 120, height: 120, borderRadius: '50%',
+                                    background: c.bg,
+                                    transform: 'translate(40px, -40px)',
+                                    pointerEvents: 'none'
+                                }} />
 
-                        <Group justify="space-between" mb="sm" style={{ position: 'relative' }}>
-                            <ThemeIcon color={m.color} variant="light" size={48} radius="md">
-                                {m.icon}
-                            </ThemeIcon>
-                            <IconChevronRight size={18} stroke={2} color={`var(--mantine-color-${m.color}-5)`} />
-                        </Group>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, position: 'relative' }}>
+                                    <div style={{
+                                        width: 48, height: 48, borderRadius: 8,
+                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        backgroundColor: c.bg, color: c.base
+                                    }}>
+                                        {m.icon}
+                                    </div>
+                                    <IconChevronRight size={18} stroke={2} color={c.light} />
+                                </div>
 
-                        <Text c="gray" fw={800} size="md" mb={4} style={{ position: 'relative' }}>
-                            {m.label}
-                        </Text>
-                        
-                        <Text size="sm" c="dimmed" lineClamp={2} mb="md" style={{ minHeight: '2.4rem', position: 'relative' }}>
-                            {m.description}
-                        </Text>
+                                <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 4, position: 'relative' }}>
+                                    {m.label}
+                                </Text>
 
-                        <Group gap="xs" mt="auto" style={{ position: 'relative' }}>
-                            <Badge size="xs" color={m.color} variant="light" style={{ textTransform: 'none', fontFamily: 'monospace', fontSize: 10 }}>
-                                {m.tableName}
-                            </Badge>
-                            {m.lookups && Object.keys(m.lookups).length > 0 && (
-                                <Badge variant="dot" size="xs" color="blue">
-                                    {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
-                                </Badge>
-                            )}
-                            {m.dependsOn && (
-                                <Badge variant="dot" size="xs" color="orange">
-                                    Jerárquico
-                                </Badge>
-                            )}
-                        </Group>
-                    </Card>
-                </UnstyledButton>
-                ))}
-            </SimpleGrid>
+                                <Text
+                                    type="secondary"
+                                    style={{
+                                        fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                                        overflow: 'hidden', minHeight: '2.4rem', marginBottom: 16, position: 'relative'
+                                    }}
+                                >
+                                    {m.description}
+                                </Text>
+
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', position: 'relative' }}>
+                                    <Tag color={m.color === 'dark' ? 'default' : m.color} style={{ textTransform: 'none', fontFamily: 'monospace', fontSize: 10 }}>
+                                        {m.tableName}
+                                    </Tag>
+                                    {m.lookups && Object.keys(m.lookups).length > 0 && (
+                                        <Tag color="blue">
+                                            {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
+                                        </Tag>
+                                    )}
+                                    {m.dependsOn && (
+                                        <Tag color="orange">
+                                            Jerárquico
+                                        </Tag>
+                                    )}
+                                </div>
+                            </Card>
+                        </div>
+                    );
+                })}
+            </div>
         );
     };
 
     return (
-        <Box p="md">
-            <PageHeader 
-                title="Gestión de Maestros" 
+        <div style={{ padding: 16 }}>
+            <PageHeader
+                title="Gestión de Maestros"
                 subtitle="Administración completa de tablas de referencia del ecosistema ADL ONE."
                 onBack={onBack}
                 breadcrumbItems={[
@@ -689,75 +708,48 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                 ]}
             />
 
-            <TextInput
+            <Input
                 placeholder="Buscar maestro por nombre o descripción..."
-                leftSection={<IconSearch size={16} />}
+                prefix={<IconSearch size={16} />}
                 value={hubSearch}
-                onChange={(e) => setHubSearch(e.currentTarget.value)}
-                mt="md"
-                size="md"
-                radius="md"
-                style={{ maxWidth: 450 }}
+                onChange={(e) => setHubSearch(e.target.value)}
+                size="large"
+                style={{ maxWidth: 450, marginTop: 16 }}
             />
 
-            <Tabs 
-                value={activeTab} 
+            <Tabs
+                activeKey={activeTab}
                 onChange={setActiveTab}
-                variant="pills"
-                mt="xl"
-                styles={{
-                    tab: {
-                        fontWeight: 700,
-                        padding: `${rem(10)} ${rem(18)}`,
-                        fontSize: rem(13)
+                style={{ marginTop: 32 }}
+                items={[
+                    {
+                        key: 'general',
+                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconUsers size={15} /> Organización</span>,
+                        children: renderGrid('general'),
                     },
-                    list: {
-                        backgroundColor: 'var(--mantine-color-gray-1)',
-                        borderRadius: rem(12),
-                        padding: rem(4),
-                        gap: rem(4)
-                    }
-                }}
-            >
-                <Tabs.List>
-                    <Tabs.Tab value="general" leftSection={<IconUsers size={15} />}>
-                        Organización
-                    </Tabs.Tab>
-                    <Tabs.Tab value="medio-ambiente" leftSection={<IconFlask size={15} />}>
-                        Medio Ambiente
-                    </Tabs.Tab>
-                    <Tabs.Tab value="logistica" leftSection={<IconTruckDelivery size={15} />}>
-                        Logística
-                    </Tabs.Tab>
-                    <Tabs.Tab value="tecnica" leftSection={<IconTool size={15} />}>
-                        Técnica
-                    </Tabs.Tab>
-                    <Tabs.Tab value="sistema" leftSection={<IconSettings size={15} />}>
-                        Configuración
-                    </Tabs.Tab>
-                </Tabs.List>
+                    {
+                        key: 'medio-ambiente',
+                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconFlask size={15} /> Medio Ambiente</span>,
+                        children: renderGrid('medio-ambiente'),
+                    },
+                    {
+                        key: 'logistica',
+                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconTruckDelivery size={15} /> Logística</span>,
+                        children: renderGrid('logistica'),
+                    },
+                    {
+                        key: 'tecnica',
+                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconTool size={15} /> Técnica</span>,
+                        children: renderGrid('tecnica'),
+                    },
+                    {
+                        key: 'sistema',
+                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconSettings size={15} /> Configuración</span>,
+                        children: renderGrid('sistema'),
+                    },
+                ]}
+            />
 
-                <Tabs.Panel value="general">
-                    {renderGrid('general')}
-                </Tabs.Panel>
-
-                <Tabs.Panel value="medio-ambiente">
-                    {renderGrid('medio-ambiente')}
-                </Tabs.Panel>
-
-                <Tabs.Panel value="logistica">
-                    {renderGrid('logistica')}
-                </Tabs.Panel>
-
-                <Tabs.Panel value="tecnica">
-                    {renderGrid('tecnica')}
-                </Tabs.Panel>
-
-                <Tabs.Panel value="sistema">
-                    {renderGrid('sistema')}
-                </Tabs.Panel>
-            </Tabs>
-
-        </Box>
+        </div>
     );
 };

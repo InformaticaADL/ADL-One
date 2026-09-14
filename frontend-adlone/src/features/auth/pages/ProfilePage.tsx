@@ -1,14 +1,11 @@
 import React from 'react';
-import { 
-    Box, Stack, Paper, Group, Avatar, Text, Badge, 
-    ThemeIcon, Divider, Card, Grid, rem, Button, 
-    Modal, SimpleGrid, UnstyledButton, PasswordInput,
+import {
+    Avatar, Typography, Tag,
+    Card, Button,
+    Modal, Input,
     Progress,
-    Loader,
-    Center,
-    Flex
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+    Spin
+} from 'antd';
 import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle, IconTrash } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { generalChatService } from '../../../services/general-chat.service';
@@ -16,6 +13,9 @@ import type { UserProfile } from '../../../services/general-chat.service';
 import axios from 'axios';
 import API_CONFIG from '../../../config/api.config';
 import { useToast } from '../../../contexts/ToastContext';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+
+const { Text } = Typography;
 
 interface ProfilePageProps {
     userId?: number;
@@ -26,8 +26,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
     const { user, updateUser, token } = useAuth();
     const { showToast } = useToast();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
-    const [opened, { open, close }] = useDisclosure(false);
-    const [passwordOpened, { open: openPassword, close: closePassword }] = useDisclosure(false);
+    const [opened, setOpened] = React.useState(false);
+    const [passwordOpened, setPasswordOpened] = React.useState(false);
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     // Password change form state
     const [currentPassword, setCurrentPassword] = React.useState('');
@@ -84,7 +85,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
 
     const handlePasswordChange = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         if (newPassword !== confirmPassword) {
             showToast({
                 message: 'Las contraseñas nuevas no coinciden',
@@ -125,7 +126,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                     message: 'Contraseña actualizada correctamente',
                     type: 'success'
                 });
-                closePassword();
+                setPasswordOpened(false);
                 setCurrentPassword('');
                 setNewPassword('');
                 setConfirmPassword('');
@@ -142,7 +143,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
     };
 
     const handleAvatarClick = () => {
-        open();
+        setOpened(true);
     };
 
     const handleSelectPredefined = async (avatarPath: string) => {
@@ -159,7 +160,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                     message: 'Avatar actualizado correctamente',
                     type: 'success'
                 });
-                close();
+                setOpened(false);
             }
         } catch (error) {
             console.error('Error setting predefined avatar:', error);
@@ -213,18 +214,18 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
 
     const getStrength = (password: string) => {
         if (password.length === 0) return { value: 0, color: 'gray', label: '' };
-        if (password.length < 4) return { value: 15, color: 'red', label: 'Muy corta' };
-        
+        if (password.length < 4) return { value: 15, color: '#e03131', label: 'Muy corta' };
+
         let strength = 0;
         if (password.length >= 8) strength += 25;
         if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength += 25;
         if (/\d/.test(password)) strength += 25;
         if (/[^A-Za-z0-9]/.test(password)) strength += 25;
-        
-        if (strength <= 25) return { value: 35, color: 'orange', label: 'Débil' };
-        if (strength <= 50) return { value: 65, color: 'blue', label: 'Media' };
-        if (strength <= 75) return { value: 85, color: 'teal', label: 'Buena' };
-        return { value: 100, color: 'green', label: 'Excelente' };
+
+        if (strength <= 25) return { value: 35, color: '#e8590c', label: 'Débil' };
+        if (strength <= 50) return { value: 65, color: '#1c7ed6', label: 'Media' };
+        if (strength <= 75) return { value: 85, color: '#0c8599', label: 'Buena' };
+        return { value: 100, color: '#2f9e44', label: 'Excelente' };
     };
 
     const strength = getStrength(newPassword);
@@ -234,383 +235,344 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
 
     if (loadingProfile) {
         return (
-            <Box p="xl">
-                <Center style={{ height: 400 }}><Loader size="xl" color="adl-blue" /></Center>
-            </Box>
+            <div style={{ padding: 32 }}>
+                <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spin size="large" /></div>
+            </div>
         );
     }
 
     return (
-        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
-            <Stack gap="xl">
-                <Paper p="xl" radius="md" withBorder style={{ 
-                    background: 'linear-gradient(135deg, var(--mantine-color-adl-blue-0) 0%, var(--mantine-color-adl-blue-1) 100%)',
-                    color: 'var(--mantine-color-adl-blue-9)',
+        <div style={{ padding: 16, width: '100%', maxWidth: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <Card style={{
+                    background: 'linear-gradient(135deg, var(--app-accent-bg) 0%, rgba(0,98,168,0.1) 100%)',
                     position: 'relative',
                     overflow: 'hidden',
-                    borderColor: 'var(--mantine-color-adl-blue-2)'
+                    borderColor: 'var(--app-border)'
                 }}>
                     <div style={{ position: 'relative', zIndex: 1 }}>
-                        <Flex 
-                            align="center" 
-                            justify="flex-start" 
-                            direction={{ base: 'column', sm: 'row' }}
-                            gap="xl"
-                            style={{ textAlign: 'center' }}
-                        >
-                            <Flex direction={{ base: 'column', sm: 'row' }} align="center" gap="xl">
-                                <Box style={{ position: 'relative' }}>
-                                    <Avatar 
-                                        src={profilePicUrl} 
-                                        w={{ base: 100, sm: 120 }} 
-                                        h={{ base: 100, sm: 120 }}
-                                        radius={120} 
-                                        color="adl-blue"
-                                        style={{ 
-                                            border: '4px solid rgba(0, 98, 168, 0.2)',
+                        <div style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            flexDirection: isMobile ? 'column' : 'row',
+                            gap: 24,
+                            textAlign: 'center',
+                        }}>
+                            <div style={{ position: 'relative' }}>
+                                <Avatar
+                                    src={profilePicUrl}
+                                    size={isMobile ? 100 : 120}
+                                    style={{
+                                        border: '4px solid rgba(0, 98, 168, 0.2)',
+                                        cursor: 'pointer',
+                                        backgroundColor: '#0062a8',
+                                        fontSize: isMobile ? 32 : 48,
+                                        fontWeight: 700,
+                                    }}
+                                    onClick={handleAvatarClick}
+                                >
+                                    {profileData?.nombre?.charAt(0)}
+                                </Avatar>
+                                {isOwnProfile && (
+                                    <div
+                                        onClick={handleAvatarClick}
+                                        style={{
+                                            width: 32, height: 32, borderRadius: '50%', backgroundColor: '#0062a8', color: '#fff',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            position: 'absolute',
+                                            bottom: 5,
+                                            right: 5,
+                                            border: '2px solid var(--app-bg-elevated)',
                                             cursor: 'pointer'
                                         }}
-                                        onClick={handleAvatarClick}
                                     >
-                                        <Text fz={{ base: rem(32), sm: rem(48) }} fw={700}>{profileData?.nombre?.charAt(0)}</Text>
-                                    </Avatar>
-                                    {isOwnProfile && (
-                                        <ThemeIcon 
-                                            size="lg" 
-                                            radius="xl" 
-                                            variant="filled" 
-                                            color="adl-blue"
-                                            style={{ 
-                                                position: 'absolute', 
-                                                bottom: 5, 
-                                                right: 5, 
-                                                border: '2px solid white',
-                                                cursor: 'pointer'
-                                            }}
-                                            onClick={handleAvatarClick}
-                                        >
-                                            <IconCamera size={18} />
-                                        </ThemeIcon>
+                                        <IconCamera size={18} />
+                                    </div>
+                                )}
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    style={{ display: 'none' }}
+                                    accept="image/*"
+                                    onChange={handleFileChange}
+                                />
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: isMobile ? 'center' : 'flex-start' }}>
+                                <Text strong style={{
+                                    lineHeight: 1.2,
+                                    textAlign: 'center',
+                                    fontSize: isMobile ? 24 : 32,
+                                }}>
+                                    {profileData?.nombre}
+                                </Text>
+                                <div style={{ display: 'flex', gap: 8, justifyContent: isMobile ? 'center' : 'flex-start', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {profileData?.roles?.split(', ').map((role: string, idx: number) => (
+                                        <Tag key={idx} color="blue" style={{ fontWeight: 800 }}>
+                                            {role.toUpperCase()}
+                                        </Tag>
+                                    ))}
+                                    {profileData?.nombre_usuario && (
+                                        <Text strong style={{ fontSize: 13, color: '#0062a8', opacity: 0.8 }}>
+                                            @{profileData.nombre_usuario}
+                                        </Text>
                                     )}
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        style={{ display: 'none' }} 
-                                        accept="image/*"
-                                        onChange={handleFileChange}
-                                    />
-                                </Box>
-                                <Flex direction="column" gap={4} align={{ base: 'center', sm: 'flex-start' }}>
-                                    <Text fw={800} style={{ 
-                                        lineHeight: 1.2,
-                                        textAlign: 'center'
-                                    }}
-                                    fz={{ base: rem(24), sm: rem(32) }}
-                                    >
-                                        {profileData?.nombre}
-                                    </Text>
-                                    <Flex gap="xs" justify={{ base: 'center', sm: 'flex-start' }} wrap="wrap">
-                                        {profileData?.roles?.split(', ').map((role: string, idx: number) => (
-                                            <Badge key={idx} color="adl-blue" variant="filled" size="sm" style={{ fontWeight: 800 }}>
-                                                {role.toUpperCase()}
-                                            </Badge>
-                                        ))}
-                                        {profileData?.nombre_usuario && (
-                                            <Text size="sm" fw={600} c="adl-blue" style={{ opacity: 0.8 }}>
-                                                @{profileData.nombre_usuario}
-                                            </Text>
-                                        )}
-                                    </Flex>
-                                </Flex>
-                            </Flex>
-                        </Flex>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <div style={{ position: 'absolute', top: '-10%', right: '-5%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(56, 189, 248, 0.1) 0%, transparent 70%)', zIndex: 0 }} />
-                </Paper>
+                </Card>
 
-                <Grid gutter="xl">
-                    <Grid.Col span={{ base: 12, md: 7 }}>
-                        <Card withBorder radius="md" p="xl" shadow="sm" style={{ background: 'white' }}>
-                            <Text component="div" size="lg" fw={700} mb="xl" style={{ display: 'flex', alignItems: 'center', gap: rem(8), whiteSpace: 'nowrap' }}>
-                                <ThemeIcon variant="light" color="adl-blue" size="md" radius="sm">
-                                    <IconId size={18} />
-                                </ThemeIcon>
-                                Información Personal
-                            </Text>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '7fr 5fr', gap: 24, alignItems: 'start' }}>
+                    <Card>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, whiteSpace: 'nowrap' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <IconId size={18} />
+                            </div>
+                            <Text strong style={{ fontSize: 16 }}>Información Personal</Text>
+                        </div>
 
-                            <Stack gap="lg">
-                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
-                                    <Group gap="sm" style={{ flexShrink: 0 }}>
-                                        <ThemeIcon variant="light" color="gray" size="md" radius="sm">
-                                            <IconUser size={16} />
-                                        </ThemeIcon>
-                                        <Text size="sm" fw={600} c="dimmed">Nombre Completo</Text>
-                                    </Group>
-                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }}>{profileData?.nombre}</Text>
-                                </Flex>
-                                <Divider variant="dotted" />
-                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
-                                    <Group gap="sm" style={{ flexShrink: 0 }}>
-                                        <ThemeIcon variant="light" color="gray" size="md" radius="sm">
-                                            <IconMail size={16} />
-                                        </ThemeIcon>
-                                        <Text size="sm" fw={600} c="dimmed">Correo Electrónico</Text>
-                                    </Group>
-                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }} style={{ wordBreak: 'break-all' }}>{profileData?.email || 'No especificado'}</Text>
-                                </Flex>
-                                <Divider variant="dotted" />
-                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
-                                    <Group gap="sm">
-                                        <ThemeIcon variant="light" color="gray" size="md" radius="sm">
-                                            <IconUserCircle size={16} />
-                                        </ThemeIcon>
-                                        <Text size="sm" fw={600} c="dimmed">Nombre de Usuario</Text>
-                                    </Group>
-                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }}>{profileData?.nombre_usuario || 'No especificado'}</Text>
-                                </Flex>
-                                <Divider variant="dotted" />
-                                <Flex justify="space-between" align={{ base: 'flex-start', sm: 'center' }} direction={{ base: 'column', sm: 'row' }} gap={{ base: 'xs', sm: 'xl' }}>
-                                    <Group gap="sm">
-                                        <ThemeIcon variant="light" color="gray" size="md" radius="sm">
-                                            <IconBriefcase size={16} />
-                                        </ThemeIcon>
-                                        <Text size="sm" fw={600} c="dimmed">Cargo</Text>
-                                    </Group>
-                                    <Text fw={500} ta={{ base: 'left', sm: 'right' }}>{profileData?.cargo || 'No especificado'}</Text>
-                                </Flex>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            <ProfileRow icon={<IconUser size={16} />} label="Nombre Completo" value={profileData?.nombre} isMobile={isMobile} />
+                            <hr style={{ border: 'none', borderTop: '1px dotted var(--app-border)' }} />
+                            <ProfileRow icon={<IconMail size={16} />} label="Correo Electrónico" value={profileData?.email || 'No especificado'} isMobile={isMobile} breakAll />
+                            <hr style={{ border: 'none', borderTop: '1px dotted var(--app-border)' }} />
+                            <ProfileRow icon={<IconUserCircle size={16} />} label="Nombre de Usuario" value={profileData?.nombre_usuario || 'No especificado'} isMobile={isMobile} />
+                            <hr style={{ border: 'none', borderTop: '1px dotted var(--app-border)' }} />
+                            <ProfileRow icon={<IconBriefcase size={16} />} label="Cargo" value={profileData?.cargo || 'No especificado'} isMobile={isMobile} />
 
-                                {isOwnProfile ? (
+                            {isOwnProfile ? (
+                                <>
+                                    <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+                                    <Button
+                                        block
+                                        icon={<IconLock size={16} />}
+                                        onClick={() => setPasswordOpened(true)}
+                                    >
+                                        Cambiar Contraseña
+                                    </Button>
+                                </>
+                            ) : (
+                                onStartChat && (
                                     <>
-                                        <Divider my="lg" />
-                                        <Button 
-                                            variant="light" 
-                                            color="adl-blue" 
-                                            fullWidth 
-                                            leftSection={<IconLock size={16} />}
-                                            onClick={openPassword}
+                                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+                                        <Button
+                                            block
+                                            type="primary"
+                                            icon={<IconMessageCircle size={16} />}
+                                            onClick={() => onStartChat(userId!)}
                                         >
-                                            Cambiar Contraseña
+                                            Enviar Mensaje
                                         </Button>
                                     </>
-                                ) : (
-                                    onStartChat && (
-                                        <>
-                                            <Divider my="lg" />
-                                            <Button 
-                                                variant="filled" 
-                                                color="adl-blue" 
-                                                fullWidth 
-                                                leftSection={<IconMessageCircle size={16} />}
-                                                onClick={() => onStartChat(userId!)}
-                                            >
-                                                Enviar Mensaje
-                                            </Button>
-                                        </>
-                                    )
-                                )}
-                            </Stack>
-                        </Card>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, md: 5 }}>
-                        <Stack gap="xl">
-                             <Card withBorder radius="md" p="xl" shadow="sm" style={{ background: 'white' }}>
-                                <Text component="div" size="lg" fw={700} mb="xl" style={{ display: 'flex', alignItems: 'center', gap: rem(8), whiteSpace: 'nowrap' }}>
-                                    <ThemeIcon variant="light" color="adl-blue" size="md" radius="sm">
-                                        <IconShieldCheck size={18} />
-                                    </ThemeIcon>
-                                    Seguridad y Rol
-                                </Text>
-
-                                <Stack gap="md">
-                                    <Box>
-                                        <Text size="xs" fw={700} c="dimmed" mb={8} style={{ textTransform: 'uppercase' }}>Roles Asignados</Text>
-                                        <Group gap={6}>
-                                            {profileData?.roles?.split(', ').map((role: string, idx: number) => (
-                                                <Badge key={idx} color="adl-blue" variant="light" size="md">
-                                                    {role}
-                                                </Badge>
-                                            ))}
-                                        </Group>
-                                    </Box>
-                                    
-                                    <Box>
-                                        <Text size="xs" fw={700} c="dimmed" mb={4} style={{ textTransform: 'uppercase' }}>ID de Usuario</Text>
-                                        <Text fw={600}>#{profileData?.id_usuario}</Text>
-                                    </Box>
-                                </Stack>
+                                )
+                            )}
+                        </div>
                     </Card>
-                </Stack>
-            </Grid.Col>
-        </Grid>
-    </Stack>
 
-            <Modal opened={opened} onClose={close} title="Cambiar foto de perfil" centered size="md">
-                <Stack gap="md">
-                    <Text size="sm" c="dimmed">Selecciona un avatar predefinido o sube una foto propia:</Text>
-                    
-                    <SimpleGrid cols={3} spacing="xl" py="md">
+                    <Card>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 24, whiteSpace: 'nowrap' }}>
+                            <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <IconShieldCheck size={18} />
+                            </div>
+                            <Text strong style={{ fontSize: 16 }}>Seguridad y Rol</Text>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div>
+                                <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Roles Asignados</Text>
+                                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                    {profileData?.roles?.split(', ').map((role: string, idx: number) => (
+                                        <Tag key={idx} color="blue">{role}</Tag>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>ID de Usuario</Text>
+                                <Text strong>#{profileData?.id_usuario}</Text>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            </div>
+
+            <Modal open={opened} onCancel={() => setOpened(false)} footer={null} width={480} centered title="Cambiar foto de perfil">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Selecciona un avatar predefinido o sube una foto propia:</Text>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24, padding: '16px 0' }}>
                         {predefinedAvatars.map((avatar) => {
                             const isSelected = user.foto === avatar.path;
                             return (
-                                <Stack key={avatar.id} align="center" gap={0}>
-                                    <UnstyledButton 
+                                <div key={avatar.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <button
                                         onClick={() => handleSelectPredefined(avatar.path)}
-                                        style={{ 
+                                        style={{
                                             position: 'relative',
-                                            width: rem(90),
-                                            height: rem(90),
+                                            width: 90,
+                                            height: 90,
                                             borderRadius: '50%',
                                             transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                                            border: isSelected ? '4px solid var(--mantine-color-adl-blue-6)' : '1px solid var(--mantine-color-gray-2)',
-                                            padding: rem(2),
-                                            '&:hover': {
-                                                transform: 'scale(1.05)',
-                                                boxShadow: 'var(--mantine-shadow-md)'
-                                            }
+                                            border: isSelected ? '4px solid #4dabf7' : '1px solid var(--app-border)',
+                                            padding: 2,
+                                            cursor: 'pointer',
+                                            background: 'none',
                                         }}
                                     >
-                                        <Avatar 
-                                            src={`${API_CONFIG.getBaseURL()}${avatar.path}`} 
-                                            size={rem(82)} 
-                                            radius={rem(82)} 
+                                        <Avatar
+                                            src={`${API_CONFIG.getBaseURL()}${avatar.path}`}
+                                            size={82}
                                             style={{ margin: 'auto' }}
                                         />
                                         {isSelected && (
-                                            <ThemeIcon 
-                                                size="sm" 
-                                                radius="xl" 
-                                                color="adl-blue" 
-                                                variant="filled"
-                                                style={{ 
-                                                    position: 'absolute', 
-                                                    top: -2, 
-                                                    right: -2, 
-                                                    zIndex: 2,
-                                                    border: '2px solid white'
-                                                }}
-                                            >
+                                            <div style={{
+                                                width: 20, height: 20, borderRadius: '50%', backgroundColor: '#0062a8', color: '#fff',
+                                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                position: 'absolute',
+                                                top: -2,
+                                                right: -2,
+                                                zIndex: 2,
+                                                border: '2px solid var(--app-bg-elevated)'
+                                            }}>
                                                 <IconShieldCheck size={12} />
-                                            </ThemeIcon>
+                                            </div>
                                         )}
-                                    </UnstyledButton>
-                                </Stack>
+                                    </button>
+                                </div>
                             );
                         })}
-                    </SimpleGrid>
+                    </div>
 
-                    <Divider label="O SUBE TU PROPIA FOTO" labelPosition="center" my="md" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+                        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                        <Text type="secondary" style={{ fontSize: 11 }}>O SUBE TU PROPIA FOTO</Text>
+                        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                    </div>
 
-                    <UnstyledButton 
+                    <button
                         onClick={() => {
-                            close();
+                            setOpened(false);
                             fileInputRef.current?.click();
                         }}
                         style={{
                             width: '100%',
-                            padding: rem(16),
-                            borderRadius: rem(8),
-                            border: '1px dashed var(--mantine-color-adl-blue-3)',
-                            backgroundColor: 'var(--mantine-color-adl-blue-0)',
+                            padding: 16,
+                            borderRadius: 8,
+                            border: '1px dashed #74c0fc',
+                            backgroundColor: 'var(--app-accent-bg)',
                             display: 'flex',
                             flexDirection: 'column',
                             alignItems: 'center',
-                            gap: rem(8),
-                            transition: 'hover 0.2s ease'
+                            gap: 8,
+                            cursor: 'pointer',
                         }}
                     >
-                        <ThemeIcon color="adl-blue" size="xl" radius="xl" variant="light">
+                        <div style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: 'rgba(0,98,168,0.15)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <IconCamera size={24} />
-                        </ThemeIcon>
-                        <Text size="sm" fw={600} color="adl-blue">Subir propia foto</Text>
-                    </UnstyledButton>
+                        </div>
+                        <Text strong style={{ fontSize: 13, color: '#0062a8' }}>Subir propia foto</Text>
+                    </button>
 
                     {user.foto && (
-                        <Button 
-                            variant="light" 
-                            color="red" 
-                            fullWidth 
-                            mt="sm"
-                            leftSection={<IconTrash size={16} />}
+                        <Button
+                            danger
+                            block
+                            style={{ marginTop: 8 }}
+                            icon={<IconTrash size={16} />}
                             onClick={() => handleSelectPredefined(null as any)}
                         >
                             Eliminar foto actual
                         </Button>
                     )}
-                </Stack>
+                </div>
             </Modal>
-            <Modal opened={passwordOpened} onClose={closePassword} title={<Text fw={700}>Cambiar Contraseña</Text>} centered size="sm">
+            <Modal open={passwordOpened} onCancel={() => setPasswordOpened(false)} footer={null} width={420} centered title={<Text strong>Cambiar Contraseña</Text>}>
                 <form onSubmit={handlePasswordChange}>
-                    <Stack gap="md">
-                        <PasswordInput
-                            label="Contraseña Actual"
-                            placeholder="Ingrese su contraseña actual"
-                            required
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                            radius="md"
-                        />
-                        
-                        <Box>
-                            <PasswordInput
-                                label="Nueva Contraseña"
-                                placeholder="Ingrese su nueva contraseña"
-                                required
-                                value={newPassword}
-                                onChange={(e) => setNewPassword(e.target.value)}
-                                radius="md"
-                                error={newPassword && newPassword === currentPassword ? 'No puede ser igual a la actual' : null}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                        <Field label="Contraseña Actual *">
+                            <Input.Password
+                                placeholder="Ingrese su contraseña actual"
+                                value={currentPassword}
+                                onChange={(e) => setCurrentPassword(e.target.value)}
                             />
-                            {newPassword && (
-                                <Box mt={7}>
-                                    <Group justify="space-between" mb={2}>
-                                        <Text size="xs" fw={700}>{strength.label}</Text>
-                                        <Text size="xs" c="dimmed">{strength.value}%</Text>
-                                    </Group>
-                                    <Progress 
-                                        value={strength.value} 
-                                        color={strength.color} 
-                                        size="xs" 
-                                        radius="xl" 
-                                        striped 
-                                        animated 
-                                    />
-                                </Box>
-                            )}
-                        </Box>
+                        </Field>
 
-                        <Box>
-                            <PasswordInput
-                                label="Confirmar Nueva Contraseña"
-                                placeholder="Repita la nueva contraseña"
-                                required
-                                value={confirmPassword}
-                                onChange={(e) => setConfirmPassword(e.target.value)}
-                                radius="md"
-                                error={passwordsMatch === false ? 'Las contraseñas no coinciden' : null}
-                            />
+                        <div>
+                            <Field label="Nueva Contraseña *" error={newPassword && newPassword === currentPassword ? 'No puede ser igual a la actual' : undefined}>
+                                <Input.Password
+                                    placeholder="Ingrese su nueva contraseña"
+                                    value={newPassword}
+                                    onChange={(e) => setNewPassword(e.target.value)}
+                                    status={newPassword && newPassword === currentPassword ? 'error' : undefined}
+                                />
+                            </Field>
+                            {newPassword && (
+                                <div style={{ marginTop: 7 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                                        <Text strong style={{ fontSize: 12 }}>{strength.label}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>{strength.value}%</Text>
+                                    </div>
+                                    <Progress percent={strength.value} strokeColor={strength.color} size="small" showInfo={false} />
+                                </div>
+                            )}
+                        </div>
+
+                        <div>
+                            <Field label="Confirmar Nueva Contraseña *" error={passwordsMatch === false ? 'Las contraseñas no coinciden' : undefined}>
+                                <Input.Password
+                                    placeholder="Repita la nueva contraseña"
+                                    value={confirmPassword}
+                                    onChange={(e) => setConfirmPassword(e.target.value)}
+                                    status={passwordsMatch === false ? 'error' : undefined}
+                                />
+                            </Field>
                             {passwordsMatch === true && (
-                                <Text size="xs" c="green" fw={700} mt={4} style={{ display: 'flex', alignItems: 'center', gap: rem(4) }}>
+                                <Text style={{ fontSize: 12, color: '#2f9e44', fontWeight: 700, marginTop: 4, display: 'flex', alignItems: 'center', gap: 4 }}>
                                     <IconShieldCheck size={12} /> Las contraseñas coinciden
                                 </Text>
                             )}
-                        </Box>
+                        </div>
 
-                        <Group justify="flex-end" mt="md">
-                            <Button variant="outline" onClick={closePassword} radius="md">Cancelar</Button>
-                            <Button 
-                                type="submit" 
-                                color="adl-blue" 
-                                loading={loading} 
-                                radius="md"
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                            <Button onClick={() => setPasswordOpened(false)}>Cancelar</Button>
+                            <Button
+                                htmlType="submit"
+                                type="primary"
+                                loading={loading}
                                 disabled={!passwordsMatch || strength.value < 15 || newPassword === currentPassword}
                             >
                                 Actualizar Contraseña
                             </Button>
-                        </Group>
-                    </Stack>
+                        </div>
+                    </div>
                 </form>
             </Modal>
-        </Box>
+        </div>
     );
 };
+
+function ProfileRow({ icon, label, value, isMobile, breakAll }: { icon: React.ReactNode; label: string; value?: string | null; isMobile: boolean; breakAll?: boolean }) {
+    return (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? 4 : 24 }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: 'var(--app-hover-bg)', color: 'var(--app-text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {icon}
+                </div>
+                <Text type="secondary" strong style={{ fontSize: 13 }}>{label}</Text>
+            </div>
+            <Text strong style={{ textAlign: isMobile ? 'left' : 'right', wordBreak: breakAll ? 'break-all' : undefined }}>{value}</Text>
+        </div>
+    );
+}
+
+function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>{label}</Text>
+            {children}
+            {error && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{error}</Text>}
+        </div>
+    );
+}

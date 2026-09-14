@@ -2,7 +2,7 @@ import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
-import { SegmentedControl } from '@mantine/core';
+import { Segmented } from 'antd';
 import { BaseTiles } from './BaseTiles';
 import { BASEMAPS, BASEMAP_STORAGE_KEY, leerBasemapGuardado } from '../utils/basemaps';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
@@ -293,13 +293,12 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
                 onDoubleClick={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
             >
-                <SegmentedControl
-                    size="xs"
-                    radius="md"
+                <Segmented
+                    size="small"
                     value={basemapId}
-                    onChange={cambiarBasemap}
-                    data={BASEMAPS.map((b) => ({ value: b.id, label: b.label }))}
-                    styles={{ root: { boxShadow: '0 1px 6px rgba(0,0,0,0.25)', backgroundColor: 'rgba(255,255,255,0.95)' } }}
+                    onChange={(v) => cambiarBasemap(v as string)}
+                    options={BASEMAPS.map((b) => ({ value: b.id, label: b.label }))}
+                    style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.25)', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 8 }}
                 />
             </div>
 

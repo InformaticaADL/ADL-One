@@ -1,22 +1,7 @@
 import React, { useState } from 'react';
-import {
-    Paper,
-    Text,
-    Stack,
-    Group,
-    ThemeIcon,
-    rem,
-    Badge,
-    SimpleGrid,
-    Box,
-    Button,
-    Flex,
-    Grid,
-    Modal,
-    ScrollArea
-} from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { Typography, Tag, Button, Modal } from 'antd';
 import { useToast } from '../contexts/ToastContext';
+import { useMediaQuery } from '../hooks/useMediaQuery';
 import {
     IconCalendarEvent,
     IconClock,
@@ -27,14 +12,17 @@ import {
 
 import fondoLogin from '../assets/images/fondo-login.png';
 
+const { Text, Title } = Typography;
+
 export const WelcomePage: React.FC = () => {
-    const [openedEvent, { open: openEvent, close: closeEvent }] = useDisclosure(false);
-    const [openedReport, { open: openReport, close: closeReport }] = useDisclosure(false);
-    const [openedSala, { open: openSala, close: closeSala }] = useDisclosure(false);
+    const [openedEvent, setOpenedEvent] = useState(false);
+    const [openedReport, setOpenedReport] = useState(false);
+    const [openedSala, setOpenedSala] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<any>(null);
     const [selectedSala, setSelectedSala] = useState<any>(null);
     const { showToast } = useToast();
     const isBannerFinished = false;
+    const isNarrow = useMediaQuery('(max-width: 992px)');
 
     // Mock data for demonstration
     const upcomingEvents = [
@@ -43,7 +31,7 @@ export const WelcomePage: React.FC = () => {
             title: 'Reunión Semanal de Laboratorio',
             time: '14:00 - 15:30',
             date: 'Hoy',
-            color: 'blue',
+            color: '#1c7ed6',
             description: 'Coordinación semanal de actividades, revisión de protocolos y gestión de insumos críticos para la operación de la unidad.',
             location: 'Sala de Conferencias B',
             organizer: 'Dirección Técnica',
@@ -55,7 +43,7 @@ export const WelcomePage: React.FC = () => {
             title: 'Mantenimiento de Servidores',
             time: '22:00 - 02:00',
             date: 'Mañana',
-            color: 'orange',
+            color: '#e8590c',
             description: 'Actualización programada de sistemas críticos y respaldos de base de datos. Se esperan intermitencias en servicios internos.',
             location: 'Centro de Datos / Remoto',
             organizer: 'Informática ADL',
@@ -67,7 +55,7 @@ export const WelcomePage: React.FC = () => {
             title: 'Auditoría Interna ISO 9001',
             time: '09:00 - 18:00',
             date: '25 Mar',
-            color: 'red',
+            color: '#e03131',
             description: 'Revisión anual de procesos del sistema de gestión de calidad. Todos los departamentos deben tener su documentación al día.',
             location: 'Instalaciones Centrales',
             organizer: 'Calidad',
@@ -81,7 +69,7 @@ export const WelcomePage: React.FC = () => {
             name: 'SALA DE REUNIONES',
             status: 'LIBRE',
             time: 'Disponible',
-            color: 'green',
+            color: '#2f9e44',
             nextBooking: '15:30 - Reunión Comercial',
             details: 'La sala se encuentra actualmente desocupada y disponible para su uso hasta las 15:30 hrs.'
         },
@@ -119,7 +107,7 @@ export const WelcomePage: React.FC = () => {
             return;
         }
         setSelectedEvent(event);
-        openEvent();
+        setOpenedEvent(true);
     };
 
     const handleReportClick = () => {
@@ -127,25 +115,25 @@ export const WelcomePage: React.FC = () => {
             showToast({ type: 'info', message: 'INFORMACIÓN COMPLETADA' });
             return;
         }
-        openReport();
+        setOpenedReport(true);
     };
 
     const handleSalaClick = (sala: any) => {
         setSelectedSala(sala);
-        openSala();
+        setOpenedSala(true);
     };
 
     return (
-        <Box p="md" style={{ width: '100% !important', maxWidth: '100% !important' }}>
-            <Stack gap="lg">
+        <div style={{ padding: 16, width: '100%', maxWidth: '100%' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {/* INFORMACION IMPORTANTE (Article Card Style - Login Inspired) */}
-                <Paper withBorder radius="md" p={0} shadow="sm" style={{ overflow: 'hidden', position: 'relative' }}>
-                    <Flex direction={{ base: 'column', lg: 'row' }} align="stretch" style={{ minHeight: rem(220) }}>
+                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'hidden', position: 'relative', backgroundColor: 'var(--app-bg-elevated)' }}>
+                    <div style={{ display: 'flex', flexDirection: isNarrow ? 'column' : 'row', alignItems: 'stretch', minHeight: 220 }}>
 
-                        <Box
-                            w={{ base: '100%', lg: '40%' }}
-                            h={{ base: rem(160), lg: 'auto' }}
+                        <div
                             style={{
+                                width: isNarrow ? '100%' : '40%',
+                                height: isNarrow ? 160 : 'auto',
                                 position: 'relative',
                                 backgroundImage: `url(${fondoLogin})`,
                                 backgroundSize: 'cover',
@@ -153,86 +141,84 @@ export const WelcomePage: React.FC = () => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                padding: rem(20)
+                                padding: 20
                             }}
                         >
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0, 0, 0, 0.05)', zIndex: 1 }} />
 
-                            <Stack gap={rem(5)} align="center" style={{ zIndex: 2, width: '100%', padding: rem(20) }}>
-                                <Text fw={300} size={rem(16)} ta="center" c="white" style={{ letterSpacing: rem(8), textTransform: 'lowercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontStyle: 'italic' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'center', zIndex: 2, width: '100%', padding: 20 }}>
+                                <Text style={{ fontWeight: 300, fontSize: 16, textAlign: 'center', color: 'white', letterSpacing: 8, textTransform: 'lowercase', textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontStyle: 'italic' }}>
                                     información
                                 </Text>
-                                <Group gap={rem(4)} wrap="nowrap">
-                                    <Text fw={900} size={rem(32)} c="white" style={{ lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                                <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
+                                    <Text style={{ fontWeight: 900, fontSize: 32, color: 'white', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
                                         ADL
                                     </Text>
-                                    <Text fw={400} size={rem(32)} c="orange.5" style={{ lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                                    <Text style={{ fontWeight: 400, fontSize: 32, color: '#ff922b', lineHeight: 1, letterSpacing: '-0.02em', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
                                         Diagnostic
                                     </Text>
-                                </Group>
-                            </Stack>
-                        </Box>
+                                </div>
+                            </div>
+                        </div>
 
-                        <Box p={{ base: 'md', lg: 'xl' }} style={{ flex: 1, backgroundColor: 'white', position: 'relative', pointerEvents: 'none' }}>
+                        <div style={{ padding: 24, flex: 1, backgroundColor: 'var(--app-bg-elevated)', position: 'relative', pointerEvents: 'none' }}>
                             <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(220, 220, 220, 0.3)', backdropFilter: 'grayscale(100%) blur(2px)', zIndex: 10 }} />
                             {isBannerFinished && (
                                 <div className="stamp-overlay-finalizado">FINALIZADO</div>
                             )}
 
-                            <Group justify="space-between" mb="sm">
-                                <Badge color="orange" variant="filled" size="sm" radius="sm">INFORMACIÓN IMPORTANTE</Badge>
-                                <Text size="xs" c="dimmed" fw={700}>20 MARZO, 2026</Text>
-                            </Group>
-                            <Text fw={800} size="xl" mb="md" c="blue.9" style={{ letterSpacing: '-0.02em', lineHeight: 1.2 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <Tag color="orange">INFORMACIÓN IMPORTANTE</Tag>
+                                <Text type="secondary" strong style={{ fontSize: 12 }}>20 MARZO, 2026</Text>
+                            </div>
+                            <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 16, color: '#1864ab', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                                 Comunicado Oficial: Cierre de Reportes GEM
                             </Text>
-                            <Text size="sm" c="dimmed" lineClamp={3} mb="xl" style={{ lineHeight: 1.6 }}>
+                            <Text type="secondary" style={{ fontSize: 13, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', marginBottom: 24, lineHeight: 1.6 }}>
                                 Recuerden que hoy finaliza el plazo para la carga de informes mensuales de la unidad Ensayo Molecular.
                                 Es fundamental asegurar que todos los correlativos estén al día para el cierre operativo.
                                 Ante cualquier duda, contactar a la jefatura de área correspondiente.
                             </Text>
-                            <Group gap={4} style={{ cursor: 'pointer' }} onClick={handleReportClick}>
-                                <Text size="sm" fw={700} c="blue.6">Leer reporte completo</Text>
-
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', cursor: 'pointer' }} onClick={handleReportClick}>
+                                <Text strong style={{ fontSize: 13, color: '#1c7ed6' }}>Leer reporte completo</Text>
                                 <IconChevronRight size={18} />
-                            </Group>
-
-                        </Box>
-                    </Flex>
-                </Paper>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
                 {/* PRÓXIMOS EVENTOS (Card Grid Style) */}
-                <Box>
-                    <Group gap="sm" mb="md">
-                        <ThemeIcon variant="light" color="indigo" size="md" radius="sm">
+                <div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, backgroundColor: 'rgba(76,110,245,0.12)', color: '#4c6ef5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             <IconCalendarEvent size={20} />
-                        </ThemeIcon>
-                        <Text fw={700} tt="uppercase" style={{ letterSpacing: rem(1) }}>Próximos Eventos</Text>
-                    </Group>
+                        </div>
+                        <Text strong style={{ textTransform: 'uppercase', letterSpacing: 1 }}>Próximos Eventos</Text>
+                    </div>
 
-                    <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
                         {upcomingEvents.map(event => (
-                            <Paper
+                            <div
                                 key={event.id}
-                                p="md"
-                                withBorder
-                                radius="md"
-                                shadow="xs"
                                 style={{
+                                    padding: 16,
+                                    border: '1px solid var(--app-border)',
+                                    borderRadius: 8,
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                                    borderLeft: `5px solid var(--mantine-color-${event.color}-6)`,
+                                    borderLeft: `5px solid ${event.color}`,
                                     position: 'relative',
                                     overflow: 'hidden',
-                                    pointerEvents: 'none'
+                                    pointerEvents: 'none',
+                                    backgroundColor: 'var(--app-bg-elevated)',
                                 }}
-
                                 onMouseEnter={(e) => {
                                     e.currentTarget.style.transform = 'translateY(-4px)';
-                                    e.currentTarget.style.boxShadow = 'var(--mantine-shadow-md)';
+                                    e.currentTarget.style.boxShadow = '0 8px 16px rgba(0,0,0,0.08)';
                                 }}
                                 onMouseLeave={(e) => {
                                     e.currentTarget.style.transform = 'translateY(0)';
-                                    e.currentTarget.style.boxShadow = 'var(--mantine-shadow-xs)';
+                                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)';
                                 }}
                                 onClick={() => handleEventClick(event)}
                             >
@@ -240,244 +226,223 @@ export const WelcomePage: React.FC = () => {
                                 {event.isFinished && (
                                     <div className="stamp-overlay-finalizado event-card-stamp">FINALIZADO</div>
                                 )}
-                                <Stack gap="md">
-
-                                    <Group justify="space-between">
-                                        <Badge color={event.color} variant="filled" size="sm" radius="sm">
-                                            {event.date}
-                                        </Badge>
-                                        <IconClock size={16} style={{ color: 'var(--mantine-color-gray-6)' }} />
-                                    </Group>
-                                    <div style={{ height: rem(40) }}>
-                                        <Text fw={700} size="sm" lineClamp={2}>{event.title}</Text>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Tag color={event.color}>{event.date}</Tag>
+                                        <IconClock size={16} style={{ color: 'var(--app-text-secondary)' }} />
                                     </div>
-                                    <Group gap={4} mt="xs">
-                                        <Text size="xs" fw={700} c={event.color}>{event.time}</Text>
-                                        <Text size="xs" c="dimmed"> • Ver detalles</Text>
-                                    </Group>
-                                </Stack>
-                            </Paper>
+                                    <div style={{ height: 40 }}>
+                                        <Text strong style={{ fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{event.title}</Text>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 4, marginTop: 8 }}>
+                                        <Text strong style={{ fontSize: 12, color: event.color }}>{event.time}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12 }}> • Ver detalles</Text>
+                                    </div>
+                                </div>
+                            </div>
                         ))}
-                    </SimpleGrid>
-                </Box>
+                    </div>
+                </div>
 
-                <div style={{ height: rem(1.5), background: 'linear-gradient(to right, #0ea5e9, #6366f1)', borderRadius: rem(1), opacity: 0.1, margin: `${rem(5)} 0` }} />
+                <div style={{ height: 1.5, background: 'linear-gradient(to right, #0ea5e9, #6366f1)', borderRadius: 1, opacity: 0.1, margin: '5px 0' }} />
 
                 {/* SECCIÓN INFERIOR: Listas Informativas */}
-                <Grid gutter="md">
-                    <Grid.Col span={{ base: 12, sm: 6, lg: 4 }} order={{ base: 2, lg: 1 }}>
-                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)', height: '100%' }}>
-                            <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.6) }}>
-                                <IconPhone size={14} /> ANEXOS INTERNOS
-                            </Text>
-                            <ScrollArea h={rem(230)} offsetScrollbars>
-                                <Stack gap="xs">
-                                    {anexosInternos.map((item, idx) => (
-                                        <Paper key={idx} p="xs" radius="sm" withBorder shadow="xs" style={{ backgroundColor: 'white' }}>
-                                            <Group justify="space-between" wrap="nowrap">
-                                                <Text size={rem(11)} fw={600}>{item.name}</Text>
-                                                <Text size={rem(11)} c="blue.7" fw={800}>{item.ext}</Text>
-                                            </Group>
-                                        </Paper>
-                                    ))}
-                                </Stack>
-                            </ScrollArea>
-                        </Paper>
-                    </Grid.Col>
-
-                    <Grid.Col span={{ base: 12, sm: 6, lg: 4 }} order={{ base: 1, lg: 2 }}>
-                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'white', height: '100%', position: 'relative', overflow: 'hidden', pointerEvents: 'none' }}>
-                            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(220, 220, 220, 0.3)', backdropFilter: 'grayscale(100%) blur(2px)', zIndex: 10 }} />
-                            <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
-                                <IconDoorEnter size={16} /> ESTADO SALA DE REUNIONES
-                            </Text>
-                            <Stack gap="xs">
-                                {salasReuniones.map((sala, idx) => (
-                                    <Paper
-                                        key={idx}
-                                        p="sm"
-                                        radius="sm"
-                                        withBorder
-                                        shadow="xs"
-                                        onClick={() => handleSalaClick(sala)}
-                                        style={{
-                                            borderLeft: `4px solid var(--mantine-color-${sala.color}-6)`,
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        <Group justify="space-between" wrap="nowrap">
-                                            <Stack gap={0}>
-                                                <Text size={rem(11)} fw={800} style={{ letterSpacing: rem(0.3) }}>{sala.name}</Text>
-                                                <Text size={rem(10)} c="dimmed">{sala.time}</Text>
-                                            </Stack>
-                                            <Badge color={sala.color} variant="light" size="xs" radius="xs">
-                                                {sala.status}
-                                            </Badge>
-                                        </Group>
-                                    </Paper>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 16 }}>
+                    <div style={{ padding: 16, borderRadius: 8, border: '1px solid var(--app-border)', backgroundColor: 'var(--app-hover-bg)', height: '100%' }}>
+                        <Text strong style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, letterSpacing: 0.6, color: '#1864ab', marginBottom: 16 }}>
+                            <IconPhone size={14} /> ANEXOS INTERNOS
+                        </Text>
+                        <div style={{ height: 230, overflowY: 'auto' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                {anexosInternos.map((item, idx) => (
+                                    <div key={idx} style={{ padding: 8, borderRadius: 6, border: '1px solid var(--app-border)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)', backgroundColor: 'var(--app-bg-elevated)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                                            <Text strong style={{ fontSize: 11 }}>{item.name}</Text>
+                                            <Text strong style={{ fontSize: 11, color: '#1864ab' }}>{item.ext}</Text>
+                                        </div>
+                                    </div>
                                 ))}
-                            </Stack>
-                        </Paper>
-                    </Grid.Col>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Grid.Col span={{ base: 12, sm: 12, lg: 4 }} order={{ base: 3, lg: 3 }}>
-                        <Paper p="md" radius="md" withBorder shadow="xs" style={{ backgroundColor: 'var(--mantine-color-gray-0)', height: '100%' }}>
-                            <Text fw={700} size={rem(12)} mb="md" c="blue.8" style={{ display: 'flex', alignItems: 'center', gap: rem(8), letterSpacing: rem(0.5) }}>
-                                SEDES Y SOPORTE
-                            </Text>
-                            <Stack gap="xs">
-                                {contactosUtiles.map((item, idx) => (
-                                    <Paper key={idx} p="xs" radius="sm" withBorder shadow="sm" style={{ backgroundColor: 'white' }}>
-                                        <Group justify="space-between">
-                                            <Text size={rem(11)} fw={600}>{item.name}</Text>
-                                            <Text size={rem(11)} c="blue.7" fw={700}>{item.phone}</Text>
-                                        </Group>
-                                    </Paper>
-                                ))}
-                            </Stack>
-                        </Paper>
-                    </Grid.Col>
-                </Grid>
+                    <div style={{ padding: 16, borderRadius: 8, border: '1px solid var(--app-border)', backgroundColor: 'var(--app-bg-elevated)', height: '100%', position: 'relative', overflow: 'hidden', pointerEvents: 'none' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', backgroundColor: 'rgba(220, 220, 220, 0.3)', backdropFilter: 'grayscale(100%) blur(2px)', zIndex: 10 }} />
+                        <Text strong style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, letterSpacing: 0.5, color: '#1864ab', marginBottom: 16 }}>
+                            <IconDoorEnter size={16} /> ESTADO SALA DE REUNIONES
+                        </Text>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {salasReuniones.map((sala, idx) => (
+                                <div
+                                    key={idx}
+                                    onClick={() => handleSalaClick(sala)}
+                                    style={{
+                                        padding: 10, borderRadius: 6, border: '1px solid var(--app-border)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+                                        borderLeft: `4px solid ${sala.color}`,
+                                        cursor: 'pointer',
+                                        backgroundColor: 'var(--app-bg-elevated)',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                                        <div>
+                                            <Text strong style={{ fontSize: 11, letterSpacing: 0.3, display: 'block' }}>{sala.name}</Text>
+                                            <Text type="secondary" style={{ fontSize: 10 }}>{sala.time}</Text>
+                                        </div>
+                                        <Tag color={sala.color}>{sala.status}</Tag>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
 
-                <div style={{ height: rem(4), background: 'linear-gradient(to right, #0ea5e9, #6366f1)', borderRadius: rem(2), opacity: 0.2, marginTop: rem(20) }} />
-            </Stack>
+                    <div style={{ padding: 16, borderRadius: 8, border: '1px solid var(--app-border)', backgroundColor: 'var(--app-hover-bg)', height: '100%' }}>
+                        <Text strong style={{ fontSize: 12, display: 'flex', alignItems: 'center', gap: 8, letterSpacing: 0.5, color: '#1864ab', marginBottom: 16 }}>
+                            SEDES Y SOPORTE
+                        </Text>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {contactosUtiles.map((item, idx) => (
+                                <div key={idx} style={{ padding: 8, borderRadius: 6, border: '1px solid var(--app-border)', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', backgroundColor: 'var(--app-bg-elevated)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Text strong style={{ fontSize: 11 }}>{item.name}</Text>
+                                        <Text strong style={{ fontSize: 11, color: '#1864ab' }}>{item.phone}</Text>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                <div style={{ height: 4, background: 'linear-gradient(to right, #0ea5e9, #6366f1)', borderRadius: 2, opacity: 0.2, marginTop: 20 }} />
+            </div>
 
             {/* MODAL PARA EVENTOS */}
             <Modal
-                opened={openedEvent}
-                onClose={closeEvent}
-                title={<Text fw={800} size="sm" c="dimmed" style={{ letterSpacing: rem(1) }}>DETALLE DEL EVENTO</Text>}
+                open={openedEvent}
+                onCancel={() => setOpenedEvent(false)}
+                footer={null}
                 centered
-                radius="md"
-                padding="xl"
-                overlayProps={{ backgroundOpacity: 0.4, blur: 10 }}
+                title={<Text type="secondary" strong style={{ fontSize: 13, letterSpacing: 1 }}>DETALLE DEL EVENTO</Text>}
             >
                 {selectedEvent && (
-                    <Stack gap="xl">
-                        <Box>
-                            <Badge color={selectedEvent.color} variant="light" mb="xs" radius="sm" size="sm">
-                                {selectedEvent.date}
-                            </Badge>
-                            <Text fw={900} size="xl" c="blue.9" style={{ letterSpacing: '-0.02em', lineHeight: 1.1 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
+                        <div>
+                            <Tag color={selectedEvent.color} style={{ marginBottom: 8 }}>{selectedEvent.date}</Tag>
+                            <Title level={3} style={{ margin: 0, color: '#1864ab', letterSpacing: '-0.02em', lineHeight: 1.1 }}>
                                 {selectedEvent.title}
-                            </Text>
-                        </Box>
+                            </Title>
+                        </div>
 
-                        <Group gap="xl">
-                            <Stack gap={4}>
-                                <Text size="xs" c="dimmed" fw={700}>HORARIO</Text>
-                                <Text size="sm" fw={700}>{selectedEvent.time}</Text>
-                            </Stack>
-                            <Stack gap={4}>
-                                <Text size="xs" c="dimmed" fw={700}>UBICACIÓN</Text>
-                                <Text size="sm" fw={700}>{selectedEvent.location}</Text>
-                            </Stack>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 32 }}>
+                            <div>
+                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>HORARIO</Text>
+                                <Text strong style={{ fontSize: 13 }}>{selectedEvent.time}</Text>
+                            </div>
+                            <div>
+                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>UBICACIÓN</Text>
+                                <Text strong style={{ fontSize: 13 }}>{selectedEvent.location}</Text>
+                            </div>
+                        </div>
 
-                        <Stack gap={8}>
-                            <Text size="xs" c="dimmed" fw={700}>DESCRIPCIÓN</Text>
-                            <Text size="sm" c="gray.7" style={{ lineHeight: 1.6 }}>{selectedEvent.description}</Text>
-                        </Stack>
+                        <div>
+                            <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>DESCRIPCIÓN</Text>
+                            <Text style={{ fontSize: 13, lineHeight: 1.6 }}>{selectedEvent.description}</Text>
+                        </div>
 
-                        <Group justify="space-between" align="flex-end">
-                            <Stack gap={4}>
-                                <Text size="xs" c="dimmed" fw={700}>ORGANIZA</Text>
-                                <Text size="sm" fw={800} c="blue.6">{selectedEvent.organizer}</Text>
-                            </Stack>
-                            <Button variant="subtle" size="sm" onClick={closeEvent} color="gray">Cerrar</Button>
-                        </Group>
-                    </Stack>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                            <div>
+                                <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>ORGANIZA</Text>
+                                <Text strong style={{ fontSize: 13, color: '#1c7ed6' }}>{selectedEvent.organizer}</Text>
+                            </div>
+                            <Button onClick={() => setOpenedEvent(false)}>Cerrar</Button>
+                        </div>
+                    </div>
                 )}
             </Modal>
 
             {/* MODAL PARA REPORTE COMPLETO */}
             <Modal
-                opened={openedReport}
-                onClose={closeReport}
-                title={<Text fw={800} size="sm" c="dimmed" style={{ letterSpacing: rem(1) }}>REPORTE OFICIAL</Text>}
+                open={openedReport}
+                onCancel={() => setOpenedReport(false)}
+                footer={null}
+                width={640}
                 centered
-                radius="md"
-                size="lg"
-                padding="xl"
-                overlayProps={{ backgroundOpacity: 0.4, blur: 10 }}
+                title={<Text type="secondary" strong style={{ fontSize: 13, letterSpacing: 1 }}>REPORTE OFICIAL</Text>}
             >
-                <Stack gap="xl">
-                    <Box>
-                        <Text fw={900} size="24px" c="blue.9" style={{ letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
+                    <div>
+                        <Title level={2} style={{ margin: 0, color: '#1864ab', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
                             Cierre de Operaciones Mensuales: Unidad Ensayo Molecular
-                        </Text>
-                        <Text size="xs" c="dimmed" mt="xs" fw={700}>Publicado el 20 de Marzo, 2026 • ADL Diagnostic</Text>
-                    </Box>
+                        </Title>
+                        <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginTop: 8 }}>Publicado el 20 de Marzo, 2026 • ADL Diagnostic</Text>
+                    </div>
 
-                    <Text size="sm" c="gray.8" style={{ lineHeight: 1.7 }}>
+                    <Text style={{ fontSize: 13, lineHeight: 1.7 }}>
                         Se informa a todo el personal técnico y administrativo que el proceso de cierre para la unidad Ensayo Molecular correspondiente al presente mes se llevará a cabo el día de hoy.
                         <br /><br />
                         Este cierre es crítico para la facturación y el cumplimiento de los tiempos de entrega comprometidos con nuestros clientes.
                     </Text>
 
-                    <Stack gap="md">
-                        <Text size="xs" c="blue.7" fw={900} style={{ letterSpacing: rem(0.5) }}>PUNTOS CLAVE</Text>
-                        <SimpleGrid cols={1} spacing="xs">
-                            <Group gap="sm" wrap="nowrap">
-                                <Box w={6} h={6} style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-blue-6)' }} />
-                                <Text size="sm" fw={600}>Carga total de informes antes de las 18:00 hrs.</Text>
-                            </Group>
-                            <Group gap="sm" wrap="nowrap">
-                                <Box w={6} h={6} style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-blue-6)' }} />
-                                <Text size="sm" fw={600}>Revisión de correlativos y estados en el sistema Área Técnica Local.</Text>
-                            </Group>
-                            <Group gap="sm" wrap="nowrap">
-                                <Box w={6} h={6} style={{ borderRadius: '50%', backgroundColor: 'var(--mantine-color-blue-6)' }} />
-                                <Text size="sm" fw={600}>Validación de firmas digitales por supervisores.</Text>
-                            </Group>
-                        </SimpleGrid>
-                    </Stack>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <Text strong style={{ fontSize: 11, color: '#1c7ed6', letterSpacing: 0.5 }}>PUNTOS CLAVE</Text>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#1c7ed6' }} />
+                                <Text strong style={{ fontSize: 13 }}>Carga total de informes antes de las 18:00 hrs.</Text>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#1c7ed6' }} />
+                                <Text strong style={{ fontSize: 13 }}>Revisión de correlativos y estados en el sistema Área Técnica Local.</Text>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#1c7ed6' }} />
+                                <Text strong style={{ fontSize: 13 }}>Validación de firmas digitales por supervisores.</Text>
+                            </div>
+                        </div>
+                    </div>
 
-                    <Paper p="md" radius="sm" withBorder bg="blue.0" style={{ borderColor: 'var(--mantine-color-blue-2)' }}>
-                        <Text size="xs" fw={600} c="blue.8">
+                    <div style={{ padding: 16, borderRadius: 6, border: '1px solid var(--app-border)', backgroundColor: 'var(--app-accent-bg)' }}>
+                        <Text strong style={{ fontSize: 12, color: '#1864ab' }}>
                             Soporte técnico estará disponible de manera prioritaria para resolver cualquier incidencia con la plataforma durante este periodo.
                         </Text>
-                    </Paper>
+                    </div>
 
-                    <Group justify="flex-end">
-                        <Button variant="light" onClick={closeReport} color="blue">Entendido</Button>
-                    </Group>
-                </Stack>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button type="primary" onClick={() => setOpenedReport(false)}>Entendido</Button>
+                    </div>
+                </div>
             </Modal>
 
             {/* MODAL PARA SALA DE REUNIONES */}
             <Modal
-                opened={openedSala}
-                onClose={closeSala}
-                title={<Text fw={800} size="sm" c="dimmed" style={{ letterSpacing: rem(1) }}>INFO. DE SALA</Text>}
+                open={openedSala}
+                onCancel={() => setOpenedSala(false)}
+                footer={null}
                 centered
-                radius="md"
-                padding="xl"
-                overlayProps={{ backgroundOpacity: 0.4, blur: 10 }}
+                title={<Text type="secondary" strong style={{ fontSize: 13, letterSpacing: 1 }}>INFO. DE SALA</Text>}
             >
                 {selectedSala && (
-                    <Stack gap="xl">
-                        <Box>
-                            <Group justify="space-between" align="center" mb="xs">
-                                <Text fw={900} size="xl" c="blue.9" style={{ letterSpacing: '-0.02em' }}>{selectedSala.name}</Text>
-                                <Badge color={selectedSala.color} variant="light" radius="sm">{selectedSala.status}</Badge>
-                            </Group>
-                        </Box>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                <Title level={3} style={{ margin: 0, color: '#1864ab', letterSpacing: '-0.02em' }}>{selectedSala.name}</Title>
+                                <Tag color={selectedSala.color}>{selectedSala.status}</Tag>
+                            </div>
+                        </div>
 
-                        <Stack gap={8}>
-                            <Text size="xs" c="dimmed" fw={700}>DISPONIBILIDAD</Text>
-                            <Text size="sm" c="gray.8" style={{ lineHeight: 1.6 }}>{selectedSala.details}</Text>
-                        </Stack>
+                        <div>
+                            <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>DISPONIBILIDAD</Text>
+                            <Text style={{ fontSize: 13, lineHeight: 1.6 }}>{selectedSala.details}</Text>
+                        </div>
 
-                        <Group justify="space-between" px="md" py="sm" style={{ borderTop: '1px solid var(--mantine-color-gray-2)', borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
-                            <Text size="xs" fw={800} c="dimmed">PRÓXIMA RESERVA</Text>
-                            <Text size="xs" fw={900} c="blue.8">{selectedSala.nextBooking}</Text>
-                        </Group>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 16px', borderTop: '1px solid var(--app-border)', borderBottom: '1px solid var(--app-border)' }}>
+                            <Text type="secondary" strong style={{ fontSize: 11 }}>PRÓXIMA RESERVA</Text>
+                            <Text strong style={{ fontSize: 12, color: '#1864ab' }}>{selectedSala.nextBooking}</Text>
+                        </div>
 
-                        <Button fullWidth variant="light" onClick={closeSala} color="blue">Cerrar</Button>
-                    </Stack>
+                        <Button block onClick={() => setOpenedSala(false)}>Cerrar</Button>
+                    </div>
                 )}
             </Modal>
-        </Box>
+        </div>
     );
 };

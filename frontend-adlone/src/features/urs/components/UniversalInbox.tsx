@@ -9,7 +9,7 @@ import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNotificationStore } from '../../../store/notificationStore';
 import { useToast } from '../../../contexts/ToastContext';
-import { useMediaQuery } from '@mantine/hooks';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import RequestDetailPanel from './RequestDetailPanel';
 import RequestActivityAndChat from './RequestActivityAndChat';
 

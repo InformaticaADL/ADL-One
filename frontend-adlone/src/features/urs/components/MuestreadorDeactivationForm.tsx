@@ -4,22 +4,14 @@ import { useNavStore } from '../../../store/navStore';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
 import {
-    Stack,
-    Group,
     Select,
-    Paper,
-    Text,
+    Typography,
+    Card,
     Button,
-    Badge,
-    Title,
-    ThemeIcon,
-    SimpleGrid,
-    UnstyledButton,
-    Loader,
-    Alert,
-    Center,
-    Divider
-} from '@mantine/core';
+    Tag,
+    Spin,
+    Alert
+} from 'antd';
 import {
     IconUserMinus,
     IconBuildingCommunity,
@@ -29,6 +21,8 @@ import {
     IconHash
 } from '@tabler/icons-react';
 
+const { Title, Text } = Typography;
+
 interface MuestreadorDeactivationFormProps {
     onSuccess?: () => void;
     onCancel?: () => void;
@@ -36,8 +30,8 @@ interface MuestreadorDeactivationFormProps {
     onDataChange?: (data: any) => void;
 }
 
-const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = ({ 
-    onSuccess, 
+const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = ({
+    onSuccess,
     onCancel,
     isEmbedded = false,
     onDataChange
@@ -60,6 +54,7 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
         apiClient.get('/api/catalogos/muestreadores')
             .then(res => setMuestreadores(res.data.data))
             .catch(() => showToast({ type: 'error', message: 'Error al cargar muestreadores' }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     useEffect(() => {
@@ -78,6 +73,7 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
             setEquipmentList([]);
             setEquipmentCount(null);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedId]);
 
     // Notify parent
@@ -116,7 +112,7 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
     const handleSubmit = async (e?: React.FormEvent) => {
         e?.preventDefault();
         if (isEmbedded) return;
-        
+
         if (!selectedId || !transferType) return;
 
         setLoading(true);
@@ -161,151 +157,170 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
 
     if (submitted && !isEmbedded) {
         return (
-            <Paper p="xl" radius="lg" withBorder shadow="sm" style={{ textAlign: 'center' }}>
-                <ThemeIcon size={64} radius={64} color="teal" variant="light" mb="md">
+            <Card style={{ textAlign: 'center' }}>
+                <div style={{
+                    width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(9,143,131,0.12)', color: '#0c8599',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+                }}>
                     <IconCheck size={40} />
-                </ThemeIcon>
-                <Title order={2} mb="xs">¡Solicitud Enviada!</Title>
-                <Text c="dimmed" mb="lg">La solicitud de deshabilitación ha sido creada correctamente.</Text>
-                <Button color="adl-blue" radius="md" onClick={() => setActiveSubmodule('')}>
+                </div>
+                <Title level={2} style={{ marginBottom: 8 }}>¡Solicitud Enviada!</Title>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>La solicitud de deshabilitación ha sido creada correctamente.</Text>
+                <Button type="primary" onClick={() => setActiveSubmodule('')}>
                     Volver a la lista
                 </Button>
-            </Paper>
+            </Card>
         );
     }
 
+    const opciones: { id: 'BASE' | 'MUESTREADOR' | 'MANUAL'; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
+        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: '#1c7ed6', bg: 'var(--app-accent-bg)' },
+        { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: '#0c8599', bg: 'rgba(12,133,153,0.1)' },
+        { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: '#4c6ef5', bg: 'rgba(76,110,245,0.1)' },
+    ];
+
     return (
-        <Stack gap="lg">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
             {!isEmbedded && (
-                <Alert icon={<IconUserMinus size={18} />} title="Baja de Muestreador" color="adl-blue" radius="md">
-                    Procedimiento para deshabilitar a un compañero y reasignar sus equipos.
-                </Alert>
+                <Alert type="info" showIcon icon={<IconUserMinus size={18} />} message="Baja de Muestreador" description="Procedimiento para deshabilitar a un compañero y reasignar sus equipos." />
             )}
 
-            <Select 
-                label="Persona a deshabilitar"
-                placeholder="Seleccione un muestreador..."
-                data={muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                value={selectedId}
-                onChange={setSelectedId}
-                required
-                searchable
-                radius="md"
-            />
+            <Field label="Persona a deshabilitar *">
+                <Select
+                    placeholder="Seleccione un muestreador..."
+                    options={muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                    value={selectedId ?? undefined}
+                    onChange={(v) => setSelectedId(v ?? null)}
+                    showSearch
+                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                    style={{ width: '100%' }}
+                />
+            </Field>
 
             {selectedId && (
-                <Stack gap="xs">
-                    <Text size="sm" fw={700}>Reasignación de Equipos ({equipmentCount ?? '...'})</Text>
-                    <SimpleGrid cols={3} spacing="sm">
-                        {[
-                            { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: 'blue' },
-                            { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: 'teal' },
-                            { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: 'indigo' }
-                        ].map((opt) => (
-                            <UnstyledButton
-                                key={opt.id}
-                                onClick={() => setTransferType(opt.id as any)}
-                                p="md"
-                                style={{
-                                    borderRadius: 'var(--mantine-radius-md)',
-                                    border: `1px solid ${transferType === opt.id ? `var(--mantine-color-${opt.color}-4)` : 'var(--mantine-color-gray-2)'}`,
-                                    backgroundColor: transferType === opt.id ? `var(--mantine-color-${opt.color}-0)` : 'white',
-                                    transition: 'all 150ms ease',
-                                    textAlign: 'center'
-                                }}
-                            >
-                                <Center style={{ flexDirection: 'column' }}>
-                                    <ThemeIcon variant="light" color={opt.color} size="lg" mb={8} radius="md">
-                                        {opt.icon}
-                                    </ThemeIcon>
-                                    <Text size="xs" fw={700} c={transferType === opt.id ? `${opt.color}.8` : 'gray.7'}>
-                                        {opt.label}
-                                    </Text>
-                                </Center>
-                            </UnstyledButton>
-                        ))}
-                    </SimpleGrid>
-                </Stack>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <Text strong style={{ fontSize: 13 }}>Reasignación de Equipos ({equipmentCount ?? '...'})</Text>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                        {opciones.map((opt) => {
+                            const selected = transferType === opt.id;
+                            return (
+                                <div
+                                    key={opt.id}
+                                    onClick={() => setTransferType(opt.id)}
+                                    style={{
+                                        padding: 16,
+                                        borderRadius: 8,
+                                        border: `1px solid ${selected ? opt.color : 'var(--app-border)'}`,
+                                        backgroundColor: selected ? opt.bg : 'var(--app-bg-elevated)',
+                                        transition: 'all 150ms ease',
+                                        textAlign: 'center',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <div style={{
+                                            width: 36, height: 36, borderRadius: 8, backgroundColor: opt.bg, color: opt.color,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+                                        }}>
+                                            {opt.icon}
+                                        </div>
+                                        <Text strong style={{ fontSize: 12, color: selected ? opt.color : 'var(--app-text-secondary)' }}>
+                                            {opt.label}
+                                        </Text>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
             )}
 
             {transferType === 'BASE' && (
-                <Select 
-                    label="Base de destino"
-                    placeholder="Seleccione base..."
-                    data={bases}
-                    value={targetBase}
-                    onChange={setTargetBase}
-                    required
-                    radius="md"
-                />
+                <Field label="Base de destino *">
+                    <Select
+                        placeholder="Seleccione base..."
+                        options={bases}
+                        value={targetBase ?? undefined}
+                        onChange={(v) => setTargetBase(v ?? null)}
+                        style={{ width: '100%' }}
+                    />
+                </Field>
             )}
 
             {transferType === 'MUESTREADOR' && (
-                <Select 
-                    label="Muestreador de destino"
-                    placeholder="Seleccione destino..."
-                    data={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                    value={targetMuestreadorId}
-                    onChange={setTargetMuestreadorId}
-                    required
-                    searchable
-                    radius="md"
-                />
+                <Field label="Muestreador de destino *">
+                    <Select
+                        placeholder="Seleccione destino..."
+                        options={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                        value={targetMuestreadorId ?? undefined}
+                        onChange={(v) => setTargetMuestreadorId(v ?? null)}
+                        showSearch
+                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                        style={{ width: '100%' }}
+                    />
+                </Field>
             )}
 
             {transferType === 'MANUAL' && (
-                <Paper p="md" withBorder radius="md" bg="gray.0">
-                    <Group justify="space-between" mb="xs">
-                        <Text size="xs" fw={800} c="dimmed">Equipos de {muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador}</Text>
-                        <Badge size="xs" color="indigo">{equipmentList.length} ítems</Badge>
-                    </Group>
-                    
-                    <Divider mb="md" />
+                <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text type="secondary" strong style={{ fontSize: 11 }}>Equipos de {muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador}</Text>
+                        <Tag color="geekblue">{equipmentList.length} ítems</Tag>
+                    </div>
 
-                    <Stack gap="sm">
-                        {loadingEquipos ? <Center py="xl"><Loader size="xs" /></Center> : (
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '0 0 16px' }} />
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {loadingEquipos ? <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin size="small" /></div> : (
                             equipmentList.map(eq => (
-                                <Paper key={eq.id_equipo} p="xs" bg="white" radius="md" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                                    <Group justify="space-between" wrap="nowrap">
-                                        <Group gap="xs">
-                                            <Badge variant="light" color="gray" size="xs"><IconHash size={10} /> {eq.codigo}</Badge>
-                                            <Text size="sm" fw={600} truncate>{eq.nombre}</Text>
-                                        </Group>
-                                        <Select 
-                                            size="xs"
+                                <div key={eq.id_equipo} style={{ padding: 8, backgroundColor: 'var(--app-bg-elevated)', borderRadius: 8, border: '1px solid var(--app-border)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', overflow: 'hidden' }}>
+                                            <Tag icon={<IconHash size={10} style={{ verticalAlign: 'text-bottom' }} />}>{eq.codigo}</Tag>
+                                            <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.nombre}</Text>
+                                        </div>
+                                        <Select
+                                            size="small"
                                             placeholder="Destino"
-                                            data={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                                            value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
+                                            options={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                            value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
                                             onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                            radius="sm"
                                             style={{ width: 140 }}
                                         />
-                                    </Group>
-                                </Paper>
+                                    </div>
+                                </div>
                             ))
                         )}
-                    </Stack>
-                </Paper>
+                    </div>
+                </Card>
             )}
 
             {!isEmbedded && (
-                <Group justify="flex-end" mt="xl">
-                    <Button variant="light" color="gray" onClick={onCancel} radius="md">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+                    <Button onClick={onCancel}>
                         Cancelar
                     </Button>
-                    <Button 
-                        color="adl-blue" 
-                        radius="md" 
-                        loading={loading} 
+                    <Button
+                        type="primary"
+                        loading={loading}
                         disabled={!transferType}
                         onClick={() => handleSubmit()}
                     >
                         Confirmar Baja
                     </Button>
-                </Group>
+                </div>
             )}
-        </Stack>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default MuestreadorDeactivationForm;

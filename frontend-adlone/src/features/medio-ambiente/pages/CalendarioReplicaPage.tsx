@@ -1,32 +1,17 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { adminService } from '../../../services/admin.service';
 import { FichaUniversalView } from '../components/FichaUniversalView';
-import { 
-    Group, 
-    Text, 
-    Title,
-    Button, 
-    Select, 
-    TextInput, 
-    ActionIcon, 
-    Tooltip, 
-    SimpleGrid,
-    Paper,
-    Box,
-    Center,
-    Loader,
-    Stack,
-    ScrollArea,
-    Badge as MantineBadge
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconChevronLeft, 
+import { Typography, Button, Select, Input, Tooltip, Card, Spin, Tag } from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import {
+    IconChevronLeft,
     IconChevronRight,
     IconArrowLeft,
     IconFilter,
     IconInfoCircle
 } from '@tabler/icons-react';
+
+const { Title, Text } = Typography;
 
 interface Props {
     onBack: () => void;
@@ -134,98 +119,100 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
 
     if (selectedFichaId) {
         return (
-            <Box pos="fixed" inset={0} bg="white" style={{ zIndex: 1000 }} p={0}>
+            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--app-bg-elevated)', zIndex: 1000, padding: 0 }}>
                 <FichaUniversalView
                     fichaId={selectedFichaId}
                     onBack={() => setSelectedFichaId(null)}
                 />
-            </Box>
+            </div>
         );
     }
 
     return (
-        <Box py="md" style={{ width: '100%' }}>
-            <Paper withBorder p="xl" radius="lg" shadow="sm">
-                <Stack gap="xl">
-                    <Group justify="space-between" align="center" wrap="wrap" gap="md">
-                        <Button 
-                            variant="subtle" 
-                            color="gray" 
-                            size={isMobile ? "xs" : "sm"}
-                            leftSection={<IconArrowLeft size={isMobile ? 16 : 20} />}
+        <div style={{ padding: '16px 0', width: '100%' }}>
+            <Card style={{ borderRadius: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                        <Button
+                            type="text"
+                            size={isMobile ? 'small' : 'middle'}
+                            icon={<IconArrowLeft size={isMobile ? 16 : 20} />}
                             onClick={onBack}
                         >
                             {isMobile ? 'Volver' : 'Volver a Medio Ambiente'}
                         </Button>
-                        <Stack gap={0} align="center" style={{ flex: isMobile ? '1 1 100%' : 'auto', order: isMobile ? 3 : 2 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: isMobile ? '1 1 100%' : 'auto', order: isMobile ? 3 : 2 }}>
                             {!isMobile && (
                                 <>
-                                    <Title order={2} fw={800} c="blue.8">Calendario de Terreno</Title>
-                                    <Group gap="xs" mt="xs">
-                                        <ActionIcon variant="light" onClick={prevMonth} size="lg" radius="md">
-                                            <IconChevronLeft size={20} />
-                                        </ActionIcon>
-                                        <Text fw={700} size="lg" w={180} ta="center" style={{ textTransform: 'capitalize' }}>
+                                    <Title level={2} style={{ margin: 0, fontWeight: 800, color: '#1864ab' }}>Calendario de Terreno</Title>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                                        <Button type="text" shape="circle" icon={<IconChevronLeft size={20} />} onClick={prevMonth} />
+                                        <Text strong style={{ fontSize: 16, width: 180, textAlign: 'center', textTransform: 'capitalize' }}>
                                             {formattedMonth}
                                         </Text>
-                                        <ActionIcon variant="light" onClick={nextMonth} size="lg" radius="md">
-                                            <IconChevronRight size={20} />
-                                        </ActionIcon>
-                                    </Group>
+                                        <Button type="text" shape="circle" icon={<IconChevronRight size={20} />} onClick={nextMonth} />
+                                    </div>
                                 </>
                             )}
-                            {isMobile && <Title order={4} fw={800} c="blue.8">Calendario de Terreno</Title>}
-                        </Stack>
-                        <Button 
-                            variant={showFilters ? 'filled' : 'light'} 
-                            size={isMobile ? "xs" : "sm"}
-                            leftSection={<IconFilter size={18} />}
+                            {isMobile && <Title level={4} style={{ margin: 0, fontWeight: 800, color: '#1864ab' }}>Calendario de Terreno</Title>}
+                        </div>
+                        <Button
+                            type={showFilters ? 'primary' : 'default'}
+                            size={isMobile ? 'small' : 'middle'}
+                            icon={<IconFilter size={18} />}
                             onClick={() => setShowFilters(!showFilters)}
                             style={{ order: isMobile ? 2 : 3 }}
                         >
                             Filtros
                         </Button>
-                    </Group>
+                    </div>
 
                     {showFilters && (
-                        <Paper withBorder p="md" radius="md" bg="gray.0">
-                            <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 5 }} spacing="sm">
-                                <TextInput 
-                                    label="Buscar" 
-                                    placeholder="Nombre, ficha..." 
-                                    value={searchTerm} 
-                                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                    size="xs"
-                                />
-                                <Select 
-                                    label="Día" 
-                                    placeholder="Todos" 
-                                    data={Array.from({ length: 31 }, (_, i) => ({ value: String(i+1), label: `Día ${i+1}` }))}
-                                    value={searchDay}
-                                    onChange={setSearchDay}
-                                    size="xs"
-                                    clearable
-                                />
-                                <Select 
-                                    label="Empresa" 
-                                    placeholder="Todas" 
-                                    data={empresas.map(e => ({ value: e, label: e }))}
-                                    value={selectedEmpresa}
-                                    onChange={(v) => { setSelectedEmpresa(v || ''); setSelectedFuente(''); }}
-                                    size="xs"
-                                    clearable
-                                />
-                                <Select 
-                                    label="Fuente" 
-                                    placeholder="Todas" 
-                                    data={fuentes.map(f => ({ value: f, label: f }))}
-                                    value={selectedFuente}
-                                    onChange={(v) => setSelectedFuente(v || '')}
-                                    size="xs"
-                                    clearable
-                                />
-                                <Group align="flex-end">
-                                    <Button fullWidth variant="subtle" color="gray" size="xs" onClick={() => {
+                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                                <Field label="Buscar">
+                                    <Input
+                                        placeholder="Nombre, ficha..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        size="small"
+                                    />
+                                </Field>
+                                <Field label="Día">
+                                    <Select
+                                        placeholder="Todos"
+                                        options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `Día ${i + 1}` }))}
+                                        value={searchDay ?? undefined}
+                                        onChange={setSearchDay}
+                                        size="small"
+                                        allowClear
+                                        style={{ width: '100%' }}
+                                    />
+                                </Field>
+                                <Field label="Empresa">
+                                    <Select
+                                        placeholder="Todas"
+                                        options={empresas.map(e => ({ value: e, label: e }))}
+                                        value={selectedEmpresa || undefined}
+                                        onChange={(v) => { setSelectedEmpresa(v || ''); setSelectedFuente(''); }}
+                                        size="small"
+                                        allowClear
+                                        style={{ width: '100%' }}
+                                    />
+                                </Field>
+                                <Field label="Fuente">
+                                    <Select
+                                        placeholder="Todas"
+                                        options={fuentes.map(f => ({ value: f, label: f }))}
+                                        value={selectedFuente || undefined}
+                                        onChange={(v) => setSelectedFuente(v || '')}
+                                        size="small"
+                                        allowClear
+                                        style={{ width: '100%' }}
+                                    />
+                                </Field>
+                                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                                    <Button block type="text" size="small" onClick={() => {
                                         setSearchTerm('');
                                         setSearchDay(null);
                                         setSelectedEmpresa('');
@@ -233,31 +220,34 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                     }}>
                                         Limpiar Filtros
                                     </Button>
-                                </Group>
-                            </SimpleGrid>
-                        </Paper>
+                                </div>
+                            </div>
+                        </Card>
                     )}
 
-                    <Box pos="relative" mih={400}>
+                    <div style={{ position: 'relative', minHeight: 400 }}>
                         {isLoading && (
-                            <Box pos="absolute" inset={0} bg="rgba(255,255,255,0.7)" style={{ zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <Loader color="blue" />
-                            </Box>
+                            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                                <Spin />
+                            </div>
                         )}
-                        
+
                         {!isMobile ? (
-                            <SimpleGrid cols={7} spacing={1} bg="gray.2" style={{ border: '1px solid var(--mantine-color-gray-2)', borderRadius: '8px', overflow: 'hidden' }}>
+                            <div style={{
+                                display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1,
+                                backgroundColor: 'var(--app-border)', border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'hidden',
+                            }}>
                                 {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(dayName => (
-                                    <Center key={dayName} p="xs" bg="gray.1">
-                                        <Text fw={700} size="sm" c="gray.7">{dayName}</Text>
-                                    </Center>
+                                    <div key={dayName} style={{ padding: 8, backgroundColor: 'var(--app-hover-bg)', display: 'flex', justifyContent: 'center' }}>
+                                        <Text strong style={{ fontSize: 13, color: 'var(--app-text-secondary)' }}>{dayName}</Text>
+                                    </div>
                                 ))}
-                                
+
                                 {calendarCells.map((day, idx) => {
-                                    if (day === null) return <Box key={`empty-${idx}`} bg="gray.0" mih={120} />;
-                                    
+                                    if (day === null) return <div key={`empty-${idx}`} style={{ backgroundColor: 'var(--app-hover-bg)', minHeight: 120 }} />;
+
                                     const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
-                                    
+
                                     const dayEvents = dbData.filter(row => {
                                         if (row.dia !== day) return false;
                                         if (selectedEmpresa && row.nombre_empresa !== selectedEmpresa) return false;
@@ -274,137 +264,130 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                     });
 
                                     return (
-                                        <Box 
-                                            key={day} 
-                                            p="xs" 
-                                            bg={isToday ? 'blue.0' : 'white'} 
-                                            mih={120} 
-                                            style={{ 
-                                                borderTop: '1px solid var(--mantine-color-gray-2)',
-                                                borderLeft: idx % 7 !== 0 ? '1px solid var(--mantine-color-gray-2)' : 'none',
+                                        <div
+                                            key={day}
+                                            style={{
+                                                padding: 8,
+                                                backgroundColor: isToday ? 'var(--app-accent-bg)' : 'var(--app-bg-elevated)',
+                                                minHeight: 120,
+                                                borderTop: '1px solid var(--app-border)',
+                                                borderLeft: idx % 7 !== 0 ? '1px solid var(--app-border)' : 'none',
                                                 filter: isPastMonth ? 'grayscale(0.4) opacity(0.8)' : 'none',
                                                 transition: 'all 0.2s',
-                                                ...(isToday ? { border: '2px solid var(--mantine-color-blue-5)', zIndex: 1 } : {})
+                                                ...(isToday ? { border: '2px solid #4dabf7', zIndex: 1 } : {})
                                             }}
                                         >
-                                            <Text fw={700} size="sm" c={isToday ? 'blue.7' : 'gray.6'} mb={4}>
+                                            <Text strong style={{ fontSize: 13, color: isToday ? '#1864ab' : 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>
                                                 {day}
                                             </Text>
-                                            <Stack gap={4}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                                 {dayEvents.map((ev, eIdx) => {
                                                     const empresa = ev.nombre_empresa || '';
                                                     const colors = companyColorMap[empresa] || { bg: '#f1f3f5', text: '#495057' };
                                                     return (
-                                                        <Tooltip 
-                                                            key={`${day}-${eIdx}`} 
-                                                            label={`${empresa} - ${ev.nombre_fuenteemisora}\nObj: ${ev.nombre_objetivomuestreo_ma || '-'}`}
-                                                            multiline
-                                                            withinPortal
+                                                        <Tooltip
+                                                            key={`${day}-${eIdx}`}
+                                                            title={<>{empresa} - {ev.nombre_fuenteemisora}<br />Obj: {ev.nombre_objetivomuestreo_ma || '-'}</>}
                                                         >
-                                                            <Box
-                                                                px={6}
-                                                                py={2}
-                                                                bg={colors.bg}
-                                                                style={{ 
-                                                                    cursor: 'pointer', 
-                                                                    borderRadius: '4px',
-                                                                    borderLeft: `3px solid ${colors.text}`
+                                                            <div
+                                                                style={{
+                                                                    padding: '2px 6px',
+                                                                    backgroundColor: colors.bg,
+                                                                    cursor: 'pointer',
+                                                                    borderRadius: 4,
+                                                                    borderLeft: `3px solid ${colors.text}`,
+                                                                    overflow: 'hidden',
                                                                 }}
                                                                 onClick={() => setSelectedFichaId(ev.id_fichaingresoservicio)}
                                                             >
-                                                                <Text size="10px" fw={700} truncate title={ev.nombre_fuenteemisora || ''}>
+                                                                <Text
+                                                                    strong
+                                                                    title={ev.nombre_fuenteemisora || ''}
+                                                                    style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
+                                                                >
                                                                     {ev.nombre_fuenteemisora || 'S/F'}
                                                                 </Text>
-                                                            </Box>
+                                                            </div>
                                                         </Tooltip>
                                                     );
                                                 })}
-                                            </Stack>
-                                        </Box>
+                                            </div>
+                                        </div>
                                     );
                                 })}
-                            </SimpleGrid>
+                            </div>
                         ) : (
-                            <Stack gap="md">
-                                <Paper withBorder p="md" radius="md" bg="blue.0">
-                                    <Group justify="space-between">
-                                        <ActionIcon variant="subtle" onClick={prevMonth} size="md">
-                                            <IconChevronLeft size={20} />
-                                        </ActionIcon>
-                                        <Text fw={800} size="lg" style={{ textTransform: 'capitalize' }} c="blue.9">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <Button type="text" shape="circle" icon={<IconChevronLeft size={20} />} onClick={prevMonth} />
+                                        <Text strong style={{ fontSize: 16, textTransform: 'capitalize', color: '#1864ab' }}>
                                             {formattedMonth}
                                         </Text>
-                                        <ActionIcon variant="subtle" onClick={nextMonth} size="md">
-                                            <IconChevronRight size={20} />
-                                        </ActionIcon>
-                                    </Group>
-                                </Paper>
+                                        <Button type="text" shape="circle" icon={<IconChevronRight size={20} />} onClick={nextMonth} />
+                                    </div>
+                                </Card>
 
-                                <Box>
-                                    <ScrollArea scrollbars="x" offsetScrollbars={false}>
-                                        <Group wrap="nowrap" gap="xs" pb="sm">
-                                            {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
-                                                const hasEvents = dbData.some(ev => ev.dia === day);
-                                                const isSelected = selectedDayMobile === day;
-                                                const dateObj = new Date(year, month, day);
-                                                const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+                                <div style={{ overflowX: 'auto' }}>
+                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, paddingBottom: 8 }}>
+                                        {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
+                                            const hasEvents = dbData.some(ev => ev.dia === day);
+                                            const isSelected = selectedDayMobile === day;
+                                            const dateObj = new Date(year, month, day);
+                                            const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
-                                                return (
-                                                    <Paper
-                                                        key={day}
-                                                        withBorder
-                                                        p="xs"
-                                                        onClick={() => setSelectedDayMobile(day)}
-                                                        style={{
-                                                            cursor: 'pointer',
-                                                            minWidth: 55,
-                                                            textAlign: 'center',
-                                                            borderRadius: '12px',
-                                                            borderColor: isSelected ? 'var(--mantine-color-blue-5)' : 'var(--mantine-color-gray-3)',
-                                                            backgroundColor: isSelected ? 'var(--mantine-color-blue-1)' : isToday ? 'var(--mantine-color-blue-0)' : 'white',
-                                                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                            transform: isSelected ? 'scale(1.05)' : 'none',
-                                                            boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.05)' : 'none'
-                                                        }}
-                                                    >
-                                                        <Text size="10px" c={isSelected ? 'blue.7' : 'dimmed'} fw={700} tt="uppercase">
-                                                            {new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dateObj)}
-                                                        </Text>
-                                                        <Text fw={900} size="lg" c={isSelected ? 'blue.8' : 'dark'}>{day}</Text>
-                                                        {hasEvents && (
-                                                            <Box h={5} w={5} bg={isSelected ? 'blue.7' : 'blue.4'} style={{ borderRadius: '50%', margin: '4px auto 0' }} />
-                                                        )}
-                                                    </Paper>
-                                                );
-                                            })}
-                                        </Group>
-                                    </ScrollArea>
-                                </Box>
+                                            return (
+                                                <div
+                                                    key={day}
+                                                    onClick={() => setSelectedDayMobile(day)}
+                                                    style={{
+                                                        cursor: 'pointer',
+                                                        minWidth: 55,
+                                                        textAlign: 'center',
+                                                        borderRadius: 12,
+                                                        border: `1px solid ${isSelected ? '#4dabf7' : 'var(--app-border)'}`,
+                                                        backgroundColor: isSelected ? 'var(--app-accent-bg)' : isToday ? 'var(--app-hover-bg)' : 'var(--app-bg-elevated)',
+                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                                        transform: isSelected ? 'scale(1.05)' : 'none',
+                                                        boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                                                        padding: 8,
+                                                    }}
+                                                >
+                                                    <Text style={{ fontSize: 10, color: isSelected ? '#1864ab' : 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                                                        {new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dateObj)}
+                                                    </Text>
+                                                    <Text style={{ fontWeight: 900, fontSize: 16, color: isSelected ? '#1864ab' : 'var(--app-text)', display: 'block' }}>{day}</Text>
+                                                    {hasEvents && (
+                                                        <div style={{ height: 5, width: 5, backgroundColor: isSelected ? '#1864ab' : '#74c0fc', borderRadius: '50%', margin: '4px auto 0' }} />
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
 
-                                <Stack gap="sm">
-                                    <Group justify="space-between" align="center" px="xs">
-                                        <Text fw={800} size="md" c="blue.9">Servicios del Día {selectedDayMobile}</Text>
-                                        <MantineBadge color="blue" variant="light">{dbData.filter(ev => ev.dia === selectedDayMobile).length} Servicios</MantineBadge>
-                                    </Group>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
+                                        <Text strong style={{ fontSize: 15, color: '#1864ab' }}>Servicios del Día {selectedDayMobile}</Text>
+                                        <Tag color="blue">{dbData.filter(ev => ev.dia === selectedDayMobile).length} Servicios</Tag>
+                                    </div>
 
                                     {dbData.filter(ev => ev.dia === selectedDayMobile).length === 0 ? (
-                                        <Paper withBorder p="xl" radius="lg" bg="gray.0" style={{ borderStyle: 'dashed' }}>
-                                            <Center>
-                                                <Stack align="center" gap="xs">
-                                                    <IconInfoCircle size={40} color="var(--mantine-color-gray-4)" />
-                                                    <Text c="dimmed" size="sm" fw={500}>No hay servicios programados para esta fecha</Text>
-                                                </Stack>
-                                            </Center>
-                                        </Paper>
+                                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)', borderStyle: 'dashed' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 16 }}>
+                                                <IconInfoCircle size={40} color="var(--app-text-secondary)" />
+                                                <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>No hay servicios programados para esta fecha</Text>
+                                            </div>
+                                        </Card>
                                     ) : (
-                                        <Stack gap="sm">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                             {dbData.filter(ev => {
                                                 if (ev.dia !== selectedDayMobile) return false;
                                                 if (selectedEmpresa && ev.nombre_empresa !== selectedEmpresa) return false;
                                                 if (selectedFuente && ev.nombre_fuenteemisora !== selectedFuente) return false;
                                                 if (searchTerm) {
                                                     const s = searchTerm.toLowerCase();
-                                                    return (ev.nombre_empresa?.toLowerCase().includes(s) || 
+                                                    return (ev.nombre_empresa?.toLowerCase().includes(s) ||
                                                            ev.nombre_fuenteemisora?.toLowerCase().includes(s));
                                                 }
                                                 return true;
@@ -412,44 +395,53 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                                 const empresa = ev.nombre_empresa || '';
                                                 const colors = companyColorMap[empresa] || { bg: '#f1f3f5', text: '#495057' };
                                                 return (
-                                                    <Paper 
-                                                        key={eIdx} withBorder p="md" radius="lg" shadow="xs" 
+                                                    <Card
+                                                        key={eIdx}
+                                                        size="small"
                                                         onClick={() => setSelectedFichaId(ev.id_fichaingresoservicio)}
-                                                        style={{ 
-                                                            borderLeft: `6px solid ${colors.text}`, 
+                                                        style={{
+                                                            borderRadius: 12,
+                                                            borderLeft: `6px solid ${colors.text}`,
                                                             cursor: 'pointer',
-                                                            background: `linear-gradient(to right, ${colors.bg}0A, white)`
+                                                            background: `linear-gradient(to right, ${colors.bg}0A, var(--app-bg-elevated))`
                                                         }}
                                                     >
-                                                        <Stack gap={8}>
-                                                            <Group justify="space-between" wrap="nowrap">
-                                                                <Text size="xs" fw={900} c="blue.7" style={{ letterSpacing: '0.5px' }}>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                                                                <Text strong style={{ fontSize: 12, color: '#1864ab', letterSpacing: 0.5 }}>
                                                                     FICHA #{ev.id_fichaingresoservicio}
                                                                 </Text>
-                                                                <MantineBadge size="sm" variant="dot" color="blue">
-                                                                    {ev.nombre_objetivomuestreo_ma}
-                                                                </MantineBadge>
-                                                            </Group>
-                                                            <Box>
-                                                                <Text size="sm" fw={800} c="dark.4" lh={1.2}>{ev.nombre_empresa}</Text>
-                                                                <Text size="xs" c="dimmed" fw={500}>{ev.nombre_fuenteemisora}</Text>
-                                                            </Box>
-                                                            <Group gap={4}>
+                                                                <Tag color="blue">{ev.nombre_objetivomuestreo_ma}</Tag>
+                                                            </div>
+                                                            <div>
+                                                                <Text strong style={{ fontSize: 13, lineHeight: 1.2, display: 'block' }}>{ev.nombre_empresa}</Text>
+                                                                <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>{ev.nombre_fuenteemisora}</Text>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                                                                 <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colors.text }} />
-                                                                <Text size="11px" fw={700} c="dimmed" tt="uppercase">Programado</Text>
-                                                            </Group>
-                                                        </Stack>
-                                                    </Paper>
+                                                                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Programado</Text>
+                                                            </div>
+                                                        </div>
+                                                    </Card>
                                                 );
                                             })}
-                                        </Stack>
+                                        </div>
                                     )}
-                                </Stack>
-                            </Stack>
+                                </div>
+                            </div>
                         )}
-                    </Box>
-                </Stack>
-            </Paper>
-        </Box>
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

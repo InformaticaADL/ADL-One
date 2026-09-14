@@ -1,42 +1,33 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
+import { Menu, Dropdown, Avatar, Badge, Tooltip, Typography, Switch } from 'antd';
+import type { MenuProps } from 'antd';
 import {
-    Group,
-    ScrollArea,
-    rem,
-    Avatar,
-    Text,
-    UnstyledButton,
-    Collapse,
-    ThemeIcon,
-    Box,
-    Menu,
-    ActionIcon,
-    Tooltip,
-    Portal
-} from '@mantine/core';
-import {
-    IconChevronRight,
     IconUserCircle,
-    IconClipboardList,
     IconBell,
     IconMessageCircle,
     IconExclamationMark,
     IconLogout,
     IconLayoutSidebarLeftCollapse,
     IconLayoutSidebarRightCollapse,
-    IconX,
     IconFileInvoice,
+    IconClipboardList,
+    IconSun,
+    IconMoon,
 } from '@tabler/icons-react';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
+import { useThemeStore } from '../../store/themeStore';
 import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
 import API_CONFIG from '../../config/api.config';
 import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
 import classes from './Sidebar.module.css';
+
+const { Text } = Typography;
 
 // Módulos con iconos de Tabler
 const FIXED_TOP_MODULES = [
@@ -48,148 +39,23 @@ const FIXED_TOP_MODULES = [
 
 const FIXED_BOTTOM_MODULES: any[] = [];
 
-interface LinksGroupProps {
-    icon: any;
-    label: string;
-    opened: boolean;
-    onToggle: () => void;
-    links?: { label: string; id: string; permission?: string | string[] }[];
-    id: string;
-    active?: boolean;
-    activeSubmodule?: string;
-    collapsed?: boolean;
-    badge?: React.ReactNode;
-    onClick?: () => void;
-    onSubmoduleClick?: (id: string) => void;
-    notificationRef?: React.RefObject<HTMLDivElement | null>; // Compatible con useRef inicializado en null
-}
+type MenuItem = Required<MenuProps>['items'][number];
 
-export function LinksGroup({
-    icon: Icon,
-    label,
-    opened,
-    onToggle,
-    links,
-    active,
-    activeSubmodule,
-    collapsed,
-    badge,
-    onClick,
-    onSubmoduleClick,
-    notificationRef // Destructure notificationRef
-}: LinksGroupProps) {
-    const hasLinks = Array.isArray(links) && links.length > 0;
-
-    const items = (hasLinks ? links : []).map((link) => (
-        <UnstyledButton
-            className={`${classes.link} ${activeSubmodule === link.id ? classes.linkActive : ''}`}
-            key={link.label}
-            onClick={(event) => {
-                event.preventDefault();
-                if (onSubmoduleClick) onSubmoduleClick(link.id);
-            }}
-        >
-            {link.label}
-        </UnstyledButton>
-    ));
-
-    if (collapsed) {
-        return (
-            <Box style={{ marginBottom: 6 }} ref={notificationRef}>
-                {hasLinks ? (
-                    <Menu position="right-start" withArrow shadow="md" offset={10}>
-                        <Menu.Target>
-                            <UnstyledButton
-                                className={`${classes.control} ${active ? classes.controlActive : ''}`}
-                                onClick={onClick}
-                            >
-                                <ThemeIcon variant={active ? 'filled' : 'light'} size={28} color="adl-blue" radius="md">
-                                    <Icon style={{ width: 16, height: 16 }} />
-                                </ThemeIcon>
-                                {badge && (
-                                    <div style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
-                                        {badge}
-                                    </div>
-                                )}
-                            </UnstyledButton>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                            <Menu.Label>{label}</Menu.Label>
-                            {links.map((link) => (
-                                <Menu.Item
-                                    key={link.id}
-                                    onClick={() => onSubmoduleClick?.(link.id)}
-                                    className={activeSubmodule === link.id ? classes.menuItemActive : ''}
-                                >
-                                    {link.label}
-                                </Menu.Item>
-                            ))}
-                        </Menu.Dropdown>
-                    </Menu>
-                ) : (
-                    <Tooltip label={label} position="right" withArrow transitionProps={{ duration: 0 }}>
-                        <UnstyledButton
-                            className={`${classes.control} ${active ? classes.controlActive : ''}`}
-                            onClick={onClick}
-                        >
-                            <ThemeIcon variant={active ? 'filled' : 'light'} size={28} color="adl-blue" radius="md">
-                                <Icon style={{ width: 16, height: 16 }} />
-                            </ThemeIcon>
-                            {badge && (
-                                <div style={{ position: 'absolute', top: -4, right: -4, zIndex: 10 }}>
-                                    {badge}
-                                </div>
-                            )}
-                        </UnstyledButton>
-                    </Tooltip>
-                )}
-            </Box>
-        );
-    }
-
+// Ícono + etiqueta con badge opcional a la derecha — reemplaza al antiguo
+// ThemeIcon/Group manual: antd ya resuelve estado activo/hover por token.
+function itemLabel(label: string, badgeCount?: number) {
+    if (!badgeCount) return label;
     return (
-        <Box style={{ marginBottom: 6 }} ref={notificationRef}>
-            <UnstyledButton
-                onClick={() => {
-                    if (hasLinks) onToggle();
-                    if (onClick) onClick();
-                }}
-                className={`${classes.control} ${active ? classes.controlActive : ''}`}
-            >
-                <Group justify="space-between" gap={0} wrap="nowrap">
-                    <Box style={{ display: 'flex', alignItems: 'center' }}>
-                        <ThemeIcon variant={active ? 'filled' : 'light'} size={28} color="adl-blue" radius="md">
-                            <Icon style={{ width: 16, height: 16 }} />
-                        </ThemeIcon>
-                        <Box ml="md" style={{ flex: 1, fontSize: 12, fontWeight: 500 }}>{label}</Box>
-                        {badge && <Box ml="sm">{badge}</Box>}
-                    </Box>
-                    {hasLinks && (
-                        <IconChevronRight
-                            className={classes.chevron}
-                            stroke={1.5}
-                            style={{
-                                width: rem(16),
-                                height: rem(16),
-                                transform: opened ? 'rotate(-90deg)' : 'none',
-                            }}
-                        />
-                    )}
-                </Group>
-            </UnstyledButton>
-            {hasLinks && (
-                <Collapse in={opened}>
-                    <div className={classes.subItemsContainer}>
-                        {items}
-                    </div>
-                </Collapse>
-            )}
-        </Box>
+        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+            <span>{label}</span>
+            <span className={classes.counter}>{badgeCount > 99 ? '99+' : badgeCount}</span>
+        </span>
     );
 }
 
 export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }: { forceNotCollapsed?: boolean, onNavigate?: () => void, hideLogo?: boolean, onHelpClick?: () => void }) {
     const { user, logout, hasPermission, token } = useAuth();
+    const { mode, toggleMode } = useThemeStore();
     const {
         activeModule,
         activeSubmodule,
@@ -206,6 +72,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
+    const [notifOpen, setNotifOpen] = useState(false);
     const [showBubble, setShowBubble] = useState(false);
     const isFirstLoad = useRef(true);
     const prevUnreadCount = useRef<number>(0);
@@ -237,7 +104,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
                 if (response.data && response.data.success) {
                     setDynamicModules(response.data.data);
                 }
-            } catch (_) {
+            } catch {
                 // Silently fail — sidebar will show static modules only
             }
         };
@@ -276,53 +143,17 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
             return;
         }
 
-        if (unreadCount > prevUnreadCount.current && unreadCount > 0 && openedModule !== 'notificaciones') {
+        if (unreadCount > prevUnreadCount.current && unreadCount > 0 && !notifOpen) {
             setShowBubble(true);
             const timer = setTimeout(() => setShowBubble(false), 5000);
             return () => clearTimeout(timer);
         }
         prevUnreadCount.current = unreadCount;
-    }, [unreadCount, openedModule]);
-
-    // Close popover when clicking outside the sidebar/popovers
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            const target = event.target as HTMLElement;
-
-            if (!openedModule) return;
-
-            // 1. Si clicamos FUERA del Sidebar y fuera de cualquier Popover
-            const isOutsideSidebar = !target.closest(`.${classes.navbar}`);
-            const isOutsidePopover = !target.closest('.mantine-Popover-dropdown');
-
-            // 2. Si clicamos DENTRO del Sidebar pero en un espacio vacío (no es botón ni link)
-            const isInteractive = target.closest('button, a, [role="button"]');
-            const isInsideSidebar = !!target.closest(`.${classes.navbar}`);
-
-            // 3. PERSISTENCIA: No cerrar si es el módulo activo o contiene al submódulo activo
-            const { activeModule: activeMod, activeSubmodule: activeSub } = useNavStore.getState();
-
-            // Si el módulo está expandido manuamente y es el activo, no cerrar
-            if (openedModule === activeMod) return;
-
-            // Si el submódulo activo pertenece al módulo expandido, no cerrar
-            const currentModule = dynamicModules.find(m => m.id === openedModule);
-            const links = Array.isArray(currentModule?.links) ? currentModule.links as Array<{ id: string }> : [];
-            const hasActiveSub = links.some(link => link.id === activeSub);
-            if (hasActiveSub) return;
-
-            if ((isOutsideSidebar && isOutsidePopover) || (isInsideSidebar && !isInteractive)) {
-                setOpenedModule(null);
-            }
-        };
-
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [openedModule]);
+    }, [unreadCount, notifOpen]);
 
     const canAccessModule = (module: any) => {
         let hasBasePermission = false;
-        
+
         if (!module.permission || module.permission.length === 0) {
             hasBasePermission = true;
         } else {
@@ -340,7 +171,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
                 }
                 return hasPermission(link.permission);
             });
-            
+
             // Para ver el módulo, debe cumplir el permiso base (si lo hay) Y tener acceso a un link
             return hasBasePermission && canAccessAnyLink;
         }
@@ -349,19 +180,10 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
     };
 
     const handleModuleClick = (moduleId: string) => {
-        if (moduleId === 'notificaciones') {
-            setOpenedModule(openedModule === 'notificaciones' ? null : 'notificaciones');
-            setShowBubble(false);
-            return;
-        }
-
-        const mod = dynamicModules.find(m => m.id === moduleId) || FIXED_TOP_MODULES.find(m => m.id === moduleId);
-        const hasSubItems = mod && 'links' in mod && Array.isArray(mod.links) && mod.links.length > 0;
+        const mod = dynamicModules.find((m: any) => m.id === moduleId) || FIXED_TOP_MODULES.find(m => m.id === moduleId);
+        const hasSubItems = mod && 'links' in mod && Array.isArray((mod as any).links) && (mod as any).links.length > 0;
 
         if (hasSubItems) {
-            // Solo alternar expansión
-            setOpenedModule(openedModule === moduleId ? null : moduleId);
-
             // Si el módulo ya es el activo, no reseteamos el submódulo
             if (activeModule !== moduleId) {
                 setActiveModule(moduleId);
@@ -371,144 +193,149 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
             // Si no tiene subítems, navegamos directamente
             setActiveModule(moduleId);
             setActiveSubmodule('');
-            // No cerramos el openedModule si es el actual para mantener el estado visual
-            setOpenedModule(moduleId);
             onNavigate?.();
         }
     };
 
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
     // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
-    const visibleModules = dynamicModules.filter(m => canAccessModule(m));
-    
+    const visibleModules = dynamicModules.filter((m: any) => canAccessModule(m));
+
     // Unidades: Filtrar módulos visibles según permisos
-    const unidades = visibleModules.filter(m => m.group === 'unidades');
-    
+    const unidades = visibleModules.filter((m: any) => m.group === 'unidades');
+
     // Gestión: Mostrar si el usuario tiene permiso para algún módulo de gestión
-    const gestionOp = visibleModules.filter(m => m.group === 'gestion');
+    const gestionOp = visibleModules.filter((m: any) => m.group === 'gestion');
 
-    const visibleBottom = FIXED_BOTTOM_MODULES.filter(m => !m.permission || hasPermission(m.permission));
+    const visibleBottom = FIXED_BOTTOM_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
 
-    const visibleTop = FIXED_TOP_MODULES.filter(m => !m.permission || hasPermission(m.permission));
+    const visibleTop = FIXED_TOP_MODULES.filter((m) => !m.permission || hasPermission(m.permission))
+        .filter((m) => m.id !== 'notificaciones'); // Notificaciones se renderiza aparte (abre un popover, no navega)
 
-    const mainLinks = visibleTop.map((item) => {
-        const isNotificationsItem = item.id === 'notificaciones';
-        const link = (
-            <LinksGroup
-                key={item.id}
-                icon={item.icon}
-                label={item.label}
-                id={item.id}
-                opened={openedModule === item.id}
-                onToggle={() => setOpenedModule(openedModule === item.id ? null : item.id)}
-                active={activeModule === item.id}
-                activeSubmodule={activeSubmodule}
-                collapsed={isCollapsed}
-                onClick={() => handleModuleClick(item.id)}
-                badge={
-                    isNotificationsItem && unreadCount > 0 ? (
-                        <span className={classes.counter}>
-                            {unreadCount > 99 ? '99+' : unreadCount}
-                        </span>
-                    ) : item.id === 'solicitudes' && ursUnreadCount > 0 ? (
-                        <span className={classes.counter}>
-                            {ursUnreadCount > 99 ? '99+' : ursUnreadCount}
-                        </span>
-                    ) : null
-                }
-                notificationRef={isNotificationsItem ? notificationsRef : undefined} // Pass ref to notification item
-                onSubmoduleClick={(subId) => {
-                    setActiveSubmodule(subId);
-                    onNavigate?.();
-                }}
-            />
-        );
-
-        if (isNotificationsItem) {
-            return (
-                <NotificationPopover
-                    key={item.id}
-                    opened={openedModule === 'notificaciones'}
-                    onClose={() => setOpenedModule(null)}
-                >
-                    {link}
-                </NotificationPopover>
-            );
-        }
-
-        return link;
-    });
-
-    const bottomLinks = visibleBottom.map((item) => (
-        <LinksGroup
-            key={item.id}
-            icon={item.icon}
-            label={item.label}
-            id={item.id}
-            opened={openedModule === item.id}
-            onToggle={() => setOpenedModule(openedModule === item.id ? null : item.id)}
-            active={activeModule === item.id}
-            activeSubmodule={activeSubmodule}
-            collapsed={sidebarCollapsed}
-            onClick={() => handleModuleClick(item.id)}
-            onSubmoduleClick={(subId) => {
-                setActiveSubmodule(subId);
-                onNavigate?.();
-            }}
-        />
-    ));
-
-    const renderSecondaryLinks = (mods: any[], title: string) => {
-        if (mods.length === 0) return null;
-        return (
-            <div className={classes.section}>
-                <Text size="xs" fw={700} c="dimmed" className={classes.sectionTitle}>
-                    {!isCollapsed && title}
-                </Text>
-                {mods.map((mod) => {
-                    const filteredLinks = (mod.links || []).filter((link: any) => {
-                        if (!link.permission) return true;
-                        if (Array.isArray(link.permission)) {
-                            return link.permission.some((perm: string) => hasPermission(perm));
-                        }
-                        return hasPermission(link.permission);
-                    });
-
-                    return (
-                        <LinksGroup
-                            key={mod.id}
-                            icon={getIconComponent(mod.icon)}
-                            label={mod.label}
-                            id={mod.id}
-                            opened={openedModule === mod.id}
-                            onToggle={() => setOpenedModule(openedModule === mod.id ? null : mod.id)}
-                            active={activeModule === mod.id}
-                            activeSubmodule={activeSubmodule}
-                            collapsed={isCollapsed}
-                            onClick={() => handleModuleClick(mod.id)}
-                            links={filteredLinks.length > 0 ? filteredLinks.map((l: any) => ({
-                                label: l.label,
-                                id: l.id,
-                                permission: l.permission
-                            })) : undefined}
-                            onSubmoduleClick={(subId) => {
-                                setActiveSubmodule(subId);
-                                onNavigate?.();
-                            }}
-                        />
-                    );
-                })}
-            </div>
-        );
+    const buildDynamicItem = (mod: any): MenuItem => {
+        const filteredLinks = (mod.links || []).filter((link: any) => {
+            if (!link.permission) return true;
+            if (Array.isArray(link.permission)) {
+                return link.permission.some((perm: string) => hasPermission(perm));
+            }
+            return hasPermission(link.permission);
+        });
+        const Icon = getIconComponent(mod.icon);
+        return {
+            key: mod.id,
+            icon: <Icon size={18} stroke={1.75} />,
+            label: mod.label,
+            children: filteredLinks.length > 0
+                ? filteredLinks.map((l: any) => ({ key: l.id, label: l.label }))
+                : undefined,
+        };
     };
 
+    const items: MenuItem[] = useMemo(() => {
+        const result: MenuItem[] = visibleTop.map((item) => ({
+            key: item.id,
+            icon: <item.icon size={18} stroke={1.75} />,
+            label: itemLabel(item.label, item.id === 'solicitudes' ? ursUnreadCount : undefined),
+        }));
+
+        if (unidades.length > 0) {
+            result.push({
+                type: 'group',
+                key: 'grp-unidades',
+                label: 'UNIDADES',
+                children: unidades.map(buildDynamicItem),
+            } as MenuItem);
+        }
+        if (gestionOp.length > 0) {
+            result.push({
+                type: 'group',
+                key: 'grp-gestion',
+                label: 'GESTIÓN',
+                children: gestionOp.map(buildDynamicItem),
+            } as MenuItem);
+        }
+        if (visibleBottom.length > 0) {
+            result.push({
+                type: 'group',
+                key: 'grp-soporte',
+                label: 'SOPORTE',
+                children: visibleBottom.map((item) => ({
+                    key: item.id,
+                    icon: <item.icon size={18} stroke={1.75} />,
+                    label: item.label,
+                })),
+            } as MenuItem);
+        }
+        return result;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [visibleTop, unidades, gestionOp, visibleBottom, ursUnreadCount]);
+
+    // Selección: si hay submódulo activo, resalta ese; si no, el módulo raíz.
+    const selectedKeys = activeSubmodule ? [activeSubmodule] : (activeModule ? [activeModule] : []);
+    const openKeys = openedModule ? [openedModule] : [];
+
+    const handleClick: MenuProps['onClick'] = ({ key, keyPath }) => {
+        // keyPath.length > 1 → un ítem hoja dentro de un submódulo (el submódulo
+        // es keyPath[1]). keyPath.length === 1 → un módulo raíz sin hijos.
+        if (keyPath.length > 1) {
+            setActiveSubmodule(key);
+            onNavigate?.();
+        } else {
+            handleModuleClick(key);
+        }
+    };
+
+    const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
+        // Solo un submódulo abierto a la vez (comportamiento acordeón previo).
+        const next = keys.find((k) => !openKeys.includes(k)) ?? null;
+        setOpenedModule(next);
+        if (next) handleModuleClick(next);
+    };
+
+    const userMenuItems: MenuProps['items'] = [
+        { key: 'perfil', icon: <IconUserCircle size={14} />, label: 'Mi Perfil' },
+        { key: 'ayuda', icon: <IconExclamationMark size={14} />, label: 'Ayuda' },
+        { type: 'divider' },
+        { key: 'logout', icon: <IconLogout size={14} />, label: 'Cerrar sesión', danger: true },
+    ];
+
+    const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
+        if (key === 'perfil') {
+            setActiveModule('perfil');
+            setActiveSubmodule('');
+            onNavigate?.();
+        } else if (key === 'ayuda') {
+            onHelpClick?.();
+            onNavigate?.();
+        } else if (key === 'logout') {
+            logout();
+        }
+    };
+
+    const notifItem = FIXED_TOP_MODULES.find((m) => m.id === 'notificaciones')!;
+    const notifActive = notifOpen || activeModule === 'notificaciones';
+    const notifButton = (
+        <div ref={notificationsRef}>
+            <Tooltip title={isCollapsed ? 'Notificaciones' : ''} placement="right">
+                <button
+                    className={`${classes.notifButton} ${notifActive ? classes.notifButtonActive : ''} ${isCollapsed ? classes.notifButtonCollapsed : ''}`}
+                    onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
+                >
+                    <Badge count={unreadCount} size="small" offset={isCollapsed ? [-2, 2] : [0, 0]}>
+                        <notifItem.icon size={18} stroke={1.75} />
+                    </Badge>
+                    {!isCollapsed && <span style={{ flex: 1 }}>{notifItem.label}</span>}
+                </button>
+            </Tooltip>
+        </div>
+    );
 
     return (
         <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
             {!hideLogo && (
                 <div className={classes.header}>
-                    <Box style={{ width: '100%', display: 'flex', alignItems: 'center', position: 'relative' }}>
-                        <Box style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingLeft: isCollapsed ? 0 : 28 }}>
+                    <div style={{ width: '100%', display: 'flex', alignItems: 'center', position: 'relative' }}>
+                        <div style={{ flex: 1, display: 'flex', justifyContent: 'center', paddingLeft: isCollapsed ? 0 : 28 }}>
                             <img
                                 src={isCollapsed ? logoSmall : logoAdl}
                                 alt="ADL Logo"
@@ -518,139 +345,117 @@ export function Sidebar({ forceNotCollapsed, onNavigate, hideLogo, onHelpClick }
                                     objectFit: 'contain',
                                     cursor: 'pointer',
                                     transition: 'all 200ms ease',
-                                    filter: 'none'
                                 }}
                                 onClick={() => resetNavigation()}
                             />
-                        </Box>
-                        {!isCollapsed ? (
-                            <ActionIcon
-                                variant="subtle"
-                                color="gray"
+                        </div>
+                        <Tooltip title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}>
+                            <button
                                 onClick={toggleSidebar}
-                                size="lg"
+                                style={{
+                                    border: 'none', background: 'transparent', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    color: 'var(--app-text-secondary)', padding: 6, borderRadius: 6,
+                                    ...(isCollapsed ? { position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' } : {}),
+                                }}
                             >
-                                <IconLayoutSidebarLeftCollapse size={20} />
-                            </ActionIcon>
-                        ) : (
-                            <ActionIcon
-                                variant="subtle"
-                                color="gray"
-                                onClick={toggleSidebar}
-                                size="md"
-                                style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)' }}
-                            >
-                                <IconLayoutSidebarRightCollapse size={18} />
-                            </ActionIcon>
-                        )}
-                    </Box>
+                                {isCollapsed
+                                    ? <IconLayoutSidebarRightCollapse size={18} />
+                                    : <IconLayoutSidebarLeftCollapse size={20} />}
+                            </button>
+                        </Tooltip>
+                    </div>
                 </div>
             )}
 
-            <ScrollArea className={classes.links}>
+            <div className={classes.links}>
                 <div className={classes.linksInner}>
                     <div className={classes.section}>
-                        {mainLinks}
+                        <NotificationPopover opened={notifOpen} onClose={() => setNotifOpen(false)}>
+                            {notifButton}
+                        </NotificationPopover>
                     </div>
 
-                    <div className={classes.separator} />
-
-                    {renderSecondaryLinks(unidades, 'UNIDADES')}
-                    {renderSecondaryLinks(gestionOp, 'GESTIÓN')}
-                </div>
-            </ScrollArea>
-
-            <div className={classes.footer}>
-                {!isCollapsed && bottomLinks.length > 0 && (
-                    <div className={classes.section}>
-                        <Text size="xs" fw={700} c="dimmed" className={classes.sectionTitle}>
-                            SOPORTE
-                        </Text>
-                        {bottomLinks}
-                    </div>
-                )}
-
-                <div className={classes.user}>
-                    <Menu position="right-end" withArrow shadow="md">
-                        <Menu.Target>
-                            <UnstyledButton className={classes.userButton}>
-                                <Group gap="sm" wrap="nowrap" align="center">
-                                    <Avatar
-                                        src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : null}
-                                        radius="xl"
-                                        color="blue"
-                                        size={32}
-                                    >
-                                        {user?.name?.charAt(0)}
-                                    </Avatar>
-                                    {!isCollapsed && (
-                                        <div style={{ flex: 1, minWidth: 0, paddingRight: 4, display: 'flex', flexDirection: 'column' }}>
-                                            <Text style={{ fontSize: 12, lineHeight: 1.2, overflowWrap: 'anywhere', wordBreak: 'break-word', whiteSpace: 'normal' }} fw={600}>
-                                                {user?.name || 'Usuario'}
-                                            </Text>
-                                            <Text
-                                                c="dimmed"
-                                                style={{ fontSize: 10, overflowWrap: 'anywhere', wordBreak: 'break-word', lineHeight: 1.1, whiteSpace: 'normal' }}
-                                            >
-                                                {user?.cargo || ''}
-                                            </Text>
-                                        </div>
-                                    )}
-                                    {!isCollapsed && <IconChevronRight size={12} stroke={1.5} />}
-                                </Group>
-                            </UnstyledButton>
-                        </Menu.Target>
-
-                        <Menu.Dropdown>
-                            <Menu.Label>Panel de Usuario</Menu.Label>
-                            <Menu.Item
-                                leftSection={<IconUserCircle size={14} />}
-                                onClick={() => {
-                                    setActiveModule('perfil');
-                                    setActiveSubmodule('');
-                                    onNavigate?.();
-                                }}
-                            >
-                                Mi Perfil
-                            </Menu.Item>
-                            <Menu.Item
-                                leftSection={<IconExclamationMark size={14} />}
-                                onClick={() => {
-                                    onHelpClick?.();
-                                    onNavigate?.();
-                                }}
-                            >
-                                Ayuda
-                            </Menu.Item>
-                            <Menu.Divider />
-                            <Menu.Item
-                                color="red"
-                                onClick={logout}
-                                leftSection={<IconLogout size={14} />}
-                            >
-                                Cerrar sesión
-                            </Menu.Item>
-                        </Menu.Dropdown>
-                    </Menu>
+                    <Menu
+                        mode="inline"
+                        inlineCollapsed={isCollapsed}
+                        selectedKeys={selectedKeys}
+                        openKeys={isCollapsed ? undefined : openKeys}
+                        onOpenChange={handleOpenChange}
+                        onClick={handleClick}
+                        items={items}
+                        style={{ border: 'none', background: 'transparent' }}
+                    />
                 </div>
             </div>
-            {showBubble && notificationsRef.current && openedModule !== 'notificaciones' && (
-                <Portal>
-                    <div
-                        className={classes.bubbleNotification}
-                        style={{
-                            position: 'fixed',
-                            top: notificationsRef.current.getBoundingClientRect().top + (notificationsRef.current.offsetHeight / 2) - 20,
-                            left: notificationsRef.current.getBoundingClientRect().right + 10,
-                        }}
+
+            <div className={classes.footer}>
+                <div className={classes.section}>
+                    {isCollapsed ? (
+                        <Tooltip title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'} placement="right">
+                            <button
+                                className={`${classes.themeSwitch} ${classes.themeSwitchCollapsed}`}
+                                onClick={toggleMode}
+                                aria-label="Cambiar tema"
+                            >
+                                {mode === 'dark' ? <IconMoon size={17} stroke={1.75} /> : <IconSun size={17} stroke={1.75} />}
+                            </button>
+                        </Tooltip>
+                    ) : (
+                        <div className={classes.themeSwitch}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {mode === 'dark' ? <IconMoon size={15} stroke={1.75} /> : <IconSun size={15} stroke={1.75} />}
+                                Modo {mode === 'dark' ? 'oscuro' : 'claro'}
+                            </span>
+                            <Switch size="small" checked={mode === 'dark'} onChange={toggleMode} />
+                        </div>
+                    )}
+                </div>
+
+                <div className={classes.user}>
+                    <Dropdown
+                        menu={{ items: userMenuItems, onClick: handleUserMenuClick }}
+                        placement="topRight"
+                        trigger={['click']}
                     >
-                        {notifications[0]?.titulo || '¡Nueva notificación!'}
-                    </div>
-                </Portal>
+                        <button className={classes.userButton}>
+                            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                <Avatar
+                                    src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : undefined}
+                                    size={32}
+                                    style={{ backgroundColor: '#0062a8', flexShrink: 0 }}
+                                >
+                                    {user?.name?.charAt(0)}
+                                </Avatar>
+                                {!isCollapsed && (
+                                    <div style={{ flex: 1, minWidth: 0, textAlign: 'left' }}>
+                                        <Text style={{ fontSize: 12, lineHeight: 1.2, display: 'block' }} strong ellipsis={{ tooltip: user?.name }}>
+                                            {user?.name || 'Usuario'}
+                                        </Text>
+                                        <Text type="secondary" style={{ fontSize: 10, lineHeight: 1.1, display: 'block' }} ellipsis={{ tooltip: user?.cargo }}>
+                                            {user?.cargo || ''}
+                                        </Text>
+                                    </div>
+                                )}
+                            </div>
+                        </button>
+                    </Dropdown>
+                </div>
+            </div>
+
+            {showBubble && notificationsRef.current && !notifOpen && createPortal(
+                <div
+                    className={classes.bubbleNotification}
+                    style={{
+                        position: 'fixed',
+                        top: notificationsRef.current.getBoundingClientRect().top + (notificationsRef.current.offsetHeight / 2) - 20,
+                        left: notificationsRef.current.getBoundingClientRect().right + 10,
+                    }}
+                >
+                    {notifications[0]?.titulo || '¡Nueva notificación!'}
+                </div>,
+                document.body
             )}
-
-
-
         </nav>
     );
 }

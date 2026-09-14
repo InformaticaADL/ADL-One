@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Modal, Box, Text, Loader, Center, Timeline, Badge, Group } from '@mantine/core';
+import { Modal, Typography, Spin, Timeline, Tag } from 'antd';
 import { IconMapPin, IconClockHour4 } from '@tabler/icons-react';
 import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { BaseTiles } from './BaseTiles';
 import L from 'leaflet';
 import dayjs from 'dayjs';
 import { trackingService, type HistorialDiaDetalle, type FichaVisitadaDia } from '../services/tracking.service';
+
+const { Text } = Typography;
 
 interface HistorialDiaReplayModalProps {
     opened: boolean;
@@ -73,37 +75,38 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
 
     return (
         <Modal
-            opened={opened}
-            onClose={onClose}
+            open={opened}
+            onCancel={onClose}
+            footer={null}
+            width={860}
             title={
-                <Box>
-                    <Text fw={700}>{nombreMuestreador}</Text>
-                    <Text size="xs" c="dimmed">{dia ? dayjs(dia).format('DD/MM/YYYY') : ''}</Text>
-                </Box>
+                <div>
+                    <Text strong style={{ display: 'block' }}>{nombreMuestreador}</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{dia ? dayjs(dia).format('DD/MM/YYYY') : ''}</Text>
+                </div>
             }
-            size="xl"
         >
             {loading && (
-                <Center h={300}>
-                    <Loader />
-                </Center>
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin />
+                </div>
             )}
 
             {!loading && error && (
-                <Center h={300}>
-                    <Text c="red">{error}</Text>
-                </Center>
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text type="danger">{error}</Text>
+                </div>
             )}
 
             {!loading && !error && fichas.length === 0 && (
-                <Center h={300}>
-                    <Text size="sm" c="dimmed">Sin fichas con visita confirmada este día.</Text>
-                </Center>
+                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Sin fichas con visita confirmada este día.</Text>
+                </div>
             )}
 
             {!loading && !error && fichas.length > 0 && (
-                <Box style={{ display: 'flex', gap: 16, height: 420 }}>
-                    <Box style={{ flex: 2, borderRadius: 8, overflow: 'hidden' }}>
+                <div style={{ display: 'flex', gap: 16, height: 420 }}>
+                    <div style={{ flex: 2, borderRadius: 8, overflow: 'hidden' }}>
                         <MapContainer center={puntos[0]} zoom={13} style={{ height: '100%', width: '100%' }}>
                             <BaseTiles />
                             <AjustarBounds puntos={puntos} />
@@ -124,28 +127,29 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
                                 </Marker>
                             ))}
                         </MapContainer>
-                    </Box>
-                    <Box style={{ flex: 1, overflowY: 'auto' }}>
-                        <Timeline active={fichas.length} bulletSize={22} lineWidth={2}>
-                            {fichas.map((f, idx) => (
-                                <Timeline.Item
-                                    key={`${f.id_agendamam}-${f.tipo}`}
-                                    title={f.nombre_centro}
-                                    bullet={<Text size="xs" fw={700}>{idx + 1}</Text>}
-                                >
-                                    <Text size="xs" c="dimmed">{f.nombre_empresa}</Text>
-                                    <Group gap={6} mt={4}>
-                                        <IconClockHour4 size={13} />
-                                        <Text size="xs">{dayjs(f.hora).format('HH:mm')}</Text>
-                                        <Badge size="xs" variant="light" color={f.tipo === 'instalacion' ? 'blue' : 'orange'} leftSection={<IconMapPin size={10} />}>
-                                            {f.tipo === 'instalacion' ? 'Instalación' : 'Retiro'}
-                                        </Badge>
-                                    </Group>
-                                </Timeline.Item>
-                            ))}
-                        </Timeline>
-                    </Box>
-                </Box>
+                    </div>
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                        <Timeline
+                            items={fichas.map((f, idx) => ({
+                                key: `${f.id_agendamam}-${f.tipo}`,
+                                dot: <Text strong style={{ fontSize: 12 }}>{idx + 1}</Text>,
+                                children: (
+                                    <div>
+                                        <Text strong style={{ fontSize: 13, display: 'block' }}>{f.nombre_centro}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>{f.nombre_empresa}</Text>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
+                                            <IconClockHour4 size={13} />
+                                            <Text style={{ fontSize: 12 }}>{dayjs(f.hora).format('HH:mm')}</Text>
+                                            <Tag color={f.tipo === 'instalacion' ? 'blue' : 'orange'} icon={<IconMapPin size={10} style={{ verticalAlign: 'text-bottom' }} />}>
+                                                {f.tipo === 'instalacion' ? 'Instalación' : 'Retiro'}
+                                            </Tag>
+                                        </div>
+                                    </div>
+                                ),
+                            }))}
+                        />
+                    </div>
+                </div>
             )}
         </Modal>
     );

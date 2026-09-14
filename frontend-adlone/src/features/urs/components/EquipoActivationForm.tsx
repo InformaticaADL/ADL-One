@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { TextInput, Select, Stack, Group, Text, Paper, Loader, Button, Box, Alert } from '@mantine/core';
+import { Input, Select, Typography, Card, Spin, Button, Alert } from 'antd';
 import { IconInfoCircle } from '@tabler/icons-react';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
 import { TIPOS_EQUIPO } from '../constants/equipoTypes';
+
+const { Text } = Typography;
 
 interface EquipoActivationFormProps {
     onDataChange: (data: any) => void;
@@ -56,6 +58,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
             })
             .catch(() => showToast({ type: 'error', message: 'Error al cargar responsables' }))
             .finally(() => setLoadingMuestreadores(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Load inventory only when EXISTENTE mode is active
@@ -72,6 +75,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
             })
             .catch(() => showToast({ type: 'error', message: 'Error al cargar inventario de equipos' }))
             .finally(() => setLoadingEquipos(false));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [altaSubtype]);
 
     // Auto-fill tipo when equipo is selected in EXISTENTE mode
@@ -80,6 +84,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
         if (altaSubtype === 'EXISTENTE' && selectedEquipoData?.tipo) {
             setTipo(selectedEquipoData.tipo);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [equipoId, altaSubtype]);
 
     // Reset equipo selection when switching modes
@@ -109,122 +114,127 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
             fecha_vigencia: fechaVigencia,
             _form_type: 'ACTIVACION_EQUIPO'
         });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [nombre, tipo, ubicacionId, muestreadorId, ubicaciones, muestreadores, altaSubtype, fechaVigencia, equipoId, selectedEquipoData]);
 
     return (
-        <Paper withBorder p="md" radius="md" bg="blue.0">
-            <Stack gap="md">
-                <Group justify="space-between">
-                    <Text fw={700} size="sm" c="blue.8" style={{ textTransform: 'uppercase' }}>
+        <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text strong style={{ fontSize: 13, color: '#1864ab', textTransform: 'uppercase' }}>
                         Activación de Equipo
                     </Text>
-                    <Group gap="xs">
+                    <div style={{ display: 'flex', gap: 8 }}>
                         <Button
-                            variant={altaSubtype === 'EXISTENTE' ? 'filled' : 'light'}
+                            type={altaSubtype === 'EXISTENTE' ? 'primary' : 'default'}
                             onClick={() => handleModeSwitch('EXISTENTE')}
-                            size="compact-xs"
-                            radius="xl"
+                            size="small"
+                            shape="round"
                         >
                             Desde Inventario
                         </Button>
                         <Button
-                            variant={altaSubtype === 'NUEVO' ? 'filled' : 'light'}
+                            type={altaSubtype === 'NUEVO' ? 'primary' : 'default'}
                             onClick={() => handleModeSwitch('NUEVO')}
-                            size="compact-xs"
-                            radius="xl"
+                            size="small"
+                            shape="round"
                         >
                             Nuevo Registro
                         </Button>
-                    </Group>
-                </Group>
+                    </div>
+                </div>
 
                 {altaSubtype === 'EXISTENTE' ? (
                     <>
-                        <Alert icon={<IconInfoCircle size={14} />} color="blue" variant="light" radius="md" p="xs">
-                            <Text size="xs">Selecciona un equipo del inventario para reactivarlo o reasignarlo.</Text>
-                        </Alert>
-                        <Select
-                            label="Equipo del Inventario"
-                            placeholder={loadingEquipos ? 'Cargando inventario...' : 'Busque por nombre o código'}
-                            rightSection={loadingEquipos ? <Loader size={12} /> : null}
-                            data={equipos}
-                            value={equipoId}
-                            onChange={setEquipoId}
-                            searchable
-                            required
-                            radius="md"
-                            nothingFoundMessage="No se encontraron equipos"
-                        />
+                        <Alert type="info" showIcon icon={<IconInfoCircle size={14} />} message={<Text style={{ fontSize: 12 }}>Selecciona un equipo del inventario para reactivarlo o reasignarlo.</Text>} />
+                        <Field label="Equipo del Inventario *">
+                            <Select
+                                placeholder={loadingEquipos ? 'Cargando inventario...' : 'Busque por nombre o código'}
+                                suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
+                                options={equipos}
+                                value={equipoId ?? undefined}
+                                onChange={(v) => setEquipoId(v ?? null)}
+                                showSearch
+                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                notFoundContent="No se encontraron equipos"
+                                style={{ width: '100%' }}
+                            />
+                        </Field>
                     </>
                 ) : (
                     <>
-                        <Alert icon={<IconInfoCircle size={14} />} color="teal" variant="light" radius="md" p="xs">
-                            <Text size="xs">Completa los datos del equipo nuevo que ingresará al inventario.</Text>
-                        </Alert>
-                        <Group grow>
-                            <TextInput
-                                label="Nombre / Modelo del Equipo"
-                                placeholder="Ej: Multiparámetro WTW Multi 3630"
-                                value={nombre}
-                                onChange={(e) => setNombre(e.currentTarget.value)}
-                                required
-                                radius="md"
-                            />
-                            <Select
-                                label="Tipo de Equipo"
-                                placeholder="Seleccione tipo"
-                                data={TIPOS_EQUIPO}
-                                value={tipo}
-                                onChange={setTipo}
-                                required
-                                radius="md"
-                                searchable
-                            />
-                        </Group>
+                        <Alert type="success" showIcon icon={<IconInfoCircle size={14} />} message={<Text style={{ fontSize: 12 }}>Completa los datos del equipo nuevo que ingresará al inventario.</Text>} />
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                            <Field label="Nombre / Modelo del Equipo *">
+                                <Input
+                                    placeholder="Ej: Multiparámetro WTW Multi 3630"
+                                    value={nombre}
+                                    onChange={(e) => setNombre(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Tipo de Equipo *">
+                                <Select
+                                    placeholder="Seleccione tipo"
+                                    options={TIPOS_EQUIPO.map((t: string) => ({ value: t, label: t }))}
+                                    value={tipo ?? undefined}
+                                    onChange={(v) => setTipo(v ?? null)}
+                                    showSearch
+                                    style={{ width: '100%' }}
+                                />
+                            </Field>
+                        </div>
                     </>
                 )}
 
-                <Group grow>
-                    <Select
-                        label="Ubicación Destino"
-                        placeholder={loadingUbicaciones ? 'Cargando...' : 'Seleccione base / laboratorio'}
-                        rightSection={loadingUbicaciones ? <Loader size={12} /> : null}
-                        data={ubicaciones}
-                        value={ubicacionId}
-                        onChange={setUbicacionId}
-                        searchable
-                        required
-                        radius="md"
-                    />
-                    <Select
-                        label="Responsable Asignado"
-                        placeholder={loadingMuestreadores ? 'Cargando...' : 'Seleccione responsable'}
-                        rightSection={loadingMuestreadores ? <Loader size={12} /> : null}
-                        data={muestreadores}
-                        value={muestreadorId}
-                        onChange={setMuestreadorId}
-                        searchable
-                        required
-                        radius="md"
-                    />
-                </Group>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <Field label="Ubicación Destino *">
+                        <Select
+                            placeholder={loadingUbicaciones ? 'Cargando...' : 'Seleccione base / laboratorio'}
+                            suffixIcon={loadingUbicaciones ? <Spin size="small" /> : undefined}
+                            options={ubicaciones}
+                            value={ubicacionId ?? undefined}
+                            onChange={(v) => setUbicacionId(v ?? null)}
+                            showSearch
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
+                    <Field label="Responsable Asignado *">
+                        <Select
+                            placeholder={loadingMuestreadores ? 'Cargando...' : 'Seleccione responsable'}
+                            suffixIcon={loadingMuestreadores ? <Spin size="small" /> : undefined}
+                            options={muestreadores}
+                            value={muestreadorId ?? undefined}
+                            onChange={(v) => setMuestreadorId(v ?? null)}
+                            showSearch
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
+                </div>
 
-                <Group grow>
-                    <TextInput
-                        label="Fecha de Inicio / Vigencia"
-                        type="date"
-                        value={fechaVigencia}
-                        onChange={(e) => setFechaVigencia(e.currentTarget.value)}
-                        required
-                        radius="md"
-                    />
-                    <Box style={{ visibility: 'hidden' }}>
-                        <TextInput label="-" />
-                    </Box>
-                </Group>
-            </Stack>
-        </Paper>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <Field label="Fecha de Inicio / Vigencia *">
+                        <Input
+                            type="date"
+                            value={fechaVigencia}
+                            onChange={(e) => setFechaVigencia(e.target.value)}
+                        />
+                    </Field>
+                    <div />
+                </div>
+            </div>
+        </Card>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default EquipoActivationForm;

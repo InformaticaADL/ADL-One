@@ -1,17 +1,6 @@
 import React, { useState, useRef } from 'react';
-import {
-    Stack,
-    Paper,
-    Title,
-    Text,
-    Button,
-    Group,
-    Box,
-    Progress,
-    Alert,
-    ThemeIcon
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+import { Typography, Button, Progress, Alert, Card } from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconUpload,
     IconCheck,
@@ -26,6 +15,8 @@ import { fichaService } from '../services/ficha.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { BulkReviewGrid } from './BulkReviewGrid';
 
+const { Title, Text } = Typography;
+
 interface Props {
     onBack: () => void;
     onSuccess: () => void;
@@ -34,14 +25,14 @@ interface Props {
 export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const { user } = useAuth();
     const isMobile = useMediaQuery('(max-width: 768px)');
-    
+
     // State
     const [step, setStep] = useState<1 | 2 | 3>(1); // 1: Upload, 2: Parsing/Review, 3: Committing
     const [isParsing, setIsParsing] = useState(false);
     const [isCommitting, setIsCommitting] = useState(false);
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Data
     const [files, setFiles] = useState<File[]>([]);
     const [parsedItems, setParsedItems] = useState<any[]>([]);
@@ -49,13 +40,14 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const [commitResults, setCommitResults] = useState<any>(null);
     const [isDownloading, setIsDownloading] = useState(false);
     const [parseMeta, setParseMeta] = useState<{ truncated?: boolean; maxFichas?: number; total?: number } | null>(null);
+    const [hovering, setHovering] = useState(false);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
-            const selectedFiles = Array.from(e.target.files).filter(f => 
-                f.type === 'application/pdf' || 
+            const selectedFiles = Array.from(e.target.files).filter(f =>
+                f.type === 'application/pdf' ||
                 f.type === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
                 f.name.endsWith('.xlsx')
             );
@@ -74,22 +66,22 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
 
     const handleUploadAndParse = async () => {
         if (files.length === 0) return;
-        
+
         setIsParsing(true);
         setError(null);
         setStep(2);
         setProgress(10); // Fake progress to show activity
-        
+
         try {
             const formData = new FormData();
             files.forEach(f => formData.append('files', f));
-            
-            // Progress is mostly a placeholder since the upload/parse is a single request, 
+
+            // Progress is mostly a placeholder since the upload/parse is a single request,
             // but we could set up Axios upload progress if needed.
             setProgress(30);
 
             const result = await fichaService.bulkParse(formData);
-            
+
             if (result.success && result.data?.items) {
                 const data = result.data;
                 setParsedItems(data.items);
@@ -112,19 +104,19 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
 
     const handleCommit = async () => {
         if (selectedIndices.length === 0) return;
-        
+
         setIsCommitting(true);
         setError(null);
         setStep(3);
-        
+
         try {
             const itemsToCommit = selectedIndices.map(idx => ({ ...parsedItems[idx] }));
-            
+
             const result = await fichaService.bulkCommit({
                 items: itemsToCommit,
                 userId: user?.id || (user as any)?.id_usuario
             });
-            
+
             if (result.success) {
                 setCommitResults(result.data);
             } else {
@@ -142,69 +134,69 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     // --- RENDER HELPERS ---
 
     const renderStep1Upload = () => (
-        <Stack gap="xl" align="center" mt="xl">
-            <input 
-                type="file" 
-                multiple 
-                accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx" 
-                ref={fileInputRef} 
-                style={{ display: 'none' }} 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24 }}>
+            <input
+                type="file"
+                multiple
+                accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
+                ref={fileInputRef}
+                style={{ display: 'none' }}
                 onChange={handleFileSelect}
             />
-            
-            <Box 
-                p={40} 
-                style={{ 
-                    border: '2px dashed var(--mantine-color-gray-4)', 
+
+            <div
+                style={{
+                    padding: 40,
+                    border: `2px dashed ${hovering ? '#4dabf7' : 'var(--app-border)'}`,
                     borderRadius: 16,
                     width: '100%',
                     maxWidth: 600,
                     cursor: 'pointer',
                     textAlign: 'center',
-                    backgroundColor: 'var(--mantine-color-gray-0)',
+                    backgroundColor: hovering ? 'var(--app-accent-bg)' : 'var(--app-hover-bg)',
                     transition: 'all 0.2s ease'
                 }}
                 onClick={() => fileInputRef.current?.click()}
-                onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--mantine-color-blue-5)';
-                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-blue-0)';
-                }}
-                onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--mantine-color-gray-4)';
-                    e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)';
-                }}
+                onMouseEnter={() => setHovering(true)}
+                onMouseLeave={() => setHovering(false)}
             >
-                <ThemeIcon size={60} radius="xl" variant="light" color="blue" mb="md">
+                <div style={{
+                    width: 60, height: 60, borderRadius: '50%', backgroundColor: 'var(--app-accent-bg)', color: '#0062a8',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+                }}>
                     <IconUpload size={30} />
-                </ThemeIcon>
-                <Text fw={700} size="lg">Haga clic o arrastre archivos aquí</Text>
-                <Text size="sm" c="dimmed" mt="xs">
+                </div>
+                <Text strong style={{ fontSize: 16, display: 'block' }}>Haga clic o arrastre archivos aquí</Text>
+                <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
                     Soporta archivos PDF y Planillas Excel (.xlsx).
                 </Text>
-                
-                {files.length > 0 && (
-                    <Alert color="blue" variant="light" mt="lg" icon={files[0].name.endsWith('.xlsx') ? <IconFileSpreadsheet size={16} /> : <IconPdf size={16} />}>
-                        {files.length} {files.length === 1 ? 'archivo seleccionado' : 'archivos seleccionados'}
-                    </Alert>
-                )}
-            </Box>
 
-            <Button 
-                size="lg" 
-                disabled={files.length === 0} 
+                {files.length > 0 && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        icon={files[0].name.endsWith('.xlsx') ? <IconFileSpreadsheet size={16} /> : <IconPdf size={16} />}
+                        message={`${files.length} ${files.length === 1 ? 'archivo seleccionado' : 'archivos seleccionados'}`}
+                        style={{ marginTop: 20, textAlign: 'left' }}
+                    />
+                )}
+            </div>
+
+            <Button
+                size="large"
+                disabled={files.length === 0}
                 onClick={handleUploadAndParse}
-                color="grape"
-                leftSection={<IconDatabaseExport size={20} />}
+                type="primary"
+                style={{ backgroundColor: '#9c36b5' }}
+                icon={<IconDatabaseExport size={20} />}
             >
                 Procesar Archivos ({files.length})
             </Button>
 
             <Button
-                size="sm"
-                variant="subtle"
-                color="blue"
+                type="text"
                 loading={isDownloading}
-                leftSection={<IconDownload size={16} />}
+                icon={<IconDownload size={16} />}
                 onClick={async () => {
                     setIsDownloading(true);
                     try { await fichaService.downloadBulkTemplate(); }
@@ -214,17 +206,17 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             >
                 Descargar plantilla Excel (con maestros actualizados)
             </Button>
-        </Stack>
+        </div>
     );
 
     const renderStep2Review = () => {
         if (isParsing) {
             return (
-                <Stack gap="xl" align="center" mt="xl" py="xl">
-                    <Text fw={600} size="lg">Extrayendo y mapeando datos...</Text>
-                    <Text size="sm" c="dimmed">Esto puede tomar unos minutos dependiendo de la cantidad de archivos.</Text>
-                    <Progress value={progress} w="100%" size="xl" radius="xl" striped animated color="grape" />
-                </Stack>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24, padding: '24px 0' }}>
+                    <Text strong style={{ fontSize: 16 }}>Extrayendo y mapeando datos...</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Esto puede tomar unos minutos dependiendo de la cantidad de archivos.</Text>
+                    <Progress percent={progress} status="active" strokeColor="#9c36b5" style={{ width: '100%' }} />
+                </div>
             );
         }
 
@@ -233,120 +225,132 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         const errorCount = parsedItems.filter(i => i.status === 'ERROR').length;
 
         return (
-            <Stack gap="md">
-                <Group justify="space-between" align="flex-end">
-                    <Box>
-                        <Title order={3} c="blue.8">Revisión de Datos</Title>
-                        <Text size="sm" c="dimmed">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+                    <div>
+                        <Title level={3} style={{ margin: 0, color: '#1864ab' }}>Revisión de Datos</Title>
+                        <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
                             Verifique que el sistema haya mapeado correctamente los catálogos antes de crear las fichas.
                         </Text>
-                        <Text size="sm" fw={600} c="blue.7" mt={4}>
+                        <Text strong style={{ fontSize: 13, color: '#1864ab', display: 'block', marginTop: 4 }}>
                             {parsedItems.length} fichas detectadas en el Excel.
                         </Text>
-                    </Box>
-                    <Group gap="xs">
-                        <Button variant="default" onClick={() => { setStep(1); setFiles([]); setParsedItems([]); }}>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <Button onClick={() => { setStep(1); setFiles([]); setParsedItems([]); }}>
                             Cancelar
                         </Button>
                         <Button
-                            color="green"
+                            type="primary"
+                            style={{ backgroundColor: '#2f9e44' }}
                             onClick={handleCommit}
                             disabled={selectedIndices.length === 0}
                             loading={isCommitting}
-                            leftSection={<IconCheck size={18} />}
+                            icon={<IconCheck size={18} />}
                         >
                             Crear Fichas ({selectedIndices.length})
                         </Button>
-                    </Group>
-                </Group>
+                    </div>
+                </div>
 
                 {parseMeta?.truncated && (
-                    <Alert color="orange" icon={<IconAlertCircle size={16} />} title="Lote truncado">
-                        <Text size="sm">
-                            El Excel contiene más de {parseMeta.maxFichas} fichas. Solo se procesaron las primeras {parseMeta.maxFichas}.
-                            Divida el archivo en lotes más pequeños para cargar el resto.
-                        </Text>
-                    </Alert>
+                    <Alert
+                        type="warning"
+                        showIcon
+                        icon={<IconAlertCircle size={16} />}
+                        message="Lote truncado"
+                        description={
+                            <Text style={{ fontSize: 13 }}>
+                                El Excel contiene más de {parseMeta.maxFichas} fichas. Solo se procesaron las primeras {parseMeta.maxFichas}.
+                                Divida el archivo en lotes más pequeños para cargar el resto.
+                            </Text>
+                        }
+                    />
                 )}
 
-                <Group gap="md">
-                    <Alert variant="light" color="green" p="xs" style={{ flex: 1 }}>
-                        <Text fw={600} size="sm" ta="center">{readyCount} Listas</Text>
-                    </Alert>
-                    <Alert variant="light" color="yellow" p="xs" style={{ flex: 1 }}>
-                        <Text fw={600} size="sm" ta="center">{warningCount} Advertencias</Text>
-                    </Alert>
-                    <Alert variant="light" color="red" p="xs" style={{ flex: 1 }}>
-                        <Text fw={600} size="sm" ta="center">{errorCount} Errores</Text>
-                    </Alert>
-                </Group>
+                <div style={{ display: 'flex', gap: 12 }}>
+                    <Alert type="success" style={{ flex: 1, textAlign: 'center' }} message={<Text strong style={{ fontSize: 13 }}>{readyCount} Listas</Text>} />
+                    <Alert type="warning" style={{ flex: 1, textAlign: 'center' }} message={<Text strong style={{ fontSize: 13 }}>{warningCount} Advertencias</Text>} />
+                    <Alert type="error" style={{ flex: 1, textAlign: 'center' }} message={<Text strong style={{ fontSize: 13 }}>{errorCount} Errores</Text>} />
+                </div>
 
-                <Paper withBorder>
-                    <BulkReviewGrid 
-                        items={parsedItems} 
+                <Card size="small">
+                    <BulkReviewGrid
+                        items={parsedItems}
                         selectedIndices={selectedIndices}
                         onSelectChange={setSelectedIndices}
                     />
-                </Paper>
-            </Stack>
+                </Card>
+            </div>
         );
     };
 
     const renderStep3Result = () => {
         if (isCommitting) {
             return (
-                <Stack gap="xl" align="center" mt="xl" py="xl">
-                    <Text fw={600} size="lg">Guardando fichas en la base de datos...</Text>
-                    <Progress value={100} w="100%" size="xl" radius="xl" striped animated color="green" />
-                </Stack>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24, padding: '24px 0' }}>
+                    <Text strong style={{ fontSize: 16 }}>Guardando fichas en la base de datos...</Text>
+                    <Progress percent={100} status="active" strokeColor="#2f9e44" style={{ width: '100%' }} />
+                </div>
             );
         }
 
         if (!commitResults) return null;
 
         return (
-            <Stack gap="xl" align="center" mt="xl" py="xl">
-                <ThemeIcon size={80} radius="xl" color="green" variant="light">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24, padding: '24px 0' }}>
+                <div style={{
+                    width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(47,158,68,0.15)', color: '#2f9e44',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
                     <IconCheck size={40} />
-                </ThemeIcon>
-                <Title order={2}>¡Proceso Completado!</Title>
-                <Text size="lg">
+                </div>
+                <Title level={2} style={{ margin: 0 }}>¡Proceso Completado!</Title>
+                <Text style={{ fontSize: 16 }}>
                     Se han creado exitosamente <b>{commitResults.created}</b> de {commitResults.total} fichas solicitadas.
                 </Text>
-                
+
                 {commitResults.failed > 0 && (
-                    <Alert color="orange" title="Algunas fichas fallaron">
-                        <Text size="sm">{commitResults.failed} fichas no pudieron ser creadas por errores en base de datos.</Text>
-                    </Alert>
+                    <Alert
+                        type="warning"
+                        showIcon
+                        message="Algunas fichas fallaron"
+                        description={<Text style={{ fontSize: 13 }}>{commitResults.failed} fichas no pudieron ser creadas por errores en base de datos.</Text>}
+                    />
                 )}
 
-                <Group mt="xl">
-                    <Button variant="default" onClick={onBack}>
+                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
+                    <Button onClick={onBack}>
                         Volver al inicio
                     </Button>
-                    <Button color="blue" onClick={onSuccess}>
+                    <Button type="primary" onClick={onSuccess}>
                         Ver en Explorador
                     </Button>
-                </Group>
-            </Stack>
+                </div>
+            </div>
         );
     };
 
     return (
-        <Stack gap="lg" style={{ width: '100%' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
             {step === 1 && <PageHeader title="Carga Masiva de Fichas (PDF / Excel)" onBack={onBack} />}
-            
-            <Paper withBorder p={isMobile ? 'md' : 'xl'} radius="lg" shadow="sm">
+
+            <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? 16 : 32 } }}>
                 {error && (
-                    <Alert color="red" icon={<IconAlertCircle size={16} />} title="Error" mb="lg">
-                        {error}
-                    </Alert>
+                    <Alert
+                        type="error"
+                        showIcon
+                        icon={<IconAlertCircle size={16} />}
+                        message="Error"
+                        description={error}
+                        style={{ marginBottom: 24 }}
+                    />
                 )}
 
                 {step === 1 && renderStep1Upload()}
                 {step === 2 && renderStep2Review()}
                 {step === 3 && renderStep3Result()}
-            </Paper>
-        </Stack>
+            </Card>
+        </div>
     );
 };

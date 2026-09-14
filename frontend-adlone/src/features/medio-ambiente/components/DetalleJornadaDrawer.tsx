@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Drawer, Text, Timeline, Badge, Group, SimpleGrid, Box } from '@mantine/core';
+import { Drawer, Typography, Timeline, Tag } from 'antd';
 import { IconCheck, IconClock, IconMapPin, IconFlagCheck, IconPlayerPause, IconBattery2 } from '@tabler/icons-react';
 import type { JornadaHoy } from '../services/tracking.service';
 import { fichaCompletada, tipoVisitaHoy, contarFichasCompletadas } from '../utils/fichaHoyHelpers';
+
+const { Text } = Typography;
 
 // Mientras la jornada sigue activa ('en_ruta'), "Tiempo de ruta" se
 // recalcula en vivo contra fecha_inicio en vez de mostrar el valor fijo del
@@ -38,24 +40,13 @@ interface DetalleJornadaDrawerProps {
 
 // Leaflet dibuja sus propios panes internos (tiles, overlays, markers,
 // tooltips, popups) con z-index hasta 700 dentro del propio MapContainer. El
-// Drawer de Mantine, en cambio, se monta vía Portal con su z-index por
-// defecto (~200) — más bajo que Leaflet — así que sin fijarlo explícitamente
-// por encima, el mapa termina visualmente delante del drawer en vez de
-// detrás. 1000 deja margen sobre cualquier pane de Leaflet.
+// Drawer, en cambio, se monta vía Portal con su z-index por defecto — más
+// bajo que Leaflet — así que sin fijarlo explícitamente por encima, el mapa
+// termina visualmente delante del drawer en vez de detrás. 1000 deja margen
+// sobre cualquier pane de Leaflet.
 const DRAWER_Z_INDEX = 1000;
 
 export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornadaDrawerProps) {
-    if (!jornada) {
-        return <Drawer opened={opened} onClose={onClose} position="right" size="sm" title="Detalle" zIndex={DRAWER_Z_INDEX} />;
-    }
-
-    const indiceActivo = jornada.fichas_hoy.findIndex((f) => !fichaCompletada(f));
-    const { completadas, total } = contarFichasCompletadas(jornada.fichas_hoy);
-    const enRuta = jornada.estado === 'en_ruta';
-    const pausada = jornada.estado === 'pausada';
-    const finalizada = jornada.estado === 'finalizada';
-    const tieneBateria = jornada.bateria_inicio != null && jornada.bateria_fin != null;
-
     // Fuerza un re-render cada 30s para que "Tiempo de ruta" avance en vivo
     // entre un fetch del snapshot y el siguiente (mismo patrón que
     // FlotaPanel.tsx usa para su badge de estado/tiempo relativo). No hace
@@ -67,125 +58,141 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
         return () => clearInterval(id);
     }, []);
 
+    if (!jornada) {
+        return <Drawer open={opened} onClose={onClose} placement="right" width={380} title="Detalle" zIndex={DRAWER_Z_INDEX} />;
+    }
+
+    const indiceActivo = jornada.fichas_hoy.findIndex((f) => !fichaCompletada(f));
+    const { completadas, total } = contarFichasCompletadas(jornada.fichas_hoy);
+    const enRuta = jornada.estado === 'en_ruta';
+    const pausada = jornada.estado === 'pausada';
+    const finalizada = jornada.estado === 'finalizada';
+    const tieneBateria = jornada.bateria_inicio != null && jornada.bateria_fin != null;
+
     return (
         <Drawer
-            opened={opened}
+            open={opened}
             onClose={onClose}
-            position="right"
-            size="sm"
+            placement="right"
+            width={380}
             title={jornada.nombre_muestreador}
             zIndex={DRAWER_Z_INDEX}
-            // El título del Drawer trunca con "..." por defecto (pensado para
-            // títulos cortos) — un nombre largo terminaba cortado. Se permite
-            // que ocupe más de una línea en vez de recortarlo.
-            styles={{ title: { whiteSpace: 'normal', overflow: 'visible', textOverflow: 'unset', fontWeight: 700 } }}
+            styles={{ header: { fontWeight: 700 } }}
         >
-            <Group mb="md">
+            <div style={{ marginBottom: 16 }}>
                 {pausada ? (
-                    <Badge color="orange" variant="light" leftSection={<IconPlayerPause size={12} />}>
+                    <Tag color="orange" icon={<IconPlayerPause size={12} style={{ verticalAlign: 'text-bottom' }} />}>
                         En pausa
-                    </Badge>
+                    </Tag>
                 ) : finalizada ? (
-                    <Badge color="blue" variant="light" leftSection={<IconFlagCheck size={12} />}>
+                    <Tag color="blue" icon={<IconFlagCheck size={12} style={{ verticalAlign: 'text-bottom' }} />}>
                         Día finalizado
-                    </Badge>
+                    </Tag>
                 ) : (
-                    <Badge color={jornada.ultima_posicion ? 'green' : 'gray'} variant="light" leftSection={<IconMapPin size={12} />}>
+                    <Tag color={jornada.ultima_posicion ? 'green' : 'default'} icon={<IconMapPin size={12} style={{ verticalAlign: 'text-bottom' }} />}>
                         {jornada.ultima_posicion ? 'En ruta' : 'Sin posición'}
-                    </Badge>
+                    </Tag>
                 )}
-            </Group>
+            </div>
 
             {!enRuta && (
-                <Text size="sm" fw={600} mb="md">
+                <Text strong style={{ display: 'block', marginBottom: 16 }}>
                     {completadas}/{total} ficha{total === 1 ? '' : 's'} completada{completadas === 1 ? '' : 's'}
                 </Text>
             )}
 
-            <SimpleGrid cols={2} mb="md">
-                <Box>
-                    <Text size="xs" c="dimmed">Fichas hoy</Text>
-                    <Text fw={700}>{jornada.fichas_hoy.length}</Text>
-                </Box>
-                <Box>
-                    <Text size="xs" c="dimmed">Inicio jornada</Text>
-                    <Text fw={700}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Fichas hoy</Text>
+                    <Text strong style={{ display: 'block' }}>{jornada.fichas_hoy.length}</Text>
+                </div>
+                <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Inicio jornada</Text>
+                    <Text strong style={{ display: 'block' }}>
                         {new Date(jornada.fecha_inicio).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                     {!enRuta && jornada.fecha_fin && (
                         <>
-                            <Text size="xs" c="dimmed" mt={4}>{pausada ? 'Pausado a las' : 'Término jornada'}</Text>
-                            <Text fw={700}>
+                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>{pausada ? 'Pausado a las' : 'Término jornada'}</Text>
+                            <Text strong style={{ display: 'block' }}>
                                 {new Date(jornada.fecha_fin).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
                             </Text>
                         </>
                     )}
-                </Box>
-                <Box>
-                    <Text size="xs" c="dimmed">Tiempo de ruta</Text>
-                    <Text fw={700}>{formatearHorasTrabajadas(jornada)}</Text>
-                </Box>
-                <Box>
-                    <Text size="xs" c="dimmed">Km recorridos</Text>
-                    <Text fw={700}>{jornada.km_recorridos.toFixed(1)} km</Text>
-                </Box>
+                </div>
+                <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Tiempo de ruta</Text>
+                    <Text strong style={{ display: 'block' }}>{formatearHorasTrabajadas(jornada)}</Text>
+                </div>
+                <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>Km recorridos</Text>
+                    <Text strong style={{ display: 'block' }}>{jornada.km_recorridos.toFixed(1)} km</Text>
+                </div>
                 {tieneBateria && (
-                    <Box>
-                        <Text size="xs" c="dimmed">
+                    <div>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
                             <IconBattery2 size={12} style={{ verticalAlign: 'text-bottom', marginRight: 2 }} />
                             Batería
                         </Text>
-                        <Text fw={700}>{jornada.bateria_inicio}% → {jornada.bateria_fin}%</Text>
-                    </Box>
+                        <Text strong style={{ display: 'block' }}>{jornada.bateria_inicio}% → {jornada.bateria_fin}%</Text>
+                    </div>
                 )}
-            </SimpleGrid>
+            </div>
 
-            <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb="xs">Itinerario de hoy</Text>
+            <Text strong type="secondary" style={{ fontSize: 11, textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Itinerario de hoy</Text>
 
             {jornada.fichas_hoy.length === 0 ? (
-                <Text size="sm" c="dimmed">Sin fichas agendadas hoy.</Text>
+                <Text type="secondary" style={{ fontSize: 13 }}>Sin fichas agendadas hoy.</Text>
             ) : (
-                <Timeline active={indiceActivo === -1 ? jornada.fichas_hoy.length : indiceActivo} bulletSize={20}>
-                    {jornada.fichas_hoy.map((ficha) => {
+                <Timeline
+                    items={jornada.fichas_hoy.map((ficha) => {
                         const completada = fichaCompletada(ficha);
-                        return (
-                            <Timeline.Item
-                                key={ficha.id_agendamam}
-                                bullet={completada ? <IconCheck size={12} /> : <IconClock size={12} />}
-                                title={
-                                    <Group gap={6} wrap="nowrap">
-                                        <Text size="sm" fw={600}>{ficha.frecuencia_correlativo}</Text>
-                                        <Badge size="xs" variant="light" color={completada ? 'green' : 'blue'}>
+                        const activa = jornada.fichas_hoy.indexOf(ficha) < (indiceActivo === -1 ? jornada.fichas_hoy.length : indiceActivo);
+                        return {
+                            key: ficha.id_agendamam,
+                            dot: (
+                                <div style={{
+                                    width: 20, height: 20, borderRadius: '50%',
+                                    backgroundColor: activa || completada ? '#0062a8' : 'var(--app-border)',
+                                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    {completada ? <IconCheck size={11} /> : <IconClock size={11} />}
+                                </div>
+                            ),
+                            children: (
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'nowrap' }}>
+                                        <Text strong style={{ fontSize: 13 }}>{ficha.frecuencia_correlativo}</Text>
+                                        <Tag color={completada ? 'green' : 'blue'} style={{ fontSize: 11, marginInlineEnd: 0 }}>
                                             {tipoVisitaHoy(ficha)}
-                                        </Badge>
-                                    </Group>
-                                }
-                            >
-                                <Text size="xs" c="dimmed" mb={2}>
-                                    {completada ? 'Completada' : 'Pendiente'} · {ficha.hora_coordinador || '—'}
-                                    {ficha.tiempo_trabajo_minutos != null && ` · ${formatearMinutos(ficha.tiempo_trabajo_minutos)} en terreno`}
-                                </Text>
-                                {/* Promedio histórico por objetivo de muestreo (ver
-                                    getSnapshotHoy en tracking.service.js) — null hasta que
-                                    se acumulen al menos 3 fichas completadas con ese mismo
-                                    objetivo, para no mostrar un "esperado" basado en 1-2
-                                    muestras. Se muestra aunque la ficha siga pendiente, como
-                                    referencia de cuánto suele tomar. */}
-                                {ficha.tiempo_estimado_minutos != null && (
-                                    <Text size="xs" c="dimmed" mb={2}>
-                                        Esperado: ≈{formatearMinutos(ficha.tiempo_estimado_minutos)} (promedio histórico)
-                                        {ficha.tiempo_trabajo_minutos != null && ficha.tiempo_trabajo_minutos > ficha.tiempo_estimado_minutos * 1.3 && (
-                                            <Text component="span" c="orange" fw={600}> · sobre lo esperado</Text>
-                                        )}
+                                        </Tag>
+                                    </div>
+                                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>
+                                        {completada ? 'Completada' : 'Pendiente'} · {ficha.hora_coordinador || '—'}
+                                        {ficha.tiempo_trabajo_minutos != null && ` · ${formatearMinutos(ficha.tiempo_trabajo_minutos)} en terreno`}
                                     </Text>
-                                )}
-                                {ficha.empresa && <Text size="xs">Empresa: {ficha.empresa}</Text>}
-                                {ficha.centro && <Text size="xs">Centro: {ficha.centro}</Text>}
-                                {ficha.objetivo && <Text size="xs">Objetivo: {ficha.objetivo}</Text>}
-                            </Timeline.Item>
-                        );
+                                    {/* Promedio histórico por objetivo de muestreo (ver
+                                        getSnapshotHoy en tracking.service.js) — null hasta que
+                                        se acumulen al menos 3 fichas completadas con ese mismo
+                                        objetivo, para no mostrar un "esperado" basado en 1-2
+                                        muestras. Se muestra aunque la ficha siga pendiente, como
+                                        referencia de cuánto suele tomar. */}
+                                    {ficha.tiempo_estimado_minutos != null && (
+                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 2 }}>
+                                            Esperado: ≈{formatearMinutos(ficha.tiempo_estimado_minutos)} (promedio histórico)
+                                            {ficha.tiempo_trabajo_minutos != null && ficha.tiempo_trabajo_minutos > ficha.tiempo_estimado_minutos * 1.3 && (
+                                                <Text style={{ color: '#e8590c', fontWeight: 600, fontSize: 12 }}> · sobre lo esperado</Text>
+                                            )}
+                                        </Text>
+                                    )}
+                                    {ficha.empresa && <Text style={{ fontSize: 12, display: 'block' }}>Empresa: {ficha.empresa}</Text>}
+                                    {ficha.centro && <Text style={{ fontSize: 12, display: 'block' }}>Centro: {ficha.centro}</Text>}
+                                    {ficha.objetivo && <Text style={{ fontSize: 12, display: 'block' }}>Objetivo: {ficha.objetivo}</Text>}
+                                </div>
+                            ),
+                        };
                     })}
-                </Timeline>
+                />
             )}
         </Drawer>
     );

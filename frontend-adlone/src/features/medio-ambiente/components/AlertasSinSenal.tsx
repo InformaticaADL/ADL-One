@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Alert, Text } from '@mantine/core';
+import { Alert } from 'antd';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import type { JornadaHoy } from '../services/tracking.service';
 
@@ -48,18 +48,18 @@ export function AlertasSinSenal({ jornadas }: AlertasSinSenalProps) {
 
     return (
         <Alert
-            color="orange"
-            variant="light"
+            type="warning"
+            showIcon
             icon={<IconAlertTriangle size={16} />}
-            title={afectados.length === 1 ? 'Sin señal' : `${afectados.length} muestreadores sin señal`}
-            mx="sm"
-            mt="sm"
-        >
-            <Text size="sm">
-                {nombres} {afectados.length === 1 ? 'lleva' : 'llevan'} más de 10 minutos en ruta sin reportar
-                ubicación. Puede ser mala señal en la zona, batería agotada, o que cerró la app sin pausar/terminar
-                la jornada.
-            </Text>
-        </Alert>
+            message={afectados.length === 1 ? 'Sin señal' : `${afectados.length} muestreadores sin señal`}
+            description={
+                <span style={{ fontSize: 13 }}>
+                    {nombres} {afectados.length === 1 ? 'lleva' : 'llevan'} más de 10 minutos en ruta sin reportar
+                    ubicación. Puede ser mala señal en la zona, batería agotada, o que cerró la app sin pausar/terminar
+                    la jornada.
+                </span>
+            }
+            style={{ margin: '8px 12px' }}
+        />
     );
 }

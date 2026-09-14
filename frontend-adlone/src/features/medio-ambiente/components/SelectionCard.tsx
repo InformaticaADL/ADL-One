@@ -1,66 +1,46 @@
 import React from 'react';
-import { Paper, Text, Group, ThemeIcon } from '@mantine/core';
+import { Typography } from 'antd';
 import { IconChevronRight } from '@tabler/icons-react';
+
+const { Text } = Typography;
 
 interface SelectionCardProps {
     title: string;
     description: string;
     icon: React.ReactNode;
     onClick: () => void;
-    color?: string; // Color de acento
 }
 
-export const SelectionCard: React.FC<SelectionCardProps> = ({
-    title,
-    description,
-    icon,
-    onClick,
-    color = '#1565c0'
-}) => {
+// Fila de una lista, no una tarjeta: con un número variable de opciones (acá
+// son 7), un grid de tarjetas deja una última fila desbalanceada según el
+// ancho de pantalla. Una lista vertical no tiene ese problema — cabe
+// cualquier cantidad de ítems sin huecos ni filas cojas.
+export const SelectionCard: React.FC<SelectionCardProps> = ({ title, description, icon, onClick }) => {
     return (
-        <Paper
-            withBorder
-            p="xl"
-            radius="lg"
+        <button
             onClick={onClick}
-            style={{ 
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                borderTop: `4px solid ${color}`,
-                display: 'flex',
-                flexDirection: 'column',
-                height: '100%'
+            className="ma-selection-row"
+            style={{
+                display: 'flex', alignItems: 'center', gap: 16, width: '100%',
+                padding: '16px 18px', border: '1px solid var(--app-border)', borderRadius: 10,
+                background: 'var(--app-bg)', cursor: 'pointer', textAlign: 'left',
+                transition: 'border-color 150ms ease, background-color 150ms ease',
             }}
-            className="selection-card-mantine"
         >
-            <ThemeIcon 
-                size={50} 
-                radius="md" 
-                variant="light" 
-                color={color} 
-                mb="lg"
-                style={{ fontSize: '1.5rem', backgroundColor: `${color}15` }}
-            >
+            <div style={{
+                flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 40, height: 40, borderRadius: 10,
+                backgroundColor: 'var(--app-accent-bg)', color: 'var(--app-accent-text)',
+            }}>
                 {icon}
-            </ThemeIcon>
-            
-            <Text fw={700} size="lg" mb="xs" c="dark.4">{title}</Text>
-            <Text size="sm" c="dimmed" style={{ flex: 1, lineHeight: 1.6 }}>{description}</Text>
-            
-            <Group justify="flex-end" mt="md" className="card-arrow-mantine" style={{ color: color, opacity: 0, transition: 'all 0.3s ease' }}>
-                <IconChevronRight size={20} />
-            </Group>
+            </div>
 
-            <style dangerouslySetInnerHTML={{ __html: `
-                .selection-card-mantine:hover {
-                    transform: translateY(-8px);
-                    box-shadow: var(--mantine-shadow-lg);
-                }
-                .selection-card-mantine:hover .card-arrow-mantine {
-                    opacity: 1;
-                    transform: translateX(5px);
-                }
-            `}} />
-        </Paper>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <Text strong style={{ fontSize: 14, display: 'block' }}>{title}</Text>
+                <Text type="secondary" style={{ fontSize: 12.5, lineHeight: 1.5 }}>{description}</Text>
+            </div>
+
+            <IconChevronRight size={18} style={{ flexShrink: 0, color: 'var(--app-text-secondary)' }} />
+        </button>
     );
 };

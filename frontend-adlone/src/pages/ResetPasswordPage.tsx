@@ -1,21 +1,18 @@
 import { useEffect, useState } from 'react';
 import {
-    Paper,
-    PasswordInput,
+    Card,
+    Input,
     Button,
-    Stack,
-    Image,
-    Title,
-    Text,
-    Box,
-    Center,
+    Typography,
     Alert,
-    Loader
-} from '@mantine/core';
+    Spin
+} from 'antd';
 import { IconLock, IconAlertCircle, IconCheck, IconArrowLeft } from '@tabler/icons-react';
 import apiClient from '../config/axios.config';
 import { useToast } from '../contexts/ToastContext';
 import logoAdl from '../assets/images/logo-adlone.png';
+
+const { Title, Text } = Typography;
 
 interface Props {
     onDone: () => void; // volver al login
@@ -80,104 +77,106 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
         onDone();
     };
 
+    const passwordsMismatch = !!password2 && password !== password2;
+
     return (
         <div className="login-page">
             <div className="login-container">
-                <Paper
-                    shadow="xl"
-                    p={40}
-                    radius="lg"
-                    withBorder
+                <Card
                     style={{
                         width: '100%',
+                        borderRadius: 16,
                         backgroundColor: 'rgba(255, 255, 255, 0.95)',
                         backdropFilter: 'blur(10px)'
                     }}
                 >
-                    <Stack gap="xl">
-                        <Center flex={1}>
-                            <Stack align="center" gap={0}>
-                                <Image src={logoAdl} w={260} mb="xl" />
-                                <Title order={2} fw={900}>Restablecer contraseña</Title>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <div style={{ display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                <img src={logoAdl} style={{ width: 260, marginBottom: 24 }} alt="ADL" />
+                                <Title level={2} style={{ margin: 0 }}>Restablecer contraseña</Title>
                                 {nombreUsuario && (
-                                    <Text c="dimmed" size="sm" ta="center">
+                                    <Text type="secondary" style={{ fontSize: 13, textAlign: 'center' }}>
                                         para <strong>{nombreUsuario}</strong>
                                     </Text>
                                 )}
-                            </Stack>
-                        </Center>
+                            </div>
+                        </div>
 
                         {validating && (
-                            <Center py="xl"><Loader /></Center>
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin /></div>
                         )}
 
                         {!validating && validationError && (
-                            <Stack gap="md">
-                                <Alert icon={<IconAlertCircle size={18} />} color="red" radius="md">
-                                    {validationError}
-                                </Alert>
-                                <Button variant="light" leftSection={<IconArrowLeft size={16} />} onClick={backToLogin}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <Alert type="error" showIcon icon={<IconAlertCircle size={18} />} message={validationError} />
+                                <Button icon={<IconArrowLeft size={16} />} onClick={backToLogin}>
                                     Volver al login
                                 </Button>
-                            </Stack>
+                            </div>
                         )}
 
                         {!validating && !validationError && !done && (
                             <form onSubmit={handleSubmit}>
-                                <Stack gap="md">
-                                    <PasswordInput
-                                        label="Nueva contraseña"
-                                        placeholder="Ingrese su nueva contraseña"
-                                        leftSection={<IconLock size={18} />}
-                                        value={password}
-                                        onChange={(e) => setPassword(e.currentTarget.value)}
-                                        size="md"
-                                        radius="md"
-                                        required
-                                        disabled={saving}
-                                    />
-                                    <PasswordInput
-                                        label="Confirmar contraseña"
-                                        placeholder="Repita la contraseña"
-                                        leftSection={<IconLock size={18} />}
-                                        value={password2}
-                                        onChange={(e) => setPassword2(e.currentTarget.value)}
-                                        size="md"
-                                        radius="md"
-                                        required
-                                        disabled={saving}
-                                        error={password2 && password !== password2 ? 'Las contraseñas no coinciden' : null}
-                                    />
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                    <Field label="Nueva contraseña *">
+                                        <Input.Password
+                                            placeholder="Ingrese su nueva contraseña"
+                                            prefix={<IconLock size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            size="large"
+                                            disabled={saving}
+                                        />
+                                    </Field>
+                                    <Field label="Confirmar contraseña *">
+                                        <Input.Password
+                                            placeholder="Repita la contraseña"
+                                            prefix={<IconLock size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                            value={password2}
+                                            onChange={(e) => setPassword2(e.target.value)}
+                                            size="large"
+                                            disabled={saving}
+                                            status={passwordsMismatch ? 'error' : undefined}
+                                        />
+                                        {passwordsMismatch && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>Las contraseñas no coinciden</Text>}
+                                    </Field>
                                     <Button
-                                        type="submit"
-                                        size="lg"
-                                        radius="md"
-                                        fullWidth
+                                        htmlType="submit"
+                                        type="primary"
+                                        size="large"
+                                        block
                                         loading={saving}
-                                        mt="lg"
-                                        bg="blue.7"
+                                        style={{ marginTop: 8 }}
                                     >
                                         Restablecer contraseña
                                     </Button>
-                                </Stack>
+                                </div>
                             </form>
                         )}
 
                         {done && (
-                            <Stack gap="md">
-                                <Alert icon={<IconCheck size={18} />} color="green" radius="md" title="Listo">
-                                    Tu contraseña fue actualizada. Ya puedes iniciar sesión con ella.
-                                </Alert>
-                                <Button onClick={backToLogin} size="md" radius="md">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <Alert type="success" showIcon icon={<IconCheck size={18} />} message="Listo" description="Tu contraseña fue actualizada. Ya puedes iniciar sesión con ella." />
+                                <Button onClick={backToLogin} size="large">
                                     Ir al login
                                 </Button>
-                            </Stack>
+                            </div>
                         )}
-                    </Stack>
-                </Paper>
+                    </div>
+                </Card>
             </div>
         </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default ResetPasswordPage;

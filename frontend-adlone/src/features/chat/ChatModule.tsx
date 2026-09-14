@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
-import { useMediaQuery } from '@mantine/hooks';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 // ── Rediseño con Ant Design v6 (solo la página de chat) ───────────────────
 // ConfigProvider aplica el tema antd a su subárbol. El estilo estructural se
 // hace con clases CSS inyectadas; los componentes son de antd.

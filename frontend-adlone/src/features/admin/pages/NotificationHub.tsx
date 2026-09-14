@@ -1,25 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Grid,
-    Stack,
-    Group,
-    Paper,
-    Text,
-    TextInput,
-    ActionIcon,
-    Loader,
-    NavLink,
-    Box,
-    Center,
-    Title,
-    Accordion,
-    ThemeIcon,
-    Transition,
+    Typography,
+    Input,
+    Button,
+    Spin,
+    Collapse,
     Tooltip,
-    Badge,
-    useMantineTheme
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+    Tag
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconLayoutDashboard,
     IconChevronRight,
@@ -39,6 +28,8 @@ import { EventRow } from '../components/notifications/EventRow';
 import { RecipientModal } from '../components/notifications/RecipientModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
 
+const { Title, Text } = Typography;
+
 interface Module {
     id: string | number;
     nombre: string;
@@ -53,8 +44,7 @@ interface Funcionalidad {
 }
 
 export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [catalog, setCatalog] = useState<Module[]>([]);
     const [loading, setLoading] = useState(true);
@@ -67,16 +57,17 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
 
     useEffect(() => {
         loadCatalog();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadCatalog = async () => {
         try {
             setLoading(true);
             const data = await notificationService.getNotificationCatalog();
-            
+
             const processedModules: Module[] = [];
-            let dynamicEvents: any[] = [];
-            
+            const dynamicEvents: any[] = [];
+
             data.forEach((mod: any) => {
                 const cleanMod = { ...mod, funcionalidades: [] };
                 mod.funcionalidades.forEach((func: any) => {
@@ -96,7 +87,7 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                     processedModules.push(cleanMod);
                 }
             });
-            
+
             if (dynamicEvents.length > 0) {
                 processedModules.push({
                     id: 'dynamic-events',
@@ -147,8 +138,8 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
     const getModuleIcon = (name: string, isActive?: boolean) => {
         const n = name.toUpperCase();
         const iconSize = 18;
-        const color = isActive ? 'var(--mantine-color-white)' : 'var(--mantine-color-adl-blue-6)';
-        
+        const color = isActive ? '#fff' : '#0062a8';
+
         if (n.includes('DINÁMICOS')) return <IconBolt size={iconSize} color={color} />;
         if (n.includes('MEDIO') || n.includes('AMBIENTE')) return <IconLeaf size={iconSize} color={color} />;
         if (n.includes('ADMIN') || n.includes('SISTEMA')) return <IconShield size={iconSize} color={color} />;
@@ -157,166 +148,142 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
     };
 
     return (
-        <Stack gap="lg" align="stretch">
-            <PageHeader 
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <PageHeader
                 title="Hub de Notificaciones"
                 subtitle="Administre destinatarios y canales de alerta para todo el sistema."
                 onBack={onBack}
                 rightSection={
-                    <Group gap="sm" wrap={isMobile ? "wrap" : "nowrap"} style={{ flex: 1 }}>
-                        <TextInput 
+                    <div style={{ display: 'flex', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap', flex: 1 }}>
+                        <Input
                             placeholder="Buscar evento o sección..."
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
-                            leftSection={<IconSearch size={16} color="var(--mantine-color-gray-5)" />}
-                            w={isMobile ? "100%" : 300}
+                            prefix={<IconSearch size={16} color="var(--app-text-secondary)" />}
+                            style={{ width: isMobile ? '100%' : 300 }}
                         />
-                        <Tooltip label="Refrescar catálogo">
-                            <ActionIcon 
-                                variant="light" 
-                                color="adl-blue" 
-                                size="lg" 
+                        <Tooltip title="Refrescar catálogo">
+                            <Button
+                                type="primary"
+                                shape="circle"
+                                size="large"
+                                icon={<IconRefresh size={18} />}
                                 onClick={loadCatalog}
                                 loading={loading && catalog.length > 0}
-                            >
-                                <IconRefresh size={18} />
-                            </ActionIcon>
+                            />
                         </Tooltip>
-                    </Group>
+                    </div>
                 }
             />
 
             {loading && catalog.length === 0 ? (
-                <Center h={400}>
-                    <Stack align="center" gap="md">
-                        <Loader size="xl" type="bars" color="adl-blue" />
-                        <Text size="sm" c="dimmed">Sincronizando catálogo universal...</Text>
-                    </Stack>
-                </Center>
+                <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                        <Spin size="large" />
+                        <Text type="secondary" style={{ fontSize: 13 }}>Sincronizando catálogo universal...</Text>
+                    </div>
+                </div>
             ) : (
-                <Grid gutter="xl">
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '3fr 9fr', gap: 32 }}>
                     {/* Navigation sidebar */}
-                    <Grid.Col span={{ base: 12, md: 3 }}>
-                        <Paper p="md" bg="gray.0" radius="lg">
-                            <Text size="xs" fw={800} c="dimmed" tt="uppercase" lts="1px" mb="md" px="xs">
-                                Módulos del Sistema
-                            </Text>
-                            <Stack gap={4}>
-                                {catalog.map(mod => {
-                                    const modId = mod.id || mod.nombre;
-                                    const isActive = activeModuleId === modId;
-                                    return (
-                                        <NavLink
-                                            key={modId}
-                                            label={mod.nombre}
-                                            active={isActive}
-                                            onClick={() => {
-                                                setActiveModuleId(modId);
-                                                setSearchTerm('');
-                                            }}
-                                            leftSection={
-                                                <ThemeIcon 
-                                                    variant={isActive ? 'filled' : 'light'} 
-                                                    color={isActive ? 'adl-blue' : 'gray'}
-                                                    size="sm"
-                                                    radius="md"
-                                                >
-                                                    {getModuleIcon(mod.nombre, isActive)}
-                                                </ThemeIcon>
-                                            }
-                                            rightSection={isActive && <IconChevronRight size={14} />}
-                                            styles={{
-                                                root: {
-                                                    borderRadius: 'var(--mantine-radius-md)',
-                                                    fontWeight: 600,
-                                                    transition: 'all 200ms ease'
-                                                }
-                                            }}
-                                        />
-                                    );
-                                })}
-                            </Stack>
-                        </Paper>
-                    </Grid.Col>
+                    <div style={{ backgroundColor: 'var(--app-hover-bg)', borderRadius: 16, padding: 16 }}>
+                        <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 16, padding: '0 8px' }}>
+                            Módulos del Sistema
+                        </Text>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {catalog.map(mod => {
+                                const modId = mod.id || mod.nombre;
+                                const isActive = activeModuleId === modId;
+                                return (
+                                    <div
+                                        key={modId}
+                                        onClick={() => {
+                                            setActiveModuleId(modId);
+                                            setSearchTerm('');
+                                        }}
+                                        style={{
+                                            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8,
+                                            cursor: 'pointer', fontWeight: 600, transition: 'all 200ms ease',
+                                            backgroundColor: isActive ? '#0062a8' : 'transparent',
+                                            color: isActive ? '#fff' : 'var(--app-text)',
+                                        }}
+                                    >
+                                        <div style={{
+                                            width: 24, height: 24, borderRadius: 6, flexShrink: 0,
+                                            backgroundColor: isActive ? 'rgba(255,255,255,0.15)' : 'var(--app-accent-bg)',
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        }}>
+                                            {getModuleIcon(mod.nombre, isActive)}
+                                        </div>
+                                        <Text style={{ fontSize: 13, fontWeight: 600, flex: 1, color: isActive ? '#fff' : undefined }}>{mod.nombre}</Text>
+                                        {isActive && <IconChevronRight size={14} />}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
 
                     {/* Main content area */}
-                    <Grid.Col span={{ base: 12, md: 9 }}>
+                    <div>
                         {activeModule ? (
-                            <Transition transition="fade" mounted={!!activeModule} duration={400}>
-                                {(styles) => (
-                                    <div style={styles}>
-                                        <Stack gap="xl">
-                                            <Box>
-                                                <Group align="center" gap="xs">
-                                                    <IconLayoutGrid size={24} color="var(--mantine-color-adl-blue-6)" />
-                                                    <Title order={3}>{activeModule.nombre}</Title>
-                                                </Group>
-                                                <Text size="sm" c="dimmed">
-                                                    {searchTerm ? `Resultados de búsqueda en "${activeModule.nombre}"` : `${activeModule.funcionalidades.length} funcionalidades configuradas.`}
-                                                </Text>
-                                            </Box>
-
-                                            {filteredFuncionalidades.length === 0 ? (
-                                                <Paper p="xl" style={{ borderStyle: 'dashed', textAlign: 'center' }}>
-                                                    <Text c="dimmed">No se encontraron eventos coincidentes.</Text>
-                                                </Paper>
-                                            ) : (
-                                                <Accordion 
-                                                    variant="separated" 
-                                                    radius="lg" 
-                                                    chevronPosition="right"
-                                                    styles={{
-                                                        item: { border: '1px solid var(--mantine-color-gray-2)' },
-                                                        control: { padding: 'var(--mantine-spacing-md) var(--mantine-spacing-lg)' },
-                                                        content: { padding: '0 var(--mantine-spacing-lg) var(--mantine-spacing-lg) var(--mantine-spacing-lg)' }
-                                                    }}
-                                                >
-                                                    {filteredFuncionalidades.map(func => (
-                                                        <Accordion.Item key={func.id} value={String(func.id)}>
-                                                            <Accordion.Control
-                                                                icon={
-                                                                    <ThemeIcon variant="light" color="adl-blue" size="md" radius="md">
-                                                                        <IconLayoutDashboard size={18} />
-                                                                    </ThemeIcon>
-                                                                }
-                                                            >
-                                                                <Group justify="space-between" pr="md">
-                                                                    <Text fw={700} size="md">{func.nombre}</Text>
-                                                                    <Badge variant="dot" color="gray" size="sm">{func.eventos.length} eventos</Badge>
-                                                                </Group>
-                                                            </Accordion.Control>
-                                                            <Accordion.Panel>
-                                                                <Box pt="md">
-                                                                    {func.eventos.map((ev: any) => (
-                                                                        <EventRow
-                                                                            key={ev.id}
-                                                                            event={ev}
-                                                                            onOpenSettings={handleOpenSettings}
-                                                                            onStatusChange={loadCatalog}
-                                                                        />
-                                                                    ))}
-                                                                </Box>
-                                                            </Accordion.Panel>
-                                                        </Accordion.Item>
-                                                    ))}
-                                                </Accordion>
-                                            )}
-                                        </Stack>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <IconLayoutGrid size={24} color="#0062a8" />
+                                        <Title level={3} style={{ margin: 0 }}>{activeModule.nombre}</Title>
                                     </div>
+                                    <Text type="secondary" style={{ fontSize: 13 }}>
+                                        {searchTerm ? `Resultados de búsqueda en "${activeModule.nombre}"` : `${activeModule.funcionalidades.length} funcionalidades configuradas.`}
+                                    </Text>
+                                </div>
+
+                                {filteredFuncionalidades.length === 0 ? (
+                                    <div style={{ padding: 32, borderRadius: 8, border: '1px dashed var(--app-border)', textAlign: 'center' }}>
+                                        <Text type="secondary">No se encontraron eventos coincidentes.</Text>
+                                    </div>
+                                ) : (
+                                    <Collapse
+                                        accordion
+                                        expandIconPosition="end"
+                                        items={filteredFuncionalidades.map(func => ({
+                                            key: String(func.id),
+                                            label: (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <IconLayoutDashboard size={18} />
+                                                    </div>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1, paddingRight: 16 }}>
+                                                        <Text strong style={{ fontSize: 15 }}>{func.nombre}</Text>
+                                                        <Tag>{func.eventos.length} eventos</Tag>
+                                                    </div>
+                                                </div>
+                                            ),
+                                            children: (
+                                                <div>
+                                                    {func.eventos.map((ev: any) => (
+                                                        <EventRow
+                                                            key={ev.id}
+                                                            event={ev}
+                                                            onOpenSettings={handleOpenSettings}
+                                                            onStatusChange={loadCatalog}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            ),
+                                        }))}
+                                    />
                                 )}
-                            </Transition>
+                            </div>
                         ) : (
-                            <Paper h={400} bg="gray.0" radius="lg">
-                                <Center h="100%">
-                                    <Stack align="center" gap="xs">
-                                        <IconBell size={48} color="var(--mantine-color-gray-4)" stroke={1} />
-                                        <Text c="dimmed">Seleccione un módulo para comenzar la configuración.</Text>
-                                    </Stack>
-                                </Center>
-                            </Paper>
+                            <div style={{ height: 400, backgroundColor: 'var(--app-hover-bg)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                    <IconBell size={48} color="var(--app-text-secondary)" strokeWidth={1} />
+                                    <Text type="secondary">Seleccione un módulo para comenzar la configuración.</Text>
+                                </div>
+                            </div>
                         )}
-                    </Grid.Col>
-                </Grid>
+                    </div>
+                </div>
             )}
 
             <RecipientModal
@@ -325,6 +292,6 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                 event={selectedEvent}
                 onSaved={loadCatalog}
             />
-        </Stack>
+        </div>
     );
 };

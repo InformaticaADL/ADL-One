@@ -1,30 +1,20 @@
-﻿import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-    Stack, 
-    Paper, 
-    Group, 
-    Title, 
-    Text, 
-    Button, 
-    Select, 
-    TextInput, 
-    ActionIcon, 
-    Tooltip, 
-    SimpleGrid,
-    Badge,
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import {
+    Button,
+    Select,
+    Input,
+    Tooltip,
+    Tag,
     Modal,
     Divider,
-    Box,
-    Center,
-    ScrollArea,
-    UnstyledButton,
-    Grid,
-    Loader
-} from '@mantine/core';
+    Spin,
+    Typography,
+    Segmented,
+} from 'antd';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-import { useMediaQuery } from '@mantine/hooks';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { catalogosService } from '../services/catalogos.service';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -38,6 +28,8 @@ import {
     IconDeviceFloppy,
     IconAlertCircle
 } from '@tabler/icons-react';
+
+const { Text, Title } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
@@ -99,6 +91,19 @@ interface UpdateAgendaPayload {
     }>;
     user: { id: number; usuario: string };
 }
+
+const STATUS_HEX: Record<string, string> = { orange: '#e8590c', green: '#2f9e44', red: '#e03131' };
+
+const StaticField = ({ label, value }: { label: string, value: any }) => (
+    <div>
+        <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block' }}>{label}</Text>
+        <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: '6px 10px', backgroundColor: 'var(--app-hover-bg)', marginTop: 2 }}>
+            <Text style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }} title={String(value || '-')}>
+                {value || '-'}
+            </Text>
+        </div>
+    </div>
+);
 
 export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const { showToast } = useToast();
@@ -195,9 +200,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         const month = currentMonth.getMonth() + 1;
         const year = currentMonth.getFullYear();
         const fetchKey = `${viewMode}-${month}-${year}`;
-        
+
         if (lastFetchRef.current === fetchKey) return;
-        
+
         setIsLoading(true);
         try {
             let response;
@@ -225,23 +230,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     useEffect(() => {
         loadData();
     }, [loadData]);
-    if (!hasPermission('MA_CALENDARIO_ACCESO')) {
-        return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Acceso Denegado</h2>
-                <p>No tiene permisos para ver el Calendario En Proceso.</p>
-                <button
-                    onClick={onBackToMenu}
-                    style={{ marginTop: '1rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
-                >
-                    Volver
-                </button>
-            </div>
-        );
-    }
 
     const changeViewDate = (offset: number) => {
-        let next = new Date(currentMonth);
+        const next = new Date(currentMonth);
         if (viewMode === 'month') {
             next.setMonth(currentMonth.getMonth() + offset);
         } else if (viewMode === 'day') {
@@ -345,7 +336,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         return s.includes('EJECUTADO') || s.includes('REALIZADO') || s.includes('COMPLETADO');
     }, []);
 
-    const getStatusColor = useCallback((ev: CalendarEvent) => {
+    const getStatusColor = useCallback((ev: CalendarEvent): 'orange' | 'green' | 'red' => {
         if (isCancelledEvent(ev)) return 'red';
         if (isExecutedEvent(ev)) return 'green';
         return 'orange';
@@ -417,18 +408,6 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         return payload;
     }, [selectedEvent, isEditingSampler, editedSamplerId, isEditingDate, editedDate, user, showToast]);
 
-    const StaticField = ({ label, value }: { label: string, value: any }) => (
-        <Stack gap={2}>
-            <Text size="xs" fw={700} c="dimmed" tt="uppercase">{label}</Text>
-            <Paper withBorder p="xs" radius="md" bg="gray.0">
-                <Text size="sm" fw={500} truncate title={String(value || '-')}>
-                    {value || '-'}
-                </Text>
-            </Paper>
-        </Stack>
-    );
-
-
     const weekDays = useMemo(() => {
         const days = [];
         const startOfWeek = new Date(currentMonth);
@@ -450,7 +429,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     if (firstDayOfMonth === 0) firstDayOfMonth = 7;
     const emptyCells = firstDayOfMonth - 1;
 
-    const calendarCells = [];
+    const calendarCells: (number | null)[] = [];
     for (let i = 0; i < emptyCells; i++) calendarCells.push(null);
     for (let i = 1; i <= daysInMonth; i++) calendarCells.push(i);
 
@@ -478,7 +457,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     }, [filteredEvents, viewMode, currentMonth]);
 
     const samplerGroups = useMemo(() => {
-        if ((viewMode !== 'day' && viewMode !== 'week') || selectedDay === null && viewMode === 'day') return {};
+        if ((viewMode !== 'day' && viewMode !== 'week') || (selectedDay === null && viewMode === 'day')) return {};
 
         const groups: Record<string, CalendarEvent[]> = {};
         const eventsToGroup = viewMode === 'day' ? selectedDayEvents : weekEvents;
@@ -492,531 +471,437 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         return groups;
     }, [selectedDayEvents, weekEvents, viewMode, selectedDay]);
 
+    if (!hasPermission('MA_CALENDARIO_ACCESO')) {
+        return (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Acceso Denegado</h2>
+                <p>No tiene permisos para ver el Calendario En Proceso.</p>
+                <button
+                    onClick={onBackToMenu}
+                    style={{ marginTop: '1rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
+                >
+                    Volver
+                </button>
+            </div>
+        );
+    }
+
     if (detailFichaId) {
         return <FichaUniversalView fichaId={detailFichaId} onBack={() => setDetailFichaId(null)} />;
     }
 
-    return (
-        <Box p="md" style={{ width: '100%' }}>
-            <Stack gap="lg">
-                <PageHeader 
-                    title="Calendario de Servicios" 
-                    subtitle={!isCompact ? `${capitalizedMonth} ${currentMonth.getFullYear()}` : undefined}
-                    onBack={onBackToMenu}
-                    breadcrumbItems={[
-                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
-                        { label: 'Calendario Terreno' }
-                    ]}
-                    rightSection={
-                        <Group gap="xs" wrap={isCompact ? "wrap" : "nowrap"}>
-                            <Button.Group style={{ width: isCompact ? '100%' : 'auto' }}>
-                                <Button 
-                                    variant={viewMode === 'month' ? 'filled' : 'light'} 
-                                    onClick={() => setViewMode('month')}
-                                    size="xs"
-                                >Mes</Button>
-                                <Button 
-                                    variant={viewMode === 'week' ? 'filled' : 'light'} 
-                                    onClick={() => setViewMode('week')}
-                                    size="xs"
-                                >Semana</Button>
-                                <Button 
-                                    variant={viewMode === 'day' ? 'filled' : 'light'} 
-                                    onClick={() => { 
-                                        const today = new Date();
-                                        if (viewMode !== 'day' && selectedDay === null) {
-                                            if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
-                                                setSelectedDay(today.getDate());
-                                            } else {
-                                                setSelectedDay(1);
-                                            }
-                                        }
-                                        setViewMode('day'); 
-                                    }}
-                                    size="xs"
-                                >Día</Button>
-                                <Button 
-                                    variant={viewMode === 'year' ? 'filled' : 'light'} 
-                                    onClick={() => setViewMode('year')}
-                                    size="xs"
-                                >Año</Button>
-                            </Button.Group>
-                            <Group gap={5} style={{ flex: isCompact ? '1 1 auto' : 'auto' }}>
-                                <ActionIcon variant="light" onClick={() => changeViewDate(-1)} size="md">
-                                    <IconChevronLeft size={16} />
-                                </ActionIcon>
-                                <Button variant="subtle" size="xs" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
-                                <ActionIcon variant="light" onClick={() => changeViewDate(1)} size="md">
-                                    <IconChevronRight size={16} />
-                                </ActionIcon>
-                            </Group>
-                            <Tooltip label="Filtros Avanzados">
-                                <ActionIcon 
-                                    variant={showFilters ? 'filled' : 'light'} 
-                                    size="lg" 
-                                    onClick={() => setShowFilters(!showFilters)}
-                                >
-                                    <IconFilter size={20} />
-                                </ActionIcon>
-                            </Tooltip>
-                        </Group>
+    const EventCard = ({ ev, compact }: { ev: CalendarEvent; compact?: boolean }) => {
+        const statusColor = getStatusColor(ev);
+        const cancelled = isCancelledEvent(ev);
+        return (
+            <div
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                    if (!hasPermission('FI_CAL_DETALLE')) {
+                        showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' });
+                        return;
                     }
-                />
+                    setSelectedEvent(ev);
+                }}
+                style={{
+                    border: '1px solid var(--app-border)',
+                    borderLeft: `4px solid ${STATUS_HEX[statusColor]}`,
+                    borderRadius: 6, padding: compact ? 6 : 8,
+                    opacity: cancelled ? 0.65 : 1,
+                    backgroundColor: cancelled ? 'rgba(224,49,49,0.06)' : 'var(--app-bg)',
+                    cursor: 'pointer',
+                }}
+            >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                    <Text style={{
+                        fontSize: 10, fontWeight: 900, color: STATUS_HEX[statusColor], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                        textDecoration: cancelled ? 'line-through' : 'none',
+                    }}>
+                        {ev.correlativo}
+                    </Text>
+                    <Tag color={statusColor} style={{ flexShrink: 0, fontSize: compact ? 8 : 10, lineHeight: '14px', padding: '0 4px', marginInlineEnd: 0 }}>
+                        {cancelled ? (compact ? 'C' : 'CANCEL.') : (isPuntualEvent(ev) ? (compact ? 'P' : 'PUNT.') : (compact ? ev.tipo_evento.charAt(0) : ev.tipo_evento))}
+                    </Tag>
+                </div>
+                <Text style={{ fontSize: 12, fontWeight: 700, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ev.empresa_servicio}>
+                    {ev.empresa_servicio}
+                </Text>
+                <Text type="secondary" style={{ fontSize: compact ? 9 : 10, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {compact ? (ev.muestreador || 'Sin Asignar') : ev.centro}
+                </Text>
+                {cancelled && ev.motivo_cancelacion && (
+                    <Text style={{ fontSize: 9, color: '#e03131', fontWeight: 600, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ev.motivo_cancelacion}>
+                        ⚠ {ev.motivo_cancelacion}
+                    </Text>
+                )}
+            </div>
+        );
+    };
 
-                {showFilters && (
-                    <Paper withBorder p="md" radius="md" shadow="xs">
-                        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="sm">
-                            <TextInput
-                                label="Buscar"
-                                placeholder="N° ficha, correlativo, empresa, muestreador..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                leftSection={<IconSearch size={14} />}
-                                size="xs"
+    return (
+        <div>
+            <PageHeader
+                title="Calendario de Servicios"
+                subtitle={!isCompact ? `${capitalizedMonth} ${currentMonth.getFullYear()}` : undefined}
+                onBack={onBackToMenu}
+                breadcrumbItems={[
+                    { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                    { label: 'Calendario Terreno' }
+                ]}
+                rightSection={
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: isCompact ? 'wrap' : 'nowrap' }}>
+                        <Segmented
+                            value={viewMode}
+                            onChange={(v) => {
+                                const val = v as typeof viewMode;
+                                if (val === 'day') {
+                                    const today = new Date();
+                                    if (viewMode !== 'day' && selectedDay === null) {
+                                        if (currentMonth.getMonth() === today.getMonth() && currentMonth.getFullYear() === today.getFullYear()) {
+                                            setSelectedDay(today.getDate());
+                                        } else {
+                                            setSelectedDay(1);
+                                        }
+                                    }
+                                }
+                                setViewMode(val);
+                            }}
+                            options={[
+                                { label: 'Mes', value: 'month' },
+                                { label: 'Semana', value: 'week' },
+                                { label: 'Día', value: 'day' },
+                                { label: 'Año', value: 'year' },
+                            ]}
+                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Button type="text" shape="circle" icon={<IconChevronLeft size={16} />} onClick={() => changeViewDate(-1)} />
+                            <Button type="text" size="small" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
+                            <Button type="text" shape="circle" icon={<IconChevronRight size={16} />} onClick={() => changeViewDate(1)} />
+                        </div>
+                        <Tooltip title="Filtros Avanzados">
+                            <Button
+                                type={showFilters ? 'primary' : 'default'}
+                                shape="circle"
+                                size="large"
+                                icon={<IconFilter size={20} />}
+                                onClick={() => setShowFilters(!showFilters)}
                             />
-                            <Select 
-                                label="Empresa Servicio" 
-                                placeholder="Todas" 
-                                data={empresas} 
-                                value={selectedEmpresa} 
-                                onChange={(val) => setSelectedEmpresa(val || '')}
-                                clearable
-                                searchable
-                                size="xs"
-                            />
-                            <Select 
-                                label="Muestreador" 
-                                placeholder="Todos" 
-                                data={muestreadores} 
-                                value={selectedMuestreador} 
-                                onChange={(val) => setSelectedMuestreador(val || '')}
-                                clearable
-                                searchable
-                                size="xs"
-                            />
-                            <Select 
-                                label="Centro / Fuente" 
-                                placeholder="Todos" 
-                                data={centros} 
-                                value={selectedCentro} 
-                                onChange={(val) => setSelectedCentro(val || '')}
-                                clearable
-                                searchable
-                                size="xs"
-                            />
-                        </SimpleGrid>
-                    </Paper>
+                        </Tooltip>
+                    </div>
+                }
+            />
+
+            {showFilters && (
+                <div ref={filterPanelRef} style={{ border: '1px solid var(--app-border)', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                        <Field label="Buscar">
+                            <Input placeholder="N° ficha, correlativo, empresa, muestreador..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} prefix={<IconSearch size={14} />} />
+                        </Field>
+                        <Field label="Empresa Servicio">
+                            <Select placeholder="Todas" options={empresas.map(e => ({ value: e, label: e }))} value={selectedEmpresa || undefined} onChange={(v) => setSelectedEmpresa(v || '')} allowClear showSearch style={{ width: '100%' }} />
+                        </Field>
+                        <Field label="Muestreador">
+                            <Select placeholder="Todos" options={muestreadores.map(m => ({ value: m, label: m }))} value={selectedMuestreador || undefined} onChange={(v) => setSelectedMuestreador(v || '')} allowClear showSearch style={{ width: '100%' }} />
+                        </Field>
+                        <Field label="Centro / Fuente">
+                            <Select placeholder="Todos" options={centros.map(c => ({ value: c, label: c }))} value={selectedCentro || undefined} onChange={(v) => setSelectedCentro(v || '')} allowClear showSearch style={{ width: '100%' }} />
+                        </Field>
+                    </div>
+                </div>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>Leyenda:</Text>
+                <Tag color="orange">Pendiente</Tag>
+                <Tag color="green">Ejecutado</Tag>
+                <Tag color="red">Cancelado</Tag>
+            </div>
+
+            <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, padding: 16, position: 'relative', minHeight: 650 }}>
+                {isLoading && (
+                    <div style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--app-bg)', opacity: 0.75, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                            <Spin size="large" />
+                            <Text strong style={{ color: 'var(--app-accent-text)' }}>Cargando datos...</Text>
+                        </div>
+                    </div>
                 )}
 
-
-
-                <Group gap="xs" mb="xs">
-                    <Text size="xs" c="dimmed" fw={600}>Leyenda:</Text>
-                    <Badge color="orange" variant="filled" size="xs" radius="sm">Pendiente</Badge>
-                    <Badge color="green" variant="filled" size="xs" radius="sm">Ejecutado</Badge>
-                    <Badge color="red" variant="filled" size="xs" radius="sm">Cancelado</Badge>
-                </Group>
-
-                <Paper withBorder radius="md" shadow="sm" p="md" pos="relative" style={{ minHeight: '650px' }}>
-                    {isLoading && (
-                        <div style={{ 
-                            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
-                            backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center'
-                        }}>
-                            <Stack align="center" gap="xs">
-                                <Loader size="xl" variant="bars" />
-                                <Text fw={500} c="blue.7">Cargando datos...</Text>
-                            </Stack>
+                {viewMode === 'day' && selectedDay !== null && (
+                    <div style={{ padding: '8px 0' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <Button type="text" icon={<IconChevronLeft size={16} />} onClick={() => { setViewMode('month'); setSelectedDay(null); }}>
+                                Volver al Mes
+                            </Button>
+                            <Title level={4} style={{ margin: 0 }}>{selectedDay} de {capitalizedMonth} de {currentMonth.getFullYear()}</Title>
                         </div>
-                    )}
-                    {viewMode === 'day' && selectedDay !== null && (
-                        <Box py="sm">
-                            <Group justify="space-between" mb="md">
-                                <Button 
-                                    variant="subtle" 
-                                    leftSection={<IconChevronLeft size={16} />} 
-                                    onClick={() => { setViewMode('month'); setSelectedDay(null); }}
-                                    size="sm"
-                                >
-                                    Volver al Mes
-                                </Button>
-                                <Title order={3}>
-                                    {selectedDay} de {capitalizedMonth} de {currentMonth.getFullYear()}
-                                </Title>
-                            </Group>
 
-                            <ScrollArea h={500}>
-                                <Grid>
-                                    {Object.entries(samplerGroups).length === 0 ? (
-                                        <Grid.Col span={12}>
-                                            <Center h={300}>
-                                                <Stack align="center" gap="xs">
-                                                    <IconCalendar size={48} color="var(--mantine-color-gray-4)" />
-                                                    <Text size="lg" fw={500} c="dimmed">No hay servicios para este dia</Text>
-                                                </Stack>
-                                            </Center>
-                                        </Grid.Col>
-                                    ) : (
-                                        Object.entries(samplerGroups).map(([muestreador, events]) => (
-                                            <Grid.Col key={muestreador} span={{ base: 12, md: 6, lg: 4 }}>
-                                                <Paper withBorder radius="md" p="sm" bg="gray.0" h="100%">
-                                                    <Group justify="space-between" mb="sm">
-                                                        <Group gap="xs">
-                                                            <div style={{ 
-                                                                width: 32, height: 32, borderRadius: '50%', 
-                                                                backgroundColor: 'var(--mantine-color-blue-6)', 
-                                                                color: 'white', display: 'flex', alignItems: 'center', 
-                                                                justifyContent: 'center', fontWeight: 700, fontSize: 13 
-                                                            }}>
-                                                                {muestreador.charAt(0)}
-                                                            </div>
-                                                            <Text fw={700} size="sm">{muestreador}</Text>
-                                                        </Group>
-                                                        <Badge variant="light" size="xs">{events.length}</Badge>
-                                                    </Group>
-                                                    <Stack gap="xs">
-                                                        {events.sort((a,b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => {
-                                                            const statusColor = getStatusColor(ev);
-                                                            const cancelled = isCancelledEvent(ev);
-
-                                                            return (
-                                                                <UnstyledButton
-                                                                    key={`${ev.id}-${ev.tipo_evento}`}
-                                                                    onClick={() => {
-                                                                        if (!hasPermission('FI_CAL_DETALLE')) {
-                                                                            showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' });
-                                                                            return;
-                                                                        }
-                                                                        setSelectedEvent(ev);
-                                                                    }}
-                                                                >
-                                                                    <Paper
-                                                                        withBorder p="xs" radius="sm" shadow="xs"
-                                                                        style={{
-                                                                            borderLeftWidth: 4,
-                                                                            borderLeftColor: `var(--mantine-color-${statusColor}-6)`,
-                                                                            opacity: cancelled ? 0.65 : 1,
-                                                                            backgroundColor: cancelled ? 'var(--mantine-color-red-0)' : 'white'
-                                                                        }}
-                                                                    >
-                                                                        <Group justify="space-between" mb={4} wrap="nowrap" gap="xs">
-                                                                            <Text size="10px" fw={900} c={statusColor} truncate style={{ textDecoration: cancelled ? 'line-through' : 'none' }}>{ev.correlativo}</Text>
-                                                                            <Badge size="10px" color={statusColor} radius="xs" style={{ flexShrink: 0 }}>{cancelled ? 'CANCEL.' : (isPuntualEvent(ev) ? 'PUNT.' : ev.tipo_evento)}</Badge>
-                                                                        </Group>
-                                                                        <Text size="xs" fw={700} truncate title={ev.empresa_servicio}>{ev.empresa_servicio}</Text>
-                                                                        <Text size="10px" c="dimmed" truncate>{ev.centro}</Text>
-                                                                        {cancelled && ev.motivo_cancelacion && (
-                                                                            <Text size="10px" c="red.7" fw={600} truncate title={ev.motivo_cancelacion}>⚠ {ev.motivo_cancelacion}</Text>
-                                                                        )}
-                                                                    </Paper>
-                                                                </UnstyledButton>
-                                                            );
-                                                        })}
-                                                    </Stack>
-                                                </Paper>
-                                            </Grid.Col>
-                                        ))
-                                    )}
-                                </Grid>
-                            </ScrollArea>
-                        </Box>
-                    )}
-
-                    {viewMode === 'month' && (
-                        <Box py="sm">
-                            {/* Compact Month Navigation inside the calendar area */}
-                            {isCompact && (
-                                <Paper withBorder p="xs" radius="md" bg="blue.0" mb="md" shadow="xs">
-                                    <Group justify="space-between">
-                                        <ActionIcon variant="subtle" onClick={() => changeViewDate(-1)} size="md">
-                                            <IconChevronLeft size={20} />
-                                        </ActionIcon>
-                                        <Text fw={800} size="md" style={{ textTransform: 'capitalize' }} c="blue.9">
-                                            {capitalizedMonth} {currentMonth.getFullYear()}
-                                        </Text>
-                                        <ActionIcon variant="subtle" onClick={() => changeViewDate(1)} size="md">
-                                            <IconChevronRight size={20} />
-                                        </ActionIcon>
-                                    </Group>
-                                </Paper>
-                            )}
-
-                            <Grid columns={7} gutter={isCompact ? 4 : 5} mb="xs">
-                                {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
-                                    <Grid.Col key={d} span={1}>
-                                        <Text size={isCompact ? "10px" : "xs"} fw={800} ta="center" c="dimmed" tt="uppercase">
-                                            {d}
-                                        </Text>
-                                    </Grid.Col>
-                                ))}
-                            </Grid>
-
-                            <Grid columns={7} gutter={isCompact ? 4 : 5}>
-                                {calendarCells.map((day, idx) => {
-                                    const events = day ? filteredEvents.filter(ev => ev.event_dia === day && ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear()) : [];
-                                    const todayDate = new Date();
-                                    const isToday = day === todayDate.getDate() && currentMonth.getMonth() === todayDate.getMonth() && currentMonth.getFullYear() === todayDate.getFullYear();
-
-                                    return (
-                                        <Grid.Col key={idx} span={1}>
-                                            <Box 
-                                                p={isCompact ? 2 : 5} 
-                                                h={isMobile ? 65 : (isCompact ? 100 : 120)}
-                                                onClick={() => { if(day) { setSelectedDay(day); setViewMode('day'); } }}
-                                                style={{ 
-                                                    border: '1px solid var(--mantine-color-gray-2)',
-                                                    borderRadius: '8px',
-                                                    cursor: day ? 'pointer' : 'default',
-                                                    transition: 'all 0.1s ease',
-                                                    backgroundColor: isToday ? 'var(--mantine-color-blue-0)' : (day ? 'white' : 'transparent'),
-                                                    opacity: day ? 1 : 0.3,
-                                                    boxShadow: isToday ? '0 0 0 1px var(--mantine-color-blue-4) inset' : 'none'
-                                                }}
-                                            >
-                                                {day && (
-                                                    <>
-                                                        <Group justify="space-between" align="center" gap={0} px={isCompact ? 2 : 4}>
-                                                            <Text size={isCompact && !isMobile ? "sm" : (isMobile ? "xs" : "sm")} fw={isToday ? 900 : 700} c={isToday ? 'blue.7' : 'dark'}>{day}</Text>
-                                                            {isMobile && events.length > 0 && (
-                                                                <Group gap={2}>
-                                                                    {events.slice(0, 2).map((_, eidx) => (
-                                                                        <Box key={eidx} h={4} w={4} bg="blue.5" style={{ borderRadius: '50%' }} />
-                                                                    ))}
-                                                                    {events.length > 2 && <Box h={2} w={2} bg="gray.4" style={{ borderRadius: '50%' }} />}
-                                                                </Group>
-                                                            )}
-                                                        </Group>
-                                                        {!isMobile && (
-                                                            <Box mt={4}>
-                                                                <Stack gap={2}>
-                                                                    {events.slice(0, isCompact ? 4 : 3).map((ev, eidx) => (
-                                                                        <Badge 
-                                                                            key={eidx} 
-                                                                            size={isCompact ? "sm" : "10px"} 
-                                                                            variant="filled" 
-                                                                            color={getStatusColor(ev)}
-                                                                            fullWidth radius="xs"
-                                                                            styles={{ label: { padding: '2px', fontSize: isCompact ? '10px' : '8px', textTransform: 'none' } }}
-                                                                        >
-                                                                            {ev.correlativo}
-                                                                        </Badge>
-                                                                    ))}
-                                                                    {events.length > (isCompact ? 4 : 3) && (
-                                                                        <Text size="10px" ta="center" c="dimmed">+{events.length - (isCompact ? 4 : 3)}</Text>
-                                                                    )}
-                                                                </Stack>
-                                                            </Box>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </Box>
-                                        </Grid.Col>
-                                    );
-                                })}
-                            </Grid>
-                        </Box>
-                    )}
-
-                    {viewMode === 'week' && (
-                        <Box py="sm">
-                            <SimpleGrid cols={{ base: 1, sm: 3, md: 7 }} spacing="xs">
-                                {weekDays.map((date, idx) => {
-                                    const d = date.getDate();
-                                    const m = date.getMonth() + 1;
-                                    const y = date.getFullYear();
-                                    const dayName = date.toLocaleString('es-ES', { weekday: 'short' }).toUpperCase();
-                                    const isToday = d === new Date().getDate() && date.getMonth() === new Date().getMonth() && y === new Date().getFullYear();
-                                    
-                                    const dayEvents = filteredEvents.filter(ev => ev.event_dia === d && ev.event_mes === m && ev.event_ano === y);
-
-                                    return (
-                                        <Paper key={idx} withBorder radius="md" p="xs" bg={isToday ? 'blue.0' : 'gray.0'} style={{ minHeight: '550px' }}>
-                                            <Stack gap="xs">
-                                                <Box ta="center" py={4} style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                                                    <Text size="xs" fw={800} c={isToday ? 'blue.7' : 'dimmed'}>{dayName}</Text>
-                                                    <Text size="lg" fw={900} c={isToday ? 'blue.7' : 'dark'}>{d}</Text>
-                                                </Box>
-                                                <ScrollArea h={480} offsetScrollbars>
-                                                    <Stack gap={6}>
-                                                        {dayEvents.sort((a,b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => {
-                                                            const statusColor = getStatusColor(ev);
-                                                            const cancelled = isCancelledEvent(ev);
-
-                                                            return (
-                                                                <UnstyledButton
-                                                                    key={`${ev.id}-${ev.tipo_evento}`}
-                                                                    onClick={() => {
-                                                                        if (!hasPermission('FI_CAL_DETALLE')) {
-                                                                            showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' });
-                                                                            return;
-                                                                        }
-                                                                        setSelectedEvent(ev);
-                                                                    }}
-                                                                >
-                                                                    <Paper
-                                                                        withBorder p={6} radius="xs" shadow="xs"
-                                                                        style={{
-                                                                            borderLeftWidth: 4,
-                                                                            borderLeftColor: `var(--mantine-color-${statusColor}-6)`,
-                                                                            opacity: cancelled ? 0.65 : 1,
-                                                                            backgroundColor: cancelled ? 'var(--mantine-color-red-0)' : 'white'
-                                                                        }}
-                                                                    >
-                                                                        <Group justify="space-between" mb={2} wrap="nowrap" gap="xs">
-                                                                            <Text size="10px" fw={900} c={statusColor} truncate style={{ textDecoration: cancelled ? 'line-through' : 'none' }}>{ev.correlativo}</Text>
-                                                                            <Badge size="8px" variant="filled" color={statusColor} style={{ flexShrink: 0 }}>{cancelled ? 'C' : (isPuntualEvent(ev) ? 'P' : ev.tipo_evento.charAt(0))}</Badge>
-                                                                        </Group>
-                                                                        <Text size="xs" fw={700} truncate lh={1}>{ev.empresa_servicio}</Text>
-                                                                        <Text size="9px" c="dimmed" truncate>{ev.muestreador || 'Sin Asignar'}</Text>
-                                                                        {cancelled && ev.motivo_cancelacion && (
-                                                                            <Text size="9px" c="red.7" fw={600} truncate title={ev.motivo_cancelacion}>⚠ {ev.motivo_cancelacion}</Text>
-                                                                        )}
-                                                                    </Paper>
-                                                                </UnstyledButton>
-                                                            );
-                                                        })}
-                                                    </Stack>
-                                                </ScrollArea>
-                                            </Stack>
-                                        </Paper>
-                                    );
-                                })}
-                            </SimpleGrid>
-                        </Box>
-                    )}
-
-
-                    {viewMode === 'year' && (
-                        <Box py="sm">
-                            <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="xl">
-                                {Array.from({ length: 12 }).map((_, mIdx) => {
-                                    const mDate = new Date(currentMonth.getFullYear(), mIdx, 1);
-                                    const mName = mDate.toLocaleString('es-ES', { month: 'long' });
-                                    const mCaps = mName.charAt(0).toUpperCase() + mName.slice(1);
-                                    const mEvents = filteredEvents.filter(ev => ev.event_mes === mIdx + 1 && ev.event_ano === currentMonth.getFullYear());
-                                    
-                                    return (
-                                        <Paper 
-                                            key={mIdx} withBorder p="md" radius="md" 
-                                            onClick={() => { setCurrentMonth(mDate); setViewMode('month'); }} 
-                                            style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-                                            className="year-month-card"
-                                            h={200}
-                                        >
-                                            <Group justify="space-between" mb="md">
-                                                <Text size="md" fw={700}>{mCaps}</Text>
-                                                <Badge size="sm" variant="filled">{mEvents.length}</Badge>
-                                            </Group>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
-                                                {Array.from({ length: 31 }).map((__, dIdx) => {
-                                                    const hasEvent = mEvents.some(e => e.event_dia === dIdx + 1);
-                                                    return (
-                                                        <div 
-                                                            key={dIdx} 
-                                                            style={{ 
-                                                                height: 10, 
-                                                                backgroundColor: hasEvent ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-gray-1)', 
-                                                                borderRadius: 2,
-                                                                border: hasEvent ? '1px solid var(--mantine-color-blue-8)' : 'none'
-                                                            }} 
-                                                        />
-                                                    );
-                                                })}
+                        <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                            {Object.entries(samplerGroups).length === 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '80px 0' }}>
+                                    <IconCalendar size={48} color="var(--app-text-secondary)" />
+                                    <Text type="secondary" style={{ fontSize: 16, fontWeight: 500 }}>No hay servicios para este dia</Text>
+                                </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                                    {Object.entries(samplerGroups).map(([muestreador, events]) => (
+                                        <div key={muestreador} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 10, backgroundColor: 'var(--app-hover-bg)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#0062a8', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+                                                        {muestreador.charAt(0)}
+                                                    </div>
+                                                    <Text strong style={{ fontSize: 13 }}>{muestreador}</Text>
+                                                </div>
+                                                <Tag>{events.length}</Tag>
                                             </div>
-                                        </Paper>
-                                    );
-                                })}
-                            </SimpleGrid>
-                        </Box>
-                    )}
-                </Paper>
-            </Stack>
-            <Modal
-                opened={!!selectedEvent}
-                onClose={() => setSelectedEvent(null)}
-                title={
-                    <Group justify="space-between" w="100%" pr="lg">
-                        <Text fw={900} size="lg">Resumen de Muestreo - {selectedEvent?.correlativo}</Text>
-                        {selectedEvent && <Badge size="lg" radius="sm" color={getStatusColor(selectedEvent)}>{selectedEvent.estado_caso}</Badge>}
-                    </Group>
-                }
-                size="xl"
-                radius="md"
-            >
-                {selectedEvent && (
-                    <Stack gap="md">
-                        {selectedEvent.es_remuestreo === 'S' && (
-                            <Paper withBorder p="xs" radius="md" bg="blue.0" mb="sm" style={{ borderColor: 'var(--mantine-color-blue-4)' }}>
-                                <Group gap="xs">
-                                    <IconAlertCircle size={18} color="var(--mantine-color-blue-6)" />
-                                    <Text size="sm" fw={700} c="blue.9">
-                                        REMUESTREO DE LA FICHA N° {selectedEvent.id_ficha_original}
-                                    </Text>
-                                </Group>
-                            </Paper>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                {events.sort((a, b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => (
+                                                    <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {viewMode === 'month' && (
+                    <div style={{ padding: '8px 0' }}>
+                        {isCompact && (
+                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 8, backgroundColor: 'var(--app-accent-bg)', marginBottom: 16 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <Button type="text" shape="circle" icon={<IconChevronLeft size={20} />} onClick={() => changeViewDate(-1)} />
+                                    <Text strong style={{ fontSize: 15, textTransform: 'capitalize', color: 'var(--app-accent-text)' }}>{capitalizedMonth} {currentMonth.getFullYear()}</Text>
+                                    <Button type="text" shape="circle" icon={<IconChevronRight size={20} />} onClick={() => changeViewDate(1)} />
+                                </div>
+                            </div>
                         )}
 
-                        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isCompact ? 4 : 5, marginBottom: 8 }}>
+                            {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
+                                <Text key={d} type="secondary" style={{ fontSize: isCompact ? 10 : 12, fontWeight: 800, textAlign: 'center', textTransform: 'uppercase' }}>{d}</Text>
+                            ))}
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isCompact ? 4 : 5 }}>
+                            {calendarCells.map((day, idx) => {
+                                const events = day ? filteredEvents.filter(ev => ev.event_dia === day && ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear()) : [];
+                                const todayDate = new Date();
+                                const isToday = day === todayDate.getDate() && currentMonth.getMonth() === todayDate.getMonth() && currentMonth.getFullYear() === todayDate.getFullYear();
+                                const maxBadges = isCompact ? 4 : 3;
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        onClick={() => { if (day) { setSelectedDay(day); setViewMode('day'); } }}
+                                        style={{
+                                            padding: isCompact ? 2 : 5,
+                                            height: isMobile ? 65 : (isCompact ? 100 : 120),
+                                            border: '1px solid var(--app-border)',
+                                            borderRadius: 8,
+                                            cursor: day ? 'pointer' : 'default',
+                                            backgroundColor: isToday ? 'var(--app-accent-bg)' : (day ? 'var(--app-bg)' : 'transparent'),
+                                            opacity: day ? 1 : 0.3,
+                                            boxShadow: isToday ? 'inset 0 0 0 1px var(--app-accent-text)' : 'none',
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        {day && (
+                                            <>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `0 ${isCompact ? 2 : 4}px` }}>
+                                                    <Text style={{ fontSize: isCompact && !isMobile ? 13 : (isMobile ? 12 : 13), fontWeight: isToday ? 900 : 700, color: isToday ? 'var(--app-accent-text)' : 'var(--app-text)' }}>{day}</Text>
+                                                    {isMobile && events.length > 0 && (
+                                                        <div style={{ display: 'flex', gap: 2 }}>
+                                                            {events.slice(0, 2).map((_, eidx) => (
+                                                                <div key={eidx} style={{ height: 4, width: 4, borderRadius: '50%', backgroundColor: '#0062a8' }} />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                {!isMobile && (
+                                                    <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                        {events.slice(0, maxBadges).map((ev, eidx) => (
+                                                            <Tag
+                                                                key={eidx}
+                                                                color={getStatusColor(ev)}
+                                                                style={{ width: '100%', textAlign: 'center', fontSize: isCompact ? 10 : 8, padding: '1px 2px', margin: 0, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                                            >
+                                                                {ev.correlativo}
+                                                            </Tag>
+                                                        ))}
+                                                        {events.length > maxBadges && (
+                                                            <Text type="secondary" style={{ fontSize: 10, textAlign: 'center' }}>+{events.length - maxBadges}</Text>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {viewMode === 'week' && (
+                    <div style={{ padding: '8px 0' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+                            {weekDays.map((date, idx) => {
+                                const d = date.getDate();
+                                const m = date.getMonth() + 1;
+                                const y = date.getFullYear();
+                                const dayName = date.toLocaleString('es-ES', { weekday: 'short' }).toUpperCase();
+                                const isToday = d === new Date().getDate() && date.getMonth() === new Date().getMonth() && y === new Date().getFullYear();
+
+                                const dayEvents = filteredEvents.filter(ev => ev.event_dia === d && ev.event_mes === m && ev.event_ano === y);
+
+                                return (
+                                    <div key={idx} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 8, backgroundColor: isToday ? 'var(--app-accent-bg)' : 'var(--app-hover-bg)', minHeight: 550, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ textAlign: 'center', paddingBottom: 4, borderBottom: '1px solid var(--app-border)' }}>
+                                            <Text type="secondary" style={{ fontSize: 12, fontWeight: 800, color: isToday ? 'var(--app-accent-text)' : undefined }}>{dayName}</Text>
+                                            <Text style={{ fontSize: 18, fontWeight: 900, display: 'block', color: isToday ? 'var(--app-accent-text)' : 'var(--app-text)' }}>{d}</Text>
+                                        </div>
+                                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {dayEvents.sort((a, b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => (
+                                                <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} compact />
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {viewMode === 'year' && (
+                    <div style={{ padding: '8px 0' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                            {Array.from({ length: 12 }).map((_, mIdx) => {
+                                const mDate = new Date(currentMonth.getFullYear(), mIdx, 1);
+                                const mName = mDate.toLocaleString('es-ES', { month: 'long' });
+                                const mCaps = mName.charAt(0).toUpperCase() + mName.slice(1);
+                                const mEvents = filteredEvents.filter(ev => ev.event_mes === mIdx + 1 && ev.event_ano === currentMonth.getFullYear());
+
+                                return (
+                                    <div
+                                        key={mIdx}
+                                        onClick={() => { setCurrentMonth(mDate); setViewMode('month'); }}
+                                        style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16, cursor: 'pointer', height: 200 }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                                            <Text strong style={{ fontSize: 15 }}>{mCaps}</Text>
+                                            <Tag>{mEvents.length}</Tag>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+                                            {Array.from({ length: 31 }).map((__, dIdx) => {
+                                                const hasEvent = mEvents.some(e => e.event_dia === dIdx + 1);
+                                                return (
+                                                    <div
+                                                        key={dIdx}
+                                                        style={{
+                                                            height: 10,
+                                                            backgroundColor: hasEvent ? '#0062a8' : 'var(--app-hover-bg)',
+                                                            borderRadius: 2,
+                                                            border: hasEvent ? '1px solid #00508a' : 'none'
+                                                        }}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <Modal
+                open={!!selectedEvent}
+                onCancel={() => setSelectedEvent(null)}
+                width={720}
+                footer={null}
+                title={
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 24 }}>
+                        <Text strong style={{ fontSize: 16 }}>Resumen de Muestreo - {selectedEvent?.correlativo}</Text>
+                        {selectedEvent && <Tag color={getStatusColor(selectedEvent)} style={{ fontSize: 13 }}>{selectedEvent.estado_caso}</Tag>}
+                    </div>
+                }
+            >
+                {selectedEvent && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {selectedEvent.es_remuestreo === 'S' && (
+                            <div style={{ border: '1px solid var(--app-accent-text)', borderRadius: 8, padding: 8, backgroundColor: 'var(--app-accent-bg)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <IconAlertCircle size={18} color="var(--app-accent-text)" />
+                                    <Text strong style={{ fontSize: 13, color: 'var(--app-accent-text)' }}>REMUESTREO DE LA FICHA N° {selectedEvent.id_ficha_original}</Text>
+                                </div>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                             <StaticField label="Monitoreo" value={selectedEvent.tipo_ficha} />
                             <StaticField label="Sub Área" value={selectedEvent.subarea} />
                             <StaticField label="Objetivo" value={selectedEvent.objetivo} />
-                        </SimpleGrid>
+                        </div>
 
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                             <StaticField label="Empresa Servicio" value={selectedEvent.empresa_servicio} />
                             <StaticField label="Centro / Fuente" value={selectedEvent.centro} />
-                        </SimpleGrid>
+                        </div>
 
-                        <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
                             <StaticField label="Contacto Empresa" value={selectedEvent.contacto || ''} />
                             <StaticField label="E-mail Contacto" value={selectedEvent.correo_contacto || ''} />
-                        </SimpleGrid>
+                        </div>
 
                         <StaticField label="Glosa / Tabla" value={selectedEvent.glosa} />
 
-                        <Divider label="Gestión de Agenda" labelPosition="center" color="blue" />
-                        
-                        <Grid align="flex-end">
-                            <Grid.Col span={6}>
-                                {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent!) ? (
-                                    <TextInput
-                                        label="Fecha de Muestreo (Agenda)"
-                                        type="date"
-                                        min={todayStr}
-                                        value={editedDate}
-                                        onChange={(e) => { setEditedDate(e.target.value); setIsEditingDate(true); }}
-                                        size="sm"
-                                    />
+                        <Divider titlePlacement="center">
+                            <Text style={{ fontSize: 12, color: 'var(--app-accent-text)' }}>Gestión de Agenda</Text>
+                        </Divider>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'flex-end' }}>
+                            <div>
+                                {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent) ? (
+                                    <>
+                                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Fecha de Muestreo (Agenda)</Text>
+                                        <Input type="date" min={todayStr} value={editedDate} onChange={(e) => { setEditedDate(e.target.value); setIsEditingDate(true); }} />
+                                    </>
                                 ) : (
                                     <StaticField label="Fecha de Muestreo (Agenda)" value={editedDate} />
                                 )}
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent!) ? (
-                                    <Select
-                                        label="Re-Asignar Muestreador"
-                                        placeholder="Seleccione..."
-                                        data={muestreadorOptions}
-                                        value={editedSamplerId ? String(editedSamplerId) : ''}
-                                        onChange={(val) => { if (val) setEditedSamplerId(Number(val)); setIsEditingSampler(true); }}
-                                        size="sm"
-                                        searchable
-                                    />
+                            </div>
+                            <div>
+                                {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent) ? (
+                                    <>
+                                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Re-Asignar Muestreador</Text>
+                                        <Select
+                                            style={{ width: '100%' }}
+                                            placeholder="Seleccione..."
+                                            options={muestreadorOptions}
+                                            value={editedSamplerId ? String(editedSamplerId) : undefined}
+                                            onChange={(val) => { if (val) setEditedSamplerId(Number(val)); setIsEditingSampler(true); }}
+                                            showSearch
+                                        />
+                                    </>
                                 ) : (
                                     <StaticField
                                         label="Muestreador Asignado"
                                         value={globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}
                                     />
                                 )}
-                            </Grid.Col>
-                        </Grid>
-                        <Group justify="space-between" mt="xl">
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
                             <ProtectedContent permission="FI_CAL_DETALLE">
-                                <Button 
-                                    variant="light" 
-                                    color="gray" 
-                                    leftSection={<IconSearch size={16} />}
+                                <Button
+                                    icon={<IconSearch size={16} />}
                                     onClick={() => {
                                         if (selectedEvent) {
                                             setDetailFichaId(selectedEvent.id);
@@ -1027,19 +912,17 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     Ver Detalle Completo
                                 </Button>
                             </ProtectedContent>
-                            
-                            <Group gap="sm">
-                                {/* C-04 / C-05: ocultar botón si ya está cancelada o ejecutada */}
+
+                            <div style={{ display: 'flex', gap: 8 }}>
                                 {selectedEvent && !isCancelledEvent(selectedEvent) && !isExecutedEvent(selectedEvent) && (
                                     <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
-                                        <Button variant="outline" color="red" onClick={() => setShowCancelConfirm(true)}>
-                                            Cancelar Muestreo
-                                        </Button>
+                                        <Button danger onClick={() => setShowCancelConfirm(true)}>Cancelar Muestreo</Button>
                                     </ProtectedContent>
                                 )}
                                 <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
                                     <Button
-                                        leftSection={<IconDeviceFloppy size={18} />}
+                                        type="primary"
+                                        icon={<IconDeviceFloppy size={18} />}
                                         disabled={(!isEditingDate && !isEditingSampler) || isSavingEvent}
                                         loading={isSavingEvent}
                                         onClick={async () => {
@@ -1049,7 +932,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                             if (!payload) return;
 
                                             // Cancelled services show reactivation modal
-                                            if (isCancelledEvent(selectedEvent!)) {
+                                            if (isCancelledEvent(selectedEvent)) {
                                                 setPendingPayload(payload);
                                                 setShowReactivateConfirm(true);
                                                 return;
@@ -1080,42 +963,43 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                         Guardar Cambios
                                     </Button>
                                 </ProtectedContent>
-                            </Group>
-                        </Group>
-                    </Stack>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </Modal>
 
             <Modal
-                opened={showCancelConfirm}
-                onClose={() => setShowCancelConfirm(false)}
+                open={showCancelConfirm}
+                onCancel={() => setShowCancelConfirm(false)}
                 title="Confirmar Cancelación de Muestreo"
                 centered
+                footer={null}
             >
-                <Stack gap="md">
-                    <Text size="sm">¿Está seguro que desea cancelar este muestreo? Esta acción es irreversible.</Text>
-                    
-                    <Select
-                        label="Motivo de Cancelación"
-                        placeholder="Seleccione un motivo..."
-                        data={cancellationOptions}
-                        value={selectedReasonId ? String(selectedReasonId) : ''}
-                        onChange={(val) => setSelectedReasonId(Number(val) || '')}
-                        required
-                    />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Text style={{ fontSize: 13 }}>¿Está seguro que desea cancelar este muestreo? Esta acción es irreversible.</Text>
 
-                    <TextInput 
-                        label="Observaciones adicionales" 
-                        placeholder="Ingrese detalle del motivo..."
-                        value={cancelReason}
-                        onChange={(e) => setCancelReason(e.target.value)}
-                        required
-                    />
+                    <div>
+                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Motivo de Cancelación *</Text>
+                        <Select
+                            style={{ width: '100%' }}
+                            placeholder="Seleccione un motivo..."
+                            options={cancellationOptions}
+                            value={selectedReasonId ? String(selectedReasonId) : undefined}
+                            onChange={(val) => setSelectedReasonId(Number(val) || '')}
+                        />
+                    </div>
 
-                    <Group justify="flex-end" mt="md">
-                        <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>No, Volver</Button>
-                        <Button 
-                            color="red" 
+                    <div>
+                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Observaciones adicionales *</Text>
+                        <Input placeholder="Ingrese detalle del motivo..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={() => setShowCancelConfirm(false)}>No, Volver</Button>
+                        <Button
+                            danger
+                            type="primary"
                             disabled={!cancelReason.trim() || !selectedReasonId || isSavingEvent}
                             loading={isSavingEvent}
                             onClick={async () => {
@@ -1146,21 +1030,24 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         >
                             Sí, Cancelar
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
             <Modal
-                opened={showVersionPrompt}
-                onClose={() => setShowVersionPrompt(false)}
+                open={showVersionPrompt}
+                onCancel={() => setShowVersionPrompt(false)}
                 title="Versión de Equipos"
                 centered
+                footer={null}
             >
-                <Stack>
-                    <Text size="sm">¿Desea mantener la versión de equipos registrada al momento de la asignación original o actualizar con la versión actual de los equipos maestros?</Text>
-                    <Group justify="flex-end" grow>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Text style={{ fontSize: 13 }}>
+                        ¿Desea mantener la versión de equipos registrada al momento de la asignación original o actualizar con la versión actual de los equipos maestros?
+                    </Text>
+                    <div style={{ display: 'flex', gap: 8 }}>
                         <Button
-                            variant="light"
+                            style={{ flex: 1 }}
                             onClick={async () => {
                                 if (!pendingPayload) return;
                                 setShowVersionPrompt(false);
@@ -1183,13 +1070,15 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             Mantener original
                         </Button>
                         <Button
+                            type="primary"
+                            style={{ flex: 1 }}
                             onClick={async () => {
                                 if (!pendingPayload) return;
                                 setShowVersionPrompt(false);
                                 setIsSavingEvent(true);
                                 try {
-                                    const updatedPayload = { ...pendingPayload };
-                                    updatedPayload.assignments = updatedPayload.assignments.map((a) => ({
+                                    const updatedPayload: any = { ...pendingPayload };
+                                    updatedPayload.assignments = updatedPayload.assignments.map((a: any) => ({
                                         ...a,
                                         actualizarVersiones: true
                                     }));
@@ -1209,76 +1098,67 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         >
                             Usar versión actual
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
             <Modal
-                opened={showReactivateConfirm}
-                onClose={() => setShowReactivateConfirm(false)}
+                open={showReactivateConfirm}
+                onCancel={() => setShowReactivateConfirm(false)}
                 title="Reactivar y Reagendar Muestreo"
                 centered
+                footer={null}
             >
-                <Stack gap="md">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                     {selectedEvent && (
                         <>
-                            <Paper withBorder p="sm" radius="md" bg="red.0">
-                                <Group gap="xs">
-                                    <IconAlertCircle size={18} />
-                                    <Text size="sm" fw={700}>
-                                        Este muestreo fue cancelado anteriormente
-                                    </Text>
-                                </Group>
-                            </Paper>
+                            <div style={{ border: '1px solid rgba(224,49,49,0.25)', borderRadius: 8, padding: 10, backgroundColor: 'rgba(224,49,49,0.08)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <IconAlertCircle size={18} color="#e03131" />
+                                    <Text strong style={{ fontSize: 13 }}>Este muestreo fue cancelado anteriormente</Text>
+                                </div>
+                            </div>
 
-                            <Box>
-                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Motivo de cancelación</Text>
-                                <Text size="sm">{selectedEvent.motivo_cancelacion || 'No especificado'}</Text>
-                            </Box>
+                            <div>
+                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block' }}>Motivo de cancelación</Text>
+                                <Text style={{ fontSize: 13 }}>{selectedEvent.motivo_cancelacion || 'No especificado'}</Text>
+                            </div>
 
                             {cancelReason && (
-                                <Box>
-                                    <Text size="xs" fw={700} c="dimmed" tt="uppercase">Observaciones</Text>
-                                    <Text size="sm">{cancelReason}</Text>
-                                </Box>
+                                <div>
+                                    <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block' }}>Observaciones</Text>
+                                    <Text style={{ fontSize: 13 }}>{cancelReason}</Text>
+                                </div>
                             )}
 
-                            <Divider />
+                            <Divider style={{ margin: 0 }} />
 
-                            <Box>
-                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Nuevos datos</Text>
-                                <Stack gap="xs" mt="xs">
-                                    <Group justify="space-between">
-                                        <Text size="sm">Fecha:</Text>
-                                        <Text size="sm" fw={700}>
-                                            {editedDate ? new Date(editedDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}
-                                        </Text>
-                                    </Group>
-                                    <Group justify="space-between">
-                                        <Text size="sm">Muestreador:</Text>
-                                        <Text size="sm" fw={700}>
-                                            {globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}
-                                        </Text>
-                                    </Group>
-                                </Stack>
-                            </Box>
+                            <div>
+                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Nuevos datos</Text>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Text style={{ fontSize: 13 }}>Fecha:</Text>
+                                        <Text strong style={{ fontSize: 13 }}>{editedDate ? new Date(editedDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</Text>
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                        <Text style={{ fontSize: 13 }}>Muestreador:</Text>
+                                        <Text strong style={{ fontSize: 13 }}>{globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}</Text>
+                                    </div>
+                                </div>
+                            </div>
 
-                            <Text size="sm" c="dimmed">
-                                ¿Desea reactivar este muestreo y aplicar los cambios?
-                            </Text>
+                            <Text type="secondary" style={{ fontSize: 13 }}>¿Desea reactivar este muestreo y aplicar los cambios?</Text>
 
-                            <Group justify="flex-end" mt="md">
-                                <Button variant="outline" onClick={() => setShowReactivateConfirm(false)}>
-                                    No, Volver
-                                </Button>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                                <Button onClick={() => setShowReactivateConfirm(false)}>No, Volver</Button>
                                 <Button
-                                    color="blue"
+                                    type="primary"
                                     loading={isReactivating}
                                     onClick={async () => {
                                         setIsReactivating(true);
                                         try {
                                             if (!pendingPayload) return;
-                                            const reactivatePayload = {
+                                            const reactivatePayload: any = {
                                                 ...pendingPayload,
                                                 reactivating: true
                                             };
@@ -1299,12 +1179,20 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 >
                                     Sí, Reactivar
                                 </Button>
-                            </Group>
+                            </div>
                         </>
                     )}
-                </Stack>
+                </div>
             </Modal>
-        </Box>
+        </div>
     );
 };
 
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

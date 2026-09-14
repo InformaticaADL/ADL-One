@@ -1,36 +1,24 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    Table, 
-    Text, 
-    Group, 
-    ActionIcon, 
-    TextInput, 
-    Button, 
-    Modal, 
-    Stack, 
-    Paper, 
-    Badge, 
-    Tooltip, 
-    Loader,
+import {
+    Typography,
+    Button,
+    Input,
+    Modal,
+    Card,
+    Tag,
+    Tooltip,
+    Spin,
     Select,
     Alert,
     Pagination,
-    ScrollArea,
-    Box,
-    SimpleGrid,
-    ThemeIcon,
-    Divider,
     Tabs,
-    Container,
-    Title,
-    FileInput,
-    Image
-} from '@mantine/core';
-import { 
-    IconEdit, 
-    IconTrash, 
-    IconPlus, 
-    IconSearch, 
+    Upload
+} from 'antd';
+import {
+    IconEdit,
+    IconTrash,
+    IconPlus,
+    IconSearch,
     IconArrowLeft,
     IconCheck,
     IconAlertCircle,
@@ -48,6 +36,8 @@ import {
 } from '@tabler/icons-react';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text, Title } = Typography;
 
 interface MaestroConfig {
     id: string;
@@ -73,6 +63,19 @@ interface Props {
     onBack: () => void;
 }
 
+// Small colored icon badge (replaces Mantine ThemeIcon)
+const iconColors: Record<string, string> = {
+    blue: '#1c7ed6', teal: '#0c8599', green: '#2f9e44', grape: '#9c36b5', orange: '#e8590c', gray: '#868e96'
+};
+const IconBadge: React.FC<{ children: React.ReactNode; color?: string; size?: number }> = ({ children, color = 'blue', size = 32 }) => {
+    const hex = iconColors[color] || color;
+    return (
+        <div style={{ width: size, height: size, borderRadius: 8, backgroundColor: `${hex}1a`, color: hex, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {children}
+        </div>
+    );
+};
+
 export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     const { showToast } = useToast();
     const [data, setData] = useState<any[]>([]);
@@ -86,6 +89,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [dynamicFilters, setDynamicFilters] = useState<{[key: string]: string}>({});
     const [view, setView] = useState<'list' | 'form'>('list');
+    const [activeFormTab, setActiveFormTab] = useState('general');
     const [quickCreateType, setQuickCreateType] = useState<'clientes' | 'componentes' | null>(null);
     const [quickFormData, setQuickFormData] = useState<any>({});
     const [quickSaving, setQuickSaving] = useState(false);
@@ -117,11 +121,11 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
     // For lookups (foreign keys)
     const [lookupData, setLookupData] = useState<{[key: string]: any[]}>({});
-    
+
     // Pagination state
     const [page, setPage] = useState(1);
     const itemsPerPage = 12;
-    
+
     // For dependency checks
     const [dependencyData, setDependencyData] = useState<any[]>([]);
     const [dependencyLoading, setDependencyLoading] = useState(false);
@@ -195,6 +199,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         checkDependencies();
         fetchLookups();
         fetchData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [config]);
 
     const filteredData = useMemo(() => {
@@ -219,8 +224,8 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         // Apply search term filter
         if (!searchTerm) return filtered;
         const s = searchTerm.toLowerCase();
-        return filtered.filter(item => 
-            Object.values(item).some(val => 
+        return filtered.filter(item =>
+            Object.values(item).some(val =>
                 String(val).toLowerCase().includes(s)
             )
         );
@@ -240,6 +245,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
     const handleOpenModal = (item: any = null) => {
         setEditingItem(item);
+        setActiveFormTab('general');
         if (item) {
             // Convert all values to strings so Select components find their values
             const normalized: any = {};
@@ -325,13 +331,13 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             const tableName = quickCreateType === 'clientes' ? 'mae_empresa' : 'mae_tipomuestra';
             await catalogosService.createMaestro(tableName, quickFormData);
             showToast({ type: 'success', message: 'Registro creado correctamente' });
-            
+
             // Refrescar dependencias
-            const depResult = quickCreateType === 'clientes' 
-                ? await catalogosService.getClientes() 
+            const depResult = quickCreateType === 'clientes'
+                ? await catalogosService.getClientes()
                 : await catalogosService.getComponentesAmbientales();
             setDependencyData(depResult || []);
-            
+
             setQuickCreateType(null);
             setQuickFormData({});
         } catch (error: any) {
@@ -419,7 +425,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         return Object.keys(data[0]).filter(key => key !== config.idName && key !== 'id');
     }, [data, config]);
 
-    const needsDependency = useMemo(() => 
+    const needsDependency = useMemo(() =>
         Boolean(config.dependsOn && dependencyData.length === 0 && !dependencyLoading),
     [config.dependsOn, dependencyData.length, dependencyLoading]);
 
@@ -452,86 +458,81 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         if (isLookup) {
             const lookup = config.lookups![col];
             const options = lookupData[col] || [];
-            
+
             return (
-                <Group key={col} align="flex-end" gap={6} style={{ flexWrap: 'nowrap' }}>
-                    <Select 
-                        style={{ flex: 1 }}
-                        label={formatHeader(col)}
-                        placeholder={`Seleccione ${formatHeader(col)}...`}
-                        data={(() => {
-                            const seen = new Set();
-                            return options
-                                .map(opt => ({ 
-                                    value: String(opt[lookup.idColumn]), 
-                                    label: String(opt[lookup.displayColumn]) 
-                                }))
-                                .filter(opt => {
-                                    if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
-                                    if (seen.has(opt.value)) return false;
-                                    seen.add(opt.value);
-                                    return true;
-                                });
-                        })()}
-                        value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
-                        onChange={(v) => {
-                            let updatedForm = { ...formData, [col]: v };
-                            if (v) {
-                                const selectedOpt = options.find(opt => String(opt[lookup.idColumn]) === String(v));
-                                if (selectedOpt) {
-                                    // Autofill other matching or similar fields in the form
-                                    Object.keys(formData).forEach(formKey => {
-                                        if (formKey === col) return; // don't overwrite the selected id column itself
-                                        
-                                        // Try exact match or fuzzy match (e.g. tipoequipo vs tipo_equipo)
-                                        const cleanFormKey = formKey.toLowerCase().replace(/_/g, '');
-                                        
-                                        const matchingKey = Object.keys(selectedOpt).find(optKey => {
-                                            const cleanOptKey = optKey.toLowerCase().replace(/_/g, '');
-                                            return cleanOptKey === cleanFormKey && optKey !== lookup.idColumn;
-                                        });
-                                        
-                                        if (matchingKey) {
-                                            updatedForm[formKey] = String(selectedOpt[matchingKey]);
-                                        }
+                <div key={col} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexWrap: 'nowrap' }}>
+                    <div style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13, color: '#1c7ed6', fontWeight: 600, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                        <Select
+                            style={{ width: '100%', borderLeft: '3px solid #4dabf7', borderRadius: 6 }}
+                            placeholder={`Seleccione ${formatHeader(col)}...`}
+                            options={(() => {
+                                const seen = new Set();
+                                return options
+                                    .map(opt => ({
+                                        value: String(opt[lookup.idColumn]),
+                                        label: String(opt[lookup.displayColumn])
+                                    }))
+                                    .filter(opt => {
+                                        if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
+                                        if (seen.has(opt.value)) return false;
+                                        seen.add(opt.value);
+                                        return true;
                                     });
+                            })()}
+                            value={formData[col] === null || formData[col] === undefined || formData[col] === '' ? undefined : String(formData[col])}
+                            onChange={(v) => {
+                                const updatedForm = { ...formData, [col]: v };
+                                if (v) {
+                                    const selectedOpt = options.find(opt => String(opt[lookup.idColumn]) === String(v));
+                                    if (selectedOpt) {
+                                        // Autofill other matching or similar fields in the form
+                                        Object.keys(formData).forEach(formKey => {
+                                            if (formKey === col) return; // don't overwrite the selected id column itself
+
+                                            // Try exact match or fuzzy match (e.g. tipoequipo vs tipo_equipo)
+                                            const cleanFormKey = formKey.toLowerCase().replace(/_/g, '');
+
+                                            const matchingKey = Object.keys(selectedOpt).find(optKey => {
+                                                const cleanOptKey = optKey.toLowerCase().replace(/_/g, '');
+                                                return cleanOptKey === cleanFormKey && optKey !== lookup.idColumn;
+                                            });
+
+                                            if (matchingKey) {
+                                                updatedForm[formKey] = String(selectedOpt[matchingKey]);
+                                            }
+                                        });
+                                    }
                                 }
-                            }
-                            
-                            // Check if we need to auto-set es_fijo based on the new name
-                            const currentName = updatedForm.nombre || '';
-                            const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
-                            const isFijoName = fijos.some(f => currentName.trim().toUpperCase() === f.toUpperCase());
-                            if ('es_fijo' in updatedForm) {
-                                updatedForm.es_fijo = isFijoName;
-                            }
-                            
-                            setFormData(updatedForm);
-                        }}
-                        searchable
-                        nothingFoundMessage="Sin opciones disponibles"
-                        size="md"
-                        radius="md"
-                        styles={{
-                            label: { color: 'var(--mantine-color-blue-filled)', fontWeight: 600 },
-                            input: { borderLeft: '3px solid var(--mantine-color-blue-5)' }
-                        }}
-                    />
+
+                                // Check if we need to auto-set es_fijo based on the new name
+                                const currentName = updatedForm.nombre || '';
+                                const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
+                                const isFijoName = fijos.some(f => currentName.trim().toUpperCase() === f.toUpperCase());
+                                if ('es_fijo' in updatedForm) {
+                                    updatedForm.es_fijo = isFijoName;
+                                }
+
+                                setFormData(updatedForm);
+                            }}
+                            showSearch
+                            allowClear
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            notFoundContent="Sin opciones disponibles"
+                        />
+                    </div>
                     {!lookup.noCreate && (
-                        <Tooltip label={`Crear nuevo en ${lookup.tableName}`} position="top">
-                            <ActionIcon
-                                size="lg"
-                                variant="light"
-                                color="green"
-                                radius="md"
-                                mb={1}
+                        <Tooltip title={`Crear nuevo en ${lookup.tableName}`}>
+                            <Button
+                                type="text"
+                                size="large"
+                                style={{ color: '#2f9e44', marginBottom: 1 }}
+                                icon={<IconPlus size={18} />}
                                 onClick={() => openQuickFk(col, lookup)}
-                            >
-                                <IconPlus size={18} />
-                            </ActionIcon>
+                            />
                         </Tooltip>
                     )}
-                </Group>
+                </div>
             );
         }
 
@@ -566,32 +567,27 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             };
 
             return (
-                <Box key={col}>
-                    <Text size="sm" fw={600} c="blue" mb={6}>{formatHeader(col)}</Text>
+                <div key={col}>
+                    <Text style={{ fontSize: 13, fontWeight: 600, color: '#1c7ed6', display: 'block', marginBottom: 6 }}>{formatHeader(col)}</Text>
                     {previewUrl && (
-                        <Box mb={8} style={{ border: '1px solid #dee2e6', borderRadius: 8, padding: 8, display: 'inline-block', background: '#f8f9fa' }}>
-                            <Image
+                        <div style={{ marginBottom: 8, border: '1px solid #dee2e6', borderRadius: 8, padding: 8, display: 'inline-block', background: '#f8f9fa' }}>
+                            <img
                                 src={previewUrl}
                                 alt={col}
-                                h={120}
-                                w="auto"
-                                fit="contain"
-                                radius="sm"
-                                fallbackSrc="https://placehold.co/200x120?text=Sin+imagen"
+                                style={{ height: 120, width: 'auto', objectFit: 'contain', borderRadius: 4 }}
+                                onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x120?text=Sin+imagen'; }}
                             />
-                            <Text size="xs" c="dimmed" mt={4} ta="center">{currentPath}</Text>
-                        </Box>
+                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', marginTop: 4, textAlign: 'center', display: 'block' }}>{currentPath}</Text>
+                        </div>
                     )}
-                    <FileInput
-                        placeholder={previewUrl ? 'Cambiar imagen...' : 'Seleccionar imagen...'}
+                    <Upload
                         accept="image/*"
-                        leftSection={<IconUpload size={16} />}
-                        onChange={handleFileChange}
-                        size="md"
-                        radius="md"
-                        styles={{ input: { borderLeft: '3px solid var(--mantine-color-blue-5)' } }}
-                    />
-                </Box>
+                        showUploadList={false}
+                        beforeUpload={(file) => { handleFileChange(file); return false; }}
+                    >
+                        <Button icon={<IconUpload size={16} />}>{previewUrl ? 'Cambiar imagen...' : 'Seleccionar imagen...'}</Button>
+                    </Upload>
+                </div>
             );
         }
 
@@ -609,42 +605,38 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             // Normalize current value to string 'true'/'false' for the Select
             const isCurrentlyTrue = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1' || raw === 'SI' || raw === 'Si' || raw === 'si' || raw === 'SÍ' || raw === 'sí';
             return (
-                <Select
-                    key={col}
-                    label={formatHeader(col)}
-                    data={[
-                        { value: 'true', label: '✅ Sí' },
-                        { value: 'false', label: '❌ No' },
-                    ]}
-                    value={isCurrentlyTrue ? 'true' : 'false'}
-                    onChange={(v) => {
-                        const isTrue = v === 'true';
-                        const originalRaw = formData[col];
-                        const c = col.toLowerCase();
-                        let newVal: any = isTrue;
-                        if (originalRaw === 'S' || originalRaw === 'N' || 
-                            ['habilitado', 'visible_muestreador', 'informe', 'activo', 'vigente', 'tienefc', 'tiene_fc'].includes(c)) {
-                            newVal = isTrue ? 'S' : 'N';
-                        } else if (originalRaw === 'Si' || originalRaw === 'No' || originalRaw === 'si' || originalRaw === 'no') {
-                            newVal = isTrue ? 'Si' : 'No';
-                        } else if (originalRaw === 1 || originalRaw === 0 || typeof originalRaw === 'number') {
-                            newVal = isTrue ? 1 : 0;
-                        } else {
-                            if (['habilitado', 'visible_muestreador', 'informe', 'activo', 'vigente', 'tienefc', 'tiene_fc'].includes(c)) {
+                <div key={col}>
+                    <Text style={{ fontSize: 13, color: '#1c7ed6', fontWeight: 600, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                    <Select
+                        style={{ width: '100%' }}
+                        options={[
+                            { value: 'true', label: '✅ Sí' },
+                            { value: 'false', label: '❌ No' },
+                        ]}
+                        value={isCurrentlyTrue ? 'true' : 'false'}
+                        onChange={(v) => {
+                            const isTrue = v === 'true';
+                            const originalRaw = formData[col];
+                            const c = col.toLowerCase();
+                            let newVal: any = isTrue;
+                            if (originalRaw === 'S' || originalRaw === 'N' ||
+                                ['habilitado', 'visible_muestreador', 'informe', 'activo', 'vigente', 'tienefc', 'tiene_fc'].includes(c)) {
                                 newVal = isTrue ? 'S' : 'N';
+                            } else if (originalRaw === 'Si' || originalRaw === 'No' || originalRaw === 'si' || originalRaw === 'no') {
+                                newVal = isTrue ? 'Si' : 'No';
+                            } else if (originalRaw === 1 || originalRaw === 0 || typeof originalRaw === 'number') {
+                                newVal = isTrue ? 1 : 0;
                             } else {
-                                newVal = isTrue;
+                                if (['habilitado', 'visible_muestreador', 'informe', 'activo', 'vigente', 'tienefc', 'tiene_fc'].includes(c)) {
+                                    newVal = isTrue ? 'S' : 'N';
+                                } else {
+                                    newVal = isTrue;
+                                }
                             }
-                        }
-                        setFormData({ ...formData, [col]: newVal });
-                    }}
-                    size="md"
-                    radius="md"
-                    styles={{
-                        label: { color: 'var(--mantine-color-blue-filled)', fontWeight: 600 },
-                        input: { borderLeft: '3px solid var(--mantine-color-blue-5)' }
-                    }}
-                />
+                            setFormData({ ...formData, [col]: newVal });
+                        }}
+                    />
+                </div>
             );
         }
 
@@ -673,41 +665,151 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                 }
             }
             return (
-                <TextInput 
-                    key={col}
-                    label={formatHeader(col)}
-                    placeholder={col}
-                    type="date"
-                    size="md"
-                    radius="md"
-                    leftSection={icon}
-                    value={val}
-                    onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
-                />
+                <div key={col}>
+                    <Text style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                    <Input
+                        placeholder={col}
+                        type="date"
+                        prefix={icon}
+                        value={val}
+                        onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
+                    />
+                </div>
             );
         }
 
         return (
-            <TextInput 
-                key={col}
-                label={formatHeader(col)}
-                placeholder={col}
-                size="md"
-                radius="md"
-                leftSection={icon}
-                value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
-                onChange={(e) => {
-                    const newVal = e.currentTarget.value;
-                    let updatedForm = { ...formData, [col]: newVal };
-                    if (col === 'nombre' && 'es_fijo' in updatedForm) {
-                        const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
-                        updatedForm.es_fijo = fijos.some(f => newVal.trim().toUpperCase() === f.toUpperCase());
-                    }
-                    setFormData(updatedForm);
-                }}
-            />
+            <div key={col}>
+                <Text style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                <Input
+                    placeholder={col}
+                    prefix={icon}
+                    value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
+                    onChange={(e) => {
+                        const newVal = e.currentTarget.value;
+                        const updatedForm = { ...formData, [col]: newVal };
+                        if (col === 'nombre' && 'es_fijo' in updatedForm) {
+                            const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
+                            updatedForm.es_fijo = fijos.some(f => newVal.trim().toUpperCase() === f.toUpperCase());
+                        }
+                        setFormData(updatedForm);
+                    }}
+                />
+            </div>
         );
     };
+
+    const quickFkModal = (
+        <Modal
+            open={!!quickFk}
+            onCancel={() => !quickFkSaving && setQuickFk(null)}
+            title={
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <IconBadge color="green" size={28}><IconPlus size={16} /></IconBadge>
+                    <Text strong style={{ fontSize: 13 }}>
+                        Crear nuevo en <Tag color="blue" style={{ fontFamily: 'monospace' }}>{quickFk?.lookup.tableName}</Tag>
+                    </Text>
+                </div>
+            }
+            width={700}
+            centered
+            footer={null}
+        >
+            {quickFk && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    {quickFkCols.length === 0 ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spin size="small" /></div>
+                    ) : (
+                        <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 8 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                {quickFkCols.map(col => {
+                                    const boolPats = ['habilitado','activo','active','enabled','envia_','es_','oculto','visible','is_','tiene_','permite_','transaccional','vigente','estado'];
+                                    const imgPats  = ['firma_','foto','imagen','logo','avatar','signature'];
+                                    const isBool = boolPats.some(p => col.toLowerCase().includes(p));
+                                    const isImg  = imgPats.some(p => col.toLowerCase().includes(p));
+
+                                    if (isImg) {
+                                        return (
+                                            <div key={col}>
+                                                <Text style={{ fontSize: 12, fontWeight: 600, color: '#1c7ed6', display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                                                <Upload
+                                                    accept="image/*"
+                                                    showUploadList={false}
+                                                    beforeUpload={async (file) => {
+                                                        const fd = new FormData();
+                                                        fd.append('archivo', file);
+                                                        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+                                                        const token = localStorage.getItem('token');
+                                                        const res = await fetch(`${apiBase}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+                                                        const json = await res.json();
+                                                        if (json.success) setQuickFkFormData((p: any) => ({ ...p, [col]: json.filePath }));
+                                                        return false;
+                                                    }}
+                                                >
+                                                    <Button size="small" icon={<IconUpload size={14} />}>Seleccionar imagen...</Button>
+                                                </Upload>
+                                            </div>
+                                        );
+                                    }
+                                    if (isBool) {
+                                        return (
+                                            <div key={col}>
+                                                <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                                                <Select
+                                                    style={{ width: '100%' }}
+                                                    options={[{ value: '1', label: '✅ Sí / Habilitado' }, { value: '0', label: '❌ No / Deshabilitado' }]}
+                                                    value={quickFkFormData[col] !== undefined ? String(quickFkFormData[col]) : '1'}
+                                                    onChange={(v) => setQuickFkFormData((p: any) => ({ ...p, [col]: v }))}
+                                                />
+                                            </div>
+                                        );
+                                    }
+                                    return (
+                                        <div key={col}>
+                                            <Text style={{ fontSize: 12, fontWeight: 600, color: col === quickFk.lookup.displayColumn ? '#1c7ed6' : undefined, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
+                                            <Input
+                                                placeholder={col}
+                                                value={quickFkFormData[col] || ''}
+                                                onChange={(e) => setQuickFkFormData((p: any) => ({ ...p, [col]: e.currentTarget.value }))}
+                                            />
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={() => setQuickFk(null)} disabled={quickFkSaving}>Cancelar</Button>
+                        <Button
+                            type="primary"
+                            style={{ backgroundColor: '#2f9e44', borderColor: '#2f9e44' }}
+                            icon={<IconPlus size={16} />}
+                            loading={quickFkSaving}
+                            disabled={!quickFkFormData[quickFk.lookup.displayColumn]?.trim?.()}
+                            onClick={async () => {
+                                setQuickFkSaving(true);
+                                try {
+                                    const newRecord = await catalogosService.createMaestro(quickFk.lookup.tableName, quickFkFormData);
+                                    const fresh = await catalogosService.getMaestroData(quickFk.lookup.tableName);
+                                    setLookupData(prev => ({ ...prev, [quickFk.field]: fresh || [] }));
+                                    const newId = newRecord?.[quickFk.lookup.idColumn] || newRecord?.id;
+                                    if (newId) setFormData((prev: any) => ({ ...prev, [quickFk.field]: String(newId) }));
+                                    showToast({ type: 'success', message: `Registro creado correctamente` });
+                                    setQuickFk(null);
+                                } catch {
+                                    showToast({ type: 'error', message: 'Error al crear el registro' });
+                                } finally {
+                                    setQuickFkSaving(false);
+                                }
+                            }}
+                        >
+                            Crear
+                        </Button>
+                    </div>
+                </div>
+            )}
+        </Modal>
+    );
 
     if (view === 'form') {
         // Fields declared as "summary" go to General tab; the rest go to Detalle tab
@@ -727,446 +829,328 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         const generalFields = renderableColumns.filter(col => allPrimary.length === 0 || allPrimary.includes(col));
         const advancedFields = renderableColumns.filter(col => allPrimary.length > 0 && !allPrimary.includes(col));
 
+        const generalPanel = (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                {/* Estado */}
+                {config.statusColumn && (() => {
+                    const statusCol = config.statusColumn!;
+                    const raw = formData[statusCol];
+                    // Detect the original DB format from the first data row
+                    const sample = data.length > 0 ? data[0][statusCol] : null;
+                    const isInt = sample === 1 || sample === 0;
+                    const isStr = sample === 'S' || sample === 'N';
+                    // Normalize current value to boolean for the Select
+                    const isOn = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1';
+                    return (
+                        <div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                                <IconBadge color="blue" size={28}><IconSettings size={16} /></IconBadge>
+                                <Title level={5} style={{ margin: 0 }}>Estado del Registro</Title>
+                            </div>
+                            <Select
+                                options={[
+                                    { value: 'on', label: '✅ Habilitado / Activo' },
+                                    { value: 'off', label: '🚫 Deshabilitado / Inactivo' }
+                                ]}
+                                value={isOn ? 'on' : 'off'}
+                                onChange={(v) => {
+                                    const isActive = v === 'on';
+                                    let newVal: any = isActive;
+                                    if (isInt) newVal = isActive ? 1 : 0;
+                                    else if (isStr) newVal = isActive ? 'S' : 'N';
+                                    setFormData({ ...formData, [statusCol]: newVal });
+                                }}
+                                style={{ maxWidth: 300, width: '100%' }}
+                            />
+                        </div>
+                    );
+                })()}
+
+                {/* Dependency selectors (clientes, componentes) */}
+                {config.dependsOn === 'clientes' && (
+                    <div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                            <IconBadge color="teal" size={28}><IconBuilding size={16} /></IconBadge>
+                            <Title level={5} style={{ margin: 0 }}>Cliente Asociado</Title>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                            <Select
+                                placeholder="Seleccione cliente..."
+                                options={dependencyData.map(c => ({ value: String(c.id || c.id_empresa), label: String(c.nombre || c.nombre_empresa || '(sin nombre)') }))}
+                                value={formData.id_empresa ? String(formData.id_empresa) : undefined}
+                                onChange={(v) => setFormData({ ...formData, id_empresa: v })}
+                                showSearch
+                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                style={{ flex: 1, maxWidth: 400 }}
+                            />
+                            <Button icon={<IconPlus size={14} />} onClick={() => { setQuickCreateType('clientes'); setQuickFormData({}); }}>
+                                Nuevo Cliente
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                {config.dependsOn === 'componentes' && (
+                    <div>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                            <IconBadge color="green" size={28}><IconBuilding size={16} /></IconBadge>
+                            <Title level={5} style={{ margin: 0 }}>Componente Asociado</Title>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                            <Select
+                                placeholder="Seleccione componente..."
+                                options={dependencyData.map(c => ({ value: String(c.id || c.id_tipomuestra), label: String(c.nombre || c.nombre_tipomuestra || '(sin nombre)') }))}
+                                value={formData.id_tipomuestra ? String(formData.id_tipomuestra) : undefined}
+                                onChange={(v) => setFormData({ ...formData, id_tipomuestra: v })}
+                                showSearch
+                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                style={{ flex: 1, maxWidth: 400 }}
+                            />
+                            <Button icon={<IconPlus size={14} />} onClick={() => { setQuickCreateType('componentes'); setQuickFormData({}); }}>
+                                Nuevo Componente
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                <div style={{ borderTop: '1px solid var(--app-border)' }} />
+
+                {/* Main fields */}
+                <div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                        <IconBadge color="blue" size={28}><IconSettings size={16} /></IconBadge>
+                        <Title level={5} style={{ margin: 0 }}>Atributos de {config.label}</Title>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 20 }}>Complete los campos para registrar la información.</Text>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                        {generalFields.map((col: string) => renderField(col))}
+                    </div>
+                </div>
+
+                {advancedFields.length === 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button
+                            type="primary"
+                            icon={<IconCheck size={18} />}
+                            onClick={() => setConfirmSaveOpen(true)}
+                            loading={saving}
+                        >
+                            {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
+                        </Button>
+                    </div>
+                )}
+
+                {advancedFields.length > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button onClick={() => setActiveFormTab('advanced')}>
+                            Ver Datos Detallados <IconArrowRight size={16} style={{ marginLeft: 6, verticalAlign: 'middle' }} />
+                        </Button>
+                    </div>
+                )}
+            </div>
+        );
+
+        const advancedPanel = (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                        <IconBadge color="grape" size={28}><IconActivity size={16} /></IconBadge>
+                        <Title level={5} style={{ margin: 0 }}>Configuración Detallada</Title>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 20 }}>Campos adicionales y configuración avanzada del registro.</Text>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                        {advancedFields.map((col: string) => renderField(col))}
+                    </div>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--app-border)' }} />
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                        type="primary"
+                        icon={<IconCheck size={18} />}
+                        onClick={() => setConfirmSaveOpen(true)}
+                        loading={saving}
+                    >
+                        {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
+                    </Button>
+                </div>
+            </div>
+        );
+
         return (
-            <Box style={{ animation: 'fadeIn 0.4s ease' }}>
+            <div style={{ animation: 'fadeIn 0.4s ease' }}>
+                <style dangerouslySetInnerHTML={{ __html: `
+                    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+                `}} />
                 {/* Header bar */}
-                <Box p="md" pb={0}>
-                    <Group justify="space-between" align="flex-start">
-                        <Stack gap={4}>
-                            <Button 
-                                variant="subtle" 
-                                color="gray" 
-                                leftSection={<IconArrowLeft size={16} />} 
+                <div style={{ padding: '16px 16px 0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <Button
+                                type="text"
+                                icon={<IconArrowLeft size={16} />}
                                 onClick={() => setView('list')}
-                                p={0}
-                                style={{ width: 'fit-content' }}
+                                style={{ width: 'fit-content', padding: 0, color: 'var(--app-text-secondary)' }}
                             >
                                 Volver al Listado
                             </Button>
-                            <Group gap="xs">
-                                <ThemeIcon size={44} radius="md" color="blue" variant="light">
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                <IconBadge color="blue" size={44}>
                                     {editingItem ? <IconEdit size={22} /> : <IconPlus size={22} />}
-                                </ThemeIcon>
-                                <Stack gap={0}>
-                                    <Text size="xs" c="dimmed" fw={500}>
+                                </IconBadge>
+                                <div>
+                                    <Text type="secondary" style={{ fontSize: 12, fontWeight: 500, display: 'block' }}>
                                         {editingItem ? 'Editando registro' : 'Nuevo Registro'} — {config.tableName}
                                     </Text>
-                                    <Title order={2} c="blue.9">
-                                        {editingItem && config.displayColumn 
+                                    <Title level={3} style={{ margin: 0, color: '#1864ab' }}>
+                                        {editingItem && config.displayColumn
                                             ? (editingItem[config.displayColumn] || config.label)
                                             : config.label}
                                     </Title>
-                                </Stack>
-                            </Group>
-                        </Stack>
+                                </div>
+                            </div>
+                        </div>
 
-                        <Group mt="xl">
-                            <Button variant="default" size="md" radius="md" onClick={() => setView('list')}>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
+                            <Button onClick={() => setView('list')}>
                                 Cancelar
                             </Button>
-                            <Button 
-                                color="blue" 
-                                size="md" 
-                                radius="md"
-                                leftSection={<IconCheck size={18} />}
-                                onClick={() => setConfirmSaveOpen(true)} 
+                            <Button
+                                type="primary"
+                                icon={<IconCheck size={18} />}
+                                onClick={() => setConfirmSaveOpen(true)}
                                 loading={saving}
                             >
                                 {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
                             </Button>
-                        </Group>
-                    </Group>
-                </Box>
+                        </div>
+                    </div>
+                </div>
 
-                <Container fluid px="md" pb="xl" mt="xl">
-                    <Paper withBorder p="md" radius="lg" shadow="sm">
-                        <Tabs defaultValue="general" variant="pills" radius="md">
-                            <Tabs.List mb="xl">
-                                <Tabs.Tab value="general" leftSection={<IconSettings size={16} />}>
-                                    Información General
-                                </Tabs.Tab>
-                                {advancedFields.length > 0 && (
-                                    <Tabs.Tab value="advanced" leftSection={<IconActivity size={16} />}>
-                                        Datos Detallados
-                                    </Tabs.Tab>
-                                )}
-                            </Tabs.List>
-
-                            <Tabs.Panel value="general">
-                                <Stack gap="xl">
-                                    {/* Estado */}
-                                    {config.statusColumn && (() => {
-                                        const statusCol = config.statusColumn!;
-                                        const raw = formData[statusCol];
-                                        // Detect the original DB format from the first data row
-                                        const sample = data.length > 0 ? data[0][statusCol] : null;
-                                        const isInt = sample === 1 || sample === 0;
-                                        const isStr = sample === 'S' || sample === 'N';
-                                        // Normalize current value to boolean for the Select
-                                        const isOn = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1';
-                                        return (
-                                            <Box>
-                                                <Group gap="sm" mb={4}>
-                                                    <ThemeIcon variant="light" color="blue" size="md">
-                                                        <IconSettings size={16} />
-                                                    </ThemeIcon>
-                                                    <Title order={5}>Estado del Registro</Title>
-                                                </Group>
-                                                <Select 
-                                                    data={[
-                                                        { value: 'on', label: '✅ Habilitado / Activo' },
-                                                        { value: 'off', label: '🚫 Deshabilitado / Inactivo' }
-                                                    ]}
-                                                    value={isOn ? 'on' : 'off'}
-                                                    onChange={(v) => {
-                                                        const isActive = v === 'on';
-                                                        let newVal: any = isActive;
-                                                        if (isInt) newVal = isActive ? 1 : 0;
-                                                        else if (isStr) newVal = isActive ? 'S' : 'N';
-                                                        setFormData({ ...formData, [statusCol]: newVal });
-                                                    }}
-                                                    size="md"
-                                                    radius="md"
-                                                    style={{ maxWidth: 300 }}
-                                                    styles={{ label: { color: 'var(--mantine-color-blue-filled)', fontWeight: 600 } }}
-                                                />
-                                            </Box>
-                                        );
-                                    })()}
-
-                                    {/* Dependency selectors (clientes, componentes) */}
-                                    {config.dependsOn === 'clientes' && (
-                                        <Box>
-                                            <Group gap="sm" mb="sm">
-                                                <ThemeIcon variant="light" color="teal" size="md"><IconBuilding size={16} /></ThemeIcon>
-                                                <Title order={5}>Cliente Asociado</Title>
-                                            </Group>
-                                            <Group align="flex-end" gap="sm">
-                                                <Select
-                                                    placeholder="Seleccione cliente..."
-                                                    data={dependencyData.map(c => ({ value: String(c.id || c.id_empresa), label: String(c.nombre || c.nombre_empresa || '(sin nombre)') }))}
-                                                    value={formData.id_empresa ? String(formData.id_empresa) : null}
-                                                    onChange={(v) => setFormData({ ...formData, id_empresa: v })}
-                                                    searchable
-                                                    size="md"
-                                                    radius="md"
-                                                    style={{ flex: 1, maxWidth: 400 }}
-                                                    styles={{ label: { color: 'var(--mantine-color-teal-filled)', fontWeight: 600 }, input: { borderLeft: '3px solid var(--mantine-color-teal-5)' } }}
-                                                />
-                                                <Button variant="light" color="teal" leftSection={<IconPlus size={14} />} onClick={() => { setQuickCreateType('clientes'); setQuickFormData({}); }}>
-                                                    Nuevo Cliente
-                                                </Button>
-                                            </Group>
-                                        </Box>
-                                    )}
-
-                                    {config.dependsOn === 'componentes' && (
-                                        <Box>
-                                            <Group gap="sm" mb="sm">
-                                                <ThemeIcon variant="light" color="green" size="md"><IconBuilding size={16} /></ThemeIcon>
-                                                <Title order={5}>Componente Asociado</Title>
-                                            </Group>
-                                            <Group align="flex-end" gap="sm">
-                                                <Select
-                                                    placeholder="Seleccione componente..."
-                                                    data={dependencyData.map(c => ({ value: String(c.id || c.id_tipomuestra), label: String(c.nombre || c.nombre_tipomuestra || '(sin nombre)') }))}
-                                                    value={formData.id_tipomuestra ? String(formData.id_tipomuestra) : null}
-                                                    onChange={(v) => setFormData({ ...formData, id_tipomuestra: v })}
-                                                    searchable
-                                                    size="md"
-                                                    radius="md"
-                                                    style={{ flex: 1, maxWidth: 400 }}
-                                                    styles={{ input: { borderLeft: '3px solid var(--mantine-color-green-5)' } }}
-                                                />
-                                                <Button variant="light" color="green" leftSection={<IconPlus size={14} />} onClick={() => { setQuickCreateType('componentes'); setQuickFormData({}); }}>
-                                                    Nuevo Componente
-                                                </Button>
-                                            </Group>
-                                        </Box>
-                                    )}
-
-                                    <Divider />
-
-                                    {/* Main fields */}
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="blue" size="md"><IconSettings size={16} /></ThemeIcon>
-                                            <Title order={5}>Atributos de {config.label}</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed" mb="lg">Complete los campos para registrar la información.</Text>
-                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg">
-                                            {generalFields.map((col: string) => renderField(col))}
-                                        </SimpleGrid>
-                                    </Box>
-
-                                    {advancedFields.length === 0 && (
-                                        <Group justify="flex-end">
-                                            <Button 
-                                                color="blue" size="md" radius="md"
-                                                leftSection={<IconCheck size={18} />}
-                                                onClick={() => setConfirmSaveOpen(true)} 
-                                                loading={saving}
-                                            >
-                                                {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
-                                            </Button>
-                                        </Group>
-                                    )}
-
-                                    {advancedFields.length > 0 && (
-                                        <Group justify="flex-end">
-                                            <Button variant="light" rightSection={<IconArrowRight size={16} />} onClick={() => {}}>
-                                                Ver Datos Detallados
-                                            </Button>
-                                        </Group>
-                                    )}
-                                </Stack>
-                            </Tabs.Panel>
-
-                            <Tabs.Panel value="advanced">
-                                <Stack gap="xl">
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="grape" size="md"><IconActivity size={16} /></ThemeIcon>
-                                            <Title order={5}>Configuración Detallada</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed" mb="lg">Campos adicionales y configuración avanzada del registro.</Text>
-                                        <SimpleGrid cols={{ base: 1, sm: 2, md: 3, lg: 4 }} spacing="lg">
-                                            {advancedFields.map((col: string) => renderField(col))}
-                                        </SimpleGrid>
-                                    </Box>
-
-                                    <Divider />
-                                    <Group justify="flex-end">
-                                        <Button 
-                                            color="blue" size="md" radius="md"
-                                            leftSection={<IconCheck size={18} />}
-                                            onClick={() => setConfirmSaveOpen(true)} 
-                                            loading={saving}
-                                        >
-                                            {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
-                                        </Button>
-                                    </Group>
-                                </Stack>
-                            </Tabs.Panel>
-                        </Tabs>
-                    </Paper>
-                </Container>
+                <div style={{ padding: '24px 16px' }}>
+                    <Card>
+                        <Tabs
+                            activeKey={activeFormTab}
+                            onChange={setActiveFormTab}
+                            items={[
+                                { key: 'general', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconSettings size={16} /> Información General</span>, children: generalPanel },
+                                ...(advancedFields.length > 0 ? [{ key: 'advanced', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconActivity size={16} /> Datos Detallados</span>, children: advancedPanel }] : [])
+                            ]}
+                        />
+                    </Card>
+                </div>
 
                 {/* Quick Create Modal */}
                 <Modal
-                    opened={quickCreateType !== null}
-                    onClose={() => !quickSaving && setQuickCreateType(null)}
+                    open={quickCreateType !== null}
+                    onCancel={() => !quickSaving && setQuickCreateType(null)}
                     title={
-                        <Group gap="xs">
-                            <ThemeIcon color="green" radius="md">
-                                <IconPlus size={18} />
-                            </ThemeIcon>
-                            <Text fw={700}>Creación Rápida: {quickCreateType === 'clientes' ? 'Nuevo Cliente' : 'Nuevo Componente'}</Text>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <IconBadge color="green" size={28}><IconPlus size={18} /></IconBadge>
+                            <Text strong>Creación Rápida: {quickCreateType === 'clientes' ? 'Nuevo Cliente' : 'Nuevo Componente'}</Text>
+                        </div>
                     }
-                    size="md"
-                    radius="lg"
+                    width={480}
                     centered
+                    footer={null}
                 >
-                    <Stack gap="md">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {quickCreateType === 'clientes' ? (
                             <>
-                                <TextInput 
-                                    label="Nombre de Empresa" 
-                                    required 
-                                    value={quickFormData.nombre_empresa || ''} 
-                                    onChange={(e) => setQuickFormData({...quickFormData, nombre_empresa: e.currentTarget.value})}
-                                />
-                                <TextInput 
-                                    label="RUT" 
-                                    placeholder="12.345.678-9"
-                                    required 
-                                    value={quickFormData.rut_empresa || ''} 
-                                    onChange={(e) => setQuickFormData({...quickFormData, rut_empresa: e.currentTarget.value})}
-                                />
-                                <TextInput 
-                                    label="Dirección" 
-                                    required 
-                                    value={quickFormData.direccion_empresa || ''} 
-                                    onChange={(e) => setQuickFormData({...quickFormData, direccion_empresa: e.currentTarget.value})}
-                                />
-                                <TextInput 
-                                    label="Email Empresa" 
-                                    required 
-                                    value={quickFormData.email_empresa || ''} 
-                                    onChange={(e) => setQuickFormData({...quickFormData, email_empresa: e.currentTarget.value})}
-                                />
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Nombre de Empresa *</Text>
+                                    <Input
+                                        value={quickFormData.nombre_empresa || ''}
+                                        onChange={(e) => setQuickFormData({...quickFormData, nombre_empresa: e.currentTarget.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>RUT *</Text>
+                                    <Input
+                                        placeholder="12.345.678-9"
+                                        value={quickFormData.rut_empresa || ''}
+                                        onChange={(e) => setQuickFormData({...quickFormData, rut_empresa: e.currentTarget.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Dirección *</Text>
+                                    <Input
+                                        value={quickFormData.direccion_empresa || ''}
+                                        onChange={(e) => setQuickFormData({...quickFormData, direccion_empresa: e.currentTarget.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Email Empresa *</Text>
+                                    <Input
+                                        value={quickFormData.email_empresa || ''}
+                                        onChange={(e) => setQuickFormData({...quickFormData, email_empresa: e.currentTarget.value})}
+                                    />
+                                </div>
                             </>
                         ) : (
                             <>
-                                <TextInput 
-                                    label="Nombre Componente" 
-                                    required 
-                                    value={quickFormData.nombre_tipomuestra || ''} 
-                                    onChange={(e) => setQuickFormData({...quickFormData, nombre_tipomuestra: e.currentTarget.value})}
-                                />
-                                <TextInput 
-                                    label="Sigla" 
-                                    required 
-                                    value={quickFormData.sigla_tipomuestra || ''} 
-                                    onChange={(e) => setQuickFormData({...quickFormData, sigla_tipomuestra: e.currentTarget.value})}
-                                />
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Nombre Componente *</Text>
+                                    <Input
+                                        value={quickFormData.nombre_tipomuestra || ''}
+                                        onChange={(e) => setQuickFormData({...quickFormData, nombre_tipomuestra: e.currentTarget.value})}
+                                    />
+                                </div>
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Sigla *</Text>
+                                    <Input
+                                        value={quickFormData.sigla_tipomuestra || ''}
+                                        onChange={(e) => setQuickFormData({...quickFormData, sigla_tipomuestra: e.currentTarget.value})}
+                                    />
+                                </div>
                             </>
                         )}
-                        
-                        <Group justify="flex-end" mt="md">
-                            <Button variant="default" onClick={() => setQuickCreateType(null)} disabled={quickSaving}>Cancelar</Button>
-                            <Button 
-                                color="green" 
-                                onClick={handleQuickSave} 
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                            <Button onClick={() => setQuickCreateType(null)} disabled={quickSaving}>Cancelar</Button>
+                            <Button
+                                type="primary"
+                                style={{ backgroundColor: '#2f9e44', borderColor: '#2f9e44' }}
+                                onClick={handleQuickSave}
                                 loading={quickSaving}
                             >
                                 Crear y Seleccionar
                             </Button>
-                        </Group>
-                    </Stack>
+                        </div>
+                    </div>
                 </Modal>
 
                 {/* Confirm Save Modal */}
                 <Modal
-                    opened={confirmSaveOpen}
-                    onClose={() => !saving && setConfirmSaveOpen(false)}
-                    title={<Text fw={700} c="blue.9">Confirmación de Guardado</Text>}
-                    size="sm"
+                    open={confirmSaveOpen}
+                    onCancel={() => !saving && setConfirmSaveOpen(false)}
+                    title={<Text strong style={{ color: '#1864ab' }}>Confirmación de Guardado</Text>}
+                    width={420}
                     centered
-                    radius="md"
+                    footer={null}
                 >
-                    <Text size="sm" mb="xl">
+                    <Text style={{ fontSize: 13, display: 'block', marginBottom: 24 }}>
                         ¿Está seguro que desea {editingItem ? 'actualizar' : 'crear'} este registro en {config.label}?
                     </Text>
-                    <Group justify="flex-end">
-                        <Button variant="default" onClick={() => setConfirmSaveOpen(false)} disabled={saving}>Cancelar</Button>
-                        <Button 
-                            color="blue" 
-                            onClick={() => { 
-                                setConfirmSaveOpen(false); 
-                                handleSave(); 
-                            }} 
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={() => setConfirmSaveOpen(false)} disabled={saving}>Cancelar</Button>
+                        <Button
+                            type="primary"
+                            onClick={() => {
+                                setConfirmSaveOpen(false);
+                                handleSave();
+                            }}
                             loading={saving}
                         >
                             Confirmar
                         </Button>
-                    </Group>
+                    </div>
                 </Modal>
 
                 {/* ── QUICK-CREATE FK MODAL ── */}
-                <Modal
-                    opened={!!quickFk}
-                    onClose={() => !quickFkSaving && setQuickFk(null)}
-                    title={
-                        <Group gap="xs">
-                            <ThemeIcon color="green" variant="light" size="md"><IconPlus size={16} /></ThemeIcon>
-                            <Text fw={700} size="sm">
-                                Crear nuevo en <Badge variant="dot" color="blue" size="sm" style={{ fontFamily: 'monospace' }}>{quickFk?.lookup.tableName}</Badge>
-                            </Text>
-                        </Group>
-                    }
-                    size="lg"
-                    radius="md"
-                    centered
-                >
-                    {quickFk && (
-                        <Stack gap="md">
-                            {quickFkCols.length === 0 ? (
-                                <Group justify="center" py="md"><Loader size="sm" /></Group>
-                            ) : (
-                                <ScrollArea.Autosize mah={420}>
-                                    <SimpleGrid cols={2} spacing="md" pr="xs">
-                                        {quickFkCols.map(col => {
-                                            const boolPats = ['habilitado','activo','active','enabled','envia_','es_','oculto','visible','is_','tiene_','permite_','transaccional','vigente','estado'];
-                                            const imgPats  = ['firma_','foto','imagen','logo','avatar','signature'];
-                                            const isBool = boolPats.some(p => col.toLowerCase().includes(p));
-                                            const isImg  = imgPats.some(p => col.toLowerCase().includes(p));
+                {quickFkModal}
 
-                                            if (isImg) {
-                                                return (
-                                                    <Box key={col}>
-                                                        <Text size="xs" fw={600} c="blue" mb={4}>{formatHeader(col)}</Text>
-                                                        <FileInput
-                                                            placeholder="Seleccionar imagen..."
-                                                            accept="image/*"
-                                                            leftSection={<IconUpload size={14} />}
-                                                            onChange={async (file) => {
-                                                                if (!file) return;
-                                                                const fd = new FormData();
-                                                                fd.append('archivo', file);
-                                                                const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-                                                                const token = localStorage.getItem('token');
-                                                                const res = await fetch(`${apiBase}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-                                                                const json = await res.json();
-                                                                if (json.success) setQuickFkFormData((p: any) => ({ ...p, [col]: json.filePath }));
-                                                            }}
-                                                            size="sm" radius="md"
-                                                        />
-                                                    </Box>
-                                                );
-                                            }
-                                            if (isBool) {
-                                                return (
-                                                    <Select
-                                                        key={col}
-                                                        label={formatHeader(col)}
-                                                        data={[{ value: '1', label: '✅ Sí / Habilitado' }, { value: '0', label: '❌ No / Deshabilitado' }]}
-                                                        value={quickFkFormData[col] !== undefined ? String(quickFkFormData[col]) : '1'}
-                                                        onChange={(v) => setQuickFkFormData((p: any) => ({ ...p, [col]: v }))}
-                                                        size="sm" radius="md"
-                                                        styles={{ label: { fontWeight: 600 } }}
-                                                    />
-                                                );
-                                            }
-                                            return (
-                                                <TextInput
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder={col}
-                                                    value={quickFkFormData[col] || ''}
-                                                    onChange={(e) => setQuickFkFormData((p: any) => ({ ...p, [col]: e.currentTarget.value }))}
-                                                    size="sm" radius="md"
-                                                    styles={{ label: { fontWeight: 600, color: col === quickFk.lookup.displayColumn ? 'var(--mantine-color-blue-filled)' : undefined } }}
-                                                    required={col === quickFk.lookup.displayColumn}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-                                </ScrollArea.Autosize>
-                            )}
-                            <Group justify="flex-end" mt="xs">
-                                <Button variant="default" onClick={() => setQuickFk(null)} disabled={quickFkSaving}>Cancelar</Button>
-                                <Button
-                                    color="green"
-                                    leftSection={<IconPlus size={16} />}
-                                    loading={quickFkSaving}
-                                    disabled={!quickFkFormData[quickFk.lookup.displayColumn]?.trim?.()}
-                                    onClick={async () => {
-                                        setQuickFkSaving(true);
-                                        try {
-                                            const newRecord = await catalogosService.createMaestro(quickFk.lookup.tableName, quickFkFormData);
-                                            const fresh = await catalogosService.getMaestroData(quickFk.lookup.tableName);
-                                            setLookupData(prev => ({ ...prev, [quickFk.field]: fresh || [] }));
-                                            const newId = newRecord?.[quickFk.lookup.idColumn] || newRecord?.id;
-                                            if (newId) setFormData((prev: any) => ({ ...prev, [quickFk.field]: String(newId) }));
-                                            showToast({ type: 'success', message: `Registro creado correctamente` });
-                                            setQuickFk(null);
-                                        } catch {
-                                            showToast({ type: 'error', message: 'Error al crear el registro' });
-                                        } finally {
-                                            setQuickFkSaving(false);
-                                        }
-                                    }}
-                                >
-                                    Crear
-                                </Button>
-                            </Group>
-                        </Stack>
-                    )}
-                </Modal>
-
-            </Box>
+            </div>
         );
     }
 
@@ -1174,100 +1158,94 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
     return (
         <>
-        <Stack gap="md">
-            <Group justify="space-between">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
 
                 {fetchError && (
-                    <Alert icon={<IconAlertCircle size={16} />} color="red" radius="md" style={{ width: '100%' }}>
-                        {fetchError}
-                    </Alert>
+                    <Alert icon={<IconAlertCircle size={16} />} showIcon type="error" style={{ width: '100%' }} message={fetchError} />
                 )}
-                <Button 
-                    variant="subtle" 
-                    leftSection={<IconArrowLeft size={16} />} 
+                <Button
+                    icon={<IconArrowLeft size={16} />}
                     onClick={onBack}
-                    color="gray"
                 >
                     Volver al Panel
                 </Button>
-                <Button 
-                    leftSection={<IconPlus size={20} />} 
+                <Button
+                    type="primary"
+                    icon={<IconPlus size={20} />}
                     onClick={() => handleOpenModal()}
-                    color="blue"
                     disabled={needsDependency}
                 >
                     Añadir {config.label}
                 </Button>
-            </Group>
+            </div>
 
             {needsDependency && (
-                <Alert icon={<IconAlertCircle size={16} />} title="Atención" color="orange" radius="md">
-                    Necesita crear primero registros en el maestro <strong>{config.dependsOn}</strong> antes de poder añadir nuevos {config.label}.
-                </Alert>
+                <Alert icon={<IconAlertCircle size={16} />} showIcon type="warning" message="Atención" description={
+                    <>Necesita crear primero registros en el maestro <strong>{config.dependsOn}</strong> antes de poder añadir nuevos {config.label}.</>
+                } />
             )}
 
             {/* ── MAESTRO INFO PANEL ─────────────────────────────────────── */}
-            <Paper withBorder p="sm" radius="md" style={{ background: 'var(--mantine-color-blue-0)', borderColor: 'var(--mantine-color-blue-2)' }}>
-                <Group gap="xs" mb={6}>
-                    <ThemeIcon size="sm" variant="light" color="blue"><IconSettings size={12} /></ThemeIcon>
-                    <Text size="xs" fw={700} c="blue.7">Información del Maestro</Text>
-                </Group>
-                <Group gap="md" wrap="wrap">
+            <Card size="small" style={{ background: '#e7f3ff', borderColor: '#a5d8ff' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
+                    <IconBadge color="blue" size={20}><IconSettings size={12} /></IconBadge>
+                    <Text strong style={{ fontSize: 12, color: '#1864ab' }}>Información del Maestro</Text>
+                </div>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
                     {/* Tabla */}
-                    <Group gap={4}>
-                        <Text size="xs" c="dimmed">Tabla:</Text>
-                        <Badge size="xs" variant="outline" color="blue" radius="sm" style={{ fontFamily: 'monospace' }}>{config.tableName}</Badge>
-                    </Group>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 12 }} type="secondary">Tabla:</Text>
+                        <Tag color="blue" style={{ fontFamily: 'monospace' }}>{config.tableName}</Tag>
+                    </div>
                     {/* ID */}
-                    <Group gap={4}>
-                        <Text size="xs" c="dimmed">ID:</Text>
-                        <Badge size="xs" variant="outline" color="gray" radius="sm" style={{ fontFamily: 'monospace' }}>{config.idName}</Badge>
-                    </Group>
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                        <Text style={{ fontSize: 12 }} type="secondary">ID:</Text>
+                        <Tag style={{ fontFamily: 'monospace' }}>{config.idName}</Tag>
+                    </div>
                     {/* Status column */}
                     {config.statusColumn && (
-                        <Group gap={4}>
-                            <Text size="xs" c="dimmed">Estado:</Text>
-                            <Badge size="xs" variant="outline" color="green" radius="sm" style={{ fontFamily: 'monospace' }}>{config.statusColumn}</Badge>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12 }} type="secondary">Estado:</Text>
+                            <Tag color="green" style={{ fontFamily: 'monospace' }}>{config.statusColumn}</Tag>
+                        </div>
                     )}
                     {/* Lookups / FK relations */}
                     {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => (
-                        <Group key={field} gap={4}>
-                            <Badge size="xs" variant="light" color="violet" radius="sm" style={{ fontFamily: 'monospace' }}>{field}</Badge>
-                            <Text size="xs" c="dimmed">→</Text>
-                            <Badge size="xs" variant="outline" color="violet" radius="sm" style={{ fontFamily: 'monospace' }}>{lookup.tableName}.{lookup.displayColumn}</Badge>
-                        </Group>
+                        <div key={field} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Tag color="purple" style={{ fontFamily: 'monospace' }}>{field}</Tag>
+                            <Text style={{ fontSize: 12 }} type="secondary">→</Text>
+                            <Tag color="purple" style={{ fontFamily: 'monospace' }}>{lookup.tableName}.{lookup.displayColumn}</Tag>
+                        </div>
                     ))}
                     {/* Dependency */}
                     {config.dependsOn && (
-                        <Group gap={4}>
-                            <Text size="xs" c="dimmed">Depende de:</Text>
-                            <Badge size="xs" variant="light" color="orange" radius="sm">{config.dependsOn}</Badge>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12 }} type="secondary">Depende de:</Text>
+                            <Tag color="orange">{config.dependsOn}</Tag>
+                        </div>
                     )}
                     {/* Total records */}
                     {data.length > 0 && (
-                        <Group gap={4}>
-                            <Text size="xs" c="dimmed">Registros:</Text>
-                            <Badge size="xs" variant="filled" color="blue" radius="sm">{data.length}</Badge>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                            <Text style={{ fontSize: 12 }} type="secondary">Registros:</Text>
+                            <Tag color="blue">{data.length}</Tag>
+                        </div>
                     )}
-                </Group>
-            </Paper>
+                </div>
+            </Card>
 
-            <Paper withBorder p="md" radius="md" shadow="sm">
-                <Stack gap="md">
-                    <Group justify="space-between">
-                        <Group gap="xs">
-                            <Text fw={700} size="xl">{config.label}</Text>
-                            <Badge variant="dot" color="gray" size="sm">
-                                {config.tableName}
-                            </Badge>
-                        </Group>
-                        <Group gap="sm">
-                            <Select 
+            <Card>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <Text strong style={{ fontSize: 20 }}>{config.label}</Text>
+                            <Tag>{config.tableName}</Tag>
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Select
                                 placeholder="Estado"
-                                data={[
+                                options={[
                                     { value: 'all', label: 'Todos los estados' },
                                     { value: 'active', label: 'Solo Activos' },
                                     { value: 'inactive', label: 'Solo Inactivos' }
@@ -1275,7 +1253,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                 value={statusFilter}
                                 onChange={(v) => setStatusFilter(v || 'all')}
                                 style={{ width: 190 }}
-                                radius="md"
                             />
 
                             {/* Dynamic filters based on FK lookups */}
@@ -1286,7 +1263,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                     <Select
                                         key={`filter-${field}`}
                                         placeholder={`Filtrar por ${formatHeader(field)}`}
-                                        data={(() => {
+                                        options={(() => {
                                             const seen = new Set();
                                             return options
                                                 .map(opt => ({
@@ -1300,12 +1277,12 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                                     return true;
                                                 });
                                         })()}
-                                        value={dynamicFilters[field] || null}
+                                        value={dynamicFilters[field] || undefined}
                                         onChange={(v) => setDynamicFilters(prev => ({ ...prev, [field]: v || '' }))}
-                                        clearable
-                                        searchable
+                                        allowClear
+                                        showSearch
+                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                         style={{ width: 200 }}
-                                        radius="md"
                                     />
                                 );
                             })}
@@ -1314,108 +1291,107 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                             {config.dependsOn === 'clientes' && (
                                 <Select
                                     placeholder="Filtrar por Cliente"
-                                    data={dependencyData.map(c => ({
+                                    options={dependencyData.map(c => ({
                                         value: String(c.id || c.id_empresa),
                                         label: String(c.nombre || c.nombre_empresa)
                                     }))}
-                                    value={dynamicFilters['id_empresa'] || null}
+                                    value={dynamicFilters['id_empresa'] || undefined}
                                     onChange={(v) => setDynamicFilters(prev => ({ ...prev, id_empresa: v || '' }))}
-                                    clearable
-                                    searchable
+                                    allowClear
+                                    showSearch
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                     style={{ width: 200 }}
-                                    radius="md"
                                 />
                             )}
 
                             {config.dependsOn === 'componentes' && (
                                 <Select
                                     placeholder="Filtrar por Componente"
-                                    data={dependencyData.map(c => ({
+                                    options={dependencyData.map(c => ({
                                         value: String(c.id || c.id_tipomuestra),
                                         label: String(c.nombre || c.nombre_tipomuestra)
                                     }))}
-                                    value={dynamicFilters['id_tipomuestra'] || null}
+                                    value={dynamicFilters['id_tipomuestra'] || undefined}
                                     onChange={(v) => setDynamicFilters(prev => ({ ...prev, id_tipomuestra: v || '' }))}
-                                    clearable
-                                    searchable
+                                    allowClear
+                                    showSearch
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                     style={{ width: 200 }}
-                                    radius="md"
                                 />
                             )}
 
-                            <TextInput 
-                                placeholder="Buscar..." 
-                                leftSection={<IconSearch size={16} />}
+                            <Input
+                                placeholder="Buscar..."
+                                prefix={<IconSearch size={16} />}
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.currentTarget.value)}
                                 style={{ width: 250 }}
-                                radius="md"
                             />
-                        </Group>
-                    </Group>
+                        </div>
+                    </div>
 
-                    <ScrollArea offsetScrollbars>
-                        <Table highlightOnHover verticalSpacing="sm" style={{ minWidth: 800 }}>
-                            <Table.Thead bg="gray.0">
-                                <Table.Tr>
-                                    <Table.Th style={{ width: 80 }}>ID</Table.Th>
-                                    
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', minWidth: 800, borderCollapse: 'collapse' }}>
+                            <thead style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                                <tr>
+                                    <th style={{ width: 80, textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>ID</th>
+
                                     {/* Granular columns */}
                                     {mainTableColumns.map((col: string) => (
-                                        <Table.Th key={col}>{formatHeader(col)}</Table.Th>
+                                        <th key={col} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>{formatHeader(col)}</th>
                                     ))}
 
-                                    {hasStatusColumn && <Table.Th style={{ width: 100 }}>Estado</Table.Th>}
-                                    <Table.Th style={{ width: 100 }}>Acciones</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                                    {hasStatusColumn && <th style={{ width: 100, textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>Estado</th>}
+                                    <th style={{ width: 100, textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
                                 {loading ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={mainTableColumns.length + 3} align="center" py="xl">
-                                            <Loader size="sm" />
-                                            <Text size="sm" mt="xs">Cargando datos...</Text>
-                                        </Table.Td>
-                                    </Table.Tr>
+                                    <tr>
+                                        <td colSpan={mainTableColumns.length + 3} style={{ textAlign: 'center', padding: '32px 0' }}>
+                                            <Spin size="small" />
+                                            <Text style={{ fontSize: 13, display: 'block', marginTop: 8 }}>Cargando datos...</Text>
+                                        </td>
+                                    </tr>
                                 ) : filteredData.length === 0 ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={mainTableColumns.length + 3} align="center" py="xl">
-                                            <Text c="dimmed">No se encontraron registros</Text>
-                                        </Table.Td>
-                                    </Table.Tr>
+                                    <tr>
+                                        <td colSpan={mainTableColumns.length + 3} style={{ textAlign: 'center', padding: '32px 0' }}>
+                                            <Text type="secondary">No se encontraron registros</Text>
+                                        </td>
+                                    </tr>
                                 ) : (
                                     paginatedData.map((item) => {
                                         const status = item[config.statusColumn || 'habilitado'] || item.activo || item.estado || 'S';
                                         const isActive = status === 'S' || status === 'V' || status === 1 || status === true;
-                                        
+
                                         return (
-                                            <Table.Tr key={item[config.idName]}>
-                                                <Table.Td>
-                                                    <Text size="xs" c="dimmed" fw={500}>{item[config.idName]}</Text>
-                                                </Table.Td>
-                                                
+                                            <tr key={item[config.idName]} style={{ borderBottom: '1px solid var(--app-border)' }}>
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <Text style={{ fontSize: 12, fontWeight: 500 }} type="secondary">{item[config.idName]}</Text>
+                                                </td>
+
                                                 {/* Granular data cells */}
                                                 {mainTableColumns.map((col: string) => {
                                                     const raw = item[col];
-                                                    
+
                                                     // Only treat as boolean if column NAME suggests it, not just any 0/1 value
                                                     const boolNamePatterns = ['envia_', 'es_', 'oculto', 'visible', 'activo', 'active', 'enabled', 'is_', 'tiene_', 'permite_', 'transaccional'];
                                                     const isBoolCol = typeof raw === 'boolean' || boolNamePatterns.some(p => col.toLowerCase().includes(p));
                                                     const isNullValue = raw === null || raw === undefined || raw === '';
                                                     const isDescCol = /descrip|observ/i.test(col);
                                                     let displayValue: React.ReactNode = isNullValue
-                                                        ? <Text size="xs" c="dimmed" fs="italic">{isDescCol ? 'Sin observaciones' : 'null'}</Text>
+                                                        ? <Text style={{ fontSize: 12, fontStyle: 'italic' }} type="secondary">{isDescCol ? 'Sin observaciones' : 'null'}</Text>
                                                         : String(raw);
-                                                    
+
                                                     if (isBoolCol && raw !== null && raw !== undefined) {
                                                         const isTrue = raw === true || raw === 1;
                                                         displayValue = (
-                                                            <Badge color={isTrue ? 'green' : 'gray'} variant="light" size="sm">
+                                                            <Tag color={isTrue ? 'green' : 'default'}>
                                                                 {isTrue ? '✅ Sí' : '❌ No'}
-                                                            </Badge>
+                                                            </Tag>
                                                         );
                                                     }
-                                                    
+
                                                     // Resolve Lookup names if available
                                                     if (!isBoolCol && config.lookups && config.lookups[col]) {
                                                         const lookup = config.lookups[col];
@@ -1432,173 +1408,82 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
                                                     const isNameCol = col === config.displayColumn;
                                                     return (
-                                                        <Table.Td key={col} style={isNameCol ? { minWidth: 220 } : undefined}>
+                                                        <td key={col} style={{ padding: '10px 12px', minWidth: isNameCol ? 220 : undefined }}>
                                                             <Text
-                                                                component="div"
-                                                                size="sm"
-                                                                fw={isNameCol ? 600 : 400}
-                                                                style={isNameCol
-                                                                    ? { whiteSpace: 'normal', wordBreak: 'break-word' }
-                                                                    : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250 }}
+                                                                style={{
+                                                                    fontSize: 13,
+                                                                    fontWeight: isNameCol ? 600 : 400,
+                                                                    ...(isNameCol
+                                                                        ? { whiteSpace: 'normal', wordBreak: 'break-word' }
+                                                                        : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250, display: 'block' })
+                                                                }}
                                                             >
                                                                 {displayValue}
                                                             </Text>
-                                                        </Table.Td>
+                                                        </td>
                                                     );
                                                 })}
 
                                                 {hasStatusColumn && (
-                                                    <Table.Td>
-                                                        <Badge 
-                                                            color={isActive ? 'green' : 'red'} 
-                                                            variant="light"
-                                                            size="sm"
-                                                        >
+                                                    <td style={{ padding: '10px 12px' }}>
+                                                        <Tag color={isActive ? 'green' : 'red'}>
                                                             {isActive ? 'Activo' : 'Inactivo'}
-                                                        </Badge>
-                                                    </Table.Td>
+                                                        </Tag>
+                                                    </td>
                                                 )}
-                                                
-                                                <Table.Td>
-                                                    <Group gap={4} wrap="nowrap">
-                                                        <Tooltip label="Editar">
-                                                            <ActionIcon 
-                                                                color="blue" 
-                                                                variant="light" 
-                                                                size="sm"
+
+                                                <td style={{ padding: '10px 12px' }}>
+                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
+                                                        <Tooltip title="Editar">
+                                                            <Button
+                                                                type="text"
+                                                                size="small"
+                                                                style={{ color: '#1c7ed6' }}
+                                                                icon={<IconEdit size={14} />}
                                                                 onClick={() => handleOpenModal(item)}
-                                                            >
-                                                                <IconEdit size={14} />
-                                                            </ActionIcon>
+                                                            />
                                                         </Tooltip>
                                                         {hasStatusColumn && (
-                                                            <Tooltip label={isActive ? 'Deshabilitar' : 'Habilitar'}>
-                                                                <ActionIcon 
-                                                                    color={isActive ? 'red' : 'green'} 
-                                                                    variant="light"
-                                                                    size="sm"
+                                                            <Tooltip title={isActive ? 'Deshabilitar' : 'Habilitar'}>
+                                                                <Button
+                                                                    type="text"
+                                                                    size="small"
+                                                                    style={{ color: isActive ? '#e03131' : '#2f9e44' }}
+                                                                    icon={isActive ? <IconTrash size={14} /> : <IconCheck size={14} />}
                                                                     onClick={() => handleToggleStatus(item)}
-                                                                >
-                                                                    {isActive ? <IconTrash size={14} /> : <IconCheck size={14} />}
-                                                                </ActionIcon>
+                                                                />
                                                             </Tooltip>
                                                         )}
-                                                    </Group>
-                                                </Table.Td>
-                                            </Table.Tr>
+                                                    </div>
+                                                </td>
+                                            </tr>
                                         );
                                     })
                                 )}
-                            </Table.Tbody>
-                        </Table>
-                    </ScrollArea>
+                            </tbody>
+                        </table>
+                    </div>
 
                     {totalPages > 1 && (
-                        <Group justify="center" mt="md" mb="xs">
-                            <Pagination 
-                                total={totalPages} 
-                                value={page} 
-                                onChange={setPage} 
-                                color="blue" 
-                                radius="md" 
-                                withEdges
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 8 }}>
+                            <Pagination
+                                total={filteredData.length}
+                                pageSize={itemsPerPage}
+                                current={page}
+                                onChange={setPage}
+                                showSizeChanger={false}
                             />
-                        </Group>
+                        </div>
                     )}
-                </Stack>
-            </Paper>
-        </Stack>
+                </div>
+            </Card>
+        </div>
         <style dangerouslySetInnerHTML={{ __html: `
             @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         `}} />
 
         {/* ── QUICK-CREATE FK MODAL (list view) ── */}
-        <Modal
-            opened={!!quickFk}
-            onClose={() => !quickFkSaving && setQuickFk(null)}
-            title={
-                <Group gap="xs">
-                    <ThemeIcon color="green" variant="light" size="md"><IconPlus size={16} /></ThemeIcon>
-                    <Text fw={700} size="sm">
-                        Crear nuevo en <Badge variant="dot" color="blue" size="sm" style={{ fontFamily: 'monospace' }}>{quickFk?.lookup.tableName}</Badge>
-                    </Text>
-                </Group>
-            }
-            size="lg"
-            radius="md"
-            centered
-        >
-            {quickFk && (
-                <Stack gap="md">
-                    {quickFkCols.length === 0 ? (
-                        <Group justify="center" py="md"><Loader size="sm" /></Group>
-                    ) : (
-                        <ScrollArea.Autosize mah={420}>
-                            <SimpleGrid cols={2} spacing="md" pr="xs">
-                                {quickFkCols.map(col => {
-                                    const boolExact2  = ['habilitado','activo','active','enabled','vigente','estado','visible','oculto','transaccional'];
-                                    const boolPrefix2 = ['envia_','es_','is_','tiene_','permite_','perfil_'];
-                                    const boolSuffix2 = ['_habilitado','_activo','_estado','_vigente','_oculto'];
-                                    const imgPats     = ['firma_','foto','imagen','logo','avatar','signature'];
-                                    const isBool = boolExact2.includes(col.toLowerCase()) || boolPrefix2.some(p => col.toLowerCase().startsWith(p)) || boolSuffix2.some(p => col.toLowerCase().endsWith(p));
-                                    const isImg  = imgPats.some(p => col.toLowerCase().includes(p));
-                                    if (isImg) return (
-                                        <Box key={col}>
-                                            <Text size="xs" fw={600} c="blue" mb={4}>{formatHeader(col)}</Text>
-                                            <FileInput placeholder="Seleccionar imagen..." accept="image/*" leftSection={<IconUpload size={14} />}
-                                                onChange={async (file) => {
-                                                    if (!file) return;
-                                                    const fd = new FormData(); fd.append('archivo', file);
-                                                    const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-                                                    const token = localStorage.getItem('token');
-                                                    const res = await fetch(`${apiBase}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-                                                    const json = await res.json();
-                                                    if (json.success) setQuickFkFormData((p: any) => ({ ...p, [col]: json.filePath }));
-                                                }} size="sm" radius="md" />
-                                        </Box>
-                                    );
-                                    if (isBool) return (
-                                        <Select key={col} label={formatHeader(col)}
-                                            data={[{ value: '1', label: '✅ Sí' }, { value: '0', label: '❌ No' }]}
-                                            value={quickFkFormData[col] !== undefined ? String(quickFkFormData[col]) : '1'}
-                                            onChange={(v) => setQuickFkFormData((p: any) => ({ ...p, [col]: v }))}
-                                            size="sm" radius="md" styles={{ label: { fontWeight: 600 } }} />
-                                    );
-                                    return (
-                                        <TextInput key={col} label={formatHeader(col)} placeholder={col}
-                                            value={quickFkFormData[col] || ''}
-                                            onChange={(e) => setQuickFkFormData((p: any) => ({ ...p, [col]: e.currentTarget.value }))}
-                                            size="sm" radius="md" required={col === quickFk.lookup.displayColumn}
-                                            styles={{ label: { fontWeight: 600, color: col === quickFk.lookup.displayColumn ? 'var(--mantine-color-blue-filled)' : undefined } }} />
-                                    );
-                                })}
-                            </SimpleGrid>
-                        </ScrollArea.Autosize>
-                    )}
-                    <Group justify="flex-end" mt="xs">
-                        <Button variant="default" onClick={() => setQuickFk(null)} disabled={quickFkSaving}>Cancelar</Button>
-                        <Button color="green" leftSection={<IconPlus size={16} />} loading={quickFkSaving}
-                            disabled={!quickFkFormData[quickFk.lookup.displayColumn]?.trim?.()}
-                            onClick={async () => {
-                                setQuickFkSaving(true);
-                                try {
-                                    const newRecord = await catalogosService.createMaestro(quickFk.lookup.tableName, quickFkFormData);
-                                    const fresh = await catalogosService.getMaestroData(quickFk.lookup.tableName);
-                                    setLookupData(prev => ({ ...prev, [quickFk.field]: fresh || [] }));
-                                    const newId = newRecord?.[quickFk.lookup.idColumn] || newRecord?.id;
-                                    if (newId) setFormData((prev: any) => ({ ...prev, [quickFk.field]: String(newId) }));
-                                    showToast({ type: 'success', message: `Registro creado correctamente` });
-                                    setQuickFk(null);
-                                } catch {
-                                    showToast({ type: 'error', message: 'Error al crear el registro' });
-                                } finally { setQuickFkSaving(false); }
-                            }}>
-                            Crear
-                        </Button>
-                    </Group>
-                </Stack>
-            )}
-        </Modal>
+        {quickFkModal}
         </>
 
     );

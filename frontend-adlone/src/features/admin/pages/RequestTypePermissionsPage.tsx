@@ -1,25 +1,18 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    Paper,
-    Text,
+    Typography,
     Button,
-    Group,
-    ActionIcon,
     Table,
     Checkbox,
-    Badge,
-    Loader,
-    Stack,
+    Tag,
+    Spin,
     Select,
-    Collapse,
-    Box,
     Tooltip,
-    Flex,
     Avatar,
-    TextInput,
-    SimpleGrid
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+    Input,
+    Card
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconUsers,
     IconUser,
@@ -42,6 +35,8 @@ import { rbacService } from '../services/rbac.service';
 import type { Role, User as UserType } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+
+const { Text } = Typography;
 
 interface RequestType {
     id_tipo: number;
@@ -90,7 +85,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
     const [users, setUsers] = useState<UserType[]>([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    
+
     // Header edit states
     const [typeName, setTypeName] = useState(requestType.nombre);
     const [areaDestino, setAreaDestino] = useState(requestType.area_destino);
@@ -186,15 +181,15 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
     const addEntry = async (type: 'role' | 'user', idValue: string | null) => {
         if (!idValue) return;
         const id = parseInt(idValue);
-        const item = type === 'role' 
-            ? roles.find(r => r.id_rol === id) 
+        const item = type === 'role'
+            ? roles.find(r => r.id_rol === id)
             : users.find(u => u.id_usuario === id);
-        
+
         if (!item) return;
 
         const name = type === 'role' ? (item as Role).nombre_rol : ((item as UserType).nombre_real || (item as UserType).nombre_usuario);
         const key = `${type}_${id}`;
-        
+
         if (entries.some(e => `${e.type}_${e.id}` === key)) {
             showToast({ type: 'warning', message: 'Esta entidad ya está en la lista.' });
             return;
@@ -276,14 +271,98 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
         .filter(u => !entries.some(e => e.type === 'user' && e.id === u.id_usuario))
         .map(u => {
             const hasOver = userOverlapsWithRole(u.id_usuario);
-            return { 
-                value: u.id_usuario.toString(), 
+            return {
+                value: u.id_usuario.toString(),
                 label: (u.nombre_real || u.nombre_usuario) + (hasOver ? ' (⚠️ Rol ya activo)' : '')
             };
         });
 
+    const entityCols = [
+        {
+            title: (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', color: 'var(--app-text-secondary)' }}>
+                    <IconShield size={14} />
+                    <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 }}>Entidad</Text>
+                </div>
+            ),
+            key: 'entidad',
+            render: (_: unknown, entry: PermissionEntry, idx: number) => {
+                const isExpanded = expandedIdx === idx;
+                const isLoadingThis = loadingMembersIdx === idx;
+                const hasOverlap = entry.type === 'user' && userOverlapsWithRole(entry.id);
+                return (
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'nowrap' }}>
+                        <Avatar shape="square" style={{ borderRadius: 8, backgroundColor: entry.type === 'role' ? 'var(--app-accent-bg)' : 'rgba(12,133,153,0.12)', color: entry.type === 'role' ? '#0062a8' : '#0c8599' }}>
+                            {entry.type === 'role' ? <IconUsers size={16} /> : <IconUser size={16} />}
+                        </Avatar>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{entry.name}</Text>
+                                {entry.isNew && <Tag color="gold">NUEVO</Tag>}
+                                {hasOverlap && (
+                                    <Tooltip title="Este usuario ya está cubierto por un rol activo">
+                                        <Tag color="orange" icon={<IconAlertTriangle size={10} style={{ verticalAlign: 'text-bottom' }} />}>Rol Activo</Tag>
+                                    </Tooltip>
+                                )}
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 2 }}>
+                                <Text type="secondary" strong style={{ fontSize: 10 }}>{entry.type === 'role' ? '👥 ROL' : '👤 USUARIO'}</Text>
+                                <Button
+                                    type="text"
+                                    size="small"
+                                    icon={isLoadingThis ? <Spin size="small" /> : isExpanded ? <IconChevronUp size={10} /> : <IconChevronDown size={10} />}
+                                    onClick={() => loadMembers(idx, entry)}
+                                    style={{ fontSize: 10, height: 'auto', padding: '2px 6px' }}
+                                >
+                                    {entry.type === 'role' ? 'Usuarios' : 'Roles'}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            },
+        },
+        ...ACCESS_LABELS.map(a => ({
+            title: (
+                <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: 2, color: 'var(--app-text-secondary)' }}>
+                    <div style={{ display: 'flex' }}>{a.icon}</div>
+                    <Text type="secondary" strong style={{ fontSize: 10, textTransform: 'uppercase', textAlign: 'center' }}>{a.label}</Text>
+                </div>
+            ),
+            key: a.key,
+            width: 115,
+            align: 'center' as const,
+            render: (_: unknown, entry: PermissionEntry, idx: number) => (
+                <Checkbox checked={entry[a.key]} onChange={() => toggleCell(idx, a.key)} />
+            ),
+        })),
+        {
+            title: '', key: 'acciones', width: 60, align: 'center' as const,
+            render: (_: unknown, _entry: PermissionEntry, idx: number) => (
+                <Button type="text" danger size="small" icon={<IconX size={16} />} onClick={() => removeEntry(idx)} />
+            ),
+        },
+    ];
+
+    const renderMembers = (entry: PermissionEntry) => (
+        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+            <Text type="secondary" strong style={{ fontSize: 10, textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>
+                {entry.type === 'role' ? 'Usuarios asignados a este rol' : 'Roles que posee el usuario'}
+            </Text>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                {entry.members && entry.members.length > 0 ? entry.members.map((m, i) => (
+                    <Tag key={i} color={entry.type === 'role' ? 'blue' : 'cyan'} icon={entry.type === 'role' ? <IconUser size={10} style={{ verticalAlign: 'text-bottom' }} /> : <IconUsers size={10} style={{ verticalAlign: 'text-bottom' }} />}>
+                        {m}
+                    </Tag>
+                )) : (
+                    <Text type="secondary" italic style={{ fontSize: 12 }}>No se encontraron datos asociados.</Text>
+                )}
+            </div>
+        </Card>
+    );
+
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <div style={{ padding: 16, width: '100%' }}>
             <PageHeader
                 title={`Permisos: ${typeName}`}
                 subtitle={`Define quién puede crear, ver, gestionar o derivar el trámite "${typeName}".`}
@@ -294,250 +373,118 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                     { label: 'Configuración de Permisos' }
                 ]}
                 rightSection={
-                    <Button 
-                        leftSection={saving ? <Loader size={14} color="white" /> : <IconDeviceFloppy size={16} />}
+                    <Button
+                        type="primary"
+                        icon={saving ? <Spin size="small" style={{ color: 'white' }} /> : <IconDeviceFloppy size={16} />}
                         onClick={save}
                         disabled={saving}
-                        radius="md"
-                        color="blue"
                     >
                         {saving ? 'Guardando...' : 'Guardar Cambios'}
                     </Button>
                 }
             />
 
-            <Stack gap="lg" mt="xl">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
                 {/* Header Section / Basic Info Edit */}
-                <Paper withBorder p="md" radius="md" bg="gray.0">
-                    <Group justify="space-between" align="flex-end">
-                        <Box style={{ flex: 1 }}>
-                            {isEditingHeader ? (
-                                <Group gap="md">
-                                    <TextInput 
-                                        label="Nombre del Trámite"
-                                        placeholder="Ej: Solicitud de Vacaciones"
-                                        value={typeName}
-                                        onChange={(e) => setTypeName(e.currentTarget.value)}
-                                        style={{ flex: 2 }}
-                                        radius="md"
-                                    />
-                                    <TextInput 
-                                        label="Área Responsable"
-                                        placeholder="Ej: Recursos Humanos"
-                                        value={areaDestino}
-                                        onChange={(e) => setAreaDestino(e.currentTarget.value)}
-                                        style={{ flex: 1 }}
-                                        radius="md"
-                                    />
-                                    <TextInput 
-                                        label="Módulo UI (Filtro)"
-                                        placeholder="Ej: EQUIPOS"
-                                        value={moduloDestino}
-                                        onChange={(e) => setModuloDestino(e.currentTarget.value)}
-                                        style={{ flex: 1 }}
-                                        radius="md"
-                                    />
-                                    <ActionIcon variant="light" color="red" size="lg" mb={2} onClick={() => setIsEditingHeader(false)} radius="md">
-                                        <IconX size={18} />
-                                    </ActionIcon>
-                                </Group>
-                            ) : (
-                                <Box>
-                                    <Group gap="xs" mb={4}>
-                                        <Text size="sm" fw={700} c="dark.4">Información Básica del Trámite</Text>
-                                        <Tooltip label="Editar nombre y área">
-                                            <ActionIcon variant="subtle" color="blue" size="sm" onClick={() => setIsEditingHeader(true)}>
-                                                <IconSettings size={14} />
-                                            </ActionIcon>
-                                        </Tooltip>
-                                    </Group>
-                                    <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="lg">
-                                        <Box>
-                                            <Text size="xs" c="dimmed" fw={500}>Nombre del Trámite</Text>
-                                            <Text size="sm" fw={600} truncate>{typeName}</Text>
-                                        </Box>
-                                        <Box>
-                                            <Text size="xs" c="dimmed" fw={500}>Área Destino / Responsable</Text>
-                                            <Badge variant="outline" color="blue" radius="sm" mt={2} fullWidth={isMobile} styles={{ root: { textAlign: 'center' }}}>{areaDestino}</Badge>
-                                        </Box>
-                                        <Box>
-                                            <Text size="xs" c="dimmed" fw={500}>Estado actual</Text>
-                                            <Badge variant="light" color={requestType.estado ? 'teal' : 'red'} radius="sm" mt={2} fullWidth={isMobile} styles={{ root: { textAlign: 'center' }}}>
-                                                {requestType.estado ? 'ACTIVO' : 'INACTIVO'}
-                                            </Badge>
-                                        </Box>
-                                        <Box>
-                                            <Text size="xs" c="dimmed" fw={500}>Módulo Destino</Text>
-                                            <Badge variant="dot" color="gray" radius="sm" mt={2} fullWidth={isMobile} styles={{ root: { textAlign: 'center' }}}>
-                                                {moduloDestino || 'NINGUNO'}
-                                            </Badge>
-                                        </Box>
-                                    </SimpleGrid>
-                                </Box>
-                            )}
-                        </Box>
-                    </Group>
-                </Paper>
+                <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                    {isEditingHeader ? (
+                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                            <Field label="Nombre del Trámite" style={{ flex: 2 }}>
+                                <Input
+                                    placeholder="Ej: Solicitud de Vacaciones"
+                                    value={typeName}
+                                    onChange={(e) => setTypeName(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Área Responsable" style={{ flex: 1 }}>
+                                <Input
+                                    placeholder="Ej: Recursos Humanos"
+                                    value={areaDestino}
+                                    onChange={(e) => setAreaDestino(e.target.value)}
+                                />
+                            </Field>
+                            <Field label="Módulo UI (Filtro)" style={{ flex: 1 }}>
+                                <Input
+                                    placeholder="Ej: EQUIPOS"
+                                    value={moduloDestino}
+                                    onChange={(e) => setModuloDestino(e.target.value)}
+                                />
+                            </Field>
+                            <Button danger type="text" icon={<IconX size={18} />} onClick={() => setIsEditingHeader(false)} />
+                        </div>
+                    ) : (
+                        <div>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                                <Text strong style={{ fontSize: 13 }}>Información Básica del Trámite</Text>
+                                <Tooltip title="Editar nombre y área">
+                                    <Button type="text" size="small" icon={<IconSettings size={14} />} onClick={() => setIsEditingHeader(true)} />
+                                </Tooltip>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(4, 1fr)', gap: 16 }}>
+                                <div>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>Nombre del Trámite</Text>
+                                    <Text strong style={{ fontSize: 13, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{typeName}</Text>
+                                </div>
+                                <div>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>Área Destino / Responsable</Text>
+                                    <Tag color="blue" style={{ display: 'block', textAlign: 'center', marginTop: 2 }}>{areaDestino}</Tag>
+                                </div>
+                                <div>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>Estado actual</Text>
+                                    <Tag color={requestType.estado ? 'green' : 'red'} style={{ display: 'block', textAlign: 'center', marginTop: 2 }}>
+                                        {requestType.estado ? 'ACTIVO' : 'INACTIVO'}
+                                    </Tag>
+                                </div>
+                                <div>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>Módulo Destino</Text>
+                                    <Tag style={{ display: 'block', textAlign: 'center', marginTop: 2 }}>
+                                        {moduloDestino || 'NINGUNO'}
+                                    </Tag>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </Card>
 
                 {loading ? (
-                    <Flex justify="center" align="center" h={300}>
-                        <Loader color="blue" size="lg" />
-                    </Flex>
+                    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Spin size="large" />
+                    </div>
                 ) : (
-                    <Paper withBorder radius="lg" shadow="sm" style={{ overflow: 'hidden', backgroundColor: 'transparent', border: isCompact ? 'none' : undefined }}>
+                    <Card size="small" style={{ overflow: 'hidden', backgroundColor: 'transparent', border: isCompact ? 'none' : undefined }} styles={{ body: { padding: isCompact ? 0 : undefined } }}>
                         {!isCompact ? (
-                            <Table verticalSpacing="sm" bg="white">
-                            <Table.Thead bg="gray.0">
-                                <Table.Tr>
-                                    <Table.Th>
-                                        <Group gap="xs" c="gray.6">
-                                            <IconShield size={14} />
-                                            <Text size="xs" fw={700} tt="uppercase" lts="0.05em">Entidad</Text>
-                                        </Group>
-                                    </Table.Th>
-                                    {ACCESS_LABELS.map(a => (
-                                        <Table.Th key={a.key} style={{ width: 115 }}>
-                                            <Flex direction="column" align="center" justify="center" gap={2} c="gray.6">
-                                                <Box c="gray.5" style={{ display: 'flex' }}>{a.icon}</Box>
-                                                <Text size="10px" fw={700} tt="uppercase" lts="0.04em" ta="center">{a.label}</Text>
-                                            </Flex>
-                                        </Table.Th>
-                                    ))}
-                                    <Table.Th style={{ width: 60 }} />
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {entries.length === 0 ? (
-                                    <Table.Tr>
-                                        <Table.Td colSpan={7} py={60}>
-                                            <Stack align="center" gap="xs">
-                                                <IconUsers size={40} style={{ opacity: 0.2 }} />
-                                                <Text fw={600} size="sm" c="dimmed">Sin entidades configuradas</Text>
-                                                <Text size="xs" c="dimmed">Usa los selectores de abajo para añadir roles o usuarios.</Text>
-                                            </Stack>
-                                        </Table.Td>
-                                    </Table.Tr>
-                                ) : entries.map((entry, idx) => {
-                                    const isExpanded = expandedIdx === idx;
-                                    const isLoadingThis = loadingMembersIdx === idx;
-                                    const hasOverlap = entry.type === 'user' && userOverlapsWithRole(entry.id);
-
-                                    return (
-                                        <React.Fragment key={`${entry.type}_${entry.id}`}>
-                                            <Table.Tr bg={entry.isNew ? 'yellow.0' : undefined}>
-                                                <Table.Td>
-                                                    <Group gap="sm" wrap="nowrap">
-                                                        <Avatar 
-                                                            radius="md" 
-                                                            color={entry.type === 'role' ? 'blue' : 'teal'} 
-                                                            variant="light"
-                                                            size={32}
-                                                        >
-                                                            {entry.type === 'role' ? <IconUsers size={16} /> : <IconUser size={16} />}
-                                                        </Avatar>
-                                                        <Box style={{ flex: 1, minWidth: 0 }}>
-                                                            <Group gap={6} wrap="nowrap">
-                                                                <Text size="sm" fw={600} truncate>{entry.name}</Text>
-                                                                {entry.isNew && (
-                                                                    <Badge size="xs" color="yellow" variant="light">NUEVO</Badge>
-                                                                )}
-                                                                {hasOverlap && (
-                                                                    <Tooltip label="Este usuario ya está cubierto por un rol activo">
-                                                                        <Badge 
-                                                                            size="xs" 
-                                                                            color="orange" 
-                                                                            variant="outline" 
-                                                                            leftSection={<IconAlertTriangle size={10} />}
-                                                                        >
-                                                                            Rol Activo
-                                                                        </Badge>
-                                                                    </Tooltip>
-                                                                )}
-                                                            </Group>
-                                                            <Group gap="xs" mt={2}>
-                                                                <Text size="10px" c="dimmed" fw={700}>{entry.type === 'role' ? '👥 ROL' : '👤 USUARIO'}</Text>
-                                                                <Button 
-                                                                    variant="transparent" 
-                                                                    color="gray" 
-                                                                    size="compact-xs" 
-                                                                    leftSection={isLoadingThis ? <Loader size={10} /> : isExpanded ? <IconChevronUp size={10} /> : <IconChevronDown size={10} />}
-                                                                    onClick={() => loadMembers(idx, entry)}
-                                                                    styles={{ label: { fontSize: '10px' }}}
-                                                                >
-                                                                    {entry.type === 'role' ? 'Usuarios' : 'Roles'}
-                                                                </Button>
-                                                            </Group>
-                                                        </Box>
-                                                    </Group>
-                                                </Table.Td>
-                                                
-                                                {ACCESS_LABELS.map(a => (
-                                                    <Table.Td key={a.key}>
-                                                        <Flex justify="center" align="center">
-                                                            <Checkbox 
-                                                                checked={entry[a.key]} 
-                                                                onChange={() => toggleCell(idx, a.key)} 
-                                                                size="sm"
-                                                                color="blue"
-                                                                styles={{ input: { cursor: 'pointer' }}}
-                                                            />
-                                                        </Flex>
-                                                    </Table.Td>
-                                                ))}
-
-                                                <Table.Td>
-                                                    <Flex justify="center">
-                                                        <ActionIcon variant="subtle" color="red" onClick={() => removeEntry(idx)}>
-                                                            <IconX size={16} />
-                                                        </ActionIcon>
-                                                    </Flex>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                            
-                                            {/* Expandable area */}
-                                            <Table.Tr style={{ display: isExpanded ? 'table-row' : 'none' }}>
-                                                <Table.Td colSpan={6} p={0}>
-                                                    <Collapse in={isExpanded}>
-                                                        <Box px="xl" pb="sm" pt={0}>
-                                                            <Paper withBorder p="xs" radius="md" bg="gray.0">
-                                                                <Text size="10px" fw={800} c="gray.6" tt="uppercase" mb={6} lts="0.03em">
-                                                                    {entry.type === 'role' ? 'Usuarios asignados a este rol' : 'Roles que posee el usuario'}
-                                                                </Text>
-                                                                <Flex gap={5} wrap="wrap">
-                                                                    {entry.members && entry.members.length > 0 ? entry.members.map((m, i) => (
-                                                                        <Badge 
-                                                                            key={i} 
-                                                                            variant="outline" 
-                                                                            color={entry.type === 'role' ? 'blue' : 'teal'} 
-                                                                            size="sm" 
-                                                                            leftSection={entry.type === 'role' ? <IconUser size={10} /> : <IconUsers size={10} />}
-                                                                        >
-                                                                            {m}
-                                                                        </Badge>
-                                                                    )) : (
-                                                                        <Text size="xs" c="dimmed" fs="italic">No se encontraron datos asociados.</Text>
-                                                                    )}
-                                                                </Flex>
-                                                            </Paper>
-                                                        </Box>
-                                                    </Collapse>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </Table.Tbody>
-                            </Table>
-                        ) : (
-                            <Stack gap="md">
-                                {entries.length === 0 ? (
-                                    <Paper withBorder p={40} radius="lg" bg="white">
-                                        <Stack align="center" gap="xs">
+                            <Table
+                                rowKey={(entry) => `${entry.type}_${entry.id}`}
+                                columns={entityCols}
+                                dataSource={entries}
+                                pagination={false}
+                                size="small"
+                                scroll={{ x: 900 }}
+                                expandable={{
+                                    expandedRowRender: renderMembers,
+                                    expandedRowKeys: expandedIdx !== null ? [`${entries[expandedIdx]?.type}_${entries[expandedIdx]?.id}`] : [],
+                                    showExpandColumn: false,
+                                }}
+                                locale={{
+                                    emptyText: (
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '60px 0' }}>
                                             <IconUsers size={40} style={{ opacity: 0.2 }} />
-                                            <Text fw={600} size="sm" c="dimmed">Sin entidades configuradas</Text>
-                                            <Text size="xs" c="dimmed" ta="center">Usa los selectores de abajo para añadir roles o usuarios.</Text>
-                                        </Stack>
-                                    </Paper>
+                                            <Text strong style={{ fontSize: 13 }}>Sin entidades configuradas</Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>Usa los selectores de abajo para añadir roles o usuarios.</Text>
+                                        </div>
+                                    ),
+                                }}
+                            />
+                        ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                {entries.length === 0 ? (
+                                    <Card style={{ textAlign: 'center' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                                            <IconUsers size={40} style={{ opacity: 0.2 }} />
+                                            <Text strong style={{ fontSize: 13 }}>Sin entidades configuradas</Text>
+                                            <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>Usa los selectores de abajo para añadir roles o usuarios.</Text>
+                                        </div>
+                                    </Card>
                                 ) : (
                                     entries.map((entry, idx) => {
                                         const isExpanded = expandedIdx === idx;
@@ -545,149 +492,117 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                                         const hasOverlap = entry.type === 'user' && userOverlapsWithRole(entry.id);
 
                                         return (
-                                            <Paper key={`${entry.type}_${entry.id}`} withBorder p="md" radius="lg" shadow="xs" bg="white">
-                                                <Group justify="space-between" align="flex-start" wrap="nowrap" mb="md">
-                                                    <Group gap="sm" wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                                                        <Avatar 
-                                                            radius="md" 
-                                                            color={entry.type === 'role' ? 'blue' : 'teal'} 
-                                                            variant="light"
-                                                            size={40}
-                                                        >
+                                            <Card key={`${entry.type}_${entry.id}`} size="small">
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap', marginBottom: 16 }}>
+                                                    <div style={{ display: 'flex', gap: 12, flexWrap: 'nowrap', flex: 1, minWidth: 0 }}>
+                                                        <Avatar shape="square" size={40} style={{ borderRadius: 8, backgroundColor: entry.type === 'role' ? 'var(--app-accent-bg)' : 'rgba(12,133,153,0.12)', color: entry.type === 'role' ? '#0062a8' : '#0c8599' }}>
                                                             {entry.type === 'role' ? <IconUsers size={20} /> : <IconUser size={20} />}
                                                         </Avatar>
-                                                        <Box style={{ flex: 1, minWidth: 0 }}>
-                                                            <Text size="sm" fw={700} truncate>{entry.name}</Text>
-                                                            <Group gap={6} mt={2}>
-                                                                <Badge size="xs" variant="light" color={entry.type === 'role' ? 'blue' : 'teal'}>
-                                                                    {entry.type === 'role' ? 'ROL' : 'USUARIO'}
-                                                                </Badge>
-                                                                {entry.isNew && <Badge size="xs" color="yellow" variant="light">NUEVO</Badge>}
-                                                                {hasOverlap && (
-                                                                    <Badge size="xs" color="orange" variant="outline" leftSection={<IconAlertTriangle size={10} />}>Rol Activo</Badge>
-                                                                )}
-                                                            </Group>
-                                                        </Box>
-                                                    </Group>
-                                                    <ActionIcon variant="subtle" color="red" onClick={() => removeEntry(idx)}>
-                                                        <IconX size={18} />
-                                                    </ActionIcon>
-                                                </Group>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{entry.name}</Text>
+                                                            <div style={{ display: 'flex', gap: 6, marginTop: 2 }}>
+                                                                <Tag color={entry.type === 'role' ? 'blue' : 'cyan'}>{entry.type === 'role' ? 'ROL' : 'USUARIO'}</Tag>
+                                                                {entry.isNew && <Tag color="gold">NUEVO</Tag>}
+                                                                {hasOverlap && <Tag color="orange" icon={<IconAlertTriangle size={10} style={{ verticalAlign: 'text-bottom' }} />}>Rol Activo</Tag>}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <Button type="text" danger icon={<IconX size={18} />} onClick={() => removeEntry(idx)} />
+                                                </div>
 
-                                                <SimpleGrid cols={2} spacing="xs" verticalSpacing="xs">
+                                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                                     {ACCESS_LABELS.map(a => (
-                                                        <Paper 
-                                                            key={a.key} 
-                                                            withBorder 
-                                                            p={8} 
-                                                            radius="md" 
-                                                            bg={entry[a.key] ? 'blue.0' : 'gray.0'}
-                                                            style={{ 
-                                                                border: entry[a.key] ? '1px solid var(--mantine-color-blue-2)' : '1px solid var(--mantine-color-gray-2)',
-                                                                cursor: 'pointer' 
-                                                            }}
+                                                        <div
+                                                            key={a.key}
                                                             onClick={() => toggleCell(idx, a.key)}
+                                                            style={{
+                                                                padding: 8, borderRadius: 8, cursor: 'pointer',
+                                                                border: `1px solid ${entry[a.key] ? '#4dabf7' : 'var(--app-border)'}`,
+                                                                backgroundColor: entry[a.key] ? 'var(--app-accent-bg)' : 'var(--app-hover-bg)',
+                                                            }}
                                                         >
-                                                            <Group justify="space-between" wrap="nowrap">
-                                                                <Group gap={6} wrap="nowrap">
-                                                                    <Box c={entry[a.key] ? 'blue.6' : 'gray.5'} style={{ display: 'flex' }}>{a.icon}</Box>
-                                                                    <Text size="11px" fw={600} c={entry[a.key] ? 'blue.9' : 'gray.7'}>{a.label}</Text>
-                                                                </Group>
-                                                                <Checkbox 
-                                                                    checked={entry[a.key]} 
-                                                                    onChange={() => toggleCell(idx, a.key)} 
-                                                                    size="xs"
-                                                                    color="blue"
-                                                                    tabIndex={-1}
-                                                                    styles={{ input: { cursor: 'pointer' }}}
-                                                                />
-                                                            </Group>
-                                                        </Paper>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
+                                                                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                                                    <div style={{ color: entry[a.key] ? '#1c7ed6' : 'var(--app-text-secondary)', display: 'flex' }}>{a.icon}</div>
+                                                                    <Text style={{ fontSize: 11, fontWeight: 600, color: entry[a.key] ? '#1864ab' : 'var(--app-text-secondary)' }}>{a.label}</Text>
+                                                                </div>
+                                                                <Checkbox checked={entry[a.key]} onChange={() => toggleCell(idx, a.key)} onClick={(e) => e.stopPropagation()} />
+                                                            </div>
+                                                        </div>
                                                     ))}
-                                                </SimpleGrid>
+                                                </div>
 
-                                                <Button 
-                                                    variant="light" 
-                                                    color="gray" 
-                                                    fullWidth 
-                                                    size="xs" 
-                                                    mt="md"
-                                                    radius="md"
-                                                    leftSection={isLoadingThis ? <Loader size={12} /> : isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                                                <Button
+                                                    block
+                                                    size="small"
+                                                    style={{ marginTop: 16 }}
+                                                    icon={isLoadingThis ? <Spin size="small" /> : isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
                                                     onClick={() => loadMembers(idx, entry)}
                                                 >
                                                     {entry.type === 'role' ? 'Ver Usuarios del Rol' : 'Ver Roles del Usuario'}
                                                 </Button>
 
-                                                <Collapse in={isExpanded} mt="xs">
-                                                    <Paper withBorder p="xs" radius="md" bg="gray.0">
-                                                        <Flex gap={5} wrap="wrap">
-                                                            {entry.members && entry.members.length > 0 ? entry.members.map((m, i) => (
-                                                                <Badge 
-                                                                    key={i} 
-                                                                    variant="outline" 
-                                                                    color={entry.type === 'role' ? 'blue' : 'teal'} 
-                                                                    size="xs" 
-                                                                    leftSection={entry.type === 'role' ? <IconUser size={10} /> : <IconUsers size={10} />}
-                                                                >
-                                                                    {m}
-                                                                </Badge>
-                                                            )) : (
-                                                                <Text size="xs" c="dimmed" fs="italic">No se encontraron datos asociados.</Text>
-                                                            )}
-                                                        </Flex>
-                                                    </Paper>
-                                                </Collapse>
-                                            </Paper>
+                                                {isExpanded && (
+                                                    <div style={{ marginTop: 8 }}>
+                                                        {renderMembers(entry)}
+                                                    </div>
+                                                )}
+                                            </Card>
                                         );
                                     })
                                 )}
-                            </Stack>
+                            </div>
                         )}
 
                         {/* Footer Adder */}
-                        <Box p="md" bg={isCompact ? 'transparent' : 'gray.0'} mt={isCompact ? 'lg' : 0} style={{ borderTop: isCompact ? 'none' : '1px solid #f1f5f9' }}>
-                            <Group align="flex-start" gap="md" wrap={isMobile ? "wrap" : "nowrap"}>
-                                <Select 
+                        <div style={{ padding: 16, backgroundColor: isCompact ? 'transparent' : 'var(--app-hover-bg)', marginTop: isCompact ? 24 : 0, borderTop: isCompact ? 'none' : '1px solid var(--app-border)' }}>
+                            <div style={{ display: 'flex', gap: 16, flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: 'flex-start' }}>
+                                <Select
                                     placeholder="Añadir Rol..."
-                                    searchable
-                                    data={rolesOptions}
-                                    nothingFoundMessage="No se encontraron roles"
-                                    leftSection={<IconUsers size={14} color="#228be6" />}
-                                    size="sm"
-                                    radius="md"
+                                    showSearch
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                    options={rolesOptions}
+                                    notFoundContent="No se encontraron roles"
+                                    suffixIcon={<IconUsers size={14} color="#228be6" />}
                                     value={null}
                                     onChange={(val) => addEntry('role', val)}
-                                    styles={{ input: { backgroundColor: 'white' }}}
-                                />
-                                <Select 
-                                    placeholder="Añadir Usuario..."
-                                    searchable
-                                    data={usersOptions}
-                                    nothingFoundMessage="No se encontraron usuarios"
-                                    leftSection={<IconUser size={14} color="#12b886" />}
-                                    size="sm"
-                                    radius="md"
-                                    value={null}
-                                    onChange={(val) => addEntry('user', val)}
-                                    styles={{ input: { backgroundColor: 'white' }}}
                                     style={{ flex: isMobile ? '1 1 100%' : 1 }}
                                 />
-                                <Box style={{ flex: isMobile ? '1 1 100%' : 2 }}>
-                                    <Group gap="xs" mt={isMobile ? 0 : 5} justify={isMobile ? 'center' : 'flex-start'}>
+                                <Select
+                                    placeholder="Añadir Usuario..."
+                                    showSearch
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                    options={usersOptions}
+                                    notFoundContent="No se encontraron usuarios"
+                                    suffixIcon={<IconUser size={14} color="#12b886" />}
+                                    value={null}
+                                    onChange={(val) => addEntry('user', val)}
+                                    style={{ flex: isMobile ? '1 1 100%' : 1 }}
+                                />
+                                <div style={{ flex: isMobile ? '1 1 100%' : 2 }}>
+                                    <div style={{ display: 'flex', gap: 8, marginTop: isMobile ? 0 : 5, justifyContent: isMobile ? 'center' : 'flex-start', alignItems: 'center' }}>
                                         <IconInfoCircle size={14} color="#94a3b8" />
-                                        <Text size="xs" c="dimmed" fw={500} ta={isMobile ? 'center' : 'left'}>
+                                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 500, textAlign: isMobile ? 'center' : 'left' }}>
                                             Los <strong>roles</strong> gestionan permisos de grupos. Los <strong>usuarios</strong> definen excepciones.
                                         </Text>
-                                    </Group>
-                                </Box>
-                            </Group>
-                        </Box>
-                    </Paper>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
                 )}
-            </Stack>
-        </Box>
+            </div>
+        </div>
     );
 };
+
+function Field({ label, style, children }: { label: string; style?: React.CSSProperties; children: React.ReactNode }) {
+    return (
+        <div style={style}>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default RequestTypePermissionsPage;

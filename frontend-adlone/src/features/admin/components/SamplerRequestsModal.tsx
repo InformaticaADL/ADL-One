@@ -1,23 +1,15 @@
 import React, { useState } from 'react';
-import { 
-    Modal, 
-    Table, 
-    Badge, 
-    Button, 
-    LoadingOverlay, 
-    Box, 
-    ScrollArea,
+import {
+    Modal,
+    Table,
+    Tag,
+    Button,
     Alert,
-    Stack,
-    Group,
-    Text,
-    Accordion,
-    Divider,
-    Paper,
-    SimpleGrid
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { modals } from '@mantine/modals';
+    Typography,
+    Collapse,
+    Card
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconCalendar,
     IconUser,
@@ -33,6 +25,8 @@ import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { useToast } from '../../../contexts/ToastContext';
 
+const { Text } = Typography;
+
 interface SamplerRequestsModalProps {
     idMuestreador: number | string | null;
     nombreMuestreador: string;
@@ -42,15 +36,14 @@ interface SamplerRequestsModalProps {
     requests: any[];
 }
 
-export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({ 
+export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
     nombreMuestreador,
-    isOpen, 
-    onClose, 
+    isOpen,
+    onClose,
     onRefresh,
     requests
 }) => {
     const displayRequests = requests || [];
-    const loading = false;
     const [processingId, setProcessingId] = useState<number | null>(null);
     const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -64,15 +57,15 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
             try {
                 if (sol.id_tipo || (sol.origen_tabla && sol.origen_tabla !== 'GENERAL')) {
                     // Es URS
-                    await ursService.updateStatus(sol.id_solicitud, { 
-                        status: 'REALIZADA', 
-                        comment: 'Solicitud gestionada y marcada como realizada automáticamente.' 
+                    await ursService.updateStatus(sol.id_solicitud, {
+                        status: 'REALIZADA',
+                        comment: 'Solicitud gestionada y marcada como realizada automáticamente.'
                     });
                 } else {
                     // Es Legacy
                     await adminService.updateSolicitudStatus(
-                        sol.id_solicitud, 
-                        'REALIZADA', 
+                        sol.id_solicitud,
+                        'REALIZADA',
                         'Solicitud marcada como realizada desde el panel de muestreadores.'
                     );
                 }
@@ -88,17 +81,18 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         };
 
         if (isDeshabilitar) {
-            modals.openConfirmModal({
-                title: <Text fw={700}>Confirmar Deshabilitación</Text>,
-                children: (
-                    <Text size="sm">
-                        ¿Está seguro de que desea deshabilitar este muestreador y reasignar todos sus equipos según lo solicitado? 
+            Modal.confirm({
+                title: 'Confirmar Deshabilitación',
+                content: (
+                    <Text style={{ fontSize: 13 }}>
+                        ¿Está seguro de que desea deshabilitar este muestreador y reasignar todos sus equipos según lo solicitado?
                         Esta acción es irreversible y afectará el acceso del usuario.
                     </Text>
                 ),
-                labels: { confirm: 'Confirmar y Ejecutar', cancel: 'Cancelar' },
-                confirmProps: { color: 'red' },
-                onConfirm: executeUpdate
+                okText: 'Confirmar y Ejecutar',
+                cancelText: 'Cancelar',
+                okButtonProps: { danger: true },
+                onOk: executeUpdate,
             });
         } else {
             executeUpdate();
@@ -110,14 +104,14 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         switch (s) {
             case 'PENDIENTE':
             case 'PENDIENTE_TECNICA':
-            case 'PENDIENTE_CALIDAD': return 'yellow';
+            case 'PENDIENTE_CALIDAD': return 'gold';
             case 'EN_REVISION':
             case 'EN_REVISION_TECNICA': return 'cyan';
-            case 'ACEPTADA': return 'teal';
+            case 'ACEPTADA': return 'green';
             case 'RECHAZADA':
             case 'RECHAZADO_TECNICA': return 'red';
             case 'REALIZADA': return 'blue';
-            default: return 'gray';
+            default: return 'default';
         }
     };
 
@@ -129,7 +123,7 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         const d = sol.datos_json || {};
         const typeRaw = sol.tipo_solicitud || sol.nombre_tipo || '';
         const type = typeRaw.toUpperCase();
-        
+
         const isDeshabilitar = type.includes('DESHABILITAR');
         const isFirma = type.includes('FIRMA');
         const isTraspaso = type.includes('TRASPASO');
@@ -138,84 +132,84 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         const equipmentCount = d.reasignacion_manual?.length || 0;
 
         return (
-            <Stack gap={8}>
-                <Text size="sm" fw={800} c="blue.9">{typeRaw}</Text>
-                
-                <Box>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <Text strong style={{ fontSize: 13, color: '#1864ab' }}>{typeRaw}</Text>
+
+                <div>
                     {isDeshabilitar && (
-                        <Stack gap={4}>
-                            <Group gap={4} wrap="nowrap">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
                                 <IconBriefcase size={14} color="red" />
-                                <Text size="xs" fw={700} c="red.7">Solicitud de Deshabilitación</Text>
-                            </Group>
-                            
+                                <Text strong style={{ fontSize: 12, color: '#c92a2a' }}>Solicitud de Deshabilitación</Text>
+                            </div>
+
                             {transferType === 'BASE' && (
-                                <Group gap={4} wrap="nowrap">
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
                                     <IconBuildingCommunity size={12} color="gray" />
-                                    <Text size="xs" fw={700}>Traspaso a Base:</Text>
-                                    <Text size="xs" c="blue">{d.base_destino || 'Principal'}</Text>
-                                </Group>
+                                    <Text strong style={{ fontSize: 12 }}>Traspaso a Base:</Text>
+                                    <Text style={{ fontSize: 12, color: '#1c7ed6' }}>{d.base_destino || 'Principal'}</Text>
+                                </div>
                             )}
 
                             {transferType === 'MUESTREADOR' && (
-                                <Group gap={4} wrap="nowrap">
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
                                     <IconUser size={12} color="gray" />
-                                    <Text size="xs" fw={700}>Traspaso a:</Text>
-                                    <Text size="xs" c="blue">{d.muestreador_destino_nombre || 'Muestreador Destino'}</Text>
-                                </Group>
+                                    <Text strong style={{ fontSize: 12 }}>Traspaso a:</Text>
+                                    <Text style={{ fontSize: 12, color: '#1c7ed6' }}>{d.muestreador_destino_nombre || 'Muestreador Destino'}</Text>
+                                </div>
                             )}
 
                             {transferType === 'MANUAL' && (
-                                <Stack gap={2}>
-                                    <Group gap={4} wrap="nowrap">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
                                         <IconList size={12} color="gray" />
-                                        <Text size="xs" fw={700}>Traspaso Manual ({equipmentCount} equipos)</Text>
-                                    </Group>
-                                    <Accordion variant="separated" radius="xs">
-                                        <Accordion.Item value="manual-list">
-                                            <Accordion.Control p={4}>
-                                                <Text size="xs" fw={700}>Ver Detalle de Equipos</Text>
-                                            </Accordion.Control>
-                                            <Accordion.Panel>
-                                                <Stack gap={2}>
+                                        <Text strong style={{ fontSize: 12 }}>Traspaso Manual ({equipmentCount} equipos)</Text>
+                                    </div>
+                                    <Collapse
+                                        size="small"
+                                        items={[{
+                                            key: 'manual-list',
+                                            label: <Text strong style={{ fontSize: 12 }}>Ver Detalle de Equipos</Text>,
+                                            children: (
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                     {d.reasignacion_manual?.map((item: any, idx: number) => (
-                                                        <Group key={idx} justify="space-between" wrap="nowrap">
-                                                            <Text size="xs" truncate>{item.nombre_equipo}</Text>
+                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 4 }}>
+                                                            <Text style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nombre_equipo}</Text>
                                                             <IconArrowRight size={10} />
-                                                            <Text size="xs" fw={700} c="teal">{item.id_muestreador_nuevo ? 'Asignado' : 'Pendiente'}</Text>
-                                                        </Group>
+                                                            <Text strong style={{ fontSize: 12, color: '#0c8599' }}>{item.id_muestreador_nuevo ? 'Asignado' : 'Pendiente'}</Text>
+                                                        </div>
                                                     ))}
-                                                </Stack>
-                                            </Accordion.Panel>
-                                        </Accordion.Item>
-                                    </Accordion>
-                                </Stack>
+                                                </div>
+                                            ),
+                                        }]}
+                                    />
+                                </div>
                             )}
-                        </Stack>
+                        </div>
                     )}
                     {isFirma && (
-                        <Group gap={4} wrap="nowrap">
-                            <IconSignature size={12} color="indigo" />
-                            <Text size="xs" fw={700} c="indigo.7">Actualización de Firma</Text>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                            <IconSignature size={12} color="#4c6ef5" />
+                            <Text strong style={{ fontSize: 12, color: '#3b5bdb' }}>Actualización de Firma</Text>
+                        </div>
                     )}
                     {isTraspaso && (
-                        <Group gap={4} wrap="nowrap">
-                            <IconUser size={12} color="teal" />
-                            <Text size="xs" fw={700} c="teal.7">Asignación de Equipos</Text>
-                        </Group>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                            <IconUser size={12} color="#0c8599" />
+                            <Text strong style={{ fontSize: 12, color: '#087f5b' }}>Asignación de Equipos</Text>
+                        </div>
                     )}
-                </Box>
+                </div>
 
                 {(d.observaciones || d.descripcion || d.comentario) && (
-                    <Box mt={4}>
-                        <Divider label="Observaciones" labelPosition="left" size="xs" mb={4} />
-                        <Text size="xs" c="dimmed" fs="italic">
+                    <div style={{ marginTop: 4 }}>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Observaciones</Text>
+                        <Text type="secondary" italic style={{ fontSize: 12 }}>
                             "{d.observaciones || d.descripcion || d.comentario}"
                         </Text>
-                    </Box>
+                    </div>
                 )}
-            </Stack>
+            </div>
         );
     };
 
@@ -230,150 +224,130 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         });
     };
 
-    return (
-        <Modal 
-            opened={isOpen} 
-            onClose={onClose} 
-            title={
-                <Box>
-                    <Text fw={700} size="lg">Solicitudes Pendientes</Text>
-                    <Text size="sm" c="dimmed">{nombreMuestreador}</Text>
-                </Box>
-            }
-            size={isMobile ? "100%" : "xl"}
-            fullScreen={isMobile}
-            scrollAreaComponent={ScrollArea.Autosize}
-            withOverlay={false}
-            trapFocus={false}
-            closeOnClickOutside={false}
-            shadow="xl"
-            styles={{
-                content: {
-                    border: '1px solid var(--mantine-color-gray-3)',
-                    boxShadow: 'var(--mantine-shadow-xl)'
-                }
-            }}
-        >
-            <Box pos="relative" miw={isMobile ? 'auto' : 500} mih={200} p={isMobile ? "xs" : 0}>
-                <LoadingOverlay visible={loading} />
+    const columns = [
+        { title: 'ID', key: 'id', render: (_: unknown, sol: any) => <Text strong style={{ fontSize: 13 }}>#{sol.id_solicitud}</Text> },
+        { title: 'Tipo', key: 'tipo', render: (_: unknown, sol: any) => renderSolicitudDetails(sol) },
+        {
+            title: 'Solicitante', key: 'solicitante',
+            render: (_: unknown, sol: any) => (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
+                    <IconUser size={14} color="gray" />
+                    <Text style={{ fontSize: 12 }}>{sol.nombre_solicitante || 'N/A'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Fecha', key: 'fecha',
+            render: (_: unknown, sol: any) => (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
+                    <IconCalendar size={14} color="gray" />
+                    <Text style={{ fontSize: 12 }}>{formatDate(sol.fecha_creacion)}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Estado', key: 'estado',
+            render: (_: unknown, sol: any) => <Tag color={getStatusColor(sol.estado)} style={{ minWidth: 80, textAlign: 'center' }}>{getStatusLabel(sol.estado)}</Tag>,
+        },
+        {
+            title: 'Acciones', key: 'acciones', align: 'right' as const,
+            render: (_: unknown, sol: any) => (
+                (sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                    <Button
+                        size="small"
+                        type="primary"
+                        style={{ backgroundColor: '#2f9e44' }}
+                        icon={<IconCheck size={14} />}
+                        loading={processingId === sol.id_solicitud}
+                        onClick={() => handleMarkAsRealizada(sol)}
+                    >
+                        Realizar
+                    </Button>
+                )
+            ),
+        },
+    ];
 
-                {displayRequests.length === 0 && !loading ? (
-                    <Alert icon={<IconInfoCircle size="1rem" />} color="blue" mt="md">
-                        No hay solicitudes pendientes activas para este muestreador.
-                    </Alert>
+    return (
+        <Modal
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? '100%' : 900}
+            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
+            maskClosable={false}
+            title={
+                <div>
+                    <Text strong style={{ fontSize: 16, display: 'block' }}>Solicitudes Pendientes</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>{nombreMuestreador}</Text>
+                </div>
+            }
+        >
+            <div style={{ position: 'relative', minWidth: isMobile ? 'auto' : 500, minHeight: 200, padding: isMobile ? 8 : 0, marginTop: 16 }}>
+                {displayRequests.length === 0 ? (
+                    <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="No hay solicitudes pendientes activas para este muestreador." />
                 ) : (
-                    <Stack gap="md" mt="md">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         {!isMobile ? (
-                            <Table striped highlightOnHover verticalSpacing="sm">
-                                <Table.Thead>
-                                    <Table.Tr>
-                                        <Table.Th>ID</Table.Th>
-                                        <Table.Th>Tipo</Table.Th>
-                                        <Table.Th>Solicitante</Table.Th>
-                                        <Table.Th>Fecha</Table.Th>
-                                        <Table.Th>Estado</Table.Th>
-                                        <Table.Th ta="right">Acciones</Table.Th>
-                                    </Table.Tr>
-                                </Table.Thead>
-                                <Table.Tbody>
-                                    {displayRequests.map((sol: any) => (
-                                        <Table.Tr key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
-                                            <Table.Td>
-                                                <Text size="sm" fw={700}>#{sol.id_solicitud}</Text>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                {renderSolicitudDetails(sol)}
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={6} wrap="nowrap">
-                                                    <IconUser size={14} color="gray" />
-                                                    <Text size="xs">{sol.nombre_solicitante || 'N/A'}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={6} wrap="nowrap">
-                                                    <IconCalendar size={14} color="gray" />
-                                                    <Text size="xs">{formatDate(sol.fecha_creacion)}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm" styles={{ root: { minWidth: '80px', textAlign: 'center' }}}>
-                                                    {getStatusLabel(sol.estado)}
-                                                </Badge>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group justify="flex-end" gap="xs">
-                                                    {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                                                        <Button
-                                                            size="xs"
-                                                            color="green"
-                                                            leftSection={<IconCheck size={14} />}
-                                                            loading={processingId === sol.id_solicitud}
-                                                            onClick={() => handleMarkAsRealizada(sol)}
-                                                        >
-                                                            Realizar
-                                                        </Button>
-                                                    )}
-                                                </Group>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    ))}
-                                </Table.Tbody>
-                            </Table>
+                            <Table
+                                rowKey={(sol) => `${sol.origen_tabla}-${sol.id_solicitud}`}
+                                columns={columns}
+                                dataSource={displayRequests}
+                                pagination={false}
+                                size="small"
+                                scroll={{ x: 800 }}
+                            />
                         ) : (
-                            <Stack gap="sm">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {displayRequests.map((sol: any) => (
-                                    <Paper key={`${sol.origen_tabla}-${sol.id_solicitud}`} withBorder p="md" radius="md" shadow="xs">
-                                        <Stack gap="xs">
-                                            <Group justify="space-between">
-                                                <Text size="sm" fw={800} c="blue.7">#{sol.id_solicitud}</Text>
-                                                <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm">
-                                                    {getStatusLabel(sol.estado)}
-                                                </Badge>
-                                            </Group>
-                                            
-                                            <Divider variant="dashed" />
-                                            
+                                    <Card key={`${sol.origen_tabla}-${sol.id_solicitud}`} size="small">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                <Text strong style={{ fontSize: 13, color: '#1864ab' }}>#{sol.id_solicitud}</Text>
+                                                <Tag color={getStatusColor(sol.estado)}>{getStatusLabel(sol.estado)}</Tag>
+                                            </div>
+
+                                            <hr style={{ border: 'none', borderTop: '1px dashed var(--app-border)' }} />
+
                                             {renderSolicitudDetails(sol)}
-                                            
-                                            <Divider variant="dashed" />
-                                            
-                                            <SimpleGrid cols={2}>
-                                                <Box>
-                                                    <Text size="xs" fw={700} c="dimmed">SOLICITANTE</Text>
-                                                    <Text size="xs" fw={600}>{sol.nombre_solicitante || 'N/A'}</Text>
-                                                </Box>
-                                                <Box>
-                                                    <Text size="xs" fw={700} c="dimmed">FECHA</Text>
-                                                    <Text size="xs" fw={600}>{formatDate(sol.fecha_creacion)}</Text>
-                                                </Box>
-                                            </SimpleGrid>
+
+                                            <hr style={{ border: 'none', borderTop: '1px dashed var(--app-border)' }} />
+
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                                <div>
+                                                    <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>SOLICITANTE</Text>
+                                                    <Text strong style={{ fontSize: 12 }}>{sol.nombre_solicitante || 'N/A'}</Text>
+                                                </div>
+                                                <div>
+                                                    <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>FECHA</Text>
+                                                    <Text strong style={{ fontSize: 12 }}>{formatDate(sol.fecha_creacion)}</Text>
+                                                </div>
+                                            </div>
 
                                             {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
                                                 <Button
-                                                    fullWidth
-                                                    mt="xs"
-                                                    color="green"
-                                                    leftSection={<IconCheck size={16} />}
+                                                    block
+                                                    type="primary"
+                                                    style={{ backgroundColor: '#2f9e44', marginTop: 8 }}
+                                                    icon={<IconCheck size={16} />}
                                                     loading={processingId === sol.id_solicitud}
                                                     onClick={() => handleMarkAsRealizada(sol)}
-                                                    radius="md"
                                                 >
                                                     Marcar como Realizada
                                                 </Button>
                                             )}
-                                        </Stack>
-                                    </Paper>
+                                        </div>
+                                    </Card>
                                 ))}
-                            </Stack>
+                            </div>
                         )}
-                    </Stack>
+                    </div>
                 )}
-            </Box>
+            </div>
 
-            <Group justify="flex-end" mt="xl">
-                <Button variant="default" onClick={onClose} fullWidth={isMobile}>Cerrar</Button>
-            </Group>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                <Button onClick={onClose} block={isMobile}>Cerrar</Button>
+            </div>
         </Modal>
     );
 };

@@ -12,25 +12,17 @@ import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import {
-    Stack,
-    Paper,
-    TextInput,
-    Textarea,
+    Input,
     Select,
     Button,
-    Badge,
-    Group,
-    ScrollArea,
-    Text,
-    Box,
-    Loader,
-    Center,
+    Tag,
+    Spin,
     Checkbox,
-    ThemeIcon,
     Tooltip,
-    Modal
-} from '@mantine/core';
-import { modals } from '@mantine/modals';
+    Modal,
+    Typography,
+    Card
+} from 'antd';
 import {
     IconRoute,
     IconMapPin,
@@ -41,14 +33,16 @@ import {
     IconEraser,
     IconTrash,
     IconArrowUp,
-    IconArrowDown,
-    IconWand
+    IconArrowDown
 } from '@tabler/icons-react';
 
 // Fix Leaflet default marker icons
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
@@ -58,15 +52,15 @@ const createNumberedIcon = (number: number) => {
     return L.divIcon({
         className: 'custom-numbered-marker',
         html: `<div style="
-            background: #228be6; 
-            color: white; 
-            border-radius: 50%; 
-            width: 28px; 
-            height: 28px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            font-weight: 700; 
+            background: #228be6;
+            color: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
             font-size: 12px;
             border: 2px solid white;
             box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -80,13 +74,13 @@ const createNumberedIcon = (number: number) => {
 const defaultIcon = L.divIcon({
     className: 'custom-default-marker',
     html: `<div style="
-        background: #868e96; 
-        color: white; 
-        border-radius: 50%; 
-        width: 20px; 
-        height: 20px; 
-        display: flex; 
-        align-items: center; 
+        background: #868e96;
+        color: white;
+        border-radius: 50%;
+        width: 20px;
+        height: 20px;
+        display: flex;
+        align-items: center;
         justify-content: center;
         border: 2px solid white;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
@@ -245,7 +239,6 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const [osrmRoute, setOsrmRoute] = useState<[number, number][]>([]);
     const [routeDistance, setRouteDistance] = useState<number | null>(null); // metros
     const [routeDuration, setRouteDuration] = useState<number | null>(null); // segundos
-    const [optimizing, setOptimizing] = useState(false);
 
     // Load data
     useEffect(() => {
@@ -298,7 +291,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     let lng: number | null = null;
 
                     const rawUrl = f.ref_google || f.refGoogle || f.ma_ref_google || '';
-                    let googleUrl = (rawUrl && resolvedUrlMap.has(rawUrl)) ? resolvedUrlMap.get(rawUrl)! : rawUrl;
+                    const googleUrl = (rawUrl && resolvedUrlMap.has(rawUrl)) ? resolvedUrlMap.get(rawUrl)! : rawUrl;
 
                     if (googleUrl) {
                         const coords = parseGoogleMapsUrl(googleUrl);
@@ -373,6 +366,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             }
         };
         loadData();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const handleGuardarRutaBase = async () => {
@@ -429,7 +423,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const filteredFichas = useMemo(() => {
         return fichas.filter(f => {
             const text = searchText.toLowerCase();
-            const matchText = !text || 
+            const matchText = !text ||
                 String(f.id).includes(text) ||
                 f.empresa_servicio.toLowerCase().includes(text) ||
                 f.centro.toLowerCase().includes(text) ||
@@ -443,11 +437,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
     const uniqueEmpresas = useMemo(() => {
         const set = new Set<string>();
-        fichas.forEach(f => { 
+        fichas.forEach(f => {
             const matchObjetivo = !filterObjetivo || String(f.objetivo) === filterObjetivo;
             const matchCentro = !filterCentro || f.centro === filterCentro;
             if (matchObjetivo && matchCentro && f.empresa_servicio && f.empresa_servicio !== '-') {
-                set.add(String(f.empresa_servicio)); 
+                set.add(String(f.empresa_servicio));
             }
         });
         return Array.from(set).sort().map(v => ({ value: v, label: v }));
@@ -455,11 +449,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
     const uniqueCentros = useMemo(() => {
         const set = new Set<string>();
-        fichas.forEach(f => { 
+        fichas.forEach(f => {
             const matchEmpresa = !filterEmpresa || f.empresa_servicio === filterEmpresa;
             const matchObjetivo = !filterObjetivo || String(f.objetivo) === filterObjetivo;
             if (matchEmpresa && matchObjetivo && f.centro && f.centro !== '-') {
-                set.add(String(f.centro)); 
+                set.add(String(f.centro));
             }
         });
         return Array.from(set).sort().map(v => ({ value: v, label: v }));
@@ -467,11 +461,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
     const uniqueObjetivos = useMemo(() => {
         const set = new Set<string>();
-        fichas.forEach(f => { 
+        fichas.forEach(f => {
             const matchEmpresa = !filterEmpresa || f.empresa_servicio === filterEmpresa;
             const matchCentro = !filterCentro || f.centro === filterCentro;
             if (matchEmpresa && matchCentro && f.objetivo && f.objetivo !== '-') {
-                set.add(String(f.objetivo)); 
+                set.add(String(f.objetivo));
             }
         });
         return Array.from(set).map(id => ({ value: id, label: getObjetivoName(id) })).sort((a, b) => a.label.localeCompare(b.label));
@@ -538,7 +532,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const toggleFicha = useCallback((id: number) => {
         // Pre-check outside the state updater to avoid double-toasts in React Strict Mode
         const isCurrentlySelected = selectedItems.some(s => s.fichaId === id);
-        
+
         if (!isCurrentlySelected) {
             const ficha = fichas.find(f => f.id === id);
             if (ficha) {
@@ -560,7 +554,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
             if (existing >= 0) {
                 return prev.filter(s => s.fichaId !== id);
             }
-            
+
             const ficha = fichas.find(f => f.id === id);
             if (!ficha) return prev;
 
@@ -757,24 +751,26 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
             // Si hay reagendamientos sobre servicios con equipos/resultados, confirmar primero.
             if (reagendaConDatos.length > 0) {
-                modals.openConfirmModal({
+                Modal.confirm({
                     title: 'Reagendar servicios con datos cargados',
                     centered: true,
-                    children: (
-                        <Stack gap="sm">
-                            <Text size="sm">
+                    zIndex: 10002,
+                    content: (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <Text style={{ fontSize: 13 }}>
                                 {reagendaConDatos.length} servicio{reagendaConDatos.length !== 1 ? 's' : ''} que vas a reagendar ya
                                 {' '}tiene{reagendaConDatos.length !== 1 ? 'n' : ''} equipos y/o resultados cargados:
                             </Text>
-                            <Stack gap={2}>
-                                {reagendaConDatos.map(s => <Text key={s} size="xs" fw={600}>• {s}</Text>)}
-                            </Stack>
-                            <Text size="sm" c="orange">Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</Text>
-                        </Stack>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                {reagendaConDatos.map(s => <Text key={s} strong style={{ fontSize: 12 }}>• {s}</Text>)}
+                            </div>
+                            <Text style={{ fontSize: 13, color: '#e8590c' }}>Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</Text>
+                        </div>
                     ),
-                    labels: { confirm: 'Reagendar de todas formas', cancel: 'Cancelar' },
-                    confirmProps: { color: 'orange' },
-                    onConfirm: executePost
+                    okText: 'Reagendar de todas formas',
+                    okButtonProps: { style: { backgroundColor: '#e8590c' } },
+                    cancelText: 'Cancelar',
+                    onOk: executePost
                 });
                 return;
             }
@@ -792,87 +788,91 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
     if (loading) {
         return (
-            <Box p="md">
-                <PageHeader 
-                    title="Planificador de Rutas" 
-                    onBack={onBack} 
+            <div style={{ padding: 16 }}>
+                <PageHeader
+                    title="Planificador de Rutas"
+                    onBack={onBack}
                     breadcrumbItems={[
                         { label: 'Fichas de Ingreso', onClick: onBack },
                         { label: 'Planificador' }
                     ]}
                 />
-                <Center mt="xl"><Loader size="lg" /></Center>
-            </Box>
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}><Spin size="large" /></div>
+            </div>
         );
     }
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <div style={{ padding: 16, width: '100%' }}>
             <Modal
-                opened={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                open={isModalOpen}
+                onCancel={() => setIsModalOpen(false)}
+                footer={null}
                 title="Asignación de Ruta"
                 centered
-                size="md"
+                width={480}
                 zIndex={10000}
             >
-                <Stack gap="md">
-                    <TextInput
-                        label="Fecha Muestreo"
-                        type="date"
-                        min={todayStr}
-                        value={assignDate}
-                        onChange={(e) => setAssignDate(e.target.value)}
-                        leftSection={<IconCalendarEvent size={16} />}
-                        required
-                    />
-                    <Select
-                        label="Muestreador Instalación"
-                        data={muestreadorOptions}
-                        value={assignMuestreadorInst}
-                        onChange={(v) => { setAssignMuestreadorInst(v); if (!assignMuestreadorRet) setAssignMuestreadorRet(v); }}
-                        searchable
-                        placeholder="Seleccionar..."
-                        leftSection={<IconUserPlus size={16} />}
-                        required
-                        comboboxProps={{ zIndex: 10001 }}
-                    />
-                    <Select
-                        label="Muestreador Retiro"
-                        description="Solo compuestas. Si se omite, se usa el de instalación (en puntuales no aplica)."
-                        data={muestreadorOptions}
-                        value={assignMuestreadorRet}
-                        onChange={setAssignMuestreadorRet}
-                        searchable
-                        placeholder="Igual al de instalación"
-                        leftSection={<IconUserPlus size={16} />}
-                        comboboxProps={{ zIndex: 10001 }}
-                    />
-                    <Textarea
-                        label="Observación para la notificación"
-                        description="Se incluirá en el correo de asignación enviado al responsable"
-                        placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
-                        minRows={2}
-                        autosize
-                        value={assignObservacion}
-                        onChange={(e) => setAssignObservacion(e.target.value)}
-                    />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                    <Field label="Fecha Muestreo *">
+                        <Input
+                            type="date"
+                            min={todayStr}
+                            value={assignDate}
+                            onChange={(e) => setAssignDate(e.target.value)}
+                            prefix={<IconCalendarEvent size={16} style={{ color: 'var(--app-text-secondary)' }} />}
+                        />
+                    </Field>
+                    <Field label="Muestreador Instalación *">
+                        <Select
+                            options={muestreadorOptions}
+                            value={assignMuestreadorInst ?? undefined}
+                            onChange={(v) => { setAssignMuestreadorInst(v); if (!assignMuestreadorRet) setAssignMuestreadorRet(v); }}
+                            showSearch
+                            allowClear
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            placeholder="Seleccionar..."
+                            style={{ width: '100%' }}
+                            suffixIcon={<IconUserPlus size={14} />}
+                        />
+                    </Field>
+                    <Field label="Muestreador Retiro" hint="Solo compuestas. Si se omite, se usa el de instalación (en puntuales no aplica).">
+                        <Select
+                            options={muestreadorOptions}
+                            value={assignMuestreadorRet ?? undefined}
+                            onChange={(v) => setAssignMuestreadorRet(v ?? null)}
+                            showSearch
+                            allowClear
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            placeholder="Igual al de instalación"
+                            style={{ width: '100%' }}
+                            suffixIcon={<IconUserPlus size={14} />}
+                        />
+                    </Field>
+                    <Field label="Observación para la notificación" hint="Se incluirá en el correo de asignación enviado al responsable">
+                        <TextArea
+                            placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
+                            autoSize={{ minRows: 2 }}
+                            value={assignObservacion}
+                            onChange={(e) => setAssignObservacion(e.target.value)}
+                        />
+                    </Field>
                     <Button
-                        fullWidth
-                        color="grape"
-                        size="md"
-                        leftSection={<IconDeviceFloppy size={20} />}
+                        block
+                        type="primary"
+                        style={{ backgroundColor: '#9c36b5' }}
+                        size="large"
+                        icon={<IconDeviceFloppy size={20} />}
                         onClick={handleSaveRoute}
                         loading={saving}
                         disabled={selectedCount === 0 || !assignDate || !assignMuestreadorInst}
-                        mt="md"
                     >
                         Confirmar Asignación ({selectedCount} fichas)
                     </Button>
-                </Stack>
+                </div>
             </Modal>
 
-            <Stack gap="lg">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 <PageHeader
                     title={editRutaId ? `Editando Ruta #${editRutaId}` : 'Planificador de Rutas'}
                     subtitle={editRutaId ? 'Modifique las fichas y guarde los cambios' : 'Seleccione fichas para armar una ruta de muestreo y asignar recursos'}
@@ -882,58 +882,57 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         { label: editRutaId ? 'Editar Ruta' : 'Planificador' }
                     ]}
                     rightSection={
-                        <Group gap="xs">
-                            <Badge size="lg" variant="light" color="blue" leftSection={<IconMapPin size={14} />}>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <Tag color="blue" icon={<IconMapPin size={14} style={{ verticalAlign: 'text-bottom' }} />}>
                                 {fichasWithCoords.length} con ubicación
-                            </Badge>
-                            <Badge size="lg" variant="light" color="gray">
+                            </Tag>
+                            <Tag>
                                 {fichas.length} fichas totales
-                            </Badge>
-                        </Group>
+                            </Tag>
+                        </div>
                     }
                 />
 
                 <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 180px)', minHeight: 500 }}>
                     {/* LEFT PANEL */}
-                    <Paper withBorder radius="md" shadow="sm" style={{ width: '35%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                    <Card style={{ width: '35%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%' } }}>
                         {/* Filters */}
-                        <Box p="sm" style={{ borderBottom: '1px solid var(--mantine-color-gray-3)' }}>
-                            <Stack gap="xs">
-                                <TextInput
-                                    size="xs"
+                        <div style={{ padding: 12, borderBottom: '1px solid var(--app-border)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <Input
+                                    size="small"
                                     placeholder="Buscar ficha, empresa, centro..."
                                     value={searchText}
                                     onChange={(e) => setSearchText(e.target.value)}
-                                    leftSection={<IconSearch size={14} />}
-                                    rightSection={searchText ? <IconEraser size={14} style={{ cursor: 'pointer' }} onClick={() => setSearchText('')} /> : null}
+                                    prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
+                                    suffix={searchText ? <IconEraser size={14} style={{ cursor: 'pointer' }} onClick={() => setSearchText('')} /> : null}
                                 />
-                                <Stack gap="xs">
-                                    <Select size="xs" placeholder="Empresa" data={uniqueEmpresas} value={filterEmpresa} onChange={setFilterEmpresa} clearable searchable />
-                                    <Select size="xs" placeholder="Centro" data={uniqueCentros} value={filterCentro} onChange={setFilterCentro} clearable searchable />
-                                    <Select size="xs" placeholder="Objetivo" data={uniqueObjetivos} value={filterObjetivo} onChange={setFilterObjetivo} clearable searchable />
-                                    
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <Select size="small" placeholder="Empresa" options={uniqueEmpresas} value={filterEmpresa ?? undefined} onChange={(v) => setFilterEmpresa(v ?? null)} allowClear showSearch style={{ width: '100%' }} />
+                                    <Select size="small" placeholder="Centro" options={uniqueCentros} value={filterCentro ?? undefined} onChange={(v) => setFilterCentro(v ?? null)} allowClear showSearch style={{ width: '100%' }} />
+                                    <Select size="small" placeholder="Objetivo" options={uniqueObjetivos} value={filterObjetivo ?? undefined} onChange={(v) => setFilterObjetivo(v ?? null)} allowClear showSearch style={{ width: '100%' }} />
+
                                     {(filterEmpresa || filterCentro || filterObjetivo || searchText) && (
-                                        <Button 
-                                            variant="light" 
-                                            color="gray" 
-                                            size="xs" 
+                                        <Button
+                                            type="text"
+                                            size="small"
                                             onClick={() => { setFilterEmpresa(null); setFilterCentro(null); setFilterObjetivo(null); setSearchText(''); }}
                                         >
                                             Limpiar Filtros
                                         </Button>
                                     )}
-                                </Stack>
-                            </Stack>
-                        </Box>
+                                </div>
+                            </div>
+                        </div>
 
                         {/* Fichas List */}
-                        <ScrollArea style={{ flex: 1 }} p="xs">
-                            <Stack gap={4}>
+                        <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                 {filteredFichas.map(f => {
                                     const isSelected = selectedIds.includes(f.id);
                                     const hasCoords = f.lat !== null;
                                     const orderNum = isSelected ? selectedItems.findIndex(s => s.fichaId === f.id) + 1 : null;
-                                    const allTaken = f.correlativos.length > 0 && f.correlativos.every(c => 
+                                    const allTaken = f.correlativos.length > 0 && f.correlativos.every(c =>
                                         c.status === 'EJECUTADO' || c.status === 'AGENDADO' || c.en_ruta
                                     );
                                     const isFullyBlocked = allTaken && !isSelected;
@@ -941,101 +940,108 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                     const selectedCorr = selectedItems.find(s => s.fichaId === f.id);
 
                                     return (
-                                        <Paper
+                                        <div
                                             key={f.id}
-                                            withBorder
-                                            p="xs"
-                                            radius="sm"
-                                            bg={isFullyBlocked ? 'gray.1' : isMissingCoords ? 'red.0' : isSelected ? 'blue.0' : undefined}
                                             style={{
+                                                padding: 8,
+                                                borderRadius: 6,
+                                                border: `${isSelected ? 2 : 1}px solid ${isSelected ? '#4dabf7' : isMissingCoords ? '#ffa8a8' : 'var(--app-border)'}`,
+                                                backgroundColor: isFullyBlocked ? 'var(--app-hover-bg)' : isMissingCoords ? 'rgba(224,49,49,0.05)' : isSelected ? 'var(--app-accent-bg)' : undefined,
                                                 cursor: isFullyBlocked ? 'not-allowed' : 'pointer',
-                                                borderColor: isSelected ? 'var(--mantine-color-blue-4)' : isMissingCoords ? 'var(--mantine-color-red-3)' : undefined,
-                                                borderWidth: isSelected ? 2 : 1,
                                                 transition: 'all 0.15s ease',
                                                 opacity: isFullyBlocked ? 0.55 : 1
                                             }}
                                             onClick={() => !isFullyBlocked && toggleFicha(f.id)}
                                         >
-                                            <Group gap="xs" wrap="nowrap">
-                                                <Checkbox checked={isSelected} onChange={() => {}} size="xs" readOnly color={isMissingCoords ? 'red' : 'blue'} />
+                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
+                                                <Checkbox checked={isSelected} onChange={() => {}} />
                                                 {orderNum && (
-                                                    <ThemeIcon size="sm" radius="xl" color="blue" variant="filled">
-                                                        <Text size="10px" fw={700}>{orderNum}</Text>
-                                                    </ThemeIcon>
+                                                    <div style={{
+                                                        width: 20, height: 20, borderRadius: '50%', backgroundColor: '#1c7ed6', color: '#fff',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                                                    }}>
+                                                        <Text strong style={{ fontSize: 10, color: '#fff' }}>{orderNum}</Text>
+                                                    </div>
                                                 )}
-                                                <Stack gap={0} style={{ flex: 1, minWidth: 0 }}>
-                                                    <Group gap={4} wrap="nowrap">
-                                                        <Text size="xs" fw={700} c="blue.8">#{f.id}</Text>
-                                                        {hasCoords && <IconMapPin size={12} color="var(--mantine-color-green-6)" />}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                                        <Text strong style={{ fontSize: 12, color: '#1864ab' }}>#{f.id}</Text>
+                                                        {hasCoords && <IconMapPin size={12} color="#2f9e44" />}
                                                         {!hasCoords && (
-                                                            <Tooltip label="Ubicación incorrecta o mal ingresada">
-                                                                <IconMapPin size={12} color="var(--mantine-color-red-4)" />
+                                                            <Tooltip title="Ubicación incorrecta o mal ingresada">
+                                                                <IconMapPin size={12} color="#ffa8a8" />
                                                             </Tooltip>
                                                         )}
-                                                    </Group>
-                                                    <Text size="xs" truncate title={f.centro}>{f.centro}</Text>
-                                                    <Group gap={4} wrap="wrap">
-                                                        <Text size="10px" c="dimmed" truncate>{f.empresa_servicio}</Text>
+                                                    </div>
+                                                    <Text style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={f.centro}>{f.centro}</Text>
+                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                                                        <Text type="secondary" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.empresa_servicio}</Text>
                                                         {f.total_servicios > 0 && (
-                                                            <Badge size="xs" color={isSelected ? 'teal' : 'blue'} variant="light">
-                                                                {selectedCorr 
-                                                                    ? `Servicio ${selectedCorr.numero_servicio} de ${f.total_servicios}` 
+                                                            <Tag color={isSelected ? 'cyan' : 'blue'} style={{ fontSize: 10, marginInlineEnd: 0 }}>
+                                                                {selectedCorr
+                                                                    ? `Servicio ${selectedCorr.numero_servicio} de ${f.total_servicios}`
                                                                     : `${f.servicios_disponibles} de ${f.total_servicios} disp.`}
-                                                            </Badge>
+                                                            </Tag>
                                                         )}
                                                         {f.servicios_en_ruta > 0 && !isSelected && (
-                                                            <Badge size="xs" color="orange" variant="light">
+                                                            <Tag color="orange" style={{ fontSize: 10, marginInlineEnd: 0 }}>
                                                                 {f.servicios_en_ruta} en ruta
-                                                            </Badge>
+                                                            </Tag>
                                                         )}
-                                                    </Group>
-                                                </Stack>
-                                            </Group>
-                                        </Paper>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     );
                                 })}
                                 {filteredFichas.length === 0 && (
-                                    <Text size="sm" c="dimmed" ta="center" py="xl">No hay fichas que coincidan con los filtros</Text>
+                                    <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', padding: '32px 0' }}>No hay fichas que coincidan con los filtros</Text>
                                 )}
-                            </Stack>
-                        </ScrollArea>
+                            </div>
+                        </div>
 
                         {/* Route section */}
-                        <Box style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
-                            <Box p="xs" bg="blue.0">
-                                <Group justify="space-between" align="center">
-                                    <Group gap={4}>
-                                        <IconRoute size={16} color="var(--mantine-color-blue-7)" />
-                                        <Text size="sm" fw={700} c="blue.8">Ruta ({selectedCount})</Text>
-                                    </Group>
+                        <div style={{ borderTop: '1px solid var(--app-border)' }}>
+                            <div style={{ padding: 8, backgroundColor: 'var(--app-accent-bg)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                        <IconRoute size={16} color="#1864ab" />
+                                        <Text strong style={{ fontSize: 13, color: '#1864ab' }}>Ruta ({selectedCount})</Text>
+                                    </div>
                                     {selectedCount > 0 && (
-                                        <Group gap="xs">
-                                            <Button size="compact-xs" variant="subtle" color="red" leftSection={<IconTrash size={12} />} onClick={() => { setSelectedItems([]); setIsSavingBase(false); setNombreRuta(''); setDescripcionRuta(''); setSelectedGrupo(null); }}>
-                                                Limpiar
-                                            </Button>
-                                        </Group>
+                                        <Button
+                                            type="text"
+                                            size="small"
+                                            danger
+                                            icon={<IconTrash size={12} />}
+                                            onClick={() => { setSelectedItems([]); setIsSavingBase(false); setNombreRuta(''); setDescripcionRuta(''); setSelectedGrupo(null); }}
+                                        >
+                                            Limpiar
+                                        </Button>
                                     )}
-                                </Group>
-                            </Box>
+                                </div>
+                            </div>
 
                             {selectedCount > 0 && (
-                                <ScrollArea h={100} p="xs">
-                                    <Stack gap={2}>
+                                <div style={{ height: 100, overflowY: 'auto', padding: 8 }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                         {selectedItems.map((item, i) => {
                                             const f = fichas.find(ff => ff.id === item.fichaId);
                                             return (
-                                                <Group key={`${item.fichaId}-${item.frecuencia_correlativo}`} gap={4} wrap="nowrap">
-                                                    <ThemeIcon size="xs" radius="xl" color="blue"><Text size="8px" fw={700}>{i + 1}</Text></ThemeIcon>
-                                                    <Text size="xs" truncate style={{ flex: 1 }} title={f?.centro}>
+                                                <div key={`${item.fichaId}-${item.frecuencia_correlativo}`} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                                    <div style={{ width: 16, height: 16, borderRadius: '50%', backgroundColor: '#1c7ed6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                        <Text style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{i + 1}</Text>
+                                                    </div>
+                                                    <Text style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f?.centro}>
                                                         #{item.fichaId} - {f?.centro || '?'}
                                                     </Text>
                                                     {f?.correlativos && f.correlativos.length > 0 ? (
                                                         <Select
-                                                            size="xs"
-                                                            w={105}
+                                                            size="small"
+                                                            style={{ width: 105 }}
                                                             value={item.frecuencia_correlativo}
                                                             onChange={(val) => val && updateSelectedCorrelativo(item.fichaId, val)}
-                                                            data={f.correlativos
+                                                            options={f.correlativos
                                                                 .filter(c => (c.status === 'DISPONIBLE' && !c.en_ruta) || c.status === 'AGENDADO' || c.frecuencia_correlativo === item.frecuencia_correlativo)
                                                                 .map(c => ({
                                                                     value: c.frecuencia_correlativo,
@@ -1045,88 +1051,83 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                                                     }`
                                                                 }))
                                                             }
-                                                            styles={{ input: { fontSize: '10px', minHeight: '22px', height: '22px', paddingLeft: '8px', paddingRight: '20px' } }}
-                                                            allowDeselect={false}
                                                         />
                                                     ) : (
-                                                        <Badge size="xs" variant="light" color="teal">
+                                                        <Tag color="cyan" style={{ fontSize: 10, marginInlineEnd: 0 }}>
                                                             Serv. {item.numero_servicio}/{f?.total_servicios || '?'}
-                                                        </Badge>
+                                                        </Tag>
                                                     )}
-                                                    <Group gap={2} ml={4}>
+                                                    <div style={{ display: 'flex', gap: 2, marginLeft: 4 }}>
                                                         <ActionIconMini onClick={() => moveUp(i)} disabled={i === 0}><IconArrowUp size={10} /></ActionIconMini>
                                                         <ActionIconMini onClick={() => moveDown(i)} disabled={i === selectedCount - 1}><IconArrowDown size={10} /></ActionIconMini>
-                                                    </Group>
-                                                </Group>
+                                                    </div>
+                                                </div>
                                             );
                                         })}
-                                    </Stack>
-                                </ScrollArea>
+                                    </div>
+                                </div>
                             )}
 
                             {/* Assignment Controls */}
-                            <Box p="xs" style={{ borderTop: '1px solid var(--mantine-color-gray-3)', backgroundColor: '#f8f9fa' }}>
+                            <div style={{ padding: 8, borderTop: '1px solid var(--app-border)', backgroundColor: 'var(--app-hover-bg)' }}>
                                 {isSavingBase ? (
-                                    <Stack gap="xs">
-                                        <TextInput
-                                            size="xs"
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <Input
+                                            size="small"
                                             placeholder="Ej. Ruta Chiloé Sur - Martes"
                                             value={nombreRuta}
                                             onChange={(e) => setNombreRuta(e.target.value)}
-                                            required
                                             autoFocus
                                         />
                                         <Select
-                                            size="xs"
+                                            size="small"
                                             placeholder="Grupo (opcional)"
-                                            data={grupos.map(g => ({ value: String(g.id_grupo), label: g.nombre_grupo }))}
-                                            value={selectedGrupo}
-                                            onChange={setSelectedGrupo}
-                                            clearable
-                                            searchable
+                                            options={grupos.map(g => ({ value: String(g.id_grupo), label: g.nombre_grupo }))}
+                                            value={selectedGrupo ?? undefined}
+                                            onChange={(v) => setSelectedGrupo(v ?? null)}
+                                            allowClear
+                                            showSearch
+                                            style={{ width: '100%' }}
                                         />
-                                        <Textarea
-                                            size="xs"
+                                        <TextArea
                                             placeholder="Notas o descripción (opcional)"
                                             value={descripcionRuta}
                                             onChange={(e) => setDescripcionRuta(e.target.value)}
-                                            autosize
-                                            minRows={2}
-                                            maxRows={3}
+                                            autoSize={{ minRows: 2, maxRows: 3 }}
                                         />
-                                        <Group grow gap="xs">
-                                            <Button size="xs" variant="default" onClick={() => setIsSavingBase(false)}>Cancelar</Button>
-                                            <Button size="xs" color="green" leftSection={<IconDeviceFloppy size={14} />} onClick={handleGuardarRutaBase} loading={isLoading}>
+                                        <div style={{ display: 'flex', gap: 8 }}>
+                                            <Button size="small" style={{ flex: 1 }} onClick={() => setIsSavingBase(false)}>Cancelar</Button>
+                                            <Button size="small" style={{ flex: 1, backgroundColor: '#2f9e44' }} type="primary" icon={<IconDeviceFloppy size={14} />} onClick={handleGuardarRutaBase} loading={isLoading}>
                                                 Guardar
                                             </Button>
-                                        </Group>
-                                    </Stack>
+                                        </div>
+                                    </div>
                                 ) : (
-                                    <Group grow gap="xs">
-                                        <Button size="sm" color="blue" onClick={() => setIsModalOpen(true)} disabled={selectedItems.length === 0}>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <Button style={{ flex: 1 }} type="primary" onClick={() => setIsModalOpen(true)} disabled={selectedItems.length === 0}>
                                             Asignar Oficial ({selectedCount})
                                         </Button>
-                                        <Button size="sm" variant="outline" color="blue" onClick={() => setIsSavingBase(true)} disabled={selectedItems.length === 0}>
+                                        <Button style={{ flex: 1 }} onClick={() => setIsSavingBase(true)} disabled={selectedItems.length === 0}>
                                             {editRutaId ? 'Actualizar Ruta' : 'Guardar Ruta Base'}
                                         </Button>
-                                    </Group>
+                                    </div>
                                 )}
-                            </Box>
-                        </Box>
-                    </Paper>
+                            </div>
+                        </div>
+                    </Card>
 
                     {/* RIGHT PANEL - MAP */}
-                    <Paper withBorder radius="md" shadow="sm" style={{ flex: 1, overflow: 'hidden' }}>
+                    <Card style={{ flex: 1, overflow: 'hidden' }} styles={{ body: { padding: 0, height: '100%' } }}>
                         {fichasWithCoords.length === 0 ? (
-                            <Center h="100%">
-                                <Stack align="center" gap="md">
-                                    <IconMapPin size={48} color="var(--mantine-color-gray-4)" />
-                                    <Text c="dimmed" ta="center">
+                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                                    <IconMapPin size={48} color="var(--app-text-secondary)" />
+                                    <Text type="secondary" style={{ textAlign: 'center' }}>
                                         No se detectaron coordenadas válidas en las fichas mostradas.<br />
                                         La ubicación es incorrecta o está mal ingresada en el enlace.
                                     </Text>
-                                </Stack>
-                            </Center>
+                                </div>
+                            </div>
                         ) : (
                             <MapContainer
                                 center={allPositions[0] || [-33.45, -70.67]}
@@ -1195,13 +1196,22 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                 )}
                             </MapContainer>
                         )}
-                    </Paper>
+                    </Card>
                 </div>
-            </Stack>
-
-        </Box>
+            </div>
+        </div>
     );
 };
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+        </div>
+    );
+}
 
 // Tiny action icon helper
 const ActionIconMini: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ onClick, disabled, children }) => (
@@ -1216,7 +1226,7 @@ const ActionIconMini: React.FC<{ onClick: () => void; disabled?: boolean; childr
             cursor: disabled ? 'default' : 'pointer',
             opacity: disabled ? 0.3 : 0.7,
             borderRadius: 3,
-            background: 'var(--mantine-color-gray-1)'
+            background: 'var(--app-hover-bg)'
         }}
     >
         {children}

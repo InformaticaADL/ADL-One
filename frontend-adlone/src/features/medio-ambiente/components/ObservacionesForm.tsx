@@ -1,10 +1,8 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { 
-    Textarea, 
-    Paper, 
-    Stack, 
-    Box 
-} from '@mantine/core';
+import { Input, Typography } from 'antd';
+
+const { TextArea } = Input;
+const { Text } = Typography;
 
 export interface ObservacionesFormHandle {
     getData: () => string;
@@ -46,7 +44,7 @@ const ObservacionesFormComponent = forwardRef<ObservacionesFormHandle, Observaci
         const newValue = e.target.value;
         if (newValue.length <= 250) {
             setText(newValue);
-            
+
             const isNowValid = newValue.trim().length > 0;
             if (isNowValid !== lastValidRef.current) {
                 lastValidRef.current = isNowValid;
@@ -57,38 +55,40 @@ const ObservacionesFormComponent = forwardRef<ObservacionesFormHandle, Observaci
         }
     };
 
+    const atLimit = !readOnly && text.length >= 250;
+
     return (
-        <Paper withBorder p="xl" radius="md" shadow="sm" style={{ width: '100%' }}>
-            <Stack gap="md">
-                <Textarea
-                    label={label}
-                    placeholder={placeholder}
-                    value={text}
-                    onChange={handleChange}
-                    readOnly={readOnly}
-                    minRows={6}
-                    autosize
-                    radius="md"
-                    size="md"
-                    description={!readOnly ? `${text.length} / 250 caracteres` : undefined}
-                    error={!readOnly && text.length >= 250 ? 'Límite de caracteres alcanzado' : undefined}
-                    styles={{
-                        label: { fontWeight: 600, marginBottom: 8 },
-                        description: { textAlign: 'right', marginTop: 4 }
-                    }}
-                />
+        <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 24, width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div>
+                    <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>{label}</Text>
+                    <TextArea
+                        placeholder={placeholder}
+                        value={text}
+                        onChange={handleChange}
+                        readOnly={readOnly}
+                        autoSize={{ minRows: 6 }}
+                        status={atLimit ? 'error' : undefined}
+                    />
+                    {!readOnly && (
+                        <Text
+                            type={atLimit ? 'danger' : 'secondary'}
+                            style={{ fontSize: 11, display: 'block', textAlign: 'right', marginTop: 4 }}
+                        >
+                            {atLimit ? 'Límite de caracteres alcanzado' : `${text.length} / 250 caracteres`}
+                        </Text>
+                    )}
+                </div>
 
                 {children && (
-                    <Box pt="lg" style={{ borderTop: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Stack align="flex-end" gap="md">
-                            <Box style={{ display: 'flex', gap: 'var(--mantine-spacing-md)' }}>
-                                {children}
-                            </Box>
-                        </Stack>
-                    </Box>
+                    <div style={{ paddingTop: 16, borderTop: '1px solid var(--app-border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            {children}
+                        </div>
+                    </div>
                 )}
-            </Stack>
-        </Paper>
+            </div>
+        </div>
     );
 });
 

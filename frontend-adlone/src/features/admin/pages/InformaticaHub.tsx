@@ -1,14 +1,5 @@
 import React from 'react';
-import { 
-    SimpleGrid, 
-    Card, 
-    Text, 
-    ThemeIcon, 
-    rem, 
-    UnstyledButton,
-    Box
-} from '@mantine/core';
-import { 
+import {
     IconShieldCheck,
     IconUser,
     IconBell,
@@ -18,72 +9,91 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { HubGrid, type HubOption } from '../components/HubGrid';
 
 interface Props {
     onNavigate: (view: string) => void;
     onBack: () => void;
 }
 
+const COLOR_MAP: Record<string, { color: string; bg: string }> = {
+    blue: { color: '#1c7ed6', bg: 'var(--app-accent-bg)' },
+    teal: { color: '#0c8599', bg: 'rgba(12,133,153,0.1)' },
+    orange: { color: '#e8590c', bg: 'rgba(232,89,12,0.1)' },
+    cyan: { color: '#0891b2', bg: 'rgba(8,145,178,0.1)' },
+    grape: { color: '#9c36b5', bg: 'rgba(156,54,181,0.1)' },
+    red: { color: '#e03131', bg: 'rgba(224,49,49,0.1)' },
+};
+
 export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const { hasPermission } = useAuth();
 
-    const OPTIONS = [
-        { 
-            id: 'admin-roles', 
-            label: 'Gestión de Roles', 
-            icon: <IconShieldCheck style={{ width: rem(32), height: rem(32) }} />, 
+    const RAW_OPTIONS = [
+        {
+            id: 'admin-roles',
+            label: 'Gestión de Roles',
+            icon: <IconShieldCheck size={32} />,
             color: 'blue',
-            description: 'Definir perfiles y permisos del sistema.', 
-            permission: 'INF_ROLES' 
-        },
-        { 
-            id: 'admin-users', 
-            label: 'Gestión de Usuarios', 
-            icon: <IconUser style={{ width: rem(32), height: rem(32) }} />, 
-            color: 'teal',
-            description: 'Crear, editar y administrar usuarios.', 
-            permission: 'INF_USUARIOS' 
+            description: 'Definir perfiles y permisos del sistema.',
+            permission: 'INF_ROLES'
         },
         {
-            id: 'admin-notifications', 
-            label: 'Notificaciones', 
-            icon: <IconBell style={{ width: rem(32), height: rem(32) }} />, 
+            id: 'admin-users',
+            label: 'Gestión de Usuarios',
+            icon: <IconUser size={32} />,
+            color: 'teal',
+            description: 'Crear, editar y administrar usuarios.',
+            permission: 'INF_USUARIOS'
+        },
+        {
+            id: 'admin-notifications',
+            label: 'Notificaciones',
+            icon: <IconBell size={32} />,
             color: 'orange',
-            description: 'Configurar eventos y destinatarios de correo.', 
-            permission: 'INF_NOTIF' 
+            description: 'Configurar eventos y destinatarios de correo.',
+            permission: 'INF_NOTIF'
         },
-        { 
-            id: 'admin-urs', 
-            label: 'Administración URS', 
-            icon: <IconMail style={{ width: rem(32), height: rem(32) }} />, 
+        {
+            id: 'admin-urs',
+            label: 'Administración URS',
+            icon: <IconMail size={32} />,
             color: 'cyan',
-            description: 'Configurar tipos de solicitud y flujos URS.', 
-            permission: 'INF_SOLICITUDES' 
+            description: 'Configurar tipos de solicitud y flujos URS.',
+            permission: 'INF_SOLICITUDES'
         },
-        { 
-            id: 'admin-menu-web', 
-            label: 'Configuración Menú Web', 
-            icon: <IconLayoutSidebar style={{ width: rem(32), height: rem(32) }} />, 
+        {
+            id: 'admin-menu-web',
+            label: 'Configuración Menú Web',
+            icon: <IconLayoutSidebar size={32} />,
             color: 'grape',
-            description: 'Administrar botones, íconos y permisos de accesos (CMS).', 
-            permission: 'INF_ACCESO' 
+            description: 'Administrar botones, íconos y permisos de accesos (CMS).',
+            permission: 'INF_ACCESO'
         },
-        { 
-            id: 'admin-maestros', 
-            label: 'Maestros', 
-            icon: <IconDatabase style={{ width: rem(32), height: rem(32) }} />, 
+        {
+            id: 'admin-maestros',
+            label: 'Maestros',
+            icon: <IconDatabase size={32} />,
             color: 'red',
-            description: 'Gestionar tablas maestras utilizadas en crear ficha.', 
+            description: 'Gestionar tablas maestras utilizadas en crear ficha.',
             permission: 'INF_ACCESO' // Using INF_ACCESO for now or INF_MAESTROS if defined
         },
     ];
 
-    const visibleOptions = OPTIONS.filter(opt => hasPermission(opt.permission));
+    const visibleOptions: HubOption[] = RAW_OPTIONS
+        .filter(opt => hasPermission(opt.permission))
+        .map(opt => ({
+            id: opt.id,
+            label: opt.label,
+            icon: opt.icon,
+            description: opt.description,
+            color: COLOR_MAP[opt.color].color,
+            bg: COLOR_MAP[opt.color].bg,
+        }));
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
-            <PageHeader 
-                title="Informática" 
+        <div style={{ padding: 16, width: '100%' }}>
+            <PageHeader
+                title="Informática"
                 subtitle="Centro de control, seguridad y configuración técnica del sistema."
                 onBack={onBack}
                 breadcrumbItems={[
@@ -92,49 +102,7 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                 ]}
             />
 
-            <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="lg" mt="xl">
-                {visibleOptions.map((opt) => (
-                    <UnstyledButton 
-                        key={opt.id} 
-                        onClick={() => onNavigate(opt.id)}
-                    >
-                        <Card 
-                            shadow="sm" 
-                            padding="xl" 
-                            radius="md" 
-                            withBorder
-                            style={{
-                                height: '100%',
-                                transition: 'all 0.2s ease',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                    transform: 'translateY(-5px)',
-                                    boxShadow: 'var(--mantine-shadow-md)',
-                                    borderColor: `var(--mantine-color-${opt.color}-light-color)`
-                                }
-                            }}
-                        >
-                            <ThemeIcon 
-                                size={60} 
-                                radius="md" 
-                                variant="light" 
-                                color={opt.color}
-                                mb="md"
-                            >
-                                {opt.icon}
-                            </ThemeIcon>
-
-                            <Text fw={700} size="lg" mb={4}>
-                                {opt.label}
-                            </Text>
-
-                            <Text size="sm" c="dimmed" lh={1.5}>
-                                {opt.description}
-                            </Text>
-                        </Card>
-                    </UnstyledButton>
-                ))}
-            </SimpleGrid>
-        </Box>
+            <HubGrid options={visibleOptions} onNavigate={onNavigate} />
+        </div>
     );
 };

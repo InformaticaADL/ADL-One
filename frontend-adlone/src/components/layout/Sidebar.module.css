@@ -1,3 +1,10 @@
+/* Migrado a Ant Design: el listado de módulos/submódulos ahora lo dibuja
+   <Menu> de antd (ver Sidebar.tsx), así que esta hoja solo conserva el
+   chrome propio del panel — encabezado, scroll, pie, usuario, burbuja — que
+   antd no cubre. Usa los tokens --app-* de index.css (claro/oscuro según
+   data-theme en <html>) en vez de var(--mantine-color-*) o hex fijo, para
+   desacoplar este panel de Mantine y que responda al switch de tema. */
+
 .navbar {
   background-color: transparent;
   height: 100%;
@@ -20,8 +27,8 @@
   padding-top: 0;
   margin-left: -10px;
   margin-right: -10px;
-  color: var(--mantine-color-black);
-  border-bottom: 1px solid var(--mantine-color-gray-3);
+  color: var(--app-text);
+  border-bottom: 1px solid var(--app-border);
   min-height: 70px;
   display: flex;
   align-items: center;
@@ -31,6 +38,7 @@
   flex: 1;
   margin-left: -10px;
   margin-right: -10px;
+  overflow-y: auto;
 }
 
 .linksInner {
@@ -41,7 +49,7 @@
 .footer {
   margin-left: -10px;
   margin-right: -10px;
-  border-top: 1px solid var(--mantine-color-gray-3);
+  border-top: 1px solid var(--app-border);
   padding: 8px 0;
 }
 
@@ -57,87 +65,13 @@
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: var(--mantine-color-dimmed);
+  color: var(--app-text-secondary);
 }
 
 .separator {
   height: 1px;
-  background-color: var(--mantine-color-gray-3);
+  background-color: var(--app-border);
   margin: 16px 0;
-}
-
-.control {
-  font-weight: 500;
-  display: block;
-  width: 100%;
-  padding: 8px 16px;
-  color: var(--mantine-color-text);
-  font-size: 13px;
-  border-radius: 8px;
-  transition: all 150ms ease;
-  margin-bottom: 6px;
-  position: relative;
-}
-
-.control:hover {
-  background-color: var(--mantine-color-gray-0);
-  color: var(--mantine-color-black);
-}
-
-.controlActive {
-  background-color: var(--mantine-color-adl-blue-0);
-  color: var(--mantine-color-adl-blue-6);
-}
-
-.link {
-  font-weight: 500;
-  display: block;
-  text-decoration: none;
-  padding: 6px 16px;
-  padding-left: 30px;
-  font-size: 13px;
-  color: var(--mantine-color-gray-7);
-  transition: all 150ms ease;
-  cursor: pointer;
-  border-radius: 4px;
-  margin-bottom: 4px;
-  position: relative;
-}
-
-.linkActive {
-  color: var(--mantine-color-adl-blue-6);
-  background-color: var(--mantine-color-adl-blue-0);
-}
-
-.linkActive::before {
-  background-color: var(--mantine-color-adl-blue-6);
-}
-
-.link::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 50%;
-  width: 20px;
-  height: 1px;
-  background-color: var(--mantine-color-gray-4);
-}
-
-.link:hover {
-  color: var(--mantine-color-black);
-  background-color: var(--mantine-color-gray-0);
-}
-
-.subItemsContainer {
-  margin-left: 23px;
-  padding-left: 0;
-  border-left: 1px solid var(--mantine-color-gray-4);
-  margin-top: -6px;
-  margin-bottom: 12px;
-}
-
-.chevron {
-  transition: transform 200ms ease;
 }
 
 .counter {
@@ -158,6 +92,57 @@
   box-shadow: 0 1px 3px rgba(224, 49, 49, 0.4);
 }
 
+.notifButton {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-text);
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 150ms ease;
+  margin-bottom: 6px;
+  text-align: left;
+}
+
+.notifButton:hover {
+  background-color: var(--app-hover-bg);
+}
+
+.notifButtonActive {
+  background-color: var(--app-accent-bg);
+  color: var(--app-accent-text);
+}
+
+.notifButtonCollapsed {
+  justify-content: center;
+  padding: 8px;
+}
+
+.themeSwitch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 16px;
+  margin-bottom: 2px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--app-text-secondary);
+}
+
+.themeSwitchCollapsed {
+  justify-content: center;
+  padding: 8px;
+}
+
 .user {
   padding: 4px 10px;
 }
@@ -166,47 +151,44 @@
   width: 100%;
   padding: 8px;
   border-radius: 8px;
-  color: var(--mantine-color-black);
+  color: var(--app-text);
+  border: none;
+  background: transparent;
+  cursor: pointer;
   transition: background-color 150ms ease;
 }
 
 .userButton:hover {
-  background-color: var(--mantine-color-gray-0);
-}
-
-.menuItemActive {
-  color: var(--mantine-color-adl-blue-6);
-  background-color: var(--mantine-color-adl-blue-0);
-  font-weight: 600;
+  background-color: var(--app-hover-bg);
 }
 
 .bubbleNotification {
   position: absolute;
-  left: 35px; /* Ajustar posición respecto al badge */
-  background-color: white;
-  color: var(--mantine-color-dark-7);
+  left: 35px;
+  background-color: var(--app-bg-elevated);
+  color: var(--app-text);
   padding: 10px 18px;
   border-radius: 12px;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  z-index: 2200; /* Sobre el sidebar y contenido */
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+  z-index: 2200;
   pointer-events: none;
-  border: 1px solid var(--mantine-color-gray-2);
-  border-left: 4px solid var(--mantine-color-adl-blue-6);
+  border: 1px solid var(--app-border);
+  border-left: 4px solid #0062a8;
   animation: fadeIn 0.3s ease;
 }
 
 .bubbleNotification::before {
   content: "";
   position: absolute;
-  left: -12px; /* Triángulo a la izquierda */
+  left: -12px;
   top: 50%;
   transform: translateY(-50%);
   border-top: 8px solid transparent;
   border-bottom: 8px solid transparent;
-  border-right: 8px solid var(--mantine-color-adl-blue-6);
+  border-right: 8px solid #0062a8;
 }
 
 @keyframes fadeIn {

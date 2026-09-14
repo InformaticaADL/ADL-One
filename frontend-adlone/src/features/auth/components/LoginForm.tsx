@@ -1,21 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-    Paper,
-    TextInput,
-    PasswordInput,
+    Card,
+    Input,
     Checkbox,
     Button,
-    Group,
-    Stack,
-    Image,
-    Title,
-    Text,
+    Typography,
     Modal,
-    Anchor,
-    Box,
-    Center,
     Alert
-} from '@mantine/core';
+} from 'antd';
 import {
     IconLock,
     IconMail,
@@ -26,6 +18,8 @@ import {
 import type { LoginCredentials } from '../types/index';
 import logoAdl from '../../../assets/images/logo-adlone.png';
 import apiClient from '../../../config/axios.config';
+
+const { Title, Text } = Typography;
 
 interface LoginFormProps {
     onSubmit: (credentials: LoginCredentials) => void;
@@ -63,150 +57,137 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     };
 
     return (
-        <Paper 
-            shadow="xl" 
-            p={40} 
-            radius="lg" 
-            withBorder
-            style={{ 
+        <Card
+            style={{
                 width: '100%',
+                borderRadius: 16,
                 backgroundColor: 'rgba(255, 255, 255, 0.95)',
                 backdropFilter: 'blur(10px)'
             }}
         >
-            <Stack gap="xl">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                 {logoutReason && (
                     <Alert
+                        type="warning"
+                        showIcon
                         icon={<IconAlertCircle size={18} />}
-                        color="orange"
-                        radius="md"
-                        withCloseButton
+                        message={logoutReason}
+                        closable
                         onClose={() => setLogoutReason(null)}
-                    >
-                        {logoutReason}
-                    </Alert>
+                    />
                 )}
 
-                <Center flex={1}>
-                    <Stack align="center" gap={0}>
-                        <Image src={logoAdl} w={260} mb="xl" />
-                        <Title order={2} fw={900}>Bienvenido</Title>
-                        <Text c="dimmed" size="sm" ta="center">Ingresa tus credenciales para continuar</Text>
-                    </Stack>
-                </Center>
+                <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <img src={logoAdl} style={{ width: 260, marginBottom: 24 }} alt="ADL" />
+                        <Title level={2} style={{ margin: 0 }}>Bienvenido</Title>
+                        <Text type="secondary" style={{ fontSize: 13, textAlign: 'center' }}>Ingresa tus credenciales para continuar</Text>
+                    </div>
+                </div>
 
                 <form onSubmit={handleSubmit}>
-                    <Stack gap="md">
-                        <TextInput
-                            label="Usuario"
-                            placeholder="ej: jperez"
-                            leftSection={<IconMail size={18} />}
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            autoComplete="username"
-                            size="md"
-                            radius="md"
-                            required
-                            disabled={isLoading}
-                        />
-
-                        <PasswordInput
-                            label="Contraseña"
-                            placeholder="••••••••"
-                            leftSection={<IconLock size={18} />}
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            size="md"
-                            radius="md"
-                            required
-                            disabled={isLoading}
-                        />
-
-                        <Group justify="space-between">
-                            <Checkbox
-                                label="Recuérdame"
-                                checked={rememberMe}
-                                onChange={(e) => setRememberMe(e.target.checked)}
-                                size="sm"
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <Field label="Usuario *">
+                            <Input
+                                placeholder="ej: jperez"
+                                prefix={<IconMail size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                autoComplete="username"
+                                size="large"
                                 disabled={isLoading}
                             />
-                            <Anchor 
-                                size="sm" 
-                                component="button" 
-                                type="button"
+                        </Field>
+
+                        <Field label="Contraseña *">
+                            <Input.Password
+                                placeholder="••••••••"
+                                prefix={<IconLock size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                size="large"
+                                disabled={isLoading}
+                            />
+                        </Field>
+
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Checkbox
+                                checked={rememberMe}
+                                onChange={(e) => setRememberMe(e.target.checked)}
+                                disabled={isLoading}
+                            >
+                                Recuérdame
+                            </Checkbox>
+                            <Button
+                                type="link"
+                                htmlType="button"
                                 onClick={() => setShowForgotModal(true)}
-                                fw={500}
+                                style={{ padding: 0, fontWeight: 500 }}
                             >
                                 ¿Olvidaste tu contraseña?
-                            </Anchor>
-                        </Group>
+                            </Button>
+                        </div>
 
-                        <Button 
-                            type="submit" 
-                            size="lg" 
-                            radius="md" 
-                            fullWidth 
+                        <Button
+                            htmlType="submit"
+                            type="primary"
+                            size="large"
+                            block
                             loading={isLoading}
-                            mt="lg"
-                            bg="blue.7"
+                            style={{ marginTop: 8 }}
                         >
                             {isLoading ? 'Ingresando...' : 'Ingresar'}
                         </Button>
-                    </Stack>
+                    </div>
                 </form>
-            </Stack>
+            </div>
 
             <Modal
-                opened={showForgotModal}
-                onClose={() => {
+                open={showForgotModal}
+                onCancel={() => {
                     setShowForgotModal(false);
                     setForgotEmail('');
                     setForgotSent(false);
                     setForgotError(null);
                 }}
-                title={<Text fw={700} size="lg">Recuperar Contraseña</Text>}
+                footer={null}
+                width={480}
                 centered
-                radius="lg"
-                padding="xl"
+                title={<Text strong style={{ fontSize: 16 }}>Recuperar Contraseña</Text>}
             >
-                <Stack gap="md">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
                     {!forgotSent ? (
                         <>
-                            <Box bg="blue.0" p="md" style={{ borderRadius: 'var(--mantine-radius-md)' }}>
-                                <Text size="sm" c="blue.9">
+                            <div style={{ backgroundColor: 'var(--app-accent-bg)', padding: 16, borderRadius: 8 }}>
+                                <Text style={{ fontSize: 13, color: '#1864ab' }}>
                                     Ingresa tu email registrado y te enviaremos un link para crear una nueva contraseña.
                                 </Text>
-                            </Box>
+                            </div>
 
-                            <TextInput
-                                label="Email"
-                                type="email"
-                                placeholder="tu.correo@adldiagnostic.cl"
-                                value={forgotEmail}
-                                onChange={(e) => setForgotEmail(e.currentTarget.value)}
-                                leftSection={<IconMail size={18} />}
-                                radius="md"
-                                required
-                                disabled={forgotSending}
-                            />
+                            <Field label="Email *">
+                                <Input
+                                    type="email"
+                                    placeholder="tu.correo@adldiagnostic.cl"
+                                    value={forgotEmail}
+                                    onChange={(e) => setForgotEmail(e.target.value)}
+                                    prefix={<IconMail size={18} style={{ color: 'var(--app-text-secondary)' }} />}
+                                    disabled={forgotSending}
+                                />
+                            </Field>
 
                             {forgotError && (
-                                <Alert icon={<IconAlertCircle size={18} />} color="red" radius="md">
-                                    {forgotError}
-                                </Alert>
+                                <Alert type="error" showIcon icon={<IconAlertCircle size={18} />} message={forgotError} />
                             )}
 
-                            <Group justify="space-between" mt="sm">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
                                 <Button
-                                    variant="subtle"
-                                    color="gray"
-                                    leftSection={<IconArrowLeft size={16} />}
+                                    icon={<IconArrowLeft size={16} />}
                                     onClick={() => setShowForgotModal(false)}
                                 >
                                     Cancelar
                                 </Button>
                                 <Button
-                                    color="blue.7"
+                                    type="primary"
                                     loading={forgotSending}
                                     onClick={async () => {
                                         const trimmed = forgotEmail.trim();
@@ -228,19 +209,20 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
                                 >
                                     Enviar link
                                 </Button>
-                            </Group>
+                            </div>
                         </>
                     ) : (
                         <>
-                            <Alert icon={<IconCheck size={18} />} color="green" radius="md" title="Solicitud enviada">
-                                Si el email está registrado, recibirás un correo con un enlace para restablecer tu contraseña.
-                                El link es válido por 60 minutos.
-                            </Alert>
+                            <Alert
+                                type="success"
+                                showIcon
+                                icon={<IconCheck size={18} />}
+                                message="Solicitud enviada"
+                                description="Si el email está registrado, recibirás un correo con un enlace para restablecer tu contraseña. El link es válido por 60 minutos."
+                            />
                             <Button
-                                variant="light"
-                                color="gray"
-                                fullWidth
-                                leftSection={<IconArrowLeft size={16} />}
+                                block
+                                icon={<IconArrowLeft size={16} />}
                                 onClick={() => {
                                     setShowForgotModal(false);
                                     setForgotEmail('');
@@ -251,8 +233,17 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
                             </Button>
                         </>
                     )}
-                </Stack>
+                </div>
             </Modal>
-        </Paper>
+        </Card>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Modal, Stack, Group, Text, Button, Loader, Center, Badge, Select,
-    TextInput, Checkbox, Paper, ScrollArea, Divider, Alert, ThemeIcon,
-    Tooltip, ActionIcon
-} from '@mantine/core';
+    Modal, Typography, Button, Spin, Tag, Select,
+    Input, Checkbox, Card, Divider, Alert, Tooltip
+} from 'antd';
 import {
     IconCalendarEvent, IconUserPlus, IconCheck, IconAlertCircle,
     IconRefresh, IconChevronDown
@@ -12,6 +11,8 @@ import { rutasEjecucionesService, type FichaDisponible, type CorrelativoOption }
 import { catalogosService } from '../services/catalogos.service';
 import { useCatalogos } from '../context/CatalogosContext';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text } = Typography;
 
 interface NuevaEjecucionModalProps {
     opened: boolean;
@@ -24,7 +25,7 @@ interface NuevaEjecucionModalProps {
 const STATUS_COLOR: Record<string, string> = {
     DISPONIBLE: 'green',
     AGENDADO: 'orange',
-    EN_RUTA: 'violet'
+    EN_RUTA: 'purple'
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -94,6 +95,7 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
             setMuestreadorRet(null);
             setObservaciones('');
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [opened, rutaId]);
 
     const toggleFicha = (id: number) => {
@@ -176,106 +178,117 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
 
     return (
         <Modal
-            opened={opened}
-            onClose={onClose}
-            title={
-                <Group gap="xs">
-                    <IconCalendarEvent size={20} color="var(--mantine-color-green-6)" />
-                    <Text fw={600} size="lg">Nueva Ejecución</Text>
-                    <Badge variant="light" color="blue" size="sm">{rutaNombre}</Badge>
-                </Group>
-            }
+            open={opened}
+            onCancel={onClose}
+            footer={null}
             centered
-            size="xl"
-            styles={{ body: { paddingTop: 8 } }}
+            width={840}
+            title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <IconCalendarEvent size={20} color="#2f9e44" />
+                    <Text strong style={{ fontSize: 16 }}>Nueva Ejecución</Text>
+                    <Tag color="blue" style={{ marginInlineEnd: 0 }}>{rutaNombre}</Tag>
+                </div>
+            }
         >
             {loading ? (
-                <Center py="xl"><Loader /></Center>
+                <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><Spin /></div>
             ) : (
-                <Stack gap="sm">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
                     {/* Header fields */}
-                    <Paper withBorder p="sm" radius="sm" bg="gray.0">
-                        <Group grow gap="sm" align="flex-start">
-                            <TextInput
-                                label="Fecha de Muestreo"
-                                type="date"
-                                value={fecha}
-                                onChange={e => setFecha(e.target.value)}
-                                leftSection={<IconCalendarEvent size={16} />}
-                                required
-                            />
-                            <Select
-                                label="Muestreador Instalación"
-                                data={muestreadorOptions}
-                                value={muestreadorInst}
-                                onChange={v => { setMuestreadorInst(v); if (!muestreadorRet) setMuestreadorRet(v); }}
-                                searchable
-                                placeholder="Seleccionar..."
-                                leftSection={<IconUserPlus size={16} />}
-                                required
-                                comboboxProps={{ zIndex: 10001 }}
-                            />
-                            <Select
-                                label="Muestreador Retiro"
-                                data={muestreadorOptions}
-                                value={muestreadorRet}
-                                onChange={setMuestreadorRet}
-                                searchable
-                                placeholder="Igual al de instalación"
-                                leftSection={<IconUserPlus size={16} />}
-                                comboboxProps={{ zIndex: 10001 }}
-                            />
-                        </Group>
-                        <TextInput
-                            label="Observaciones"
-                            placeholder="Opcional"
-                            value={observaciones}
-                            onChange={e => setObservaciones(e.target.value)}
-                            mt="xs"
-                        />
-                    </Paper>
+                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'start' }}>
+                            <Field label="Fecha de Muestreo *">
+                                <Input
+                                    type="date"
+                                    value={fecha}
+                                    onChange={e => setFecha(e.target.value)}
+                                    prefix={<IconCalendarEvent size={14} style={{ color: 'var(--app-text-secondary)' }} />}
+                                />
+                            </Field>
+                            <Field label="Muestreador Instalación *">
+                                <Select
+                                    options={muestreadorOptions}
+                                    value={muestreadorInst ?? undefined}
+                                    onChange={v => { setMuestreadorInst(v); if (!muestreadorRet) setMuestreadorRet(v); }}
+                                    showSearch
+                                    allowClear
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                    placeholder="Seleccionar..."
+                                    style={{ width: '100%' }}
+                                    suffixIcon={<IconUserPlus size={14} />}
+                                />
+                            </Field>
+                            <Field label="Muestreador Retiro">
+                                <Select
+                                    options={muestreadorOptions}
+                                    value={muestreadorRet ?? undefined}
+                                    onChange={v => setMuestreadorRet(v ?? null)}
+                                    showSearch
+                                    allowClear
+                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                    placeholder="Igual al de instalación"
+                                    style={{ width: '100%' }}
+                                    suffixIcon={<IconUserPlus size={14} />}
+                                />
+                            </Field>
+                        </div>
+                        <div style={{ marginTop: 8 }}>
+                            <Field label="Observaciones">
+                                <Input
+                                    placeholder="Opcional"
+                                    value={observaciones}
+                                    onChange={e => setObservaciones(e.target.value)}
+                                />
+                            </Field>
+                        </div>
+                    </Card>
 
-                    <Divider />
+                    <Divider style={{ margin: 0 }} />
 
                     {/* Banner fichas agotadas */}
                     {(plantillaData?.fichas ?? []).some(f => f.disponibles === 0) && (
-                        <Alert icon={<IconAlertCircle size={16} />} color="orange" py="xs">
-                            <Text size="xs">
-                                <strong>{(plantillaData?.fichas ?? []).filter(f => f.disponibles === 0).length} ficha(s)</strong> no tienen correlativos disponibles y fueron deseleccionadas automáticamente.
-                                Puedes seleccionarlas manualmente si lo requieres, pero su correlativo sugerido puede estar ya ejecutado.
-                            </Text>
-                        </Alert>
+                        <Alert
+                            type="warning"
+                            showIcon
+                            icon={<IconAlertCircle size={16} />}
+                            message={
+                                <Text style={{ fontSize: 12 }}>
+                                    <strong>{(plantillaData?.fichas ?? []).filter(f => f.disponibles === 0).length} ficha(s)</strong> no tienen correlativos disponibles y fueron deseleccionadas automáticamente.
+                                    Puedes seleccionarlas manualmente si lo requieres, pero su correlativo sugerido puede estar ya ejecutado.
+                                </Text>
+                            }
+                        />
                     )}
 
                     {/* Fichas list */}
-                    <Group justify="space-between" align="center">
-                        <Text size="sm" fw={600}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text strong style={{ fontSize: 13 }}>
                             Fichas de la plantilla
-                            <Text span c="dimmed" fw={400}> — {selectedCount} de {plantillaData?.fichas.length ?? 0} seleccionadas</Text>
+                            <Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}> — {selectedCount} de {plantillaData?.fichas.length ?? 0} seleccionadas</Text>
                         </Text>
-                        <Group gap="xs">
-                            <Button size="compact-xs" variant="subtle" onClick={() => handleSelectAll(true)} disabled={allSelected}>Todas</Button>
-                            <Button size="compact-xs" variant="subtle" color="gray" onClick={() => handleSelectAll(false)} disabled={noneSelected}>Ninguna</Button>
-                            <Tooltip label="Recargar correlativos disponibles">
-                                <ActionIcon size="sm" variant="subtle" onClick={loadData}>
-                                    <IconRefresh size={14} />
-                                </ActionIcon>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <Button type="text" size="small" onClick={() => handleSelectAll(true)} disabled={allSelected}>Todas</Button>
+                            <Button type="text" size="small" onClick={() => handleSelectAll(false)} disabled={noneSelected}>Ninguna</Button>
+                            <Tooltip title="Recargar correlativos disponibles">
+                                <Button type="text" size="small" icon={<IconRefresh size={14} />} onClick={loadData} />
                             </Tooltip>
-                        </Group>
-                    </Group>
+                        </div>
+                    </div>
 
                     {plantillaData?.fichas.length === 0 ? (
-                        <Alert icon={<IconAlertCircle size={16} />} color="orange">
-                            Esta plantilla no tiene fichas. Edítala primero para agregar fichas.
-                        </Alert>
+                        <Alert type="warning" showIcon icon={<IconAlertCircle size={16} />} message="Esta plantilla no tiene fichas. Edítala primero para agregar fichas." />
                     ) : selectedCount === 0 && (plantillaData?.fichas ?? []).every(f => f.disponibles === 0) ? (
-                        <Alert icon={<IconAlertCircle size={16} />} color="red" title="Sin fichas ejecutables">
-                            Todas las fichas de esta ruta tienen sus correlativos agotados (ejecutados o cancelados).
-                            No es posible crear una ejecución hasta que las fichas tengan nuevos servicios disponibles.
-                        </Alert>
+                        <Alert
+                            type="error"
+                            showIcon
+                            icon={<IconAlertCircle size={16} />}
+                            message="Sin fichas ejecutables"
+                            description="Todas las fichas de esta ruta tienen sus correlativos agotados (ejecutados o cancelados). No es posible crear una ejecución hasta que las fichas tengan nuevos servicios disponibles."
+                        />
                     ) : (
-                        <ScrollArea mah={340} offsetScrollbars>
-                            <Stack gap="xs">
+                        <div style={{ maxHeight: 340, overflowY: 'auto', paddingRight: 4 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {(plantillaData?.fichas ?? []).map((f) => {
                                     const state = fichaState.get(f.id_fichaingresoservicio);
                                     const isSelected = state?.selected ?? false;
@@ -289,93 +302,100 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                                     const selectedCorrObj = f.correlativos.find(c => c.frecuencia_correlativo === currentCorr);
 
                                     return (
-                                        <Paper
+                                        <Card
                                             key={f.id_fichaingresoservicio}
-                                            withBorder
-                                            p="sm"
-                                            radius="sm"
-                                            bg={sinDisponibles ? 'orange.0' : undefined}
+                                            size="small"
                                             style={{
                                                 opacity: isSelected ? 1 : 0.5,
+                                                backgroundColor: sinDisponibles ? 'rgba(232,140,0,0.06)' : undefined,
                                                 borderColor: sinDisponibles
-                                                    ? 'var(--mantine-color-orange-4)'
-                                                    : isSelected ? 'var(--mantine-color-blue-3)' : undefined,
+                                                    ? '#e8590c'
+                                                    : isSelected ? '#4dabf7' : undefined,
                                                 transition: 'opacity 0.15s'
                                             }}
                                         >
-                                            <Group gap="sm" align="flex-start" wrap="nowrap">
+                                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
                                                 <Checkbox
                                                     checked={isSelected}
                                                     onChange={() => toggleFicha(f.id_fichaingresoservicio)}
-                                                    mt={4}
+                                                    style={{ marginTop: 4 }}
                                                 />
-                                                <ThemeIcon size="sm" radius="xl" color="violet" variant="filled" style={{ flexShrink: 0, marginTop: 2 }}>
-                                                    <Text size="10px" fw={700}>{f.orden}</Text>
-                                                </ThemeIcon>
-                                                <Stack gap={2} style={{ flex: 1, minWidth: 0 }}>
-                                                    <Group gap="xs" wrap="nowrap">
-                                                        <Text size="xs" fw={700} c="blue.8">#{f.id_fichaingresoservicio}</Text>
-                                                        {f.centro && <Text size="xs" c="dimmed" truncate>{f.centro}</Text>}
-                                                        {f.empresa_servicio && <Text size="10px" c="dimmed" truncate>{f.empresa_servicio}</Text>}
+                                                <div style={{
+                                                    flexShrink: 0, marginTop: 2, width: 20, height: 20, borderRadius: '50%',
+                                                    backgroundColor: '#9c36b5', color: '#fff',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                    fontSize: 10, fontWeight: 700,
+                                                }}>
+                                                    {f.orden}
+                                                </div>
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
+                                                        <Text strong style={{ fontSize: 12, color: '#1864ab' }}>#{f.id_fichaingresoservicio}</Text>
+                                                        {f.centro && <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.centro}</Text>}
+                                                        {f.empresa_servicio && <Text type="secondary" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.empresa_servicio}</Text>}
                                                         {sinDisponibles && (
-                                                            <Tooltip label="Todos los correlativos de esta ficha ya fueron ejecutados o cancelados">
-                                                                <Badge size="xs" color="orange" variant="filled" style={{ flexShrink: 0 }}>
+                                                            <Tooltip title="Todos los correlativos de esta ficha ya fueron ejecutados o cancelados">
+                                                                <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>
                                                                     Sin disponibles
-                                                                </Badge>
+                                                                </Tag>
                                                             </Tooltip>
                                                         )}
-                                                    </Group>
-                                                    <Group gap="xs" align="center" wrap="nowrap">
+                                                    </div>
+                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
                                                         <Select
-                                                            size="xs"
-                                                            data={corrOptions}
-                                                            value={currentCorr}
+                                                            size="small"
+                                                            options={corrOptions}
+                                                            value={currentCorr || undefined}
                                                             onChange={v => v && setCorrelativo(f.id_fichaingresoservicio, f, v)}
                                                             disabled={!isSelected || corrOptions.length === 0}
                                                             placeholder={corrOptions.length === 0 ? 'Sin correlativos' : 'Seleccionar correlativo...'}
                                                             style={{ flex: 1, minWidth: 200 }}
-                                                            comboboxProps={{ zIndex: 10001 }}
-                                                            rightSection={<IconChevronDown size={12} />}
+                                                            suffixIcon={<IconChevronDown size={12} />}
                                                         />
                                                         {selectedCorrObj && (
-                                                            <Badge
-                                                                size="xs"
-                                                                color={STATUS_COLOR[selectedCorrObj.status] ?? 'gray'}
-                                                                variant="light"
-                                                                style={{ flexShrink: 0 }}
-                                                            >
+                                                            <Tag color={STATUS_COLOR[selectedCorrObj.status] ?? 'default'} style={{ flexShrink: 0, marginInlineEnd: 0 }}>
                                                                 {STATUS_LABEL[selectedCorrObj.status] ?? selectedCorrObj.status}
-                                                            </Badge>
+                                                            </Tag>
                                                         )}
-                                                        <Text size="10px" c="dimmed" style={{ flexShrink: 0 }}>
+                                                        <Text type="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
                                                             {f.disponibles}/{f.total} disp.
                                                         </Text>
-                                                    </Group>
-                                                </Stack>
-                                            </Group>
-                                        </Paper>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </Card>
                                     );
                                 })}
-                            </Stack>
-                        </ScrollArea>
+                            </div>
+                        </div>
                     )}
 
-                    <Divider />
+                    <Divider style={{ margin: 0 }} />
 
-                    <Group justify="flex-end" gap="sm">
-                        <Button variant="default" onClick={onClose} disabled={submitting}>Cancelar</Button>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={onClose} disabled={submitting}>Cancelar</Button>
                         <Button
-                            color="green"
-                            leftSection={<IconCheck size={16} />}
+                            type="primary"
+                            style={{ backgroundColor: '#2f9e44' }}
+                            icon={<IconCheck size={16} />}
                             onClick={handleSubmit}
                             loading={submitting}
                             disabled={selectedCount === 0 || !fecha || !muestreadorInst}
                         >
                             Crear Ejecución ({selectedCount} ficha{selectedCount !== 1 ? 's' : ''})
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             )}
         </Modal>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

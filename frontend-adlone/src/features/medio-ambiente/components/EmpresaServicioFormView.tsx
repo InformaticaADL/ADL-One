@@ -1,34 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Stack, 
-    Title, 
-    Text, 
-    Group, 
-    Button, 
-    Paper, 
-    Divider,
-    Box,
+import {
+    Typography,
+    Button,
+    Card,
     Tabs,
-    Container,
-    TextInput,
-    NumberInput,
+    Input,
+    InputNumber,
     Select,
-    SimpleGrid,
-    ThemeIcon,
-    LoadingOverlay,
-    ActionIcon,
+    Spin,
     Table,
-    ScrollArea,
-    Badge,
+    Tag,
     Tooltip,
-    SegmentedControl,
-    Textarea
-} from '@mantine/core';
-import { 
-    IconCheck, 
-    IconPlus, 
-    IconBuilding, 
-    IconMail, 
+    Segmented
+} from 'antd';
+import {
+    IconCheck,
+    IconPlus,
+    IconBuilding,
+    IconMail,
     IconUser,
     IconEdit,
     IconSearch,
@@ -39,6 +28,9 @@ import {
 import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+
+const { Title, Text } = Typography;
+const { TextArea } = Input;
 
 interface EmpresaServicioFormViewProps {
     onBack: () => void;
@@ -51,12 +43,12 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
     const [data, setData] = useState<any[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [editingId, setEditingId] = useState<number | null>(null);
-    const [activeTab, setActiveTab] = useState<string | null>('general');
+    const [activeTab, setActiveTab] = useState<string>('general');
     const [comunas, setComunas] = useState<{ value: string, label: string }[]>([]);
     const [users, setUsers] = useState<{ value: string, label: string }[]>([]);
     const [statusFilter, setStatusFilter] = useState<string>('ALL');
     const [userFilter, setUserFilter] = useState<string | null>(null);
-    
+
     const [formData, setFormData] = useState<any>({});
     const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -87,12 +79,12 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
     };
 
     const FLAG_FIELDS = [
-        'jornada', 
-        'envio_cotizacion', 
-        'tablact', 
-        'precio_especial', 
-        'costo_op', 
-        'mam_oc', 
+        'jornada',
+        'envio_cotizacion',
+        'tablact',
+        'precio_especial',
+        'costo_op',
+        'mam_oc',
         'lote_facturacion',
         'habilitado'
     ];
@@ -134,29 +126,29 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 
     const sections = {
         identificacion: [
-            'nombre_empresaservicios', 
-            'rut_empresaservicios', 
-            'giro_empresaservicios', 
-            'nombre_fantasia', 
+            'nombre_empresaservicios',
+            'rut_empresaservicios',
+            'giro_empresaservicios',
+            'nombre_fantasia',
             'sigla',
             'resumenejecutivo'
         ],
         ubicacion: [
-            'direccion_empresaservicios', 
-            'ciudad_empresaservicios', 
+            'direccion_empresaservicios',
+            'ciudad_empresaservicios',
             'direccion_comercial'
         ],
         contacto: [
-            'contacto_empresaservicios', 
-            'email_contacto', 
-            'email_empresaservicios', 
-            'email_facturacion', 
-            'fono_empresaservicios', 
+            'contacto_empresaservicios',
+            'email_contacto',
+            'email_empresaservicios',
+            'email_facturacion',
+            'fono_empresaservicios',
             'fono_contacto'
         ],
         legal: [
-            'rlegal_nombre', 
-            'rlegal_rut', 
+            'rlegal_nombre',
+            'rlegal_rut',
             'rlegal_direccion'
         ],
         avanzado: [
@@ -171,8 +163,8 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
             'lote_facturacion'
         ],
         config: [
-            'usr_login', 
-            'jornada', 
+            'usr_login',
+            'jornada',
             'envio_cotizacion',
             'tablact',
             'precio_especial',
@@ -191,6 +183,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
         if (view === 'list') {
             fetchData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [view]);
 
     const fetchUsers = async () => {
@@ -203,7 +196,6 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                 if (!uniqueUsersMap.has(login)) {
                     uniqueUsersMap.set(login, {
                         value: login,
-                        // MA-05: garantizar que label nunca sea null (Mantine OptionsDropdown crashea)
                         label: String(u.nombre_usuario || u.usuario || login || '(sin nombre)')
                     });
                 }
@@ -223,7 +215,6 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                 if (!uniqueComunasMap.has(id)) {
                     uniqueComunasMap.set(id, {
                         value: id,
-                        // MA-05: label siempre string no nulo
                         label: String(c.nombre_comuna || `Comuna #${id}`)
                     });
                 }
@@ -273,7 +264,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
         // 2. Validar obligatoriedad solo si está en la lista de MANDATORY_FIELDS
         const isMandatory = MANDATORY_FIELDS.includes(name);
         const isEmpty = value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
-        
+
         if (isMandatory && isEmpty) {
             return "Este campo es obligatorio";
         }
@@ -304,11 +295,11 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
         setErrors(newErrors);
 
         if (hasErrors) {
-            showToast({ 
-                type: 'error', 
-                message: `Existen errores en el formulario (${Object.keys(newErrors).length}). Por favor revise los campos marcados en rojo.` 
+            showToast({
+                type: 'error',
+                message: `Existen errores en el formulario (${Object.keys(newErrors).length}). Por favor revise los campos marcados en rojo.`
             });
-            
+
             // Llevar al usuario a la primera pestaña con errores
             for (const [tab, fields] of Object.entries(sections)) {
                 if (fields.some(f => newErrors[f])) {
@@ -347,20 +338,258 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
     };
 
     const filteredData = data.filter(item => {
-        const matchesSearch = Object.values(item).some(val => 
+        const matchesSearch = Object.values(item).some(val =>
             String(val).toLowerCase().includes(searchTerm.toLowerCase())
         );
-        
+
         const matchesStatus = statusFilter === 'ALL' || item.habilitado === statusFilter;
         const matchesUser = !userFilter || item.usr_login === userFilter;
-        
+
         return matchesSearch && matchesStatus && matchesUser;
     });
 
-    if (view === 'form') {
+    const renderTextField = (col: string, icon: React.ReactNode) => {
+        const isMandatory = MANDATORY_FIELDS.includes(col);
         return (
-            <Box style={{ animation: 'fadeIn 0.5s ease' }}>
-                <PageHeader 
+            <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                <Input
+                    placeholder={col}
+                    prefix={icon}
+                    value={formData[col] || ''}
+                    status={errors[col] ? 'error' : undefined}
+                    onChange={(e) => handleFieldChange(col, e.target.value)}
+                />
+            </FormField>
+        );
+    };
+
+    if (view === 'form') {
+        const tabItems = [
+            {
+                key: 'general',
+                label: <span><IconBuilding size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Identificación y Ubicación</span>,
+                children: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <SectionHeading icon={<IconBuilding size={18} />} color="#0b7285" title="Identificación de la Empresa" subtitle="Datos legales, RUT y nombres comerciales de la prestadora." />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                            {sections.identificacion.map(col => {
+                                const isMandatory = MANDATORY_FIELDS.includes(col);
+                                if (col === 'resumenejecutivo') {
+                                    return (
+                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                            <TextArea
+                                                placeholder="Resumen de servicios, alcances, etc."
+                                                autoSize={{ minRows: 4 }}
+                                                value={formData[col] || ''}
+                                                status={errors[col] ? 'error' : undefined}
+                                                onChange={(e) => handleFieldChange(col, e.target.value)}
+                                            />
+                                        </FormField>
+                                    );
+                                }
+                                return renderTextField(col, <IconBuilding size={16} style={{ color: 'var(--app-text-secondary)' }} />);
+                            })}
+                        </div>
+
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+
+                        <SectionHeading icon={<IconMapPin size={18} />} color="#1864ab" title="Ubicación y Direcciones" subtitle="Dirección casa matriz y sucursales comerciales." />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                            {sections.ubicacion.map(col => renderTextField(col, <IconMapPin size={16} style={{ color: 'var(--app-text-secondary)' }} />))}
+                        </div>
+
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <Button icon={<IconArrowRight size={16} />} iconPosition="end" onClick={() => setActiveTab('contacto')}>
+                                Siguiente: Contacto
+                            </Button>
+                        </div>
+                    </div>
+                ),
+            },
+            {
+                key: 'contacto',
+                label: <span><IconMail size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Contacto y Facturación</span>,
+                children: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <SectionHeading icon={<IconMail size={18} />} color="#1864ab" title="Información de Contacto y Facturación" subtitle="Canales de comunicación directa y facturación electrónica." />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                            {sections.contacto.map(col => renderTextField(
+                                col,
+                                (col.includes('email') || col.includes('mail'))
+                                    ? <IconMail size={16} style={{ color: 'var(--app-text-secondary)' }} />
+                                    : <IconUser size={16} style={{ color: 'var(--app-text-secondary)' }} />
+                            ))}
+                        </div>
+
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <Button icon={<IconArrowRight size={16} />} iconPosition="end" onClick={() => setActiveTab('legal')}>
+                                Siguiente: Legal
+                            </Button>
+                        </div>
+                    </div>
+                ),
+            },
+            {
+                key: 'legal',
+                label: <span><IconUser size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Legal y Configuración</span>,
+                children: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <SectionHeading icon={<IconUser size={18} />} color="#e8590c" title="Representante Legal" subtitle="Información del representante ante el sistema." />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                            {sections.legal.map(col => renderTextField(col, <IconUser size={16} style={{ color: 'var(--app-text-secondary)' }} />))}
+                        </div>
+
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+
+                        <SectionHeading icon={<IconBuilding size={18} />} color="#868e96" title="Configuración del Sistema" subtitle="Datos operativos y de login asociados." />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                            {sections.config.map(col => {
+                                const isMandatory = MANDATORY_FIELDS.includes(col);
+                                if (col === 'usr_login') {
+                                    return (
+                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                            <Select
+                                                options={users}
+                                                showSearch
+                                                allowClear
+                                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                                placeholder={col}
+                                                value={formData[col] ? String(formData[col]) : undefined}
+                                                status={errors[col] ? 'error' : undefined}
+                                                onChange={(val) => handleFieldChange(col, val)}
+                                                style={{ width: '100%' }}
+                                            />
+                                        </FormField>
+                                    );
+                                }
+                                if (FLAG_FIELDS.includes(col)) {
+                                    return (
+                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                            <Select
+                                                options={[
+                                                    { value: 'S', label: 'Sí / Activo' },
+                                                    { value: 'N', label: 'No / Inactivo' }
+                                                ]}
+                                                placeholder="Seleccione"
+                                                value={formData[col] || (col === 'habilitado' ? 'S' : 'N')}
+                                                status={errors[col] ? 'error' : undefined}
+                                                onChange={(val) => handleFieldChange(col, val)}
+                                                style={{ width: '100%' }}
+                                            />
+                                        </FormField>
+                                    );
+                                }
+                                return (
+                                    <FormField key={col} label={formatHeader(col)} error={errors[col]}>
+                                        <Input
+                                            placeholder={col}
+                                            prefix={<IconSettings size={16} style={{ color: 'var(--app-text-secondary)' }} />}
+                                            value={formData[col] || ''}
+                                            status={errors[col] ? 'error' : undefined}
+                                            onChange={(e) => handleFieldChange(col, e.target.value)}
+                                        />
+                                    </FormField>
+                                );
+                            })}
+                        </div>
+
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <Button icon={<IconArrowRight size={16} />} iconPosition="end" onClick={() => setActiveTab('avanzado')}>
+                                Siguiente: Avanzado
+                            </Button>
+                        </div>
+                    </div>
+                ),
+            },
+            {
+                key: 'avanzado',
+                label: <span><IconSettings size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Avanzado</span>,
+                children: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                        <SectionHeading icon={<IconSettings size={18} />} color="#e03131" title="Configuración Avanzada e IDs" subtitle="Identificadores técnicos y parámetros de integración con otros módulos." />
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                            {sections.avanzado.map(col => {
+                                const isMandatory = MANDATORY_FIELDS.includes(col);
+                                if (col === 'id_comuna' || col === 'id_comunaef') {
+                                    return (
+                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                            <Select
+                                                options={comunas}
+                                                showSearch
+                                                allowClear
+                                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                                placeholder="Seleccione Comuna"
+                                                value={formData[col] ? String(formData[col]) : undefined}
+                                                status={errors[col] ? 'error' : undefined}
+                                                onChange={(val) => handleFieldChange(col, val ? Number(val) : null)}
+                                                style={{ width: '100%' }}
+                                            />
+                                        </FormField>
+                                    );
+                                }
+                                if (col === 'lote_facturacion') {
+                                    return (
+                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                            <Input
+                                                placeholder="Lote"
+                                                value={formData[col] || ''}
+                                                status={errors[col] ? 'error' : undefined}
+                                                onChange={(e) => handleFieldChange(col, e.target.value)}
+                                            />
+                                        </FormField>
+                                    );
+                                }
+                                return (
+                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                        <InputNumber
+                                            placeholder="Sin asignar"
+                                            value={formData[col] === undefined || formData[col] === null ? undefined : formData[col]}
+                                            status={errors[col] ? 'error' : undefined}
+                                            onChange={(val) => handleFieldChange(col, val === null ? null : val)}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </FormField>
+                                );
+                            })}
+                        </div>
+
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
+
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                            <Button onClick={() => setView('list')}>
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="primary"
+                                style={{ backgroundColor: '#0b7285' }}
+                                onClick={handleSubmit}
+                                loading={loading}
+                                disabled={!isFormComplete()}
+                                icon={<IconCheck size={20} />}
+                            >
+                                {editingId ? 'Guardar Cambios' : 'Crear Empresa'}
+                            </Button>
+                        </div>
+                    </div>
+                ),
+            },
+        ];
+
+        return (
+            <div>
+                <PageHeader
                     title={editingId ? "Editar Empresa de Servicio" : "Crear Nueva Empresa"}
                     subtitle="Complete los datos de la empresa para habilitar sus servicios en el sistema."
                     onBack={() => setView('list')}
@@ -371,385 +600,53 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                     ]}
                 />
 
-                <Container fluid px="md" pb="xl" mt="xl">
-                    <Paper withBorder p="md" radius="lg" shadow="sm">
-                        <Tabs value={activeTab} onChange={setActiveTab} variant="pills" radius="md">
-                            <Tabs.List mb="xl">
-                                <Tabs.Tab value="general" leftSection={<IconBuilding size={16} />}>
-                                    Identificación y Ubicación
-                                </Tabs.Tab>
-                                <Tabs.Tab value="contacto" leftSection={<IconMail size={16} />}>
-                                    Contacto y Facturación
-                                </Tabs.Tab>
-                                <Tabs.Tab value="legal" leftSection={<IconUser size={16} />}>
-                                    Legal y Configuración
-                                </Tabs.Tab>
-                                <Tabs.Tab value="avanzado" leftSection={<IconSettings size={16} />}>
-                                    Avanzado
-                                </Tabs.Tab>
-                            </Tabs.List>
-
-                            <Tabs.Panel value="general">
-                                <Stack gap="xl">
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="teal" size="md">
-                                                <IconBuilding size={18} />
-                                            </ThemeIcon>
-                                            <Title order={4}>Identificación de la Empresa</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">Datos legales, RUT y nombres comerciales de la prestadora.</Text>
-                                    </Box>
-
-                                    <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
-                                        {sections.identificacion.map(col => {
-                                            const isMandatory = MANDATORY_FIELDS.includes(col);
-                                            if (col === 'resumenejecutivo') {
-                                                return (
-                                                    <Textarea 
-                                                        key={col}
-                                                        label={formatHeader(col)}
-                                                        placeholder="Resumen de servicios, alcances, etc."
-                                                        minRows={4}
-                                                        size="md"
-                                                        radius="md"
-                                                        value={formData[col] || ''}
-                                                        error={errors[col]}
-                                                        required={isMandatory}
-                                                        onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                        styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                    />
-                                                );
-                                            }
-                                            return (
-                                                <TextInput 
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder={col}
-                                                    size="md"
-                                                    radius="md"
-                                                    leftSection={<IconBuilding size={18} />}
-                                                    value={formData[col] || ''}
-                                                    error={errors[col]}
-                                                    required={isMandatory}
-                                                    onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                    styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-
-                                    <Divider mt="md" />
-
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="blue" size="md">
-                                                <IconMapPin size={18} />
-                                            </ThemeIcon>
-                                            <Title order={4}>Ubicación y Direcciones</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">Dirección casa matriz y sucursales comerciales.</Text>
-                                    </Box>
-
-                                    <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
-                                        {sections.ubicacion.map(col => {
-                                            const isMandatory = MANDATORY_FIELDS.includes(col);
-                                            return (
-                                                <TextInput 
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder={col}
-                                                    size="md"
-                                                    radius="md"
-                                                    leftSection={<IconMapPin size={18} />}
-                                                    value={formData[col] || ''}
-                                                    error={errors[col]}
-                                                    required={isMandatory}
-                                                    onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                    styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-
-                                    <Divider mt="xl" />
-
-                                    <Group justify="flex-end">
-                                        <Button 
-                                            variant="light" 
-                                            rightSection={<IconArrowRight size={16} />} 
-                                            onClick={() => setActiveTab('contacto')}
-                                        >
-                                            Siguiente: Contacto
-                                        </Button>
-                                    </Group>
-                                </Stack>
-                            </Tabs.Panel>
-
-                            <Tabs.Panel value="contacto">
-                                <Stack gap="xl">
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="blue" size="md">
-                                                <IconMail size={18} />
-                                            </ThemeIcon>
-                                            <Title order={4}>Información de Contacto y Facturación</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">Canales de comunicación directa y facturación electrónica.</Text>
-                                    </Box>
-
-                                    <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
-                                        {sections.contacto.map(col => {
-                                            const isMandatory = MANDATORY_FIELDS.includes(col);
-                                            return (
-                                                <TextInput 
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder={col}
-                                                    size="md"
-                                                    radius="md"
-                                                    leftSection={col.includes('email') || col.includes('mail') ? <IconMail size={18} /> : <IconUser size={18} />}
-                                                    value={formData[col] || ''}
-                                                    error={errors[col]}
-                                                    required={isMandatory}
-                                                    onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                    styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-
-                                    <Divider mt="xl" />
-
-                                    <Group justify="flex-end">
-                                        <Button 
-                                            variant="light" 
-                                            rightSection={<IconArrowRight size={16} />} 
-                                            onClick={() => setActiveTab('legal')}
-                                        >
-                                            Siguiente: Legal
-                                        </Button>
-                                    </Group>
-                                </Stack>
-                            </Tabs.Panel>
-
-                            <Tabs.Panel value="legal">
-                                <Stack gap="xl">
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="orange" size="md">
-                                                <IconUser size={18} />
-                                            </ThemeIcon>
-                                            <Title order={4}>Representante Legal</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">Información del representante ante el sistema.</Text>
-                                    </Box>
-
-                                    <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
-                                        {sections.legal.map(col => {
-                                            const isMandatory = MANDATORY_FIELDS.includes(col);
-                                            return (
-                                                <TextInput 
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder={col}
-                                                    size="md"
-                                                    radius="md"
-                                                    leftSection={<IconUser size={18} />}
-                                                    value={formData[col] || ''}
-                                                    error={errors[col]}
-                                                    required={isMandatory}
-                                                    onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                    styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-
-                                    <Divider mt="md" />
-
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="gray" size="md">
-                                                <IconBuilding size={18} />
-                                            </ThemeIcon>
-                                            <Title order={4}>Configuración del Sistema</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">Datos operativos y de login asociados.</Text>
-                                    </Box>
-
-                                    <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
-                                        {sections.config.map(col => {
-                                            const isMandatory = MANDATORY_FIELDS.includes(col);
-                                            if (col === 'usr_login') {
-                                                return (
-                                                    <Select 
-                                                        key={col}
-                                                        label={formatHeader(col)}
-                                                        placeholder={col}
-                                                        searchable
-                                                        clearable
-                                                        size="md"
-                                                        radius="md"
-                                                        data={users}
-                                                        value={String(formData[col] || '')}
-                                                        error={errors[col]}
-                                                        required={isMandatory}
-                                                        onChange={(val) => handleFieldChange(col, val)}
-                                                        styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                    />
-                                                );
-                                            }
-                                            if (FLAG_FIELDS.includes(col)) {
-                                                return (
-                                                    <Select 
-                                                        key={col}
-                                                        label={formatHeader(col)}
-                                                        placeholder="Seleccione"
-                                                        size="md"
-                                                        radius="md"
-                                                        data={[
-                                                            { value: 'S', label: 'Sí / Activo' },
-                                                            { value: 'N', label: 'No / Inactivo' }
-                                                        ]}
-                                                        value={formData[col] || (col === 'habilitado' ? 'S' : 'N')}
-                                                        error={errors[col]}
-                                                        required={isMandatory}
-                                                        onChange={(val) => handleFieldChange(col, val)}
-                                                        styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                    />
-                                                );
-                                            }
-                                            return (
-                                                <TextInput 
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder={col}
-                                                    size="md"
-                                                    radius="md"
-                                                    leftSection={<IconSettings size={18} />}
-                                                    value={formData[col] || ''}
-                                                    error={errors[col]}
-                                                    onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-
-                                    <Divider mt="xl" />
-
-                                    <Group justify="flex-end">
-                                        <Button 
-                                            variant="light" 
-                                            rightSection={<IconArrowRight size={16} />} 
-                                            onClick={() => setActiveTab('avanzado')}
-                                        >
-                                            Siguiente: Avanzado
-                                        </Button>
-                                    </Group>
-                                </Stack>
-                            </Tabs.Panel>
-
-                            <Tabs.Panel value="avanzado">
-                                <Stack gap="xl">
-                                    <Box>
-                                        <Group gap="sm" mb={4}>
-                                            <ThemeIcon variant="light" color="red" size="md">
-                                                <IconSettings size={18} />
-                                            </ThemeIcon>
-                                            <Title order={4}>Configuración Avanzada e IDs</Title>
-                                        </Group>
-                                        <Text size="sm" c="dimmed">Identificadores técnicos y parámetros de integración con otros módulos.</Text>
-                                    </Box>
-
-                                    <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="lg">
-                                        {sections.avanzado.map(col => {
-                                            const isMandatory = MANDATORY_FIELDS.includes(col);
-                                            if (col === 'id_comuna' || col === 'id_comunaef') {
-                                                return (
-                                                    <Select 
-                                                        key={col}
-                                                        label={formatHeader(col)}
-                                                        placeholder="Seleccione Comuna"
-                                                        searchable
-                                                        clearable
-                                                        size="md"
-                                                        radius="md"
-                                                        data={comunas}
-                                                        value={String(formData[col] || '')}
-                                                        error={errors[col]}
-                                                        required={isMandatory}
-                                                        onChange={(val) => handleFieldChange(col, val ? Number(val) : null)}
-                                                        styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                    />
-                                                );
-                                            }
-                                            if (col === 'lote_facturacion') {
-                                                return (
-                                                    <TextInput 
-                                                        key={col}
-                                                        label={formatHeader(col)}
-                                                        placeholder="Lote"
-                                                        size="md"
-                                                        radius="md"
-                                                        value={formData[col] || ''}
-                                                        error={errors[col]}
-                                                        required={isMandatory}
-                                                        onChange={(e) => handleFieldChange(col, e.target.value)}
-                                                        styles={isMandatory ? { label: { color: 'var(--mantine-color-blue-filled)' } } : {}}
-                                                    />
-                                                );
-                                            }
-                                            return (
-                                                <NumberInput 
-                                                    key={col}
-                                                    label={formatHeader(col)}
-                                                    placeholder="Sin asignar"
-                                                    size="md"
-                                                    radius="md"
-                                                    value={formData[col] === undefined || formData[col] === null ? '' : formData[col]}
-                                                    error={errors[col]}
-                                                    required={isMandatory}
-                                                    onChange={(val) => handleFieldChange(col, val === '' ? null : val)}
-                                                    styles={isMandatory ? { 
-                                                        label: { color: 'var(--mantine-color-blue-filled)' },
-                                                        input: { borderLeft: '3px solid var(--mantine-color-blue-filled)' }
-                                                    } : {}}
-                                                />
-                                            );
-                                        })}
-                                    </SimpleGrid>
-
-                                    <Divider mt="xl" />
-
-                                    <Group justify="flex-end" gap="md">
-                                        <Button variant="light" color="gray" onClick={() => setView('list')} size="md" radius="md">
-                                            Cancelar
-                                        </Button>
-                                        <Button 
-                                            color="teal" 
-                                            size="md" 
-                                            radius="md" 
-                                            onClick={handleSubmit}
-                                            loading={loading}
-                                            disabled={!isFormComplete()}
-                                            leftSection={<IconCheck size={20} />}
-                                        >
-                                            {editingId ? 'Guardar Cambios' : 'Crear Empresa'}
-                                        </Button>
-                                    </Group>
-                                </Stack>
-                            </Tabs.Panel>
-                        </Tabs>
-                    </Paper>
-                </Container>
-            </Box>
+                <div style={{ padding: '24px 16px' }}>
+                    <Card style={{ borderRadius: 16 }}>
+                        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+                    </Card>
+                </div>
+            </div>
         );
     }
 
+    const columns = [
+        {
+            title: 'Nombre', dataIndex: 'nombre_empresaservicios', key: 'nombre',
+            render: (v: string) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap' as const }}>
+                    <div style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: 'rgba(9,143,131,0.12)', color: '#098f83', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <IconBuilding size={14} />
+                    </div>
+                    <Text strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{v}</Text>
+                </div>
+            ),
+        },
+        { title: 'Contacto', dataIndex: 'contacto_empresaservicios', key: 'contacto', render: (v: string) => <Text style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{v || '-'}</Text> },
+        {
+            title: 'Email', key: 'email',
+            render: (_: unknown, item: any) => <Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{item.email_empresaservicios || item.email_contacto || '-'}</Text>,
+        },
+        {
+            title: 'Estado', key: 'estado', align: 'center' as const,
+            render: (_: unknown, item: any) => (
+                <Tag color={item.habilitado === 'S' ? 'green' : 'red'}>
+                    {item.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Acciones', key: 'acciones', align: 'right' as const,
+            render: (_: unknown, item: any) => (
+                <Tooltip title="Editar">
+                    <Button type="text" size="small" icon={<IconEdit size={16} />} onClick={() => handleEdit(item)} />
+                </Tooltip>
+            ),
+        },
+    ];
+
     return (
-        <Box style={{ animation: 'fadeIn 0.5s ease' }}>
-            <PageHeader 
+        <div>
+            <PageHeader
                 title="Gestión de Empresas de Servicio"
                 subtitle="Administre el catálogo de proveedores de servicios de muestreo y terreno."
                 onBack={onBack}
@@ -758,10 +655,10 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                     { label: 'Empresas de Servicio' }
                 ]}
                 rightSection={
-                    <Button 
-                        leftSection={<IconPlus size={18} />}
-                        color="teal"
-                        radius="md"
+                    <Button
+                        icon={<IconPlus size={18} />}
+                        type="primary"
+                        style={{ backgroundColor: '#0b7285' }}
                         onClick={handleCreate}
                     >
                         Nueva Empresa
@@ -769,118 +666,94 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                 }
             />
 
-            <Container fluid px="md" pb="xl" mt="xl">
-                <Paper withBorder p="md" radius="lg" shadow="sm">
-                    <Stack gap="md">
-                        <Group justify="space-between" align="flex-end">
-                            <Group align="flex-end" style={{ flex: 1 }}>
-                                <TextInput 
-                                    label="Búsqueda Rápida"
-                                    placeholder="Nombre, RUT, Email..."
-                                    leftSection={<IconSearch size={16} />}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                    style={{ width: 300 }}
-                                    radius="md"
-                                />
+            <div style={{ padding: '24px 16px' }}>
+                <Card style={{ borderRadius: 16 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', flex: 1 }}>
+                                <FormField label="Búsqueda Rápida">
+                                    <Input
+                                        placeholder="Nombre, RUT, Email..."
+                                        prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        style={{ width: 300 }}
+                                    />
+                                </FormField>
 
-                                <Box>
-                                    <Text size="xs" fw={700} mb={5} c="dimmed">Filtrar por Estado</Text>
-                                    <SegmentedControl
+                                <FormField label="Filtrar por Estado">
+                                    <Segmented
                                         value={statusFilter}
-                                        onChange={setStatusFilter}
-                                        radius="md"
-                                        data={[
+                                        onChange={(v) => setStatusFilter(v as string)}
+                                        options={[
                                             { label: 'Todos', value: 'ALL' },
                                             { label: 'Activos', value: 'S' },
                                             { label: 'Inactivos', value: 'N' },
                                         ]}
                                     />
-                                </Box>
+                                </FormField>
 
-                                <Select 
-                                    label="Responsable"
-                                    placeholder="Todos los responsables"
-                                    data={users}
-                                    value={userFilter}
-                                    onChange={setUserFilter}
-                                    clearable
-                                    searchable
-                                    radius="md"
-                                    style={{ width: 250 }}
-                                />
-                            </Group>
+                                <FormField label="Responsable">
+                                    <Select
+                                        options={users}
+                                        placeholder="Todos los responsables"
+                                        value={userFilter ?? undefined}
+                                        onChange={(v) => setUserFilter(v ?? null)}
+                                        allowClear
+                                        showSearch
+                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                        style={{ width: 250 }}
+                                    />
+                                </FormField>
+                            </div>
 
-                            <Badge variant="light" color="blue" size="lg" radius="sm">
+                            <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px' }}>
                                 Total: {filteredData.length}
-                            </Badge>
-                        </Group>
+                            </Tag>
+                        </div>
 
-                        <Divider />
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: 0 }} />
 
-                        <Box pos="relative">
-                            <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
-                            <ScrollArea offsetScrollbars h={678}>
-                                <Table verticalSpacing="md" highlightOnHover style={{ minWidth: 800 }}>
-                                    <Table.Thead bg="gray.0">
-                                        <Table.Tr>
-                                            <Table.Th>Nombre</Table.Th>
-                                            <Table.Th>Contacto</Table.Th>
-                                            <Table.Th>Email</Table.Th>
-                                            <Table.Th ta="center">Estado</Table.Th>
-                                            <Table.Th ta="right">Acciones</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {filteredData.length > 0 ? (
-                                            filteredData.map((item) => (
-                                                <Table.Tr key={item.id_empresaservicio}>
-                                                    <Table.Td>
-                                                        <Group gap="sm" wrap="nowrap">
-                                                            <ThemeIcon variant="light" color="teal" size="sm">
-                                                                <IconBuilding size={14} />
-                                                            </ThemeIcon>
-                                                            <Text size="sm" fw={600} style={{ whiteSpace: 'nowrap' }}>{item.nombre_empresaservicios}</Text>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm" style={{ whiteSpace: 'nowrap' }}>{item.contacto_empresaservicios || '-'}</Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{item.email_empresaservicios || item.email_contacto || '-'}</Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group justify="center" wrap="nowrap">
-                                                            <Badge color={item.habilitado === 'S' ? 'green' : 'red'} variant="light">
-                                                                {item.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                                            </Badge>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group justify="flex-end" gap="xs" wrap="nowrap">
-                                                            <Tooltip label="Editar">
-                                                                <ActionIcon variant="light" color="blue" onClick={() => handleEdit(item)}>
-                                                                    <IconEdit size={16} />
-                                                                </ActionIcon>
-                                                            </Tooltip>
-                                                        </Group>
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))
-                                        ) : (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={5} ta="center" py="xl">
-                                                    <Text c="dimmed">No se encontraron empresas</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea>
-                        </Box>
-                    </Stack>
-                </Paper>
-            </Container>
-        </Box>
+                        <Spin spinning={loading}>
+                            <Table
+                                dataSource={filteredData}
+                                columns={columns}
+                                rowKey="id_empresaservicio"
+                                pagination={false}
+                                size="middle"
+                                scroll={{ y: 620, x: 800 }}
+                                locale={{ emptyText: 'No se encontraron empresas' }}
+                            />
+                        </Spin>
+                    </div>
+                </Card>
+            </div>
+        </div>
     );
 };
+
+function FormField({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: required ? '#0062a8' : 'var(--app-text-secondary)', fontWeight: required ? 600 : 400, display: 'block', marginBottom: 4 }}>
+                {label}{required ? ' *' : ''}
+            </Text>
+            {children}
+            {error && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{error}</Text>}
+        </div>
+    );
+}
+
+function SectionHeading({ icon, color, title, subtitle }: { icon: React.ReactNode; color: string; title: string; subtitle: string }) {
+    return (
+        <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${color}1f`, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {icon}
+                </div>
+                <Title level={4} style={{ margin: 0 }}>{title}</Title>
+            </div>
+            <Text type="secondary" style={{ fontSize: 13 }}>{subtitle}</Text>
+        </div>
+    );
+}

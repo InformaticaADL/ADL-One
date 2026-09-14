@@ -1,32 +1,25 @@
 import { ursService } from '../../../services/urs.service';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import FileIcon from './FileIcon';
 import apiClient from '../../../config/axios.config';
 import {
     Modal,
-    Stack,
-    Group,
     Button,
     Select,
-    TextInput,
-    Textarea,
+    Input,
+    Typography,
     Divider,
-    Text,
-    ActionIcon,
-    Box,
-    FileButton,
-    Badge,
-    Loader,
-    ScrollArea,
-    ThemeIcon
-} from '@mantine/core';
+    Tag,
+    Spin
+} from 'antd';
 import {
-    IconInfoCircle,
     IconPaperclip,
-    IconX,
     IconCheck,
     IconPlaylistAdd
 } from '@tabler/icons-react';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface RemoteSelectProps {
     source: string;
@@ -39,7 +32,7 @@ interface RemoteSelectProps {
     label: string;
 }
 
-const RemoteSelect: React.FC<RemoteSelectProps> = ({ source, value, onChange, labelField, valueField, placeholder, required, label }) => {
+const RemoteSelect: React.FC<RemoteSelectProps> = ({ source, value, onChange, labelField, valueField, placeholder, label }) => {
     const [options, setOptions] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -56,22 +49,23 @@ const RemoteSelect: React.FC<RemoteSelectProps> = ({ source, value, onChange, la
             })
             .catch(err => console.error(`Error loading remote source ${source}:`, err))
             .finally(() => setLoading(false));
-    }, [source]);
+    }, [source, valueField, labelField]);
 
     return (
-        <Select 
-            label={label}
-            placeholder={loading ? 'Cargando...' : (placeholder || 'Seleccione...')}
-            data={options}
-            value={value ? String(value) : null}
-            onChange={onChange}
-            required={required}
-            disabled={loading}
-            rightSection={loading ? <Loader size={14} /> : null}
-            searchable
-            clearable
-            radius="md"
-        />
+        <Field label={label}>
+            <Select
+                placeholder={loading ? 'Cargando...' : (placeholder || 'Seleccione...')}
+                options={options}
+                value={value ? String(value) : undefined}
+                onChange={onChange}
+                disabled={loading}
+                suffixIcon={loading ? <Spin size="small" /> : undefined}
+                showSearch
+                allowClear
+                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                style={{ width: '100%' }}
+            />
+        </Field>
     );
 };
 
@@ -87,6 +81,7 @@ const NewRequestModal: React.FC<NewRequestModalProps> = ({ isOpen, onClose, onSu
     const [dynamicData, setDynamicData] = useState<any>({});
     const [files, setFiles] = useState<File[]>([]);
     const [loading, setLoading] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         if (isOpen) {
@@ -95,12 +90,12 @@ const NewRequestModal: React.FC<NewRequestModalProps> = ({ isOpen, onClose, onSu
     }, [isOpen]);
 
     const selectedType = types.find(t => String(t.id_tipo) === selectedTypeId);
-    
+
     const formConfig = useMemo(() => {
         if (!selectedType?.formulario_config) return null;
         try {
-            return typeof selectedType.formulario_config === 'string' 
-                ? JSON.parse(selectedType.formulario_config) 
+            return typeof selectedType.formulario_config === 'string'
+                ? JSON.parse(selectedType.formulario_config)
                 : selectedType.formulario_config;
         } catch (e) {
             console.error("Error parsing form config:", e);
@@ -145,76 +140,74 @@ const NewRequestModal: React.FC<NewRequestModalProps> = ({ isOpen, onClose, onSu
     };
 
     return (
-        <Modal 
-            opened={isOpen} 
-            onClose={onClose} 
+        <Modal
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={620}
             title={
-                <Group gap="xs">
-                    <ThemeIcon variant="light" color="adl-blue" radius="md">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <IconPlaylistAdd size={18} />
-                    </ThemeIcon>
-                    <Text fw={700}>Nueva Solicitud</Text>
-                </Group>
+                    </div>
+                    <Text strong>Nueva Solicitud</Text>
+                </div>
             }
-            size="lg"
-            radius="lg"
-            scrollAreaComponent={ScrollArea.Autosize}
         >
-            <Stack gap="md" pb="md">
-                <Select 
-                    label="Tipo de Gestión"
-                    placeholder="Seleccione un tipo..."
-                    data={types.map(t => ({ value: String(t.id_tipo), label: t.nombre }))}
-                    value={selectedTypeId}
-                    onChange={setSelectedTypeId}
-                    required
-                    searchable
-                    radius="md"
-                />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16, paddingBottom: 16 }}>
+                <Field label="Tipo de Gestión *">
+                    <Select
+                        placeholder="Seleccione un tipo..."
+                        options={types.map(t => ({ value: String(t.id_tipo), label: t.nombre }))}
+                        value={selectedTypeId ?? undefined}
+                        onChange={(v) => setSelectedTypeId(v ?? null)}
+                        showSearch
+                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                        style={{ width: '100%' }}
+                    />
+                </Field>
 
-                <Select 
-                    label="Prioridad de Atención"
-                    placeholder="Seleccione prioridad..."
-                    data={[
-                        { value: 'BAJA', label: '🟢 Baja' },
-                        { value: 'NORMAL', label: '🔵 Normal' },
-                        { value: 'ALTA', label: '🔴 Alta' },
-                        { value: 'URGENTE', label: '🔥 Urgente' }
-                    ]}
-                    value={dynamicData.prioridad || 'NORMAL'}
-                    onChange={(val) => handleInputChange('prioridad', val)}
-                    required
-                    radius="md"
-                />
+                <Field label="Prioridad de Atención *">
+                    <Select
+                        placeholder="Seleccione prioridad..."
+                        options={[
+                            { value: 'BAJA', label: '🟢 Baja' },
+                            { value: 'NORMAL', label: '🔵 Normal' },
+                            { value: 'ALTA', label: '🔴 Alta' },
+                            { value: 'URGENTE', label: '🔥 Urgente' }
+                        ]}
+                        value={dynamicData.prioridad || 'NORMAL'}
+                        onChange={(val) => handleInputChange('prioridad', val)}
+                        style={{ width: '100%' }}
+                    />
+                </Field>
 
                 {formConfig ? (
-                    <Stack gap="md" mt="xs">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
                         {formConfig.map((field: any) => (
-                            <Box key={field.name}>
+                            <div key={field.name}>
                                 {field.type === 'textarea' ? (
-                                    <Textarea
-                                        label={field.label}
-                                        placeholder={field.placeholder || ''}
-                                        value={dynamicData[field.name] || ''}
-                                        onChange={(e) => handleInputChange(field.name, e.target.value)}
-                                        required={field.required}
-                                        radius="md"
-                                        autosize
-                                        minRows={2}
-                                    />
+                                    <Field label={`${field.label}${field.required ? ' *' : ''}`}>
+                                        <TextArea
+                                            placeholder={field.placeholder || ''}
+                                            value={dynamicData[field.name] || ''}
+                                            onChange={(e) => handleInputChange(field.name, e.target.value)}
+                                            autoSize={{ minRows: 2 }}
+                                        />
+                                    </Field>
                                 ) : field.type === 'select' ? (
-                                    <Select
-                                        label={field.label}
-                                        placeholder="Seleccione..."
-                                        data={field.options?.map((opt: string) => ({ value: opt, label: opt })) || []}
-                                        value={dynamicData[field.name] || ''}
-                                        onChange={(val) => handleInputChange(field.name, val)}
-                                        required={field.required}
-                                        radius="md"
-                                    />
+                                    <Field label={`${field.label}${field.required ? ' *' : ''}`}>
+                                        <Select
+                                            placeholder="Seleccione..."
+                                            options={field.options?.map((opt: string) => ({ value: opt, label: opt })) || []}
+                                            value={dynamicData[field.name] || undefined}
+                                            onChange={(val) => handleInputChange(field.name, val)}
+                                            style={{ width: '100%' }}
+                                        />
+                                    </Field>
                                 ) : field.type === 'remote-select' ? (
                                     <RemoteSelect
-                                        label={field.label}
+                                        label={`${field.label}${field.required ? ' *' : ''}`}
                                         source={field.remoteSource}
                                         value={dynamicData[field.name]}
                                         onChange={(val) => handleInputChange(field.name, val)}
@@ -224,97 +217,102 @@ const NewRequestModal: React.FC<NewRequestModalProps> = ({ isOpen, onClose, onSu
                                         required={field.required}
                                     />
                                 ) : (
-                                    <TextInput
-                                        type={field.type || 'text'}
-                                        label={field.label}
-                                        placeholder={field.placeholder || ''}
-                                        value={dynamicData[field.name] || ''}
-                                        onChange={(e) => handleInputChange(field.name, e.target.value)}
-                                        required={field.required}
-                                        radius="md"
-                                    />
+                                    <Field label={`${field.label}${field.required ? ' *' : ''}`}>
+                                        <Input
+                                            type={field.type || 'text'}
+                                            placeholder={field.placeholder || ''}
+                                            value={dynamicData[field.name] || ''}
+                                            onChange={(e) => handleInputChange(field.name, e.target.value)}
+                                        />
+                                    </Field>
                                 )}
-                            </Box>
+                            </div>
                         ))}
-                    </Stack>
+                    </div>
                 ) : selectedTypeId && (
-                    <Stack gap="md" mt="xs">
-                        <TextInput 
-                            label="Título / Referencia"
-                            placeholder="Ej: Problema con equipo XYZ"
-                            value={dynamicData.titulo || ''}
-                            onChange={(e) => handleInputChange('titulo', e.target.value)}
-                            required
-                            radius="md"
-                        />
-                        <Textarea 
-                            label="Descripción detallada"
-                            placeholder="Explique detalladamente su requerimiento..."
-                            value={dynamicData.descripcion || ''}
-                            onChange={(e) => handleInputChange('descripcion', e.target.value)}
-                            required
-                            radius="md"
-                            autosize
-                            minRows={3}
-                        />
-                    </Stack>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 4 }}>
+                        <Field label="Título / Referencia *">
+                            <Input
+                                placeholder="Ej: Problema con equipo XYZ"
+                                value={dynamicData.titulo || ''}
+                                onChange={(e) => handleInputChange('titulo', e.target.value)}
+                            />
+                        </Field>
+                        <Field label="Descripción detallada *">
+                            <TextArea
+                                placeholder="Explique detalladamente su requerimiento..."
+                                value={dynamicData.descripcion || ''}
+                                onChange={(e) => handleInputChange('descripcion', e.target.value)}
+                                autoSize={{ minRows: 3 }}
+                            />
+                        </Field>
+                    </div>
                 )}
 
-                <Divider my="sm" />
+                <Divider style={{ margin: '8px 0' }} />
 
-                <Stack gap={4}>
-                    <Text size="sm" fw={700}>Adjuntar Archivos</Text>
-                    <Group gap="xs">
-                        <FileButton onChange={(payload) => setFiles(prev => [...prev, ...payload])} accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv" multiple>
-                            {(props) => (
-                                <Button {...props} variant="light" color="gray" leftSection={<IconPaperclip size={18} />} radius="md">
-                                    Seleccionar Archivos
-                                </Button>
-                            )}
-                        </FileButton>
-                        <Text size="xs" c="dimmed">{files.length} archivos seleccionados</Text>
-                    </Group>
-                    
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <Text strong style={{ fontSize: 13 }}>Adjuntar Archivos</Text>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            multiple
+                            accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv"
+                            style={{ display: 'none' }}
+                            onChange={(e) => {
+                                if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                e.target.value = '';
+                            }}
+                        />
+                        <Button icon={<IconPaperclip size={18} />} onClick={() => fileInputRef.current?.click()}>
+                            Seleccionar Archivos
+                        </Button>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{files.length} archivos seleccionados</Text>
+                    </div>
+
                     {files.length > 0 && (
-                        <Group gap={6} mt="xs">
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
                             {files.map((f, i) => (
-                                <Badge 
-                                    key={i} 
-                                    variant="outline" 
-                                    color="gray" 
-                                    radius="sm" 
-                                    leftSection={<FileIcon filename={f.name} mimetype={f.type} size={14} />}
-                                    rightSection={
-                                        <ActionIcon size="xs" variant="transparent" color="red" onClick={() => removeFile(i)}>
-                                            <IconX size={10} />
-                                        </ActionIcon>
-                                    }
+                                <Tag
+                                    key={i}
+                                    icon={<FileIcon filename={f.name} mimetype={f.type} size={14} />}
+                                    closable
+                                    onClose={() => removeFile(i)}
                                 >
                                     {f.name}
-                                </Badge>
+                                </Tag>
                             ))}
-                        </Group>
+                        </div>
                     )}
-                </Stack>
+                </div>
 
-                <Group justify="flex-end" mt="xl">
-                    <Button variant="light" color="gray" onClick={onClose} radius="md">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+                    <Button onClick={onClose}>
                         Cancelar
                     </Button>
-                    <Button 
-                        color="adl-blue" 
-                        radius="md" 
-                        loading={loading} 
+                    <Button
+                        type="primary"
+                        loading={loading}
                         disabled={!selectedTypeId}
-                        leftSection={<IconCheck size={18} />}
+                        icon={<IconCheck size={18} />}
                         onClick={handleSubmit}
                     >
                         Confirmar Solicitud
                     </Button>
-                </Group>
-            </Stack>
+                </div>
+            </div>
         </Modal>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default NewRequestModal;

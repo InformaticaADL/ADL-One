@@ -6,7 +6,7 @@
  *   <TextInput label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código del punto exacto donde se tomará la muestra." />} ... />
  */
 
-import { Group, Text, Tooltip, ThemeIcon } from '@mantine/core';
+import { Tooltip } from 'antd';
 import { IconInfoCircle } from '@tabler/icons-react';
 
 interface FieldLabelProps {
@@ -17,36 +17,22 @@ interface FieldLabelProps {
 }
 
 export const FieldLabel = ({ label, help }: FieldLabelProps) => (
-    <Group gap={4} wrap="nowrap" align="center" style={{ display: 'inline-flex' }}>
-        <Text component="span" size="sm" fw={500}>{label}</Text>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
+        <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
         <Tooltip
-            label={help}
-            multiline
-            w={260}
-            withArrow
-            position="top-start"
-            color="dark"
-            styles={{
-                tooltip: {
-                    fontSize: 12,
-                    lineHeight: 1.5,
-                    padding: '8px 12px',
-                }
-            }}
+            title={help}
+            placement="topLeft"
+            overlayInnerStyle={{ fontSize: 12, lineHeight: 1.5, padding: '8px 12px', maxWidth: 260 }}
         >
-            <ThemeIcon
-                size={16}
-                radius="xl"
-                variant="filled"
+            <span
                 style={{
-                    backgroundColor: '#adb5bd',
-                    cursor: 'help',
-                    flexShrink: 0,
-                    minWidth: 16,
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    width: 16, height: 16, minWidth: 16, borderRadius: '50%',
+                    backgroundColor: '#adb5bd', color: '#fff', cursor: 'help', flexShrink: 0,
                 }}
             >
                 <IconInfoCircle size={11} stroke={2.5} />
-            </ThemeIcon>
+            </span>
         </Tooltip>
-    </Group>
+    </span>
 );

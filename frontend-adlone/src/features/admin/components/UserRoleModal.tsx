@@ -1,27 +1,25 @@
 import React, { useEffect, useState } from 'react';
-import { 
-    Modal, 
-    Stack, 
-    Group, 
-    Text, 
-    Button, 
-    TextInput, 
-    Checkbox, 
-    ScrollArea, 
-    Divider, 
-    Paper,
-    Box,
-    Badge
-} from '@mantine/core';
-import { 
-    IconSearch, 
+import {
+    Modal,
+    Typography,
+    Button,
+    Input,
+    Checkbox,
+    Divider,
+    Card,
+    Tag
+} from 'antd';
+import {
+    IconSearch,
     IconShieldCheck,
     IconCheck
 } from '@tabler/icons-react';
-import { useMediaQuery, useDebouncedValue } from '@mantine/hooks';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { rbacService } from '../services/rbac.service';
 import type { Role, User } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Text } = Typography;
 
 interface Props {
     user: User | null;
@@ -30,52 +28,45 @@ interface Props {
     onSuccess: () => void;
 }
 
-const RoleListItem = React.memo(({ 
-    role, 
-    isSelected, 
-    onToggle 
-}: { 
-    role: Role, 
-    isSelected: boolean, 
-    onToggle: (id: number) => void 
+const RoleListItem = React.memo(({
+    role,
+    isSelected,
+    onToggle
+}: {
+    role: Role,
+    isSelected: boolean,
+    onToggle: (id: number) => void
 }) => {
     return (
-        <Paper 
-            withBorder 
-            p="md" 
-            radius="md"
-            bg={isSelected ? 'blue.0' : 'white'}
-            style={{ 
+        <Card
+            size="small"
+            style={{
                 cursor: 'pointer',
                 transition: 'all 0.2s',
-                borderColor: isSelected ? 'var(--mantine-color-blue-3)' : undefined
+                backgroundColor: isSelected ? 'var(--app-accent-bg)' : undefined,
+                borderColor: isSelected ? '#4dabf7' : undefined
             }}
             onClick={() => onToggle(role.id_rol)}
         >
-            <Group gap="md" wrap="nowrap">
-                <Checkbox 
+            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                <Checkbox
                     checked={isSelected}
-                    onChange={() => {}} // Handled by Paper
-                    size="md"
+                    onChange={() => {}} // Handled by Card
                     tabIndex={-1}
                 />
-                <Box style={{ flex: 1 }}>
-                    <Group justify="space-between" align="flex-start" wrap="nowrap">
-                        <Box>
-                            <Text fw={600} size="sm">{role.nombre_rol}</Text>
-                            <Text size="xs" c="dimmed" lineClamp={2}>{role.descripcion || 'Sin descripción'}</Text>
-                        </Box>
-                        <Badge 
-                            size="xs" 
-                            variant="light" 
-                            color={role.estado ? 'green' : 'red'}
-                        >
+                <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                        <div>
+                            <Text strong style={{ fontSize: 13, display: 'block' }}>{role.nombre_rol}</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{role.descripcion || 'Sin descripción'}</Text>
+                        </div>
+                        <Tag color={role.estado ? 'green' : 'red'}>
                             {role.estado ? 'Activo' : 'Inactivo'}
-                        </Badge>
-                    </Group>
-                </Box>
-            </Group>
-        </Paper>
+                        </Tag>
+                    </div>
+                </div>
+            </div>
+        </Card>
     );
 });
 
@@ -85,8 +76,13 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
     const [roles, setRoles] = useState<Role[]>([]);
     const [selectedRoleIds, setSelectedRoleIds] = useState<number[]>([]);
     const [roleSearchTerm, setRoleSearchTerm] = useState('');
-    const [debouncedSearch] = useDebouncedValue(roleSearchTerm, 200);
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        const id = setTimeout(() => setDebouncedSearch(roleSearchTerm), 200);
+        return () => clearTimeout(id);
+    }, [roleSearchTerm]);
 
     useEffect(() => {
         if (isOpen) {
@@ -97,6 +93,7 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
                 setSelectedRoleIds([]);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, user]);
 
     const loadRoles = async () => {
@@ -153,74 +150,72 @@ export const UserRoleModal: React.FC<Props> = ({ user, isOpen, onClose, onSucces
 
     return (
         <Modal
-            opened={isOpen}
-            onClose={onClose}
-            title={
-                <Group gap="xs">
-                    <IconShieldCheck size={22} color="var(--mantine-color-blue-filled)" />
-                    <Stack gap={0}>
-                        <Text fw={700}>Asignar Roles</Text>
-                        <Text size="xs" c="dimmed">{user?.nombre_real || user?.nombre_usuario}</Text>
-                    </Stack>
-                </Group>
-            }
-            size={isMobile ? "100%" : "lg"}
-            fullScreen={isMobile}
-            radius="md"
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? '100%' : 640}
+            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
             styles={{ body: { padding: 0 } }}
+            title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <IconShieldCheck size={22} color="#0062a8" />
+                    <div>
+                        <Text strong style={{ display: 'block' }}>Asignar Roles</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{user?.nombre_real || user?.nombre_usuario}</Text>
+                    </div>
+                </div>
+            }
         >
-            <Box h={isMobile ? "calc(100dvh - 180px)" : "60vh"} display="flex" style={{ flexDirection: 'column' }}>
-                <ScrollArea style={{ flex: 1 }} p="md">
-                    <Stack gap="md" pb={isMobile ? 100 : 0}>
-                        <Box>
-                            <Text size="sm" c="dimmed" mb="md">Seleccione los roles que desea asignar a este usuario.</Text>
-                            <TextInput 
+            <div style={{ height: isMobile ? 'calc(100dvh - 180px)' : '60vh', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, paddingBottom: isMobile ? 100 : 0 }}>
+                        <div>
+                            <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 16 }}>Seleccione los roles que desea asignar a este usuario.</Text>
+                            <Input
                                 placeholder="Buscar rol..."
-                                leftSection={<IconSearch size={16} />}
+                                prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
                                 value={roleSearchTerm}
-                                onChange={(e) => setRoleSearchTerm(e.currentTarget.value)}
-                                radius="md"
+                                onChange={(e) => setRoleSearchTerm(e.target.value)}
                             />
-                        </Box>
+                        </div>
 
-                        <Divider label="Roles Disponibles" labelPosition="center" />
+                        <Divider>Roles Disponibles</Divider>
 
                         {roles.length === 0 ? (
-                            <Text ta="center" py="xl" c="dimmed">No hay roles disponibles.</Text>
+                            <Text type="secondary" style={{ textAlign: 'center', display: 'block', padding: '32px 0' }}>No hay roles disponibles.</Text>
                         ) : filteredRoles.length === 0 ? (
-                            <Text ta="center" py="xl" c="dimmed">No se encontraron roles.</Text>
+                            <Text type="secondary" style={{ textAlign: 'center', display: 'block', padding: '32px 0' }}>No se encontraron roles.</Text>
                         ) : (
-                            <Stack gap="xs">
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 {filteredRoles.map(role => (
-                                    <RoleListItem 
-                                        key={role.id_rol} 
-                                        role={role} 
-                                        isSelected={selectedRoleIds.includes(role.id_rol)} 
-                                        onToggle={toggleRole} 
+                                    <RoleListItem
+                                        key={role.id_rol}
+                                        role={role}
+                                        isSelected={selectedRoleIds.includes(role.id_rol)}
+                                        onToggle={toggleRole}
                                     />
                                 ))}
-                            </Stack>
+                            </div>
                         )}
-                    </Stack>
-                </ScrollArea>
-            </Box>
+                    </div>
+                </div>
+            </div>
 
-            <Divider />
-            <Group justify="flex-end" p="lg" pb={isMobile ? 60 : 'lg'} bg="gray.0">
-                <Button variant="subtle" color="gray" onClick={onClose} fullWidth={isMobile}>
+            <Divider style={{ margin: 0 }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: 24, paddingBottom: isMobile ? 60 : 24, backgroundColor: 'var(--app-hover-bg)' }}>
+                <Button onClick={onClose} block={isMobile}>
                     Cancelar / Descartar
                 </Button>
-                <Button 
-                    color="adl-blue" 
-                    loading={loading} 
+                <Button
+                    type="primary"
+                    loading={loading}
                     onClick={handleSave}
-                    leftSection={<IconCheck size={18} />}
-                    radius="md"
-                    fullWidth={isMobile}
+                    icon={<IconCheck size={18} />}
+                    block={isMobile}
                 >
                     {loading ? 'Guardando...' : 'Guardar Asignaciones'}
                 </Button>
-            </Group>
+            </div>
         </Modal>
     );
 };

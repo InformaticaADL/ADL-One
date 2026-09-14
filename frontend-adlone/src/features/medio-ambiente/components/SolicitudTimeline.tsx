@@ -1,29 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { 
-    Timeline, 
-    Text, 
-    Paper, 
-    Group, 
-    Stack, 
-    ThemeIcon, 
-    Badge, 
-    Collapse, 
-    UnstyledButton,
-    Loader,
-    Center,
-    Box
-} from '@mantine/core';
-import { 
-    IconPencil, 
-    IconCheck, 
-    IconX, 
-    IconAlertTriangle, 
-    IconUsers, 
+import { Timeline, Typography, Tag, Spin } from 'antd';
+import {
+    IconPencil,
+    IconCheck,
+    IconX,
+    IconAlertTriangle,
+    IconUsers,
     IconInfoCircle,
     IconChevronDown,
     IconArrowRight
 } from '@tabler/icons-react';
 import { adminService } from '../../../services/admin.service';
+
+const { Text } = Typography;
 
 interface TimelineEvent {
     id: string; // Unique ID for key/expansion
@@ -45,10 +34,31 @@ interface SolicitudTimelineProps {
     };
 }
 
+const TYPE_COLOR: Record<TimelineEvent['type'], { antd: string; hex: string; bg: string }> = {
+    CREATION: { antd: 'geekblue', hex: '#4263eb', bg: 'rgba(66,99,235,0.08)' },
+    APPROVAL: { antd: 'green', hex: '#2f9e44', bg: 'rgba(47,158,68,0.08)' },
+    REJECTION: { antd: 'red', hex: '#e03131', bg: 'rgba(224,49,49,0.08)' },
+    REVIEW: { antd: 'gold', hex: '#f08c00', bg: 'rgba(240,140,0,0.08)' },
+    ASSIGNMENT: { antd: 'purple', hex: '#9c36b5', bg: 'rgba(156,54,181,0.08)' },
+    OTHER: { antd: 'gray', hex: '#868e96', bg: 'var(--app-hover-bg)' },
+};
+
 export const SolicitudTimeline: React.FC<SolicitudTimelineProps> = ({ solicitudId, creationData }) => {
     const [events, setEvents] = useState<TimelineEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+    const determineType = (action: string): TimelineEvent['type'] => {
+        if (!action) return 'OTHER';
+        const act = action.toUpperCase();
+        if (act.includes('CREACION')) return 'CREATION';
+        if (act.includes('APROB') || act.includes('ACEPT')) return 'APPROVAL';
+        if (act.includes('RECHAZ')) return 'REJECTION';
+        if (act.includes('REVISION')) return 'REVIEW';
+        if (act.includes('ASIGN')) return 'ASSIGNMENT';
+        if (act.includes('RESOLUCION')) return 'APPROVAL';
+        return 'OTHER';
+    };
 
     useEffect(() => {
         if (solicitudId) {
@@ -91,18 +101,6 @@ export const SolicitudTimeline: React.FC<SolicitudTimelineProps> = ({ solicitudI
         }
     }, [solicitudId, creationData]);
 
-    const determineType = (action: string): TimelineEvent['type'] => {
-        if (!action) return 'OTHER';
-        const act = action.toUpperCase();
-        if (act.includes('CREACION')) return 'CREATION';
-        if (act.includes('APROB') || act.includes('ACEPT')) return 'APPROVAL';
-        if (act.includes('RECHAZ')) return 'REJECTION';
-        if (act.includes('REVISION')) return 'REVIEW';
-        if (act.includes('ASIGN')) return 'ASSIGNMENT';
-        if (act.includes('RESOLUCION')) return 'APPROVAL';
-        return 'OTHER';
-    };
-
     const toggleExpand = (id: string) => {
         const next = new Set(expandedIds);
         if (next.has(id)) next.delete(id);
@@ -112,23 +110,12 @@ export const SolicitudTimeline: React.FC<SolicitudTimelineProps> = ({ solicitudI
 
     const getIcon = (type: TimelineEvent['type']) => {
         switch (type) {
-            case 'CREATION': return <IconPencil size={14} />;
-            case 'APPROVAL': return <IconCheck size={14} />;
-            case 'REJECTION': return <IconX size={14} />;
-            case 'REVIEW': return <IconAlertTriangle size={14} />;
-            case 'ASSIGNMENT': return <IconUsers size={14} />;
-            default: return <IconInfoCircle size={14} />;
-        }
-    };
-
-    const getColor = (type: TimelineEvent['type']) => {
-        switch (type) {
-            case 'CREATION': return 'indigo';
-            case 'APPROVAL': return 'green';
-            case 'REJECTION': return 'red';
-            case 'REVIEW': return 'yellow';
-            case 'ASSIGNMENT': return 'grape';
-            default: return 'gray';
+            case 'CREATION': return <IconPencil size={13} />;
+            case 'APPROVAL': return <IconCheck size={13} />;
+            case 'REJECTION': return <IconX size={13} />;
+            case 'REVIEW': return <IconAlertTriangle size={13} />;
+            case 'ASSIGNMENT': return <IconUsers size={13} />;
+            default: return <IconInfoCircle size={13} />;
         }
     };
 
@@ -163,101 +150,93 @@ export const SolicitudTimeline: React.FC<SolicitudTimelineProps> = ({ solicitudI
     };
 
     if (loading) return (
-        <Center p="xl">
-            <Stack align="center" gap="xs">
-                <Loader size="sm" />
-                <Text size="xs" c="dimmed">Cargando historial...</Text>
-            </Stack>
-        </Center>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 32 }}>
+            <Spin size="small" />
+            <Text type="secondary" style={{ fontSize: 12 }}>Cargando historial...</Text>
+        </div>
     );
 
     if (events.length === 0) return (
-        <Center p="xl">
-            <Text size="sm" c="dimmed" fs="italic">No hay historial disponible.</Text>
-        </Center>
+        <div style={{ padding: 32, textAlign: 'center' }}>
+            <Text type="secondary" italic style={{ fontSize: 13 }}>No hay historial disponible.</Text>
+        </div>
     );
 
     return (
-        <Timeline active={0} bulletSize={30} lineWidth={2}>
-            {events.map((event) => {
+        <Timeline
+            items={events.map((event) => {
                 const isExpanded = expandedIds.has(event.id);
-                const color = getColor(event.type);
+                const color = TYPE_COLOR[event.type];
 
-                return (
-                    <Timeline.Item 
-                        key={event.id}
-                        bullet={
-                            <ThemeIcon 
-                                size={22} 
-                                radius="xl" 
-                                color={color} 
-                                variant="light"
-                            >
-                                {getIcon(event.type)}
-                            </ThemeIcon>
-                        }
-                    >
-                        <Paper withBorder radius="md" p={0} shadow="xs" style={{ overflow: 'hidden' }}>
-                            <UnstyledButton 
+                return {
+                    key: event.id,
+                    dot: (
+                        <div style={{
+                            width: 22, height: 22, borderRadius: '50%', backgroundColor: color.bg, color: color.hex,
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            {getIcon(event.type)}
+                        </div>
+                    ),
+                    children: (
+                        <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, overflow: 'hidden' }}>
+                            <button
                                 onClick={() => toggleExpand(event.id)}
-                                w="100%"
-                                p="md"
-                                bg={isExpanded ? `${color}.0` : 'transparent'}
-                                style={{ borderBottom: isExpanded ? `1px solid var(--mantine-color-${color}-1)` : 'none' }}
+                                style={{
+                                    width: '100%', padding: 12, backgroundColor: isExpanded ? color.bg : 'transparent',
+                                    border: 'none', borderBottom: isExpanded ? `1px solid ${color.hex}33` : 'none',
+                                    cursor: 'pointer', textAlign: 'left',
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8,
+                                }}
                             >
-                                <Group justify="space-between" align="flex-start" wrap="nowrap">
-                                    <Box style={{ flex: 1 }}>
-                                        <Text size="sm" fw={600}>{getFriendlyAction(event.action)}</Text>
-                                        <Group gap={8} mt={4}>
-                                            <Badge variant="light" color="gray" size="xs">{event.user}</Badge>
-                                            <Text size="xs" c="dimmed">•</Text>
-                                            <Text size="xs" c="dimmed">{event.date.toLocaleDateString('es-CL')} {event.date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}</Text>
-                                        </Group>
-                                    </Box>
-                                    <IconChevronDown 
-                                        size={16} 
-                                        style={{ 
-                                            transform: isExpanded ? 'rotate(180deg)' : 'none', 
-                                            transition: 'transform 200ms ease',
-                                            color: 'var(--mantine-color-gray-4)'
-                                        }} 
-                                    />
-                                </Group>
-                            </UnstyledButton>
+                                <div style={{ flex: 1 }}>
+                                    <Text strong style={{ fontSize: 13, display: 'block' }}>{getFriendlyAction(event.action)}</Text>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                        <Tag style={{ fontSize: 11, marginInlineEnd: 0 }}>{event.user}</Tag>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            {event.date.toLocaleDateString('es-CL')} {event.date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                        </Text>
+                                    </div>
+                                </div>
+                                <IconChevronDown
+                                    size={16}
+                                    style={{
+                                        transform: isExpanded ? 'rotate(180deg)' : 'none',
+                                        transition: 'transform 200ms ease',
+                                        color: 'var(--app-text-secondary)',
+                                        flexShrink: 0,
+                                        marginTop: 2,
+                                    }}
+                                />
+                            </button>
 
-                            <Collapse in={isExpanded}>
-                                <Box p="md">
+                            {isExpanded && (
+                                <div style={{ padding: 12 }}>
                                     {event.stateChange && (
-                                        <Group gap="xs" mb="sm" wrap="nowrap">
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                             {event.stateChange.from && (
                                                 <>
-                                                    <Badge variant="outline" color="gray" size="sm" radius="sm">
-                                                        {getFriendlyState(event.stateChange.from)}
-                                                    </Badge>
-                                                    <IconArrowRight size={12} style={{ color: 'var(--mantine-color-gray-4)' }} />
+                                                    <Tag>{getFriendlyState(event.stateChange.from)}</Tag>
+                                                    <IconArrowRight size={12} style={{ color: 'var(--app-text-secondary)' }} />
                                                 </>
                                             )}
-                                            <Badge variant="filled" color={color} size="sm" radius="sm">
-                                                {getFriendlyState(event.stateChange.to)}
-                                            </Badge>
-                                        </Group>
+                                            <Tag color={color.antd}>{getFriendlyState(event.stateChange.to)}</Tag>
+                                        </div>
                                     )}
 
                                     {event.observation ? (
-                                        <Paper bg="gray.0" p="sm" radius="sm" withBorder>
-                                            <Text size="sm" style={{ whiteSpace: 'pre-wrap' }}>
-                                                {event.observation}
-                                            </Text>
-                                        </Paper>
+                                        <div style={{ backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', borderRadius: 8, padding: 10 }}>
+                                            <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{event.observation}</Text>
+                                        </div>
                                     ) : (
-                                        <Text size="xs" c="dimmed" fs="italic">Sin observaciones registradas.</Text>
+                                        <Text type="secondary" italic style={{ fontSize: 12 }}>Sin observaciones registradas.</Text>
                                     )}
-                                </Box>
-                            </Collapse>
-                        </Paper>
-                    </Timeline.Item>
-                );
+                                </div>
+                            )}
+                        </div>
+                    ),
+                };
             })}
-        </Timeline>
+        />
     );
 };

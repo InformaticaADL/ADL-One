@@ -1,7 +1,9 @@
 import React from 'react';
-import { Container, Title, Text, Button, Group, Box, Card, ThemeIcon, rem, Stack } from '@mantine/core';
+import { Typography, Button, Card } from 'antd';
 import { IconAlertCircle, IconHome } from '@tabler/icons-react';
 import '../features/auth/Login.css'; // Reuse login styles for background
+
+const { Title, Text } = Typography;
 
 interface ErrorPageProps {
     code?: string | number;
@@ -10,11 +12,11 @@ interface ErrorPageProps {
     resetError?: () => void;
 }
 
-export const ErrorPage: React.FC<ErrorPageProps> = ({ 
-    code = '500', 
-    title = 'Algo salió mal', 
+export const ErrorPage: React.FC<ErrorPageProps> = ({
+    code = '500',
+    title = 'Algo salió mal',
     message = 'Ha ocurrido un error inesperado en la aplicación.',
-    resetError 
+    resetError
 }) => {
     const handleBackToHome = () => {
         if (resetError) {
@@ -25,24 +27,22 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
 
     return (
         <div className="login-page">
-            <Container size={420} className="login-container">
-                <Card className="login-card" radius="xl" shadow="xl" p="xl">
-                    <Stack align="center" gap="md">
-                        <ThemeIcon 
-                            variant="light" 
-                            color="red" 
-                            size={80} 
-                            radius={80}
-                        >
-                            <IconAlertCircle size={rem(48)} />
-                        </ThemeIcon>
+            <div className="login-container" style={{ maxWidth: 420, margin: '0 auto' }}>
+                <Card className="login-card" style={{ borderRadius: 20 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                        <div style={{
+                            width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(224,49,49,0.12)', color: '#e03131',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                            <IconAlertCircle size={48} />
+                        </div>
 
-                        <Box style={{ textAlign: 'center' }}>
-                            <Text 
-                                fw={900} 
-                                style={{ 
-                                    fontSize: rem(64), 
-                                    lineHeight: 1, 
+                        <div style={{ textAlign: 'center', position: 'relative' }}>
+                            <Text
+                                strong
+                                style={{
+                                    fontSize: 64,
+                                    lineHeight: 1,
                                     opacity: 0.1,
                                     position: 'absolute',
                                     top: '10%',
@@ -53,28 +53,25 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
                             >
                                 {code}
                             </Text>
-                            <Title order={2} style={{ position: 'relative', zIndex: 1 }}>{title}</Title>
-                            <Text c="dimmed" size="sm" mt="sm" style={{ position: 'relative', zIndex: 1 }}>
+                            <Title level={2} style={{ position: 'relative', zIndex: 1, margin: 0 }}>{title}</Title>
+                            <Text type="secondary" style={{ fontSize: 13, position: 'relative', zIndex: 1, display: 'block', marginTop: 8 }}>
                                 {message}
                             </Text>
-                        </Box>
+                        </div>
 
-                        <Group justify="center" mt="xl" style={{ width: '100%' }}>
-                            <Button 
-                                variant="light" 
-                                color="adl-blue" 
-                                size="md" 
-                                radius="md"
-                                leftSection={<IconHome size={18} />}
+                        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                            <Button
+                                block
+                                size="large"
+                                icon={<IconHome size={18} />}
                                 onClick={handleBackToHome}
-                                fullWidth
                             >
                                 Regresar al Inicio
                             </Button>
-                        </Group>
-                    </Stack>
+                        </div>
+                    </div>
                 </Card>
-            </Container>
+            </div>
         </div>
     );
 };

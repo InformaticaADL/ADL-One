@@ -1,20 +1,8 @@
 import React, { useState } from 'react';
-import { 
-    Stack, 
-    Group, 
-    Text, 
-    SimpleGrid, 
-    Paper, 
-    UnstyledButton, 
-    ThemeIcon, 
-    Box, 
-    Button, 
-    Select, 
-    Grid
-} from '@mantine/core';
-import { 
-    IconDownload, 
-    IconDatabase, 
+import { Typography, Card, Button, Select } from 'antd';
+import {
+    IconDownload,
+    IconDatabase,
     IconLayoutGrid,
     IconSettings,
     IconFileSpreadsheet,
@@ -25,6 +13,8 @@ import * as XLSX from 'xlsx';
 import { adminExportService } from '../services/admin.service';
 import { EquipoCatalogoView } from '../components/EquipoCatalogoView';
 import { PageHeader } from '../../../components/layout/PageHeader';
+
+const { Text } = Typography;
 
 // List of areas with specific permissions
 const AREAS: { id: string, label: string, icon: string, permission: string | string[], description?: string }[] = [
@@ -73,10 +63,11 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     const [selectedArea, setSelectedArea] = useState<string>(TABLES_TO_EXPORT[0].area);
     const [selectedId, setSelectedId] = useState(TABLES_TO_EXPORT[0].id);
     const [exporting, setExporting] = useState(false);
+    const [hoveredId, setHoveredId] = useState<string | null>(null);
 
     const activeExport = TABLES_TO_EXPORT.find(t => t.id === selectedId);
     const areas = Array.from(new Set(TABLES_TO_EXPORT.map(t => t.area)));
-    
+
     const visibleAreas = AREAS.filter(area => {
         // RB-08: AI_MA_ADMIN_ACCESO eliminado
         if (Array.isArray(area.permission)) {
@@ -111,145 +102,144 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     }
 
     return (
-        <Box p="md" style={{ width: '100%' }}>
+        <div style={{ padding: 16, width: '100%' }}>
             <PageHeader
                 title={currentView === 'export' ? 'Centro de Exportación' : 'Admin. Info'}
-                subtitle={currentView === 'export' 
-                    ? 'Genera reportes en formato Excel de las bases maestras del sistema.' 
+                subtitle={currentView === 'export'
+                    ? 'Genera reportes en formato Excel de las bases maestras del sistema.'
                     : 'Selecciona un módulo para gestionar su información o utiliza las herramientas globales.'}
                 onBack={currentView === 'export' ? () => setCurrentView('grid') : undefined}
                 rightSection={currentView === 'grid' ? (
-                    <Group>
+                    <div style={{ display: 'flex', gap: 8 }}>
                         {/* RB-08: AI_MA_ADMIN_ACCESO eliminado */}
                         {isRdiaz && (
-                            <Button 
-                                variant="light" 
-                                color="blue"
-                                leftSection={<IconSettings size={18} />}
+                            <Button
+                                icon={<IconSettings size={18} />}
                                 onClick={() => setCurrentView('catalogo')}
-                                radius="md"
                             >
                                 Catálogo Maestro
                             </Button>
                         )}
                         {isRdiaz && (
-                            <Button 
-                                variant="filled" 
-                                color="green"
-                                leftSection={<IconDownload size={18} />}
+                            <Button
+                                type="primary"
+                                style={{ backgroundColor: '#2f9e44' }}
+                                icon={<IconDownload size={18} />}
                                 onClick={() => setCurrentView('export')}
-                                radius="md"
                             >
                                 Exportar Datos
                             </Button>
                         )}
-                    </Group>
+                    </div>
                 ) : null}
             />
 
-            <Stack gap="lg" mt="xl">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
                 {currentView === 'grid' ? (
-                    <SimpleGrid cols={{ base: 1, xs: 2, sm: 3, md: 4 }} spacing="lg">
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
                         {visibleAreas.map((area) => (
-                            <UnstyledButton
+                            <div
                                 key={area.id}
                                 onClick={() => onNavigate(area.id)}
+                                onMouseEnter={() => setHoveredId(area.id)}
+                                onMouseLeave={() => setHoveredId(null)}
+                                style={{ cursor: 'pointer' }}
                             >
-                                <Paper 
-                                    withBorder 
-                                    p="lg" 
-                                    radius="lg" 
-                                    shadow="sm"
-                                    style={{ 
+                                <Card
+                                    style={{
                                         height: '100%',
+                                        minHeight: 180,
                                         display: 'flex',
-                                        flexDirection: 'column',
                                         alignItems: 'center',
                                         justifyContent: 'center',
                                         transition: 'all 0.2s ease',
-                                        cursor: 'pointer',
-                                        minHeight: 180,
-                                        '&:hover': {
-                                            transform: 'translateY(-5px)',
-                                            borderColor: 'var(--mantine-color-blue-filled)',
-                                            backgroundColor: 'var(--mantine-color-blue-0)'
-                                        }
+                                        transform: hoveredId === area.id ? 'translateY(-5px)' : 'none',
+                                        borderColor: hoveredId === area.id ? '#0062a8' : undefined,
+                                        backgroundColor: hoveredId === area.id ? 'var(--app-accent-bg)' : undefined,
                                     }}
+                                    styles={{ body: { textAlign: 'center', width: '100%' } }}
                                 >
-                                    <Box mb="md" style={{ fontSize: '2.5rem' }}>
+                                    <div style={{ fontSize: '2.5rem', marginBottom: 16 }}>
                                         {area.icon}
-                                    </Box>
-                                    <Text fw={800} ta="center" size="lg" c="gray">{area.label}</Text>
-                                    <Text size="xs" ta="center" c="dimmed" mt={4}>{area.description}</Text>
-                                    <Box mt="md" c="blue" display="flex" style={{ alignItems: 'center', gap: 4 }}>
-                                        <Text size="xs" fw={700}>Acceder</Text>
+                                    </div>
+                                    <Text strong style={{ fontSize: 16, textAlign: 'center', display: 'block' }}>{area.label}</Text>
+                                    <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block', marginTop: 4 }}>{area.description}</Text>
+                                    <div style={{ marginTop: 16, color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
+                                        <Text strong style={{ fontSize: 12, color: '#0062a8' }}>Acceder</Text>
                                         <IconChevronRight size={12} />
-                                    </Box>
-                                </Paper>
-                            </UnstyledButton>
+                                    </div>
+                                </Card>
+                            </div>
                         ))}
-                    </SimpleGrid>
+                    </div>
                 ) : (
-                    <Paper withBorder p="xl" radius="lg" shadow="sm">
-                        <Stack gap="xl">
-                            <Grid grow gutter="lg">
-                                <Grid.Col span={{ base: 12, md: 6 }}>
-                                    <Select 
-                                        label="1. Área de Negocio"
+                    <Card>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+                                <Field label="1. Área de Negocio">
+                                    <Select
                                         placeholder="Seleccione área"
-                                        data={areas}
+                                        options={areas.map(a => ({ value: a, label: a }))}
                                         value={selectedArea}
                                         onChange={(val) => {
-                                            setSelectedArea(val!);
+                                            setSelectedArea(val);
                                             const firstInArea = TABLES_TO_EXPORT.find(t => t.area === val);
                                             if (firstInArea) setSelectedId(firstInArea.id);
                                         }}
-                                        radius="md"
-                                        leftSection={<IconLayoutGrid size={16} />}
+                                        suffixIcon={<IconLayoutGrid size={14} />}
+                                        style={{ width: '100%' }}
                                     />
-                                </Grid.Col>
-                                <Grid.Col span={{ base: 12, md: 6 }}>
-                                    <Select 
-                                        label="2. Recurso / Tabla"
+                                </Field>
+                                <Field label="2. Recurso / Tabla">
+                                    <Select
                                         placeholder="Seleccione recurso"
-                                        data={TABLES_TO_EXPORT.filter(t => t.area === selectedArea).map(t => ({
+                                        options={TABLES_TO_EXPORT.filter(t => t.area === selectedArea).map(t => ({
                                             value: t.id,
                                             label: t.label
                                         }))}
                                         value={selectedId}
-                                        onChange={(val) => setSelectedId(val!)}
-                                        radius="md"
-                                        leftSection={<IconDatabase size={16} />}
+                                        onChange={(val) => setSelectedId(val)}
+                                        suffixIcon={<IconDatabase size={14} />}
+                                        style={{ width: '100%' }}
                                     />
-                                </Grid.Col>
-                            </Grid>
+                                </Field>
+                            </div>
 
-                            <Paper withBorder p="md" radius="md" bg="blue.0">
-                                <Group justify="space-between" wrap="nowrap">
-                                    <Group gap="md" wrap="nowrap">
-                                        <ThemeIcon size="xl" radius="md" color="blue" variant="light">
+                            <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
+                                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                        <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(0,98,168,0.12)', color: '#0062a8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                             <IconFileSpreadsheet size={24} />
-                                        </ThemeIcon>
-                                        <Box>
-                                            <Text fw={700} size="sm" c="blue.9">Recurso: {activeExport?.label}</Text>
-                                            <Text size="xs" c="blue.7">Se generará un archivo Excel (.xlsx) con los datos del servidor.</Text>
-                                        </Box>
-                                    </Group>
-                                    <Button 
-                                        color="green" 
-                                        radius="md" 
+                                        </div>
+                                        <div>
+                                            <Text strong style={{ fontSize: 13, color: '#1864ab' }}>Recurso: {activeExport?.label}</Text>
+                                            <Text style={{ fontSize: 12, color: '#1864ab', display: 'block' }}>Se generará un archivo Excel (.xlsx) con los datos del servidor.</Text>
+                                        </div>
+                                    </div>
+                                    <Button
+                                        type="primary"
+                                        style={{ backgroundColor: '#2f9e44' }}
                                         onClick={handleExport}
                                         loading={exporting}
-                                        leftSection={<IconDownload size={18} />}
+                                        icon={<IconDownload size={18} />}
                                     >
                                         Generar Reporte
                                     </Button>
-                                </Group>
-                            </Paper>
-                        </Stack>
-                    </Paper>
+                                </div>
+                            </Card>
+                        </div>
+                    </Card>
                 )}
-            </Stack>
-        </Box>
+            </div>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

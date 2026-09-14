@@ -1,4 +1,4 @@
-import { Affix, Transition, Stack, ActionIcon, rem } from '@mantine/core';
+import { Button } from 'antd';
 import { IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
 
@@ -9,7 +9,7 @@ interface ScrollButtonsProps {
 export const ScrollButtons: React.FC<ScrollButtonsProps> = ({ viewportRef }) => {
     const [scrollPos, setScrollPos] = useState(0);
     const [canScrollDown, setCanScrollDown] = useState(false);
-    
+
     useEffect(() => {
         const viewport = viewportRef.current;
         if (!viewport) return;
@@ -50,47 +50,32 @@ export const ScrollButtons: React.FC<ScrollButtonsProps> = ({ viewportRef }) => 
     const showTop = scrollPos > 300;
     const showBottom = canScrollDown;
 
-    return (
-        <Affix position={{ bottom: 20, right: 20 }} zIndex={900}>
-            <Stack gap="xs">
-                <Transition transition="slide-up" mounted={showTop}>
-                    {(transitionStyles) => (
-                        <ActionIcon
-                            color="adl-blue"
-                            size="lg"
-                            radius="xl"
-                            variant="filled"
-                            style={{ 
-                                ...transitionStyles,
-                                boxShadow: 'var(--mantine-shadow-md)',
-                                opacity: 0.8
-                            }}
-                            onClick={scrollToTop}
-                        >
-                            <IconArrowUp style={{ width: rem(20), height: rem(20) }} />
-                        </ActionIcon>
-                    )}
-                </Transition>
+    const btnStyle = (visible: boolean): React.CSSProperties => ({
+        boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
+        opacity: visible ? 0.85 : 0,
+        transform: visible ? 'translateY(0)' : 'translateY(12px)',
+        pointerEvents: visible ? 'auto' : 'none',
+        transition: 'opacity 150ms ease, transform 150ms ease',
+    });
 
-                <Transition transition="slide-up" mounted={showBottom}>
-                    {(transitionStyles) => (
-                        <ActionIcon
-                            color="adl-blue"
-                            size="lg"
-                            radius="xl"
-                            variant="filled"
-                            style={{ 
-                                ...transitionStyles,
-                                boxShadow: 'var(--mantine-shadow-md)',
-                                opacity: 0.8
-                            }}
-                            onClick={scrollToBottom}
-                        >
-                            <IconArrowDown style={{ width: rem(20), height: rem(20) }} />
-                        </ActionIcon>
-                    )}
-                </Transition>
-            </Stack>
-        </Affix>
+    return (
+        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 900, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <Button
+                type="primary"
+                shape="circle"
+                size="large"
+                icon={<IconArrowUp size={20} />}
+                onClick={scrollToTop}
+                style={btnStyle(showTop)}
+            />
+            <Button
+                type="primary"
+                shape="circle"
+                size="large"
+                icon={<IconArrowDown size={20} />}
+                onClick={scrollToBottom}
+                style={btnStyle(showBottom)}
+            />
+        </div>
     );
 };

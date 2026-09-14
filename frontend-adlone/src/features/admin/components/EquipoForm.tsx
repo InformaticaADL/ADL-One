@@ -1,42 +1,33 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { 
-    Stack, 
-    Group, 
-    Title, 
-    Text, 
-    Button, 
-    TextInput, 
-    Autocomplete,
-    Select, 
-    NumberInput, 
-    Checkbox, 
-    Textarea, 
-    Paper, 
-    Grid, 
-    Divider, 
-    Stepper, 
-    ActionIcon, 
-    Alert, 
-    Table, 
-    Badge, 
-    ScrollArea, 
-    Box,
-    LoadingOverlay,
+import {
+    Typography,
+    Button,
+    Input,
+    AutoComplete,
+    Select,
+    InputNumber,
+    Checkbox,
+    Card,
+    Divider,
+    Steps,
+    Alert,
+    Table,
+    Tag,
     Modal,
-    Collapse,
-    Transition,
     Tooltip,
-    Indicator
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconArrowLeft, 
-    IconHistory, 
-    IconAlertTriangle, 
-    IconInfoCircle, 
-    IconDeviceFloppy, 
-    IconChevronRight, 
-    IconChevronLeft, 
+    Badge,
+    Spin
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import {
+    IconArrowLeft,
+    IconHistory,
+    IconAlertTriangle,
+    IconInfoCircle,
+    IconDeviceFloppy,
+    IconChevronRight,
+    IconChevronLeft,
     IconEdit,
     IconX
 } from '@tabler/icons-react';
@@ -51,43 +42,49 @@ import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FieldLabel } from '../../../components/common/FieldHelp';
 
-// Using a local HybridSelect replacement with Mantine components.
+const { Text, Title } = Typography;
+const { TextArea } = Input;
+
+// Local HybridSelect replacement using antd components.
 // If strict=true, it uses Select (must be in list).
-// If strict=false, it uses Autocomplete (can type any value).
-const MantineHybridSelect: React.FC<any> = ({ label, value, options, onChange, placeholder, strict, required, disabled, leftSection, ...others }) => {
-    const data = Array.from(new Set(options.map((o: any) => typeof o === 'string' ? o : (o.label || o.value))));
-    
-    if (strict) {
-        return (
-            <Select
-                label={label}
-                placeholder={placeholder}
-                data={data}
-                value={value}
-                onChange={onChange}
-                searchable
-                required={required}
-                disabled={disabled}
-                leftSection={leftSection}
-                clearable
-                nothingFoundMessage="No se encontró"
-                {...others}
-            />
-        );
-    }
+// If strict=false, it uses AutoComplete (can type any value).
+const HybridSelect: React.FC<any> = ({ label, value, options, onChange, placeholder, strict, required, disabled, error, ...others }) => {
+    const data = Array.from(new Set(options.map((o: any) => typeof o === 'string' ? o : (o.label || o.value)))) as string[];
+    const selectOptions = data.map((d) => ({ value: d, label: d }));
 
     return (
-        <Autocomplete
-            label={label}
-            placeholder={placeholder}
-            data={data}
-            value={value}
-            onChange={onChange}
-            required={required}
-            disabled={disabled}
-            leftSection={leftSection}
-            {...others}
-        />
+        <div>
+            {label && <div style={{ marginBottom: 4 }}>{typeof label === 'string' ? <Text>{label}{required && ' *'}</Text> : label}</div>}
+            {strict ? (
+                <Select
+                    placeholder={placeholder}
+                    options={selectOptions}
+                    value={value ?? undefined}
+                    onChange={(v) => onChange(v ?? null)}
+                    showSearch
+                    allowClear
+                    disabled={disabled}
+                    status={error ? 'error' : undefined}
+                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                    style={{ width: '100%' }}
+                    notFoundContent="No se encontró"
+                    {...others}
+                />
+            ) : (
+                <AutoComplete
+                    placeholder={placeholder}
+                    options={selectOptions}
+                    value={value ?? undefined}
+                    onChange={(v) => onChange(v ?? null)}
+                    disabled={disabled}
+                    status={error ? 'error' : undefined}
+                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                    style={{ width: '100%' }}
+                    {...others}
+                />
+            )}
+            {error && <Text type="danger" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>{error}</Text>}
+        </div>
     );
 };
 
@@ -98,6 +95,9 @@ interface Props {
     pendingRequests?: any[];
     onRefreshSolicitudes?: () => void;
 }
+
+// Grid helpers (replace Mantine Grid/Grid.Col)
+const gridRowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16, width: '100%' };
 
 export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes }) => {
     // --- Helpers for default dates ---
@@ -224,6 +224,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
     const isSuper = false;
+
+    const colSpan = (md: number): React.CSSProperties => ({ gridColumn: isMobile ? 'span 12' : `span ${md}` });
 
     // --- Helpers ---
     const autoGenerateSigla = (text: string) => {
@@ -378,6 +380,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             };
             loadFullData();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialData]);
 
     // Code generation logic
@@ -400,7 +403,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             previousStatus: res.data.previousStatus
                         }));
                     }
-                } catch (err) { console.error(err); } 
+                } catch (err) { console.error(err); }
                 finally { setGeneratingCode(false); }
             }, 600);
             return () => clearTimeout(timer);
@@ -411,6 +414,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 setFormData((prev: any) => ({ ...prev, codigo: newCode }));
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.tipo, formData.ubicacion, formData.nombre, formData.sigla, formData.correlativo]);
 
     // Sincronizar vigencia (fecha_vigencia) con siguiente_verificacion en tiempo real
@@ -418,6 +422,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (formData.vigencia !== formData.siguiente_verificacion) {
             setFormData((prev: any) => ({ ...prev, vigencia: formData.siguiente_verificacion || '' }));
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.siguiente_verificacion]);
 
     // Sincronizar equipo_asociado si viene como ID numérico heredado
@@ -432,24 +437,24 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const warningsAlert = useMemo(() => {
         if (!initialData?.id_equipo) return null;
-        
+
         const warnings: string[] = [];
-        
+
         // 1. Check calibration dates
         if (formData.vigencia) {
             const now = new Date();
             now.setHours(0, 0, 0, 0);
-            
+
             const vigDate = new Date(formData.vigencia + 'T00:00:00');
             if (!isNaN(vigDate.getTime())) {
                 vigDate.setHours(0, 0, 0, 0);
                 const diffTime = vigDate.getTime() - now.getTime();
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
+
                 const isExpired = diffDays < 0;
                 const isExpiringSoon = diffDays >= 0 && diffDays <= 30;
                 const isCurrentlyActive = String(formData.estado).toLowerCase() === 'activo';
-                
+
                 if (isExpired) {
                     warnings.push(`La fecha de vigencia de este equipo (${formData.vigencia}) ya ha expirado.`);
                     if (isCurrentlyActive) {
@@ -460,7 +465,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 }
             }
         }
-        
+
         // 2. Check manager status
         if (formData.id_muestreador && muestreadores.length > 0) {
             const assignedMuestreador = muestreadores.find(m => String(m.id_muestreador) === String(formData.id_muestreador));
@@ -468,12 +473,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 warnings.push(`El responsable asignado (${assignedMuestreador.nombre_muestreador}) se encuentra inactivo/deshabilitado.`);
             }
         }
-        
+
         if (warnings.length === 0) return null;
-        
+
         return {
             title: "Advertencias del Equipo",
-            color: "orange",
+            color: "warning" as const,
             messages: warnings
         };
     }, [initialData?.id_equipo, formData.vigencia, formData.estado, formData.id_muestreador, muestreadores]);
@@ -499,15 +504,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             { campo: 'Ubicación (Sede)', oldVal: h.ubicacion, newVal: formData.ubicacion },
             { campo: 'Estado Habilitación', oldVal: h.estado, newVal: formData.estado },
             { campo: 'Responsable', oldVal: getSamplerName(h.id_muestreador), newVal: getSamplerName(formData.id_muestreador) },
-            { 
-                campo: 'Siguiente Revisión (Vigente hasta)', 
-                oldVal: h.siguiente_verificacion ? formatYMDToDMY(h.siguiente_verificacion.split('T')[0]) : (h.vigencia || '---'), 
-                newVal: formData.siguiente_verificacion ? formatYMDToDMY(formData.siguiente_verificacion) : '---' 
+            {
+                campo: 'Siguiente Revisión (Vigente hasta)',
+                oldVal: h.siguiente_verificacion ? formatYMDToDMY(h.siguiente_verificacion.split('T')[0]) : (h.vigencia || '---'),
+                newVal: formData.siguiente_verificacion ? formatYMDToDMY(formData.siguiente_verificacion) : '---'
             },
-            { 
-                campo: 'Fecha de Creación', 
-                oldVal: h.ultima_verificacion ? formatYMDToDMY(h.ultima_verificacion.split('T')[0]) : '---', 
-                newVal: formData.ultima_verificacion ? formatYMDToDMY(formData.ultima_verificacion) : '---' 
+            {
+                campo: 'Fecha de Creación',
+                oldVal: h.ultima_verificacion ? formatYMDToDMY(h.ultima_verificacion.split('T')[0]) : '---',
+                newVal: formData.ultima_verificacion ? formatYMDToDMY(formData.ultima_verificacion) : '---'
             },
             { campo: 'Plazo Vigencia', oldVal: h.plazo_vigencia || '---', newVal: formData.plazo_vigencia || '---' },
             { campo: 'Estado del Equipo', oldVal: h.estado_equipo || '---', newVal: formData.estado_equipo || '---' },
@@ -609,21 +614,21 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const isFormValid = useMemo(() => {
         const isEdit = !!initialData?.id_equipo;
-        const hasNewRevision = isEdit 
+        const hasNewRevision = isEdit
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
 
         return !!(
-            formData.nombre && 
-            formData.tipo && 
-            formData.ubicacion && 
-            formData.estado && 
-            formData.codigo && 
-            hasNewRevision && 
-            formData.id_muestreador && 
-            formData.que_mide && 
-            formData.observacion && 
-            formData.siguiente_verificacion && 
+            formData.nombre &&
+            formData.tipo &&
+            formData.ubicacion &&
+            formData.estado &&
+            formData.codigo &&
+            hasNewRevision &&
+            formData.id_muestreador &&
+            formData.que_mide &&
+            formData.observacion &&
+            formData.siguiente_verificacion &&
             !generatingCode
         );
     }, [formData, generatingCode, initialData, originalUltimaVerificacion]);
@@ -635,15 +640,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!formData.ubicacion) missing.push("Ubicación (Sede)");
         if (!formData.estado) missing.push("Estado");
         if (!formData.codigo) missing.push("Código Final");
-        
+
         const isEdit = !!initialData?.id_equipo;
-        const hasNewRevision = isEdit 
+        const hasNewRevision = isEdit
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
         if (!hasNewRevision) {
             missing.push(isEdit ? "Revisión Actual (Registrar hoy)" : "Fecha Creación");
         }
-        
+
         if (!formData.id_muestreador) missing.push("Responsable (Muestreador)");
         if (!formData.que_mide) missing.push("¿Qué Mide?");
         if (!formData.observacion) missing.push("Observación");
@@ -700,7 +705,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 const items = bulkItems.map(it => ({ ...it, equipo_asociado: (it.equipo_asociado === 'No Aplica' || !it.equipo_asociado) ? '0' : String(it.equipo_asociado) }));
                 if (items.length > 1) await equipoService.createEquiposBulk(items);
                 else await equipoService.createEquipo(items[0]);
-                
+
                 const reqId = (initialData as any)?.requestId;
                 if (reqId) {
                     const isTech = (initialData as any).requestStatus === 'PENDIENTE_TECNICA';
@@ -723,7 +728,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         try {
             let newJson = rejectingSolicitud.datos_json;
             const isBulk = (rejectingSolicitud.tipo_solicitud === 'BAJA' && newJson?.equipos_baja) || (rejectingSolicitud.tipo_solicitud === 'ALTA' && newJson?.isReactivation && newJson?.equipos_alta);
-            
+
             if (isBulk) {
                 const field = rejectingSolicitud.tipo_solicitud === 'BAJA' ? 'equipos_baja' : 'equipos_alta';
                 const list = newJson[field].map((e: any) => String(e.id) === String(formData.id_equipo) ? { ...e, procesado: true, rechazado: true } : e);
@@ -743,695 +748,697 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             showToast({ type: 'info', message: 'Rechazado' });
             if (onRefreshSolicitudes) onRefreshSolicitudes();
             onSave();
-        } catch { showToast({ type: 'error', message: 'Error al rechazar' }); } 
+        } catch { showToast({ type: 'error', message: 'Error al rechazar' }); }
         finally { setProcessingAction(false); setRejectingSolicitud(null); setAdminFeedback(''); }
     };
 
+    // --- Table columns ---
+    const historyColumns: ColumnsType<EquipoHistorial> = [
+        { title: 'Versión', dataIndex: 'version', key: 'version', render: (v) => <Text strong>{v}</Text> },
+        { title: 'Fecha', dataIndex: 'fecha_cambio', key: 'fecha_cambio', render: (v) => new Date(v).toLocaleString() },
+        { title: 'Usuario', dataIndex: 'nombre_usuario_cambio', key: 'nombre_usuario_cambio', render: (v) => v || 'Sistema' },
+        { title: 'Código', dataIndex: 'codigo', key: 'codigo' },
+        {
+            title: 'Acción', key: 'accion', render: (_, h) => (
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <Button size="small" onClick={() => setCompareVersion(h)}>Comparar</Button>
+                    <Button size="small" type="primary" onClick={() => handleRestore(h)}>Habilitar</Button>
+                </div>
+            )
+        }
+    ];
+
+    const bulkColumns: ColumnsType<any> = [
+        { title: '#', key: 'idx', width: 40, render: (_, __, idx) => idx + 1 },
+        {
+            title: 'Código', key: 'codigo', render: (_, item, idx) => (
+                <Input
+                    size="small"
+                    value={item.codigo}
+                    onChange={(e) => {
+                        const n = [...bulkItems];
+                        n[idx].codigo = e.target.value;
+                        setBulkItems(n);
+                    }}
+                />
+            )
+        },
+        {
+            title: 'Ubicación', key: 'ubicacion', render: (_, item, idx) => (
+                <Select
+                    size="small"
+                    options={sedeOptions.map(s => ({ value: s, label: s }))}
+                    value={item.ubicacion ?? undefined}
+                    onChange={(v) => {
+                        const n = [...bulkItems];
+                        n[idx].ubicacion = v;
+                        const fc = n[idx].correlativo < 10 ? `0${n[idx].correlativo}` : `${n[idx].correlativo}`;
+                        n[idx].codigo = `${n[idx].sigla}.${fc}/MA.${v}`;
+                        setBulkItems(n);
+                    }}
+                    style={{ width: '100%' }}
+                />
+            )
+        },
+        {
+            title: 'Vigencia', key: 'vigencia', render: (_, item, idx) => (
+                <Input
+                    type="date"
+                    size="small"
+                    value={item.vigencia}
+                    onChange={(e) => {
+                        const n = [...bulkItems];
+                        n[idx].vigencia = e.target.value;
+                        n[idx].siguiente_verificacion = e.target.value;
+                        setBulkItems(n);
+                    }}
+                />
+            )
+        },
+        {
+            title: 'Obs.', key: 'obs', width: 60, render: (_, item, idx) => (
+                <Button
+                    type="text"
+                    size="small"
+                    icon={<IconEdit size={16} color={item.observacion ? '#1c7ed6' : '#868e96'} />}
+                    onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
+                />
+            )
+        }
+    ];
+
     // --- Renders ---
     return (
-        <Box p="md" style={{ width: '100%' }}>
-            <LoadingOverlay visible={loading || processingAction} />
-            
-            <Paper shadow="sm" radius="md" p="xl" withBorder>
-                <Stack gap="xl">
-                    <Group justify="space-between" align="flex-start">
-                        <Stack gap={0} flex={isMobile ? 'none' : 1}>
-                            <Title order={isMobile ? 3 : 2}>
+        <div style={{ padding: 16, width: '100%', position: 'relative' }}>
+            {(loading || processingAction) && (
+                <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Spin size="large" />
+                </div>
+            )}
+
+            <Card style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', flex: isMobile ? 'none' : 1 }}>
+                            <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
                                 {requestedChanges?.isReactivation ? 'Activación de Equipo' : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')}
                             </Title>
-                            <Text c="dimmed" size="xs">
+                            <Text type="secondary" style={{ fontSize: 12 }}>
                                 {initialData?.id_equipo ? `Modificando equipo: ${formData.codigo}` : 'Completa los datos para dar de alta nuevos equipos en el sistema.'}
                             </Text>
-                        </Stack>
+                        </div>
 
-                        <Group gap="xs" style={{ width: isMobile ? '100%' : 'auto' }} grow={isMobile}>
-                            <Button variant="subtle" leftSection={<IconArrowLeft size={18} />} onClick={onCancel} color="gray" size={isMobile ? 'xs' : 'sm'}>
-                                {isMobile ? 'Volver' : 'Volver'}
+                        <div style={{ display: 'flex', gap: 8, width: isMobile ? '100%' : 'auto', flexWrap: 'wrap' }}>
+                            <Button icon={<IconArrowLeft size={18} />} onClick={onCancel} style={isMobile ? { flex: 1 } : undefined}>
+                                Volver
                             </Button>
                             <ProtectedContent permission="EQ_HISTORY">
-                                <Button 
-                                    variant="light" 
-                                    leftSection={<IconHistory size={18} />} 
+                                <Button
+                                    icon={<IconHistory size={18} />}
                                     onClick={() => setShowHistory(!showHistory)}
-                                    size={isMobile ? 'xs' : 'sm'}
+                                    style={isMobile ? { flex: 1 } : undefined}
                                 >
                                     {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
                             </ProtectedContent>
                             {!initialData?.id_equipo && (
                                 <ProtectedContent permission="EQ_UPDATE">
-                                    <Button 
-                                        leftSection={<IconDeviceFloppy size={18} />}
+                                    <Button
+                                        type="primary"
+                                        icon={<IconDeviceFloppy size={18} />}
                                         onClick={handleSave}
                                         loading={loading}
-                                        color="adl-blue"
-                                        size={isMobile ? 'xs' : 'sm'}
+                                        style={isMobile ? { flex: 1 } : undefined}
                                     >
                                         Crear
                                     </Button>
                                 </ProtectedContent>
                             )}
-                        </Group>
-                    </Group>
+                        </div>
+                    </div>
 
                     {initialData && formData.version && (
-                        <Badge variant="light" color="blue" size="lg" radius="sm">
-                            Versión Activa: {formData.version}
-                        </Badge>
+                        <div>
+                            <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px' }}>
+                                Versión Activa: {formData.version}
+                            </Tag>
+                        </div>
                     )}
 
                     {warningsAlert && (
-                        <Alert 
-                            icon={<IconAlertTriangle size={20} />} 
-                            title={warningsAlert.title} 
-                            color={warningsAlert.color} 
-                            variant="light" 
-                            radius="md"
-                        >
-                            <Stack gap="xs">
-                                {warningsAlert.messages.map((msg, idx) => (
-                                    <Text key={idx} size="sm" style={{ margin: 0 }}>{msg}</Text>
-                                ))}
-                            </Stack>
-                        </Alert>
+                        <Alert
+                            icon={<IconAlertTriangle size={20} />}
+                            showIcon
+                            message={warningsAlert.title}
+                            type={warningsAlert.color}
+                            description={
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                    {warningsAlert.messages.map((msg, idx) => (
+                                        <Text key={idx} style={{ fontSize: 13, margin: 0 }}>{msg}</Text>
+                                    ))}
+                                </div>
+                            }
+                        />
                     )}
 
-                    {/* Pending Requests Section Removed */}
-
-
                     {/* Requested Changes (Traspaso/Alta Suggestion) */}
-                    <Transition mounted={!!(initialData?.requestId && requestedChanges)} transition="fade" duration={400}>
-                        {(styles) => (
-                            <Paper p="md" bg="blue.0" radius="md" withBorder style={{ ...styles, borderColor: 'var(--mantine-color-blue-2)' }}>
-                                <Group gap="xs" mb="sm" color="blue.9">
-                                    <IconInfoCircle size={20} />
-                                    <Text fw={700}>Cambios sugeridos por Medio Ambiente</Text>
-                                </Group>
-                                <Grid gutter="xs">
-                                    {requestedChanges.nueva_ubicacion && (
-                                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                                            <Paper p="xs" withBorder bg="white">
-                                                <Text size="xs" c="dimmed" tt="uppercase">Ubicación</Text>
-                                                <Text fw={700} color="blue" size="sm">{requestedChanges.nueva_ubicacion}</Text>
-                                            </Paper>
-                                        </Grid.Col>
-                                    )}
-                                    {requestedChanges.nuevo_responsable_id && (
-                                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                                            <Paper p="xs" withBorder bg="white">
-                                                <Text size="xs" c="dimmed" tt="uppercase">Responsable</Text>
-                                                <Text fw={700} color="blue" size="sm">{muestreadores.find(m => m.id_muestreador === requestedChanges.nuevo_responsable_id)?.nombre_muestreador || '---'}</Text>
-                                            </Paper>
-                                        </Grid.Col>
-                                    )}
-                                    {requestedChanges.vigencia && (
-                                        <Grid.Col span={{ base: 12, sm: 6, md: 4 }}>
-                                            <Paper p="xs" withBorder bg="white">
-                                                <Text size="xs" c="dimmed" tt="uppercase">Vigencia</Text>
-                                                <Text fw={700} color="blue" size="sm">{requestedChanges.vigencia}</Text>
-                                            </Paper>
-                                        </Grid.Col>
-                                    )}
-                                </Grid>
-                            </Paper>
-                        )}
-                    </Transition>
+                    {!!(initialData?.requestId && requestedChanges) && (
+                        <Card size="small" style={{ backgroundColor: '#e7f3ff', borderColor: '#a5d8ff' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
+                                <IconInfoCircle size={20} color="#1864ab" />
+                                <Text strong>Cambios sugeridos por Medio Ambiente</Text>
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                                {requestedChanges.nueva_ubicacion && (
+                                    <Card size="small" styles={{ body: { padding: 8 } }} style={{ backgroundColor: '#fff' }}>
+                                        <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Ubicación</Text>
+                                        <Text strong style={{ color: '#1c7ed6', fontSize: 13, display: 'block' }}>{requestedChanges.nueva_ubicacion}</Text>
+                                    </Card>
+                                )}
+                                {requestedChanges.nuevo_responsable_id && (
+                                    <Card size="small" styles={{ body: { padding: 8 } }} style={{ backgroundColor: '#fff' }}>
+                                        <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Responsable</Text>
+                                        <Text strong style={{ color: '#1c7ed6', fontSize: 13, display: 'block' }}>{muestreadores.find(m => m.id_muestreador === requestedChanges.nuevo_responsable_id)?.nombre_muestreador || '---'}</Text>
+                                    </Card>
+                                )}
+                                {requestedChanges.vigencia && (
+                                    <Card size="small" styles={{ body: { padding: 8 } }} style={{ backgroundColor: '#fff' }}>
+                                        <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Vigencia</Text>
+                                        <Text strong style={{ color: '#1c7ed6', fontSize: 13, display: 'block' }}>{requestedChanges.vigencia}</Text>
+                                    </Card>
+                                )}
+                            </div>
+                        </Card>
+                    )}
 
                     {/* History Section */}
-                    <Collapse in={showHistory}>
-                        <Paper withBorder p="md" bg="gray.0">
-                            <Group gap="xs" mb="md">
+                    {showHistory && (
+                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
                                 <IconHistory size={20} />
-                                <Text fw={700}>Historial de Versiones</Text>
-                            </Group>
-                            <ScrollArea.Autosize mah={300}>
-                                <Table striped withTableBorder>
-                                    <Table.Thead>
-                                        <Table.Tr>
-                                            <Table.Th>Versión</Table.Th>
-                                            <Table.Th>Fecha</Table.Th>
-                                            <Table.Th>Usuario</Table.Th>
-                                            <Table.Th>Código</Table.Th>
-                                            <Table.Th>Acción</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {loadingHistory ? (
-                                            <Table.Tr><Table.Td colSpan={5} ta="center">Cargando...</Table.Td></Table.Tr>
-                                        ) : history.length === 0 ? (
-                                            <Table.Tr><Table.Td colSpan={5} ta="center">Sin versiones previas.</Table.Td></Table.Tr>
-                                        ) : (
-                                            history.map(h => (
-                                                <Table.Tr key={h.id_historial} bg={lastRestoredVersion?.previous === h.version ? 'orange.0' : undefined}>
-                                                    <Table.Td fw={700}>{h.version}</Table.Td>
-                                                    <Table.Td>{new Date(h.fecha_cambio).toLocaleString()}</Table.Td>
-                                                    <Table.Td>{h.nombre_usuario_cambio || 'Sistema'}</Table.Td>
-                                                    <Table.Td>{h.codigo}</Table.Td>
-                                                    <Table.Td>
-                                                        <Group gap="xs">
-                                                            <Button size="compact-xs" variant="outline" color="blue" onClick={() => setCompareVersion(h)}>Comparar</Button>
-                                                            <Button size="compact-xs" onClick={() => handleRestore(h)}>Habilitar</Button>
-                                                        </Group>
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea.Autosize>
-                        </Paper>
-                    </Collapse>
+                                <Text strong>Historial de Versiones</Text>
+                            </div>
+                            <div style={{ overflowY: 'auto', maxHeight: 300 }}>
+                                <Table
+                                    size="small"
+                                    columns={historyColumns}
+                                    dataSource={history}
+                                    rowKey="id_historial"
+                                    loading={loadingHistory}
+                                    pagination={false}
+                                    locale={{ emptyText: 'Sin versiones previas.' }}
+                                    rowClassName={(h) => lastRestoredVersion?.previous === h.version ? 'row-restored' : ''}
+                                />
+                            </div>
+                        </Card>
+                    )}
 
-                    <Stepper active={activeStep} onStepClick={setActiveStep} color="adl-blue" size="sm" orientation={isMobile ? 'vertical' : 'horizontal'}>
-                        <Stepper.Step label="Información General" description="Datos del equipo">
-                            <Stack gap="xl" mt="md">
-                                <Grid>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <MantineHybridSelect
-                                            label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
-                                            placeholder="Seleccione..."
-                                            value={formData.tipo}
-                                            options={tipoOptions}
-                                            onChange={(val: any) => setFormData((p: any) => ({ ...p, tipo: val, nombre: '' }))}
-                                            strict={!isSuper}
-                                            required
-                                            disabled={!!initialData?.id_equipo}
-                                            error={attemptedSubmit && !formData.tipo && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <MantineHybridSelect
-                                            label={<FieldLabel label="Ubicación (Sede) *" help="Sede física de ADL donde se almacena y opera el equipo (ej: PM para Puerto Montt, CO para Coyhaique)." />}
-                                            placeholder="Seleccione..."
-                                            value={formData.ubicacion}
-                                            options={sedeOptions}
-                                            onChange={(val: any) => setFormData((p: any) => ({ ...p, ubicacion: val }))}
-                                            strict
-                                            required
-                                            error={attemptedSubmit && !formData.ubicacion && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <MantineHybridSelect
-                                            label={<FieldLabel label="Estado *" help="Estado de habilitación del equipo (ej: Habilitado) para su uso general en el sistema." />}
-                                            placeholder="Seleccione..."
-                                            value={formData.estado}
-                                            options={estadoOptions}
-                                            onChange={(val: any) => setFormData((p: any) => ({ ...p, estado: val }))}
-                                            strict
-                                            required
-                                            error={attemptedSubmit && !formData.estado && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 6 }}>
-                                        <MantineHybridSelect
-                                            label={<FieldLabel label="Nombre del Equipo *" help="Modelo o nombre específico del equipo (ej: HI98194, YSI ProDSS) según catálogo." />}
-                                            placeholder="Seleccione o escriba..."
-                                            value={formData.nombre}
-                                            options={namesOptions}
-                                            onChange={(val: any) => {
-                                                const m = nameToMetadata[val?.trim()];
-                                                setFormData((p: any) => ({
-                                                    ...p, nombre: val,
-                                                    que_mide: m?.que_mide || p.que_mide,
-                                                    unidad_medida_textual: m?.unidad_medida_textual || p.unidad_medida_textual,
-                                                    unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla
-                                                }));
-                                            }}
-                                            strict={!isSuper && !initialData?.id_equipo}
-                                            required
-                                            error={attemptedSubmit && !formData.nombre && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 6, md: 3 }}>
-                                        <TextInput
-                                            label={<FieldLabel label="Sigla" help="Sigla identificadora que forma parte del código de barra del equipo (ej: MULTI, PH, TERM)." />}
-                                            placeholder="Ej: PH"
-                                            value={formData.sigla}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, sigla: e.target.value }))}
-                                            rightSection={generatingCode && <LoadingOverlay visible loaderProps={{ size: 'xs' }} />}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 6, md: 3 }}>
-                                        <NumberInput
-                                            label={<FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." />}
-                                            value={formData.correlativo}
-                                            onChange={(val) => setFormData((p: any) => ({ ...p, correlativo: val }))}
-                                            disabled={!isSuper}
-                                        />
-                                    </Grid.Col>
-                                    {initialData?.id_equipo ? (
-                                        <>
-                                            <Grid.Col span={{ base: 12, md: 4 }}>
-                                                <TextInput
-                                                    label={<FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." />}
-                                                    value={formData.codigo}
-                                                    readOnly={!isSuper}
-                                                    required
-                                                    fw={700}
-                                                    description={formData.previousCode && `Anterior: ${formData.previousCode}`}
-                                                    error={attemptedSubmit && !formData.codigo && "Obligatorio"}
-                                                />
-                                            </Grid.Col>
-                                            <Grid.Col span={{ base: 12, md: 4 }}>
-                                                <TextInput
-                                                    label={<FieldLabel label="Última Revisión" help="Fecha de la última revisión registrada de este equipo." />}
-                                                    value={formatDateToSpanish(originalUltimaVerificacion)}
-                                                    readOnly
-                                                    disabled
-                                                />
-                                            </Grid.Col>
-                                            <Grid.Col span={{ base: 12, md: 4 }}>
-                                                <TextInput
-                                                    label={<FieldLabel label="Revisión Actual" help="Presione para registrar la nueva revisión técnica con fecha de hoy." />}
-                                                    placeholder="Presione para registrar hoy"
-                                                    value={formData.ultima_verificacion === originalUltimaVerificacion ? '' : formatDateToSpanish(formData.ultima_verificacion)}
-                                                    onClick={() => setShowRevisionConfirm(true)}
-                                                    style={{ cursor: 'pointer' }}
-                                                    readOnly
-                                                    rightSection={
-                                                        formData.ultima_verificacion !== originalUltimaVerificacion && (
-                                                            <ActionIcon 
-                                                                size="sm" 
-                                                                variant="subtle" 
-                                                                color="gray" 
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleResetRevision();
-                                                                }}
-                                                            >
-                                                                <IconX size={16} />
-                                                            </ActionIcon>
-                                                        )
-                                                    }
-                                                />
-                                            </Grid.Col>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Grid.Col span={{ base: 12, md: 8 }}>
-                                                <TextInput
-                                                    label={<FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." />}
-                                                    value={formData.codigo}
-                                                    readOnly={!isSuper}
-                                                    required
-                                                    fw={700}
-                                                    description={formData.previousCode && `Anterior: ${formData.previousCode}`}
-                                                    error={attemptedSubmit && !formData.codigo && "Obligatorio"}
-                                                />
-                                            </Grid.Col>
-                                            <Grid.Col span={{ base: 12, md: 4 }}>
-                                                <TextInput
-                                                    label={<FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." />}
-                                                    type="date"
-                                                    value={formData.ultima_verificacion}
-                                                    readOnly
-                                                    required
-                                                    error={attemptedSubmit && !formData.ultima_verificacion && "Se requiere una fecha de creación válida"}
-                                                />
-                                            </Grid.Col>
-                                        </>
-                                    )}
-                                    <Grid.Col span={{ base: 12, md: 6 }}>
-                                        <Select
-                                            label={<FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." />}
-                                            placeholder="Seleccione..."
-                                            data={muestreadores
-                                                .map(m => ({
-                                                    value: String(m.id_muestreador),
-                                                    label: m.habilitado === 'N' || m.habilitado === false
-                                                        ? `${m.nombre_muestreador} (Inactivo)`
-                                                        : m.nombre_muestreador
-                                                }))}
-                                            value={String(formData.id_muestreador)}
-                                            onChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val }))}
-                                            required
-                                            searchable
-                                            error={attemptedSubmit && !formData.id_muestreador && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 6 }}>
-                                        {/* E-01: mostrar nombre + código para que el usuario pueda elegir, no IDs crudos */}
-                                        <Select
-                                            label={<FieldLabel label="Equipo Asociado" help="Equipo complementario asignado a esta unidad (ej: sonda de repuesto, electrodo asociado)." />}
-                                            placeholder={allEquipos.length === 0 ? 'No hay equipos para asociar' : 'Buscar equipo...'}
-                                            value={String(formData.equipo_asociado)}
-                                            data={(() => {
-                                                const seen = new Set();
-                                                const optionsList = [
-                                                    { value: 'No Aplica', label: 'No Aplica' },
-                                                    ...allEquipos
-                                                        .filter(e => e && e.codigo)
-                                                        .map(e => ({
-                                                            value: e.codigo,
-                                                            label: `${e.codigo || ''} - ${e.nombre || 'Sin nombre'}`.trim()
-                                                        }))
-                                                ];
-                                                return optionsList.filter(opt => {
-                                                    if (seen.has(opt.value)) return false;
-                                                    seen.add(opt.value);
-                                                    return true;
-                                                });
-                                            })()}
-                                            onChange={(val) => setFormData((p: any) => ({ ...p, equipo_asociado: val || 'No Aplica' }))}
-                                            searchable
-                                            clearable
-                                            nothingFoundMessage="Sin coincidencias"
-                                        />
-                                    </Grid.Col>
-                                </Grid>
-                                <Divider label="Configuración Técnica" labelPosition="center" />
-                                <Grid>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <MantineHybridSelect
-                                            label={<FieldLabel label="¿Qué Mide? *" help="Parámetro o variable física/química que mide el equipo (ej: pH, Conductividad, Oxígeno Disuelto, Temperatura)." />}
-                                            value={formData.que_mide}
-                                            options={queMideOptions}
-                                            onChange={(val: any) => {
-                                                const m = fullCatalogItems.find(it => it.que_mide === val);
-                                                setFormData((p: any) => ({
-                                                    ...p, que_mide: val,
-                                                    unidad_medida_textual: m?.unidad_medida_textual || p.unidad_medida_textual,
-                                                    unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla
-                                                }));
-                                            }}
-                                            required
-                                            error={attemptedSubmit && !formData.que_mide && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <MantineHybridSelect
-                                            label={<FieldLabel label="Unidad de Medida" help="Nombre completo de la unidad de medida utilizada para registrar los datos (ej: Miligramos por Litro, Grados Celsius)." />}
-                                            value={formData.unidad_medida_textual}
-                                            options={unidadesOptions}
-                                            onChange={(val: any) => {
-                                                const sig = autoGenerateSigla(val);
-                                                setFormData((p: any) => ({ ...p, unidad_medida_textual: val, unidad_medida_sigla: sig || p.unidad_medida_sigla }));
-                                            }}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, md: 4 }}>
-                                        <TextInput
-                                            label={<FieldLabel label="Sigla Unidad" help="Abreviación técnica de la unidad de medida (ej: mg/L, °C, µS/cm)." />}
-                                            value={formData.unidad_medida_sigla}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, unidad_medida_sigla: e.target.value }))}
-                                            placeholder="mg/L, %"
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={12}>
-                                        <Group gap="xl" p="md" bg="gray.0">
-                                            <Checkbox 
-                                                label={<FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo." />} 
-                                                checked={formData.tiene_fc === 'SI'} 
-                                                onChange={(e) => setFormData((p: any) => ({ ...p, tiene_fc: e.target.checked ? 'SI' : 'NO' }))} 
-                                            />
-                                            <Checkbox 
-                                                label={<FieldLabel label="Visible para Muestreadores" help="Determina si el equipo estará visible y seleccionable para los muestreadores en la aplicación móvil." />} 
-                                                checked={formData.visible_muestreador === 'SI'} 
-                                                onChange={(e) => setFormData((p: any) => ({ ...p, visible_muestreador: e.target.checked ? 'SI' : 'NO' }))} 
-                                            />
-                                            <Checkbox 
-                                                label={<FieldLabel label="Incluir en Informe" help="Indica si el equipo y sus mediciones asociadas deben ser impresos en el informe final de resultados." />} 
-                                                checked={formData.informe === 'SI'} 
-                                                onChange={(e) => setFormData((p: any) => ({ ...p, informe: e.target.checked ? 'SI' : 'NO' }))} 
-                                            />
-                                        </Group>
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <NumberInput label={<FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." />} value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <NumberInput label={<FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." />} value={formData.error15} onChange={(v) => setFormData((p: any) => ({ ...p, error15: v }))} step={0.01} />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 4, md: 4 }}>
-                                        <NumberInput label={<FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." />} value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} />
-                                    </Grid.Col>
-                                    <Grid.Col span={12}>
-                                        <Textarea
-                                            label={<FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." />}
-                                            placeholder="Detalles sobre el equipo..."
-                                            value={formData.observacion || ''}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
-                                            required
-                                            minRows={3}
-                                            error={attemptedSubmit && !formData.observacion && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                </Grid>
-                                <Divider label="Verificación y Estado" labelPosition="center" />
-                                <Grid>
-                                    <Grid.Col span={{ base: 12, sm: 6 }}>
-                                        <TextInput
-                                            label={
-                                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                                    <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help="Fecha programada para la próxima revisión técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
-                                                    <span style={{ fontSize: 12, color: '#868e96', fontWeight: 400 }}>
-                                                        (Auto: Última + 90 días)
-                                                     </span>
-                                                </span>
-                                            }
-                                            type="date"
-                                            value={formData.siguiente_verificacion}
-                                            readOnly
-                                            required
-                                            withAsterisk={false}
-                                            error={attemptedSubmit && !formData.siguiente_verificacion && "Obligatorio"}
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={{ base: 12, sm: 6 }}>
-                                        <Select
-                                            label={<FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." />}
-                                            placeholder="Seleccione..."
-                                            data={estadoEquipoOptions.length > 0 ? estadoEquipoOptions : [
-                                                'Operativo',
-                                                'Dado de Baja',
-                                                'En Mantención',
-                                                'En Calibración',
-                                                'Fuera de Servicio',
-                                            ]}
-                                            value={formData.estado_equipo}
-                                            onChange={(val) => setFormData((p: any) => ({ ...p, estado_equipo: val || '' }))}
-                                            clearable
-                                        />
-                                    </Grid.Col>
-                                    <Grid.Col span={12}>
-                                        <Textarea
-                                            label={
-                                                <FieldLabel 
-                                                    label={
-                                                        <>
-                                                            Plazo Vigencia{" "}
-                                                            <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--mantine-color-dimmed)' }}>
-                                                                (observación)
-                                                            </span>
-                                                        </>
-                                                    } 
-                                                    help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)." 
-                                                />
-                                            }
-                                            placeholder="Ej: Hasta el día 30 del mes..."
-                                            value={formData.plazo_vigencia || ''}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
-                                            minRows={2}
-                                            autosize
-                                        />
-                                    </Grid.Col>
-                                </Grid>
+                    <Steps
+                        current={activeStep}
+                        onChange={setActiveStep}
+                        size="small"
+                        direction={isMobile ? 'vertical' : 'horizontal'}
+                        items={[
+                            { title: 'Información General', description: 'Datos del equipo' },
+                            ...(!initialData?.id_equipo ? [{ title: 'Revisión Masiva', description: 'Confirmar seriales' }] : [])
+                        ]}
+                    />
 
-                                {!initialData?.id_equipo && (
-                                    <Paper withBorder p="md" bg="blue.0" radius="md">
-                                        <Group justify="space-between">
-                                            <Box>
-                                                <Text fw={700} color="blue.9">Creación Masiva</Text>
-                                                <Text size="xs" c="dimmed">¿Deseas crear múltiples unidades de este modelo?</Text>
-                                            </Box>
-                                            <NumberInput 
-                                                value={bulkQuantity} 
-                                                onChange={(val) => setBulkQuantity(Number(val) || 1)} 
-                                                min={1} max={50} 
-                                                label="Cantidad" 
-                                                w={80}
+                    {activeStep === 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 8 }}>
+                            <div style={gridRowStyle}>
+                                <div style={colSpan(4)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
+                                        placeholder="Seleccione..."
+                                        value={formData.tipo}
+                                        options={tipoOptions}
+                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, tipo: val, nombre: '' }))}
+                                        strict={!isSuper}
+                                        required
+                                        disabled={!!initialData?.id_equipo}
+                                        error={attemptedSubmit && !formData.tipo && "Obligatorio"}
+                                    />
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="Ubicación (Sede) *" help="Sede física de ADL donde se almacena y opera el equipo (ej: PM para Puerto Montt, CO para Coyhaique)." />}
+                                        placeholder="Seleccione..."
+                                        value={formData.ubicacion}
+                                        options={sedeOptions}
+                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, ubicacion: val }))}
+                                        strict
+                                        required
+                                        error={attemptedSubmit && !formData.ubicacion && "Obligatorio"}
+                                    />
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="Estado *" help="Estado de habilitación del equipo (ej: Habilitado) para su uso general en el sistema." />}
+                                        placeholder="Seleccione..."
+                                        value={formData.estado}
+                                        options={estadoOptions}
+                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, estado: val }))}
+                                        strict
+                                        required
+                                        error={attemptedSubmit && !formData.estado && "Obligatorio"}
+                                    />
+                                </div>
+                                <div style={colSpan(6)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="Nombre del Equipo *" help="Modelo o nombre específico del equipo (ej: HI98194, YSI ProDSS) según catálogo." />}
+                                        placeholder="Seleccione o escriba..."
+                                        value={formData.nombre}
+                                        options={namesOptions}
+                                        onChange={(val: any) => {
+                                            const m = nameToMetadata[val?.trim()];
+                                            setFormData((p: any) => ({
+                                                ...p, nombre: val,
+                                                que_mide: m?.que_mide || p.que_mide,
+                                                unidad_medida_textual: m?.unidad_medida_textual || p.unidad_medida_textual,
+                                                unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla
+                                            }));
+                                        }}
+                                        strict={!isSuper && !initialData?.id_equipo}
+                                        required
+                                        error={attemptedSubmit && !formData.nombre && "Obligatorio"}
+                                    />
+                                </div>
+                                <div style={colSpan(3)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Sigla" help="Sigla identificadora que forma parte del código de barra del equipo (ej: MULTI, PH, TERM)." /></div>
+                                    <Input
+                                        placeholder="Ej: PH"
+                                        value={formData.sigla}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, sigla: e.target.value }))}
+                                        suffix={generatingCode ? <Spin size="small" /> : undefined}
+                                    />
+                                </div>
+                                <div style={colSpan(3)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." /></div>
+                                    <InputNumber
+                                        value={formData.correlativo}
+                                        onChange={(val) => setFormData((p: any) => ({ ...p, correlativo: val }))}
+                                        disabled={!isSuper}
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                                {initialData?.id_equipo ? (
+                                    <>
+                                        <div style={colSpan(4)}>
+                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
+                                            <Input
+                                                value={formData.codigo}
+                                                readOnly={!isSuper}
+                                                style={{ fontWeight: 700 }}
+                                                status={attemptedSubmit && !formData.codigo ? 'error' : undefined}
                                             />
-                                        </Group>
-                                    </Paper>
+                                            {formData.previousCode && <Text type="secondary" style={{ fontSize: 12 }}>Anterior: {formData.previousCode}</Text>}
+                                            {attemptedSubmit && !formData.codigo && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                        </div>
+                                        <div style={colSpan(4)}>
+                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Última Revisión" help="Fecha de la última revisión registrada de este equipo." /></div>
+                                            <Input
+                                                value={formatDateToSpanish(originalUltimaVerificacion)}
+                                                readOnly
+                                                disabled
+                                            />
+                                        </div>
+                                        <div style={colSpan(4)}>
+                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Revisión Actual" help="Presione para registrar la nueva revisión técnica con fecha de hoy." /></div>
+                                            <Input
+                                                placeholder="Presione para registrar hoy"
+                                                value={formData.ultima_verificacion === originalUltimaVerificacion ? '' : formatDateToSpanish(formData.ultima_verificacion)}
+                                                onClick={() => setShowRevisionConfirm(true)}
+                                                style={{ cursor: 'pointer' }}
+                                                readOnly
+                                                suffix={
+                                                    formData.ultima_verificacion !== originalUltimaVerificacion && (
+                                                        <Button
+                                                            type="text"
+                                                            size="small"
+                                                            icon={<IconX size={16} />}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleResetRevision();
+                                                            }}
+                                                        />
+                                                    )
+                                                }
+                                            />
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div style={colSpan(8)}>
+                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
+                                            <Input
+                                                value={formData.codigo}
+                                                readOnly={!isSuper}
+                                                style={{ fontWeight: 700 }}
+                                                status={attemptedSubmit && !formData.codigo ? 'error' : undefined}
+                                            />
+                                            {formData.previousCode && <Text type="secondary" style={{ fontSize: 12 }}>Anterior: {formData.previousCode}</Text>}
+                                            {attemptedSubmit && !formData.codigo && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                        </div>
+                                        <div style={colSpan(4)}>
+                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." /></div>
+                                            <Input
+                                                type="date"
+                                                value={formData.ultima_verificacion}
+                                                readOnly
+                                                status={attemptedSubmit && !formData.ultima_verificacion ? 'error' : undefined}
+                                            />
+                                            {attemptedSubmit && !formData.ultima_verificacion && <Text type="danger" style={{ fontSize: 12 }}>Se requiere una fecha de creación válida</Text>}
+                                        </div>
+                                    </>
                                 )}
-                            </Stack>
-                        </Stepper.Step>
-                        {!initialData?.id_equipo && (
-                            <Stepper.Step label="Revisión Masiva" description="Confirmar seriales">
-                                <Stack gap="md" mt="md">
-                                    <Alert color="blue" icon={<IconInfoCircle size={18} />}>
-                                        Se generarán {bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.
-                                    </Alert>
-                                    <Paper withBorder radius="md" style={{ overflow: 'hidden' }}>
-                                        <ScrollArea h={400}>
-                                            <Table highlightOnHover verticalSpacing="xs">
-                                                <Table.Thead bg="gray.1">
-                                                    <Table.Tr>
-                                                        <Table.Th w={40}>#</Table.Th>
-                                                        <Table.Th style={{ minWidth: '150px' }}>Código</Table.Th>
-                                                        <Table.Th style={{ minWidth: '140px' }}>Ubicación</Table.Th>
-                                                        <Table.Th style={{ minWidth: '130px' }}>Vigencia</Table.Th>
-                                                        <Table.Th w={60}>Obs.</Table.Th>
-                                                    </Table.Tr>
-                                                </Table.Thead>
-                                                <Table.Tbody>
-                                                    {bulkItems.map((item, idx) => (
-                                                        <Table.Tr key={idx}>
-                                                            <Table.Td>{idx + 1}</Table.Td>
-                                                            <Table.Td>
-                                                                <TextInput 
-                                                                    size="xs" 
-                                                                    value={item.codigo} 
-                                                                    onChange={(e) => {
-                                                                        const n = [...bulkItems];
-                                                                        n[idx].codigo = e.target.value;
-                                                                        setBulkItems(n);
-                                                                    }}
-                                                                />
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                <Select 
-                                                                    size="xs" 
-                                                                    data={sedeOptions} 
-                                                                    value={item.ubicacion}
-                                                                    onChange={(v) => {
-                                                                        const n = [...bulkItems];
-                                                                        n[idx].ubicacion = v;
-                                                                        const fc = n[idx].correlativo < 10 ? `0${n[idx].correlativo}` : `${n[idx].correlativo}`;
-                                                                        n[idx].codigo = `${n[idx].sigla}.${fc}/MA.${v}`;
-                                                                        setBulkItems(n);
-                                                                    }}
-                                                                />
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                <TextInput 
-                                                                    type="date" 
-                                                                    size="xs" 
-                                                                    value={item.vigencia}
-                                                                    onChange={(e) => {
-                                                                        const n = [...bulkItems];
-                                                                        n[idx].vigencia = e.target.value;
-                                                                        n[idx].siguiente_verificacion = e.target.value;
-                                                                        setBulkItems(n);
-                                                                    }}
-                                                                />
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                <ActionIcon 
-                                                                    variant="subtle" 
-                                                                    color={item.observacion ? 'blue' : 'gray'}
-                                                                    onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
-                                                                >
-                                                                    <IconEdit size={16} />
-                                                                </ActionIcon>
-                                                            </Table.Td>
-                                                        </Table.Tr>
-                                                    ))}
-                                                </Table.Tbody>
-                                            </Table>
-                                        </ScrollArea>
-                                    </Paper>
-                                </Stack>
-                            </Stepper.Step>
-                        )}
+                                <div style={colSpan(6)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." /></div>
+                                    <Select
+                                        placeholder="Seleccione..."
+                                        options={muestreadores.map(m => ({
+                                            value: String(m.id_muestreador),
+                                            label: m.habilitado === 'N' || m.habilitado === false
+                                                ? `${m.nombre_muestreador} (Inactivo)`
+                                                : m.nombre_muestreador
+                                        }))}
+                                        value={formData.id_muestreador ? String(formData.id_muestreador) : undefined}
+                                        onChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val ?? null }))}
+                                        showSearch
+                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                        status={attemptedSubmit && !formData.id_muestreador ? 'error' : undefined}
+                                        style={{ width: '100%' }}
+                                    />
+                                    {attemptedSubmit && !formData.id_muestreador && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                </div>
+                                <div style={colSpan(6)}>
+                                    {/* E-01: mostrar nombre + código para que el usuario pueda elegir, no IDs crudos */}
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Equipo Asociado" help="Equipo complementario asignado a esta unidad (ej: sonda de repuesto, electrodo asociado)." /></div>
+                                    <Select
+                                        placeholder={allEquipos.length === 0 ? 'No hay equipos para asociar' : 'Buscar equipo...'}
+                                        value={formData.equipo_asociado ? String(formData.equipo_asociado) : undefined}
+                                        options={(() => {
+                                            const seen = new Set();
+                                            const optionsList = [
+                                                { value: 'No Aplica', label: 'No Aplica' },
+                                                ...allEquipos
+                                                    .filter(e => e && e.codigo)
+                                                    .map(e => ({
+                                                        value: e.codigo,
+                                                        label: `${e.codigo || ''} - ${e.nombre || 'Sin nombre'}`.trim()
+                                                    }))
+                                            ];
+                                            return optionsList.filter(opt => {
+                                                if (seen.has(opt.value)) return false;
+                                                seen.add(opt.value);
+                                                return true;
+                                            });
+                                        })()}
+                                        onChange={(val) => setFormData((p: any) => ({ ...p, equipo_asociado: val || 'No Aplica' }))}
+                                        showSearch
+                                        allowClear
+                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                                        notFoundContent="Sin coincidencias"
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                            </div>
+                            <Divider>Configuración Técnica</Divider>
+                            <div style={gridRowStyle}>
+                                <div style={colSpan(4)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="¿Qué Mide? *" help="Parámetro o variable física/química que mide el equipo (ej: pH, Conductividad, Oxígeno Disuelto, Temperatura)." />}
+                                        value={formData.que_mide}
+                                        options={queMideOptions}
+                                        onChange={(val: any) => {
+                                            const m = fullCatalogItems.find(it => it.que_mide === val);
+                                            setFormData((p: any) => ({
+                                                ...p, que_mide: val,
+                                                unidad_medida_textual: m?.unidad_medida_textual || p.unidad_medida_textual,
+                                                unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla
+                                            }));
+                                        }}
+                                        required
+                                        error={attemptedSubmit && !formData.que_mide && "Obligatorio"}
+                                    />
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="Unidad de Medida" help="Nombre completo de la unidad de medida utilizada para registrar los datos (ej: Miligramos por Litro, Grados Celsius)." />}
+                                        value={formData.unidad_medida_textual}
+                                        options={unidadesOptions}
+                                        onChange={(val: any) => {
+                                            const sig = autoGenerateSigla(val);
+                                            setFormData((p: any) => ({ ...p, unidad_medida_textual: val, unidad_medida_sigla: sig || p.unidad_medida_sigla }));
+                                        }}
+                                    />
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Sigla Unidad" help="Abreviación técnica de la unidad de medida (ej: mg/L, °C, µS/cm)." /></div>
+                                    <Input
+                                        value={formData.unidad_medida_sigla}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, unidad_medida_sigla: e.target.value }))}
+                                        placeholder="mg/L, %"
+                                    />
+                                </div>
+                                <div style={{ gridColumn: 'span 12' }}>
+                                    <div style={{ display: 'flex', gap: 24, padding: 16, backgroundColor: 'var(--app-hover-bg)', flexWrap: 'wrap' }}>
+                                        <Checkbox
+                                            checked={formData.tiene_fc === 'SI'}
+                                            onChange={(e) => setFormData((p: any) => ({ ...p, tiene_fc: e.target.checked ? 'SI' : 'NO' }))}
+                                        >
+                                            <FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo." />
+                                        </Checkbox>
+                                        <Checkbox
+                                            checked={formData.visible_muestreador === 'SI'}
+                                            onChange={(e) => setFormData((p: any) => ({ ...p, visible_muestreador: e.target.checked ? 'SI' : 'NO' }))}
+                                        >
+                                            <FieldLabel label="Visible para Muestreadores" help="Determina si el equipo estará visible y seleccionable para los muestreadores en la aplicación móvil." />
+                                        </Checkbox>
+                                        <Checkbox
+                                            checked={formData.informe === 'SI'}
+                                            onChange={(e) => setFormData((p: any) => ({ ...p, informe: e.target.checked ? 'SI' : 'NO' }))}
+                                        >
+                                            <FieldLabel label="Incluir en Informe" help="Indica si el equipo y sus mediciones asociadas deben ser impresos en el informe final de resultados." />
+                                        </Checkbox>
+                                    </div>
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." /></div>
+                                    <InputNumber value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} style={{ width: '100%' }} />
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." /></div>
+                                    <InputNumber value={formData.error15} onChange={(v) => setFormData((p: any) => ({ ...p, error15: v }))} step={0.01} style={{ width: '100%' }} />
+                                </div>
+                                <div style={colSpan(4)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." /></div>
+                                    <InputNumber value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} style={{ width: '100%' }} />
+                                </div>
+                                <div style={{ gridColumn: 'span 12' }}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
+                                    <TextArea
+                                        placeholder="Detalles sobre el equipo..."
+                                        value={formData.observacion || ''}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
+                                        rows={3}
+                                        status={attemptedSubmit && !formData.observacion ? 'error' : undefined}
+                                    />
+                                    {attemptedSubmit && !formData.observacion && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                </div>
+                            </div>
+                            <Divider>Verificación y Estado</Divider>
+                            <div style={gridRowStyle}>
+                                <div style={colSpan(6)}>
+                                    <div style={{ marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                                        <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help="Fecha programada para la próxima revisión técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
+                                        <span style={{ fontSize: 12, color: '#868e96', fontWeight: 400 }}>
+                                            (Auto: Última + 90 días)
+                                        </span>
+                                    </div>
+                                    <Input
+                                        type="date"
+                                        value={formData.siguiente_verificacion}
+                                        readOnly
+                                        status={attemptedSubmit && !formData.siguiente_verificacion ? 'error' : undefined}
+                                    />
+                                    {attemptedSubmit && !formData.siguiente_verificacion && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                </div>
+                                <div style={colSpan(6)}>
+                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." /></div>
+                                    <Select
+                                        placeholder="Seleccione..."
+                                        options={(estadoEquipoOptions.length > 0 ? estadoEquipoOptions : [
+                                            'Operativo',
+                                            'Dado de Baja',
+                                            'En Mantención',
+                                            'En Calibración',
+                                            'Fuera de Servicio',
+                                        ]).map(o => ({ value: o, label: o }))}
+                                        value={formData.estado_equipo || undefined}
+                                        onChange={(val) => setFormData((p: any) => ({ ...p, estado_equipo: val || '' }))}
+                                        allowClear
+                                        style={{ width: '100%' }}
+                                    />
+                                </div>
+                                <div style={{ gridColumn: 'span 12' }}>
+                                    <div style={{ marginBottom: 4 }}>
+                                        <FieldLabel
+                                            label={
+                                                <>
+                                                    Plazo Vigencia{" "}
+                                                    <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--app-text-secondary)' }}>
+                                                        (observación)
+                                                    </span>
+                                                </>
+                                            }
+                                            help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)."
+                                        />
+                                    </div>
+                                    <TextArea
+                                        placeholder="Ej: Hasta el día 30 del mes..."
+                                        value={formData.plazo_vigencia || ''}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
+                                        autoSize={{ minRows: 2 }}
+                                    />
+                                </div>
+                            </div>
 
-                    </Stepper>
-                    <Divider mt="xl" />
-                    <Group justify="space-between">
+                            {!initialData?.id_equipo && (
+                                <Card size="small" style={{ backgroundColor: '#e7f3ff' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                                        <div>
+                                            <Text strong style={{ color: '#1864ab' }}>Creación Masiva</Text>
+                                            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>¿Deseas crear múltiples unidades de este modelo?</Text>
+                                        </div>
+                                        <div>
+                                            <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Cantidad</Text>
+                                            <InputNumber
+                                                value={bulkQuantity}
+                                                onChange={(val) => setBulkQuantity(Number(val) || 1)}
+                                                min={1} max={50}
+                                                style={{ width: 80 }}
+                                            />
+                                        </div>
+                                    </div>
+                                </Card>
+                            )}
+                        </div>
+                    )}
+                    {activeStep === 1 && !initialData?.id_equipo && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
+                            <Alert type="info" showIcon icon={<IconInfoCircle size={18} />} message={
+                                `Se generarán ${bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.`
+                            } />
+                            <Card size="small" styles={{ body: { padding: 0 } }}>
+                                <div style={{ overflowY: 'auto', maxHeight: 400 }}>
+                                    <Table
+                                        size="small"
+                                        columns={bulkColumns}
+                                        dataSource={bulkItems}
+                                        rowKey="id_temp"
+                                        pagination={false}
+                                    />
+                                </div>
+                            </Card>
+                        </div>
+                    )}
+
+                    <Divider style={{ marginTop: 24 }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
                         {activeStep === 1 ? (
-                            <Button variant="subtle" leftSection={<IconChevronLeft size={18} />} onClick={() => setActiveStep(0)}>
+                            <Button icon={<IconChevronLeft size={18} />} onClick={() => setActiveStep(0)}>
                                 Volver al Formulario
                             </Button>
-                        ) : <Box />}
-                        <Group>
-                            <Button variant="outline" color="gray" onClick={onCancel}>Cancelar</Button>
+                        ) : <div />}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            <Button onClick={onCancel}>Cancelar</Button>
                             {initialData?.requestId && (!initialData.id_equipo) && (
-                                <Button 
-                                    variant="outline" 
-                                    color="red" 
+                                <Button
+                                    danger
                                     onClick={() => setRejectingSolicitud({ id_solicitud: initialData.requestId, tipo_solicitud: 'ALTA', datos_json: initialData })}
                                 >
                                     Rechazar Solicitud
                                 </Button>
                             )}
-                            <Tooltip 
-                                label={!isFormValid ? `Campos obligatorios faltantes: ${missingFields.join(', ')}` : (initialData?.id_equipo ? 'Actualizar equipo' : 'Guardar equipo')}
-                                disabled={isFormValid && (initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
-                                position="top"
-                                withArrow
-                                multiline
-                                w={280}
+                            <Tooltip
+                                title={!isFormValid ? `Campos obligatorios faltantes: ${missingFields.join(', ')}` : (initialData?.id_equipo ? 'Actualizar equipo' : 'Guardar equipo')}
+                                open={isFormValid && (initialData?.id_equipo ? canEditEquipo : canCreateEquipo) ? false : undefined}
                             >
-                                <div style={{ display: 'inline-block' }}>
-                                    <Button 
-                                        color="adl-blue"
+                                <span style={{ display: 'inline-block' }}>
+                                    <Button
+                                        type="primary"
                                         disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
                                         onClick={handleNext}
-                                        rightSection={activeStep === 0 && !initialData?.id_equipo ? <IconChevronRight size={18} /> : <IconDeviceFloppy size={18} />}
+                                        icon={activeStep === 0 && !initialData?.id_equipo ? undefined : <IconDeviceFloppy size={18} />}
                                     >
-                                        {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
+                                            {activeStep === 0 && !initialData?.id_equipo && <IconChevronRight size={18} />}
+                                        </span>
                                     </Button>
-                                </div>
+                                </span>
                             </Tooltip>
-                        </Group>
-                    </Group>
-                </Stack>
-            </Paper>
+                        </div>
+                    </div>
+                </div>
+            </Card>
 
             {/* --- Modals --- */}
-            <Modal opened={showSaveConfirm} onClose={() => setShowSaveConfirm(false)} title="Confirmar Guardado" centered size="sm">
-                <Stack align="center" py="md">
-                    <IconDeviceFloppy size={48} color="var(--mantine-color-blue-6)" />
-                    <Text ta="center">¿Deseas confirmar los cambios realizados en el sistema?</Text>
-                    <Group grow w="100%" mt="lg">
-                        <Button variant="subtle" color="gray" onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
-                        <Button color="blue" onClick={handleSave}>Sí, confirmar</Button>
-                    </Group>
-                </Stack>
+            <Modal open={showSaveConfirm} onCancel={() => setShowSaveConfirm(false)} title="Confirmar Guardado" centered footer={null} width={420}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '16px 0' }}>
+                    <IconDeviceFloppy size={48} color="#1c7ed6" />
+                    <Text style={{ textAlign: 'center' }}>¿Deseas confirmar los cambios realizados en el sistema?</Text>
+                    <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 16 }}>
+                        <Button style={{ flex: 1 }} onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
+                        <Button style={{ flex: 1 }} type="primary" onClick={handleSave}>Sí, confirmar</Button>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal 
-                opened={showRevisionConfirm} 
-                onClose={() => setShowRevisionConfirm(false)} 
-                title="Registrar Revisión" 
+            <Modal
+                open={showRevisionConfirm}
+                onCancel={() => setShowRevisionConfirm(false)}
+                title="Registrar Revisión"
                 centered
+                footer={null}
             >
-                <Stack>
-                    <Text size="sm">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Text style={{ fontSize: 13 }}>
                         Se registrará la revisión técnica del equipo con la fecha de hoy:
                     </Text>
-                    <Paper p="md" withBorder bg="gray.0">
-                        <Grid gutter="md">
-                            <Grid.Col span={12}>
-                                <Text size="xs" c="dimmed" tt="uppercase">Fecha de Revisión</Text>
-                                <Text fw={700} color="blue" size="md">
+                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Fecha de Revisión</Text>
+                                <Text strong style={{ color: '#1c7ed6', fontSize: 15, display: 'block' }}>
                                     {formatDateToSpanish(getTodayString())}
                                 </Text>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <Text size="xs" c="dimmed" tt="uppercase">Próxima Verificación</Text>
-                                <Text fw={700} color="teal" size="md">
+                            </div>
+                            <div>
+                                <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Próxima Verificación</Text>
+                                <Text strong style={{ color: '#0c8599', fontSize: 15, display: 'block' }}>
                                     {formatDateToSpanish(calculateNext90Days(getTodayString()))}
                                 </Text>
-                            </Grid.Col>
-                            <Grid.Col span={6}>
-                                <Text size="xs" c="dimmed" tt="uppercase">Vigencia Hasta</Text>
-                                <Text fw={700} color="green" size="md">
+                            </div>
+                            <div>
+                                <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Vigencia Hasta</Text>
+                                <Text strong style={{ color: '#2f9e44', fontSize: 15, display: 'block' }}>
                                     {formatDateToSpanish(calculateNext90Days(getTodayString()))}
                                 </Text>
-                            </Grid.Col>
-                        </Grid>
-                    </Paper>
-                    <Text size="xs" c="dimmed">
+                            </div>
+                        </div>
+                    </Card>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
                         * Al confirmar, se actualizará el estado temporal del equipo. Los cambios se guardarán definitivamente al presionar el botón "Actualizar" del formulario.
                     </Text>
-                    <Group grow mt="md">
-                        <Button variant="subtle" color="gray" onClick={() => setShowRevisionConfirm(false)}>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <Button style={{ flex: 1 }} onClick={() => setShowRevisionConfirm(false)}>
                             Cancelar
                         </Button>
-                        <Button 
-                            color="blue" 
+                        <Button
+                            style={{ flex: 1 }}
+                            type="primary"
                             onClick={() => {
                                 handleSetToday();
                                 setShowRevisionConfirm(false);
@@ -1439,100 +1446,102 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         >
                             Confirmar y Registrar
                         </Button>
-                    </Group>
-                </Stack>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={!!rejectingSolicitud} onClose={() => setRejectingSolicitud(null)} title="Motivo de Rechazo" centered>
-                <Stack>
-                    <Text size="sm" c="dimmed">Explica brevemente por qué se rechaza esta solicitud.</Text>
-                    <Textarea 
-                        label="Observaciones" 
-                        required 
-                        minRows={4} 
-                        value={adminFeedback} 
-                        onChange={(e) => setAdminFeedback(e.currentTarget.value)}
-                        placeholder="Ej: Información insuficiente..."
-                    />
-                    <Group grow mt="md">
-                        <Button variant="subtle" color="gray" onClick={() => setRejectingSolicitud(null)}>Cancelar</Button>
-                        <Button color="red" onClick={handleRejectIndividual} disabled={!adminFeedback.trim()}>Confirmar Rechazo</Button>
-                    </Group>
-                </Stack>
+            <Modal open={!!rejectingSolicitud} onCancel={() => setRejectingSolicitud(null)} title="Motivo de Rechazo" centered footer={null}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Explica brevemente por qué se rechaza esta solicitud.</Text>
+                    <div>
+                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Observaciones *</Text>
+                        <TextArea
+                            rows={4}
+                            value={adminFeedback}
+                            onChange={(e) => setAdminFeedback(e.currentTarget.value)}
+                            placeholder="Ej: Información insuficiente..."
+                        />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                        <Button style={{ flex: 1 }} onClick={() => setRejectingSolicitud(null)}>Cancelar</Button>
+                        <Button style={{ flex: 1 }} danger type="primary" onClick={handleRejectIndividual} disabled={!adminFeedback.trim()}>Confirmar Rechazo</Button>
+                    </div>
+                </div>
             </Modal>
 
-            <Modal opened={editingObsIdx !== null} onClose={() => setEditingObsIdx(null)} title={`Editar Observación - Item #${(editingObsIdx || 0) + 1}`} size="lg">
-                <Stack>
-                    <Textarea 
-                        minRows={8} 
-                        value={editingObsText} 
-                        onChange={(e) => setEditingObsText(e.currentTarget.value)} 
+            <Modal open={editingObsIdx !== null} onCancel={() => setEditingObsIdx(null)} title={`Editar Observación - Item #${(editingObsIdx || 0) + 1}`} width={600} footer={null}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <TextArea
+                        rows={8}
+                        value={editingObsText}
+                        onChange={(e) => setEditingObsText(e.currentTarget.value)}
                         autoFocus
                     />
-                    <Button onClick={() => {
+                    <Button type="primary" onClick={() => {
                         const n = [...bulkItems];
                         n[editingObsIdx!].observacion = editingObsText;
                         setBulkItems(n);
                         setEditingObsIdx(null);
                     }}>Guardar Observación</Button>
-                </Stack>
+                </div>
             </Modal>
 
-            <Modal 
-                opened={compareVersion !== null} 
-                onClose={() => setCompareVersion(null)} 
+            <Modal
+                open={compareVersion !== null}
+                onCancel={() => setCompareVersion(null)}
                 title={
-                    <Group gap="xs">
-                        <IconHistory size={20} color="var(--mantine-color-blue-6)" />
-                        <Text fw={700}>Comparación con Versión del Historial</Text>
-                    </Group>
-                } 
-                centered 
-                size="lg"
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <IconHistory size={20} color="#1c7ed6" />
+                        <Text strong>Comparación con Versión del Historial</Text>
+                    </div>
+                }
+                centered
+                width={800}
+                footer={null}
             >
                 {compareVersion && (() => {
                     const diffs = getVersionDiff(compareVersion);
                     return (
-                        <Stack>
-                            <Text size="sm" c="dimmed">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                            <Text type="secondary" style={{ fontSize: 13 }}>
                                 Mostrando las diferencias entre el registro histórico (<strong>{compareVersion.version}</strong>, modificado por <strong>{compareVersion.nombre_usuario_cambio || 'Sistema'}</strong> el {new Date(compareVersion.fecha_cambio).toLocaleString()}) y el estado actual del formulario.
                             </Text>
 
                             {diffs.length === 0 ? (
-                                <Alert color="blue" icon={<IconInfoCircle size={16} />} title="Sin diferencias">
-                                    Los datos de la versión del historial seleccionada coinciden exactamente con los datos actuales en el formulario.
-                                </Alert>
+                                <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="Sin diferencias" description="Los datos de la versión del historial seleccionada coinciden exactamente con los datos actuales en el formulario." />
                             ) : (
-                                <Table striped highlightOnHover withTableBorder withColumnBorders>
-                                    <Table.Thead bg="gray.1">
-                                        <Table.Tr>
-                                            <Table.Th>Campo</Table.Th>
-                                            <Table.Th>Versión Histórica ({compareVersion.version})</Table.Th>
-                                            <Table.Th>Valor en Formulario (Actual)</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {diffs.map((d, index) => (
-                                            <Table.Tr key={index}>
-                                                <Table.Td fw={500}>{d.campo}</Table.Td>
-                                                <Table.Td style={{ color: 'var(--mantine-color-red-7)', backgroundColor: 'var(--mantine-color-red-0)' }}>
-                                                    {d.oldValue}
-                                                </Table.Td>
-                                                <Table.Td style={{ color: 'var(--mantine-color-green-7)', backgroundColor: 'var(--mantine-color-green-0)' }}>
-                                                    {d.newValue}
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ))}
-                                    </Table.Tbody>
-                                </Table>
+                                <div style={{ overflowX: 'auto' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                                                <th style={{ textAlign: 'left', padding: 8, border: '1px solid var(--app-border)' }}>Campo</th>
+                                                <th style={{ textAlign: 'left', padding: 8, border: '1px solid var(--app-border)' }}>Versión Histórica ({compareVersion.version})</th>
+                                                <th style={{ textAlign: 'left', padding: 8, border: '1px solid var(--app-border)' }}>Valor en Formulario (Actual)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {diffs.map((d, index) => (
+                                                <tr key={index}>
+                                                    <td style={{ padding: 8, border: '1px solid var(--app-border)', fontWeight: 500 }}>{d.campo}</td>
+                                                    <td style={{ padding: 8, border: '1px solid var(--app-border)', color: '#c92a2a', backgroundColor: '#fff5f5' }}>
+                                                        {d.oldValue}
+                                                    </td>
+                                                    <td style={{ padding: 8, border: '1px solid var(--app-border)', color: '#2b8a3e', backgroundColor: '#ebfbee' }}>
+                                                        {d.newValue}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
                             )}
 
-                            <Group justify="flex-end" mt="md">
-                                <Button variant="subtle" color="gray" onClick={() => setCompareVersion(null)}>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                                <Button onClick={() => setCompareVersion(null)}>
                                     Cerrar
                                 </Button>
-                                <Button 
-                                    color="blue" 
+                                <Button
+                                    type="primary"
                                     onClick={() => {
                                         handleRestore(compareVersion);
                                         setCompareVersion(null);
@@ -1540,41 +1549,30 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 >
                                     Restaurar esta Versión
                                 </Button>
-                            </Group>
-                        </Stack>
+                            </div>
+                        </div>
                     );
                 })()}
             </Modal>
 
-
-
             {/* Floating button for requests */}
             {initialData?.id_equipo && pendingRequests && pendingRequests.length > 0 && (
-                <Box style={{ position: 'fixed', bottom: 40, right: 40, zIndex: 100 }}>
-                    <Indicator 
-                        inline 
-                        label={pendingRequests.length} 
-                        size={22} 
-                        color="red" 
-                        withBorder
-                    >
-                        <Tooltip label="Ver Solicitudes Pendientes" position="left">
-                            <ActionIcon 
-                                size={56} 
-                                radius="xl" 
-                                variant="filled" 
-                                color="orange"
+                <div style={{ position: 'fixed', bottom: 40, right: 40, zIndex: 100 }}>
+                    <Badge count={pendingRequests.length} color="red">
+                        <Tooltip title="Ver Solicitudes Pendientes" placement="left">
+                            <Button
+                                shape="circle"
+                                type="primary"
+                                style={{ width: 56, height: 56, backgroundColor: '#e8590c', borderColor: '#e8590c', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
+                                icon={<IconAlertTriangle size={28} />}
                                 onClick={() => setShowRequestsModal(true)}
-                                style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
-                            >
-                                <IconAlertTriangle size={28} />
-                            </ActionIcon>
+                            />
                         </Tooltip>
-                    </Indicator>
-                </Box>
+                    </Badge>
+                </div>
             )}
 
-            <EquipmentRequestsModal 
+            <EquipmentRequestsModal
                 isOpen={showRequestsModal}
                 onClose={() => setShowRequestsModal(false)}
                 idEquipo={initialData?.id_equipo || null}
@@ -1585,6 +1583,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     if (onRefreshSolicitudes) onRefreshSolicitudes();
                 }}
             />
-        </Box>
+        </div>
     );
 };

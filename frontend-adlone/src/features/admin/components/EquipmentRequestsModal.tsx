@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Modal, 
-    Table, 
-    Badge, 
-    Button, 
-    LoadingOverlay, 
-    Box, 
-    ScrollArea,
+import {
+    Modal,
+    Table,
+    Tag,
+    Button,
     Alert,
     Tooltip,
-    Stack,
-    Group,
-    Text
-} from '@mantine/core';
+    Typography
+} from 'antd';
 import {
     IconCalendar,
     IconUser,
@@ -24,6 +19,8 @@ import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { useToast } from '../../../contexts/ToastContext';
 
+const { Text } = Typography;
+
 interface EquipmentRequestsModalProps {
     idEquipo: number | string | null;
     nombreEquipo: string;
@@ -34,16 +31,15 @@ interface EquipmentRequestsModalProps {
     requests: any[];
 }
 
-export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({ 
+export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
     nombreEquipo,
     codigoEquipo,
-    isOpen, 
-    onClose, 
+    isOpen,
+    onClose,
     onRefresh,
     requests
 }) => {
     const displayRequests = requests || [];
-    const loading = false;
     const [processingId, setProcessingId] = useState<number | null>(null);
     const { showToast } = useToast();
 
@@ -56,15 +52,15 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         try {
             if (sol.id_tipo || (sol.origen_tabla && sol.origen_tabla !== 'GENERAL')) {
                 // Es URS
-                await ursService.updateStatus(sol.id_solicitud, { 
-                    status: 'REALIZADA', 
-                    comment: 'Equipo gestionado y marcado como realizado automáticamente.' 
+                await ursService.updateStatus(sol.id_solicitud, {
+                    status: 'REALIZADA',
+                    comment: 'Equipo gestionado y marcado como realizado automáticamente.'
                 });
             } else {
                 // Es Legacy
                 await adminService.updateSolicitudStatus(
-                    sol.id_solicitud, 
-                    'REALIZADA', 
+                    sol.id_solicitud,
+                    'REALIZADA',
                     'Solicitud marcada como realizada desde el panel de equipos.'
                 );
             }
@@ -85,14 +81,14 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         switch (s) {
             case 'PENDIENTE':
             case 'PENDIENTE_TECNICA':
-            case 'PENDIENTE_CALIDAD': return 'yellow';
+            case 'PENDIENTE_CALIDAD': return 'gold';
             case 'EN_REVISION':
             case 'EN_REVISION_TECNICA': return 'cyan';
-            case 'ACEPTADA': return 'teal';
+            case 'ACEPTADA': return 'green';
             case 'RECHAZADA':
             case 'RECHAZADO_TECNICA': return 'red';
             case 'REALIZADA': return 'blue';
-            default: return 'gray';
+            default: return 'default';
         }
     };
 
@@ -124,81 +120,81 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         const d = sol.datos_json || {};
         const typeRaw = sol.tipo_solicitud || sol.nombre_tipo || '';
         const type = typeRaw.toUpperCase();
-        
+
         const isTraspaso = type.includes('TRASPASO') || d._form_type === 'TRASPASO_EQUIPO' || d.isTransfer;
         const isAlta = type.includes('ALTA') || (type.includes('REACTIVACI') && d.isReactivation);
         const isProblem = type.includes('PROBLEMA') || type.includes('FALLA');
-        
+
         return (
-            <Stack gap={4}>
-                <Text size="sm" fw={800} c="blue.9">{typeRaw}</Text>
-                
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Text strong style={{ fontSize: 13, color: '#1864ab' }}>{typeRaw}</Text>
+
                 {/* Specific Details based on Type */}
-                <Box mt={2}>
+                <div style={{ marginTop: 2 }}>
                     {isTraspaso && (
-                        <Stack gap={3}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                             {d.traspaso_de && (
-                                <Group gap={4}>
-                                    <Text size="xs" fw={700} c="dimmed">Tipo Traspaso:</Text>
-                                    <Text size="xs" fw={800} c="blue.7">
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                                    <Text type="secondary" strong style={{ fontSize: 12 }}>Tipo Traspaso:</Text>
+                                    <Text strong style={{ fontSize: 12, color: '#1864ab' }}>
                                         {d.traspaso_de.map((t: string) => t === 'UBICACION' ? 'Sede' : (t === 'RESPONSABLE' ? 'Muestreador' : t)).join(' y ')}
                                     </Text>
-                                </Group>
+                                </div>
                             )}
                             {(d.nombre_centro_destino || d.nueva_ubicacion || d.destino || d.ubicacion_destino) && (
-                                <Group gap={4} wrap="nowrap">
-                                    <IconMapPin size={12} color="var(--mantine-color-blue-6)" />
-                                    <Text size="xs" fw={700}>Sede Destino:</Text>
-                                    <Badge size="xs" variant="light" color="blue" styles={{ root: { minWidth: 'fit-content' }}}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                    <IconMapPin size={12} color="#1c7ed6" />
+                                    <Text strong style={{ fontSize: 12 }}>Sede Destino:</Text>
+                                    <Tag color="blue" style={{ minWidth: 'fit-content' }}>
                                         {d.nombre_centro_destino || d.nueva_ubicacion || d.destino || d.ubicacion_destino}
-                                    </Badge>
-                                </Group>
+                                    </Tag>
+                                </div>
                             )}
                             {(d.nombre_muestreador_destino || d.nuevo_responsable_nombre || d.nuevo_responsable || d.responsable_destino) && (
-                                <Group gap={4} wrap="nowrap">
-                                    <IconUser size={12} color="var(--mantine-color-indigo-6)" />
-                                    <Text size="xs" fw={700}>Nuevo Responsable:</Text>
-                                    <Text size="xs" c="indigo.8" fw={800}>
+                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                    <IconUser size={12} color="#4c6ef5" />
+                                    <Text strong style={{ fontSize: 12 }}>Nuevo Responsable:</Text>
+                                    <Text strong style={{ fontSize: 12, color: '#3b5bdb' }}>
                                         {d.nombre_muestreador_destino || d.nuevo_responsable_nombre || d.nuevo_responsable || d.responsable_destino}
                                     </Text>
-                                </Group>
+                                </div>
                             )}
-                        </Stack>
+                        </div>
                     )}
 
                     {/* ALTA / REACTIVACION DETAILS */}
                     {isAlta && (
-                        <Group gap={4} wrap="nowrap">
-                            <IconCalendar size={12} color="var(--mantine-color-teal-6)" />
-                            <Text size="xs" fw={700}>Nueva Vigencia:</Text>
-                            <Badge size="xs" variant="filled" color="teal">
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                            <IconCalendar size={12} color="#0c8599" />
+                            <Text strong style={{ fontSize: 12 }}>Nueva Vigencia:</Text>
+                            <Tag color="cyan">
                                 {d.nueva_vigencia_solicitada || d.vigencia_propuesta || d.fecha_vigencia || d.vigencia}
-                            </Badge>
-                        </Group>
+                            </Tag>
+                        </div>
                     )}
 
                     {/* PROBLEM REPORT DETAILS */}
                     {isProblem && (
-                        <Stack gap={2}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                             {d.criticidad && (
-                                <Badge size="xs" color={d.criticidad.toUpperCase() === 'ALTA' ? 'red' : 'orange'} variant="filled">
+                                <Tag color={d.criticidad.toUpperCase() === 'ALTA' ? 'red' : 'orange'}>
                                     CRITICIDAD: {d.criticidad}
-                                </Badge>
+                                </Tag>
                             )}
                             {d.descripcion_falla && (
-                                <Text size="xs" c="red.9" fw={600}>Falla: {d.descripcion_falla}</Text>
+                                <Text strong style={{ fontSize: 12, color: '#c92a2a' }}>Falla: {d.descripcion_falla}</Text>
                             )}
-                        </Stack>
+                        </div>
                     )}
-                </Box>
+                </div>
 
                 {/* General Motive/Comments (Always at the bottom) */}
                 {(d.motivo || d.observaciones || d.descripcion || d.comentario) && (
-                    <Text size="xs" c="dimmed" fs="italic" lineClamp={3}>
+                    <Text type="secondary" italic style={{ fontSize: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                         "{formatCodeValue(String(d.motivo || d.observaciones || d.descripcion || d.comentario))}"
                     </Text>
                 )}
-            </Stack>
+            </div>
         );
     };
 
@@ -213,108 +209,105 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         });
     };
 
-    return (
-        <Modal 
-            opened={isOpen} 
-            onClose={onClose} 
-            title={
-                <Box>
-                    <Text fw={700} size="lg">Solicitudes Pendientes</Text>
-                    <Group gap={6}>
-                        {codigoEquipo && (
-                            <Badge variant="light" color="blue" size="sm">
-                                {codigoEquipo}
-                            </Badge>
-                        )}
-                        <Text size="sm" c="dimmed">{nombreEquipo}</Text>
-                    </Group>
-                </Box>
-            }
-            size="xl"
-            scrollAreaComponent={ScrollArea.Autosize}
-        >
-            <Box pos="relative" miw={500} mih={200}>
-                <LoadingOverlay visible={loading} />
+    const columns = [
+        {
+            title: 'ID', key: 'id',
+            render: (_: unknown, sol: any) => (
+                <Tooltip title={sol.origen_tabla === 'GENERAL' ? 'Solicitud GERR (Sistema General)' : 'Solicitud de Equipo'}>
+                    <Text strong style={{ fontSize: 13, color: sol.origen_tabla === 'GENERAL' ? '#3b5bdb' : undefined }}>
+                        #{sol.id_solicitud}
+                    </Text>
+                </Tooltip>
+            ),
+        },
+        { title: 'Tipo', key: 'tipo', render: (_: unknown, sol: any) => renderSolicitudDetails(sol) },
+        {
+            title: 'Solicitante', key: 'solicitante',
+            render: (_: unknown, sol: any) => (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
+                    <IconUser size={14} color="gray" />
+                    <Text style={{ fontSize: 12 }}>{sol.nombre_solicitante || 'N/A'}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Fecha', key: 'fecha',
+            render: (_: unknown, sol: any) => (
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
+                    <IconCalendar size={14} color="gray" />
+                    <Text style={{ fontSize: 12 }}>{formatDate(sol.fecha_creacion)}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Estado', key: 'estado',
+            render: (_: unknown, sol: any) => (
+                <Tag color={getStatusColor(sol.estado)} style={{ minWidth: 80, textAlign: 'center' }}>
+                    {getStatusLabel(sol.estado)}
+                </Tag>
+            ),
+        },
+        {
+            title: 'Acciones', key: 'acciones', align: 'right' as const,
+            render: (_: unknown, sol: any) => (
+                (sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                    <Button
+                        size="small"
+                        type="primary"
+                        style={{ backgroundColor: '#2f9e44' }}
+                        icon={<IconCheck size={14} />}
+                        loading={processingId === sol.id_solicitud}
+                        onClick={() => handleMarkAsRealizada(sol)}
+                    >
+                        Realizar
+                    </Button>
+                )
+            ),
+        },
+    ];
 
-                {displayRequests.length === 0 && !loading ? (
-                    <Alert icon={<IconInfoCircle size="1rem" />} color="blue" mt="md">
-                        No hay solicitudes pendientes activas para este equipo.
-                    </Alert>
+    return (
+        <Modal
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={900}
+            title={
+                <div>
+                    <Text strong style={{ fontSize: 16, display: 'block' }}>Solicitudes Pendientes</Text>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        {codigoEquipo && (
+                            <Tag color="blue">{codigoEquipo}</Tag>
+                        )}
+                        <Text type="secondary" style={{ fontSize: 13 }}>{nombreEquipo}</Text>
+                    </div>
+                </div>
+            }
+        >
+            <div style={{ position: 'relative', minWidth: 500, minHeight: 200, marginTop: 16 }}>
+                {displayRequests.length === 0 ? (
+                    <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="No hay solicitudes pendientes activas para este equipo." style={{ marginTop: 16 }} />
                 ) : (
-                    <Stack gap="md" mt="md">
-                        <Table striped highlightOnHover verticalSpacing="sm">
-                            <Table.Thead>
-                                <Table.Tr>
-                                    <Table.Th>ID</Table.Th>
-                                    <Table.Th>Tipo</Table.Th>
-                                    <Table.Th>Solicitante</Table.Th>
-                                    <Table.Th>Fecha</Table.Th>
-                                    <Table.Th>Estado</Table.Th>
-                                    <Table.Th ta="right">Acciones</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {displayRequests.map((sol: any) => (
-                                    <React.Fragment key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
-                                        <Table.Tr>
-                                            <Table.Td>
-                                                <Tooltip label={sol.origen_tabla === 'GENERAL' ? 'Solicitud GERR (Sistema General)' : 'Solicitud de Equipo'}>
-                                                    <Text size="sm" fw={700} c={sol.origen_tabla === 'GENERAL' ? 'indigo.7' : 'inherit'}>
-                                                        #{sol.id_solicitud}
-                                                    </Text>
-                                                </Tooltip>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                {renderSolicitudDetails(sol)}
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={6} wrap="nowrap">
-                                                    <IconUser size={14} color="gray" />
-                                                    <Text size="xs">{sol.nombre_solicitante || 'N/A'}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group gap={6} wrap="nowrap">
-                                                    <IconCalendar size={14} color="gray" />
-                                                    <Text size="xs">{formatDate(sol.fecha_creacion)}</Text>
-                                                </Group>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Badge color={getStatusColor(sol.estado)} variant="filled" size="sm" styles={{ root: { minWidth: '80px', textAlign: 'center' }}}>
-                                                    {getStatusLabel(sol.estado)}
-                                                </Badge>
-                                            </Table.Td>
-                                            <Table.Td>
-                                                <Group justify="flex-end" gap="xs">
-                                                    {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                                                        <Button
-                                                            size="xs"
-                                                            color="green"
-                                                            leftSection={<IconCheck size={14} />}
-                                                            loading={processingId === sol.id_solicitud}
-                                                            onClick={() => handleMarkAsRealizada(sol)}
-                                                        >
-                                                            Realizar
-                                                        </Button>
-                                                    )}
-                                                </Group>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    </React.Fragment>
-                                ))}
-                            </Table.Tbody>
-                        </Table>
-                        
-                        <Text size="xs" c="dimmed" fs="italic">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
+                        <Table
+                            rowKey={(sol) => `${sol.origen_tabla}-${sol.id_solicitud}`}
+                            columns={columns}
+                            dataSource={displayRequests}
+                            pagination={false}
+                            size="small"
+                            scroll={{ x: 800 }}
+                        />
+
+                        <Text type="secondary" italic style={{ fontSize: 12 }}>
                             * Las solicitudes GERR provienen del sistema general de requerimientos.
                         </Text>
-                    </Stack>
+                    </div>
                 )}
-            </Box>
+            </div>
 
-            <Group justify="flex-end" mt="xl">
-                <Button variant="default" onClick={onClose}>Cerrar</Button>
-            </Group>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                <Button onClick={onClose}>Cerrar</Button>
+            </div>
         </Modal>
     );
 };

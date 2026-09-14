@@ -1,34 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useMediaQuery } from '@mantine/hooks';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FichaExportModal } from './FichaExportModal';
 
-import { 
-    Button, 
-    Text, 
-    Stack, 
-    Group, 
-    Paper, 
-    SimpleGrid, 
-    ActionIcon, 
-    Box,
-    TextInput,
-    Select,
-    Table,
-    Badge,
-    Pagination,
-    ScrollArea,
-    Tooltip
-} from '@mantine/core';
-import { 
+import { Button, Typography, Card, Input, Select, Table, Tag, Tooltip } from 'antd';
+import {
     IconAdjustmentsHorizontal,
     IconDownload,
     IconTrash,
     IconEye,
-    IconDatabaseExport
 } from '@tabler/icons-react';
+
+const { Text } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
@@ -51,8 +35,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
     const [showExportModal, setShowExportModal] = useState(false);
-    
-    const isMobile = useMediaQuery('(max-width: 768px)');
+
     const itemsPerPage = 10;
 
     useEffect(() => {
@@ -130,7 +113,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         const displayId = f.fichaingresoservicio || f.id_fichaingresoservicio || '';
         const matchId = searchId ? String(displayId).includes(searchId) : true;
         const check = (val: string, search: string) => (!search || (val || '').toString().toLowerCase().includes(search.toLowerCase()));
-        
+
         const matchEstado = check(f.estado_ficha, searchEstado);
         const matchTipo = check(f.tipo_fichaingresoservicio, searchTipo);
         const matchEmpresaFacturar = check(f.empresa_facturar, searchEmpresaFacturar);
@@ -163,226 +146,193 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
     });
 
-    const totalPages = Math.ceil(filteredFichas.length / itemsPerPage);
-    const displayedFichas = filteredFichas.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
     const getStatusProps = (status: string) => {
         const s = (status || '').toUpperCase();
         if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
         if (s.includes('COORDINACIÓN')) return { color: 'blue', label: s };
-        if (s.includes('PROGRAMACIÓN')) return { color: 'grape', label: s };
-        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'yellow', label: 'PENDIENTE TÉCNICA' };
+        if (s.includes('PROGRAMACIÓN')) return { color: 'purple', label: s };
+        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'gold', label: 'PENDIENTE TÉCNICA' };
         if (s.includes('ASIGNAR')) return { color: 'orange', label: s };
         if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { color: 'green', label: s };
-        return { color: 'gray', label: s || 'SIN ESTADO' };
+        return { color: 'default', label: s || 'SIN ESTADO' };
     };
 
-    return (
-        <Box p="md" style={{ width: '100%' }}>
-            <Stack gap="lg">
-                <PageHeader 
-                    title="Explorador de Fichas de Ingreso"
-                    onBack={onBackToMenu}
-                    breadcrumbItems={[
-                        { label: 'Fichas de Ingreso', onClick: onBackToMenu },
-                        { label: 'Explorador' }
-                    ]}
-                    rightSection={
-                        <ProtectedContent permission="FI_EXP_MC">
-                            <Button 
-                                variant="filled" 
-                                size="sm" 
-                                color="green" 
-                                leftSection={<IconDownload size={16} />}
-                                onClick={() => setShowExportModal(true)}
-                            >
-                                Exportar PDF
-                            </Button>
-                        </ProtectedContent>
-                    }
-                />
-
-                <Paper withBorder p="xl" radius="lg" shadow="sm" style={{ width: '100% !important' }}>
-                    <Stack gap="xl">
-                        <Paper withBorder p="md" radius="md" bg="gray.0">
-                            <Stack gap="sm">
-                                <Group justify="space-between">
-                                    <Group gap="xs">
-                                        <IconAdjustmentsHorizontal size={20} color="gray" />
-                                        <Text fw={600} size="sm">Filtros de Búsqueda</Text>
-                                    </Group>
-                                    <Button 
-                                        variant="subtle" 
-                                        size="compact-xs" 
-                                        color="gray" 
-                                        leftSection={<IconTrash size={14} />}
-                                        onClick={handleClearFilters}
-                                    >
-                                        Limpiar Filtros
-                                    </Button>
-                                </Group>
-                                
-                                <SimpleGrid cols={{ base: 1, sm: 2, md: 4, lg: 6 }} spacing="sm">
-                                    <TextInput
-                                        label="N° Ficha"
-                                        placeholder="Buscar por ID..."
-                                        value={searchId}
-                                        onChange={(e) => setSearchId(e.target.value)}
-                                        size="xs"
-                                    />
-                                    <Select
-                                        label="Estado"
-                                        placeholder="Seleccionar..."
-                                        data={uniqueEstados}
-                                        value={searchEstado}
-                                        onChange={(v) => setSearchEstado(v || '')}
-                                        size="xs"
-                                        searchable
-                                        clearable
-                                    />
-                                    <TextInput label="Fecha Desde" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} size="xs" />
-                                    <TextInput label="Fecha Hasta" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} size="xs" />
-                                    <Select label="Tipo" placeholder="Seleccionar..." data={uniqueTipos} value={searchTipo} onChange={(v) => setSearchTipo(v || '')} size="xs" searchable clearable />
-                                    <Select label="Empresa" placeholder="Seleccionar..." data={uniqueEmpFacturar} value={searchEmpresaFacturar} onChange={(v) => setSearchEmpresaFacturar(v || '')} size="xs" searchable clearable />
-                                    <Select label="E. Servicio" placeholder="Seleccionar..." data={uniqueEmpServicio} value={searchEmpresaServicio} onChange={(v) => setSearchEmpresaServicio(v || '')} size="xs" searchable clearable />
-                                    <Select label="Fuente Emisora" placeholder="Seleccionar..." data={uniqueCentros} value={searchCentro} onChange={(v) => setSearchCentro(v || '')} size="xs" searchable clearable />
-                                    <Select label="Objetivo" placeholder="Seleccionar..." data={uniqueObjetivos} value={searchObjetivo} onChange={(v) => setSearchObjetivo(v || '')} size="xs" searchable clearable />
-                                    <Select label="Sub Área" placeholder="Seleccionar..." data={uniqueSubAreas} value={searchSubArea} onChange={(v) => setSearchSubArea(v || '')} size="xs" searchable clearable />
-                                    <Select label="Usuario" placeholder="Seleccionar..." data={uniqueUsuarios} value={searchUsuario} onChange={(v) => setSearchUsuario(v || '')} size="xs" searchable clearable />
-                                </SimpleGrid>
-                            </Stack>
-                        </Paper>
-
-                        <FichaExportModal 
-                            isOpen={showExportModal}
-                            onClose={() => setShowExportModal(false)}
-                            initialFilters={{
-                                ficha: searchId, estado: searchEstado, fechaDesde: dateFrom, fechaHasta: dateTo, tipo: searchTipo, empresaFacturar: searchEmpresaFacturar, empresaServicio: searchEmpresaServicio, centro: searchCentro, objetivo: searchObjetivo, subArea: searchSubArea, usuario: searchUsuario
-                            }}
-                            catalogos={{
-                                estados: getPlainValues('estado_ficha'), tipos: getPlainValues('tipo_fichaingresoservicio'), empresasFacturar: getPlainValues('empresa_facturar'), empresasServicio: getPlainValues('empresa_servicio'), centros: getPlainValues('centro'), objetivos: getPlainValues('nombre_objetivomuestreo_ma'), subAreas: getPlainValues('nombre_subarea'), fichas: getPlainValues('id_fichaingresoservicio'), usuarios: getPlainValues('nombre_usuario')
+    const columns = [
+        {
+            title: 'ID', dataIndex: 'fichaingresoservicio', width: 80,
+            render: (v: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{v || '-'}</Text>,
+        },
+        {
+            title: 'Estado', dataIndex: 'estado_ficha', width: 170,
+            render: (v: string) => {
+                const status = getStatusProps(v);
+                return <Tag color={status.color} style={{ width: '100%', textAlign: 'center' }}>{status.label}</Tag>;
+            },
+        },
+        { title: 'Fecha', dataIndex: 'fecha', width: 100 },
+        { title: 'Facturar a', dataIndex: 'empresa_facturar', ellipsis: { showTitle: true } },
+        { title: 'E. Servicio', dataIndex: 'empresa_servicio', ellipsis: { showTitle: true } },
+        { title: 'Objetivo', dataIndex: 'nombre_objetivomuestreo_ma', ellipsis: { showTitle: true } },
+        {
+            title: 'PDF', width: 60, align: 'center' as const,
+            render: (_: any, ficha: any) => (
+                <ProtectedContent permission={['FI_EXPORTAR_CFI', 'FI_EXP_AFE']}>
+                    <Tooltip title={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: esta ficha ha sido rechazada' : 'Descargar PDF'}>
+                        <Button
+                            type="text"
+                            shape="circle"
+                            danger={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA')}
+                            icon={<IconDownload size={18} />}
+                            onClick={async (e) => {
+                                e.stopPropagation();
+                                const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                try {
+                                    const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
+                                    const url = window.URL.createObjectURL(pdfBlob);
+                                    const link = document.createElement('a');
+                                    const fileName = ficha.frecuencia_correlativo || `Ficha_${idFicha}`;
+                                    link.href = url;
+                                    link.setAttribute('download', `${fileName}.pdf`);
+                                    document.body.appendChild(link);
+                                    link.click();
+                                    document.body.removeChild(link);
+                                } catch (err) {
+                                    console.error(err);
+                                }
                             }}
                         />
+                    </Tooltip>
+                </ProtectedContent>
+            ),
+        },
+        {
+            title: 'Ver', width: 60, align: 'center' as const,
+            render: (_: any, ficha: any) => (
+                <ProtectedContent permission={['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']}>
+                    <Button
+                        type="text"
+                        shape="circle"
+                        icon={<IconEye size={18} style={{ color: 'var(--app-accent-text)' }} />}
+                        onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
+                    />
+                </ProtectedContent>
+            ),
+        },
+    ];
 
-                        <Box pos="relative">
-                            <ScrollArea h={550} offsetScrollbars>
-                                <Table verticalSpacing="sm" highlightOnHover striped withTableBorder>
-                                    <Table.Thead bg="gray.1">
-                                        <Table.Tr>
-                                            <Table.Th w={80}>ID</Table.Th>
-                                            <Table.Th w={180}>Estado</Table.Th>
-                                            <Table.Th w={100}>Fecha</Table.Th>
-                                            <Table.Th w={150}>Facturar a</Table.Th>
-                                            <Table.Th>E. Servicio</Table.Th>
-                                            <Table.Th>Objetivo</Table.Th>
-                                            <Table.Th w={60}>PDF</Table.Th>
-                                            <Table.Th w={60}>Ver</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {loading ? (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={8} align="center" py="xl">
-                                                    <Text c="dimmed">Cargando datos...</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ) : displayedFichas.length === 0 ? (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={8} align="center" py="xl">
-                                                    <Text c="dimmed">No se encontraron registros</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        ) : (
-                                            displayedFichas.map((ficha, idx) => {
-                                                const status = getStatusProps(ficha.estado_ficha);
-                                                return (
-                                                    <Table.Tr key={idx}>
-                                                        <Table.Td fw={700} c="blue.8">{ficha.fichaingresoservicio || '-'}</Table.Td>
-                                                        <Table.Td>
-                                                            <Badge color={status.color} variant="light" size="sm" fullWidth>
-                                                                {status.label}
-                                                            </Badge>
-                                                        </Table.Td>
-                                                        <Table.Td fz="xs">{ficha.fecha}</Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_facturar}>
-                                                            {ficha.empresa_facturar}
-                                                        </Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.empresa_servicio}>
-                                                            {ficha.empresa_servicio}
-                                                        </Table.Td>
-                                                        <Table.Td fz="xs" style={{ minWidth: 150 }} title={ficha.nombre_objetivomuestreo_ma}>
-                                                            {ficha.nombre_objetivomuestreo_ma}
-                                                        </Table.Td>
-                                                        <Table.Td align="center">
-                                                            <ProtectedContent permission={['FI_EXPORTAR_CFI', 'FI_EXP_AFE']}>
-                                                                <Tooltip 
-                                                                    label={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
-                                                                    color={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'blue'}
-                                                                >
-                                                                    <ActionIcon 
-                                                                        color={(ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA') ? 'red' : 'gray'} 
-                                                                        variant="subtle"
-                                                                        onClick={async (e) => {
-                                                                            e.stopPropagation();
-                                                                            const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
-                                                                            try {
-                                                                                const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
-                                                                                const url = window.URL.createObjectURL(pdfBlob);
-                                                                                const link = document.createElement('a');
-                                                                                const fileName = ficha.frecuencia_correlativo || `Ficha_${idFicha}`;
-                                                                                link.href = url;
-                                                                                link.setAttribute('download', `${fileName}.pdf`);
-                                                                                document.body.appendChild(link);
-                                                                                link.click();
-                                                                                document.body.removeChild(link);
-                                                                            } catch(err) {
-                                                                                console.error(err);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <IconDownload size={18} />
-                                                                    </ActionIcon>
-                                                                </Tooltip>
-                                                            </ProtectedContent>
-                                                        </Table.Td>
-                                                        <Table.Td align="center">
-                                                            <ProtectedContent permission={['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']}>
-                                                                <ActionIcon 
-                                                                    color="blue" 
-                                                                    variant="light"
-                                                                    onClick={() => onViewDetail(ficha.id_fichaingresoservicio || ficha.fichaingresoservicio)}
-                                                                >
-                                                                    <IconEye size={18} />
-                                                                </ActionIcon>
-                                                            </ProtectedContent>
-                                                        </Table.Td>
-                                                    </Table.Tr>
-                                                )
-                                            })
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea>
-                        </Box>
+    const selectProps = { showSearch: true, allowClear: true, style: { width: '100%' } } as const;
 
-                        <Group justify="space-between" mt="md" wrap={isMobile ? "wrap" : "nowrap"}>
-                            <Text size="xs" c="dimmed">
-                                {isMobile ? `${filteredFichas.length} reg.` : `Mostrando ${filteredFichas.length > 0 ? ((currentPage - 1) * itemsPerPage) + 1 : 0} a ${Math.min(currentPage * itemsPerPage, filteredFichas.length)} de ${filteredFichas.length} registros`}
-                            </Text>
-                            <Pagination 
-                                total={totalPages} 
-                                value={currentPage} 
-                                onChange={setCurrentPage} 
-                                size={isMobile ? "xs" : "sm"}
-                                radius="md"
-                                siblings={isMobile ? 0 : 1}
-                                boundaries={isMobile ? 0 : 1}
-                                withEdges={!isMobile}
-                            />
-                        </Group>
-                    </Stack>
-                </Paper>
-            </Stack>
-        </Box>
+    return (
+        <div>
+            <PageHeader
+                title="Explorador de Fichas de Ingreso"
+                onBack={onBackToMenu}
+                breadcrumbItems={[
+                    { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                    { label: 'Explorador' }
+                ]}
+                rightSection={
+                    <ProtectedContent permission="FI_EXP_MC">
+                        <Button
+                            type="primary"
+                            style={{ backgroundColor: '#2f9e44' }}
+                            icon={<IconDownload size={16} />}
+                            onClick={() => setShowExportModal(true)}
+                        >
+                            Exportar PDF
+                        </Button>
+                    </ProtectedContent>
+                }
+            />
+
+            <Card
+                title={
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600 }}>
+                            <IconAdjustmentsHorizontal size={18} /> Filtros de búsqueda
+                        </span>
+                        <Button type="text" size="small" icon={<IconTrash size={14} />} onClick={handleClearFilters}>
+                            Limpiar filtros
+                        </Button>
+                    </div>
+                }
+                styles={{ header: { border: 'none' } }}
+                style={{ marginBottom: 16 }}
+            >
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+                    <Field label="N° Ficha">
+                        <Input placeholder="Buscar por ID..." value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+                    </Field>
+                    <Field label="Estado">
+                        <Select placeholder="Seleccionar..." options={uniqueEstados} value={searchEstado || undefined} onChange={(v) => setSearchEstado(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="Fecha Desde">
+                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                    </Field>
+                    <Field label="Fecha Hasta">
+                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                    </Field>
+                    <Field label="Tipo">
+                        <Select placeholder="Seleccionar..." options={uniqueTipos} value={searchTipo || undefined} onChange={(v) => setSearchTipo(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="Empresa">
+                        <Select placeholder="Seleccionar..." options={uniqueEmpFacturar} value={searchEmpresaFacturar || undefined} onChange={(v) => setSearchEmpresaFacturar(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="E. Servicio">
+                        <Select placeholder="Seleccionar..." options={uniqueEmpServicio} value={searchEmpresaServicio || undefined} onChange={(v) => setSearchEmpresaServicio(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="Fuente Emisora">
+                        <Select placeholder="Seleccionar..." options={uniqueCentros} value={searchCentro || undefined} onChange={(v) => setSearchCentro(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="Objetivo">
+                        <Select placeholder="Seleccionar..." options={uniqueObjetivos} value={searchObjetivo || undefined} onChange={(v) => setSearchObjetivo(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="Sub Área">
+                        <Select placeholder="Seleccionar..." options={uniqueSubAreas} value={searchSubArea || undefined} onChange={(v) => setSearchSubArea(v || '')} {...selectProps} />
+                    </Field>
+                    <Field label="Usuario">
+                        <Select placeholder="Seleccionar..." options={uniqueUsuarios} value={searchUsuario || undefined} onChange={(v) => setSearchUsuario(v || '')} {...selectProps} />
+                    </Field>
+                </div>
+            </Card>
+
+            <FichaExportModal
+                isOpen={showExportModal}
+                onClose={() => setShowExportModal(false)}
+                initialFilters={{
+                    ficha: searchId, estado: searchEstado, fechaDesde: dateFrom, fechaHasta: dateTo, tipo: searchTipo, empresaFacturar: searchEmpresaFacturar, empresaServicio: searchEmpresaServicio, centro: searchCentro, objetivo: searchObjetivo, subArea: searchSubArea, usuario: searchUsuario
+                }}
+                catalogos={{
+                    estados: getPlainValues('estado_ficha'), tipos: getPlainValues('tipo_fichaingresoservicio'), empresasFacturar: getPlainValues('empresa_facturar'), empresasServicio: getPlainValues('empresa_servicio'), centros: getPlainValues('centro'), objetivos: getPlainValues('nombre_objetivomuestreo_ma'), subAreas: getPlainValues('nombre_subarea'), fichas: getPlainValues('id_fichaingresoservicio'), usuarios: getPlainValues('nombre_usuario')
+                }}
+            />
+
+            <Card styles={{ body: { padding: 0 } }}>
+                <Table
+                    rowKey={(f) => `${f.id_fichaingresoservicio || f.fichaingresoservicio}`}
+                    columns={columns}
+                    dataSource={filteredFichas}
+                    loading={loading}
+                    scroll={{ x: 900 }}
+                    pagination={{
+                        current: currentPage,
+                        pageSize: itemsPerPage,
+                        total: filteredFichas.length,
+                        onChange: setCurrentPage,
+                        showTotal: (total, range) => `Mostrando ${range[0]} a ${range[1]} de ${total} registros`,
+                        style: { paddingInline: 16 },
+                    }}
+                />
+            </Card>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

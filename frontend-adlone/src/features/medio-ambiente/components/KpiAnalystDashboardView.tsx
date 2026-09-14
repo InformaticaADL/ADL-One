@@ -1,24 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import {
-    ActionIcon,
-    Alert,
-    Badge,
-    Box,
-    Button,
-    Group,
-    Paper,
-    SimpleGrid,
-    Stack,
-    Table,
-    Tabs,
-    Text,
-    ThemeIcon,
-    Title,
-    Loader,
-    Center,
-    Modal,
-    ScrollArea,
-} from '@mantine/core';
+import { Button, Tag, Tabs, Table, Modal, Spin, Typography, Alert as AntAlert } from 'antd';
 import {
     Area,
     AreaChart,
@@ -47,6 +28,8 @@ import {
 } from '../services/kpi-dashboard.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 
+const { Text, Title } = Typography;
+
 interface Props {
     onBack: () => void;
 }
@@ -54,19 +37,9 @@ interface Props {
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280', '#ec4899', '#14b8a6'];
 
 const toneMap: Record<string, string> = {
-    green: '#10b981',
-    teal: '#14b8a6',
-    lime: '#84cc16',
-    red: '#ef4444',
-    blue: '#3b82f6',
-    orange: '#f97316',
-    violet: '#8b5cf6',
-    cyan: '#06b6d4',
-    indigo: '#6366f1',
-    pink: '#ec4899',
-    grape: '#a855f7',
-    dark: '#1f2937',
-    yellow: '#eab308',
+    green: 'green', teal: 'cyan', lime: 'lime', red: 'red', blue: 'blue',
+    orange: 'orange', violet: 'purple', cyan: 'cyan', indigo: 'geekblue',
+    pink: 'magenta', grape: 'purple', dark: 'default', yellow: 'gold',
 };
 
 const levelColor: Record<string, string> = {
@@ -75,82 +48,75 @@ const levelColor: Record<string, string> = {
     normal: 'blue',
 };
 
+function DashCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+    return (
+        <div style={{
+            borderRadius: 20, padding: 24, backgroundColor: 'var(--app-bg)',
+            border: '1px solid var(--app-border)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
+            boxSizing: 'border-box', ...style,
+        }}>
+            {children}
+        </div>
+    );
+}
+
+const tooltipStyle = { borderRadius: 12, border: '1px solid var(--app-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--app-bg-elevated)' };
+
 const WidgetHeader = ({ widget, onInfoClick }: { widget: any, onInfoClick: (title: string, what: string, why: string) => void }) => (
-    <Group justify="space-between" align="flex-start" mb="md">
-        <Title order={4} c="dark.8" fw={700} size="sm">{widget.title}</Title>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+        <Title level={5} style={{ margin: 0, fontSize: 13 }}>{widget.title}</Title>
         {widget.help ? (
-            <button 
+            <button
                 onClick={() => onInfoClick(widget.title, widget.help.what, widget.help.why)}
                 style={{
-                    width: '28px',
-                    height: '28px',
-                    borderRadius: '8px',
-                    backgroundColor: 'white',
-                    border: '1px solid var(--mantine-color-gray-2)',
-                    color: 'var(--mantine-color-gray-5)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
+                    width: 28, height: 28, borderRadius: 8, backgroundColor: 'var(--app-bg)',
+                    border: '1px solid var(--app-border)', color: 'var(--app-text-secondary)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                 }}
                 title="Explicación detallada"
-                onMouseOver={(e) => { e.currentTarget.style.backgroundColor = 'var(--mantine-color-gray-0)'; e.currentTarget.style.color = 'var(--mantine-color-dark-9)'; }}
-                onMouseOut={(e) => { e.currentTarget.style.backgroundColor = 'white'; e.currentTarget.style.color = 'var(--mantine-color-gray-5)'; }}
             >
                 <IconInfoCircle size={16} />
             </button>
         ) : null}
-    </Group>
+    </div>
 );
 
 const renderWidget = (widget: any) => {
     if (widget.type === 'table') {
+        const columns = (widget.columns || []).map((column: string) => ({
+            title: column, dataIndex: column,
+            render: (v: any) => <Text style={{ fontSize: 12.5, fontWeight: 500 }}>{String(v ?? '-')}</Text>,
+        }));
         return (
-            <Table striped highlightOnHover style={{ borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--mantine-color-gray-2)' }}>
-                <Table.Thead bg="gray.0">
-                    <Table.Tr>
-                        {(widget.columns || []).map((column: string) => (
-                            <Table.Th key={column} style={{ color: 'var(--mantine-color-dark-4)', fontSize: '0.75rem', textTransform: 'uppercase' }}>{column}</Table.Th>
-                        ))}
-                    </Table.Tr>
-                </Table.Thead>
-                <Table.Tbody>
-                    {(widget.data || []).map((row: any, index: number) => (
-                        <Table.Tr key={`${widget.id}-${index}`}>
-                            {(widget.columns || []).map((column: string) => (
-                                <Table.Td key={column} style={{ fontSize: '0.8rem', fontWeight: 500 }}>{String(row[column] ?? '-')}</Table.Td>
-                            ))}
-                        </Table.Tr>
-                    ))}
-                </Table.Tbody>
-            </Table>
+            <Table
+                size="small"
+                columns={columns}
+                dataSource={(widget.data || []).map((row: any, i: number) => ({ ...row, key: `${widget.id}-${i}` }))}
+                pagination={false}
+                style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--app-border)' }}
+            />
         );
     }
 
     if (widget.type === 'metric-list' || widget.type === 'summary') {
         return (
-            <Stack gap="sm">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(widget.data || []).map((item: any, index: number) => (
-                    <Paper key={`${widget.id}-${index}`} p="md" radius="xl" bg="gray.0" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Text fw={700} c="dark.8" size="sm">{item.title || item.label}</Text>
-                        <Text c="dimmed" size="xs" mt={4}>
-                            {item.narrative || item.value}
-                        </Text>
+                    <div key={`${widget.id}-${index}`} style={{ padding: 16, borderRadius: 16, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)' }}>
+                        <Text strong style={{ fontSize: 13, display: 'block' }}>{item.title || item.label}</Text>
+                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>{item.narrative || item.value}</Text>
                         {item.recommendation ? (
-                            <Text size="xs" mt={8} fw={700} c="blue.6">
-                                {item.recommendation}
-                            </Text>
+                            <Text style={{ fontSize: 12, marginTop: 8, fontWeight: 700, color: 'var(--app-accent-text)', display: 'block' }}>{item.recommendation}</Text>
                         ) : null}
-                    </Paper>
+                    </div>
                 ))}
-            </Stack>
+            </div>
         );
     }
 
     if (widget.type === 'donut') {
         return (
-            <Box style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <PieChart>
                         <Pie data={widget.data} dataKey="value" nameKey="name" innerRadius={60} outerRadius={80} paddingAngle={2} stroke="none">
@@ -158,10 +124,10 @@ const renderWidget = (widget: any) => {
                                 <Cell key={`${widget.id}-${index}`} fill={COLORS[index % COLORS.length]} />
                             ))}
                         </Pie>
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid #f1f5f9', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <Tooltip contentStyle={tooltipStyle} />
                     </PieChart>
                 </ResponsiveContainer>
-            </Box>
+            </div>
         );
     }
 
@@ -172,29 +138,29 @@ const renderWidget = (widget: any) => {
 
     if (widget.type === 'bar') {
         return (
-            <Box style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <BarChart {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                         <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <Tooltip cursor={{fill: 'var(--app-hover-bg)'}} contentStyle={tooltipStyle} />
                         <Bar dataKey={widget.yKeys?.[0]} radius={[6, 6, 0, 0]} fill="#0ea5e9" />
                     </BarChart>
                 </ResponsiveContainer>
-            </Box>
+            </div>
         );
     }
 
     if (widget.type === 'multi-bar' || widget.type === 'stacked-bar') {
         return (
-            <Box style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <BarChart {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                         <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                        <Tooltip cursor={{fill: 'var(--app-hover-bg)'}} contentStyle={tooltipStyle} />
                         {(widget.yKeys || []).map((key: string, index: number) => (
                             <Bar
                                 key={key}
@@ -206,28 +172,28 @@ const renderWidget = (widget: any) => {
                         ))}
                     </BarChart>
                 </ResponsiveContainer>
-            </Box>
+            </div>
         );
     }
 
     if (widget.type === 'line') {
         return (
-            <Box style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <AreaChart {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                         <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                        <Area type="monotone" dataKey={widget.yKeys?.[0]} stroke="#3b82f6" fill="#eff6ff" fillOpacity={0.8} strokeWidth={3} />
+                        <Tooltip contentStyle={tooltipStyle} />
+                        <Area type="monotone" dataKey={widget.yKeys?.[0]} stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={3} />
                     </AreaChart>
                 </ResponsiveContainer>
-            </Box>
+            </div>
         );
     }
 
     return (
-        <Box style={{ height: 240, width: '100%', minWidth: 0 }}>
+        <div style={{ height: 240, width: '100%', minWidth: 0 }}>
             <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                 <AreaChart {...commonProps}>
                     <defs>
@@ -236,10 +202,10 @@ const renderWidget = (widget: any) => {
                             <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
                         </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
                     <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <Tooltip contentStyle={tooltipStyle} />
                     <Area
                         type="monotone"
                         dataKey={widget.yKeys?.[0]}
@@ -249,7 +215,7 @@ const renderWidget = (widget: any) => {
                     />
                 </AreaChart>
             </ResponsiveContainer>
-        </Box>
+        </div>
     );
 };
 
@@ -257,7 +223,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [payload, setPayload] = useState<KpiDashboardPayload | null>(null);
-    const [activeTab, setActiveTab] = useState<string | null>('medioambiente');
+    const [activeTab, setActiveTab] = useState<string>('medioambiente');
     const [infoModal, setInfoModal] = useState<{ title: string, what: string, why: string } | null>(null);
 
     const loadDashboard = async (forceRefresh = false) => {
@@ -293,21 +259,19 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
 
     if (loading || !payload || !activeDashboard) {
         return (
-            <Paper p="xl" radius="xl" style={{ minHeight: 400, border: '1px solid var(--mantine-color-gray-2)' }} bg="white">
-                <Center h={400}>
-                    <Stack align="center" gap="md">
-                        <Loader size="xl" color="blue" type="bars" />
-                        <Title order={3} c="dark.8" fw={800}>Procesando Data Intelligence...</Title>
-                        <Text c="dimmed">Construyendo tu Dashboard en tiempo real</Text>
-                    </Stack>
-                </Center>
-            </Paper>
+            <DashCard style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+                    <Spin size="large" />
+                    <Title level={3} style={{ margin: 0 }}>Procesando Data Intelligence...</Title>
+                    <Text type="secondary">Construyendo tu Dashboard en tiempo real</Text>
+                </div>
+            </DashCard>
         );
     }
 
     return (
-        <Box style={{ animation: 'fadeIn 0.5s ease', backgroundColor: '#f8fafc', padding: '16px', minHeight: '100vh', borderRadius: '24px' }}>
-            <PageHeader 
+        <div style={{ padding: 8 }}>
+            <PageHeader
                 title="Dashboard Inteligente"
                 subtitle="Análisis automático de métricas operativas, rendimiento de laboratorios y detección de riesgos."
                 onBack={onBack}
@@ -316,207 +280,182 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
                     { label: 'Dashboard Inteligente' }
                 ]}
                 rightSection={
-                    <Group align="center" justify="flex-end" gap="xs" wrap="nowrap">
-                        <Text size="xs" c="dimmed" visibleFrom="lg">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Text type="secondary" style={{ fontSize: 12 }}>
                             Actualizado {new Date(payload.generatedAt).toLocaleString('es-CL')}
                         </Text>
-                        <Button 
-                            leftSection={<IconRefresh size={16} />} 
-                            loading={refreshing} 
-                            onClick={() => loadDashboard(true)}
-                            radius="xl"
-                            size="sm"
-                            variant="white"
-                            color="dark"
-                            style={{ border: '1px solid var(--mantine-color-gray-2)' }}
-                        >
+                        <Button icon={<IconRefresh size={16} />} loading={refreshing} onClick={() => loadDashboard(true)}>
                             Recalcular
                         </Button>
-                    </Group>
+                    </div>
                 }
             />
 
-            <Box mt="xl">
-                <SimpleGrid cols={{ base: 1, md: 4 }} spacing="lg">
-                    <Paper p="lg" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Text size="xs" tt="uppercase" fw={700} c="dimmed">Universo</Text>
-                        <Text size="2.5rem" fw={800} c="dark.9">{payload.dataProfile.totalRows}</Text>
-                        <Text size="sm" c="dimmed">registros procesados</Text>
-                    </Paper>
-                    <Paper p="lg" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Text size="xs" tt="uppercase" fw={700} c="dimmed">Clientes</Text>
-                        <Text size="2.5rem" fw={800} c="dark.9">{payload.dataProfile.uniqueClients}</Text>
-                        <Text size="sm" c="dimmed">cuentas activas</Text>
-                    </Paper>
-                    <Paper p="lg" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Text size="xs" tt="uppercase" fw={700} c="dimmed">Alertas</Text>
-                        <Text size="2.5rem" fw={800} c="red.6">{payload.alerts.length}</Text>
-                        <Text size="sm" c="dimmed">riesgos detectados</Text>
-                    </Paper>
-                    <Paper p="lg" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                        <Text size="xs" tt="uppercase" fw={700} c="dimmed">Cobertura</Text>
-                        <Text size="2.5rem" fw={800} c="dark.9">{payload.dataProfile.coveredMonths}</Text>
-                        <Text size="sm" c="dimmed">meses analizados</Text>
-                    </Paper>
-                </SimpleGrid>
-            </Box>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 24 }}>
+                <DashCard>
+                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Universo</Text>
+                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block' }}>{payload.dataProfile.totalRows}</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>registros procesados</Text>
+                </DashCard>
+                <DashCard>
+                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Clientes</Text>
+                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block' }}>{payload.dataProfile.uniqueClients}</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>cuentas activas</Text>
+                </DashCard>
+                <DashCard>
+                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Alertas</Text>
+                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block', color: '#e03131' }}>{payload.alerts.length}</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>riesgos detectados</Text>
+                </DashCard>
+                <DashCard>
+                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Cobertura</Text>
+                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block' }}>{payload.dataProfile.coveredMonths}</Text>
+                    <Text type="secondary" style={{ fontSize: 13 }}>meses analizados</Text>
+                </DashCard>
+            </div>
 
-            <SimpleGrid cols={{ base: 1, lg: 2 }} spacing="lg" mt="xl">
-                <Paper p="xl" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                    <Group mb="xl">
-                        <ThemeIcon color="red" variant="light" size="xl" radius="xl">
-                            <IconAlertTriangle size={24} />
-                        </ThemeIcon>
-                        <Title order={4} c="dark.8">Alertas del Analista</Title>
-                    </Group>
-                    <Stack gap="md">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24 }}>
+                <DashCard>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                        <IconCircle color="#e03131"><IconAlertTriangle size={24} /></IconCircle>
+                        <Title level={5} style={{ margin: 0 }}>Alertas del Analista</Title>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                         {payload.alerts.length ? payload.alerts.map((alert, index) => (
-                            <Alert key={`${alert.title}-${index}`} color={levelColor[alert.level] || 'blue'} variant="light" title={alert.title} radius="xl" style={{ border: '1px solid transparent' }}>
-                                {alert.message}
-                            </Alert>
-                        )) : <Text c="dimmed">No se han detectado riesgos activos en este periodo.</Text>}
-                    </Stack>
-                </Paper>
+                            <AntAlert
+                                key={`${alert.title}-${index}`}
+                                type={(levelColor[alert.level] === 'red' ? 'error' : levelColor[alert.level] === 'orange' ? 'warning' : 'info')}
+                                showIcon
+                                message={alert.title}
+                                description={alert.message}
+                                style={{ borderRadius: 16 }}
+                            />
+                        )) : <Text type="secondary">No se han detectado riesgos activos en este periodo.</Text>}
+                    </div>
+                </DashCard>
 
-                <Paper p="xl" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                    <Group mb="xl">
-                        <ThemeIcon color="grape" variant="light" size="xl" radius="xl">
-                            <IconSparkles size={24} />
-                        </ThemeIcon>
-                        <Title order={4} c="dark.8">Insights Estratégicos</Title>
-                    </Group>
-                    <Stack gap="sm">
+                <DashCard>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                        <IconCircle color="#9c36b5"><IconSparkles size={24} /></IconCircle>
+                        <Title level={5} style={{ margin: 0 }}>Insights Estratégicos</Title>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         {payload.insights.slice(0, 3).map((insight, index) => (
-                            <Paper key={`${insight.title}-${index}`} p="md" radius="xl" bg="gray.0" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                                <Group justify="space-between" mb={4}>
-                                    <Text fw={700} c="dark.8">{insight.title}</Text>
-                                    <Badge color={levelColor[insight.level] || 'blue'} variant="filled" size="sm">{insight.level}</Badge>
-                                </Group>
-                                <Text size="sm" c="dimmed" lineClamp={2}>{insight.narrative}</Text>
-                                <Text size="xs" mt={8} fw={700} c="blue.6">{insight.recommendation}</Text>
-                            </Paper>
+                            <div key={`${insight.title}-${index}`} style={{ padding: 16, borderRadius: 16, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                    <Text strong style={{ fontSize: 13 }}>{insight.title}</Text>
+                                    <Tag color={levelColor[insight.level] || 'blue'}>{insight.level}</Tag>
+                                </div>
+                                <Text type="secondary" style={{
+                                    fontSize: 12.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                                }}>{insight.narrative}</Text>
+                                <Text style={{ fontSize: 12, marginTop: 8, fontWeight: 700, color: 'var(--app-accent-text)', display: 'block' }}>{insight.recommendation}</Text>
+                            </div>
                         ))}
-                    </Stack>
-                </Paper>
-            </SimpleGrid>
+                    </div>
+                </DashCard>
+            </div>
 
-            <Box mt="xl">
-                <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false} variant="pills" radius="xl" color="dark">
-                    <Tabs.List>
-                        {payload.dashboards.map((dashboard) => (
-                            <Tabs.Tab key={dashboard.key} value={dashboard.key} leftSection={<IconChartBar size={16} />}>
-                                {dashboard.title}
-                            </Tabs.Tab>
-                        ))}
-                    </Tabs.List>
-
-                    {payload.dashboards.map((dashboard) => (
-                        <Tabs.Panel key={dashboard.key} value={dashboard.key} pt="xl">
-                            <Stack gap="xl">
-                                <Box>
-                                    <Title order={3} c="dark.9">{dashboard.title}</Title>
-                                    <Text c="dimmed" mt={4}>{dashboard.description}</Text>
-                                </Box>
+            <div style={{ marginTop: 24 }}>
+                <Tabs
+                    activeKey={activeTab}
+                    onChange={setActiveTab}
+                    items={payload.dashboards.map((dashboard) => ({
+                        key: dashboard.key,
+                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconChartBar size={16} />{dashboard.title}</span>,
+                        children: (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                                <div>
+                                    <Title level={4} style={{ margin: 0 }}>{dashboard.title}</Title>
+                                    <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>{dashboard.description}</Text>
+                                </div>
 
                                 {dashboard.executiveSummary ? (
-                                    <Paper p="xl" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                                        <Text fw={800} size="lg" c="dark.9">{dashboard.executiveSummary.headline}</Text>
-                                        <Text c="dimmed" mt={8}>{dashboard.executiveSummary.body}</Text>
-                                        <Badge mt="md" color={dashboard.executiveSummary.trend.changePct >= 0 ? 'teal' : 'red'} variant="light" size="lg">
+                                    <DashCard>
+                                        <Text strong style={{ fontSize: 17 }}>{dashboard.executiveSummary.headline}</Text>
+                                        <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>{dashboard.executiveSummary.body}</Text>
+                                        <Tag color={dashboard.executiveSummary.trend.changePct >= 0 ? 'cyan' : 'red'} style={{ marginTop: 12, fontSize: 13, padding: '4px 10px' }}>
                                             Variación {dashboard.executiveSummary.trend.changePct}% vs periodo anterior
-                                        </Badge>
-                                    </Paper>
+                                        </Tag>
+                                    </DashCard>
                                 ) : null}
 
-                                <SimpleGrid cols={{ base: 1, sm: 2, xl: 4 }} spacing="lg">
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                                     {dashboard.kpis.map((kpi) => (
-                                        <Paper key={kpi.id} p="xl" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                                            <Group justify="space-between" align="flex-start" mb="sm">
-                                                <Text size="xs" tt="uppercase" fw={700} c="dimmed">{kpi.title}</Text>
-                                                <Badge color={toneMap[kpi.tone] || 'blue'} variant="light" size="sm">Foco</Badge>
-                                            </Group>
-                                            <Text size="2.5rem" fw={800} c="dark.9" lh={1} mb="xs">{kpi.value}</Text>
-                                            <Text size="xs" c="dimmed">{kpi.helper}</Text>
-                                        </Paper>
+                                        <DashCard key={kpi.id}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+                                                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>{kpi.title}</Text>
+                                                <Tag color={toneMap[kpi.tone] || 'blue'}>Foco</Tag>
+                                            </div>
+                                            <Text style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, display: 'block', marginBottom: 6 }}>{kpi.value}</Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>{kpi.helper}</Text>
+                                        </DashCard>
                                     ))}
-                                </SimpleGrid>
+                                </div>
 
-                                <SimpleGrid cols={{ base: 1, xl: 2 }} spacing="lg">
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
                                     {dashboard.widgets.map((widget) => (
-                                        <Paper key={widget.id} p="xl" radius="xl" bg="white" shadow="xs" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
+                                        <DashCard key={widget.id}>
                                             <WidgetHeader widget={widget} onInfoClick={handleInfoClick} />
-                                            <Box style={{ minHeight: 240, width: '100%', marginTop: '16px' }}>
+                                            <div style={{ minHeight: 240, width: '100%' }}>
                                                 {renderWidget(widget)}
-                                            </Box>
-                                        </Paper>
+                                            </div>
+                                        </DashCard>
                                     ))}
-                                </SimpleGrid>
-                            </Stack>
-                        </Tabs.Panel>
-                    ))}
-                </Tabs>
-            </Box>
+                                </div>
+                            </div>
+                        ),
+                    }))}
+                />
+            </div>
 
-            {/* Modal para Explicación de Gráficos */}
             <Modal
-                opened={!!infoModal}
-                onClose={() => setInfoModal(null)}
-                withCloseButton={false}
-                size="lg"
-                radius="32px"
-                zIndex={1000}
-                overlayProps={{
-                    backgroundOpacity: 0.4,
-                    blur: 8,
-                    color: '#0f172a'
-                }}
-                styles={{
-                    header: { borderBottom: 'none', paddingBottom: 0, backgroundColor: 'transparent' },
-                    body: { padding: '2rem' },
-                    content: { boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', border: 'none' }
-                }}
+                open={!!infoModal}
+                onCancel={() => setInfoModal(null)}
+                closable={false}
+                width={640}
+                footer={null}
+                styles={{ root: { borderRadius: 24 }, body: { padding: 32 } }}
             >
                 {infoModal && (
-                    <ScrollArea.Autosize mah="80vh" offsetScrollbars>
-                        <Box style={{ position: 'relative' }}>
-                            <ActionIcon 
-                                variant="subtle" 
-                                color="gray" 
-                                radius="xl" 
-                                onClick={() => setInfoModal(null)}
-                                style={{ position: 'absolute', top: 0, right: 0 }}
-                            >
-                                <IconX size={20} />
-                            </ActionIcon>
-                            
-                            <Group gap="md" align="center" wrap="nowrap" mb="xl">
-                                <ThemeIcon size={56} radius="xl" color="blue" variant="light" style={{ flexShrink: 0 }}>
-                                    <IconInfoCircle size={28} />
-                                </ThemeIcon>
-                                <Box>
-                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1}>Explicación Detallada</Text>
-                                    <Title order={3} fw={800} c="dark.9">{infoModal.title}</Title>
-                                </Box>
-                            </Group>
+                    <div style={{ maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
+                        <Button type="text" shape="circle" icon={<IconX size={20} />} onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 0, right: 0 }} />
 
-                            <Stack gap="xl">
-                                <Box>
-                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Qué muestra este gráfico?</Text>
-                                    <Text c="dark.7" size="sm" lh={1.6}>{infoModal.what}</Text>
-                                </Box>
-                                <Box>
-                                    <Text size="xs" fw={800} c="blue.6" tt="uppercase" lts={1} mb="xs">¿Para qué sirve?</Text>
-                                    <Text c="dark.7" size="sm" lh={1.6}>{infoModal.why}</Text>
-                                </Box>
-                            </Stack>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                            <IconCircle color="#0062a8" size={56}><IconInfoCircle size={28} /></IconCircle>
+                            <div>
+                                <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>Explicación Detallada</Text>
+                                <Title level={4} style={{ margin: 0 }}>{infoModal.title}</Title>
+                            </div>
+                        </div>
 
-                            <Button fullWidth size="lg" radius="xl" mt="xl" onClick={() => setInfoModal(null)} variant="light" color="blue">
-                                Entendido
-                            </Button>
-                        </Box>
-                    </ScrollArea.Autosize>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            <div>
+                                <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Qué muestra este gráfico?</Text>
+                                <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.what}</Text>
+                            </div>
+                            <div>
+                                <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Para qué sirve?</Text>
+                                <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.why}</Text>
+                            </div>
+                        </div>
+
+                        <Button block size="large" style={{ marginTop: 24 }} onClick={() => setInfoModal(null)}>Entendido</Button>
+                    </div>
                 )}
             </Modal>
-        </Box>
+        </div>
     );
 };
+
+function IconCircle({ children, color, size = 44 }: { children: React.ReactNode; color: string; size?: number }) {
+    return (
+        <div style={{
+            flexShrink: 0, width: size, height: size, borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            backgroundColor: `${color}1f`, color,
+        }}>
+            {children}
+        </div>
+    );
+}

@@ -1,18 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {
-    Stack,
-    Group,
-    Text,
+    Typography,
     Button,
     Table,
-    Badge,
-    Paper,
-    LoadingOverlay,
-    Box,
-    Tooltip,
-    useMantineTheme
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+    Tag,
+    Card,
+    Spin,
+    Tooltip
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconPlus,
     IconEdit,
@@ -27,13 +23,14 @@ import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 
+const { Text } = Typography;
+
 interface Props {
     onBack?: () => void;
 }
 
 export const RolesPage: React.FC<Props> = ({ onBack }) => {
-    const theme = useMantineTheme();
-    const isMobile = useMediaQuery(`(max-width: ${theme.breakpoints.sm})`);
+    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [roles, setRoles] = useState<Role[]>([]);
     const [loading, setLoading] = useState(true);
@@ -102,8 +99,50 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    const columns = [
+        {
+            title: 'Nombre del Rol', key: 'nombre',
+            render: (_: unknown, role: Role) => (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <IconShieldLock size={16} color={role.estado ? '#0062a8' : 'var(--app-border)'} />
+                    <Text strong={role.estado} type={role.estado ? undefined : 'secondary'} style={{ fontSize: 13 }}>{role.nombre_rol}</Text>
+                </div>
+            ),
+        },
+        {
+            title: 'Descripción', key: 'descripcion',
+            render: (_: unknown, role: Role) => <Text type="secondary" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{role.descripcion || 'Sin descripción'}</Text>,
+        },
+        {
+            title: 'Estado', key: 'estado', align: 'center' as const,
+            render: (_: unknown, role: Role) => <Tag color={role.estado ? 'green' : 'red'}>{role.estado ? 'Activo' : 'Inactivo'}</Tag>,
+        },
+        {
+            title: 'Acciones', key: 'acciones', align: 'right' as const,
+            render: (_: unknown, role: Role) => (
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                    <Button size="small" icon={<IconEdit size={14} />} onClick={() => handleEdit(role)}>
+                        Editar / Permisos
+                    </Button>
+                    <Tooltip title={role.estado ? 'Desactivar rol' : 'Activar rol'}>
+                        <Button
+                            size="small"
+                            danger={role.estado}
+                            style={!role.estado ? { color: '#2f9e44', borderColor: '#2f9e44' } : undefined}
+                            icon={role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
+                            onClick={() => openConfirmToggle(role)}
+                            loading={togglingId === role.id_rol}
+                        >
+                            {role.estado ? 'Desactivar' : 'Activar'}
+                        </Button>
+                    </Tooltip>
+                </div>
+            ),
+        },
+    ];
+
     return (
-        <Box p={isMobile ? "xs" : "md"} style={{ width: '100%' }}>
+        <div style={{ padding: isMobile ? 8 : 16, width: '100%' }}>
             <PageHeader
                 title="Administración de Roles"
                 subtitle="Gestiona los perfiles de acceso y permisos."
@@ -115,161 +154,91 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 ]}
                 rightSection={
                     <Button
-                        leftSection={<IconPlus size={18} />}
+                        type="primary"
+                        icon={<IconPlus size={18} />}
                         onClick={handleCreate}
-                        radius="md"
-                        color="blue"
-                        fullWidth={isMobile}
-                        mt={isMobile ? "md" : 0}
+                        block={isMobile}
+                        style={{ marginTop: isMobile ? 16 : 0 }}
                     >
                         Nuevo Rol
                     </Button>
                 }
             />
 
-            <Stack gap="lg" mt="xl">
-                <Paper withBorder p="md" radius="md" bg="blue.0">
-                    <Group gap="xs" wrap={isMobile ? "wrap" : "nowrap"} align="flex-start">
-                        <IconShieldLock size={20} color="var(--mantine-color-blue-6)" style={{ flexShrink: 0, marginTop: 2 }} />
-                        <Text size="sm" fw={500} c="blue.9">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
+                <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: 'flex-start' }}>
+                        <IconShieldLock size={20} color="#1c7ed6" style={{ flexShrink: 0, marginTop: 2 }} />
+                        <Text style={{ fontSize: 13, color: '#1864ab' }}>
                             Los roles permiten agrupar permisos y asignarlos masivamente a los usuarios para facilitar la administración.
                         </Text>
-                    </Group>
-                </Paper>
+                    </div>
+                </Card>
 
-                <Box pos="relative">
-                    <LoadingOverlay visible={loading} overlayProps={{ blur: 2 }} />
+                <div style={{ position: 'relative' }}>
+                    {loading && (
+                        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Spin />
+                        </div>
+                    )}
 
                     {isMobile ? (
-                        <Stack gap="sm">
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                             {roles.length > 0 ? (
                                 roles.map((role) => (
-                                    <Paper key={role.id_rol} withBorder p="md" radius="md" shadow="xs">
-                                        <Group justify="space-between" align="center" mb="xs">
-                                            <Group gap="sm" wrap="nowrap">
-                                                <IconShieldLock size={20} color="var(--mantine-color-blue-filled)" />
-                                                <Text fw={700} size="sm">{role.nombre_rol}</Text>
-                                            </Group>
-                                            <Badge color={role.estado ? 'green' : 'red'} variant="light" size="xs">
-                                                {role.estado ? 'Activo' : 'Inactivo'}
-                                            </Badge>
-                                        </Group>
-                                        <Text size="xs" c="dimmed" mb="md" lineClamp={2}>
+                                    <Card key={role.id_rol} size="small">
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <IconShieldLock size={20} color="#0062a8" />
+                                                <Text strong style={{ fontSize: 13 }}>{role.nombre_rol}</Text>
+                                            </div>
+                                            <Tag color={role.estado ? 'green' : 'red'}>{role.estado ? 'Activo' : 'Inactivo'}</Tag>
+                                        </div>
+                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 16 }}>
                                             {role.descripcion || 'Sin descripción'}
                                         </Text>
-                                        <Group gap="xs">
+                                        <div style={{ display: 'flex', gap: 8 }}>
                                             <Button
-                                                variant="light"
-                                                color="blue"
+                                                size="small"
                                                 style={{ flex: 1 }}
-                                                leftSection={<IconEdit size={14} />}
+                                                icon={<IconEdit size={14} />}
                                                 onClick={() => handleEdit(role)}
-                                                size="xs"
-                                                radius="md"
                                             >
                                                 Editar / Permisos
                                             </Button>
                                             <Button
-                                                variant="light"
-                                                color={role.estado ? 'red' : 'green'}
-                                                leftSection={role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
+                                                size="small"
+                                                danger={role.estado}
+                                                style={!role.estado ? { color: '#2f9e44', borderColor: '#2f9e44' } : undefined}
+                                                icon={role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
                                                 onClick={() => openConfirmToggle(role)}
                                                 loading={togglingId === role.id_rol}
-                                                size="xs"
-                                                radius="md"
                                             >
                                                 {role.estado ? 'Desactivar' : 'Activar'}
                                             </Button>
-                                        </Group>
-                                    </Paper>
+                                        </div>
+                                    </Card>
                                 ))
                             ) : (
-                                <Paper withBorder p="xl" radius="md" ta="center">
-                                    <Text c="dimmed">No hay roles definidos</Text>
-                                </Paper>
+                                <Card style={{ textAlign: 'center' }}>
+                                    <Text type="secondary">No hay roles definidos</Text>
+                                </Card>
                             )}
-                        </Stack>
+                        </div>
                     ) : (
-                        <Paper withBorder radius="md" shadow="sm">
-                            <Table.ScrollContainer minWidth={600}>
-                                <Table verticalSpacing="md" highlightOnHover>
-                                    <Table.Thead bg="gray.0">
-                                        <Table.Tr>
-                                            <Table.Th>Nombre del Rol</Table.Th>
-                                            <Table.Th>Descripción</Table.Th>
-                                            <Table.Th ta="center">Estado</Table.Th>
-                                            <Table.Th ta="right">Acciones</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {roles.length > 0 ? (
-                                            roles.map((role) => (
-                                                <Table.Tr key={role.id_rol}>
-                                                    <Table.Td>
-                                                        <Group gap="sm">
-                                                            <IconShieldLock size={16} color={role.estado ? 'var(--mantine-color-blue-filled)' : 'var(--mantine-color-gray-4)'} />
-                                                            <Text size="sm" fw={600} c={role.estado ? undefined : 'dimmed'}>{role.nombre_rol}</Text>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Text size="sm" c="dimmed" lineClamp={1}>
-                                                            {role.descripcion || 'Sin descripción'}
-                                                        </Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group justify="center">
-                                                            <Badge
-                                                                color={role.estado ? 'green' : 'red'}
-                                                                variant="light"
-                                                                radius="sm"
-                                                            >
-                                                                {role.estado ? 'Activo' : 'Inactivo'}
-                                                            </Badge>
-                                                        </Group>
-                                                    </Table.Td>
-                                                    <Table.Td>
-                                                        <Group justify="flex-end" gap="xs">
-                                                            <Button
-                                                                variant="light"
-                                                                color="blue"
-                                                                size="xs"
-                                                                leftSection={<IconEdit size={14} />}
-                                                                onClick={() => handleEdit(role)}
-                                                                radius="md"
-                                                            >
-                                                                Editar / Permisos
-                                                            </Button>
-                                                            <Tooltip label={role.estado ? 'Desactivar rol' : 'Activar rol'} withArrow>
-                                                                <Button
-                                                                    variant="light"
-                                                                    color={role.estado ? 'red' : 'green'}
-                                                                    size="xs"
-                                                                    leftSection={role.estado ? <IconToggleLeft size={14} /> : <IconToggleRight size={14} />}
-                                                                    onClick={() => openConfirmToggle(role)}
-                                                                    loading={togglingId === role.id_rol}
-                                                                    radius="md"
-                                                                >
-                                                                    {role.estado ? 'Desactivar' : 'Activar'}
-                                                                </Button>
-                                                            </Tooltip>
-                                                        </Group>
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))
-                                        ) : (
-                                            <Table.Tr>
-                                                <Table.Td colSpan={4} ta="center" py="xl">
-                                                    <Text c="dimmed">No hay roles definidos</Text>
-                                                </Table.Td>
-                                            </Table.Tr>
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </Table.ScrollContainer>
-                        </Paper>
+                        <Card styles={{ body: { padding: 0 } }}>
+                            <Table
+                                rowKey="id_rol"
+                                columns={columns}
+                                dataSource={roles}
+                                pagination={false}
+                                scroll={{ x: 600 }}
+                                locale={{ emptyText: <Text type="secondary">No hay roles definidos</Text> }}
+                            />
+                        </Card>
                     )}
-                </Box>
-            </Stack>
+                </div>
+            </div>
 
             <RoleModal
                 isOpen={isModalOpen}
@@ -288,10 +257,10 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 }
                 confirmText={confirmRole?.estado ? 'Desactivar' : 'Activar'}
                 cancelText="Cancelar"
-                confirmColor={confirmRole?.estado ? 'var(--mantine-color-red-6)' : 'var(--mantine-color-green-6)'}
+                confirmColor={confirmRole?.estado ? '#e03131' : '#2f9e44'}
                 onConfirm={handleToggleStatus}
                 onCancel={() => { setConfirmRole(null); setAffectedUsersCount(null); }}
             />
-        </Box>
+        </div>
     );
 };

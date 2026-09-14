@@ -1,36 +1,31 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useToast } from '../../../contexts/ToastContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
-import { 
-    Stack, 
-    Group, 
-    Text, 
-    Paper, 
-    Grid, 
-    Select, 
-    TextInput, 
-    Button, 
-    Table, 
-    Checkbox, 
-    ScrollArea, 
-    ActionIcon, 
-    NumberInput,
+import {
+    Typography,
+    Card,
+    Select,
+    Input,
+    Button,
+    Table,
+    Checkbox,
+    InputNumber,
     Divider,
-    Badge,
-    SimpleGrid
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconSearch, 
-    IconTrash, 
-    IconDeviceFloppy, 
-    IconCheck, 
-    IconX, 
+    Tag,
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import {
+    IconSearch,
+    IconTrash,
+    IconDeviceFloppy,
+    IconCheck,
+    IconX,
     IconAdjustmentsHorizontal,
     IconTable,
     IconArrowsDownUp
 } from '@tabler/icons-react';
-import { SearchableSelect } from '../../../components/ui/SearchableSelect';
+
+const { Text } = Typography;
 
 export interface CostoOperativoState {
     enabled: boolean;
@@ -76,9 +71,9 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
 
     // ===== ESTADO: Selección de Análisis =====
     const [selectedAnalysis, setSelectedAnalysis] = useState<Set<string>>(new Set());
-    const [tempLabs, setTempLabs] = useState<Record<string, string>>({}); 
-    const [tempLabs2, setTempLabs2] = useState<Record<string, string>>({}); 
-    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({}); 
+    const [tempLabs, setTempLabs] = useState<Record<string, string>>({});
+    const [tempLabs2, setTempLabs2] = useState<Record<string, string>>({});
+    const [tempDeliveries, setTempDeliveries] = useState<Record<string, string>>({});
 
     // ===== ESTADO: UF Total de Ficha =====
     const [totalRealUF, setTotalRealUF] = useState<number | string>('');
@@ -100,17 +95,11 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
     }, [savedAnalysis, costo.enabled, costo.uf]);
 
     // ===== FUNCIONES: Carga de Catálogos =====
-    useEffect(() => {
-        loadNormativas();
-        loadLaboratorios();
-        loadTiposEntrega();
-    }, []);
-
     const loadNormativas = async () => {
         try {
             const data = await catalogos.getNormativas();
             setNormativas(data || []);
-        } catch (error) {
+        } catch {
             showToast({ type: 'error', message: 'Error al cargar normativas' });
         }
     };
@@ -119,7 +108,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         try {
             const data = await catalogos.getLaboratorios();
             setLaboratorios(data || []);
-        } catch (error) {
+        } catch {
             showToast({ type: 'error', message: 'Error al cargar laboratorios' });
         }
     };
@@ -128,12 +117,36 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         try {
             const data = await catalogos.getTiposEntrega();
             setTiposEntrega(data || []);
-        } catch (error) {
+        } catch {
             showToast({ type: 'error', message: 'Error al cargar tipos de entrega' });
         }
     };
 
+    useEffect(() => {
+        loadNormativas();
+        loadLaboratorios();
+        loadTiposEntrega();
+    }, []);
+
     // ===== FUNCIONES: Cascadas =====
+    const loadReferencias = async (normativaId: string) => {
+        try {
+            const data = await catalogos.getReferenciasByNormativa(normativaId);
+            setReferencias(data || []);
+        } catch {
+            showToast({ type: 'error', message: 'Error al cargar referencias' });
+        }
+    };
+
+    const loadAnalysisResults = async (normativaId: string, referenciaId: string) => {
+        try {
+            const data = await catalogos.getAnalysisByNormativaReferencia(normativaId, referenciaId);
+            setAnalysisResults(data || []);
+        } catch {
+            showToast({ type: 'error', message: 'Error al cargar análisis' });
+        }
+    };
+
     useEffect(() => {
         if (normativa) {
             loadReferencias(normativa);
@@ -151,24 +164,6 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
             setSelectedAnalysis(new Set());
         }
     }, [normativa, referencia]);
-
-    const loadReferencias = async (normativaId: string) => {
-        try {
-            const data = await catalogos.getReferenciasByNormativa(normativaId);
-            setReferencias(data || []);
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al cargar referencias' });
-        }
-    };
-
-    const loadAnalysisResults = async (normativaId: string, referenciaId: string) => {
-        try {
-            const data = await catalogos.getAnalysisByNormativaReferencia(normativaId, referenciaId);
-            setAnalysisResults(data || []);
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al cargar análisis' });
-        }
-    };
 
     // ===== FUNCIONES: Filtrado =====
     const filteredAnalysis = useMemo(() =>
@@ -341,7 +336,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         showToast({ type: 'success', message: `${newSavedAnalysis.length} análisis grabados` });
     };
 
-    const handleUfChange = (savedId: string, newValue: number | string) => {
+    const handleUfChange = (savedId: string, newValue: number | string | null) => {
         const updatedAnalysis = savedAnalysis.map((item: any) => {
             if (item.savedId === savedId) return { ...item, uf_individual: newValue };
             return item;
@@ -382,8 +377,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         showToast({ type: 'info', message: 'Análisis eliminado' });
     };
 
-    const handleTotalUfChange = (val: number | string) => {
-        setTotalRealUF(val);
+    const handleTotalUfChange = (val: number | string | null) => {
+        setTotalRealUF(val ?? '');
         if (!val || isNaN(Number(val))) return;
 
         const total = Number(val);
@@ -397,457 +392,436 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
         }
     };
 
+    const selectedRows = Array.from(selectedAnalysis).map(id => ({
+        id,
+        analysis: analysisResults.find(a => String(a.id_referenciaanalisis) === id),
+    }));
+
     return (
-        <Stack gap={isMobile ? "md" : "xl"} p={isMobile ? 0 : "xs"} style={{ width: '100% !important' }}>
-            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
-                <Grid gutter="xl" grow style={{ width: '100% !important' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 24 }}>
+            <Card>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                     {/* Búsqueda */}
-                    <Grid.Col span={{ base: 12, xl: 6 }}>
-                        <Stack gap="md">
-                            <Group gap="xs">
-                                <IconSearch size={18} color="var(--mantine-color-blue-6)" />
-                                <Text fw={700} size="sm" c="blue.7">Búsqueda de Análisis</Text>
-                            </Group>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <IconSearch size={18} color="var(--app-accent-text)" />
+                            <Text strong style={{ fontSize: 13, color: 'var(--app-accent-text)' }}>Búsqueda de Análisis</Text>
+                        </div>
 
-                            <Select 
-                                label="Normativa" 
+                        <Field label="Normativa">
+                            <Select
                                 placeholder="Seleccione normativa..."
-                                data={normativas.map(n => ({ value: String(n.id_normativa), label: n.nombre_normativa }))}
-                                value={normativa}
+                                options={normativas.map(n => ({ value: String(n.id_normativa), label: n.nombre_normativa }))}
+                                value={normativa || undefined}
                                 onChange={(val) => setNormativa(val || '')}
-                                searchable
-                                size="sm" radius="md"
+                                showSearch
+                                style={{ width: '100%' }}
                             />
+                        </Field>
 
-                            <Select 
-                                label="Referencia" 
+                        <Field label="Referencia">
+                            <Select
                                 placeholder="Seleccione referencia..."
-                                data={referencias.map(r => ({ value: String(r.id_normativareferencia), label: r.nombre_normativareferencia }))}
-                                value={referencia}
+                                options={referencias.map(r => ({ value: String(r.id_normativareferencia), label: r.nombre_normativareferencia }))}
+                                value={referencia || undefined}
                                 onChange={(val) => setReferencia(val || '')}
                                 disabled={!normativa}
-                                searchable
-                                size="sm" radius="md"
+                                showSearch
+                                style={{ width: '100%' }}
                             />
+                        </Field>
 
-                            <TextInput 
-                                label="Buscar Análisis"
+                        <Field label="Buscar Análisis">
+                            <Input
                                 placeholder="Filtrar por nombre o código..."
                                 value={searchText}
-                                onChange={(e) => setSearchText(e.currentTarget.value)}
+                                onChange={(e) => setSearchText(e.target.value)}
                                 disabled={!referencia}
-                                size="sm" radius="md"
-                                leftSection={<IconSearch size={14} />}
+                                prefix={<IconSearch size={14} />}
                             />
+                        </Field>
 
-                            <Group grow>
-                                <Button 
-                                    variant="light" size="xs" onClick={handleSelectAll} 
-                                    disabled={!referencia || filteredAnalysis.length === 0}
-                                    leftSection={<IconCheck size={14} />}
-                                >
-                                    Todos
-                                </Button>
-                                <Button 
-                                    variant="light" color="gray" size="xs" onClick={handleSelectNone} 
-                                    disabled={!referencia || selectedAnalysis.size === 0}
-                                    leftSection={<IconX size={14} />}
-                                >
-                                    Ninguno
-                                </Button>
-                            </Group>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <Button
+                                style={{ flex: 1 }}
+                                onClick={handleSelectAll}
+                                disabled={!referencia || filteredAnalysis.length === 0}
+                                icon={<IconCheck size={14} />}
+                            >
+                                Todos
+                            </Button>
+                            <Button
+                                style={{ flex: 1 }}
+                                onClick={handleSelectNone}
+                                disabled={!referencia || selectedAnalysis.size === 0}
+                                icon={<IconX size={14} />}
+                            >
+                                Ninguno
+                            </Button>
+                        </div>
 
-                            <ScrollArea h={300} offsetScrollbars>
-                                <Table striped highlightOnHover withTableBorder>
-                                    <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
-                                        <Table.Tr>
-                                            <Table.Th>Análisis</Table.Th>
-                                            <Table.Th w={60} ta="center">☑️</Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {catalogos.isLoading(`analysis-${normativa}-${referencia}`) ? (
-                                            <Table.Tr><Table.Td colSpan={2} ta="center">Cargando...</Table.Td></Table.Tr>
-                                        ) : filteredAnalysis.length > 0 ? (
-                                            filteredAnalysis.map(analysis => (
-                                                <Table.Tr key={analysis.id_referenciaanalisis}>
-                                                    <Table.Td fz="xs">{analysis.nombre_tecnica}</Table.Td>
-                                                    <Table.Td ta="center">
-                                                        <Checkbox 
-                                                            checked={selectedAnalysis.has(String(analysis.id_referenciaanalisis))} 
-                                                            onChange={() => handleToggleAnalysis(analysis.id_referenciaanalisis)} 
-                                                            size="xs"
-                                                        />
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            ))
-                                        ) : (
-                                            <Table.Tr><Table.Td colSpan={2} ta="center" c="dimmed">{normativa && referencia ? 'Sin resultados' : 'Seleccione criterios'}</Table.Td></Table.Tr>
-                                        )}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea>
-                        </Stack>
-                    </Grid.Col>
+                        <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--app-border)', borderRadius: 8 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead style={{ backgroundColor: 'var(--app-hover-bg)', position: 'sticky', top: 0 }}>
+                                    <tr>
+                                        <th style={{ textAlign: 'left', padding: '6px 8px', fontWeight: 600 }}>Análisis</th>
+                                        <th style={{ width: 50, padding: '6px 8px' }} />
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {catalogos.isLoading(`analysis-${normativa}-${referencia}`) ? (
+                                        <tr><td colSpan={2} style={{ textAlign: 'center', padding: 16 }}>Cargando...</td></tr>
+                                    ) : filteredAnalysis.length > 0 ? (
+                                        filteredAnalysis.map(analysis => (
+                                            <tr key={analysis.id_referenciaanalisis} style={{ borderTop: '1px solid var(--app-border)' }}>
+                                                <td style={{ padding: '6px 8px' }}>{analysis.nombre_tecnica}</td>
+                                                <td style={{ textAlign: 'center', padding: '6px 8px' }}>
+                                                    <Checkbox
+                                                        checked={selectedAnalysis.has(String(analysis.id_referenciaanalisis))}
+                                                        onChange={() => handleToggleAnalysis(analysis.id_referenciaanalisis)}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr><td colSpan={2} style={{ textAlign: 'center', padding: 16, color: 'var(--app-text-secondary)' }}>{normativa && referencia ? 'Sin resultados' : 'Seleccione criterios'}</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
                     {/* Configuración */}
-                    <Grid.Col span={{ base: 12, xl: 6 }}>
-                        <Stack gap="md" h="100%">
-                            <Group gap="xs">
-                                <IconAdjustmentsHorizontal size={18} color="var(--mantine-color-grape-6)" />
-                                <Text fw={700} size="sm" c="grape.7">Configuración de Análisis</Text>
-                            </Group>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <IconAdjustmentsHorizontal size={18} color="#9c36b5" />
+                            <Text strong style={{ fontSize: 13, color: '#9c36b5' }}>Configuración de Análisis</Text>
+                        </div>
 
-                            <Select 
-                                label="Tipo de Muestra *"
+                        <Field label="Tipo de Muestra *">
+                            <Select
                                 placeholder="OBLIGATORIO"
-                                data={tiposMuestra}
-                                value={tipoMuestra}
+                                options={tiposMuestra}
+                                value={tipoMuestra || undefined}
                                 onChange={(val) => setTipoMuestra(val || '')}
                                 disabled={!referencia}
-                                size="sm" radius="md"
+                                style={{ width: '100%' }}
                             />
+                        </Field>
 
-                            {selectedAnalysis.size > 0 && (
-                                <>
-                                    <Divider label={`Seleccionados (${selectedAnalysis.size})`} labelPosition="center" />
-                                    <ScrollArea h={345}>
-                                        {isMobile ? (
-                                            <Stack gap="xs" pb="md">
-                                                {Array.from(selectedAnalysis).map(id => {
-                                                    const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
-                                                    return (
-                                                        <Paper key={id} withBorder p="sm" radius="md" bg="gray.0">
-                                                            <Stack gap="xs">
-                                                                <Group justify="space-between" align="center" wrap="nowrap">
-                                                                    <Text fz="xs" fw={700} style={{ flex: 1 }} lineClamp={2}>
-                                                                        {analysis?.nombre_tecnica || id}
-                                                                    </Text>
-                                                                    <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleToggleAnalysis(id)}>
-                                                                        <IconTrash size={14} />
-                                                                    </ActionIcon>
-                                                                </Group>
-                                                                
-                                                                {tipoMuestra === 'Laboratorio' && (
-                                                                    <SimpleGrid cols={1} spacing="xs">
-                                                                        <Select 
-                                                                            label="Tipo Entrega"
-                                                                            data={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
-                                                                            value={tempDeliveries[id] || ''}
-                                                                            onChange={(val) => handleTempDeliveryChange(id, val || '')}
-                                                                            size="xs" radius="md"
-                                                                        />
-                                                                        <Select 
-                                                                            label="Laboratorio Derivado"
-                                                                            data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
-                                                                            value={tempLabs[id] || ''}
-                                                                            onChange={(val) => handleTempLabChange(id, val || '')}
-                                                                            size="xs" radius="md"
-                                                                            placeholder="Seleccione..."
-                                                                        />
-                                                                        <Select 
-                                                                            label="Laboratorio Secundario"
-                                                                            data={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
-                                                                            value={tempLabs2[id] || ''}
-                                                                            onChange={(val) => handleTempLab2Change(id, val || '')}
-                                                                            size="xs" radius="md"
-                                                                            placeholder="(Opcional)"
-                                                                            clearable
-                                                                        />
-                                                                    </SimpleGrid>
-                                                                )}
-                                                            </Stack>
-                                                        </Paper>
-                                                    );
-                                                })}
-                                            </Stack>
-                                        ) : (
-                                            <Table border={0} verticalSpacing="sm">
-                                                <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 10 }}>
-                                                    <Table.Tr>
-                                                        <Table.Th>Análisis</Table.Th>
+                        {selectedAnalysis.size > 0 && (
+                            <>
+                                <Divider titlePlacement="center" style={{ margin: '4px 0' }}>
+                                    <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)' }}>Seleccionados ({selectedAnalysis.size})</Text>
+                                </Divider>
+                                <div style={{ maxHeight: 345, overflowY: 'auto' }}>
+                                    {isMobile ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingBottom: 16 }}>
+                                            {selectedRows.map(({ id, analysis }) => (
+                                                <div key={id} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 10, backgroundColor: 'var(--app-hover-bg)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                        <Text strong style={{ fontSize: 12, flex: 1 }}>{analysis?.nombre_tecnica || id}</Text>
+                                                        <Button type="text" danger shape="circle" size="small" icon={<IconTrash size={14} />} onClick={() => handleToggleAnalysis(id)} />
+                                                    </div>
+                                                    {tipoMuestra === 'Laboratorio' && (
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                                            <Field label="Tipo Entrega">
+                                                                <Select
+                                                                    style={{ width: '100%' }}
+                                                                    options={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
+                                                                    value={tempDeliveries[id] || undefined}
+                                                                    onChange={(val) => handleTempDeliveryChange(id, val || '')}
+                                                                />
+                                                            </Field>
+                                                            <Field label="Laboratorio Derivado">
+                                                                <Select
+                                                                    style={{ width: '100%' }}
+                                                                    options={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                    value={tempLabs[id] || undefined}
+                                                                    onChange={(val) => handleTempLabChange(id, val || '')}
+                                                                    placeholder="Seleccione..."
+                                                                    showSearch
+                                                                />
+                                                            </Field>
+                                                            <Field label="Laboratorio Secundario">
+                                                                <Select
+                                                                    style={{ width: '100%' }}
+                                                                    options={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                    value={tempLabs2[id] || undefined}
+                                                                    onChange={(val) => handleTempLab2Change(id, val || '')}
+                                                                    placeholder="(Opcional)"
+                                                                    allowClear
+                                                                    showSearch
+                                                                />
+                                                            </Field>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                            <thead style={{ backgroundColor: 'var(--app-hover-bg)', position: 'sticky', top: 0 }}>
+                                                <tr>
+                                                    <th style={{ textAlign: 'left', padding: '6px 8px' }}>Análisis</th>
+                                                    {tipoMuestra === 'Laboratorio' && (
+                                                        <>
+                                                            <th style={{ width: 160, padding: '6px 8px' }}>Entrega</th>
+                                                            <th style={{ width: 180, padding: '6px 8px' }}>Lab. Derivado</th>
+                                                            <th style={{ width: 180, padding: '6px 8px' }}>Lab. Secundario</th>
+                                                        </>
+                                                    )}
+                                                    <th style={{ width: 40 }} />
+                                                </tr>
+                                                {tipoMuestra === 'Laboratorio' && selectedAnalysis.size > 1 && (
+                                                    <tr style={{ backgroundColor: 'var(--app-accent-bg)' }}>
+                                                        <td style={{ padding: '6px 8px' }}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                                <IconArrowsDownUp size={14} color="var(--app-accent-text)" />
+                                                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-accent-text)' }}>Aplicar a todos:</Text>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '6px 8px' }}>
+                                                            <Select
+                                                                style={{ width: '100%' }}
+                                                                options={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
+                                                                placeholder="Seleccionar todos..."
+                                                                onChange={(val) => val && handleBulkDeliveryChange(val)}
+                                                                showSearch
+                                                            />
+                                                        </td>
+                                                        <td style={{ padding: '6px 8px' }}>
+                                                            <Select
+                                                                style={{ width: '100%' }}
+                                                                options={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                placeholder="Seleccionar todos..."
+                                                                onChange={(val) => val && handleBulkLabChange(val)}
+                                                                showSearch
+                                                            />
+                                                        </td>
+                                                        <td style={{ padding: '6px 8px' }}>
+                                                            <Select
+                                                                style={{ width: '100%' }}
+                                                                options={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                placeholder="Seleccionar todos..."
+                                                                onChange={(val) => val && handleBulkLab2Change(val)}
+                                                                showSearch
+                                                            />
+                                                        </td>
+                                                        <td />
+                                                    </tr>
+                                                )}
+                                            </thead>
+                                            <tbody>
+                                                {selectedRows.map(({ id, analysis }) => (
+                                                    <tr key={id} style={{ borderTop: '1px solid var(--app-border)' }}>
+                                                        <td style={{ padding: '6px 8px', fontWeight: 500 }}>{analysis?.nombre_tecnica || id}</td>
                                                         {tipoMuestra === 'Laboratorio' && (
                                                             <>
-                                                                <Table.Th w={160}>Entrega</Table.Th>
-                                                                <Table.Th w={180}>Lab. Derivado</Table.Th>
-                                                                <Table.Th w={180}>Lab. Secundario</Table.Th>
+                                                                <td style={{ padding: '6px 8px' }}>
+                                                                    <Select
+                                                                        style={{ width: '100%', minWidth: 140 }}
+                                                                        options={tiposEntrega.map(t => ({ value: String(t.id_tipoentrega), label: t.nombre_tipoentrega }))}
+                                                                        value={tempDeliveries[id] || undefined}
+                                                                        onChange={(val) => handleTempDeliveryChange(id, val || '')}
+                                                                        showSearch
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '6px 8px' }}>
+                                                                    <Select
+                                                                        style={{ width: '100%' }}
+                                                                        options={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                        value={tempLabs[id] || undefined}
+                                                                        onChange={(val) => handleTempLabChange(id, val || '')}
+                                                                        placeholder="..."
+                                                                        showSearch
+                                                                    />
+                                                                </td>
+                                                                <td style={{ padding: '6px 8px' }}>
+                                                                    <Select
+                                                                        style={{ width: '100%' }}
+                                                                        options={laboratorios.map(l => ({ value: String(l.id_laboratorioensayo), label: l.nombre_laboratorioensayo }))}
+                                                                        value={tempLabs2[id] || undefined}
+                                                                        onChange={(val) => handleTempLab2Change(id, val || '')}
+                                                                        placeholder="(Opcional)"
+                                                                        allowClear
+                                                                        showSearch
+                                                                    />
+                                                                </td>
                                                             </>
                                                         )}
-                                                        <Table.Th w={40}></Table.Th>
-                                                    </Table.Tr>
-                                                    {tipoMuestra === 'Laboratorio' && selectedAnalysis.size > 1 && (
-                                                        <Table.Tr bg="blue.0">
-                                                            <Table.Td>
-                                                                <Group gap={4} wrap="nowrap">
-                                                                    <IconArrowsDownUp size={14} color="var(--mantine-color-blue-6)" />
-                                                                    <Text size="xs" fw={700} c="blue.7">Aplicar a todos:</Text>
-                                                                </Group>
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                <SearchableSelect 
-                                                                    options={tiposEntrega.map(t => ({ id: t.id_tipoentrega, nombre: t.nombre_tipoentrega }))}
-                                                                    value=""
-                                                                    placeholder="Seleccionar todos..."
-                                                                    onChange={handleBulkDeliveryChange}
-                                                                />
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                <SearchableSelect 
-                                                                    options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
-                                                                    value=""
-                                                                    placeholder="Seleccionar todos..."
-                                                                    onChange={handleBulkLabChange}
-                                                                />
-                                                            </Table.Td>
-                                                            <Table.Td>
-                                                                <SearchableSelect 
-                                                                    options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
-                                                                    value=""
-                                                                    placeholder="Seleccionar todos..."
-                                                                    onChange={handleBulkLab2Change}
-                                                                />
-                                                            </Table.Td>
-                                                            <Table.Td />
-                                                        </Table.Tr>
-                                                    )}
-                                                </Table.Thead>
-                                                <Table.Tbody>
-                                                    {Array.from(selectedAnalysis).map(id => {
-                                                        const analysis = analysisResults.find(a => String(a.id_referenciaanalisis) === id);
-                                                        return (
-                                                            <Table.Tr key={id}>
-                                                                <Table.Td fz="xs" fw={500}>{analysis?.nombre_tecnica || id}</Table.Td>
-                                                                {tipoMuestra === 'Laboratorio' && (
-                                                                    <>
-                                                                        <Table.Td>
-                                                                            <SearchableSelect 
-                                                                                options={tiposEntrega.map(t => ({ id: t.id_tipoentrega, nombre: t.nombre_tipoentrega }))}
-                                                                                value={tempDeliveries[id] || ''}
-                                                                                onChange={(val) => handleTempDeliveryChange(id, val)}
-                                                                                containerStyle={{ minWidth: '140px' }}
-                                                                            />
-                                                                        </Table.Td>
-                                                                        <Table.Td>
-                                                                            <SearchableSelect 
-                                                                                options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
-                                                                                value={tempLabs[id] || ''}
-                                                                                onChange={(val) => handleTempLabChange(id, val)}
-                                                                                placeholder="..."
-                                                                            />
-                                                                        </Table.Td>
-                                                                        <Table.Td>
-                                                                            <SearchableSelect 
-                                                                                options={laboratorios.map(l => ({ id: l.id_laboratorioensayo, nombre: l.nombre_laboratorioensayo }))}
-                                                                                value={tempLabs2[id] || ''}
-                                                                                onChange={(val) => handleTempLab2Change(id, val)}
-                                                                                placeholder="(Opcional)"
-                                                                            />
-                                                                        </Table.Td>
-                                                                    </>
-                                                                )}
-                                                                <Table.Td>
-                                                                    <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleToggleAnalysis(id)}>
-                                                                        <IconTrash size={14} />
-                                                                    </ActionIcon>
-                                                                </Table.Td>
-                                                            </Table.Tr>
-                                                        );
-                                                    })}
-                                                </Table.Tbody>
-                                            </Table>
-                                        )}
-                                    </ScrollArea>
-                                </>
-                            )}
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <Button type="text" danger shape="circle" size="small" icon={<IconTrash size={14} />} onClick={() => handleToggleAnalysis(id)} />
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    )}
+                                </div>
+                            </>
+                        )}
 
-                            <Button 
-                                color="teal" fullWidth h={44} mt="auto" radius="md"
-                                onClick={handleSaveAnalysis}
-                                disabled={
-                                    selectedAnalysis.size === 0 || !tipoMuestra || 
-                                    (tipoMuestra === 'Laboratorio' && (
-                                        Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
-                                        Array.from(selectedAnalysis).some(id => !tempLabs[id])
-                                    ))
-                                }
-                                leftSection={<IconDeviceFloppy size={20} />}
-                            >
-                                Grabar Análisis
-                            </Button>
-                        </Stack>
-                    </Grid.Col>
-                </Grid>
-            </Paper>
+                        <Button
+                            type="primary"
+                            style={{ backgroundColor: '#0d9488', marginTop: 'auto', height: 44 }}
+                            block
+                            onClick={handleSaveAnalysis}
+                            disabled={
+                                selectedAnalysis.size === 0 || !tipoMuestra ||
+                                (tipoMuestra === 'Laboratorio' && (
+                                    Array.from(selectedAnalysis).some(id => !tempDeliveries[id]) ||
+                                    Array.from(selectedAnalysis).some(id => !tempLabs[id])
+                                ))
+                            }
+                            icon={<IconDeviceFloppy size={20} />}
+                        >
+                            Grabar Análisis
+                        </Button>
+                    </div>
+                </div>
+            </Card>
 
-            <Paper withBorder p="md" radius="lg" shadow="xs" style={{ width: '100% !important' }}>
-                <Stack gap="md" style={{ width: '100% !important' }}>
-                    <Group justify="space-between">
-                        <Group gap="xs">
-                            <IconTable size={18} color="var(--mantine-color-indigo-6)" />
-                            <Text fw={700} size="sm" c="indigo.7">Análisis Grabados</Text>
-                        </Group>
-                        <Badge variant="filled" color="indigo">{savedAnalysis.length}</Badge>
-                    </Group>
+            <Card>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <IconTable size={18} color="#4f46e5" />
+                            <Text strong style={{ fontSize: 13, color: '#4f46e5' }}>Análisis Grabados</Text>
+                        </div>
+                        <Tag color="geekblue">{savedAnalysis.length}</Tag>
+                    </div>
 
-                    <ScrollArea offsetScrollbars>
-                        <Table striped highlightOnHover withTableBorder verticalSpacing="xs">
-                            <Table.Thead bg="gray.0" pos="sticky" top={0} style={{ zIndex: 1 }}>
-                                <Table.Tr>
-                                    <Table.Th>Análisis</Table.Th>
-                                    <Table.Th>Normativa</Table.Th>
-                                    <Table.Th>Tabla / Referencia</Table.Th>
-                                    <Table.Th>Muestra</Table.Th>
-                                    <Table.Th ta="right">L. Min</Table.Th>
-                                    <Table.Th ta="right">L. Max</Table.Th>
-                                    <Table.Th ta="center">Error</Table.Th>
-                                    <Table.Th ta="right">Err. Min</Table.Th>
-                                    <Table.Th ta="right">Err. Max</Table.Th>
-                                    <Table.Th>Entrega</Table.Th>
-                                    <Table.Th w={100} ta="right">U.F.</Table.Th>
-                                    <Table.Th>Lab. Derivado</Table.Th>
-                                    <Table.Th>Lab. Secundario</Table.Th>
-                                    <Table.Th w={60} ta="center"></Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, minWidth: 1100 }}>
+                            <thead style={{ backgroundColor: 'var(--app-hover-bg)', position: 'sticky', top: 0 }}>
+                                <tr>
+                                    {['Análisis', 'Normativa', 'Tabla / Referencia', 'Muestra', 'L. Min', 'L. Max', 'Error', 'Err. Min', 'Err. Max', 'Entrega', 'U.F.', 'Lab. Derivado', 'Lab. Secundario', ''].map((h, i) => (
+                                        <th key={i} style={{ textAlign: i >= 4 && i <= 8 ? 'right' : 'left', padding: '6px 8px', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
                                 {/* Fila SIEMPRE presente: Costo Operativo (opcional, marcable) */}
-                                <Table.Tr bg={costo.enabled ? 'yellow.0' : undefined}>
-                                    <Table.Td fz="sm" fw={600}>
-                                        <Group gap="xs" wrap="nowrap">
-                                            <Checkbox
-                                                checked={costo.enabled}
-                                                onChange={(e) => updateCosto({ enabled: e.currentTarget.checked })}
-                                                size="xs"
-                                            />
-                                            <Text fz="sm" fw={700} c={costo.enabled ? 'yellow.9' : 'dimmed'}>Costo Operativo</Text>
-                                        </Group>
-                                    </Table.Td>
-                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" ta="center" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" ta="right" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
-                                    <Table.Td>
-                                        <NumberInput
-                                            size="xs" radius="xs"
-                                            value={costo.uf}
-                                            onChange={(val) => updateCosto({ uf: val })}
-                                            onFocus={(e) => {
-                                                if (String(costo.uf) === '0') updateCosto({ uf: '' });
-                                                e.currentTarget.select();
-                                            }}
-                                            decimalScale={2}
-                                            hideControls
-                                            ta="right"
+                                <tr style={{ backgroundColor: costo.enabled ? 'rgba(250,173,20,0.1)' : undefined, borderTop: '1px solid var(--app-border)' }}>
+                                    <td style={{ padding: '6px 8px', fontWeight: 600 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <Checkbox checked={costo.enabled} onChange={(e) => updateCosto({ enabled: e.target.checked })} />
+                                            <Text style={{ fontSize: 13, fontWeight: 700, color: costo.enabled ? '#d48806' : 'var(--app-text-secondary)' }}>Costo Operativo</Text>
+                                        </div>
+                                    </td>
+                                    {Array.from({ length: 8 }).map((_, i) => (
+                                        <td key={i} style={{ padding: '6px 8px', color: 'var(--app-text-secondary)', textAlign: i >= 3 && i <= 7 ? 'right' : 'left' }}>—</td>
+                                    ))}
+                                    <td style={{ padding: '6px 8px' }}>
+                                        <InputNumber
+                                            style={{ width: '100%' }}
+                                            value={costo.uf === '' ? undefined : Number(costo.uf)}
+                                            onChange={(val) => updateCosto({ uf: val ?? '' })}
+                                            onFocus={(e) => { if (String(costo.uf) === '0') updateCosto({ uf: '' }); e.currentTarget.select(); }}
+                                            precision={2}
+                                            controls={false}
                                             disabled={!costo.enabled}
                                             placeholder="0.00"
                                         />
-                                    </Table.Td>
-                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
-                                    <Table.Td fz="xs" c="dimmed">—</Table.Td>
-                                    <Table.Td ta="center"></Table.Td>
-                                </Table.Tr>
+                                    </td>
+                                    <td style={{ padding: '6px 8px', color: 'var(--app-text-secondary)' }}>—</td>
+                                    <td style={{ padding: '6px 8px', color: 'var(--app-text-secondary)' }}>—</td>
+                                    <td />
+                                </tr>
                                 {savedAnalysis.length > 0 ? (
                                     savedAnalysis.map(analysis => {
                                         const isFixed = !!analysis._fijo;
                                         return (
-                                        <Table.Tr key={analysis.savedId} bg={isFixed ? 'blue.0' : undefined}>
-                                            <Table.Td fz="sm" fw={500}>
-                                                <Group gap={6} wrap="nowrap">
-                                                    <Text fz="sm" fw={500}>{analysis.nombre_tecnica}</Text>
-                                                    {isFixed && <Badge size="xs" color="blue" variant="light">Fijo</Badge>}
-                                                </Group>
-                                            </Table.Td>
-                                            {isFixed ? (
-                                                <Table.Td colSpan={2}>
-                                                    <Select
-                                                        size="xs" radius="xs"
-                                                        placeholder="Seleccione normativa / tabla"
-                                                        data={(analysis.opciones || []).map((o: any) => ({
-                                                            value: String(o.id_referenciaanalisis),
-                                                            label: `${o.nombre_normativa} / ${o.nombre_normativareferencia}`
-                                                        }))}
-                                                        value={analysis.id_referenciaanalisis ? String(analysis.id_referenciaanalisis) : null}
-                                                        onChange={(val) => handleFixedRefChange(analysis.savedId, val)}
-                                                        searchable
-                                                        comboboxProps={{ withinPortal: true }}
-                                                        style={{ minWidth: 230 }}
+                                            <tr key={analysis.savedId} style={{ backgroundColor: isFixed ? 'var(--app-accent-bg)' : undefined, borderTop: '1px solid var(--app-border)' }}>
+                                                <td style={{ padding: '6px 8px' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <Text style={{ fontSize: 13 }}>{analysis.nombre_tecnica}</Text>
+                                                        {isFixed && <Tag color="blue" style={{ fontSize: 10 }}>Fijo</Tag>}
+                                                    </div>
+                                                </td>
+                                                {isFixed ? (
+                                                    <td colSpan={2} style={{ padding: '6px 8px' }}>
+                                                        <Select
+                                                            style={{ minWidth: 230, width: '100%' }}
+                                                            placeholder="Seleccione normativa / tabla"
+                                                            options={(analysis.opciones || []).map((o: any) => ({
+                                                                value: String(o.id_referenciaanalisis),
+                                                                label: `${o.nombre_normativa} / ${o.nombre_normativareferencia}`
+                                                            }))}
+                                                            value={analysis.id_referenciaanalisis ? String(analysis.id_referenciaanalisis) : undefined}
+                                                            onChange={(val) => handleFixedRefChange(analysis.savedId, val)}
+                                                            showSearch
+                                                        />
+                                                    </td>
+                                                ) : (
+                                                    <>
+                                                        <td style={{ padding: '6px 8px' }}>{analysis.nombre_normativa || '-'}</td>
+                                                        <td style={{ padding: '6px 8px' }}>{analysis.nombre_normativareferencia || '-'}</td>
+                                                    </>
+                                                )}
+                                                <td style={{ padding: '6px 8px' }}>{analysis.tipo_analisis}</td>
+                                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{analysis.limitemax_d ?? '-'}</td>
+                                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{analysis.limitemax_h ?? '-'}</td>
+                                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{['S', 's', 'Y', 'y', true].includes(analysis.llevaerror) ? 'Sí' : 'No'}</td>
+                                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{analysis.error_min ?? '-'}</td>
+                                                <td style={{ padding: '6px 8px', textAlign: 'right' }}>{analysis.error_max ?? '-'}</td>
+                                                <td style={{ padding: '6px 8px' }}>{analysis.nombre_tipoentrega}</td>
+                                                <td style={{ padding: '6px 8px' }}>
+                                                    <InputNumber
+                                                        style={{ width: '100%' }}
+                                                        value={analysis.uf_individual === '' ? undefined : Number(analysis.uf_individual)}
+                                                        onChange={(val) => handleUfChange(analysis.savedId, val)}
+                                                        onFocus={(e) => { if (String(analysis.uf_individual) === '0') handleUfChange(analysis.savedId, ''); e.currentTarget.select(); }}
+                                                        precision={2}
+                                                        controls={false}
                                                     />
-                                                </Table.Td>
-                                            ) : (
-                                                <>
-                                                    <Table.Td fz="xs">{analysis.nombre_normativa || '-'}</Table.Td>
-                                                    <Table.Td fz="xs">{analysis.nombre_normativareferencia || '-'}</Table.Td>
-                                                </>
-                                            )}
-                                            <Table.Td fz="xs">{analysis.tipo_analisis}</Table.Td>
-                                            <Table.Td fz="xs" ta="right">{analysis.limitemax_d ?? '-'}</Table.Td>
-                                            <Table.Td fz="xs" ta="right">{analysis.limitemax_h ?? '-'}</Table.Td>
-                                            <Table.Td fz="xs" ta="center">{['S', 's', 'Y', 'y', true].includes(analysis.llevaerror) ? 'Sí' : 'No'}</Table.Td>
-                                            <Table.Td fz="xs" ta="right">{analysis.error_min ?? '-'}</Table.Td>
-                                            <Table.Td fz="xs" ta="right">{analysis.error_max ?? '-'}</Table.Td>
-                                            <Table.Td fz="xs">{analysis.nombre_tipoentrega}</Table.Td>
-                                            <Table.Td>
-                                                <NumberInput
-                                                    size="xs" radius="xs"
-                                                    value={analysis.uf_individual}
-                                                    onChange={(val) => handleUfChange(analysis.savedId, val)}
-                                                    onFocus={(e) => {
-                                                        if (String(analysis.uf_individual) === '0') {
-                                                            handleUfChange(analysis.savedId, '');
-                                                        }
-                                                        e.currentTarget.select();
-                                                    }}
-                                                    decimalScale={2}
-                                                    hideControls
-                                                    ta="right"
-                                                />
-                                            </Table.Td>
-                                            <Table.Td fz="xs">{analysis.nombre_laboratorioensayo || '-'}</Table.Td>
-                                            <Table.Td fz="xs">{analysis.nombre_laboratorioensayo_2 || '-'}</Table.Td>
-                                            <Table.Td ta="center">
-                                                <ActionIcon color="red" variant="subtle" size="sm" onClick={() => handleDeleteSavedAnalysis(analysis.savedId)}>
-                                                    <IconTrash size={14} />
-                                                </ActionIcon>
-                                            </Table.Td>
-                                        </Table.Tr>
+                                                </td>
+                                                <td style={{ padding: '6px 8px' }}>{analysis.nombre_laboratorioensayo || '-'}</td>
+                                                <td style={{ padding: '6px 8px' }}>{analysis.nombre_laboratorioensayo_2 || '-'}</td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <Button type="text" danger shape="circle" size="small" icon={<IconTrash size={14} />} onClick={() => handleDeleteSavedAnalysis(analysis.savedId)} />
+                                                </td>
+                                            </tr>
                                         );
                                     })
                                 ) : (
-                                    <Table.Tr><Table.Td colSpan={14} ta="center" py="xl" c="dimmed">Aún no hay análisis grabados (agregue al menos uno)</Table.Td></Table.Tr>
+                                    <tr><td colSpan={14} style={{ textAlign: 'center', padding: 32, color: 'var(--app-text-secondary)' }}>Aún no hay análisis grabados (agregue al menos uno)</td></tr>
                                 )}
-                            </Table.Tbody>
+                            </tbody>
                             {(savedAnalysis.length > 0 || costo.enabled) && (
-                                <Table.Tfoot pos="sticky" bottom={0} style={{ zIndex: 1 }} bg="gray.1">
-                                    <Table.Tr>
-                                        <Table.Td colSpan={10} ta="right" fw={700} c="indigo.9" fz="sm">
+                                <tfoot style={{ position: 'sticky', bottom: 0, backgroundColor: 'var(--app-hover-bg)' }}>
+                                    <tr>
+                                        <td colSpan={10} style={{ textAlign: 'right', fontWeight: 700, color: '#4f46e5', padding: '8px', fontSize: 13 }}>
                                             UF TOTAL DE LA FICHA:
-                                        </Table.Td>
-                                        <Table.Td>
-                                            <NumberInput 
-                                                size="sm" radius="md"
-                                                value={totalRealUF} 
+                                        </td>
+                                        <td style={{ padding: '6px 8px' }}>
+                                            <InputNumber
+                                                style={{ width: '100%', backgroundColor: 'var(--app-accent-bg)', fontWeight: 800 }}
+                                                value={totalRealUF === '' ? undefined : Number(totalRealUF)}
                                                 onChange={handleTotalUfChange}
-                                                decimalScale={2}
-                                                hideControls
-                                                ta="right"
-                                                fw={800}
-                                                styles={{ input: { backgroundColor: 'var(--mantine-color-indigo-0)', borderColor: 'var(--mantine-color-indigo-4)' } }}
+                                                precision={2}
+                                                controls={false}
                                                 placeholder="0.00"
                                             />
-                                        </Table.Td>
-                                        <Table.Td colSpan={3}></Table.Td>
-                                    </Table.Tr>
-                                </Table.Tfoot>
+                                        </td>
+                                        <td colSpan={3} />
+                                    </tr>
+                                </tfoot>
                             )}
-                        </Table>
-                    </ScrollArea>
-                </Stack>
-            </Paper>
-        </Stack>
+                        </table>
+                    </div>
+                </div>
+            </Card>
+        </div>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

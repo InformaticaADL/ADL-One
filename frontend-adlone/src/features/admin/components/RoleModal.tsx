@@ -1,29 +1,20 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { 
-    Modal, 
-    Stack, 
-    Group, 
-    TextInput, 
-    Text, 
-    Button, 
-    Tabs, 
-    ScrollArea, 
-    Checkbox, 
-    Paper, 
-    Box, 
+import {
+    Modal,
+    Input,
+    Typography,
+    Button,
+    Checkbox,
     Divider,
-    Collapse,
-    Grid,
-    Badge,
-    Title,
+    Tag,
     Select
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import { 
-    IconSearch, 
-    IconShield, 
-    IconInfoCircle, 
-    IconChevronRight, 
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import {
+    IconSearch,
+    IconShield,
+    IconInfoCircle,
+    IconChevronRight,
     IconChevronDown,
     IconCheck,
     IconWorld,
@@ -38,6 +29,8 @@ import { rbacService } from '../services/rbac.service';
 import type { Role, Permission } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
+
+const { Text, Title } = Typography;
 
 interface Props {
     role: Role | null;
@@ -61,7 +54,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
 
     // UI States
     const [searchTerm, setSearchTerm] = useState('');
-    const [activeTab, setActiveTab] = useState<string | null>('GENERAL');
+    const [activeTab, setActiveTab] = useState<string>('GENERAL');
     const [expandedSubmodules, setExpandedSubmodules] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
@@ -77,6 +70,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                 setSelectedPermissions([]);
             }
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, role]);
 
     const loadPermissions = async () => {
@@ -152,7 +146,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
     };
 
     const togglePermission = (id: number) => {
-        setSelectedPermissions(prev => 
+        setSelectedPermissions(prev =>
             prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
         );
     };
@@ -183,11 +177,11 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
 
         filteredPermissions.forEach(p => {
             let mod = p.modulo || 'Otros';
-            let sub = p.submodulo || 'General';
+            const sub = p.submodulo || 'General';
 
             // Normalización básica para asegurar que los nombres coincidan con las pestañas
             const modUpper = mod.toUpperCase().trim();
-            
+
             if (modUpper.includes('ADMIN')) mod = 'Admin. Información';
             else if (modUpper.includes('CALIDAD')) mod = 'Gestión de Calidad';
             else if (modUpper.includes('MEDIO AMBIENTE')) mod = 'Medio Ambiente';
@@ -224,370 +218,311 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         setExpandedSubmodules(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
+    const renderPermissionCard = (p: Permission) => {
+        const selected = selectedPermissions.includes(p.id_permiso);
+        return (
+            <div
+                key={p.id_permiso}
+                onClick={() => togglePermission(p.id_permiso)}
+                style={{
+                    border: `1px solid ${selected ? '#4dabf7' : 'var(--app-border)'}`,
+                    borderRadius: 6,
+                    padding: 8,
+                    backgroundColor: selected ? 'var(--app-accent-bg)' : 'var(--app-bg-elevated)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                }}
+            >
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                    <Checkbox checked={selected} onChange={() => {}} style={{ marginTop: 3 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                        <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{p.nombre}</Text>
+                        <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>{p.codigo}</Text>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const generalPanel = (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: isMobile ? 120 : 0 }}>
+                <div>
+                    <Title level={4} style={{ marginBottom: 16 }}>Información del Rol</Title>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 24 }}>
+                        Introduce el nombre y una descripción clara para que otros administradores sepan qué permite hacer este rol.
+                    </Text>
+                </div>
+
+                <Field label="Nombre del Rol *">
+                    <Input
+                        placeholder="Ej: Administrador Maestro"
+                        value={nombre}
+                        onChange={(e) => setNombre(e.target.value)}
+                    />
+                </Field>
+                <Field label="Descripción">
+                    <Input
+                        placeholder="Describe el alcance de este rol..."
+                        value={descripcion}
+                        onChange={(e) => setDescripcion(e.target.value)}
+                    />
+                </Field>
+
+                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16, backgroundColor: 'var(--app-hover-bg)', marginTop: 8 }}>
+                    <div style={{ display: 'flex', gap: 16 }}>
+                        <IconShield color="#1c7ed6" />
+                        <div>
+                            <Text strong style={{ fontSize: 13, display: 'block' }}>Resumen de Permisos</Text>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                Este rol tiene actualmente <Text strong style={{ color: '#1c7ed6', fontSize: 12 }}>{selectedPermissions.length}</Text> permisos otorgados de un total de {allPermissions.length}.
+                            </Text>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+
+    const renderModulePanel = (moduleName: string, submodules: Record<string, Permission[]>) => {
+        const allModulePerms = Object.values(submodules).flat();
+        const allSelectedInModule = allModulePerms.every(p => selectedPermissions.includes(p.id_permiso));
+
+        return (
+            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: isMobile ? 120 : 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+                        <div>
+                            <Title level={3} style={{ margin: 0 }}>{moduleName}</Title>
+                            <Text type="secondary" style={{ fontSize: 13 }}>Administra los accesos específicos para este módulo.</Text>
+                        </div>
+                        <Button
+                            type="text"
+                            size="small"
+                            block={isMobile}
+                            onClick={() => toggleSelectAllCategory(allModulePerms)}
+                        >
+                            {allSelectedInModule ? 'Desmarcar' : 'Marcar Todo'}
+                        </Button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        {moduleName === 'Medio Ambiente' ? (
+                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                <div
+                                    style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer', flexWrap: 'wrap', gap: 8 }}
+                                    onClick={() => {
+                                        const allSubKeys = Object.keys(submodules).map(s => `${moduleName}:${s}`);
+                                        const someClosed = allSubKeys.some(k => expandedSubmodules[k] === false);
+                                        const newState: Record<string, boolean> = {};
+                                        allSubKeys.forEach(k => newState[k] = someClosed);
+                                        setExpandedSubmodules(prev => ({ ...prev, ...newState }));
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <IconChevronDown size={14} />
+                                        <Text strong style={{ fontSize: 13, textTransform: 'uppercase' }}>MEDIOAMBIENTE</Text>
+                                        <Tag>{Object.values(submodules).reduce((acc, curr) => acc + curr.length, 0)} permisos</Tag>
+                                    </div>
+                                    <Checkbox
+                                        checked={allSelectedInModule}
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={() => toggleSelectAllCategory(allModulePerms)}
+                                    >
+                                        Marcar Todo Gestión
+                                    </Checkbox>
+                                </div>
+
+                                <div style={{ marginTop: 16 }}>
+                                    {Object.entries(submodules).map(([subName, perms], idx) => (
+                                        <div key={subName} style={{ marginTop: idx > 0 ? 24 : 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                                <Text strong style={{ fontSize: 11, color: '#1864ab' }}>{subName}</Text>
+                                                <Tag>{perms.length}</Tag>
+                                                <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                                                {perms.map(p => renderPermissionCard(p))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ) : (
+                            Object.entries(submodules).map(([subName, perms]) => {
+                                const subId = `${moduleName}:${subName}`;
+                                const isExpanded = expandedSubmodules[subId] !== false;
+                                const allSubSelected = perms.every(p => selectedPermissions.includes(p.id_permiso));
+
+                                return (
+                                    <div key={subName} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                        <div
+                                            style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer', flexWrap: 'wrap', gap: 8 }}
+                                            onClick={() => toggleSubmodule(moduleName, subName)}
+                                        >
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                                                <Text strong style={{ fontSize: 13, textTransform: 'uppercase' }}>{subName}</Text>
+                                                <Tag>{perms.length} permisos</Tag>
+                                            </div>
+                                            <Checkbox
+                                                checked={allSubSelected}
+                                                onClick={(e) => e.stopPropagation()}
+                                                onChange={() => toggleSelectAllCategory(perms)}
+                                            >
+                                                Marcar Submódulo
+                                            </Checkbox>
+                                        </div>
+
+                                        {isExpanded && (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
+                                                {perms.map(p => renderPermissionCard(p))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     return (
         <Modal
-            opened={isOpen}
-            onClose={onClose}
-            size={isMobile ? "100%" : "85%"}
-            fullScreen={isMobile}
-            title={
-                <Group gap="xs">
-                    <IconShield size={22} color="var(--mantine-color-blue-filled)" />
-                    <Stack gap={0}>
-                        <Text fw={700}>{role ? 'Configurar Rol / Permisos' : 'Crear Nuevo Rol de Acceso'}</Text>
-                        <Text size="xs" c="dimmed">{role ? `Editando: ${role.nombre_rol}` : 'Define capacidades del sistema'}</Text>
-                    </Stack>
-                </Group>
-            }
-            radius="md"
+            open={isOpen}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? '100%' : '85%'}
+            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
             styles={{ body: { padding: 0 } }}
+            title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <IconShield size={22} color="#0062a8" />
+                    <div>
+                        <Text strong style={{ display: 'block' }}>{role ? 'Configurar Rol / Permisos' : 'Crear Nuevo Rol de Acceso'}</Text>
+                        <Text type="secondary" style={{ fontSize: 12 }}>{role ? `Editando: ${role.nombre_rol}` : 'Define capacidades del sistema'}</Text>
+                    </div>
+                </div>
+            }
         >
-            <Box h={isMobile ? "calc(100dvh - 240px)" : "75vh"} display="flex" style={{ overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row' }}>
-                <Tabs 
-                    orientation={isMobile ? "horizontal" : "vertical"} 
-                    value={activeTab} 
-                    onChange={setActiveTab}
-                    variant="pills"
-                    styles={{
-                        root: { display: 'flex', width: '100%', borderTop: '1px solid var(--mantine-color-gray-2)', flexDirection: isMobile ? 'column' : 'row', flex: 1, minHeight: 0 },
-                        list: { 
-                            width: isMobile ? '100%' : 280, 
-                            borderRight: isMobile ? 'none' : '1px solid var(--mantine-color-gray-2)',
-                            borderBottom: isMobile ? '1px solid var(--mantine-color-gray-2)' : 'none',
-                            backgroundColor: 'var(--mantine-color-gray-0)',
-                            padding: isMobile ? '8px' : '12px',
-                            flexDirection: isMobile ? 'row' : 'column',
-                            flexWrap: isMobile ? 'nowrap' : 'wrap',
-                            overflowX: isMobile ? 'auto' : 'visible'
-                        },
-                        panel: { flex: 1, padding: isMobile ? 0 : '24px', overflowY: isMobile ? 'hidden' : 'auto', minHeight: 0, display: 'flex', flexDirection: 'column' },
-                        tab: { 
-                            justifyContent: 'flex-start',
-                            marginBottom: isMobile ? '0' : '4px',
-                            marginRight: isMobile ? '4px' : '0',
-                            fontWeight: 600,
-                            padding: '10px 12px',
-                            whiteSpace: 'nowrap'
-                        }
-                    }}
-                >
-                    {isMobile ? (
-                        <Box p="md" bg="gray.0" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)' }}>
-                            <Stack gap="xs">
-                                <Button 
-                                    variant={activeTab === 'GENERAL' ? 'filled' : 'light'} 
-                                    leftSection={<IconInfoCircle size={16} />}
+            <div style={{ height: isMobile ? 'calc(100dvh - 240px)' : '75vh', display: 'flex', overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row', borderTop: '1px solid var(--app-border)' }}>
+                {isMobile ? (
+                    <>
+                        <div style={{ padding: 16, backgroundColor: 'var(--app-hover-bg)', borderBottom: '1px solid var(--app-border)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                <Button
+                                    type={activeTab === 'GENERAL' ? 'primary' : 'default'}
+                                    icon={<IconInfoCircle size={16} />}
                                     onClick={() => setActiveTab('GENERAL')}
-                                    fullWidth
-                                    justify="flex-start"
+                                    block
                                 >
                                     Info. General
                                 </Button>
 
-                                <TextInput 
+                                <Input
                                     placeholder="Buscar permisos..."
-                                    leftSection={<IconSearch size={14} />}
-                                    size="sm"
+                                    prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
                                     value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                    radius="md"
+                                    onChange={(e) => setSearchTerm(e.target.value)}
                                 />
 
                                 <Select
-                                    label="Módulos"
                                     placeholder="Seleccionar módulo..."
-                                    data={Object.keys(hierarchicalPermissions).map(mod => ({ 
-                                        value: mod, 
-                                        label: mod 
-                                    }))}
-                                    value={activeTab === 'GENERAL' ? null : activeTab}
+                                    options={Object.keys(hierarchicalPermissions).map(mod => ({ value: mod, label: mod }))}
+                                    value={activeTab === 'GENERAL' ? undefined : activeTab}
                                     onChange={(val) => val && setActiveTab(val)}
-                                    leftSection={<IconSettings size={16} />}
-                                    radius="md"
-                                    clearable={false}
+                                    style={{ width: '100%' }}
                                 />
-                            </Stack>
-                        </Box>
-                    ) : (
-                        <Tabs.List>
-                            <TextInput 
+                            </div>
+                        </div>
+                        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+                            {activeTab === 'GENERAL' ? generalPanel : (
+                                hierarchicalPermissions[activeTab] ? renderModulePanel(activeTab, hierarchicalPermissions[activeTab]) : generalPanel
+                            )}
+                        </div>
+                    </>
+                ) : (
+                    <>
+                        <div style={{ width: 280, borderRight: '1px solid var(--app-border)', backgroundColor: 'var(--app-hover-bg)', padding: 12, display: 'flex', flexDirection: 'column' }}>
+                            <Input
                                 placeholder="Buscar permisos..."
-                                leftSection={<IconSearch size={14} />}
-                                size="xs"
-                                mb="md"
+                                prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                radius="md"
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{ marginBottom: 16 }}
                             />
 
-                            <Tabs.Tab value="GENERAL" leftSection={<IconInfoCircle size={16} />}>
-                                Info. General
-                            </Tabs.Tab>
-
-                            <Divider my="sm" label="Módulos" labelPosition="center" />
-
-                            <ScrollArea 
-                                style={{ 
-                                    height: 'calc(75vh - 180px)',
-                                    width: '100%'
-                                }} 
-                                scrollbarSize={4}
+                            <button
+                                onClick={() => setActiveTab('GENERAL')}
+                                style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, marginBottom: 4,
+                                    border: 'none', cursor: 'pointer', fontWeight: 600, textAlign: 'left',
+                                    backgroundColor: activeTab === 'GENERAL' ? '#0062a8' : 'transparent',
+                                    color: activeTab === 'GENERAL' ? '#fff' : 'var(--app-text)',
+                                }}
                             >
-                                <Stack gap="xs">
+                                <IconInfoCircle size={16} />
+                                Info. General
+                            </button>
+
+                            <Divider style={{ margin: '12px 0' }}>Módulos</Divider>
+
+                            <div style={{ flex: 1, overflowY: 'auto' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                                     {Object.entries(hierarchicalPermissions).map(([moduleName, submods]) => {
                                         const modulePerms = Object.values(submods).flat();
                                         const selectedInModule = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
-                                        
+                                        const isActive = activeTab === moduleName;
+
                                         return (
-                                            <Tabs.Tab 
-                                                key={moduleName} 
-                                                value={moduleName} 
-                                                leftSection={getModuleIcon(moduleName)}
-                                                rightSection={
-                                                    selectedInModule > 0 && (
-                                                        <Badge size="xs" circle color="blue">{selectedInModule}</Badge>
-                                                    )
-                                                }
-                                            >
-                                                <Text size="sm" lineClamp={1}>{moduleName}</Text>
-                                            </Tabs.Tab>
-                                        );
-                                    })}
-                                </Stack>
-                            </ScrollArea>
-                        </Tabs.List>
-                    )}
-
-                    <Tabs.Panel value="GENERAL">
-                        <ScrollArea style={{ flex: 1 }} p="md" scrollbarSize={4}>
-                            <Stack gap="lg" pb={isMobile ? 120 : 0}>
-                            <Box>
-                                <Title order={4} mb="md">Información del Rol</Title>
-                                <Text size="sm" c="dimmed" mb="xl">
-                                    Introduce el nombre y una descripción clara para que otros administradores sepan qué permite hacer este rol.
-                                </Text>
-                            </Box>
-
-                            <TextInput 
-                                label="Nombre del Rol"
-                                placeholder="Ej: Administrador Maestro"
-                                required
-                                value={nombre}
-                                onChange={(e) => setNombre(e.currentTarget.value)}
-                                disabled={false}
-                                radius="md"
-                            />
-                            <TextInput 
-                                label="Descripción"
-                                placeholder="Describe el alcance de este rol..."
-                                value={descripcion}
-                                onChange={(e) => setDescripcion(e.currentTarget.value)}
-                                radius="md"
-                            />
-
-                            <Paper withBorder p="md" radius="md" bg="gray.0" mt="xl">
-                                <Group gap="md">
-                                    <IconShield color="var(--mantine-color-blue-6)" />
-                                    <Box>
-                                        <Text fw={600} size="sm">Resumen de Permisos</Text>
-                                        <Text size="xs" c="dimmed">
-                                            Este rol tiene actualmente <Text component="span" fw={700} c="blue">{selectedPermissions.length}</Text> permisos otorgados de un total de {allPermissions.length}.
-                                        </Text>
-                                    </Box>
-                                </Group>
-                            </Paper>
-                        </Stack>
-                    </ScrollArea>
-                </Tabs.Panel>
-
-                    {Object.entries(hierarchicalPermissions).map(([moduleName, submodules]) => (
-                        <Tabs.Panel key={moduleName} value={moduleName}>
-                            <ScrollArea style={{ flex: 1 }} p="md" scrollbarSize={4}>
-                                <Stack gap="xl" pb={isMobile ? 120 : 0}>
-                                <Group justify="space-between" align="flex-start">
-                                    <Box>
-                                        <Title order={3}>{moduleName}</Title>
-                                        <Text size="sm" c="dimmed">Administra los accesos específicos para este módulo.</Text>
-                                    </Box>
-                                    <Button 
-                                        variant="subtle" 
-                                        size="xs"
-                                        onClick={() => toggleSelectAllCategory(Object.values(submodules).flat())}
-                                        fullWidth={isMobile}
-                                    >
-                                        {Object.values(submodules).flat().every(p => selectedPermissions.includes(p.id_permiso)) 
-                                            ? 'Desmarcar' : 'Marcar Todo'}
-                                    </Button>
-                                </Group>
-
-                                <Stack gap="md">
-                                    {moduleName === 'Medio Ambiente' ? (
-                                        <Paper withBorder p="md" radius="md">
-                                            <Group 
-                                                justify="space-between" 
-                                                style={{ cursor: 'pointer' }}
-                                                onClick={() => {
-                                                    // Expandir/Contraer todos los submodulos internos de Medio Ambiente
-                                                    const allSubKeys = Object.keys(submodules).map(s => `${moduleName}:${s}`);
-                                                    const someClosed = allSubKeys.some(k => expandedSubmodules[k] === false);
-                                                    const newState: Record<string, boolean> = {};
-                                                    allSubKeys.forEach(k => newState[k] = someClosed);
-                                                    setExpandedSubmodules(prev => ({ ...prev, ...newState }));
+                                            <button
+                                                key={moduleName}
+                                                onClick={() => setActiveTab(moduleName)}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8,
+                                                    border: 'none', cursor: 'pointer', fontWeight: 600, textAlign: 'left',
+                                                    backgroundColor: isActive ? '#0062a8' : 'transparent',
+                                                    color: isActive ? '#fff' : 'var(--app-text)',
                                                 }}
                                             >
-                                                <Group gap="xs">
-                                                    <IconChevronDown size={14} />
-                                                    <Text fw={700} size="sm" style={{ textTransform: 'uppercase' }}>MEDIOAMBIENTE</Text>
-                                                    <Badge size="xs" variant="outline">
-                                                        {Object.values(submodules).reduce((acc, curr) => acc + curr.length, 0)} permisos
-                                                    </Badge>
-                                                </Group>
-                                                <Checkbox 
-                                                    size="xs"
-                                                    label="Marcar Todo Gestión"
-                                                    checked={Object.values(submodules).flat().every(p => selectedPermissions.includes(p.id_permiso))}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    onChange={() => toggleSelectAllCategory(Object.values(submodules).flat())}
-                                                />
-                                            </Group>
+                                                {getModuleIcon(moduleName)}
+                                                <Text style={{ fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#fff' : undefined }}>{moduleName}</Text>
+                                                {selectedInModule > 0 && (
+                                                    <Tag color={isActive ? undefined : 'blue'} style={{ marginInlineEnd: 0 }}>{selectedInModule}</Tag>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
 
-                                            <Box mt="md">
-                                                {Object.entries(submodules).map(([subName, perms], idx) => {
-                                                    return (
-                                                        <Box key={subName} mt={idx > 0 ? "xl" : 0}>
-                                                            <Divider 
-                                                                mb="sm" 
-                                                                label={
-                                                                    <Group gap="xs">
-                                                                        <Text fw={700} size="xs" c="blue.7">{subName}</Text>
-                                                                        <Badge size="xs" variant="light">{perms.length}</Badge>
-                                                                    </Group>
-                                                                } 
-                                                                labelPosition="left" 
-                                                            />
-                                                            <Grid gutter="md">
-                                                                {perms.map(p => (
-                                                                    <Grid.Col key={p.id_permiso} span={{ base: 12, md: 6, lg: 4 }}>
-                                                                        <Paper 
-                                                                            withBorder 
-                                                                            p="xs" 
-                                                                            radius="sm"
-                                                                            bg={selectedPermissions.includes(p.id_permiso) ? 'blue.0' : 'white'}
-                                                                            style={{ 
-                                                                                cursor: 'pointer',
-                                                                                transition: 'all 0.2s',
-                                                                                borderColor: selectedPermissions.includes(p.id_permiso) ? 'var(--mantine-color-blue-3)' : undefined
-                                                                            }}
-                                                                            onClick={() => togglePermission(p.id_permiso)}
-                                                                        >
-                                                                            <Group gap="xs" wrap="nowrap" align="flex-start">
-                                                                                <Checkbox 
-                                                                                    checked={selectedPermissions.includes(p.id_permiso)}
-                                                                                    onChange={() => {}}
-                                                                                    size="xs"
-                                                                                    mt={3}
-                                                                                />
-                                                                                <Box style={{ flex: 1 }}>
-                                                                                    <Text size="sm" fw={500} lineClamp={1}>{p.nombre}</Text>
-                                                                                    <Text size="xs" c="dimmed" ff="monospace">{p.codigo}</Text>
-                                                                                </Box>
-                                                                            </Group>
-                                                                        </Paper>
-                                                                    </Grid.Col>
-                                                                ))}
-                                                            </Grid>
-                                                        </Box>
-                                                    );
-                                                })}
-                                            </Box>
-                                        </Paper>
-                                    ) : (
-                                        Object.entries(submodules).map(([subName, perms]) => {
-                                            const subId = `${moduleName}:${subName}`;
-                                            const isExpanded = expandedSubmodules[subId] !== false;
+                        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+                            {activeTab === 'GENERAL' ? generalPanel : (
+                                hierarchicalPermissions[activeTab] ? renderModulePanel(activeTab, hierarchicalPermissions[activeTab]) : generalPanel
+                            )}
+                        </div>
+                    </>
+                )}
+            </div>
 
-                                            return (
-                                                <Paper key={subName} withBorder p="md" radius="md">
-                                                    <Group 
-                                                        justify="space-between" 
-                                                        style={{ cursor: 'pointer' }}
-                                                        onClick={() => toggleSubmodule(moduleName, subName)}
-                                                    >
-                                                        <Group gap="xs">
-                                                            {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                                                            <Text fw={700} size="sm" style={{ textTransform: 'uppercase' }}>{subName}</Text>
-                                                            <Badge size="xs" variant="outline">{perms.length} permisos</Badge>
-                                                        </Group>
-                                                        <Checkbox 
-                                                            size="xs"
-                                                            label="Marcar Submódulo"
-                                                            checked={perms.every(p => selectedPermissions.includes(p.id_permiso))}
-                                                            onClick={(e) => e.stopPropagation()}
-                                                            onChange={() => toggleSelectAllCategory(perms)}
-                                                        />
-                                                    </Group>
-
-                                                    <Collapse in={isExpanded}>
-                                                        <Grid mt="md" gutter="md">
-                                                            {perms.map(p => (
-                                                                <Grid.Col key={p.id_permiso} span={{ base: 12, md: 6, lg: 4 }}>
-                                                                    <Paper 
-                                                                        withBorder 
-                                                                        p="xs" 
-                                                                        radius="sm"
-                                                                        bg={selectedPermissions.includes(p.id_permiso) ? 'blue.0' : 'white'}
-                                                                        style={{ 
-                                                                            cursor: 'pointer',
-                                                                            transition: 'all 0.2s',
-                                                                            borderColor: selectedPermissions.includes(p.id_permiso) ? 'var(--mantine-color-blue-3)' : undefined
-                                                                        }}
-                                                                        onClick={() => togglePermission(p.id_permiso)}
-                                                                    >
-                                                                        <Group gap="xs" wrap="nowrap" align="flex-start">
-                                                                            <Checkbox 
-                                                                                checked={selectedPermissions.includes(p.id_permiso)}
-                                                                                onChange={() => {}} // Done by Paper
-                                                                                size="xs"
-                                                                                mt={3}
-                                                                            />
-                                                                            <Box style={{ flex: 1 }}>
-                                                                                <Text size="sm" fw={500} lineClamp={1}>{p.nombre}</Text>
-                                                                                <Text size="xs" c="dimmed" ff="monospace">{p.codigo}</Text>
-                                                                            </Box>
-                                                                        </Group>
-                                                                    </Paper>
-                                                                </Grid.Col>
-                                                            ))}
-                                                        </Grid>
-                                                    </Collapse>
-                                                </Paper>
-                                            );
-                                        })
-                                    )}
-                                </Stack>
-                            </Stack>
-                        </ScrollArea>
-                    </Tabs.Panel>
-                    ))}
-                </Tabs>
-            </Box>
-
-            <Divider />
-            <Group justify="flex-end" p="lg" pb={isMobile ? 60 : 'lg'} bg="gray.0">
-                <Button variant="subtle" color="gray" onClick={onClose} fullWidth={isMobile}>
+            <Divider style={{ margin: 0 }} />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: 24, paddingBottom: isMobile ? 60 : 24, backgroundColor: 'var(--app-hover-bg)' }}>
+                <Button onClick={onClose} block={isMobile}>
                     Cancelar / Descartar
                 </Button>
                 <Button
-                    color="adl-blue"
+                    type="primary"
                     loading={loading}
                     onClick={handleSave}
-                    leftSection={<IconCheck size={18} />}
-                    radius="md"
-                    fullWidth={isMobile}
+                    icon={<IconCheck size={18} />}
+                    block={isMobile}
                 >
                     Guardar Cambios
                 </Button>
-            </Group>
+            </div>
 
             <ConfirmModal
                 isOpen={confirmSaveOpen}
@@ -595,10 +530,19 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                 message={`${affectedCount} usuario${affectedCount !== 1 ? 's' : ''} ${affectedCount !== 1 ? 'tienen' : 'tiene'} este rol asignado y ${affectedCount !== 1 ? 'serán desconectados' : 'será desconectado'} para aplicar los nuevos permisos. ¿Confirmas?`}
                 confirmText="Sí, guardar"
                 cancelText="Cancelar"
-                confirmColor="var(--mantine-color-blue-6)"
+                confirmColor="#1c7ed6"
                 onConfirm={doSave}
                 onCancel={() => { setConfirmSaveOpen(false); setAffectedCount(null); }}
             />
         </Modal>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}

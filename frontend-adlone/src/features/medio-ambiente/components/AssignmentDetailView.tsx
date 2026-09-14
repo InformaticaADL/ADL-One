@@ -7,29 +7,20 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-import { 
-    Stack, 
-    Paper, 
-    TextInput, 
-    Select, 
-    Button, 
-    Table, 
-    Badge, 
-    Group, 
-    ScrollArea,
-    Text,
+import {
+    Button,
+    Tag,
+    Typography,
     Divider,
-    Box,
-    LoadingOverlay,
+    Spin,
     Alert,
     Modal,
     Radio,
-    Textarea
-} from '@mantine/core';
-import { modals } from '@mantine/modals';
+    Input,
+    Select,
+} from 'antd';
 import {
     IconCalendarEvent,
-    IconUserPlus,
     IconDeviceFloppy,
     IconBolt,
     IconInfoCircle,
@@ -39,6 +30,9 @@ import {
     IconUser,
     IconPencil
 } from '@tabler/icons-react';
+
+const { Text } = Typography;
+const { TextArea } = Input;
 
 interface Props {
     fichaId: number;
@@ -60,7 +54,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [muestreadorInstalacion, setMuestreadorInstalacion] = useState<Record<number, number>>({});
     const [muestreadorRetiro, setMuestreadorRetiro] = useState<Record<number, number>>({});
     const [selectedDate, setSelectedDate] = useState('');
-    const [dbFieldValue, setDbFieldValue] = useState(''); 
+    const [dbFieldValue, setDbFieldValue] = useState('');
     const [frequencyDays, setFrequencyDays] = useState<number>(0);
     const [numericFrequency, setNumericFrequency] = useState<number>(1);
     const [frecuenciaFactor, setFrecuenciaFactor] = useState<number>(1);
@@ -121,25 +115,23 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
         // Validación de conflicto (Remuestreo) - Pop up modal
         if (resamplingData && resamplingData.idMuestreadorOriginal && newId !== 0 && newId !== resamplingData.idMuestreadorOriginal) {
-            modals.openConfirmModal({
+            Modal.confirm({
                 title: 'Confirmar Cambio de Muestreador',
                 centered: true,
-                children: (
-                    <Stack gap="xs">
-                        <Text size="sm">
+                okText: 'Confirmar Asignación',
+                cancelText: 'Cancelar',
+                content: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <Text style={{ fontSize: 13 }}>
                             Atención: El muestreador seleccionado no es el que realizó el muestreo original (<b>{resamplingData.nombreOriginal}</b>).
                         </Text>
-                        <Text size="sm" c="dimmed">
+                        <Text type="secondary" style={{ fontSize: 13 }}>
                             Cambiar el muestreador en un remuestreo puede generar conflictos técnicos, ya que el nuevo muestreador podría no contar con los mismos equipos o conocimientos específicos utilizados en el muestreo original.
                         </Text>
-                        <Text size="sm" fw={500}>
-                            ¿Desea proceder con esta asignación de todas formas?
-                        </Text>
-                    </Stack>
+                        <Text strong style={{ fontSize: 13 }}>¿Desea proceder con esta asignación de todas formas?</Text>
+                    </div>
                 ),
-                labels: { confirm: 'Confirmar Asignación', cancel: 'Cancelar' },
-                confirmProps: { color: 'orange' },
-                onConfirm: applyChange
+                onOk: applyChange,
             });
         } else {
             applyChange();
@@ -148,16 +140,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const handleViewVersions = async (idMuestreador: number, correlativo: string) => {
         if (!resamplingData?.idOriginal || !idMuestreador) return;
-        
+
         setComparisonLoading(true);
         setVersionModalOpen(true);
         setActiveRowCorrelativo(correlativo);
-        
+
         try {
             const response = await adminService.getEquipmentComparison(resamplingData.idOriginal, fichaId, idMuestreador);
             if (response.success) {
                 setComparisonData(response.data);
-                
+
                 // Initialize selections for this correlativo if not set
                 if (!equipmentSelections[correlativo]) {
                     const initial: Record<number, 'original' | 'nueva'> = {};
@@ -181,12 +173,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const handleBulkSelection = (type: 'original' | 'nueva') => {
         if (!activeRowCorrelativo || comparisonData.length === 0) return;
-        
+
         const newSelections = { ...equipmentSelections[activeRowCorrelativo] };
         comparisonData.forEach(item => {
             newSelections[item.id_equipo] = type;
         });
-        
+
         setEquipmentSelections(prev => ({
             ...prev,
             [activeRowCorrelativo]: newSelections
@@ -305,7 +297,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 const interval = (frequencyDays / numericFrequency) * index;
                 base.setDate(base.getDate() + Math.floor(interval));
             }
-            
+
             const retirementDateStr = base.toISOString().split('T')[0];
             newRetiroDates[row.id_agendamam] = retirementDateStr;
 
@@ -461,21 +453,21 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
         const openSaveConfirm = (onConfirm: () => void) => {
             if (skippedCount > 0) {
-                modals.openConfirmModal({
+                Modal.confirm({
                     title: 'Guardado Parcial',
                     centered: true,
-                    children: (
-                        <Stack gap="sm">
-                            <Text size="sm">
+                    okText: 'Guardar de todas formas',
+                    cancelText: 'Volver',
+                    content: (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <Text style={{ fontSize: 13 }}>
                                 Se guardarán <b>{completedRows.length}</b> de <b>{editableRows.length}</b> correlativos.
                                 Los <b>{skippedCount}</b> restantes quedan sin asignar.
                             </Text>
-                            <Text size="sm">¿Desea continuar?</Text>
-                        </Stack>
+                            <Text style={{ fontSize: 13 }}>¿Desea continuar?</Text>
+                        </div>
                     ),
-                    labels: { confirm: 'Guardar de todas formas', cancel: 'Volver' },
-                    confirmProps: { color: 'blue' },
-                    onConfirm
+                    onOk: onConfirm,
                 });
             } else {
                 onConfirm();
@@ -483,26 +475,24 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         };
 
         if (hasConflicts) {
-            openSaveConfirm(() => modals.openConfirmModal({
+            openSaveConfirm(() => Modal.confirm({
                 title: 'Confirmar Guardado con Conflictos',
                 centered: true,
-                size: 'md',
-                children: (
-                    <Stack gap="sm">
-                        <Text size="sm">
+                width: 480,
+                okText: 'Confirmar y Guardar',
+                cancelText: 'Volver a Revisar',
+                content: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        <Text style={{ fontSize: 13 }}>
                             Se ha detectado que uno o más muestreadores asignados <b>no coinciden</b> con el muestreador original de la ficha <b>#{resamplingData?.idOriginal}</b> ({resamplingData?.nombreOriginal}).
                         </Text>
-                        <Text size="sm" c="orange" fw={500}>
+                        <Text style={{ fontSize: 13, color: '#e8590c', fontWeight: 500 }}>
                             Atención: Realizar un remuestreo con personal distinto puede derivar en inconsistencias técnicas, falta de equipos específicos o fallos en la metodología aplicada originalmente.
                         </Text>
-                        <Text size="sm">
-                            ¿Está seguro que desea proceder con el guardado de la planificación actual?
-                        </Text>
-                    </Stack>
+                        <Text style={{ fontSize: 13 }}>¿Está seguro que desea proceder con el guardado de la planificación actual?</Text>
+                    </div>
                 ),
-                labels: { confirm: 'Confirmar y Guardar', cancel: 'Volver a Revisar' },
-                confirmProps: { color: 'orange' },
-                onConfirm: executeSave
+                onOk: executeSave,
             }));
         } else {
             openSaveConfirm(executeSave);
@@ -516,168 +506,163 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
+    const metricSep = <div style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'var(--app-border)' }} />;
+    const Metric = ({ label, children }: { label: string; children: React.ReactNode }) => (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase' }}>{label}</Text>
+            {children}
+        </div>
+    );
+
     return (
-        <Box p="md" style={{ width: '100%' }}>
-            <Stack gap="lg">
-                <PageHeader 
-                    title={`Asignación de Recursos - Ficha ${fichaId}${resamplingData ? ` (REMUESTREO DE LA FICHA N° ${resamplingData.idOriginal})` : ''}`}
-                    subtitle={resamplingData ? "Gestione la asignación para este remuestreo" : "Defina fechas y muestreadores responsables para cada servicio"}
-                    onBack={onBack}
-                    rightSection={
-                        <ProtectedContent permission="FI_GEST_ASIG">
-                            <Button 
-                                color="grape" 
-                                size="md" 
-                                leftSection={<IconDeviceFloppy size={20} />} 
-                                onClick={handleSaveAssignment} 
-                                loading={saving}
-                            >
-                                Guardar Planificación
-                            </Button>
-                        </ProtectedContent>
+        <div>
+            <PageHeader
+                title={`Asignación de Recursos - Ficha ${fichaId}${resamplingData ? ` (REMUESTREO DE LA FICHA N° ${resamplingData.idOriginal})` : ''}`}
+                subtitle={resamplingData ? "Gestione la asignación para este remuestreo" : "Defina fechas y muestreadores responsables para cada servicio"}
+                onBack={onBack}
+                rightSection={
+                    <ProtectedContent permission="FI_GEST_ASIG">
+                        <Button
+                            type="primary"
+                            style={{ backgroundColor: '#9c36b5' }}
+                            size="large"
+                            icon={<IconDeviceFloppy size={20} />}
+                            onClick={handleSaveAssignment}
+                            loading={saving}
+                        >
+                            Guardar Planificación
+                        </Button>
+                    </ProtectedContent>
+                }
+            />
+
+            {resamplingData && (
+                <Alert
+                    type="info"
+                    showIcon
+                    icon={<IconInfoCircle size={18} />}
+                    style={{ marginBottom: 16 }}
+                    message="Ficha de Remuestreo"
+                    description={
+                        <>
+                            Esta ficha corresponde a un remuestreo de la ficha <b>#{resamplingData.idOriginal}</b>.
+                            El muestreador original fue: <b>{resamplingData.nombreOriginal || 'No identificado'}</b>.
+                            Se recomienda asignar al mismo muestreador para evitar conflictos de equipamiento, o verificar la disponibilidad de equipos equivalentes.
+                        </>
                     }
                 />
+            )}
 
-                {resamplingData && (
-                    <Alert icon={<IconInfoCircle size="1.1rem" />} title="Ficha de Remuestreo" color="blue" radius="md" variant="light">
-                        Esta ficha corresponde a un remuestreo de la ficha <b>#{resamplingData.idOriginal}</b>. 
-                        El muestreador original fue: <b>{resamplingData.nombreOriginal || 'No identificado'}</b>.
-                        Se recomienda asignar al mismo muestreador para evitar conflictos de equipamiento, o verificar la disponibilidad de equipos equivalentes.
-                    </Alert>
-                )}
-
-                <Paper withBorder p="xl" radius="lg" shadow="sm">
-                    <Stack gap="xl">
-                        {/* Unified Configuration & Metadata Header */}
-                        <Paper withBorder p="md" radius="md" bg="gray.1" shadow="xs">
-                            <Group justify="space-between" align="center">
-                                {/* Left Side: Technical Metrics */}
-                                <Group gap="lg">
-                                    <Stack gap={0} align="center">
-                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">Frecuencia</Text>
-                                        <Text fw={700} size="sm">{numericFrequency} {rows[0]?.nombre_frecuencia ? `(${rows[0].nombre_frecuencia})` : ''}</Text>
-                                    </Stack>
-                                    <Divider orientation="vertical" />
-                                    <Stack gap={0} align="center">
-                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">Periodo</Text>
-                                        <Text fw={700} size="sm">{dbFieldValue || '-'}</Text>
-                                    </Stack>
-                                    <Divider orientation="vertical" />
-                                    <Stack gap={0} align="center">
-                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">Factor</Text>
-                                        <Text fw={700} size="sm">{frecuenciaFactor}</Text>
-                                    </Stack>
-                                    <Divider orientation="vertical" />
-                                    <Stack gap={0} align="center">
-                                        <Text size="xs" fw={700} c="dimmed" tt="uppercase">Servicios</Text>
-                                        <Badge color="blue" variant="filled">{activeServicesCount}</Badge>
-                                    </Stack>
-                                    {!isPuntual && (
-                                        <>
-                                            <Divider orientation="vertical" />
-                                            <Stack gap={0} align="center">
-                                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Duración</Text>
-                                                <Text fw={700} size="sm">{duracionMuestreo} hrs</Text>
-                                            </Stack>
-                                        </>
-                                    )}
-                                    {isPuntual && (
-                                        <>
-                                            <Divider orientation="vertical" />
-                                            <Stack gap={0} align="center">
-                                                <Text size="xs" fw={700} c="dimmed" tt="uppercase">Tipo</Text>
-                                                <Badge color="grape" variant="light">Puntual</Badge>
-                                            </Stack>
-                                        </>
-                                    )}
-                                </Group>
-
-                                {/* Right Side: Ficha Metadata */}
-                                {rows[0] && (
-                                    <Group gap="xl">
-                                        <Group gap="xs">
-                                            <IconBuilding size={16} color="gray" />
-                                            <Stack gap={0}>
-                                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Empresa</Text>
-                                                <Text size="sm" fw={600}>{rows[0].empresa_servicio}</Text>
-                                            </Stack>
-                                        </Group>
-                                        <Group gap="xs">
-                                            <IconTarget size={16} color="gray" />
-                                            <Stack gap={0}>
-                                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Objetivo</Text>
-                                                <Text size="sm" fw={600}>{rows[0].nombre_objetivomuestreo}</Text>
-                                            </Stack>
-                                        </Group>
-                                        <Group gap="xs">
-                                            <IconMapPin size={16} color="gray" />
-                                            <Stack gap={0}>
-                                                <Text size="xs" c="dimmed" fw={700} tt="uppercase">Sub-Área</Text>
-                                                <Text size="sm" fw={600}>{rows[0].nombre_subarea}</Text>
-                                            </Stack>
-                                        </Group>
-                                    </Group>
+            <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 24, backgroundColor: 'var(--app-bg)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                    {/* Unified Configuration & Metadata Header */}
+                    <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, padding: 16, backgroundColor: 'var(--app-hover-bg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                                <Metric label="Frecuencia">
+                                    <Text strong style={{ fontSize: 13 }}>{numericFrequency} {rows[0]?.nombre_frecuencia ? `(${rows[0].nombre_frecuencia})` : ''}</Text>
+                                </Metric>
+                                {metricSep}
+                                <Metric label="Periodo"><Text strong style={{ fontSize: 13 }}>{dbFieldValue || '-'}</Text></Metric>
+                                {metricSep}
+                                <Metric label="Factor"><Text strong style={{ fontSize: 13 }}>{frecuenciaFactor}</Text></Metric>
+                                {metricSep}
+                                <Metric label="Servicios"><Tag color="blue">{activeServicesCount}</Tag></Metric>
+                                {!isPuntual && (
+                                    <>
+                                        {metricSep}
+                                        <Metric label="Duración"><Text strong style={{ fontSize: 13 }}>{duracionMuestreo} hrs</Text></Metric>
+                                    </>
                                 )}
-                            </Group>
-                        </Paper>
+                                {isPuntual && (
+                                    <>
+                                        {metricSep}
+                                        <Metric label="Tipo"><Tag color="purple">Puntual</Tag></Metric>
+                                    </>
+                                )}
+                            </div>
 
-                        <ProtectedContent permission="FI_GEST_ASIG">
-                            <Textarea
-                                label="Observación para la notificación"
-                                description="Se incluirá en el correo de asignación enviado al responsable"
+                            {rows[0] && (
+                                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <IconBuilding size={16} color="var(--app-text-secondary)" />
+                                        <div>
+                                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Empresa</Text>
+                                            <Text strong style={{ fontSize: 13 }}>{rows[0].empresa_servicio}</Text>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <IconTarget size={16} color="var(--app-text-secondary)" />
+                                        <div>
+                                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Objetivo</Text>
+                                            <Text strong style={{ fontSize: 13 }}>{rows[0].nombre_objetivomuestreo}</Text>
+                                        </div>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <IconMapPin size={16} color="var(--app-text-secondary)" />
+                                        <div>
+                                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Sub-Área</Text>
+                                            <Text strong style={{ fontSize: 13 }}>{rows[0].nombre_subarea}</Text>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    <ProtectedContent permission="FI_GEST_ASIG">
+                        <div>
+                            <Text style={{ fontSize: 13, fontWeight: 500, display: 'block' }}>Observación para la notificación</Text>
+                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                                Se incluirá en el correo de asignación enviado al responsable
+                            </Text>
+                            <TextArea
                                 placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
-                                minRows={2}
-                                autosize
+                                autoSize={{ minRows: 2 }}
                                 value={observacionAsignacion}
                                 onChange={(e) => setObservacionAsignacion(e.target.value)}
                             />
-                        </ProtectedContent>
+                        </div>
+                    </ProtectedContent>
 
-                        <Divider />
+                    <Divider style={{ margin: 0 }} />
 
-                        {/* Bulk Assignment Controls */}
-                        <Group align="flex-end" justify="center" gap="xl">
-                            <ProtectedContent permission="FI_GEST_ASIG">
-                                <Group align="flex-end">
-                                    <TextInput
-                                        size="xs"
-                                        label="Fecha Referencia (Muestreo)"
+                    {/* Bulk Assignment Controls */}
+                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
+                        <ProtectedContent permission="FI_GEST_ASIG">
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Fecha Referencia (Muestreo)</Text>
+                                    <Input
                                         type="date"
                                         min={todayStr}
                                         value={selectedDate}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setSelectedDate(val);
-                                        }}
-                                        leftSection={<IconCalendarEvent size={14} />}
+                                        onChange={(e) => setSelectedDate(e.target.value)}
+                                        prefix={<IconCalendarEvent size={14} />}
                                     />
-                                    <Button 
-                                        size="xs"
-                                        variant="light" 
-                                        color="blue" 
-                                        leftSection={<IconBolt size={14} />} 
-                                        onClick={handleCalculateDates}
-                                        disabled={!selectedDate}
-                                    >
-                                        Auto-Calcular
-                                    </Button>
-                                </Group>
-                            </ProtectedContent>
+                                </div>
+                                <Button icon={<IconBolt size={14} />} onClick={handleCalculateDates} disabled={!selectedDate}>
+                                    Auto-Calcular
+                                </Button>
+                            </div>
+                        </ProtectedContent>
 
-                            <Divider orientation="vertical" />
+                        {metricSep}
 
-                            <ProtectedContent permission="FI_GEST_ASIG">
-                                <Group align="flex-end">
+                        <ProtectedContent permission="FI_GEST_ASIG">
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                                <div>
+                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>{isPuntual ? 'Muestreador (Todos)' : 'M. Instalación (Todos)'}</Text>
                                     <Select
-                                        size="xs"
-                                        label={isPuntual ? "Muestreador (Todos)" : "M. Instalación (Todos)"}
+                                        style={{ width: 180 }}
                                         placeholder="Seleccionar..."
-                                        data={muestreadorOptions}
+                                        options={muestreadorOptions}
+                                        showSearch
                                         onChange={(val) => {
                                             if (val) {
                                                 const id = Number(val);
                                                 const applyBulk = () => {
-                                                    const newInst: Record<number, number> = {}; 
+                                                    const newInst: Record<number, number> = {};
                                                     const newRet: Record<number, number> = {};
                                                     rows.forEach(r => {
                                                         newInst[r.id_agendamam as number] = id;
@@ -687,149 +672,131 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     setMuestreadorRetiro(newRet);
                                                 };
                                                 if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
-                                                    modals.openConfirmModal({
+                                                    Modal.confirm({
                                                         title: 'Confirmar Asignación',
-                                                        children: <Text size="sm">¿Asignar a muestreador distinto al original?</Text>,
-                                                        labels: { confirm: 'Sí', cancel: 'No' },
-                                                        onConfirm: applyBulk
+                                                        content: <Text style={{ fontSize: 13 }}>¿Asignar a muestreador distinto al original?</Text>,
+                                                        okText: 'Sí', cancelText: 'No',
+                                                        onOk: applyBulk,
                                                     });
                                                 } else { applyBulk(); }
                                             }
                                         }}
-                                        searchable
-                                        leftSection={<IconUserPlus size={14} />}
                                     />
-                                    {!isPuntual && <Select
-                                        size="xs"
-                                        label="M. Retiro (Todos)"
-                                        placeholder="Seleccionar..."
-                                        data={muestreadorOptions}
-                                        onChange={(val) => {
-                                            if (val) {
-                                                const id = Number(val);
-                                                const applyBulkRetiro = () => {
-                                                    const newRet: Record<number, number> = {};
-                                                    rows.forEach(r => { newRet[r.id_agendamam as number] = id; });
-                                                    setMuestreadorRetiro(newRet);
-                                                };
-                                                if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
-                                                    modals.openConfirmModal({
-                                                        title: 'Confirmar Asignación',
-                                                        children: <Text size="sm">¿Asignar a retiro distinto al original?</Text>,
-                                                        labels: { confirm: 'Sí', cancel: 'No' },
-                                                        onConfirm: applyBulkRetiro
-                                                    });
-                                                } else { applyBulkRetiro(); }
-                                            }
-                                        }}
-                                        searchable
-                                        leftSection={<IconUserPlus size={14} />}
-                                    />}
-                                </Group>
-                            </ProtectedContent>
-                        </Group>
+                                </div>
+                                {!isPuntual && (
+                                    <div>
+                                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>M. Retiro (Todos)</Text>
+                                        <Select
+                                            style={{ width: 180 }}
+                                            placeholder="Seleccionar..."
+                                            options={muestreadorOptions}
+                                            showSearch
+                                            onChange={(val) => {
+                                                if (val) {
+                                                    const id = Number(val);
+                                                    const applyBulkRetiro = () => {
+                                                        const newRet: Record<number, number> = {};
+                                                        rows.forEach(r => { newRet[r.id_agendamam as number] = id; });
+                                                        setMuestreadorRetiro(newRet);
+                                                    };
+                                                    if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
+                                                        Modal.confirm({
+                                                            title: 'Confirmar Asignación',
+                                                            content: <Text style={{ fontSize: 13 }}>¿Asignar a retiro distinto al original?</Text>,
+                                                            okText: 'Sí', cancelText: 'No',
+                                                            onOk: applyBulkRetiro,
+                                                        });
+                                                    } else { applyBulkRetiro(); }
+                                                }
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        </ProtectedContent>
+                    </div>
 
-                        <Divider />
+                    <Divider style={{ margin: 0 }} />
 
-                        {/* Assignments Table */}
-                        <Box pos="relative">
-                            <LoadingOverlay visible={loading} />
-                            <ScrollArea h={500}>
-                                <Table 
-                                    striped 
-                                    highlightOnHover 
-                                    withTableBorder 
-                                    withColumnBorders
-                                    verticalSpacing={4} 
-                                    horizontalSpacing={4}
-                                    style={{ fontSize: '11px' }}
-                                >
-                                    <Table.Thead bg="gray.1">
-                                        <Table.Tr>
-                                            <Table.Th w={50} ta="center">Ficha</Table.Th>
-                                            <Table.Th w={160} ta="center">Correlativo</Table.Th>
-                                            <Table.Th w={90} ta="center">Estado</Table.Th>
-                                            <Table.Th w={135} ta="center">{isPuntual ? 'Fecha Muestreo' : 'F. Instalación'}</Table.Th>
-                                            {!isPuntual && <Table.Th w={135} ta="center">F. Muestreo</Table.Th>}
-                                            <Table.Th w={130} ta="center">Coordinador</Table.Th>
-                                            <Table.Th w={145} ta="center">
-                                                <Group gap={4} wrap="nowrap" justify="center">
-                                                    {isPuntual ? 'Muestreador' : 'M. Instalación'}
-                                                    <Text size="9px" c="blue" fw={700}>(Orig.)</Text>
-                                                </Group>
-                                            </Table.Th>
-                                            {!isPuntual && <Table.Th w={145} ta="center">
-                                                <Group gap={4} wrap="nowrap" justify="center">
-                                                    M. Retiro
-                                                    <Text size="9px" c="blue" fw={700}>(Orig.)</Text>
-                                                </Group>
-                                            </Table.Th>}
-                                            <Table.Th w={135} ta="center"></Table.Th>
-                                        </Table.Tr>
-                                    </Table.Thead>
-                                    <Table.Tbody>
-                                        {rows.map((row) => {
-                                            const isCancelled = ['CANCELADO', 'ANULADO'].includes((row.nombre_estadomuestreo || '').toUpperCase());
-                                            const rowId = row.id_agendamam;
-                                            const locked = !isCancelled && isLockedRow(rowId);
-                                            const instName = muestreadorOptions.find(o => o.value === String(muestreadorInstalacion[rowId] || ''))?.label || '-';
-                                            const retiroName = muestreadorOptions.find(o => o.value === String(muestreadorRetiro[rowId] || ''))?.label || '-';
+                    {/* Assignments Table — markup nativo (no antd <Table>): hay demasiadas
+                        columnas condicionales (isPuntual) y celdas con inputs propios como
+                        para forzarlo a la API de `columns`; se mantiene la semántica de
+                        tabla real, solo con los controles de antd adentro. */}
+                    <div style={{ position: 'relative' }}>
+                        {loading && (
+                            <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--app-bg)', opacity: 0.7 }}>
+                                <Spin size="large" />
+                            </div>
+                        )}
+                        <div style={{ maxHeight: 500, overflow: 'auto', border: '1px solid var(--app-border)', borderRadius: 8 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                                <thead style={{ backgroundColor: 'var(--app-hover-bg)', position: 'sticky', top: 0, zIndex: 1 }}>
+                                    <tr>
+                                        <Th w={50}>Ficha</Th>
+                                        <Th w={160}>Correlativo</Th>
+                                        <Th w={90}>Estado</Th>
+                                        <Th w={135}>{isPuntual ? 'Fecha Muestreo' : 'F. Instalación'}</Th>
+                                        {!isPuntual && <Th w={135}>F. Muestreo</Th>}
+                                        <Th w={130}>Coordinador</Th>
+                                        <Th w={145}>
+                                            <span style={{ display: 'flex', gap: 4, justifyContent: 'center', whiteSpace: 'nowrap' }}>
+                                                {isPuntual ? 'Muestreador' : 'M. Instalación'}
+                                                <span style={{ fontSize: 9, color: 'var(--app-accent-text)', fontWeight: 700 }}>(Orig.)</span>
+                                            </span>
+                                        </Th>
+                                        {!isPuntual && <Th w={145}>
+                                            <span style={{ display: 'flex', gap: 4, justifyContent: 'center', whiteSpace: 'nowrap' }}>
+                                                M. Retiro
+                                                <span style={{ fontSize: 9, color: 'var(--app-accent-text)', fontWeight: 700 }}>(Orig.)</span>
+                                            </span>
+                                        </Th>}
+                                        <Th w={135}>{''}</Th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {rows.map((row) => {
+                                        const isCancelled = ['CANCELADO', 'ANULADO'].includes((row.nombre_estadomuestreo || '').toUpperCase());
+                                        const rowId = row.id_agendamam;
+                                        const locked = !isCancelled && isLockedRow(rowId);
+                                        const instName = muestreadorOptions.find(o => o.value === String(muestreadorInstalacion[rowId] || ''))?.label || '-';
+                                        const retiroName = muestreadorOptions.find(o => o.value === String(muestreadorRetiro[rowId] || ''))?.label || '-';
+                                        const statusColor = isCancelled ? 'red' : (row.nombre_estadomuestreo?.includes('POR') ? 'orange' : 'green');
 
-                                            return (
-                                                <Table.Tr
-                                                    key={rowId}
-                                                    style={{
-                                                        opacity: isCancelled ? 0.5 : 1,
-                                                        background: locked ? 'var(--mantine-color-gray-0)' : undefined,
-                                                    }}
-                                                >
-                                                    <Table.Td ta="center">{row.num_ficha}</Table.Td>
-                                                    <Table.Td ta="center" fw={700}>{row.frecuencia_correlativo}</Table.Td>
-                                                    <Table.Td ta="center">
-                                                        <Badge
-                                                            variant="light"
-                                                            h="auto"
-                                                            py={4}
-                                                            color={isCancelled ? 'red' : (row.nombre_estadomuestreo?.includes('POR') ? 'orange' : 'green')}
-                                                        >
-                                                            <Stack gap={0} align="center">
-                                                                {row.nombre_estadomuestreo?.split(' ').map((part: string, i: number) => (
-                                                                    <Text key={i} size="10px" fw={700} style={{ lineHeight: 1 }}>{part}</Text>
-                                                                ))}
-                                                            </Stack>
-                                                        </Badge>
-                                                    </Table.Td>
-                                                    <Table.Td ta="center">
+                                        return (
+                                            <tr key={rowId} style={{ opacity: isCancelled ? 0.5 : 1, backgroundColor: locked ? 'var(--app-hover-bg)' : undefined }}>
+                                                <Td center>{row.num_ficha}</Td>
+                                                <Td center bold>{row.frecuencia_correlativo}</Td>
+                                                <Td center>
+                                                    <Tag color={statusColor} style={{ whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2, fontSize: 10 }}>
+                                                        {row.nombre_estadomuestreo}
+                                                    </Tag>
+                                                </Td>
+                                                <Td center>
+                                                    {locked ? (
+                                                        <Text delete type="secondary" style={{ fontSize: 12 }}>{editableDates[rowId] || '-'}</Text>
+                                                    ) : (
+                                                        <Input
+                                                            type="date"
+                                                            style={{ width: 125 }}
+                                                            disabled={isCancelled}
+                                                            min={editingRows.has(rowId) ? undefined : todayStr}
+                                                            max={editableRetiroDates[rowId] || undefined}
+                                                            value={editableDates[rowId] || ''}
+                                                            onChange={(e) => {
+                                                                const val = e.currentTarget.value;
+                                                                setEditableDates(prev => ({ ...prev, [rowId]: val }));
+                                                            }}
+                                                        />
+                                                    )}
+                                                </Td>
+                                                {!isPuntual && (
+                                                    <Td center>
                                                         {locked ? (
-                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">
-                                                                {editableDates[rowId] || '-'}
-                                                            </Text>
+                                                            <Text delete type="secondary" style={{ fontSize: 12 }}>{editableRetiroDates[rowId] || '-'}</Text>
                                                         ) : (
-                                                            <TextInput
+                                                            <Input
                                                                 type="date"
-                                                                size="xs"
-                                                                style={{ width: 125, margin: '0 auto' }}
-                                                                disabled={isCancelled}
-                                                                min={editingRows.has(rowId) ? undefined : todayStr}
-                                                                max={editableRetiroDates[rowId] || undefined}
-                                                                value={editableDates[rowId] || ''}
-                                                                onChange={(e) => {
-                                                                    const val = e.currentTarget.value;
-                                                                    setEditableDates(prev => ({ ...prev, [rowId]: val }));
-                                                                }}
-                                                            />
-                                                        )}
-                                                    </Table.Td>
-                                                    {!isPuntual && <Table.Td ta="center">
-                                                        {locked ? (
-                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">
-                                                                {editableRetiroDates[rowId] || '-'}
-                                                            </Text>
-                                                        ) : (
-                                                            <TextInput
-                                                                type="date"
-                                                                size="xs"
-                                                                style={{ width: 125, margin: '0 auto' }}
+                                                                style={{ width: 125 }}
                                                                 disabled={isCancelled}
                                                                 min={editableDates[rowId] || (editingRows.has(rowId) ? undefined : todayStr)}
                                                                 value={editableRetiroDates[rowId] || ''}
@@ -845,221 +812,219 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                                 }}
                                                             />
                                                         )}
-                                                    </Table.Td>}
-                                                    <Table.Td ta="center">
-                                                        <Text size="xs" fw={500}>{row.nombre_coordinador}</Text>
-                                                    </Table.Td>
-                                                    <Table.Td>
+                                                    </Td>
+                                                )}
+                                                <Td center><Text style={{ fontSize: 12, fontWeight: 500 }}>{row.nombre_coordinador}</Text></Td>
+                                                <Td>
+                                                    {locked ? (
+                                                        <Text delete type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block' }}>{instName}</Text>
+                                                    ) : (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
+                                                            <Select
+                                                                disabled={isCancelled}
+                                                                style={{ width: 140 }}
+                                                                options={muestreadorOptions}
+                                                                value={muestreadorInstalacion[rowId] ? String(muestreadorInstalacion[rowId]) : undefined}
+                                                                onChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
+                                                                showSearch
+                                                                placeholder="Seleccionar..."
+                                                                status={resamplingData && muestreadorInstalacion[rowId] && resamplingData.idMuestreadorOriginal && muestreadorInstalacion[rowId] !== resamplingData.idMuestreadorOriginal ? 'error' : undefined}
+                                                                suffixIcon={<IconUser size={14} />}
+                                                            />
+                                                            {resamplingData && muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal && (
+                                                                <Text style={{ fontSize: 10, color: 'var(--app-accent-text)', fontWeight: 700, whiteSpace: 'nowrap' }}>H. ✓</Text>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </Td>
+                                                {!isPuntual && (
+                                                    <Td>
                                                         {locked ? (
-                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">{instName}</Text>
+                                                            <Text delete type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block' }}>{retiroName}</Text>
                                                         ) : (
-                                                            <Group gap={4} align="center" wrap="nowrap" justify="center">
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
                                                                 <Select
-                                                                    size="xs"
                                                                     disabled={isCancelled}
                                                                     style={{ width: 140 }}
-                                                                    data={muestreadorOptions}
-                                                                    value={String(muestreadorInstalacion[rowId] || '')}
-                                                                    onChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
-                                                                    searchable
-                                                                    placeholder="Seleccionar..."
-                                                                    leftSection={<IconUser size={14} />}
-                                                                    error={resamplingData && muestreadorInstalacion[rowId] && resamplingData.idMuestreadorOriginal && muestreadorInstalacion[rowId] !== resamplingData.idMuestreadorOriginal}
-                                                                />
-                                                                {resamplingData && muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal && (
-                                                                    <Text size="10px" c="blue" fw={700} style={{ whiteSpace: 'nowrap' }}>H. ✓</Text>
-                                                                )}
-                                                            </Group>
-                                                        )}
-                                                    </Table.Td>
-                                                    {!isPuntual && <Table.Td>
-                                                        {locked ? (
-                                                            <Text size="xs" c="dimmed" td="line-through" ta="center">{retiroName}</Text>
-                                                        ) : (
-                                                            <Group gap={4} align="center" wrap="nowrap" justify="center">
-                                                                <Select
-                                                                    size="xs"
-                                                                    disabled={isCancelled}
-                                                                    style={{ width: 140 }}
-                                                                    data={muestreadorOptions}
-                                                                    value={String(muestreadorRetiro[rowId] || '')}
+                                                                    options={muestreadorOptions}
+                                                                    value={muestreadorRetiro[rowId] ? String(muestreadorRetiro[rowId]) : undefined}
                                                                     onChange={(v) => handleTechnicianChange(rowId, Number(v), 'retiro')}
-                                                                    searchable
+                                                                    showSearch
                                                                     placeholder="Seleccionar..."
-                                                                    leftSection={<IconUser size={14} />}
-                                                                    error={resamplingData && muestreadorRetiro[rowId] && resamplingData.idMuestreadorOriginal && muestreadorRetiro[rowId] !== resamplingData.idMuestreadorOriginal}
+                                                                    status={resamplingData && muestreadorRetiro[rowId] && resamplingData.idMuestreadorOriginal && muestreadorRetiro[rowId] !== resamplingData.idMuestreadorOriginal ? 'error' : undefined}
+                                                                    suffixIcon={<IconUser size={14} />}
                                                                 />
                                                                 {resamplingData && muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal && (
-                                                                    <Text size="10px" c="blue" fw={700} style={{ whiteSpace: 'nowrap' }}>H. ✓</Text>
+                                                                    <Text style={{ fontSize: 10, color: 'var(--app-accent-text)', fontWeight: 700, whiteSpace: 'nowrap' }}>H. ✓</Text>
                                                                 )}
-                                                            </Group>
+                                                            </div>
                                                         )}
-                                                    </Table.Td>}
-                                                    <Table.Td style={{ borderLeft: 'none' }} ta="center">
-                                                        {locked ? (
-                                                            <Button
-                                                                variant="light"
-                                                                size="compact-xs"
-                                                                color="orange"
-                                                                leftSection={<IconPencil size={12} />}
-                                                                onClick={() => unlockRow(rowId)}
-                                                            >
-                                                                Editar
-                                                            </Button>
-                                                        ) : resamplingData && (muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal || muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal) && (
-                                                                <Button
-                                                                    variant="light"
-                                                                    size="compact-xs"
-                                                                    h="auto"
-                                                                    py={4}
-                                                                    color={equipmentSelections[row.frecuencia_correlativo] ? "green" : "blue"}
-                                                                    leftSection={<IconBolt size={12} />}
-                                                                    onClick={() => handleViewVersions(resamplingData.idMuestreadorOriginal, row.frecuencia_correlativo)}
-                                                                >
-                                                                    <Stack gap={0} align="flex-start">
-                                                                        <Text size="10px" fw={700} style={{ lineHeight: 1 }}>
-                                                                            {equipmentSelections[row.frecuencia_correlativo] ? "Versiones" : "Config."}
-                                                                        </Text>
-                                                                        <Text size="10px" fw={700} style={{ lineHeight: 1 }}>
-                                                                            {equipmentSelections[row.frecuencia_correlativo] ? "OK" : "Versiones"}
-                                                                        </Text>
-                                                                    </Stack>
-                                                                </Button>
-                                                        )}
-                                                    </Table.Td>
-                                                </Table.Tr>
-                                            );
-                                        })}
-                                    </Table.Tbody>
-                                </Table>
-                            </ScrollArea>
-                        </Box>
-                    </Stack>
-                </Paper>
-            </Stack>
+                                                    </Td>
+                                                )}
+                                                <Td center>
+                                                    {locked ? (
+                                                        <Button size="small" icon={<IconPencil size={12} />} onClick={() => unlockRow(rowId)}>
+                                                            Editar
+                                                        </Button>
+                                                    ) : resamplingData && (muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal || muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal) && (
+                                                        <Button
+                                                            size="small"
+                                                            type={equipmentSelections[row.frecuencia_correlativo] ? 'primary' : 'default'}
+                                                            style={equipmentSelections[row.frecuencia_correlativo] ? { backgroundColor: '#2f9e44' } : undefined}
+                                                            icon={<IconBolt size={12} />}
+                                                            onClick={() => handleViewVersions(resamplingData.idMuestreadorOriginal, row.frecuencia_correlativo)}
+                                                        >
+                                                            {equipmentSelections[row.frecuencia_correlativo] ? 'Versiones OK' : 'Config. Versiones'}
+                                                        </Button>
+                                                    )}
+                                                </Td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
             {/* Modal de Comparación de Versiones */}
             <Modal
                 title={`Comparación de Equipos - Correlativo ${activeRowCorrelativo}`}
-                opened={versionModalOpen}
-                onClose={() => setVersionModalOpen(false)}
-                size="70%"
-                radius="md"
+                open={versionModalOpen}
+                onCancel={() => setVersionModalOpen(false)}
+                width="70%"
                 centered
+                footer={
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                        <Button onClick={() => setVersionModalOpen(false)}>Cerrar</Button>
+                        <Button type="primary" onClick={() => setVersionModalOpen(false)}>Aceptar</Button>
+                    </div>
+                }
             >
-                <Box pos="relative">
-                    <LoadingOverlay visible={comparisonLoading} />
-                    
-                    <Group justify="space-between" mb="md">
-                        <Text size="sm" c="dimmed">
-                            Versión al momento del muestreo original <b>(Ficha #{resamplingData?.idOriginal})</b> vs Versión vigente actual <b>(mae_equipo)</b>
-                        </Text>
-                        <Group gap="xs">
-                            <Button size="compact-xs" variant="outline" color="blue" onClick={() => handleBulkSelection('original')}>
-                                Usar Todas Originales
-                            </Button>
-                            <Button size="compact-xs" variant="outline" color="green" onClick={() => handleBulkSelection('nueva')}>
-                                Usar Todas Actuales
-                            </Button>
-                        </Group>
-                    </Group>
-
-                    {comparisonData.length === 0 && !comparisonLoading ? (
-                        <Alert color="orange" title="Sin Datos">
-                            No se encontraron registros de equipos para este correlativo en la ficha original (#<b>{resamplingData?.idOriginal}</b>).
-                        </Alert>
-                    ) : (
-                        <Table striped highlightOnHover withTableBorder withColumnBorders verticalSpacing="xs">
-                            <Table.Thead bg="gray.0">
-                                <Table.Tr>
-                                    <Table.Th rowSpan={2}>Equipo / Código</Table.Th>
-                                    <Table.Th ta="center" colSpan={4} bg="blue.0" c="blue.9">Versión Original (Ficha #{resamplingData?.idOriginal})</Table.Th>
-                                    <Table.Th ta="center" colSpan={4} bg="green.0" c="green.9">Versión Actual (Vigente)</Table.Th>
-                                </Table.Tr>
-                                <Table.Tr>
-                                    <Table.Th ta="center" w={80} bg="blue.0">Versión</Table.Th>
-                                    <Table.Th ta="center" w={60} bg="blue.0">E 0%</Table.Th>
-                                    <Table.Th ta="center" w={60} bg="blue.0">E 15%</Table.Th>
-                                    <Table.Th ta="center" w={60} bg="blue.0">E 30%</Table.Th>
-                                    
-                                    <Table.Th ta="center" w={80} bg="green.0">Versión</Table.Th>
-                                    <Table.Th ta="center" w={60} bg="green.0">E 0%</Table.Th>
-                                    <Table.Th ta="center" w={60} bg="green.0">E 15%</Table.Th>
-                                    <Table.Th ta="center" w={60} bg="green.0">E 30%</Table.Th>
-                                    <Table.Th ta="center" w={140} bg="gray.1">Selección Versión</Table.Th>
-                                </Table.Tr>
-                            </Table.Thead>
-                            <Table.Tbody>
-                                {comparisonData.map((item, idx) => {
-                                    const versionChanged = item.version_original !== item.version_nueva;
-                                    const error0Changed = Number(item.error0_original) !== Number(item.error0_nueva);
-                                    const error15Changed = Number(item.error15_original) !== Number(item.error15_nueva);
-                                    const error30Changed = Number(item.error30_original) !== Number(item.error30_nueva);
-                                    
-                                    const hasAnomalies = versionChanged || error0Changed || error15Changed || error30Changed;
-                                    const currentSelection = (equipmentSelections[activeRowCorrelativo] || {})[item.id_equipo];
-
-                                    return (
-                                        <Table.Tr key={idx} bg={hasAnomalies ? 'orange.0' : undefined}>
-                                            <Table.Td>
-                                                <Stack gap={0}>
-                                                    <Text size="sm" fw={600}>{item.nombre}</Text>
-                                                    <Text size="xs" c="dimmed">{item.codigo}</Text>
-                                                </Stack>
-                                            </Table.Td>
-                                            
-                                            {/* ORIGINAL */}
-                                            <Table.Td ta="center" bg="blue.0"><Badge variant="outline" size="sm">{item.version_original || 'v1'}</Badge></Table.Td>
-                                            <Table.Td ta="center" bg="blue.0" style={{ fontSize: '11px' }}>{item.error0_original}%</Table.Td>
-                                            <Table.Td ta="center" bg="blue.0" style={{ fontSize: '11px' }}>{item.error15_original}%</Table.Td>
-                                            <Table.Td ta="center" bg="blue.0" style={{ fontSize: '11px' }}>{item.error30_original}%</Table.Td>
-                                            
-                                            {/* NUEVO */}
-                                            <Table.Td ta="center" bg="green.0">
-                                                <Badge variant="filled" color={versionChanged ? 'orange' : 'green'} size="sm">
-                                                    {item.version_nueva}
-                                                </Badge>
-                                            </Table.Td>
-                                            <Table.Td ta="center" bg="green.0" fw={error0Changed ? 700 : 400} c={error0Changed ? 'orange.9' : undefined} style={{ fontSize: '12px' }}>
-                                                {item.error0_nueva}%
-                                            </Table.Td>
-                                            <Table.Td ta="center" bg="green.0" fw={error15Changed ? 700 : 400} c={error15Changed ? 'orange.9' : undefined} style={{ fontSize: '12px' }}>
-                                                {item.error15_nueva}%
-                                            </Table.Td>
-                                            <Table.Td ta="center" bg="green.0" fw={error30Changed ? 700 : 400} c={error30Changed ? 'orange.9' : undefined} style={{ fontSize: '12px' }}>
-                                                {item.error30_nueva}%
-                                            </Table.Td>
-
-                                            <Table.Td ta="center">
-                                                <Radio.Group
-                                                    value={currentSelection}
-                                                    onChange={(val) => {
-                                                        setEquipmentSelections(prev => {
-                                                            const correlSelections = { ...(prev[activeRowCorrelativo] || {}) };
-                                                            correlSelections[item.id_equipo] = val as any;
-                                                            return { ...prev, [activeRowCorrelativo]: correlSelections };
-                                                        });
-                                                    }}
-                                                >
-                                                    <Group gap="xs">
-                                                        <Radio value="original" label="Ori." size="xs" />
-                                                        <Radio value="nueva" label="Act." size="xs" />
-                                                    </Group>
-                                                </Radio.Group>
-                                            </Table.Td>
-                                        </Table.Tr>
-                                    );
-                                })}
-                            </Table.Tbody>
-                        </Table>
+                <div style={{ position: 'relative' }}>
+                    {comparisonLoading && (
+                        <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Spin size="large" />
+                        </div>
                     )}
 
-                    <Group justify="flex-end" mt="xl">
-                        <Button variant="light" color="gray" onClick={() => setVersionModalOpen(false)}>Cerrar</Button>
-                        <Button color="blue" onClick={() => setVersionModalOpen(false)}>Aceptar</Button>
-                    </Group>
-                </Box>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
+                        <Text type="secondary" style={{ fontSize: 13 }}>
+                            Versión al momento del muestreo original <b>(Ficha #{resamplingData?.idOriginal})</b> vs Versión vigente actual <b>(mae_equipo)</b>
+                        </Text>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                            <Button size="small" onClick={() => handleBulkSelection('original')}>Usar Todas Originales</Button>
+                            <Button size="small" onClick={() => handleBulkSelection('nueva')}>Usar Todas Actuales</Button>
+                        </div>
+                    </div>
+
+                    {comparisonData.length === 0 && !comparisonLoading ? (
+                        <Alert type="warning" showIcon message="Sin Datos" description={
+                            <>No se encontraron registros de equipos para este correlativo en la ficha original (#<b>{resamplingData?.idOriginal}</b>).</>
+                        } />
+                    ) : (
+                        <div style={{ overflowX: 'auto', border: '1px solid var(--app-border)', borderRadius: 8 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                                <thead>
+                                    <tr>
+                                        <Th rowSpan={2}>Equipo / Código</Th>
+                                        <Th colSpan={4} tint="blue">Versión Original (Ficha #{resamplingData?.idOriginal})</Th>
+                                        <Th colSpan={4} tint="green">Versión Actual (Vigente)</Th>
+                                    </tr>
+                                    <tr>
+                                        <Th w={80} tint="blue">Versión</Th>
+                                        <Th w={60} tint="blue">E 0%</Th>
+                                        <Th w={60} tint="blue">E 15%</Th>
+                                        <Th w={60} tint="blue">E 30%</Th>
+                                        <Th w={80} tint="green">Versión</Th>
+                                        <Th w={60} tint="green">E 0%</Th>
+                                        <Th w={60} tint="green">E 15%</Th>
+                                        <Th w={60} tint="green">E 30%</Th>
+                                        <Th w={140}>Selección Versión</Th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {comparisonData.map((item, idx) => {
+                                        const versionChanged = item.version_original !== item.version_nueva;
+                                        const error0Changed = Number(item.error0_original) !== Number(item.error0_nueva);
+                                        const error15Changed = Number(item.error15_original) !== Number(item.error15_nueva);
+                                        const error30Changed = Number(item.error30_original) !== Number(item.error30_nueva);
+
+                                        const hasAnomalies = versionChanged || error0Changed || error15Changed || error30Changed;
+                                        const currentSelection = (equipmentSelections[activeRowCorrelativo] || {})[item.id_equipo];
+
+                                        return (
+                                            <tr key={idx} style={{ backgroundColor: hasAnomalies ? 'rgba(250,173,20,0.08)' : undefined }}>
+                                                <Td>
+                                                    <Text strong style={{ fontSize: 13, display: 'block' }}>{item.nombre}</Text>
+                                                    <Text type="secondary" style={{ fontSize: 11 }}>{item.codigo}</Text>
+                                                </Td>
+                                                <Td center tint="blue"><Tag>{item.version_original || 'v1'}</Tag></Td>
+                                                <Td center tint="blue">{item.error0_original}%</Td>
+                                                <Td center tint="blue">{item.error15_original}%</Td>
+                                                <Td center tint="blue">{item.error30_original}%</Td>
+                                                <Td center tint="green"><Tag color={versionChanged ? 'orange' : 'green'}>{item.version_nueva}</Tag></Td>
+                                                <Td center tint="green" bold={error0Changed}>{item.error0_nueva}%</Td>
+                                                <Td center tint="green" bold={error15Changed}>{item.error15_nueva}%</Td>
+                                                <Td center tint="green" bold={error30Changed}>{item.error30_nueva}%</Td>
+                                                <Td center>
+                                                    <Radio.Group
+                                                        size="small"
+                                                        value={currentSelection}
+                                                        onChange={(e) => {
+                                                            const val = e.target.value;
+                                                            setEquipmentSelections(prev => {
+                                                                const correlSelections = { ...(prev[activeRowCorrelativo] || {}) };
+                                                                correlSelections[item.id_equipo] = val;
+                                                                return { ...prev, [activeRowCorrelativo]: correlSelections };
+                                                            });
+                                                        }}
+                                                    >
+                                                        <Radio value="original">Ori.</Radio>
+                                                        <Radio value="nueva">Act.</Radio>
+                                                    </Radio.Group>
+                                                </Td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </Modal>
-        </Box>
+        </div>
     );
 };
+
+function Th({ children, w, colSpan, rowSpan, tint }: { children?: React.ReactNode; w?: number; colSpan?: number; rowSpan?: number; tint?: 'blue' | 'green' }) {
+    const tintBg = tint === 'blue' ? 'var(--app-accent-bg)' : tint === 'green' ? 'rgba(47,158,68,0.12)' : undefined;
+    return (
+        <th
+            colSpan={colSpan}
+            rowSpan={rowSpan}
+            style={{
+                width: w, padding: '6px 4px', textAlign: 'center', fontWeight: 700, fontSize: 11,
+                border: '1px solid var(--app-border)', backgroundColor: tintBg || 'var(--app-hover-bg)',
+            }}
+        >
+            {children}
+        </th>
+    );
+}
+
+function Td({ children, center, bold, tint }: { children?: React.ReactNode; center?: boolean; bold?: boolean; tint?: 'blue' | 'green' }) {
+    const tintBg = tint === 'blue' ? 'rgba(0,98,168,0.05)' : tint === 'green' ? 'rgba(47,158,68,0.06)' : undefined;
+    return (
+        <td
+            style={{
+                padding: '4px', border: '1px solid var(--app-border)',
+                textAlign: center ? 'center' : 'left', fontWeight: bold ? 700 : 400,
+                backgroundColor: tintBg,
+            }}
+        >
+            {children}
+        </td>
+    );
+}

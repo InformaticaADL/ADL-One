@@ -1,23 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
     Modal,
-    Stack,
-    Group,
     Select,
-    Paper,
-    Text,
+    Typography,
+    Card,
     Button,
-    Badge,
-    Title,
-    ThemeIcon,
-    SimpleGrid,
-    UnstyledButton,
-    Loader,
-    Alert,
-    Center,
-    Divider
-} from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
+    Tag,
+    Spin,
+    Alert
+} from 'antd';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconUserMinus,
     IconBuildingCommunity,
@@ -29,6 +21,8 @@ import {
 import { adminService } from '../../../services/admin.service';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
+
+const { Title, Text } = Typography;
 
 interface SamplerDeactivationModalProps {
     opened: boolean;
@@ -135,7 +129,7 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
             }
 
             await adminService.disableWithReassignment(sampler.id_muestreador, reassignmentOptions);
-            
+
             showToast({
                 type: 'success',
                 message: `Muestreador ${sampler.nombre_muestreador} deshabilitado y equipos reasignados.`
@@ -153,186 +147,219 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
         }
     };
 
+    const opciones: { id: 'BASE' | 'MUESTREADOR' | 'MANUAL'; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
+        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: '#1c7ed6', bg: 'var(--app-accent-bg)' },
+        { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: '#0c8599', bg: 'rgba(12,133,153,0.1)' },
+        { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: '#4c6ef5', bg: 'rgba(76,110,245,0.1)' },
+    ];
+
     return (
         <Modal
-            opened={opened}
-            onClose={onClose}
-            title={<Group gap="xs"><IconUserMinus size={20} color="var(--mantine-color-red-6)"/><Title order={4}>Deshabilitar Muestreador</Title></Group>}
-            size={isMobile ? "100%" : "lg"}
-            fullScreen={isMobile}
-            radius={isMobile ? 0 : "md"}
+            open={opened}
+            onCancel={onClose}
+            footer={null}
+            width={isMobile ? '100%' : 640}
+            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
+            title={
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <IconUserMinus size={20} color="#e03131" />
+                    <Title level={4} style={{ margin: 0 }}>Deshabilitar Muestreador</Title>
+                </div>
+            }
         >
-            <Stack gap="lg">
-                <Alert icon={<IconAlertTriangle size={18} />} color="orange" radius="md">
-                    Está a punto de deshabilitar a <b>{sampler?.nombre_muestreador}</b>.
-                    Todos sus equipos deben ser reasignados para completar esta acción.
-                </Alert>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
+                <Alert
+                    type="warning"
+                    showIcon
+                    icon={<IconAlertTriangle size={18} />}
+                    message={<>Está a punto de deshabilitar a <b>{sampler?.nombre_muestreador}</b>. Todos sus equipos deben ser reasignados para completar esta acción.</>}
+                />
 
                 {/* MS-04: advertencia si hay muestreos futuros */}
                 {futureAssignments && futureAssignments.count > 0 && (
-                    <Alert icon={<IconAlertTriangle size={18} />} color="red" radius="md" title="Asignaciones de muestreo pendientes">
-                        Este muestreador tiene <b>{futureAssignments.count}</b> muestreo{futureAssignments.count !== 1 ? 's' : ''} programado{futureAssignments.count !== 1 ? 's' : ''} para fechas futuras.
-                        Tras deshabilitarlo, esos muestreos quedarán <b>huérfanos</b> y deberán ser reasignados manualmente desde Asignación o el Calendario.
-                        <Stack gap={2} mt="xs">
-                            {futureAssignments.assignments.slice(0, 5).map((a: any) => (
-                                <Text key={a.id_agendamam} size="xs" c="dimmed">
-                                    • Ficha #{a.id_fichaingresoservicio} — {a.frecuencia_correlativo} ({a.rol === 'INSTALACION' ? 'instalación' : 'retiro'}) — {a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL') : '-'}
+                    <Alert
+                        type="error"
+                        showIcon
+                        icon={<IconAlertTriangle size={18} />}
+                        message="Asignaciones de muestreo pendientes"
+                        description={
+                            <div>
+                                <Text style={{ fontSize: 13 }}>
+                                    Este muestreador tiene <b>{futureAssignments.count}</b> muestreo{futureAssignments.count !== 1 ? 's' : ''} programado{futureAssignments.count !== 1 ? 's' : ''} para fechas futuras.
+                                    Tras deshabilitarlo, esos muestreos quedarán <b>huérfanos</b> y deberán ser reasignados manualmente desde Asignación o el Calendario.
                                 </Text>
-                            ))}
-                            {futureAssignments.assignments.length > 5 && (
-                                <Text size="xs" c="dimmed" fs="italic">y {futureAssignments.assignments.length - 5} más...</Text>
-                            )}
-                        </Stack>
-                    </Alert>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
+                                    {futureAssignments.assignments.slice(0, 5).map((a: any) => (
+                                        <Text key={a.id_agendamam} type="secondary" style={{ fontSize: 12 }}>
+                                            • Ficha #{a.id_fichaingresoservicio} — {a.frecuencia_correlativo} ({a.rol === 'INSTALACION' ? 'instalación' : 'retiro'}) — {a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL') : '-'}
+                                        </Text>
+                                    ))}
+                                    {futureAssignments.assignments.length > 5 && (
+                                        <Text type="secondary" italic style={{ fontSize: 12 }}>y {futureAssignments.assignments.length - 5} más...</Text>
+                                    )}
+                                </div>
+                            </div>
+                        }
+                    />
                 )}
 
-                <Stack gap="xs">
-                    <Text size="sm" fw={700}>¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</Text>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <Text strong style={{ fontSize: 13 }}>¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</Text>
 
                     {/* Equipos list */}
                     {equipmentList.length > 0 && (
-                        <Paper p="xs" withBorder radius="md" bg="gray.0">
-                            <Stack gap={4} style={{ maxHeight: 140, overflowY: 'auto' }}>
+                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto' }}>
                                 {loadingEquipos ? (
-                                    <Center py="xs"><Loader size="xs" /></Center>
+                                    <div style={{ display: 'flex', justifyContent: 'center', padding: 8 }}><Spin size="small" /></div>
                                 ) : equipmentList.map(eq => (
-                                    <Group key={eq.id_equipo} gap="xs" wrap="nowrap">
-                                        <Badge variant="light" color="gray" size="xs" style={{ flexShrink: 0 }}>
-                                            {eq.codigo || `#${eq.id_equipo}`}
-                                        </Badge>
-                                        <Text size="xs" fw={600} truncate>{eq.nombre}</Text>
-                                        {eq.ubicacion && <Text size="xs" c="dimmed" style={{ flexShrink: 0 }}>{eq.ubicacion}</Text>}
-                                    </Group>
+                                    <div key={eq.id_equipo} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
+                                        <Tag style={{ flexShrink: 0 }}>{eq.codigo || `#${eq.id_equipo}`}</Tag>
+                                        <Text strong style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.nombre}</Text>
+                                        {eq.ubicacion && <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>{eq.ubicacion}</Text>}
+                                    </div>
                                 ))}
-                            </Stack>
-                        </Paper>
+                            </div>
+                        </Card>
                     )}
 
-                    <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
-                        {[
-                            { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: 'blue' },
-                            { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: 'teal' },
-                            { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: 'indigo' }
-                        ].map((opt) => (
-                            <UnstyledButton
-                                key={opt.id}
-                                onClick={() => setTransferType(opt.id as any)}
-                                p="md"
-                                style={{
-                                    borderRadius: 'var(--mantine-radius-md)',
-                                    border: `1px solid ${transferType === opt.id ? `var(--mantine-color-${opt.color}-4)` : 'var(--mantine-color-gray-2)'}`,
-                                    backgroundColor: transferType === opt.id ? `var(--mantine-color-${opt.color}-0)` : 'white',
-                                    transition: 'all 150ms ease',
-                                    textAlign: 'center'
-                                }}
-                            >
-                                <Center style={{ flexDirection: 'column' }}>
-                                    <ThemeIcon variant="light" color={opt.color} size="lg" mb={8} radius="md">
-                                        {opt.icon}
-                                    </ThemeIcon>
-                                    <Text size="xs" fw={700} c={transferType === opt.id ? `${opt.color}.8` : 'gray.7'}>
-                                        {opt.label}
-                                    </Text>
-                                </Center>
-                            </UnstyledButton>
-                        ))}
-                    </SimpleGrid>
-                </Stack>
+                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 8 }}>
+                        {opciones.map((opt) => {
+                            const selected = transferType === opt.id;
+                            return (
+                                <div
+                                    key={opt.id}
+                                    onClick={() => setTransferType(opt.id)}
+                                    style={{
+                                        padding: 16,
+                                        borderRadius: 8,
+                                        border: `1px solid ${selected ? opt.color : 'var(--app-border)'}`,
+                                        backgroundColor: selected ? opt.bg : 'var(--app-bg-elevated)',
+                                        transition: 'all 150ms ease',
+                                        textAlign: 'center',
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                        <div style={{
+                                            width: 36, height: 36, borderRadius: 8, backgroundColor: opt.bg, color: opt.color,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8,
+                                        }}>
+                                            {opt.icon}
+                                        </div>
+                                        <Text strong style={{ fontSize: 12, color: selected ? opt.color : 'var(--app-text-secondary)' }}>
+                                            {opt.label}
+                                        </Text>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
 
                 {transferType === 'BASE' && (
-                    <Select 
-                        label="Base de destino"
-                        placeholder="Seleccione base..."
-                        data={bases}
-                        value={targetBase}
-                        onChange={setTargetBase}
-                        required
-                        radius="md"
-                    />
+                    <Field label="Base de destino *">
+                        <Select
+                            placeholder="Seleccione base..."
+                            options={bases}
+                            value={targetBase ?? undefined}
+                            onChange={(v) => setTargetBase(v ?? null)}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
                 )}
 
                 {transferType === 'MUESTREADOR' && (
-                    <Select 
-                        label="Muestreador de destino"
-                        placeholder="Seleccione destino..."
-                        data={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                        value={targetMuestreadorId}
-                        onChange={setTargetMuestreadorId}
-                        required
-                        searchable
-                        radius="md"
-                    />
+                    <Field label="Muestreador de destino *">
+                        <Select
+                            placeholder="Seleccione destino..."
+                            options={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                            value={targetMuestreadorId ?? undefined}
+                            onChange={(v) => setTargetMuestreadorId(v ?? null)}
+                            showSearch
+                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
+                            style={{ width: '100%' }}
+                        />
+                    </Field>
                 )}
 
                 {transferType === 'MANUAL' && (
-                    <Paper p="md" withBorder radius="md" bg="gray.0">
-                        <Group justify="space-between" mb="xs">
-                            <Text size="xs" fw={800} c="dimmed">Equipos de {sampler?.nombre_muestreador}</Text>
-                            <Badge size="xs" color="indigo">{equipmentList.length} ítems</Badge>
-                        </Group>
-                        
-                        <Divider mb="md" />
+                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <Text type="secondary" strong style={{ fontSize: 11 }}>Equipos de {sampler?.nombre_muestreador}</Text>
+                            <Tag color="geekblue">{equipmentList.length} ítems</Tag>
+                        </div>
 
-                        <Stack gap="sm" style={{ maxHeight: 300, overflowY: 'auto' }}>
-                            {loadingEquipos ? <Center py="xl"><Loader size="xs" /></Center> : (
-                                equipmentList.length === 0 ? <Text size="sm" c="dimmed" ta="center" py="md">No hay equipos asignados.</Text> :
+                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '0 0 16px' }} />
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 300, overflowY: 'auto' }}>
+                            {loadingEquipos ? <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin size="small" /></div> : (
+                                equipmentList.length === 0 ? <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', padding: '16px 0' }}>No hay equipos asignados.</Text> :
                                 equipmentList.map(eq => (
-                                    <Paper key={eq.id_equipo} p="xs" bg="white" radius="md" style={{ border: '1px solid var(--mantine-color-gray-2)' }}>
-                                        <Stack gap={8}>
-                                            <Group justify="space-between" wrap="nowrap">
-                                                <Group gap="xs" wrap="nowrap" style={{ flex: 1 }}>
-                                                    <Badge variant="light" color="gray" size="xs"><IconHash size={10} /> {eq.codigo}</Badge>
-                                                    <Text size="sm" fw={600} truncate>{eq.nombre}</Text>
-                                                </Group>
+                                    <div key={eq.id_equipo} style={{ padding: 8, backgroundColor: 'var(--app-bg-elevated)', borderRadius: 8, border: '1px solid var(--app-border)' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, overflow: 'hidden' }}>
+                                                    <Tag icon={<IconHash size={10} style={{ verticalAlign: 'text-bottom' }} />}>{eq.codigo}</Tag>
+                                                    <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.nombre}</Text>
+                                                </div>
                                                 {!isMobile && (
-                                                    <Select 
-                                                        size="xs"
+                                                    <Select
+                                                        size="small"
                                                         placeholder="Destino"
-                                                        data={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                                                        value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
+                                                        options={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                                        value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
                                                         onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                                        radius="sm"
                                                         style={{ width: 140 }}
                                                     />
                                                 )}
-                                            </Group>
+                                            </div>
                                             {isMobile && (
-                                                <Select 
-                                                    size="sm"
-                                                    label="Asignar a:"
-                                                    placeholder="Seleccione destino"
-                                                    data={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                                                    value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : null}
-                                                    onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                                    radius="md"
-                                                />
+                                                <Field label="Asignar a:">
+                                                    <Select
+                                                        placeholder="Seleccione destino"
+                                                        options={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
+                                                        value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
+                                                        onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
+                                                        style={{ width: '100%' }}
+                                                    />
+                                                </Field>
                                             )}
-                                        </Stack>
-                                    </Paper>
+                                        </div>
+                                    </div>
                                 ))
                             )}
-                        </Stack>
-                    </Paper>
+                        </div>
+                    </Card>
                 )}
 
-                <Group justify="flex-end" mt="xl" grow={isMobile}>
-                    <Button variant="light" color="gray" onClick={onClose} radius="md" size={isMobile ? "md" : "sm"}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24, flexDirection: isMobile ? 'column' : 'row' }}>
+                    <Button onClick={onClose} block={isMobile}>
                         Cancelar
                     </Button>
-                    <Button 
-                        color="red" 
-                        radius="md" 
-                        loading={loading} 
-                        size={isMobile ? "md" : "sm"}
+                    <Button
+                        danger
+                        type="primary"
+                        loading={loading}
+                        block={isMobile}
                         disabled={!transferType || (transferType === 'BASE' && !targetBase) || (transferType === 'MUESTREADOR' && !targetMuestreadorId)}
                         onClick={handleConfirm}
                     >
                         Confirmar Baja
                     </Button>
-                </Group>
-            </Stack>
+                </div>
+            </div>
         </Modal>
     );
 };
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div>
+            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            {children}
+        </div>
+    );
+}
 
 export default SamplerDeactivationModal;
