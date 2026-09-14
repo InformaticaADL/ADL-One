@@ -1045,8 +1045,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 <div className="flex flex-wrap gap-4">
                     <Card
                         className={cn(
-                            'min-w-[250px] flex-1 cursor-pointer border-l-4 border-l-warning p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
-                            isPorVencerActive && 'bg-warning/10'
+                            'min-w-[250px] flex-1 cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
+                            isPorVencerActive ? 'border-warning/50 bg-warning/5' : 'border-border'
                         )}
                         onClick={() => {
                             if (isPorVencerActive) {
@@ -1076,8 +1076,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                     <Card
                         className={cn(
-                            'min-w-[250px] flex-1 cursor-pointer border-l-4 border-l-destructive p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
-                            filterExpired && 'bg-destructive/10'
+                            'min-w-[250px] flex-1 cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
+                            filterExpired ? 'border-destructive/50 bg-destructive/5' : 'border-border'
                         )}
                         onClick={() => {
                             const nextVal = !filterExpired;
@@ -1106,9 +1106,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                     <Card
                         className={cn(
-                            'min-w-[250px] flex-1 cursor-pointer border-l-4 p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
-                            'border-l-[#9c36b5]',
-                            filterInactiveSampler && 'bg-[#9c36b5]/10'
+                            'min-w-[250px] flex-1 cursor-pointer p-4 transition-all hover:-translate-y-0.5 hover:shadow-md',
+                            filterInactiveSampler ? 'border-foreground/30 bg-muted/50' : 'border-border'
                         )}
                         onClick={() => {
                             const nextVal = !filterInactiveSampler;
@@ -1125,7 +1124,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <p className="text-xs font-bold uppercase text-muted-foreground">Equipos con muestreadores vencidos</p>
                                 <p className="text-2xl font-bold text-foreground">{inactiveSamplerCount}</p>
                             </div>
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-[#9c36b5]/15 text-[#9c36b5]">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                                 <IconUserOff size={24} />
                             </div>
                         </div>
@@ -1262,7 +1261,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         <div key={equipo.id_equipo} className="flex flex-col gap-2 p-3.5">
                                             <div className="flex items-start justify-between gap-2">
                                                 <div className="min-w-0">
-                                                    <p className="truncate text-sm font-semibold text-primary">{equipo.codigo || 'S/N'}</p>
+                                                    <p className="truncate text-sm font-semibold text-foreground">{equipo.codigo || 'S/N'}</p>
                                                     <p className="truncate text-sm font-medium text-foreground">{equipo.nombre}</p>
                                                 </div>
                                                 <div className="flex shrink-0 items-center gap-1">
@@ -1348,7 +1347,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         </Button>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="whitespace-nowrap text-sm font-semibold text-primary">{equipo.codigo || 'S/N'}</TableCell>
+                                                <TableCell className="whitespace-nowrap text-sm font-semibold text-foreground">{equipo.codigo || 'S/N'}</TableCell>
                                                 <TableCell className="font-medium text-foreground">{equipo.nombre}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{equipo.tipo}</TableCell>
                                                 <TableCell className="text-sm text-muted-foreground">{equipo.ubicacion}</TableCell>
