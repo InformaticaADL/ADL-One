@@ -25,14 +25,10 @@
 
 .header {
   /* Ya no aloja el logo (vive solo en TopBar/MainLayout) — solo el botón
-     de colapsar/expandir, así que no reserva la altura alta que el logo
-     necesitaba antes. */
-  padding: 10px;
-  margin-left: -10px;
-  margin-right: -10px;
-  margin-bottom: 6px;
+     de colapsar/expandir. Sin borde ni min-height propios: así no se lee
+     como una sección/franja vacía, es solo un poco de aire arriba del menú. */
+  padding: 6px 4px 2px;
   color: var(--app-text);
-  border-bottom: 1px solid var(--app-border);
   display: flex;
   align-items: center;
 }
