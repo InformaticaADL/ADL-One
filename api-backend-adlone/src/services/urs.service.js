@@ -703,7 +703,7 @@ class UrsService {
             request.input('isAdmin', sql.Bit, isAdmin ? 1 : 0);
  
             let query = `
-                SELECT DISTINCT s.*, t.nombre as nombre_tipo, u.usuario as nombre_solicitante, 
+                SELECT DISTINCT s.*, t.nombre as nombre_tipo, COALESCE(m.nombre_muestreador, u.usuario, u.nombre_usuario, 'Desconocido') as nombre_solicitante,
                        CONVERT(VARCHAR(33), s.fecha_creacion, 126) + 'Z' as fecha_solicitud, 
                        t.area_destino, t.modulo_destino,
                        (SELECT COUNT(*) FROM mae_notificacion n 
