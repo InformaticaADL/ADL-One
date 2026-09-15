@@ -360,7 +360,7 @@ const UniversalInbox: React.FC = () => {
 
                 {/* COLUMNA · Actividad y chat */}
                 {!isMobile && (
-                    <div className="flex w-[340px] min-w-0 shrink-0 flex-col">
+                    <div className="flex min-w-[300px] max-w-[400px] flex-1 flex-col">
                         {selectedRequest ? (
                             <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
                         ) : (
