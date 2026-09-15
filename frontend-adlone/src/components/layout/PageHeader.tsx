@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button, Breadcrumb, Typography, Space } from 'antd';
-import { IconInfoCircle } from '@tabler/icons-react';
+import { Button, Typography, Space } from 'antd';
+import { IconInfoCircle, IconArrowLeft } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 
@@ -25,14 +25,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     const shouldStack = useMediaQuery('(max-width: 900px)');
     const { setHelpCenterOpen } = useNavStore();
 
-    // Sin botón "volver": la navegación hacia atrás es solo por breadcrumb.
-    // Si una página pasa onBack sin breadcrumbItems, se arma uno mínimo para
-    // que nunca quede sin forma de volver.
-    const crumbs = breadcrumbItems && breadcrumbItems.length > 0
-        ? breadcrumbItems
-        : onBack
-            ? [{ label: 'Volver', onClick: onBack }, { label: title }]
-            : [];
+    // La ruta global (Inicio / Módulo / Submódulo) ya vive en la barra de
+    // ruta sobre el contenido (RouteBreadcrumb, ver TopBar.tsx) — este
+    // encabezado ya no repite ese breadcrumb. Lo único que se conserva es un
+    // botón "Volver" chico cuando la página necesita retroceder a una vista
+    // interna anterior (ej. de "Detalle" a "Lista"): toma onBack si se pasó
+    // directo, o si no, el onClick del penúltimo breadcrumbItem (el patrón
+    // que ya usaban las páginas con navegación interna por sub-vistas).
+    const backAction = onBack ?? (breadcrumbItems && breadcrumbItems.length > 1
+        ? breadcrumbItems[breadcrumbItems.length - 2]?.onClick
+        : undefined);
 
     const helpButton = (
         <Button
@@ -48,16 +50,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
     return (
         <div style={{ marginBottom: 20, marginTop: 4 }}>
-            {crumbs.length > 0 && (
-                <Breadcrumb
-                    style={{ marginBottom: 8, fontSize: 12 }}
-                    items={crumbs.map((item) => ({
-                        title: item.label,
-                        href: item.href,
-                        onClick: item.onClick,
-                        className: item.onClick ? 'cursor-pointer' : undefined,
-                    }))}
-                />
+            {backAction && (
+                <Button
+                    type="link"
+                    size="small"
+                    icon={<IconArrowLeft size={14} />}
+                    onClick={backAction}
+                    style={{ padding: 0, marginBottom: 4, height: 'auto', fontWeight: 500 }}
+                >
+                    Volver
+                </Button>
             )}
 
             <div
