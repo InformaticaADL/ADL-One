@@ -177,7 +177,7 @@ export function RouteBreadcrumb() {
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
 
     return (
-        <div className="shadcn-scope flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+        <div className="shadcn-scope flex h-16 shrink-0 items-center justify-between gap-2 px-4 md:px-6">
             <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
                 <button type="button" onClick={() => resetNavigation()} className="flex shrink-0 items-center gap-1.5 hover:text-foreground">
                     <IconHome size={15} />
