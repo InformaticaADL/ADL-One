@@ -237,7 +237,7 @@ const UniversalInbox: React.FC = () => {
 
     return (
         <div className="shadcn-scope flex h-full flex-col overflow-hidden bg-background">
-            <div className="shrink-0 border-b border-border px-4 pt-4 md:px-6">
+            <div className="shrink-0 px-4 pt-4 md:px-6">
                 <PageHeader
                     title="Solicitudes"
                     subtitle="Bandeja de solicitudes y mensajes del sistema."
