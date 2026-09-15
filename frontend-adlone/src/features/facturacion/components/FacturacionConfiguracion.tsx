@@ -1,45 +1,45 @@
 import { useEffect, useState } from 'react';
-import {
-    Tabs, Card, Table, Tag, Button, DatePicker, InputNumber, Form, message, Spin,
-    Select, Input, Switch, Divider, Empty, Statistic, Space, Alert, Collapse,
-} from 'antd';
-import { IconDeviceFloppy, IconCoin, IconBuildingBank } from '@tabler/icons-react';
-import dayjs from 'dayjs';
+import { IconDeviceFloppy, IconCoin, IconBuildingBank, IconChevronDown } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
+import { cn } from '@/lib/utils';
+import { useToast } from '../../../contexts/ToastContext';
 import { facturacionService } from '../services/facturacion.service';
 import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/services/catalogos.service';
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', bg: '#ffffff',
-};
-
-const CSS = `
-.adl-fcf-wrap { width:100%; padding:24px 32px 48px; }
-.adl-fcf-title { margin:0 0 4px; font-size:22px; font-weight:700; color:${C.text}; letter-spacing:-.3px; }
-.adl-fcf-sub { margin:0 0 20px; font-size:13px; color:${C.textTer}; }
-.adl-fcf-ufform { display:flex; align-items:flex-end; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
-.adl-fcf-sectitle { font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:${C.textTer}; margin:18px 0 10px; }
-`;
 
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL') : '—';
+const todayIso = () => new Date().toISOString().slice(0, 10);
+const PAGE_SIZE = 10;
 
 // --- Tab: Valor UF ---
 const TabUf: React.FC = () => {
+    const { showToast } = useToast();
     const [historial, setHistorial] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [actualizando, setActualizando] = useState(false);
     const [guardando, setGuardando] = useState(false);
-    const [fecha, setFecha] = useState(dayjs());
-    const [valor, setValor] = useState<number | null>(null);
+    const [fecha, setFecha] = useState(todayIso());
+    const [valor, setValor] = useState<string>('');
+    const [page, setPage] = useState(1);
 
     const cargar = async () => {
         setLoading(true);
         try {
             setHistorial(await facturacionService.listarUfHistorial(30));
         } catch {
-            message.error('No se pudo cargar el histórico de UF');
+            showToast({ type: 'error', message: 'No se pudo cargar el histórico de UF' });
         } finally {
             setLoading(false);
         }
@@ -51,112 +51,174 @@ const TabUf: React.FC = () => {
         setActualizando(true);
         try {
             const r = await facturacionService.actualizarUf();
-            if (r.actualizado) message.success(`UF actualizada: ${r.valor}`);
-            else message.info(r.motivo || 'Sin cambios');
+            if (r.actualizado) showToast({ type: 'success', message: `UF actualizada: ${r.valor}` });
+            else showToast({ type: 'info', message: r.motivo || 'Sin cambios' });
             await cargar();
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo actualizar desde el Banco Central');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo actualizar desde el Banco Central' });
         } finally {
             setActualizando(false);
         }
     };
 
     const registrarManual = async () => {
-        if (!valor || valor <= 0) { message.warning('Ingresa un valor válido'); return; }
+        const num = Number(valor);
+        if (!num || num <= 0) { showToast({ type: 'warning', message: 'Ingresa un valor válido' }); return; }
         setGuardando(true);
         try {
-            await facturacionService.registrarUfManual(fecha.format('YYYY-MM-DD'), valor);
-            message.success('Valor UF registrado');
-            setValor(null);
+            await facturacionService.registrarUfManual(fecha, num);
+            showToast({ type: 'success', message: 'Valor UF registrado' });
+            setValor('');
             await cargar();
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo registrar el valor');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo registrar el valor' });
         } finally {
             setGuardando(false);
         }
     };
 
     const actual = historial[0];
+    const totalPages = Math.max(1, Math.ceil(historial.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const paginated = historial.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
     return (
         <>
-            <Space size={24} style={{ marginBottom: 20 }}>
-                <Card size="small" style={{ minWidth: 180 }}>
-                    <Statistic
-                        title="UF vigente"
-                        value={actual ? actual.valor : 0}
-                        precision={2}
-                        prefix={<IconCoin size={16} color={C.primary} />}
-                        formatter={(v) => `$ ${fmtUf(Number(v))}`}
-                    />
-                    <div style={{ fontSize: 12, color: C.textTer, marginTop: 4 }}>
-                        {actual ? `${fmtFecha(actual.fecha)} · ${actual.fuente === 'BCCH_API' ? 'Banco Central' : actual.fuente === 'MANUAL' ? 'Manual' : actual.fuente}` : 'Sin registros'}
-                    </div>
+            <div className="mb-5 flex flex-wrap items-end gap-6">
+                <Card className="min-w-[180px]">
+                    <CardContent className="p-4">
+                        <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <IconCoin size={16} className="text-primary" /> UF vigente
+                        </p>
+                        <p className="text-2xl font-semibold text-foreground">$ {fmtUf(actual ? actual.valor : 0)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            {actual ? `${fmtFecha(actual.fecha)} · ${actual.fuente === 'BCCH_API' ? 'Banco Central' : actual.fuente === 'MANUAL' ? 'Manual' : actual.fuente}` : 'Sin registros'}
+                        </p>
+                    </CardContent>
                 </Card>
-                <Button icon={<IconBuildingBank size={15} />} loading={actualizando} onClick={actualizarDesdeBcch}>
+                <Button variant="outline" disabled={actualizando} onClick={actualizarDesdeBcch}>
+                    {actualizando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconBuildingBank size={15} />}
                     Actualizar desde Banco Central
                 </Button>
-            </Space>
+            </div>
 
-            <p className="adl-fcf-sectitle">Registrar / corregir manualmente</p>
-            <div className="adl-fcf-ufform">
-                <Form.Item label="Fecha" style={{ marginBottom: 0 }}>
-                    <DatePicker value={fecha} onChange={(v) => v && setFecha(v)} allowClear={false} />
-                </Form.Item>
-                <Form.Item label="Valor UF" style={{ marginBottom: 0 }}>
-                    <InputNumber min={0} step={0.01} value={valor} onChange={setValor} style={{ width: 160 }} />
-                </Form.Item>
-                <Button type="primary" icon={<IconDeviceFloppy size={15} />} loading={guardando} onClick={registrarManual}>
+            <p className="mb-2.5 mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">Registrar / corregir manualmente</p>
+            <div className="mb-4 flex flex-wrap items-end gap-2.5">
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Fecha</Label>
+                    <DatePicker value={fecha} onChange={(v) => v && setFecha(v)} className="w-[160px]" />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label className="text-xs font-medium text-muted-foreground">Valor UF</Label>
+                    <Input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={valor}
+                        onChange={(e) => setValor(e.target.value)}
+                        className="w-40"
+                    />
+                </div>
+                <Button disabled={guardando} onClick={registrarManual}>
+                    {guardando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconDeviceFloppy size={15} />}
                     Guardar
                 </Button>
             </div>
 
-            <p className="adl-fcf-sectitle">Histórico</p>
+            <p className="mb-2.5 mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">Histórico</p>
             {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin /></div>
+                <div className="flex justify-center p-10">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
             ) : (
-                <Table
-                    size="small"
-                    pagination={{ pageSize: 10, size: 'small' }}
-                    rowKey="fecha"
-                    dataSource={historial}
-                    columns={[
-                        { title: 'Fecha', dataIndex: 'fecha', render: fmtFecha },
-                        { title: 'Valor', dataIndex: 'valor', align: 'right', render: (v) => fmtUf(v) },
-                        {
-                            title: 'Fuente', dataIndex: 'fuente', width: 130,
-                            render: (v) => <Tag color={v === 'MANUAL' ? 'gold' : v === 'BCCH_API' ? 'blue' : 'default'}>{v}</Tag>,
-                        },
-                        { title: 'Registrado', dataIndex: 'fecha_registro', render: fmtFechaHora },
-                    ]}
-                />
+                <div className="flex flex-col gap-3">
+                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead>Fecha</TableHead>
+                                    <TableHead className="text-right">Valor</TableHead>
+                                    <TableHead>Fuente</TableHead>
+                                    <TableHead>Registrado</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {paginated.length > 0 ? paginated.map((h, i) => (
+                                    <TableRow key={i}>
+                                        <TableCell>{fmtFecha(h.fecha)}</TableCell>
+                                        <TableCell className="text-right tabular-nums">{fmtUf(h.valor)}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={h.fuente === 'MANUAL' ? 'warning' : h.fuente === 'BCCH_API' ? 'outline' : 'secondary'}>{h.fuente}</Badge>
+                                        </TableCell>
+                                        <TableCell>{fmtFechaHora(h.fecha_registro)}</TableCell>
+                                    </TableRow>
+                                )) : (
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableCell colSpan={4} className="py-8 text-center text-sm text-muted-foreground">Sin registros</TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={historial.length} onPageChange={setPage} />
+                </div>
             )}
         </>
     );
 };
 
+interface ClienteConfigForm {
+    requiereOc?: boolean;
+    requiereHes?: boolean;
+    emailFacturacion?: string;
+    formaPagoDefault?: string;
+    diasAlertaOc?: number;
+    rut?: string;
+    razonSocial?: string;
+    direccion?: string;
+    giro?: string;
+    idCliVentas?: number;
+    idDirVentas?: number;
+    idGirVentas?: number;
+    idCiuVentas?: number;
+    nomCiuVentas?: string;
+    idComVentas?: number;
+    nomComVentas?: string;
+    idFormapagoVentas?: number;
+    portalClienteCodigo?: string;
+    portalSedeCodigo?: string;
+}
+
 // --- Tab: Clientes (fac_cliente_config) ---
 const TabClientes: React.FC = () => {
+    const { showToast } = useToast();
     const [empresas, setEmpresas] = useState<EmpresaServicio[]>([]);
-    const [idSel, setIdSel] = useState<number | undefined>();
+    const [idSel, setIdSel] = useState<string | undefined>();
     const [loadingCfg, setLoadingCfg] = useState(false);
     const [guardando, setGuardando] = useState(false);
     const [tieneConfigGuardada, setTieneConfigGuardada] = useState(false);
-    const [form] = Form.useForm();
+    const [ventasOpen, setVentasOpen] = useState(false);
+    const [portalOpen, setPortalOpen] = useState(false);
+
+    const [values, setValues] = useState<ClienteConfigForm>({});
+    const setField = <K extends keyof ClienteConfigForm>(k: K, v: ClienteConfigForm[K]) =>
+        setValues((prev) => ({ ...prev, [k]: v }));
 
     useEffect(() => {
         catalogosService.getEmpresasServicio()
             .then((raw: any[]) => setEmpresas(raw.map((e) => ({ id: e.id_empresaservicio, nombre: e.nombre_empresaservicios }))))
-            .catch(() => message.error('No se pudieron cargar los clientes'));
+            .catch(() => showToast({ type: 'error', message: 'No se pudieron cargar los clientes' }));
     }, []);
 
-    const seleccionar = async (id: number) => {
-        setIdSel(id);
+    const seleccionar = async (idStr: string | undefined) => {
+        setIdSel(idStr);
+        if (!idStr) return;
+        const id = Number(idStr);
         setLoadingCfg(true);
         try {
             const cfg = await facturacionService.getClienteConfig(id);
             setTieneConfigGuardada(!!cfg?.tiene_config_guardada);
-            form.setFieldsValue({
+            setValues({
                 requiereOc: cfg?.requiere_oc !== 'N',
                 requiereHes: cfg?.requiere_hes === 'S',
                 emailFacturacion: cfg?.email_facturacion || '',
@@ -178,7 +240,7 @@ const TabClientes: React.FC = () => {
                 portalSedeCodigo: cfg?.portal_sede_codigo || '',
             });
         } catch {
-            message.error('No se pudo cargar la configuración del cliente');
+            showToast({ type: 'error', message: 'No se pudo cargar la configuración del cliente' });
         } finally {
             setLoadingCfg(false);
         }
@@ -186,10 +248,13 @@ const TabClientes: React.FC = () => {
 
     const guardar = async () => {
         if (!idSel) return;
+        if (values.emailFacturacion && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.emailFacturacion)) {
+            showToast({ type: 'error', message: 'Email inválido' });
+            return;
+        }
+        setGuardando(true);
         try {
-            const values = await form.validateFields();
-            setGuardando(true);
-            await facturacionService.upsertClienteConfig(idSel, {
+            await facturacionService.upsertClienteConfig(Number(idSel), {
                 requiereOc: values.requiereOc ? 'S' : 'N',
                 requiereHes: values.requiereHes ? 'S' : 'N',
                 emailFacturacion: values.emailFacturacion || undefined,
@@ -210,11 +275,10 @@ const TabClientes: React.FC = () => {
                 portalClienteCodigo: values.portalClienteCodigo || undefined,
                 portalSedeCodigo: values.portalSedeCodigo || undefined,
             });
-            message.success('Configuración guardada');
+            showToast({ type: 'success', message: 'Configuración guardada' });
             setTieneConfigGuardada(true);
         } catch (e: any) {
-            if (e?.errorFields) return;
-            message.error(e?.response?.data?.message || 'No se pudo guardar la configuración');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo guardar la configuración' });
         } finally {
             setGuardando(false);
         }
@@ -222,137 +286,173 @@ const TabClientes: React.FC = () => {
 
     return (
         <>
-            <Select
-                showSearch
-                allowClear
-                style={{ width: 340, marginBottom: 16 }}
+            <Combobox
+                value={idSel}
+                onValueChange={seleccionar}
                 placeholder="Selecciona un cliente para configurar"
-                optionFilterProp="label"
-                options={empresas.map((e) => ({ value: e.id, label: e.nombre }))}
-                onChange={(v) => v ? seleccionar(v) : setIdSel(undefined)}
+                searchPlaceholder="Buscar cliente..."
+                className="mb-4 w-[340px]"
+                options={empresas.map((e) => ({ value: String(e.id), label: e.nombre }))}
             />
 
             {!idSel ? (
-                <Empty description="Selecciona un cliente para ver o editar su configuración de facturación." />
+                <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+                    Selecciona un cliente para ver o editar su configuración de facturación.
+                </p>
             ) : loadingCfg ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin /></div>
+                <div className="flex justify-center p-10">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
             ) : (
-                <Form form={form} layout="vertical">
+                <div className="flex flex-col gap-4">
                     {!tieneConfigGuardada ? (
-                        <Alert
-                            type="info"
-                            showIcon
-                            style={{ marginBottom: 16 }}
-                            message="Aún no hay configuración guardada para este cliente"
-                            description="Los campos ya vienen pre-cargados con lo que existe en la ficha del cliente (RUT, dirección, giro, email). Revísalos y guarda para confirmarlos como su configuración de facturación."
-                        />
+                        <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                            <p className="font-medium text-foreground">Aún no hay configuración guardada para este cliente</p>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Los campos ya vienen pre-cargados con lo que existe en la ficha del cliente (RUT, dirección, giro, email). Revísalos y guarda para confirmarlos como su configuración de facturación.
+                            </p>
+                        </div>
                     ) : (
-                        <Alert type="success" showIcon style={{ marginBottom: 16 }} message="Este cliente ya tiene configuración de facturación guardada." />
+                        <div className="rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-foreground">
+                            Este cliente ya tiene configuración de facturación guardada.
+                        </div>
                     )}
-                    <p className="adl-fcf-sectitle">Envío y OC</p>
-                    <Form.Item name="emailFacturacion" label="Email de facturación" rules={[{ type: 'email', message: 'Email inválido' }]}>
-                        <Input placeholder="facturacion@cliente.cl" />
-                    </Form.Item>
-                    <Space size={24}>
-                        <Form.Item name="requiereOc" label="Requiere Orden de Compra" valuePropName="checked">
-                            <Switch />
-                        </Form.Item>
-                        <Form.Item name="requiereHes" label="Requiere HES" valuePropName="checked">
-                            <Switch />
-                        </Form.Item>
-                        <Form.Item name="diasAlertaOc" label="Alertar OC demorada (días)">
-                            <InputNumber min={1} />
-                        </Form.Item>
-                    </Space>
-                    <Form.Item name="formaPagoDefault" label="Forma de pago por defecto">
-                        <Input placeholder="Opcional" />
-                    </Form.Item>
 
-                    <Divider />
-                    <p className="adl-fcf-sectitle">Datos SII</p>
-                    <Space size={12} wrap>
-                        <Form.Item name="rut" label="RUT"><Input style={{ width: 150 }} placeholder="76.123.456-7" /></Form.Item>
-                        <Form.Item name="razonSocial" label="Razón social"><Input style={{ width: 260 }} /></Form.Item>
-                    </Space>
-                    <Space size={12} wrap>
-                        <Form.Item name="direccion" label="Dirección"><Input style={{ width: 260 }} /></Form.Item>
-                        <Form.Item name="giro" label="Giro"><Input style={{ width: 200 }} /></Form.Item>
-                    </Space>
+                    <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Envío y OC</p>
+                    <Field label="Email de facturación">
+                        <Input placeholder="facturacion@cliente.cl" value={values.emailFacturacion || ''} onChange={(e) => setField('emailFacturacion', e.target.value)} />
+                    </Field>
+                    <div className="flex flex-wrap items-center gap-6">
+                        <div className="flex items-center gap-2">
+                            <Switch checked={!!values.requiereOc} onCheckedChange={(v) => setField('requiereOc', v)} id="requiereOc" />
+                            <Label htmlFor="requiereOc" className="text-sm font-normal">Requiere Orden de Compra</Label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Switch checked={!!values.requiereHes} onCheckedChange={(v) => setField('requiereHes', v)} id="requiereHes" />
+                            <Label htmlFor="requiereHes" className="text-sm font-normal">Requiere HES</Label>
+                        </div>
+                        <Field label="Alertar OC demorada (días)" className="w-40">
+                            <Input type="number" min={1} value={values.diasAlertaOc ?? ''} onChange={(e) => setField('diasAlertaOc', e.target.value ? Number(e.target.value) : undefined)} />
+                        </Field>
+                    </div>
+                    <Field label="Forma de pago por defecto">
+                        <Input placeholder="Opcional" value={values.formaPagoDefault || ''} onChange={(e) => setField('formaPagoDefault', e.target.value)} />
+                    </Field>
 
-                    <Divider />
-                    <Collapse
-                        ghost
-                        items={[
-                            {
-                                key: 'ventas',
-                                label: <span className="adl-fcf-sectitle" style={{ margin: 0 }}>Sistema de Ventas (avanzado / opcional)</span>,
-                                children: (
-                                    <>
-                                        <Alert
-                                            type="info"
-                                            showIcon
-                                            style={{ marginBottom: 12 }}
-                                            message="No es necesario llenar esto para emitir"
-                                            description="Al emitir, el sistema busca automáticamente al cliente en el Sistema de Ventas por su RUT. Completa estos campos solo si quieres forzar un ID específico, o si la emisión te avisa que no encontró al cliente por RUT."
-                                        />
-                                        <Space size={12} wrap>
-                                            <Form.Item name="idCliVentas" label="ID cliente"><InputNumber style={{ width: 120 }} /></Form.Item>
-                                            <Form.Item name="idDirVentas" label="ID dirección"><InputNumber style={{ width: 120 }} /></Form.Item>
-                                            <Form.Item name="idGirVentas" label="ID giro"><InputNumber style={{ width: 120 }} /></Form.Item>
-                                            <Form.Item name="idFormapagoVentas" label="ID forma pago"><InputNumber style={{ width: 120 }} /></Form.Item>
-                                        </Space>
-                                        <Space size={12} wrap>
-                                            <Form.Item name="idCiuVentas" label="ID ciudad"><InputNumber style={{ width: 120 }} /></Form.Item>
-                                            <Form.Item name="nomCiuVentas" label="Nombre ciudad"><Input style={{ width: 160 }} /></Form.Item>
-                                            <Form.Item name="idComVentas" label="ID comuna"><InputNumber style={{ width: 120 }} /></Form.Item>
-                                            <Form.Item name="nomComVentas" label="Nombre comuna"><Input style={{ width: 160 }} /></Form.Item>
-                                        </Space>
-                                    </>
-                                ),
-                            },
-                            {
-                                key: 'portal',
-                                label: <span className="adl-fcf-sectitle" style={{ margin: 0 }}>Portal ADL WEB GO (avanzado / opcional)</span>,
-                                children: (
-                                    <>
-                                        <Alert
-                                            type="warning"
-                                            showIcon
-                                            style={{ marginBottom: 12 }}
-                                            message="Solo si vas a publicar la pre-factura en el portal del cliente"
-                                            description="Estos códigos son propios de ADL WEB GO (WebClientesV2) y no se pueden resolver automáticamente desde ADL ONE — hay que coordinarlos con ese equipo antes de usar 'Publicar en portal'. El flujo normal de facturación (procesar, pre-factura, OC, emisión) no los necesita."
-                                        />
-                                        <Space size={12} wrap>
-                                            <Form.Item name="portalClienteCodigo" label="Código cliente portal"><Input style={{ width: 180 }} /></Form.Item>
-                                            <Form.Item name="portalSedeCodigo" label="Código sede portal"><Input style={{ width: 180 }} /></Form.Item>
-                                        </Space>
-                                    </>
-                                ),
-                            },
-                        ]}
-                    />
+                    <div className="border-t border-border pt-4">
+                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Datos SII</p>
+                        <div className="flex flex-wrap gap-3">
+                            <Field label="RUT" className="w-[150px]">
+                                <Input placeholder="76.123.456-7" value={values.rut || ''} onChange={(e) => setField('rut', e.target.value)} />
+                            </Field>
+                            <Field label="Razón social" className="w-[260px]">
+                                <Input value={values.razonSocial || ''} onChange={(e) => setField('razonSocial', e.target.value)} />
+                            </Field>
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-3">
+                            <Field label="Dirección" className="w-[260px]">
+                                <Input value={values.direccion || ''} onChange={(e) => setField('direccion', e.target.value)} />
+                            </Field>
+                            <Field label="Giro" className="w-[200px]">
+                                <Input value={values.giro || ''} onChange={(e) => setField('giro', e.target.value)} />
+                            </Field>
+                        </div>
+                    </div>
 
-                    <Button type="primary" icon={<IconDeviceFloppy size={15} />} loading={guardando} onClick={guardar} style={{ marginTop: 16 }}>
+                    <div className="border-t border-border pt-4">
+                        <button
+                            type="button"
+                            onClick={() => setVentasOpen((v) => !v)}
+                            className="flex w-full items-center justify-between text-left text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        >
+                            Sistema de Ventas (avanzado / opcional)
+                            <IconChevronDown size={14} className={cn('transition-transform', ventasOpen && 'rotate-180')} />
+                        </button>
+                        {ventasOpen && (
+                            <div className="mt-3 flex flex-col gap-3">
+                                <div className="rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                                    <p className="font-medium text-foreground">No es necesario llenar esto para emitir</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Al emitir, el sistema busca automáticamente al cliente en el Sistema de Ventas por su RUT. Completa estos campos solo si quieres forzar un ID específico, o si la emisión te avisa que no encontró al cliente por RUT.
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <Field label="ID cliente" className="w-[120px]"><Input type="number" value={values.idCliVentas ?? ''} onChange={(e) => setField('idCliVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="ID dirección" className="w-[120px]"><Input type="number" value={values.idDirVentas ?? ''} onChange={(e) => setField('idDirVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="ID giro" className="w-[120px]"><Input type="number" value={values.idGirVentas ?? ''} onChange={(e) => setField('idGirVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="ID forma pago" className="w-[120px]"><Input type="number" value={values.idFormapagoVentas ?? ''} onChange={(e) => setField('idFormapagoVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <Field label="ID ciudad" className="w-[120px]"><Input type="number" value={values.idCiuVentas ?? ''} onChange={(e) => setField('idCiuVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="Nombre ciudad" className="w-40"><Input value={values.nomCiuVentas || ''} onChange={(e) => setField('nomCiuVentas', e.target.value)} /></Field>
+                                    <Field label="ID comuna" className="w-[120px]"><Input type="number" value={values.idComVentas ?? ''} onChange={(e) => setField('idComVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="Nombre comuna" className="w-40"><Input value={values.nomComVentas || ''} onChange={(e) => setField('nomComVentas', e.target.value)} /></Field>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="border-t border-border pt-4">
+                        <button
+                            type="button"
+                            onClick={() => setPortalOpen((v) => !v)}
+                            className="flex w-full items-center justify-between text-left text-xs font-bold uppercase tracking-wide text-muted-foreground"
+                        >
+                            Portal ADL WEB GO (avanzado / opcional)
+                            <IconChevronDown size={14} className={cn('transition-transform', portalOpen && 'rotate-180')} />
+                        </button>
+                        {portalOpen && (
+                            <div className="mt-3 flex flex-col gap-3">
+                                <div className="rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm">
+                                    <p className="font-medium text-foreground">Solo si vas a publicar la pre-factura en el portal del cliente</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Estos códigos son propios de ADL WEB GO (WebClientesV2) y no se pueden resolver automáticamente desde ADL ONE — hay que coordinarlos con ese equipo antes de usar "Publicar en portal". El flujo normal de facturación (procesar, pre-factura, OC, emisión) no los necesita.
+                                    </p>
+                                </div>
+                                <div className="flex flex-wrap gap-3">
+                                    <Field label="Código cliente portal" className="w-[180px]"><Input value={values.portalClienteCodigo || ''} onChange={(e) => setField('portalClienteCodigo', e.target.value)} /></Field>
+                                    <Field label="Código sede portal" className="w-[180px]"><Input value={values.portalSedeCodigo || ''} onChange={(e) => setField('portalSedeCodigo', e.target.value)} /></Field>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <Button disabled={guardando} onClick={guardar} className="mt-2 w-fit">
+                        {guardando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconDeviceFloppy size={15} />}
                         Guardar configuración
                     </Button>
-                </Form>
+                </div>
             )}
         </>
     );
 };
 
+function Field({ label, className, children }: { label: string; className?: string; children: React.ReactNode }) {
+    return (
+        <div className={cn('flex flex-col gap-1.5', className)}>
+            <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+            {children}
+        </div>
+    );
+}
+
 const FacturacionConfiguracion: React.FC = () => {
     return (
-        <div className="adl-fcf-wrap">
-            <style>{CSS}</style>
-            <h2 className="adl-fcf-title">Configuración</h2>
-            <p className="adl-fcf-sub">Valor UF y datos de facturación por cliente.</p>
-            <Tabs
-                items={[
-                    { key: 'uf', label: 'Valor UF', children: <TabUf /> },
-                    { key: 'clientes', label: 'Clientes', children: <TabClientes /> },
-                ]}
-            />
+        <div className="shadcn-scope w-full p-6 pb-12">
+            <h2 className="mb-1 text-[22px] font-bold tracking-tight text-foreground">Configuración</h2>
+            <p className="mb-5 text-sm text-muted-foreground">Valor UF y datos de facturación por cliente.</p>
+            <Tabs defaultValue="uf">
+                <TabsList className="mb-4">
+                    <TabsTrigger value="uf">Valor UF</TabsTrigger>
+                    <TabsTrigger value="clientes">Clientes</TabsTrigger>
+                </TabsList>
+                <TabsContent value="uf">
+                    <TabUf />
+                </TabsContent>
+                <TabsContent value="clientes">
+                    <TabClientes />
+                </TabsContent>
+            </Tabs>
         </div>
     );
 };
