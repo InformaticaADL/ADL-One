@@ -1,6 +1,6 @@
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import FileIcon from './FileIcon';
 import DeriveRequestModal from './DeriveRequestModal';
 import { useToast } from '../../../contexts/ToastContext';
@@ -109,6 +109,13 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const [pendingAction, setPendingAction] = useState<string | null>(null);
     const [actionLoading, setActionLoading] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
+    const historyRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (historyOpen) {
+            setTimeout(() => historyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }), 150);
+        }
+    }, [historyOpen]);
 
     const isClosed = request?.estado === 'REALIZADA' || request?.estado === 'RECHAZADA' || request?.estado === 'CANCELADA';
     const isCreator = Number(request?.id_solicitante) === Number(user?.id);
@@ -175,7 +182,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const dj = request.datos_json || {};
 
     return (
-        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-4">
+        <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4">
             {/* Header */}
             <Card className="p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -491,7 +498,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             )}
 
             {/* History */}
-            <Card className="p-4">
+            <Card ref={historyRef} className="p-4">
                 <button type="button" className="flex w-full items-center justify-between border-none bg-transparent p-0" onClick={() => setHistoryOpen(!historyOpen)}>
                     <div className="flex items-center gap-2">
                         <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><IconHistory size={17} /></span>
