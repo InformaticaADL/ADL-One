@@ -137,7 +137,7 @@ const UniversalInbox: React.FC = () => {
         if (!dateStr) return '';
         const d = new Date(dateStr), today = new Date();
         if (d.toDateString() === today.toDateString()) return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit', hour12: false });
-        return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
+        return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }).replace(',', '');
     };
 
     const filteredRequests = useMemo(() => requests.filter((req) => {
@@ -301,7 +301,9 @@ const UniversalInbox: React.FC = () => {
                                                                 {req.titulo || req.nombre_tipo}
                                                             </div>
                                                             <div className="truncate text-xs text-muted-foreground">
-                                                                #{req.id_solicitud} · {req.nombre_tipo}
+                                                                #{req.id_solicitud}
+                                                                {req.titulo && req.titulo !== req.nombre_tipo ? ` · ${req.nombre_tipo}` : ''}
+                                                                {' · '}{req.area_destino || 'Sin área'}
                                                             </div>
                                                         </div>
                                                     </button>
@@ -360,7 +362,7 @@ const UniversalInbox: React.FC = () => {
 
                 {/* COLUMNA · Actividad y chat */}
                 {!isMobile && (
-                    <div className="flex w-[380px] min-w-0 shrink-0 flex-col">
+                    <div className="flex w-[460px] min-w-0 shrink-0 flex-col">
                         {selectedRequest ? (
                             <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
                         ) : (

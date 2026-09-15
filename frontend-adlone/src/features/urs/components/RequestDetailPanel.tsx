@@ -198,7 +198,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                         <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><IconCalendar size={15} /></span>
                         <div>
                             <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Creada</div>
-                            <div className="text-sm font-semibold text-foreground">{new Date(request.fecha_creacion).toLocaleDateString('es-CL', { day: '2-digit', month: 'short', year: 'numeric' })}</div>
+                            <div className="text-sm font-semibold text-foreground">{new Date(request.fecha_creacion).toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
                         </div>
                     </div>
                     <div className="flex items-start gap-2">
@@ -332,7 +332,6 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                             </div>
                             {(dj.fecha_extravio || dj.fecha_suceso || dj.fecha_ocurrencia) && (
                                 <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3">
-                                    <IconCalendar size={18} className="text-primary" />
                                     <div>
                                         <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Fecha del Suceso</div>
                                         <span className="text-sm font-semibold text-foreground">
