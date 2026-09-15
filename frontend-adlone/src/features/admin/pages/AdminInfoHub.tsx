@@ -1,9 +1,6 @@
 import React, { useState } from 'react';
-import { Typography, Card, Button, Select } from 'antd';
 import {
     IconDownload,
-    IconDatabase,
-    IconLayoutGrid,
     IconSettings,
     IconFileSpreadsheet,
     IconChevronRight
@@ -13,8 +10,9 @@ import * as XLSX from 'xlsx';
 import { adminExportService } from '../services/admin.service';
 import { EquipoCatalogoView } from '../components/EquipoCatalogoView';
 import { PageHeader } from '../../../components/layout/PageHeader';
-
-const { Text } = Typography;
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
 
 // List of areas with specific permissions
 const AREAS: { id: string, label: string, icon: string, permission: string | string[], description?: string }[] = [
@@ -63,7 +61,6 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     const [selectedArea, setSelectedArea] = useState<string>(TABLES_TO_EXPORT[0].area);
     const [selectedId, setSelectedId] = useState(TABLES_TO_EXPORT[0].id);
     const [exporting, setExporting] = useState(false);
-    const [hoveredId, setHoveredId] = useState<string | null>(null);
 
     const activeExport = TABLES_TO_EXPORT.find(t => t.id === selectedId);
     const areas = Array.from(new Set(TABLES_TO_EXPORT.map(t => t.area)));
@@ -102,7 +99,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     }
 
     return (
-        <div style={{ padding: 16, width: '100%' }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title={currentView === 'export' ? 'Centro de Exportación' : 'Admin. Info'}
                 subtitle={currentView === 'export'
@@ -113,23 +110,17 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                     ? [{ label: 'Admin. Info', onClick: () => setCurrentView('grid') }, { label: 'Centro de Exportación' }]
                     : undefined}
                 rightSection={currentView === 'grid' ? (
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    <div className="flex gap-2">
                         {/* RB-08: AI_MA_ADMIN_ACCESO eliminado */}
                         {isRdiaz && (
-                            <Button
-                                icon={<IconSettings size={18} />}
-                                onClick={() => setCurrentView('catalogo')}
-                            >
+                            <Button variant="outline" onClick={() => setCurrentView('catalogo')}>
+                                <IconSettings size={16} />
                                 Catálogo Maestro
                             </Button>
                         )}
                         {isRdiaz && (
-                            <Button
-                                type="primary"
-                                style={{ backgroundColor: '#2f9e44' }}
-                                icon={<IconDownload size={18} />}
-                                onClick={() => setCurrentView('export')}
-                            >
+                            <Button onClick={() => setCurrentView('export')}>
+                                <IconDownload size={16} />
                                 Exportar Datos
                             </Button>
                         )}
@@ -137,95 +128,71 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                 ) : null}
             />
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
+            <div className="mt-8 flex flex-col gap-6">
                 {currentView === 'grid' ? (
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
+                    <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                         {visibleAreas.map((area) => (
-                            <div
+                            <Card
                                 key={area.id}
                                 onClick={() => onNavigate(area.id)}
-                                onMouseEnter={() => setHoveredId(area.id)}
-                                onMouseLeave={() => setHoveredId(null)}
-                                style={{ cursor: 'pointer' }}
+                                className="flex h-full min-h-[180px] cursor-pointer flex-col items-center justify-center p-6 text-center transition-all hover:-translate-y-1 hover:border-primary hover:bg-accent"
                             >
-                                <Card
-                                    style={{
-                                        height: '100%',
-                                        minHeight: 180,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transition: 'all 0.2s ease',
-                                        transform: hoveredId === area.id ? 'translateY(-5px)' : 'none',
-                                        borderColor: hoveredId === area.id ? '#1677ff' : undefined,
-                                        backgroundColor: hoveredId === area.id ? 'var(--app-accent-bg)' : undefined,
-                                    }}
-                                    styles={{ body: { textAlign: 'center', width: '100%' } }}
-                                >
-                                    <div style={{ fontSize: '2.5rem', marginBottom: 16 }}>
-                                        {area.icon}
-                                    </div>
-                                    <Text strong style={{ fontSize: 16, textAlign: 'center', display: 'block' }}>{area.label}</Text>
-                                    <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block', marginTop: 4 }}>{area.description}</Text>
-                                    <div style={{ marginTop: 16, color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4 }}>
-                                        <Text strong style={{ fontSize: 12, color: '#1677ff' }}>Acceder</Text>
-                                        <IconChevronRight size={12} />
-                                    </div>
-                                </Card>
-                            </div>
+                                <div className="mb-4 text-4xl">{area.icon}</div>
+                                <p className="text-base font-semibold text-foreground">{area.label}</p>
+                                <p className="mt-1 text-xs text-muted-foreground">{area.description}</p>
+                                <div className="mt-4 flex items-center justify-center gap-1 text-primary">
+                                    <span className="text-xs font-semibold">Acceder</span>
+                                    <IconChevronRight size={12} />
+                                </div>
+                            </Card>
                         ))}
                     </div>
                 ) : (
-                    <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+                    <Card className="p-6">
+                        <div className="flex flex-col gap-6">
+                            <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                                 <Field label="1. Área de Negocio">
-                                    <Select
+                                    <Combobox
                                         placeholder="Seleccione área"
                                         options={areas.map(a => ({ value: a, label: a }))}
                                         value={selectedArea}
-                                        onChange={(val) => {
+                                        onValueChange={(val) => {
                                             setSelectedArea(val);
                                             const firstInArea = TABLES_TO_EXPORT.find(t => t.area === val);
                                             if (firstInArea) setSelectedId(firstInArea.id);
                                         }}
-                                        suffixIcon={<IconLayoutGrid size={14} />}
-                                        style={{ width: '100%' }}
                                     />
                                 </Field>
                                 <Field label="2. Recurso / Tabla">
-                                    <Select
+                                    <Combobox
                                         placeholder="Seleccione recurso"
                                         options={TABLES_TO_EXPORT.filter(t => t.area === selectedArea).map(t => ({
                                             value: t.id,
                                             label: t.label
                                         }))}
                                         value={selectedId}
-                                        onChange={(val) => setSelectedId(val)}
-                                        suffixIcon={<IconDatabase size={14} />}
-                                        style={{ width: '100%' }}
+                                        onValueChange={(val) => setSelectedId(val)}
                                     />
                                 </Field>
                             </div>
 
-                            <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                        <div style={{ width: 44, height: 44, borderRadius: 8, backgroundColor: 'rgba(0,98,168,0.12)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Card className="bg-muted/40 p-4">
+                                <div className="flex flex-wrap items-center justify-between gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                             <IconFileSpreadsheet size={24} />
                                         </div>
                                         <div>
-                                            <Text strong style={{ fontSize: 13, color: '#1864ab' }}>Recurso: {activeExport?.label}</Text>
-                                            <Text style={{ fontSize: 12, color: '#1864ab', display: 'block' }}>Se generará un archivo Excel (.xlsx) con los datos del servidor.</Text>
+                                            <p className="text-sm font-semibold text-foreground">Recurso: {activeExport?.label}</p>
+                                            <p className="text-xs text-muted-foreground">Se generará un archivo Excel (.xlsx) con los datos del servidor.</p>
                                         </div>
                                     </div>
-                                    <Button
-                                        type="primary"
-                                        style={{ backgroundColor: '#2f9e44' }}
-                                        onClick={handleExport}
-                                        loading={exporting}
-                                        icon={<IconDownload size={18} />}
-                                    >
+                                    <Button onClick={handleExport} disabled={exporting}>
+                                        {exporting ? (
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                        ) : (
+                                            <IconDownload size={16} />
+                                        )}
                                         Generar Reporte
                                     </Button>
                                 </div>
@@ -241,7 +208,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <p className="mb-1 text-xs text-muted-foreground">{label}</p>
             {children}
         </div>
     );
