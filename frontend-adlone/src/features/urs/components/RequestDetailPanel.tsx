@@ -175,7 +175,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const dj = request.datos_json || {};
 
     return (
-        <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4">
+        <div className="mx-auto flex w-full max-w-[680px] flex-col gap-4">
             {/* Header */}
             <Card className="p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -187,13 +187,6 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                 )}
                 <h2 className="m-0 mb-3.5 text-xl font-bold tracking-tight text-foreground">{request.titulo || request.nombre_tipo}</h2>
                 <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-4">
-                    <div className="flex min-w-0 items-start gap-2">
-                        <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><IconFileText size={15} /></span>
-                        <div className="min-w-0">
-                            <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Tipo</div>
-                            <div className="truncate text-sm font-semibold text-foreground">{request.nombre_tipo}</div>
-                        </div>
-                    </div>
                     <div className="flex items-start gap-2">
                         <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground"><IconCalendar size={15} /></span>
                         <div>

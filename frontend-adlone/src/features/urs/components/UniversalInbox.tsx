@@ -248,7 +248,7 @@ const UniversalInbox: React.FC = () => {
 
                 {/* COLUMNA · Bandeja */}
                 {(!isMobile || !selectedRequestId) && (
-                    <div className={cn('flex min-w-0 shrink-0 flex-col border-r border-border', isMobile ? 'w-full border-r-0' : 'w-[320px]')}>
+                    <div className={cn('flex min-w-0 shrink-0 flex-col border-r border-border', isMobile ? 'w-full border-r-0' : 'w-[380px]')}>
                         <div className="flex flex-col gap-2.5 border-b border-border p-3">
                             {isMobile && <div className="flex flex-col gap-3">{sidebarContent}</div>}
                             <div className="relative">
@@ -357,7 +357,7 @@ const UniversalInbox: React.FC = () => {
 
                 {/* COLUMNA · Actividad y chat */}
                 {!isMobile && (
-                    <div className="flex w-[320px] min-w-0 shrink-0 flex-col">
+                    <div className="flex w-[420px] min-w-0 shrink-0 flex-col">
                         {selectedRequest ? (
                             <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
                         ) : (
