@@ -1,13 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-    Typography,
-    Input,
-    Button,
-    Spin,
-    Collapse,
-    Tooltip,
-    Tag
-} from 'antd';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconLayoutDashboard,
@@ -27,8 +18,11 @@ import { useToast } from '../../../contexts/ToastContext';
 import { EventRow } from '../components/notifications/EventRow';
 import { RecipientModal } from '../components/notifications/RecipientModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
-
-const { Title, Text } = Typography;
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
+import { cn } from '@/lib/utils';
 
 interface Module {
     id: string | number;
@@ -135,63 +129,65 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
         };
     }).filter(func => func.eventos.length > 0 || func.matchesName) : [];
 
-    const getModuleIcon = (name: string, isActive?: boolean) => {
+    const getModuleIcon = (name: string) => {
         const n = name.toUpperCase();
         const iconSize = 18;
-        const color = isActive ? '#fff' : '#1677ff';
 
-        if (n.includes('DINÁMICOS')) return <IconBolt size={iconSize} color={color} />;
-        if (n.includes('MEDIO') || n.includes('AMBIENTE')) return <IconLeaf size={iconSize} color={color} />;
-        if (n.includes('ADMIN') || n.includes('SISTEMA')) return <IconShield size={iconSize} color={color} />;
-        if (n.includes('USUARIO')) return <IconUserCircle size={iconSize} color={color} />;
-        return <IconServer size={iconSize} color={color} />;
+        if (n.includes('DINÁMICOS')) return <IconBolt size={iconSize} />;
+        if (n.includes('MEDIO') || n.includes('AMBIENTE')) return <IconLeaf size={iconSize} />;
+        if (n.includes('ADMIN') || n.includes('SISTEMA')) return <IconShield size={iconSize} />;
+        if (n.includes('USUARIO')) return <IconUserCircle size={iconSize} />;
+        return <IconServer size={iconSize} />;
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="shadcn-scope flex w-full flex-col gap-6 p-4 md:p-6">
             <PageHeader
                 title="Hub de Notificaciones"
                 subtitle="Administre destinatarios y canales de alerta para todo el sistema."
                 onBack={onBack}
                 breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Notificaciones' }]}
                 rightSection={
-                    <div style={{ display: 'flex', gap: 12, flexWrap: isMobile ? 'wrap' : 'nowrap', flex: 1 }}>
-                        <Input
-                            placeholder="Buscar evento o sección..."
-                            value={searchTerm}
-                            onChange={e => setSearchTerm(e.target.value)}
-                            prefix={<IconSearch size={16} color="var(--app-text-secondary)" />}
-                            style={{ width: isMobile ? '100%' : 300 }}
-                        />
-                        <Tooltip title="Refrescar catálogo">
-                            <Button
-                                type="primary"
-                                shape="circle"
-                                size="large"
-                                icon={<IconRefresh size={18} />}
-                                onClick={loadCatalog}
-                                loading={loading && catalog.length > 0}
+                    <div className={cn('flex flex-1 gap-3', isMobile ? 'flex-wrap' : 'flex-nowrap')}>
+                        <div className="relative" style={{ width: isMobile ? '100%' : 300 }}>
+                            <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar evento o sección..."
+                                value={searchTerm}
+                                onChange={e => setSearchTerm(e.target.value)}
+                                className="pl-9"
                             />
-                        </Tooltip>
+                        </div>
+                        <Button
+                            size="icon"
+                            title="Refrescar catálogo"
+                            className="rounded-full"
+                            onClick={loadCatalog}
+                            disabled={loading && catalog.length > 0}
+                        >
+                            {loading && catalog.length > 0 ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            ) : (
+                                <IconRefresh size={18} />
+                            )}
+                        </Button>
                     </div>
                 }
             />
 
             {loading && catalog.length === 0 ? (
-                <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                        <Spin size="large" />
-                        <Text type="secondary" style={{ fontSize: 13 }}>Sincronizando catálogo universal...</Text>
-                    </div>
+                <div className="flex h-[400px] flex-col items-center justify-center gap-4">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <p className="text-sm text-muted-foreground">Sincronizando catálogo universal...</p>
                 </div>
             ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '3fr 9fr', gap: 32 }}>
+                <div className="grid gap-8" style={{ gridTemplateColumns: isMobile ? '1fr' : '3fr 9fr' }}>
                     {/* Navigation sidebar */}
-                    <div style={{ backgroundColor: 'var(--app-hover-bg)', borderRadius: 16, padding: 16 }}>
-                        <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 16, padding: '0 8px' }}>
+                    <div className="rounded-2xl bg-muted/40 p-4">
+                        <p className="mb-4 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                             Módulos del Sistema
-                        </Text>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        </p>
+                        <div className="flex flex-col gap-1">
                             {catalog.map(mod => {
                                 const modId = mod.id || mod.nombre;
                                 const isActive = activeModuleId === modId;
@@ -202,21 +198,18 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                                             setActiveModuleId(modId);
                                             setSearchTerm('');
                                         }}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8,
-                                            cursor: 'pointer', fontWeight: 600, transition: 'all 200ms ease',
-                                            backgroundColor: isActive ? '#1677ff' : 'transparent',
-                                            color: isActive ? '#fff' : 'var(--app-text)',
-                                        }}
+                                        className={cn(
+                                            'flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors',
+                                            isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-accent'
+                                        )}
                                     >
-                                        <div style={{
-                                            width: 24, height: 24, borderRadius: 6, flexShrink: 0,
-                                            backgroundColor: isActive ? 'rgba(255,255,255,0.15)' : 'var(--app-accent-bg)',
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        }}>
-                                            {getModuleIcon(mod.nombre, isActive)}
+                                        <div className={cn(
+                                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
+                                            isActive ? 'bg-white/15' : 'bg-background'
+                                        )}>
+                                            {getModuleIcon(mod.nombre)}
                                         </div>
-                                        <Text style={{ fontSize: 13, fontWeight: 600, flex: 1, color: isActive ? '#fff' : undefined }}>{mod.nombre}</Text>
+                                        <span className="flex-1 truncate">{mod.nombre}</span>
                                         {isActive && <IconChevronRight size={14} />}
                                     </div>
                                 );
@@ -227,59 +220,58 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                     {/* Main content area */}
                     <div>
                         {activeModule ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                            <div className="flex flex-col gap-6">
                                 <div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <IconLayoutGrid size={24} color="#1677ff" />
-                                        <Title level={3} style={{ margin: 0 }}>{activeModule.nombre}</Title>
+                                    <div className="flex items-center gap-2">
+                                        <IconLayoutGrid size={24} className="text-primary" />
+                                        <h2 className="text-xl font-semibold text-foreground">{activeModule.nombre}</h2>
                                     </div>
-                                    <Text type="secondary" style={{ fontSize: 13 }}>
+                                    <p className="text-sm text-muted-foreground">
                                         {searchTerm ? `Resultados de búsqueda en "${activeModule.nombre}"` : `${activeModule.funcionalidades.length} funcionalidades configuradas.`}
-                                    </Text>
+                                    </p>
                                 </div>
 
                                 {filteredFuncionalidades.length === 0 ? (
-                                    <div style={{ padding: 32, borderRadius: 8, border: '1px dashed var(--app-border)', textAlign: 'center' }}>
-                                        <Text type="secondary">No se encontraron eventos coincidentes.</Text>
+                                    <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                                        <p className="text-sm text-muted-foreground">No se encontraron eventos coincidentes.</p>
                                     </div>
                                 ) : (
-                                    <Collapse
-                                        accordion
-                                        expandIconPosition="end"
-                                        items={filteredFuncionalidades.map(func => ({
-                                            key: String(func.id),
-                                            label: (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                                    <div style={{ width: 32, height: 32, borderRadius: 8, backgroundColor: 'var(--app-accent-bg)', color: '#1677ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        <IconLayoutDashboard size={18} />
+                                    <Accordion type="single" collapsible className="flex flex-col gap-2">
+                                        {filteredFuncionalidades.map(func => (
+                                            <AccordionItem key={func.id} value={String(func.id)}>
+                                                <AccordionTrigger>
+                                                    <div className="flex flex-1 items-center gap-3 pr-2">
+                                                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                            <IconLayoutDashboard size={18} />
+                                                        </div>
+                                                        <div className="flex flex-1 items-center justify-between">
+                                                            <span className="text-[15px] font-semibold text-foreground">{func.nombre}</span>
+                                                            <Badge variant="outline">{func.eventos.length} eventos</Badge>
+                                                        </div>
                                                     </div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flex: 1, paddingRight: 16 }}>
-                                                        <Text strong style={{ fontSize: 15 }}>{func.nombre}</Text>
-                                                        <Tag>{func.eventos.length} eventos</Tag>
+                                                </AccordionTrigger>
+                                                <AccordionContent>
+                                                    <div className="flex flex-col gap-2 pt-1">
+                                                        {func.eventos.map((ev: any) => (
+                                                            <EventRow
+                                                                key={ev.id}
+                                                                event={ev}
+                                                                onOpenSettings={handleOpenSettings}
+                                                                onStatusChange={loadCatalog}
+                                                            />
+                                                        ))}
                                                     </div>
-                                                </div>
-                                            ),
-                                            children: (
-                                                <div>
-                                                    {func.eventos.map((ev: any) => (
-                                                        <EventRow
-                                                            key={ev.id}
-                                                            event={ev}
-                                                            onOpenSettings={handleOpenSettings}
-                                                            onStatusChange={loadCatalog}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            ),
-                                        }))}
-                                    />
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                    </Accordion>
                                 )}
                             </div>
                         ) : (
-                            <div style={{ height: 400, backgroundColor: 'var(--app-hover-bg)', borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                    <IconBell size={48} color="var(--app-text-secondary)" strokeWidth={1} />
-                                    <Text type="secondary">Seleccione un módulo para comenzar la configuración.</Text>
+                            <div className="flex h-[400px] items-center justify-center rounded-2xl bg-muted/40">
+                                <div className="flex flex-col items-center gap-2">
+                                    <IconBell size={48} strokeWidth={1} className="text-muted-foreground" />
+                                    <p className="text-sm text-muted-foreground">Seleccione un módulo para comenzar la configuración.</p>
                                 </div>
                             </div>
                         )}

@@ -1,6 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Card, Switch, Button, Tag, Tooltip } from 'antd';
-import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 import {
     IconSettings,
     IconMail,
@@ -13,8 +11,11 @@ import {
 import { notificationService } from '../../../../services/notification.service';
 import apiClient from '../../../../config/axios.config';
 import { useToast } from '../../../../contexts/ToastContext';
-
-const { Text } = Typography;
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 interface Props {
     event: {
@@ -29,12 +30,10 @@ interface Props {
 }
 
 export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChange }) => {
-    const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const [saving, setSaving] = useState(false);
     const [testing, setTesting] = useState(false);
     const [localConfig, setLocalConfig] = useState(event.config || []);
-    const [hovering, setHovering] = useState(false);
 
     useEffect(() => {
         setLocalConfig(event.config || []);
@@ -100,98 +99,44 @@ export const EventRow: React.FC<Props> = ({ event, onOpenSettings, onStatusChang
     };
 
     return (
-        <Card
-            size="small"
-            style={{
-                marginBottom: 8,
-                transition: 'transform 150ms ease, border-color 150ms ease',
-                transform: hovering ? 'translateX(4px)' : 'none',
-                borderColor: hovering ? 'var(--app-accent-bg)' : undefined,
-            }}
-            onMouseEnter={() => setHovering(true)}
-            onMouseLeave={() => setHovering(false)}
-        >
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: isMobile ? 'wrap' : 'nowrap', alignItems: isMobile ? 'stretch' : 'center', gap: 12 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <Text type="secondary" strong style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 }}>
-                            {event.codigo}
-                        </Text>
+        <Card className="mb-2 flex flex-col gap-3 p-3 transition-all hover:translate-x-1 hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">{event.codigo}</span>
 
-                        {event.es_transaccional ? (
-                            <Tag color="purple" icon={<IconBolt size={10} style={{ verticalAlign: 'text-bottom' }} />}>
-                                Dinámico
-                            </Tag>
-                        ) : localConfig.length > 0 ? (
-                            <Tag color="green" icon={<IconCheck size={10} style={{ verticalAlign: 'text-bottom' }} />}>
-                                Configurado
-                            </Tag>
-                        ) : (
-                            <Tag color="orange" icon={<IconAlertCircle size={10} style={{ verticalAlign: 'text-bottom' }} />}>
-                                Sin Destinatarios
-                            </Tag>
-                        )}
-                    </div>
-
-                    <Text strong style={{ fontSize: 13 }}>
-                        {event.descripcion}
-                    </Text>
+                    {event.es_transaccional ? (
+                        <Badge variant="outline" className="gap-1"><IconBolt size={10} /> Dinámico</Badge>
+                    ) : localConfig.length > 0 ? (
+                        <Badge variant="success" className="gap-1"><IconCheck size={10} /> Configurado</Badge>
+                    ) : (
+                        <Badge variant="warning" className="gap-1"><IconAlertCircle size={10} /> Sin Destinatarios</Badge>
+                    )}
                 </div>
 
-                <div style={{ display: 'flex', gap: isMobile ? 12 : 32, flexWrap: isMobile ? 'wrap' : 'nowrap', width: isMobile ? '100%' : 'auto', justifyContent: isMobile ? 'space-between' : 'flex-end', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                        <Tooltip title="E-mail">
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                <IconMail
-                                    size={18}
-                                    color={hasEmail ? '#1677ff' : 'var(--app-border)'}
-                                />
-                                <Switch
-                                    checked={hasEmail}
-                                    onChange={() => toggleQuickChannel('email', hasEmail)}
-                                    disabled={saving}
-                                    size="small"
-                                />
-                            </div>
-                        </Tooltip>
+                <p className="text-sm font-semibold text-foreground">{event.descripcion}</p>
+            </div>
 
-                        <Tooltip title="Notificación Web">
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                <IconBell
-                                    size={18}
-                                    color={hasWeb ? '#1677ff' : 'var(--app-border)'}
-                                />
-                                <Switch
-                                    checked={hasWeb}
-                                    onChange={() => toggleQuickChannel('web', hasWeb)}
-                                    disabled={saving}
-                                    size="small"
-                                />
-                            </div>
-                        </Tooltip>
+            <div className="flex flex-wrap items-center justify-between gap-4 sm:justify-end sm:gap-8">
+                <div className="flex gap-4">
+                    <div className="flex items-center gap-2" title="E-mail">
+                        <IconMail size={18} className={cn(hasEmail ? 'text-primary' : 'text-border')} />
+                        <Switch checked={hasEmail} onCheckedChange={() => toggleQuickChannel('email', hasEmail)} disabled={saving} />
                     </div>
 
-                    <Tooltip title="Enviar notificación de prueba a los destinatarios configurados">
-                        <Button
-                            size="small"
-                            style={{ color: '#0c8599' }}
-                            icon={<IconPlayerPlay size={14} />}
-                            loading={testing}
-                            onClick={handleTest}
-                        >
-                            Probar
-                        </Button>
-                    </Tooltip>
-                    <Button
-                        type="primary"
-                        style={{ backgroundColor: '#212529' }}
-                        size="small"
-                        icon={<IconSettings size={14} />}
-                        onClick={() => onOpenSettings(event)}
-                    >
-                        Configurar
-                    </Button>
+                    <div className="flex items-center gap-2" title="Notificación Web">
+                        <IconBell size={18} className={cn(hasWeb ? 'text-primary' : 'text-border')} />
+                        <Switch checked={hasWeb} onCheckedChange={() => toggleQuickChannel('web', hasWeb)} disabled={saving} />
+                    </div>
                 </div>
+
+                <Button variant="outline" size="sm" title="Enviar notificación de prueba a los destinatarios configurados" onClick={handleTest} disabled={testing}>
+                    {testing ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <IconPlayerPlay size={14} />}
+                    Probar
+                </Button>
+                <Button size="sm" onClick={() => onOpenSettings(event)}>
+                    <IconSettings size={14} />
+                    Configurar
+                </Button>
             </div>
         </Card>
     );
