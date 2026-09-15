@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { FIXED_TOP_MODULES, type DynamicModule } from '../../config/sidebarModules';
+import logoAdl from '../../assets/images/logo-adlone.png';
+import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
 interface UserActionsClusterProps {
     compact?: boolean;
@@ -151,11 +153,11 @@ function useBreadcrumbLabels() {
 
 // Barra global fija sobre sidebar+contenido, solo desktop (ver MainLayout —
 // móvil extiende su propio header compacto con UserActionsCluster en vez de
-// montar este componente). Ruta actual a la izquierda + UserActionsCluster
-// (notificaciones/tema) a la derecha — el logo y el buscador ahora viven en
-// el Sidebar.
+// montar este componente). Logo + ruta actual a la izquierda +
+// UserActionsCluster (notificaciones/tema) a la derecha. El buscador del
+// menú vive en el Sidebar.
 export function TopBar() {
-    const { resetNavigation } = useNavStore();
+    const { resetNavigation, sidebarCollapsed } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
 
     return (
@@ -163,15 +165,23 @@ export function TopBar() {
             <button
                 type="button"
                 onClick={() => resetNavigation()}
-                className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+                className="flex min-w-0 items-center gap-3"
             >
-                <span className="truncate">{moduleLabel || 'Inicio'}</span>
-                {submoduleLabel && (
-                    <>
-                        <IconChevronRight size={14} className="shrink-0" />
-                        <span className="truncate font-semibold text-foreground">{submoduleLabel}</span>
-                    </>
-                )}
+                <img
+                    src={sidebarCollapsed ? logoSmall : logoAdl}
+                    alt="ADL"
+                    className={cn('w-auto object-contain transition-all', sidebarCollapsed ? 'h-7' : 'h-8')}
+                />
+                <div className="h-6 w-px shrink-0 bg-border" />
+                <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground">
+                    <span className="truncate">{moduleLabel || 'Inicio'}</span>
+                    {submoduleLabel && (
+                        <>
+                            <IconChevronRight size={14} className="shrink-0" />
+                            <span className="truncate font-semibold text-foreground">{submoduleLabel}</span>
+                        </>
+                    )}
+                </span>
             </button>
 
             <UserActionsCluster />
