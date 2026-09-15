@@ -1,25 +1,23 @@
 import { useState, useEffect } from 'react';
 import {
-    Card,
-    Input,
-    Checkbox,
-    Button,
-    Typography,
-    Modal,
-    Alert
-} from 'antd';
-import {
     IconLock,
     IconMail,
     IconArrowLeft,
     IconAlertCircle,
-    IconCheck
+    IconCheck,
+    IconEye,
+    IconEyeOff,
+    IconX,
 } from '@tabler/icons-react';
 import type { LoginCredentials } from '../types/index';
 import logoAdl from '../../../assets/images/logo-adlone.png';
 import apiClient from '../../../config/axios.config';
-
-const { Title, Text } = Typography;
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface LoginFormProps {
     onSubmit: (credentials: LoginCredentials) => void;
@@ -29,6 +27,7 @@ interface LoginFormProps {
 export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [passwordVisible, setPasswordVisible] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);
     const [showForgotModal, setShowForgotModal] = useState(false);
     const [logoutReason, setLogoutReason] = useState<string | null>(null);
@@ -56,193 +55,182 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
         }
     };
 
+    const closeForgotModal = () => {
+        setShowForgotModal(false);
+        setForgotEmail('');
+        setForgotSent(false);
+        setForgotError(null);
+    };
+
     return (
-        <Card
-            style={{
-                width: '100%',
-                borderRadius: 16,
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                backdropFilter: 'blur(10px)'
-            }}
-        >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <Card className="shadcn-scope w-full rounded-2xl bg-white/95 p-6 shadow-lg backdrop-blur">
+            <div className="flex flex-col gap-6">
                 {logoutReason && (
-                    <Alert
-                        type="warning"
-                        showIcon
-                        icon={<IconAlertCircle size={18} />}
-                        message={logoutReason}
-                        closable
-                        onClose={() => setLogoutReason(null)}
-                    />
+                    <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                        <IconAlertCircle size={18} className="mt-0.5 shrink-0 text-warning" />
+                        <p className="flex-1">{logoutReason}</p>
+                        <button type="button" aria-label="Cerrar" onClick={() => setLogoutReason(null)} className="shrink-0 text-muted-foreground hover:text-foreground">
+                            <IconX size={16} />
+                        </button>
+                    </div>
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <img src={logoAdl} style={{ width: 260, marginBottom: 24 }} alt="ADL" />
-                        <Title level={2} style={{ margin: 0 }}>Bienvenido</Title>
-                        <Text type="secondary" style={{ fontSize: 13, textAlign: 'center' }}>Ingresa tus credenciales para continuar</Text>
-                    </div>
+                <div className="flex flex-col items-center">
+                    <img src={logoAdl} className="mb-6 w-[260px]" alt="ADL" />
+                    <h1 className="m-0 text-2xl font-bold text-foreground">Bienvenido</h1>
+                    <p className="text-center text-[13px] text-muted-foreground">Ingresa tus credenciales para continuar</p>
                 </div>
 
                 <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div className="flex flex-col gap-4">
                         <Field label="Usuario *">
-                            <Input
-                                placeholder="ej: jperez"
-                                prefix={<IconMail size={18} style={{ color: 'var(--app-text-secondary)' }} />}
-                                value={email}
-                                onChange={(e) => setEmail(e.target.value)}
-                                autoComplete="username"
-                                size="large"
-                                disabled={isLoading}
-                            />
+                            <div className="relative">
+                                <IconMail size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="ej: jperez"
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    autoComplete="username"
+                                    disabled={isLoading}
+                                    className="h-11 pl-10"
+                                />
+                            </div>
                         </Field>
 
                         <Field label="Contraseña *">
-                            <Input.Password
-                                placeholder="••••••••"
-                                prefix={<IconLock size={18} style={{ color: 'var(--app-text-secondary)' }} />}
-                                value={password}
-                                onChange={(e) => setPassword(e.target.value)}
-                                size="large"
-                                disabled={isLoading}
-                            />
+                            <div className="relative">
+                                <IconLock size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    type={passwordVisible ? 'text' : 'password'}
+                                    placeholder="••••••••"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    autoComplete="current-password"
+                                    disabled={isLoading}
+                                    className="h-11 pl-10 pr-10"
+                                />
+                                <button
+                                    type="button"
+                                    aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                    onClick={() => setPasswordVisible((v) => !v)}
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                                >
+                                    {passwordVisible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+                                </button>
+                            </div>
                         </Field>
 
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Checkbox
-                                checked={rememberMe}
-                                onChange={(e) => setRememberMe(e.target.checked)}
-                                disabled={isLoading}
-                            >
+                        <div className="flex items-center justify-between">
+                            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                                <Checkbox checked={rememberMe} onCheckedChange={(v) => setRememberMe(v === true)} disabled={isLoading} />
                                 Recuérdame
-                            </Checkbox>
-                            <Button
-                                type="link"
-                                htmlType="button"
+                            </label>
+                            <button
+                                type="button"
                                 onClick={() => setShowForgotModal(true)}
-                                style={{ padding: 0, fontWeight: 500 }}
+                                className="text-sm font-medium text-primary hover:underline"
                             >
                                 ¿Olvidaste tu contraseña?
-                            </Button>
+                            </button>
                         </div>
 
-                        <Button
-                            htmlType="submit"
-                            type="primary"
-                            size="large"
-                            block
-                            loading={isLoading}
-                            style={{ marginTop: 8 }}
-                        >
+                        <Button type="submit" size="lg" disabled={isLoading} className="mt-2 w-full">
+                            {isLoading ? (
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            ) : null}
                             {isLoading ? 'Ingresando...' : 'Ingresar'}
                         </Button>
                     </div>
                 </form>
             </div>
 
-            <Modal
-                open={showForgotModal}
-                onCancel={() => {
-                    setShowForgotModal(false);
-                    setForgotEmail('');
-                    setForgotSent(false);
-                    setForgotError(null);
-                }}
-                footer={null}
-                width={480}
-                centered
-                title={<Text strong style={{ fontSize: 16 }}>Recuperar Contraseña</Text>}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
-                    {!forgotSent ? (
-                        <>
-                            <div style={{ backgroundColor: 'var(--app-accent-bg)', padding: 16, borderRadius: 8 }}>
-                                <Text style={{ fontSize: 13, color: '#1864ab' }}>
+            <Dialog open={showForgotModal} onOpenChange={(open) => !open && closeForgotModal()}>
+                <DialogContent className="max-w-[480px]">
+                    <DialogHeader>
+                        <DialogTitle>Recuperar Contraseña</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        {!forgotSent ? (
+                            <>
+                                <div className="rounded-lg bg-primary/5 p-4 text-sm text-foreground">
                                     Ingresa tu email registrado y te enviaremos un link para crear una nueva contraseña.
-                                </Text>
-                            </div>
+                                </div>
 
-                            <Field label="Email *">
-                                <Input
-                                    type="email"
-                                    placeholder="tu.correo@adldiagnostic.cl"
-                                    value={forgotEmail}
-                                    onChange={(e) => setForgotEmail(e.target.value)}
-                                    prefix={<IconMail size={18} style={{ color: 'var(--app-text-secondary)' }} />}
-                                    disabled={forgotSending}
-                                />
-                            </Field>
+                                <Field label="Email *">
+                                    <Input
+                                        type="email"
+                                        placeholder="tu.correo@adldiagnostic.cl"
+                                        value={forgotEmail}
+                                        onChange={(e) => setForgotEmail(e.target.value)}
+                                        disabled={forgotSending}
+                                    />
+                                </Field>
 
-                            {forgotError && (
-                                <Alert type="error" showIcon icon={<IconAlertCircle size={18} />} message={forgotError} />
-                            )}
+                                {forgotError && (
+                                    <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-foreground">
+                                        <IconAlertCircle size={18} className="mt-0.5 shrink-0 text-destructive" />
+                                        {forgotError}
+                                    </div>
+                                )}
 
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                                <Button
-                                    icon={<IconArrowLeft size={16} />}
-                                    onClick={() => setShowForgotModal(false)}
-                                >
-                                    Cancelar
+                                <div className="mt-2 flex justify-between">
+                                    <Button variant="outline" onClick={() => setShowForgotModal(false)}>
+                                        <IconArrowLeft size={16} /> Cancelar
+                                    </Button>
+                                    <Button
+                                        disabled={forgotSending}
+                                        onClick={async () => {
+                                            const trimmed = forgotEmail.trim();
+                                            if (!trimmed) { setForgotError('Ingresa tu email'); return; }
+                                            setForgotError(null);
+                                            setForgotSending(true);
+                                            try {
+                                                await apiClient.post('/api/auth/forgot-password', { email: trimmed });
+                                                setForgotSent(true);
+                                            } catch (err: any) {
+                                                // S-15 (revisado): mensaje específico cuando el email no existe
+                                                const msg = err?.response?.data?.message
+                                                    || 'No se pudo procesar la solicitud. Intenta nuevamente.';
+                                                setForgotError(msg);
+                                            } finally {
+                                                setForgotSending(false);
+                                            }
+                                        }}
+                                    >
+                                        {forgotSending ? (
+                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                        ) : null}
+                                        Enviar link
+                                    </Button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-foreground">
+                                    <IconCheck size={18} className="mt-0.5 shrink-0 text-success" />
+                                    <div>
+                                        <p className="font-medium">Solicitud enviada</p>
+                                        <p className="mt-1 text-muted-foreground">
+                                            Si el email está registrado, recibirás un correo con un enlace para restablecer tu contraseña. El link es válido por 60 minutos.
+                                        </p>
+                                    </div>
+                                </div>
+                                <Button variant="outline" className="w-full" onClick={closeForgotModal}>
+                                    <IconArrowLeft size={16} /> Volver al Login
                                 </Button>
-                                <Button
-                                    type="primary"
-                                    loading={forgotSending}
-                                    onClick={async () => {
-                                        const trimmed = forgotEmail.trim();
-                                        if (!trimmed) { setForgotError('Ingresa tu email'); return; }
-                                        setForgotError(null);
-                                        setForgotSending(true);
-                                        try {
-                                            await apiClient.post('/api/auth/forgot-password', { email: trimmed });
-                                            setForgotSent(true);
-                                        } catch (err: any) {
-                                            // S-15 (revisado): mensaje específico cuando el email no existe
-                                            const msg = err?.response?.data?.message
-                                                || 'No se pudo procesar la solicitud. Intenta nuevamente.';
-                                            setForgotError(msg);
-                                        } finally {
-                                            setForgotSending(false);
-                                        }
-                                    }}
-                                >
-                                    Enviar link
-                                </Button>
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <Alert
-                                type="success"
-                                showIcon
-                                icon={<IconCheck size={18} />}
-                                message="Solicitud enviada"
-                                description="Si el email está registrado, recibirás un correo con un enlace para restablecer tu contraseña. El link es válido por 60 minutos."
-                            />
-                            <Button
-                                block
-                                icon={<IconArrowLeft size={16} />}
-                                onClick={() => {
-                                    setShowForgotModal(false);
-                                    setForgotEmail('');
-                                    setForgotSent(false);
-                                }}
-                            >
-                                Volver al Login
-                            </Button>
-                        </>
-                    )}
-                </div>
-            </Modal>
+                            </>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
         </Card>
     );
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div>
-            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>{label}</Text>
+        <div className={cn('flex flex-col gap-1.5')}>
+            <span className="text-[13px] font-semibold text-foreground">{label}</span>
             {children}
         </div>
     );
