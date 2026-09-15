@@ -4,7 +4,7 @@ import { IconWifiOff, IconMenu2 } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
-import { TopBar, UserActionsCluster } from './TopBar';
+import { RouteBreadcrumb, UserActionsCluster } from './TopBar';
 import { HelpCenter } from '../common/HelpCenter';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
@@ -106,9 +106,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     />
                     <UserActionsCluster compact />
                 </div>
-            ) : (
-                <TopBar />
-            )}
+            ) : null}
 
             {/* Fila principal: sidebar + contenido lado a lado. Un <div> flex explícito
                 en vez de <Layout> de antd, que solo pone sus hijos en fila cuando
@@ -147,6 +145,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
                 <Content style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--app-bg)' }}>
                     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
+                        <RouteBreadcrumb />
                         {activeModule && (
                             <ContextualNotificationPanel area={activeModule.toUpperCase()} />
                         )}

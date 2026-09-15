@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import {
     IconBell,
     IconChevronRight,
+    IconHome,
     IconMoon,
     IconSun,
 } from '@tabler/icons-react';
@@ -14,8 +15,6 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { FIXED_TOP_MODULES, type DynamicModule } from '../../config/sidebarModules';
-import logoAdl from '../../assets/images/logo-adlone.png';
-import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
 interface UserActionsClusterProps {
     compact?: boolean;
@@ -127,9 +126,10 @@ export function UserActionsCluster({ compact }: UserActionsClusterProps) {
     );
 }
 
-// Resuelve el label de un módulo/submódulo activo para la ruta del TopBar —
-// primero en los módulos fijos y dinámicos del Sidebar, con un mapa estático
-// de respaldo para vistas que no viven en el menú (perfil, notificaciones).
+// Resuelve el label de un módulo/submódulo activo para la ruta que se
+// muestra arriba del contenido — primero en los módulos fijos y dinámicos
+// del Sidebar, con un mapa estático de respaldo para vistas que no viven en
+// el menú (perfil, notificaciones).
 function useBreadcrumbLabels() {
     const { activeModule, activeSubmodule, dynamicModules: rawDynamicModules } = useNavStore();
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
@@ -151,40 +151,27 @@ function useBreadcrumbLabels() {
     }, [activeModule, activeSubmodule, dynamicModules]);
 }
 
-// Barra global fija sobre sidebar+contenido, solo desktop (ver MainLayout —
-// móvil extiende su propio header compacto con UserActionsCluster en vez de
-// montar este componente). Logo + ruta actual a la izquierda +
-// UserActionsCluster (notificaciones/tema) a la derecha. El buscador del
-// menú vive en el Sidebar.
-export function TopBar() {
-    const { resetNavigation, sidebarCollapsed } = useNavStore();
+// Ruta actual, chica y solo sobre la columna de contenido (no una barra
+// global sobre sidebar+contenido — el logo y las acciones de usuario ahora
+// viven en el header del Sidebar, ver Sidebar.tsx).
+export function RouteBreadcrumb() {
+    const { resetNavigation } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
 
     return (
-        <div className="relative z-[210] flex h-[72px] shrink-0 items-center justify-between gap-5 border-b border-border bg-card px-6">
-            <button
-                type="button"
-                onClick={() => resetNavigation()}
-                className="flex min-w-0 items-center gap-3"
-            >
-                <img
-                    src={sidebarCollapsed ? logoSmall : logoAdl}
-                    alt="ADL"
-                    className={cn('w-auto object-contain transition-all', sidebarCollapsed ? 'h-7' : 'h-8')}
-                />
-                <div className="h-6 w-px shrink-0 bg-border" />
-                <span className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                    <span className="truncate">{moduleLabel || 'Inicio'}</span>
-                    {submoduleLabel && (
-                        <>
-                            <IconChevronRight size={14} className="shrink-0" />
-                            <span className="truncate font-semibold text-foreground">{submoduleLabel}</span>
-                        </>
-                    )}
-                </span>
+        <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border px-4 text-sm text-muted-foreground md:px-6">
+            <button type="button" onClick={() => resetNavigation()} className="flex items-center gap-1.5 hover:text-foreground">
+                <IconHome size={15} />
+                <span>Inicio</span>
             </button>
-
-            <UserActionsCluster />
+            <span className="text-border">—</span>
+            <span className="truncate font-medium text-foreground">{moduleLabel || 'Inicio'}</span>
+            {submoduleLabel && (
+                <>
+                    <IconChevronRight size={13} className="shrink-0" />
+                    <span className="truncate">{submoduleLabel}</span>
+                </>
+            )}
         </div>
     );
 }
