@@ -1,20 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-    Card,
-    Tabs,
-    Table,
-    Button,
-    Modal,
-    Input,
-    Select,
-    InputNumber,
-    Tag,
-    Typography,
-    Switch,
-    Spin,
-    Popover
-} from 'antd';
-import {
     IconEdit,
     IconTrash,
     IconPlus,
@@ -27,44 +12,44 @@ import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { IconRegistry, getIconComponent } from '../../../config/iconRegistry';
-
-const { Text } = Typography;
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { Combobox } from '@/components/ui/combobox';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 
 interface Props {
     onBack: () => void;
 }
 
 // Lifted out of component — stable reference, no recreation on re-render
-const PermissionsRenderer = ({ permsStr, color = "blue" }: { permsStr: string; color?: string }) => {
-    if (!permsStr) return <Tag>Público</Tag>;
+const PermissionsRenderer = ({ permsStr, }: { permsStr: string }) => {
+    if (!permsStr) return <Badge variant="outline">Público</Badge>;
     const perms = permsStr.split(',').map(p => p.trim()).filter(Boolean);
     if (perms.length <= 1) {
-        return <Tag color={color}>{perms[0]}</Tag>;
+        return <Badge variant="outline">{perms[0]}</Badge>;
     }
     return (
-        <Popover
-            content={<div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', maxWidth: 250 }}>{perms.map(p => <Tag key={p} color={color}>{p}</Tag>)}</div>}
-        >
-            <Tag color={color} style={{ cursor: 'pointer', textTransform: 'none' }}>
-                Ver {perms.length} Permisos
-            </Tag>
+        <Popover>
+            <PopoverTrigger asChild>
+                <button type="button">
+                    <Badge variant="outline" className="cursor-pointer normal-case">Ver {perms.length} Permisos</Badge>
+                </button>
+            </PopoverTrigger>
+            <PopoverContent className="flex w-auto max-w-[250px] flex-wrap gap-2 p-2">
+                {perms.map(p => <Badge key={p} variant="outline">{p}</Badge>)}
+            </PopoverContent>
         </Popover>
     );
 };
 
 // Static — computed once at module load, not on every render
-const iconOptions = Object.keys(IconRegistry).map(k => {
-    const Icn = getIconComponent(k);
-    return {
-        value: k,
-        label: (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {Icn ? <Icn size={18} /> : null}
-                <Text style={{ fontSize: 13 }}>{k}</Text>
-            </div>
-        ),
-    };
-});
+const iconOptions = Object.keys(IconRegistry).map(k => ({ value: k, label: k }));
 
 const emptyModForm = {
     id_modulo: '',
@@ -85,6 +70,11 @@ const emptyLinkForm = {
     sort_order: 0,
     activo: true
 };
+
+const GRUPO_OPTIONS = [
+    { value: 'unidades', label: 'Unidades' },
+    { value: 'gestion', label: 'Gestión' }
+];
 
 export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
@@ -262,75 +252,11 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const modColumns = [
-        { title: 'ID Clave', key: 'id', render: (_: unknown, m: any) => <Text strong style={{ fontSize: 13 }}>{m.id_modulo}</Text> },
-        { title: 'Label (Nombre Vista)', dataIndex: 'label', key: 'label' },
-        {
-            title: 'Ícono', key: 'icon',
-            render: (_: unknown, m: any) => {
-                const Icn = getIconComponent(m.icon_name);
-                return (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <Icn size={18} />
-                        <Text style={{ fontSize: 13 }}>{m.icon_name}</Text>
-                    </div>
-                );
-            },
-        },
-        { title: 'Grupo', dataIndex: 'grupo', key: 'grupo' },
-        { title: 'Permisos Requeridos', key: 'permisos', render: (_: unknown, m: any) => <PermissionsRenderer permsStr={m.permissions_str} /> },
-        { title: 'Orden', dataIndex: 'sort_order', key: 'sort_order' },
-        { title: 'Estado', key: 'estado', render: (_: unknown, m: any) => (m.activo ? <Tag color="green">Activo</Tag> : <Tag color="red">Inactivo</Tag>) },
-        {
-            title: 'Acciones', key: 'acciones',
-            render: (_: unknown, m: any) => (
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <Button type="text" size="small" icon={<IconEdit size={16} color="#1c7ed6" />} onClick={() => openModModal(m)} />
-                    {m.activo && (
-                        <Button type="text" size="small" icon={<IconTrash size={16} color="#e03131" />} onClick={() => setDeleteConfirm({ type: 'mod', id: m.id_modulo, label: m.label })} />
-                    )}
-                </div>
-            ),
-        },
-    ];
-
-    const linkColumns = [
-        { title: 'ID Accion (React)', key: 'id', render: (_: unknown, l: any) => <Text strong style={{ fontSize: 13 }}>{l.id_accion}</Text> },
-        { title: 'Label (Nombre Vista)', dataIndex: 'label', key: 'label' },
-        {
-            title: 'Unidad Padre', key: 'padre',
-            render: (_: unknown, l: any) => {
-                const parentMod = moduloMap.get(l.id_modulo);
-                const parentInactive = parentMod && !parentMod.activo;
-                return (
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <Tag color={parentInactive ? 'default' : 'geekblue'}>{l.id_modulo}</Tag>
-                        {parentInactive && <Tag color="orange">módulo inactivo</Tag>}
-                    </div>
-                );
-            },
-        },
-        { title: 'Permisos Opcionales', key: 'permisos', render: (_: unknown, l: any) => <PermissionsRenderer permsStr={l.permissions_str} color="purple" /> },
-        { title: 'Orden', dataIndex: 'sort_order', key: 'sort_order' },
-        { title: 'Estado', key: 'estado', render: (_: unknown, l: any) => (l.activo ? <Tag color="green">Activo</Tag> : <Tag color="red">Inactivo</Tag>) },
-        {
-            title: 'Acciones', key: 'acciones',
-            render: (_: unknown, l: any) => (
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <Button type="text" size="small" icon={<IconEdit size={16} color="#1c7ed6" />} onClick={() => openLinkModal(l)} />
-                    {l.activo && (
-                        <Button type="text" size="small" icon={<IconTrash size={16} color="#e03131" />} onClick={() => setDeleteConfirm({ type: 'link', id: l.id_link, label: l.label })} />
-                    )}
-                </div>
-            ),
-        },
-    ];
-
     return (
-        <div style={{ padding: 16, position: 'relative' }}>
+        <div className="shadcn-scope relative w-full p-4 md:p-6">
             {loading && (
-                <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin />
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             )}
 
@@ -344,74 +270,167 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                 ]}
             />
 
-            <Card style={{ marginTop: 32 }}>
-                <Tabs
-                    defaultActiveKey="modulos"
-                    items={[
-                        {
-                            key: 'modulos',
-                            label: <span><IconFolders size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Unidades Principales</span>,
-                            children: (
-                                <div style={{ paddingTop: 16 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                                        <Button type="primary" icon={<IconPlus size={16} />} onClick={() => openModModal()}>
-                                            Nueva Unidad
-                                        </Button>
-                                    </div>
-                                    <Table rowKey="id_modulo" columns={modColumns} dataSource={modulos} pagination={false} size="small" scroll={{ x: 900 }} />
-                                </div>
-                            ),
-                        },
-                        {
-                            key: 'links',
-                            label: <span><IconLink size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Sub-enlaces</span>,
-                            children: (
-                                <div style={{ paddingTop: 16 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-                                        <Button type="primary" style={{ backgroundColor: '#9c36b5' }} icon={<IconPlus size={16} />} onClick={() => openLinkModal()}>
-                                            Nuevo Enlace
-                                        </Button>
-                                    </div>
-                                    <Table rowKey="id_link" columns={linkColumns} dataSource={links} pagination={false} size="small" scroll={{ x: 900 }} />
-                                </div>
-                            ),
-                        },
-                    ]}
-                />
+            <Card className="mt-8 p-6">
+                <Tabs defaultValue="modulos">
+                    <TabsList>
+                        <TabsTrigger value="modulos" className="gap-1.5"><IconFolders size={16} /> Unidades Principales</TabsTrigger>
+                        <TabsTrigger value="links" className="gap-1.5"><IconLink size={16} /> Sub-enlaces</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="modulos" className="pt-4">
+                        <div className="mb-4 flex justify-end">
+                            <Button onClick={() => openModModal()}>
+                                <IconPlus size={16} /> Nueva Unidad
+                            </Button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>ID Clave</TableHead>
+                                        <TableHead>Label (Nombre Vista)</TableHead>
+                                        <TableHead>Ícono</TableHead>
+                                        <TableHead>Grupo</TableHead>
+                                        <TableHead>Permisos Requeridos</TableHead>
+                                        <TableHead>Orden</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead className="w-[90px]">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {modulos.map((m) => {
+                                        const Icn = getIconComponent(m.icon_name);
+                                        return (
+                                            <TableRow key={m.id_modulo}>
+                                                <TableCell className="font-semibold">{m.id_modulo}</TableCell>
+                                                <TableCell>{m.label}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <Icn size={18} />
+                                                        <span className="text-sm">{m.icon_name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>{m.grupo}</TableCell>
+                                                <TableCell><PermissionsRenderer permsStr={m.permissions_str} /></TableCell>
+                                                <TableCell>{m.sort_order}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant={m.activo ? 'success' : 'destructive'}>{m.activo ? 'Activo' : 'Inactivo'}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-1">
+                                                        <Button variant="ghost" size="icon" title="Editar" onClick={() => openModModal(m)}>
+                                                            <IconEdit size={16} />
+                                                        </Button>
+                                                        {m.activo && (
+                                                            <Button variant="ghost" size="icon" title="Deshabilitar" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm({ type: 'mod', id: m.id_modulo, label: m.label })}>
+                                                                <IconTrash size={16} />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="links" className="pt-4">
+                        <div className="mb-4 flex justify-end">
+                            <Button onClick={() => openLinkModal()}>
+                                <IconPlus size={16} /> Nuevo Enlace
+                            </Button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>ID Accion (React)</TableHead>
+                                        <TableHead>Label (Nombre Vista)</TableHead>
+                                        <TableHead>Unidad Padre</TableHead>
+                                        <TableHead>Permisos Opcionales</TableHead>
+                                        <TableHead>Orden</TableHead>
+                                        <TableHead>Estado</TableHead>
+                                        <TableHead className="w-[90px]">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {links.map((l) => {
+                                        const parentMod = moduloMap.get(l.id_modulo);
+                                        const parentInactive = parentMod && !parentMod.activo;
+                                        return (
+                                            <TableRow key={l.id_link}>
+                                                <TableCell className="font-semibold">{l.id_accion}</TableCell>
+                                                <TableCell>{l.label}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-1">
+                                                        <Badge variant="outline">{l.id_modulo}</Badge>
+                                                        {parentInactive && <Badge variant="warning">módulo inactivo</Badge>}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell><PermissionsRenderer permsStr={l.permissions_str} /></TableCell>
+                                                <TableCell>{l.sort_order}</TableCell>
+                                                <TableCell>
+                                                    <Badge variant={l.activo ? 'success' : 'destructive'}>{l.activo ? 'Activo' : 'Inactivo'}</Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-1">
+                                                        <Button variant="ghost" size="icon" title="Editar" onClick={() => openLinkModal(l)}>
+                                                            <IconEdit size={16} />
+                                                        </Button>
+                                                        {l.activo && (
+                                                            <Button variant="ghost" size="icon" title="Deshabilitar" className="text-destructive hover:text-destructive" onClick={() => setDeleteConfirm({ type: 'link', id: l.id_link, label: l.label })}>
+                                                                <IconTrash size={16} />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </Card>
 
             {/* Modal Unidades */}
-            <Modal open={modModalOpen} onCancel={() => setModModalOpen(false)} footer={null} title={editingMod ? "Editar Unidad" : "Nueva Unidad"}>
-                <form onSubmit={saveModulo}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            <Dialog open={modModalOpen} onOpenChange={setModModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editingMod ? 'Editar Unidad' : 'Nueva Unidad'}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={saveModulo} className="flex flex-col gap-3">
                         <Field label="ID Clave (Interno) *" hint="Solo minúsculas, números y guión bajo" error={modErrors.id_modulo}>
                             <Input
                                 placeholder="ej: medio_ambiente"
                                 value={modForm.id_modulo}
                                 onChange={(e) => setModForm({ ...modForm, id_modulo: e.target.value })}
                                 disabled={!!editingMod}
-                                status={modErrors.id_modulo ? 'error' : undefined}
+                                className={modErrors.id_modulo ? 'border-destructive' : undefined}
                             />
                         </Field>
                         <Field label="Label (Nombre Visible) *" error={modErrors.label}>
-                            <Input value={modForm.label} onChange={(e) => setModForm({ ...modForm, label: e.target.value })} status={modErrors.label ? 'error' : undefined} />
+                            <Input
+                                value={modForm.label}
+                                onChange={(e) => setModForm({ ...modForm, label: e.target.value })}
+                                className={modErrors.label ? 'border-destructive' : undefined}
+                            />
                         </Field>
                         <Field label="Ícono Tabler">
-                            <Select
+                            <Combobox
                                 options={iconOptions}
-                                showSearch
-                                filterOption={(input, option) => (option?.value as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                 value={modForm.icon_name}
-                                onChange={(v) => setModForm({ ...modForm, icon_name: v })}
-                                style={{ width: '100%' }}
+                                onValueChange={(v) => setModForm({ ...modForm, icon_name: v })}
                             />
                         </Field>
                         <Field label="Grupo">
-                            <Select
-                                options={[{ value: 'unidades', label: 'Unidades' }, { value: 'gestion', label: 'Gestión' }]}
+                            <Combobox
+                                options={GRUPO_OPTIONS}
                                 value={modForm.grupo}
-                                onChange={(v) => setModForm({ ...modForm, grupo: v })}
-                                style={{ width: '100%' }}
+                                onValueChange={(v) => setModForm({ ...modForm, grupo: v })}
                             />
                         </Field>
                         <Field label="Permisos (sep. comas)">
@@ -422,43 +441,53 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                             />
                         </Field>
                         <Field label="Orden">
-                            <InputNumber style={{ width: '100%' }} value={modForm.sort_order} onChange={(v) => setModForm({ ...modForm, sort_order: v ?? 0 })} />
+                            <Input
+                                type="number"
+                                value={modForm.sort_order}
+                                onChange={(e) => setModForm({ ...modForm, sort_order: Number(e.target.value) || 0 })}
+                            />
                         </Field>
                         {editingMod && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                <Switch checked={modForm.activo} onChange={(checked) => setModForm({ ...modForm, activo: checked })} />
-                                <Text style={{ fontSize: 13 }}>Módulo Activo</Text>
+                            <div className="mt-1 flex items-center gap-2">
+                                <Switch checked={modForm.activo} onCheckedChange={(checked) => setModForm({ ...modForm, activo: checked })} />
+                                <span className="text-sm text-foreground">Módulo Activo</span>
                             </div>
                         )}
-                        <Button htmlType="submit" type="primary" block loading={isSaving} style={{ marginTop: 12 }}>Guardar</Button>
-                    </div>
-                </form>
-            </Modal>
+                        <Button type="submit" disabled={isSaving} className="mt-3 w-full">
+                            {isSaving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : null}
+                            Guardar
+                        </Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Modal Links */}
-            <Modal open={linkModalOpen} onCancel={() => setLinkModalOpen(false)} footer={null} title={editingLink ? "Editar Enlace" : "Nuevo Enlace"}>
-                <form onSubmit={saveLink}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 8 }}>
+            <Dialog open={linkModalOpen} onOpenChange={setLinkModalOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{editingLink ? 'Editar Enlace' : 'Nuevo Enlace'}</DialogTitle>
+                    </DialogHeader>
+                    <form onSubmit={saveLink} className="flex flex-col gap-3">
                         <Field label="ID Acción (React Route Clave) *" error={linkErrors.id_accion}>
                             <Input
                                 placeholder="ej: ma-fichas-ingreso"
                                 value={linkForm.id_accion}
                                 onChange={(e) => setLinkForm({ ...linkForm, id_accion: e.target.value })}
-                                status={linkErrors.id_accion ? 'error' : undefined}
+                                className={linkErrors.id_accion ? 'border-destructive' : undefined}
                             />
                         </Field>
                         <Field label="Label (Nombre Visible) *" error={linkErrors.label}>
-                            <Input value={linkForm.label} onChange={(e) => setLinkForm({ ...linkForm, label: e.target.value })} status={linkErrors.label ? 'error' : undefined} />
+                            <Input
+                                value={linkForm.label}
+                                onChange={(e) => setLinkForm({ ...linkForm, label: e.target.value })}
+                                className={linkErrors.label ? 'border-destructive' : undefined}
+                            />
                         </Field>
                         <Field label="Módulo Padre *" error={linkErrors.id_modulo}>
-                            <Select
+                            <Combobox
                                 options={moduloOptions}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
                                 value={linkForm.id_modulo || undefined}
-                                onChange={(v) => setLinkForm({ ...linkForm, id_modulo: v })}
-                                style={{ width: '100%' }}
-                                status={linkErrors.id_modulo ? 'error' : undefined}
+                                onValueChange={(v) => setLinkForm({ ...linkForm, id_modulo: v })}
                             />
                         </Field>
                         <Field label="Permisos Extra (sep. comas)" hint="Vacío hereda acceso del padre.">
@@ -469,55 +498,56 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                             />
                         </Field>
                         <Field label="Orden">
-                            <InputNumber style={{ width: '100%' }} value={linkForm.sort_order} onChange={(v) => setLinkForm({ ...linkForm, sort_order: v ?? 0 })} />
+                            <Input
+                                type="number"
+                                value={linkForm.sort_order}
+                                onChange={(e) => setLinkForm({ ...linkForm, sort_order: Number(e.target.value) || 0 })}
+                            />
                         </Field>
                         {editingLink && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                <Switch checked={linkForm.activo} onChange={(checked) => setLinkForm({ ...linkForm, activo: checked })} />
-                                <Text style={{ fontSize: 13 }}>Enlace Activo</Text>
+                            <div className="mt-1 flex items-center gap-2">
+                                <Switch checked={linkForm.activo} onCheckedChange={(checked) => setLinkForm({ ...linkForm, activo: checked })} />
+                                <span className="text-sm text-foreground">Enlace Activo</span>
                             </div>
                         )}
-                        <Button htmlType="submit" type="primary" style={{ backgroundColor: '#9c36b5', marginTop: 12 }} block loading={isSaving}>Guardar</Button>
-                    </div>
-                </form>
-            </Modal>
+                        <Button type="submit" disabled={isSaving} className="mt-3 w-full">
+                            {isSaving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : null}
+                            Guardar
+                        </Button>
+                    </form>
+                </DialogContent>
+            </Dialog>
 
             {/* Delete Confirmation Modal */}
-            <Modal
-                open={!!deleteConfirm}
-                onCancel={() => setDeleteConfirm(null)}
-                footer={null}
-                width={420}
-                centered
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconAlertTriangle size={18} color="#e8590c" />
-                        <Text strong>Confirmar deshabilitación</Text>
-                    </div>
-                }
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
+            <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+                <DialogContent className="max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <IconAlertTriangle size={18} className="text-warning" />
+                            Confirmar deshabilitación
+                        </DialogTitle>
+                    </DialogHeader>
                     <div>
-                        <Text style={{ fontSize: 13 }}>
-                            ¿Está seguro de deshabilitar{' '}
-                            <Text strong>{deleteConfirm?.label}</Text>?
-                        </Text>
+                        <p className="text-sm text-foreground">
+                            ¿Está seguro de deshabilitar <span className="font-semibold">{deleteConfirm?.label}</span>?
+                        </p>
                         {deleteConfirm?.type === 'mod' && (
-                            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                            <p className="mt-1 text-xs text-muted-foreground">
                                 También se deshabilitarán todos sus sub-enlaces asociados.
-                            </Text>
+                            </p>
                         )}
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDeleteConfirm(null)} disabled={isDeleting}>
                             Cancelar
                         </Button>
-                        <Button danger type="primary" onClick={confirmDelete} loading={isDeleting}>
+                        <Button variant="destructive" onClick={confirmDelete} disabled={isDeleting}>
+                            {isDeleting ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" /> : null}
                             Deshabilitar
                         </Button>
-                    </div>
-                </div>
-            </Modal>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
@@ -525,10 +555,10 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
 function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <p className="mb-1 text-xs text-muted-foreground">{label}</p>
             {children}
-            {hint && !error && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
-            {error && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{error}</Text>}
+            {hint && !error && <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
+            {error && <p className="mt-0.5 text-[11px] text-destructive">{error}</p>}
         </div>
     );
 }
