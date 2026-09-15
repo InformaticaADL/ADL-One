@@ -1,5 +1,5 @@
-import { Modal, Spin } from 'antd';
 import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Props {
     open: boolean;
@@ -25,44 +25,39 @@ const PdfViewerModal: React.FC<Props> = ({ open, onClose, url, title }) => {
     }, [url]);
 
     return (
-        <Modal
-            open={open}
-            onCancel={onClose}
-            footer={null}
-            width="90vw"
-            style={{ top: 16, paddingBottom: 0 }}
-            styles={{ body: { padding: 0, height: '85vh' } }}
-            title={title || 'Vista de documento'}
-            destroyOnHidden
-        >
-            {url ? (
-                <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-                    {loading && (
-                        // pointer-events:none — antes esta capa tapaba el iframe
-                        // y, si el spinner se quedaba pegado, bloqueaba el
-                        // scroll y los controles del visor de PDF.
-                        <div style={{
-                            position: 'absolute', inset: 0, pointerEvents: 'none',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            <Spin />
+        <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
+            <DialogContent className="flex h-[85vh] w-[90vw] max-w-none flex-col gap-0 p-0">
+                <DialogHeader className="shrink-0 border-b border-border px-4 py-3">
+                    <DialogTitle>{title || 'Vista de documento'}</DialogTitle>
+                </DialogHeader>
+                <div className="min-h-0 flex-1">
+                    {url ? (
+                        <div className="relative h-full w-full">
+                            {loading && (
+                                // pointer-events-none — antes esta capa tapaba el iframe
+                                // y, si el spinner se quedaba pegado, bloqueaba el
+                                // scroll y los controles del visor de PDF.
+                                <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                </div>
+                            )}
+                            <iframe
+                                src={url}
+                                onLoad={() => setUrlListo(url)}
+                                className="h-full w-full border-0"
+                                title={title || 'PDF'}
+                            />
+                        </div>
+                    ) : (
+                        // Mientras se descarga el archivo (los adjuntos van con token,
+                        // así que llegan por fetch antes de tener una url que mostrar).
+                        <div className="flex h-full items-center justify-center">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
-                    <iframe
-                        src={url}
-                        onLoad={() => setUrlListo(url)}
-                        style={{ width: '100%', height: '100%', border: 'none' }}
-                        title={title || 'PDF'}
-                    />
                 </div>
-            ) : (
-                // Mientras se descarga el archivo (los adjuntos van con token,
-                // así que llegan por fetch antes de tener una url que mostrar).
-                <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin />
-                </div>
-            )}
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
 

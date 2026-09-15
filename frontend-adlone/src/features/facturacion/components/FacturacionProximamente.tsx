@@ -1,4 +1,4 @@
-import { Empty } from 'antd';
+import { IconClockHour4 } from '@tabler/icons-react';
 
 interface Props {
     titulo: string;
@@ -6,16 +6,14 @@ interface Props {
 }
 
 const FacturacionProximamente: React.FC<Props> = ({ titulo, descripcion }) => (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', padding: 40 }}>
-        <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-                <div>
-                    <div style={{ fontSize: 15, fontWeight: 600, color: 'rgba(0,0,0,0.85)', marginBottom: 4 }}>{titulo}</div>
-                    <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.45)' }}>{descripcion}</div>
-                </div>
-            }
-        />
+    <div className="flex h-full items-center justify-center p-10">
+        <div className="flex flex-col items-center gap-3 text-center">
+            <IconClockHour4 size={32} className="text-muted-foreground" />
+            <div>
+                <p className="mb-1 text-[15px] font-semibold text-foreground">{titulo}</p>
+                <p className="text-sm text-muted-foreground">{descripcion}</p>
+            </div>
+        </div>
     </div>
 );
 
