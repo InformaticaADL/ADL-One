@@ -1,14 +1,9 @@
 import { useState, useMemo } from 'react';
-import { ConfigProvider, Menu } from 'antd';
-import esES from 'antd/locale/es_ES';
-import dayjs from 'dayjs';
-import 'dayjs/locale/es';
 import {
     IconLayoutDashboard, IconListCheck, IconFileInvoice, IconFileDollar, IconSettings,
     IconClipboardCheck, IconReceipt2,
 } from '@tabler/icons-react';
-
-dayjs.locale('es');
+import { cn } from '@/lib/utils';
 import { useAuth } from '../../../contexts/AuthContext';
 import FacturacionDashboard from './FacturacionDashboard';
 import FacturacionProcesar from './FacturacionProcesar';
@@ -19,22 +14,6 @@ import FacturacionEstadoCuenta from './FacturacionEstadoCuenta';
 import FacturacionConfiguracion from './FacturacionConfiguracion';
 
 type Vista = 'dashboard' | 'procesar' | 'prefacturas' | 'cotizaciones' | 'ordenes-compra' | 'estado-cuenta' | 'configuracion';
-
-const C = {
-    // Todo el módulo va sobre blanco: la separación la dan los bordes finos y
-    // el espaciado, no fondos grises.
-    primary: '#1677ff', border: '#f0f0f0', bg: '#ffffff', bgLayout: '#ffffff',
-    text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)',
-};
-
-const CSS = `
-.adl-fac-root { display:flex; height:100%; overflow:hidden; background:${C.bg}; }
-.adl-fac-nav { width:230px; flex-shrink:0; display:flex; flex-direction:column; border-right:1px solid ${C.border}; background:${C.bg}; }
-.adl-fac-navhead { padding:20px 20px 12px; }
-.adl-fac-navtitle { margin:0; font-size:19px; font-weight:700; color:${C.text}; letter-spacing:-.2px; }
-.adl-fac-navsub { margin:2px 0 0; font-size:12px; color:${C.textSec}; }
-.adl-fac-content { flex:1; min-width:0; overflow-y:auto; background:${C.bgLayout}; }
-`;
 
 // Cada pestaña declara el permiso que su backend exige. Sin esto el menú
 // ofrece páginas que después responden 403: el usuario ve la sección, entra y
@@ -58,40 +37,48 @@ const FacturacionModule: React.FC = () => {
 
     if (items.length === 0) {
         return (
-            <div style={{ padding: 48, textAlign: 'center', color: C.textSec }}>
+            <div className="shadcn-scope flex h-full items-center justify-center p-12 text-center text-sm text-muted-foreground">
                 No tienes permisos para ninguna sección de Facturación.
             </div>
         );
     }
 
     return (
-        <ConfigProvider locale={esES} theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
-            <style>{CSS}</style>
-            <div className="adl-fac-root">
-                <nav className="adl-fac-nav">
-                    <div className="adl-fac-navhead">
-                        <h1 className="adl-fac-navtitle">Facturación</h1>
-                        <p className="adl-fac-navsub">Medio Ambiente</p>
-                    </div>
-                    <Menu
-                        mode="inline"
-                        selectedKeys={[vista]}
-                        items={items}
-                        onClick={(e) => setVista(e.key as Vista)}
-                        style={{ border: 'none', padding: '4px 8px' }}
-                    />
-                </nav>
-                <div className="adl-fac-content">
-                    {vista === 'dashboard' && <FacturacionDashboard onNavigate={(v) => setVista(v as Vista)} />}
-                    {vista === 'procesar' && <FacturacionProcesar />}
-                    {vista === 'prefacturas' && <FacturacionPrefacturas />}
-                    {vista === 'cotizaciones' && <FacturacionCotizaciones />}
-                    {vista === 'ordenes-compra' && <FacturacionBandejaOc />}
-                    {vista === 'estado-cuenta' && <FacturacionEstadoCuenta />}
-                    {vista === 'configuracion' && <FacturacionConfiguracion />}
+        <div className="shadcn-scope flex h-full overflow-hidden bg-background">
+            <nav className="flex w-[230px] shrink-0 flex-col border-r border-border bg-background">
+                <div className="px-5 pb-3 pt-5">
+                    <h1 className="m-0 text-[19px] font-bold tracking-tight text-foreground">Facturación</h1>
+                    <p className="m-0 mt-0.5 text-xs text-muted-foreground">Medio Ambiente</p>
                 </div>
+                <div className="flex flex-col gap-0.5 px-2">
+                    {items.map((item) => (
+                        <button
+                            key={item.key}
+                            type="button"
+                            onClick={() => setVista(item.key as Vista)}
+                            className={cn(
+                                'flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors',
+                                vista === item.key
+                                    ? 'bg-primary/10 text-primary'
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            )}
+                        >
+                            {item.icon}
+                            {item.label}
+                        </button>
+                    ))}
+                </div>
+            </nav>
+            <div className="min-w-0 flex-1 overflow-y-auto bg-background">
+                {vista === 'dashboard' && <FacturacionDashboard onNavigate={(v) => setVista(v as Vista)} />}
+                {vista === 'procesar' && <FacturacionProcesar />}
+                {vista === 'prefacturas' && <FacturacionPrefacturas />}
+                {vista === 'cotizaciones' && <FacturacionCotizaciones />}
+                {vista === 'ordenes-compra' && <FacturacionBandejaOc />}
+                {vista === 'estado-cuenta' && <FacturacionEstadoCuenta />}
+                {vista === 'configuracion' && <FacturacionConfiguracion />}
             </div>
-        </ConfigProvider>
+        </div>
     );
 };
 

@@ -1,33 +1,23 @@
 import { useEffect, useState } from 'react';
-import {
-    Table, Tag, Button, Empty, Spin, message, Select, Alert, Space, Modal, DatePicker, Statistic, Tooltip,
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { IconRefresh, IconCash, IconAlertTriangle } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 import { facturacionService } from '../services/facturacion.service';
 import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/services/catalogos.service';
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', bg: '#ffffff', red: '#cf1322', green: '#389e0d', orange: '#d46b08',
-};
-
-const CSS = `
-.adl-fec-wrap { width:100%; padding:28px 32px 56px; background:${C.bg}; }
-.adl-fec-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-.adl-fec-title { margin:0; font-size:21px; font-weight:650; color:${C.text}; letter-spacing:-.3px; }
-.adl-fec-sub { margin:3px 0 0; font-size:13px; color:${C.textTer}; }
-.adl-fec-kpis { display:grid; grid-template-columns:repeat(auto-fit, minmax(210px, 1fr)); gap:16px; margin-bottom:24px; max-width:900px; }
-.adl-fec-kpi { border:1px solid ${C.border}; border-radius:10px; background:#fff; padding:18px 20px; }
-`;
+import { useToast } from '../../../contexts/ToastContext';
 
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
+const hoyStr = () => new Date().toISOString().slice(0, 10);
 
 // Tramos de antigüedad: solo informan hace cuánto se emitió, NO mora — no hay
 // fuente de pago automática (ver comentario de la Fase 8 en el servicio).
-const tramoColor = (dias: number) => dias > 90 ? C.red : dias > 60 ? C.orange : dias > 30 ? '#8c8c8c' : C.green;
+const tramoClass = (dias: number) => dias > 90 ? 'text-destructive' : dias > 60 ? 'text-warning' : dias > 30 ? 'text-muted-foreground' : 'text-success';
 
 interface Factura {
     id_emision: number;
@@ -45,6 +35,7 @@ interface Factura {
 }
 
 const FacturacionEstadoCuenta: React.FC = () => {
+    const { showToast } = useToast();
     const [empresas, setEmpresas] = useState<EmpresaServicio[]>([]);
     const [idEmpresaSel, setIdEmpresaSel] = useState<number | undefined>();
     const [facturas, setFacturas] = useState<Factura[]>([]);
@@ -52,7 +43,7 @@ const FacturacionEstadoCuenta: React.FC = () => {
     const [loading, setLoading] = useState(false);
 
     const [pagando, setPagando] = useState<Factura | null>(null);
-    const [fechaPago, setFechaPago] = useState<dayjs.Dayjs | null>(dayjs());
+    const [fechaPago, setFechaPago] = useState<string>(hoyStr());
     const [guardando, setGuardando] = useState(false);
 
     useEffect(() => {
@@ -61,9 +52,10 @@ const FacturacionEstadoCuenta: React.FC = () => {
                 const raw: any[] = await catalogosService.getEmpresasServicio();
                 setEmpresas(raw.map((e) => ({ id: e.id_empresaservicio, nombre: e.nombre_empresaservicios })));
             } catch {
-                message.error('No se pudieron cargar los clientes');
+                showToast({ type: 'error', message: 'No se pudieron cargar los clientes' });
             }
         })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const cargar = async (idEmpresa?: number) => {
@@ -75,174 +67,177 @@ const FacturacionEstadoCuenta: React.FC = () => {
             setFacturas(r?.facturas || []);
             setResumen(r?.resumen || null);
         } catch {
-            message.error('No se pudo cargar el estado de cuenta');
+            showToast({ type: 'error', message: 'No se pudo cargar el estado de cuenta' });
         } finally {
             setLoading(false);
         }
     };
 
-    const onEmpresaChange = (val: number) => {
-        setIdEmpresaSel(val);
+    const onEmpresaChange = (val: string) => {
+        const id = Number(val);
+        setIdEmpresaSel(id);
         setFacturas([]);
         setResumen(null);
-        cargar(val);
+        cargar(id);
     };
 
     const marcarPagada = async () => {
         if (!pagando) return;
         setGuardando(true);
         try {
-            await facturacionService.marcarFacturaPagada(
-                pagando.id_emision,
-                fechaPago ? fechaPago.format('YYYY-MM-DD') : undefined);
-            message.success(`Factura ${pagando.folio_sii || pagando.id_emision} marcada como pagada`);
+            await facturacionService.marcarFacturaPagada(pagando.id_emision, fechaPago || undefined);
+            showToast({ type: 'success', message: `Factura ${pagando.folio_sii || pagando.id_emision} marcada como pagada` });
             setPagando(null);
             await cargar();
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo marcar como pagada');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo marcar como pagada' });
         } finally {
             setGuardando(false);
         }
     };
 
-    const columns: ColumnsType<Factura> = [
-        { title: 'Folio', dataIndex: 'folio_sii', width: 100, render: (v) => v ? <b>{v}</b> : <Tag>Sin folio</Tag> },
-        { title: 'Tipo', dataIndex: 'tipo_documento', width: 110, render: (v) => v || '—' },
-        { title: 'Pre-factura', dataIndex: 'numero_id', width: 110, render: (v) => `N° ${v}` },
-        { title: 'Emisión', dataIndex: 'fecha_emision', width: 110, render: fmtFecha },
-        {
-            title: 'Antigüedad', dataIndex: 'dias_desde_emision', width: 120,
-            render: (v, r) => r.pagada
-                ? <span style={{ color: C.textTer }}>—</span>
-                : <span style={{ color: tramoColor(v), fontWeight: 600 }}>{v} días</span>,
-        },
-        { title: 'Neto', dataIndex: 'monto_neto', width: 120, align: 'right', render: (v) => `$ ${fmtClp(v)}` },
-        { title: 'IVA', dataIndex: 'iva', width: 110, align: 'right', render: (v) => `$ ${fmtClp(v)}` },
-        {
-            title: 'Total', dataIndex: 'monto_total', width: 130, align: 'right',
-            render: (v) => <b style={{ fontVariantNumeric: 'tabular-nums' }}>$ {fmtClp(v)}</b>,
-        },
-        {
-            title: 'Pago', dataIndex: 'pagada', width: 160,
-            render: (v, r) => v
-                ? <Tag color="green">Pagada · {fmtFecha(r.fecha_pago)}</Tag>
-                : <Tag color="default">Sin marcar</Tag>,
-        },
-        {
-            title: '', width: 130, align: 'right',
-            render: (_, r) => r.pagada ? null : (
-                <Button size="small" icon={<IconCash size={14} />} onClick={() => { setPagando(r); setFechaPago(dayjs()); }}>
-                    Marcar pagada
-                </Button>
-            ),
-        },
-    ];
-
     return (
-        <div className="adl-fec-wrap">
-            <style>{CSS}</style>
-
-            <div className="adl-fec-header">
+        <div className="shadcn-scope w-full p-7 pb-14">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="adl-fec-title">Estado de cuenta</h2>
-                    <p className="adl-fec-sub">Facturas emitidas por cliente y su antigüedad desde la emisión.</p>
+                    <h2 className="m-0 text-[21px] font-semibold tracking-tight text-foreground">Estado de cuenta</h2>
+                    <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">Facturas emitidas por cliente y su antigüedad desde la emisión.</p>
                 </div>
-                <Space>
-                    <Select
-                        showSearch
-                        style={{ width: 320 }}
-                        placeholder="Selecciona un cliente"
-                        optionFilterProp="label"
-                        value={idEmpresaSel}
-                        onChange={onEmpresaChange}
-                        options={empresas.map((e) => ({ value: e.id, label: e.nombre }))}
-                    />
-                    <Button icon={<IconRefresh size={16} />} disabled={!idEmpresaSel} onClick={() => cargar()}>Actualizar</Button>
-                </Space>
+                <div className="flex items-center gap-2">
+                    <div className="w-80">
+                        <Combobox
+                            value={idEmpresaSel !== undefined ? String(idEmpresaSel) : undefined}
+                            onValueChange={onEmpresaChange}
+                            placeholder="Selecciona un cliente"
+                            searchPlaceholder="Buscar cliente..."
+                            options={empresas.map((e) => ({ value: String(e.id), label: e.nombre }))}
+                        />
+                    </div>
+                    <Button variant="outline" disabled={!idEmpresaSel} onClick={() => cargar()}>
+                        <IconRefresh size={16} /> Actualizar
+                    </Button>
+                </div>
             </div>
 
             {/* El estado de pago es MANUAL: no hay integración con el sistema de
                 ventas que informe pagos, y decirlo evita que alguien lea estos
                 números como una cartola real. */}
-            <Alert
-                type="info"
-                showIcon
-                icon={<IconAlertTriangle size={16} />}
-                style={{ marginBottom: 22, maxWidth: 900 }}
-                message="El pago se marca a mano"
-                description="No hay una fuente automática de pagos conectada, así que “sin marcar” significa que nadie lo registró todavía — no necesariamente que esté impago."
-            />
+            <div className="mb-[22px] flex max-w-[900px] items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
+                <IconAlertTriangle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                <div>
+                    <p className="text-sm font-medium text-foreground">El pago se marca a mano</p>
+                    <p className="text-sm text-muted-foreground">No hay una fuente automática de pagos conectada, así que “sin marcar” significa que nadie lo registró todavía — no necesariamente que esté impago.</p>
+                </div>
+            </div>
 
             {!idEmpresaSel ? (
-                <Empty description="Elige un cliente para ver su estado de cuenta." />
+                <p className="p-10 text-center text-sm text-muted-foreground">Elige un cliente para ver su estado de cuenta.</p>
             ) : loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin /></div>
+                <div className="flex justify-center p-14">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
             ) : (
                 <>
                     {resumen && (
-                        <div className="adl-fec-kpis">
-                            <div className="adl-fec-kpi">
-                                <Statistic
-                                    title="Total facturado"
-                                    value={resumen.total_facturado}
-                                    formatter={(v) => `$ ${fmtClp(Number(v))}`}
-                                    valueStyle={{ fontSize: 20, color: C.text }}
-                                />
-                            </div>
-                            <div className="adl-fec-kpi">
-                                <Statistic
-                                    title="Sin marcar como pagado"
-                                    value={resumen.total_sin_marcar_pago}
-                                    formatter={(v) => `$ ${fmtClp(Number(v))}`}
-                                    valueStyle={{ fontSize: 20, color: resumen.total_sin_marcar_pago > 0 ? C.orange : C.green }}
-                                />
-                            </div>
-                            <div className="adl-fec-kpi">
-                                <Statistic
-                                    title="Facturas sin marcar"
-                                    value={resumen.cantidad_sin_marcar_pago}
-                                    suffix={`/ ${facturas.length}`}
-                                    valueStyle={{ fontSize: 20, color: C.text }}
-                                />
-                            </div>
+                        <div className="mb-6 grid max-w-[900px] gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))' }}>
+                            <Card className="p-[18px_20px]">
+                                <p className="text-xs text-muted-foreground">Total facturado</p>
+                                <p className="mt-1 text-xl font-semibold text-foreground">$ {fmtClp(resumen.total_facturado)}</p>
+                            </Card>
+                            <Card className="p-[18px_20px]">
+                                <p className="text-xs text-muted-foreground">Sin marcar como pagado</p>
+                                <p className={`mt-1 text-xl font-semibold ${resumen.total_sin_marcar_pago > 0 ? 'text-warning' : 'text-success'}`}>
+                                    $ {fmtClp(resumen.total_sin_marcar_pago)}
+                                </p>
+                            </Card>
+                            <Card className="p-[18px_20px]">
+                                <p className="text-xs text-muted-foreground">Facturas sin marcar</p>
+                                <p className="mt-1 text-xl font-semibold text-foreground">{resumen.cantidad_sin_marcar_pago} / {facturas.length}</p>
+                            </Card>
                         </div>
                     )}
 
                     {facturas.length === 0 ? (
-                        <Empty description="Este cliente no tiene facturas emitidas con folio registrado." />
+                        <p className="p-10 text-center text-sm text-muted-foreground">Este cliente no tiene facturas emitidas con folio registrado.</p>
                     ) : (
-                        <Table<Factura>
-                            rowKey="id_emision"
-                            columns={columns}
-                            dataSource={facturas}
-                            size="small"
-                            pagination={{ pageSize: 20, size: 'small' }}
-                        />
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead>Folio</TableHead>
+                                    <TableHead>Tipo</TableHead>
+                                    <TableHead>Pre-factura</TableHead>
+                                    <TableHead>Emisión</TableHead>
+                                    <TableHead>Antigüedad</TableHead>
+                                    <TableHead className="text-right">Neto</TableHead>
+                                    <TableHead className="text-right">IVA</TableHead>
+                                    <TableHead className="text-right">Total</TableHead>
+                                    <TableHead>Pago</TableHead>
+                                    <TableHead className="text-right"></TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {facturas.map((r) => (
+                                    <TableRow key={r.id_emision}>
+                                        <TableCell>{r.folio_sii ? <b>{r.folio_sii}</b> : <Badge variant="outline">Sin folio</Badge>}</TableCell>
+                                        <TableCell>{r.tipo_documento || '—'}</TableCell>
+                                        <TableCell>N° {r.numero_id}</TableCell>
+                                        <TableCell>{fmtFecha(r.fecha_emision)}</TableCell>
+                                        <TableCell>
+                                            {r.pagada
+                                                ? <span className="text-muted-foreground">—</span>
+                                                : <span className={`font-semibold ${tramoClass(r.dias_desde_emision)}`}>{r.dias_desde_emision} días</span>}
+                                        </TableCell>
+                                        <TableCell className="text-right">$ {fmtClp(r.monto_neto)}</TableCell>
+                                        <TableCell className="text-right">$ {fmtClp(r.iva)}</TableCell>
+                                        <TableCell className="text-right"><b className="tabular-nums">$ {fmtClp(r.monto_total)}</b></TableCell>
+                                        <TableCell>
+                                            {r.pagada
+                                                ? <Badge variant="success">Pagada · {fmtFecha(r.fecha_pago)}</Badge>
+                                                : <Badge variant="outline">Sin marcar</Badge>}
+                                        </TableCell>
+                                        <TableCell className="text-right">
+                                            {!r.pagada && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => { setPagando(r); setFechaPago(hoyStr()); }}
+                                                >
+                                                    <IconCash size={14} /> Marcar pagada
+                                                </Button>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
                     )}
                 </>
             )}
 
-            <Modal
-                title={pagando ? `Marcar pagada — Folio ${pagando.folio_sii || pagando.id_emision}` : 'Marcar pagada'}
-                open={pagando !== null}
-                onCancel={() => setPagando(null)}
-                onOk={marcarPagada}
-                confirmLoading={guardando}
-                okText="Marcar pagada"
-                width={420}
-            >
-                {pagando && (
-                    <>
-                        <p style={{ fontSize: 13, color: C.textSec, marginBottom: 16 }}>
-                            Total de la factura: <b style={{ color: C.text }}>$ {fmtClp(pagando.monto_total)}</b>
-                        </p>
-                        <label style={{ display: 'block', fontSize: 12.5, color: C.textSec, marginBottom: 6 }}>Fecha del pago</label>
-                        <Tooltip title="Queda registrada como fecha de pago de esta factura">
-                            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" value={fechaPago} onChange={setFechaPago} />
-                        </Tooltip>
-                    </>
-                )}
-            </Modal>
+            <Dialog open={pagando !== null} onOpenChange={(open) => { if (!open) setPagando(null); }}>
+                <DialogContent className="max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>{pagando ? `Marcar pagada — Folio ${pagando.folio_sii || pagando.id_emision}` : 'Marcar pagada'}</DialogTitle>
+                    </DialogHeader>
+                    {pagando && (
+                        <>
+                            <p className="mb-4 text-sm text-muted-foreground">
+                                Total de la factura: <b className="text-foreground">$ {fmtClp(pagando.monto_total)}</b>
+                            </p>
+                            <label className="mb-1.5 block text-xs text-muted-foreground">Fecha del pago</label>
+                            <DatePicker value={fechaPago} onChange={setFechaPago} />
+                            <p className="mt-1.5 text-xs text-muted-foreground">Queda registrada como fecha de pago de esta factura.</p>
+                        </>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPagando(null)}>Cancelar</Button>
+                        <Button disabled={guardando} onClick={marcarPagada}>
+                            {guardando && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            Marcar pagada
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

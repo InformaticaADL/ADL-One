@@ -1,30 +1,20 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import {
-    Table, Tag, Button, Empty, Spin, message, Modal, Input, DatePicker, Select, Alert, Space, Tooltip, Switch,
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Switch } from '@/components/ui/switch';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
     IconRefresh, IconUpload, IconCircleCheck, IconCircleX, IconFileTypePdf, IconSparkles,
 } from '@tabler/icons-react';
-import dayjs from 'dayjs';
 import { facturacionService } from '../services/facturacion.service';
 import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/services/catalogos.service';
 import PdfViewerModal from './PdfViewerModal';
 import API_CONFIG from '../../../config/api.config';
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', bg: '#ffffff',
-};
-
-const CSS = `
-.adl-foc-wrap { width:100%; padding:28px 32px 56px; background:${C.bg}; }
-.adl-foc-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:12px; }
-.adl-foc-title { margin:0; font-size:21px; font-weight:650; color:${C.text}; letter-spacing:-.3px; }
-.adl-foc-sub { margin:3px 0 0; font-size:13px; color:${C.textTer}; }
-.adl-foc-field { margin-bottom:16px; }
-.adl-foc-field label { display:block; font-size:12.5px; color:${C.textSec}; margin-bottom:6px; }
-`;
+import { useToast } from '../../../contexts/ToastContext';
 
 const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
@@ -32,10 +22,10 @@ const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFr
 
 // La extracción automática reporta su propia confianza: se muestra tal cual
 // para que quien revisa sepa cuánto puede confiar en los campos sugeridos.
-const CONFIANZA: Record<string, { color: string; label: string }> = {
-    ALTA: { color: 'green', label: 'Confianza alta' },
-    MEDIA: { color: 'orange', label: 'Confianza media' },
-    BAJA: { color: 'red', label: 'Confianza baja' },
+const CONFIANZA: Record<string, { variant: 'success' | 'warning' | 'destructive'; label: string }> = {
+    ALTA: { variant: 'success', label: 'Confianza alta' },
+    MEDIA: { variant: 'warning', label: 'Confianza media' },
+    BAJA: { variant: 'destructive', label: 'Confianza baja' },
 };
 
 interface Candidato {
@@ -58,17 +48,21 @@ interface Candidato {
 }
 
 const FacturacionBandejaOc: React.FC = () => {
+    const { showToast } = useToast();
     const [data, setData] = useState<Candidato[]>([]);
     const [loading, setLoading] = useState(true);
 
     const [confirmando, setConfirmando] = useState<Candidato | null>(null);
     const [numeroOc, setNumeroOc] = useState('');
-    const [fechaOc, setFechaOc] = useState<dayjs.Dayjs | null>(null);
+    const [fechaOc, setFechaOc] = useState('');
     const [numeroHes, setNumeroHes] = useState('');
-    const [fechaHes, setFechaHes] = useState<dayjs.Dayjs | null>(null);
+    const [fechaHes, setFechaHes] = useState('');
     const [guardando, setGuardando] = useState(false);
 
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+    const [descartando, setDescartando] = useState<Candidato | null>(null);
+    const [procesandoDescarte, setProcesandoDescarte] = useState(false);
 
     // --- Subida manual de una OC que llegó por correo ---
     const [subirOpen, setSubirOpen] = useState(false);
@@ -89,20 +83,20 @@ const FacturacionBandejaOc: React.FC = () => {
         try {
             setData(await facturacionService.listarCandidatosOc() || []);
         } catch {
-            message.error('No se pudo cargar la bandeja de OCs');
+            showToast({ type: 'error', message: 'No se pudo cargar la bandeja de OCs' });
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [showToast]);
 
     useEffect(() => { cargar(); }, [cargar]);
 
     const abrirConfirmar = async (c: Candidato) => {
         setConfirmando(c);
         setNumeroOc(c.numero_oc_sugerido || '');
-        setFechaOc(c.fecha_oc_sugerida ? dayjs(c.fecha_oc_sugerida) : null);
+        setFechaOc(c.fecha_oc_sugerida ? c.fecha_oc_sugerida.slice(0, 10) : '');
         setNumeroHes(c.numero_hes_sugerido || '');
-        setFechaHes(c.fecha_hes_sugerida ? dayjs(c.fecha_hes_sugerida) : null);
+        setFechaHes(c.fecha_hes_sugerida ? c.fecha_hes_sugerida.slice(0, 10) : '');
         setPfDestino(undefined);
         // Una anticipada necesita que se elija la pre-factura destino: se
         // cargan solo las del mismo cliente para no ofrecer imposibles.
@@ -113,42 +107,40 @@ const FacturacionBandejaOc: React.FC = () => {
 
     const confirmar = async () => {
         if (!confirmando) return;
-        if (!numeroOc.trim()) { message.warning('El número de OC es requerido'); return; }
-        if (!confirmando.numero_id && !pfDestino) { message.warning('Elige la pre-factura contra la que se aplica esta OC'); return; }
+        if (!numeroOc.trim()) { showToast({ type: 'warning', message: 'El número de OC es requerido' }); return; }
+        if (!confirmando.numero_id && !pfDestino) { showToast({ type: 'warning', message: 'Elige la pre-factura contra la que se aplica esta OC' }); return; }
         setGuardando(true);
         try {
             await facturacionService.confirmarCandidatoOc(confirmando.id_candidato, {
                 numeroOc: numeroOc.trim(),
-                fechaOc: fechaOc ? fechaOc.format('YYYY-MM-DD') : undefined,
+                fechaOc: fechaOc || undefined,
                 numeroHes: numeroHes.trim() || undefined,
-                fechaHes: fechaHes ? fechaHes.format('YYYY-MM-DD') : undefined,
+                fechaHes: fechaHes || undefined,
                 idPrefactura: pfDestino,
             });
-            message.success(`OC ${numeroOc.trim()} registrada`);
+            showToast({ type: 'success', message: `OC ${numeroOc.trim()} registrada` });
             setConfirmando(null);
             await cargar();
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo confirmar la OC');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo confirmar la OC' });
         } finally {
             setGuardando(false);
         }
     };
 
-    const descartar = (c: Candidato) => {
-        Modal.confirm({
-            title: '¿Descartar este candidato?',
-            content: 'Se marcará como descartado y saldrá de la bandeja. El archivo queda guardado.',
-            okText: 'Descartar', okButtonProps: { danger: true }, cancelText: 'Cancelar',
-            onOk: async () => {
-                try {
-                    await facturacionService.descartarCandidatoOc(c.id_candidato);
-                    message.success('Candidato descartado');
-                    await cargar();
-                } catch (e: any) {
-                    message.error(e?.response?.data?.message || 'No se pudo descartar');
-                }
-            },
-        });
+    const descartar = async () => {
+        if (!descartando) return;
+        setProcesandoDescarte(true);
+        try {
+            await facturacionService.descartarCandidatoOc(descartando.id_candidato);
+            showToast({ type: 'success', message: 'Candidato descartado' });
+            setDescartando(null);
+            await cargar();
+        } catch (e: any) {
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo descartar' });
+        } finally {
+            setProcesandoDescarte(false);
+        }
     };
 
     const abrirSubir = async () => {
@@ -161,7 +153,7 @@ const FacturacionBandejaOc: React.FC = () => {
             try {
                 setPrefacturas(await facturacionService.listarPrefacturas() || []);
             } catch {
-                message.error('No se pudieron cargar las pre-facturas');
+                showToast({ type: 'error', message: 'No se pudieron cargar las pre-facturas' });
             }
         }
         if (empresas.length === 0) {
@@ -173,268 +165,296 @@ const FacturacionBandejaOc: React.FC = () => {
     };
 
     const subir = async () => {
-        if (anticipada && !idEmpresaSel) { message.warning('Elige el cliente al que corresponde la OC'); return; }
-        if (!anticipada && !idPrefacturaSel) { message.warning('Elige la pre-factura a la que corresponde la OC'); return; }
-        if (!archivo) { message.warning('Adjunta el PDF de la OC'); return; }
+        if (anticipada && !idEmpresaSel) { showToast({ type: 'warning', message: 'Elige el cliente al que corresponde la OC' }); return; }
+        if (!anticipada && !idPrefacturaSel) { showToast({ type: 'warning', message: 'Elige la pre-factura a la que corresponde la OC' }); return; }
+        if (!archivo) { showToast({ type: 'warning', message: 'Adjunta el PDF de la OC' }); return; }
         setSubiendo(true);
         try {
             const r = await facturacionService.crearCandidatoOc(
                 anticipada ? null : idPrefacturaSel!, archivo, idEmpresaSel);
             if (r?.anticipada) {
-                message.success('OC anticipada guardada: queda pendiente hasta que exista la pre-factura.');
+                showToast({ type: 'success', message: 'OC anticipada guardada: queda pendiente hasta que exista la pre-factura.' });
             } else {
-                message.success(r?.extraido
-                    ? 'OC subida — se extrajeron datos automáticamente, revísalos antes de confirmar.'
-                    : 'OC subida. No se pudieron extraer los datos: complétalos a mano al confirmar.');
+                showToast({
+                    type: 'success',
+                    message: r?.extraido
+                        ? 'OC subida — se extrajeron datos automáticamente, revísalos antes de confirmar.'
+                        : 'OC subida. No se pudieron extraer los datos: complétalos a mano al confirmar.',
+                });
             }
             setSubirOpen(false);
             await cargar();
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo subir la OC');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo subir la OC' });
         } finally {
             setSubiendo(false);
         }
     };
 
-    const columns: ColumnsType<Candidato> = [
-        {
-            title: 'Pre-factura', dataIndex: 'numero_id', width: 150,
-            render: (v, r: any) => v ? <b>N° {v}</b> : (
-                <Tooltip title={r.prefacturas_disponibles > 0
-                    ? `Este cliente tiene ${r.prefacturas_disponibles} pre-factura(s) a las que se puede aplicar`
-                    : 'Todavía no hay ninguna pre-factura de este cliente'}>
-                    <Tag color={r.prefacturas_disponibles > 0 ? 'blue' : 'gold'}>
-                        Anticipada{r.prefacturas_disponibles > 0 ? ` · ${r.prefacturas_disponibles} disponible(s)` : ''}
-                    </Tag>
-                </Tooltip>
-            ),
-        },
-        { title: 'Cliente', dataIndex: 'nombre_empresaservicios', ellipsis: true, render: (v) => v || '—' },
-        {
-            title: 'OC sugerida', dataIndex: 'numero_oc_sugerido', width: 190,
-            render: (v, r) => v ? (
-                <span>
-                    <b>{v}</b>
-                    {r.fecha_oc_sugerida && <span style={{ color: C.textTer }}> · {fmtFecha(r.fecha_oc_sugerida)}</span>}
-                </span>
-            ) : <Tag>Sin extraer</Tag>,
-        },
-        { title: 'HES', dataIndex: 'numero_hes_sugerido', width: 120, render: (v) => v || <span style={{ color: C.textTer }}>—</span> },
-        {
-            title: 'Monto', dataIndex: 'monto_sugerido', width: 120, align: 'right',
-            render: (v) => v ? `$ ${fmtClp(v)}` : <span style={{ color: C.textTer }}>—</span>,
-        },
-        {
-            title: 'Extracción', dataIndex: 'confianza', width: 150,
-            render: (v, r) => {
-                if (!v) return <Tag color="default">Manual</Tag>;
-                const info = CONFIANZA[v] || { color: 'default', label: v };
-                return (
-                    <Tooltip title={r.metodo_extraccion === 'VISION_IA' ? 'Datos leídos automáticamente del PDF' : undefined}>
-                        <Tag color={info.color} icon={<IconSparkles size={11} style={{ verticalAlign: -1, marginRight: 3 }} />}>
-                            {info.label}
-                        </Tag>
-                    </Tooltip>
-                );
-            },
-        },
-        { title: 'Recibida', dataIndex: 'fecha_creacion', width: 140, render: fmtFechaHora },
-        {
-            title: '', width: 210, align: 'right',
-            render: (_, r) => (
-                <Space size={4}>
-                    <Tooltip title="Ver el PDF de la OC">
-                        <Button
-                            size="small"
-                            icon={<IconFileTypePdf size={14} />}
-                            onClick={() => setPdfUrl(`${API_CONFIG.getBaseURL()}${r.archivo_path}`)}
-                        />
-                    </Tooltip>
-                    <Button size="small" type="primary" icon={<IconCircleCheck size={14} />} onClick={() => abrirConfirmar(r)}>
-                        Confirmar
-                    </Button>
-                    <Button size="small" danger icon={<IconCircleX size={14} />} onClick={() => descartar(r)} />
-                </Space>
-            ),
-        },
-    ];
-
     return (
-        <div className="adl-foc-wrap">
-            <style>{CSS}</style>
-
-            <div className="adl-foc-header">
+        <div className="shadcn-scope w-full p-7 pb-14">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="adl-foc-title">Bandeja de Órdenes de Compra</h2>
-                    <p className="adl-foc-sub">
+                    <h2 className="m-0 text-[21px] font-semibold tracking-tight text-foreground">Bandeja de Órdenes de Compra</h2>
+                    <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
                         OCs pendientes de confirmar. Adjunta el PDF que llegó por correo y confirma con un click.
                     </p>
                 </div>
-                <Space>
-                    <Button icon={<IconRefresh size={16} />} onClick={cargar}>Actualizar</Button>
-                    <Button type="primary" icon={<IconUpload size={16} />} onClick={abrirSubir}>Subir OC</Button>
-                </Space>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={cargar}>
+                        <IconRefresh size={16} /> Actualizar
+                    </Button>
+                    <Button onClick={abrirSubir}>
+                        <IconUpload size={16} /> Subir OC
+                    </Button>
+                </div>
             </div>
 
             {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin /></div>
+                <div className="flex justify-center p-14">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
             ) : data.length === 0 ? (
-                <Empty description="No hay OCs pendientes de revisar." />
+                <p className="p-10 text-center text-sm text-muted-foreground">No hay OCs pendientes de revisar.</p>
             ) : (
-                <Table<Candidato>
-                    rowKey="id_candidato"
-                    columns={columns}
-                    dataSource={data}
-                    size="small"
-                    pagination={{ pageSize: 20, size: 'small' }}
-                />
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead>Pre-factura</TableHead>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>OC sugerida</TableHead>
+                            <TableHead>HES</TableHead>
+                            <TableHead className="text-right">Monto</TableHead>
+                            <TableHead>Extracción</TableHead>
+                            <TableHead>Recibida</TableHead>
+                            <TableHead className="text-right"></TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {data.map((r: any) => (
+                            <TableRow key={r.id_candidato}>
+                                <TableCell>
+                                    {r.numero_id ? <b>N° {r.numero_id}</b> : (
+                                        <span title={r.prefacturas_disponibles > 0
+                                            ? `Este cliente tiene ${r.prefacturas_disponibles} pre-factura(s) a las que se puede aplicar`
+                                            : 'Todavía no hay ninguna pre-factura de este cliente'}>
+                                            <Badge variant={r.prefacturas_disponibles > 0 ? 'secondary' : 'warning'}>
+                                                Anticipada{r.prefacturas_disponibles > 0 ? ` · ${r.prefacturas_disponibles} disponible(s)` : ''}
+                                            </Badge>
+                                        </span>
+                                    )}
+                                </TableCell>
+                                <TableCell className="max-w-[220px] truncate">{r.nombre_empresaservicios || '—'}</TableCell>
+                                <TableCell>
+                                    {r.numero_oc_sugerido ? (
+                                        <span>
+                                            <b>{r.numero_oc_sugerido}</b>
+                                            {r.fecha_oc_sugerida && <span className="text-muted-foreground"> · {fmtFecha(r.fecha_oc_sugerida)}</span>}
+                                        </span>
+                                    ) : <Badge variant="outline">Sin extraer</Badge>}
+                                </TableCell>
+                                <TableCell>{r.numero_hes_sugerido || <span className="text-muted-foreground">—</span>}</TableCell>
+                                <TableCell className="text-right">
+                                    {r.monto_sugerido ? `$ ${fmtClp(r.monto_sugerido)}` : <span className="text-muted-foreground">—</span>}
+                                </TableCell>
+                                <TableCell>
+                                    {!r.confianza ? <Badge variant="outline">Manual</Badge> : (() => {
+                                        const info = CONFIANZA[r.confianza] || { variant: 'outline' as const, label: r.confianza };
+                                        return (
+                                            <span title={r.metodo_extraccion === 'VISION_IA' ? 'Datos leídos automáticamente del PDF' : undefined}>
+                                                <Badge variant={info.variant}>
+                                                    <IconSparkles size={11} className="mr-0.5" /> {info.label}
+                                                </Badge>
+                                            </span>
+                                        );
+                                    })()}
+                                </TableCell>
+                                <TableCell className="whitespace-nowrap">{fmtFechaHora(r.fecha_creacion)}</TableCell>
+                                <TableCell>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8"
+                                            title="Ver el PDF de la OC"
+                                            onClick={() => setPdfUrl(`${API_CONFIG.getBaseURL()}${r.archivo_path}`)}
+                                        >
+                                            <IconFileTypePdf size={14} />
+                                        </Button>
+                                        <Button size="sm" onClick={() => abrirConfirmar(r)}>
+                                            <IconCircleCheck size={14} /> Confirmar
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            title="Descartar"
+                                            onClick={() => setDescartando(r)}
+                                        >
+                                            <IconCircleX size={14} />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
             )}
 
             {/* Confirmar: los datos sugeridos son editables antes de registrarlos */}
-            <Modal
-                title={confirmando ? `Confirmar OC — Pre-factura N° ${confirmando.numero_id}` : 'Confirmar OC'}
-                open={confirmando !== null}
-                onCancel={() => setConfirmando(null)}
-                onOk={confirmar}
-                confirmLoading={guardando}
-                okText="Registrar OC"
-                width={520}
-            >
-                {confirmando && (
-                    <>
-                        {confirmando.confianza && confirmando.confianza !== 'ALTA' && (
-                            <Alert
-                                type="warning"
-                                showIcon
-                                style={{ marginBottom: 16 }}
-                                message="Revisa los datos antes de confirmar"
-                                description="La extracción automática no quedó segura de estos valores."
-                            />
-                        )}
-                        {!confirmando.numero_oc_sugerido && (
-                            <Alert
-                                type="info"
-                                showIcon
-                                style={{ marginBottom: 16 }}
-                                message="No se pudieron leer los datos del PDF — complétalos a mano."
-                            />
-                        )}
-                        {!confirmando.numero_id && (
-                            <div className="adl-foc-field">
-                                <label>Pre-factura a la que se aplica *</label>
-                                <Select
-                                    showSearch
-                                    style={{ width: '100%' }}
-                                    placeholder="Pre-facturas de este cliente"
-                                    optionFilterProp="label"
-                                    value={pfDestino}
-                                    onChange={setPfDestino}
-                                    options={prefacturas
-                                        .filter((p: any) => Number(p.id_empresaservicio) === Number(confirmando.id_empresaservicio))
-                                        .map((p: any) => ({ value: p.id_prefactura, label: `N° ${p.numero_id} — ${p.estado}` }))}
-                                />
-                                <p style={{ fontSize: 12, color: C.textTer, margin: '6px 0 0' }}>
-                                    Esta OC se cargó antes de que existiera la pre-factura.
-                                </p>
+            <Dialog open={confirmando !== null} onOpenChange={(open) => { if (!open) setConfirmando(null); }}>
+                <DialogContent className="max-w-[520px]">
+                    <DialogHeader>
+                        <DialogTitle>{confirmando ? `Confirmar OC — Pre-factura N° ${confirmando.numero_id}` : 'Confirmar OC'}</DialogTitle>
+                    </DialogHeader>
+                    {confirmando && (
+                        <>
+                            {confirmando.confianza && confirmando.confianza !== 'ALTA' && (
+                                <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                                    <p className="text-sm font-medium text-foreground">Revisa los datos antes de confirmar</p>
+                                    <p className="text-sm text-muted-foreground">La extracción automática no quedó segura de estos valores.</p>
+                                </div>
+                            )}
+                            {!confirmando.numero_oc_sugerido && (
+                                <div className="mb-4 rounded-lg border border-border bg-muted/40 p-3">
+                                    <p className="text-sm text-foreground">No se pudieron leer los datos del PDF — complétalos a mano.</p>
+                                </div>
+                            )}
+                            {!confirmando.numero_id && (
+                                <div className="mb-4">
+                                    <label className="mb-1.5 block text-xs text-muted-foreground">Pre-factura a la que se aplica *</label>
+                                    <Combobox
+                                        value={pfDestino !== undefined ? String(pfDestino) : undefined}
+                                        onValueChange={(v) => setPfDestino(Number(v))}
+                                        placeholder="Pre-facturas de este cliente"
+                                        searchPlaceholder="Buscar pre-factura..."
+                                        options={prefacturas
+                                            .filter((p: any) => Number(p.id_empresaservicio) === Number(confirmando.id_empresaservicio))
+                                            .map((p: any) => ({ value: String(p.id_prefactura), label: `N° ${p.numero_id} — ${p.estado}` }))}
+                                    />
+                                    <p className="mt-1.5 text-xs text-muted-foreground">Esta OC se cargó antes de que existiera la pre-factura.</p>
+                                </div>
+                            )}
+                            <div className="mb-4">
+                                <label className="mb-1.5 block text-xs text-muted-foreground">N° de Orden de Compra *</label>
+                                <Input value={numeroOc} onChange={(e) => setNumeroOc(e.target.value)} placeholder="Ej: 4500123456" />
                             </div>
-                        )}
-                        <div className="adl-foc-field">
-                            <label>N° de Orden de Compra *</label>
-                            <Input value={numeroOc} onChange={(e) => setNumeroOc(e.target.value)} placeholder="Ej: 4500123456" />
-                        </div>
-                        <div className="adl-foc-field">
-                            <label>Fecha de la OC</label>
-                            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" value={fechaOc} onChange={setFechaOc} />
-                        </div>
-                        <div className="adl-foc-field">
-                            <label>N° HES (si corresponde)</label>
-                            <Input value={numeroHes} onChange={(e) => setNumeroHes(e.target.value)} placeholder="Opcional" />
-                        </div>
-                        <div className="adl-foc-field">
-                            <label>Fecha HES</label>
-                            <DatePicker style={{ width: '100%' }} format="DD-MM-YYYY" value={fechaHes} onChange={setFechaHes} />
-                        </div>
-                        <Button
-                            type="link"
-                            size="small"
-                            icon={<IconFileTypePdf size={14} />}
-                            style={{ paddingLeft: 0 }}
-                            onClick={() => setPdfUrl(`${API_CONFIG.getBaseURL()}${confirmando.archivo_path}`)}
-                        >
-                            Ver el PDF mientras completas
+                            <div className="mb-4">
+                                <label className="mb-1.5 block text-xs text-muted-foreground">Fecha de la OC</label>
+                                <DatePicker value={fechaOc} onChange={setFechaOc} />
+                            </div>
+                            <div className="mb-4">
+                                <label className="mb-1.5 block text-xs text-muted-foreground">N° HES (si corresponde)</label>
+                                <Input value={numeroHes} onChange={(e) => setNumeroHes(e.target.value)} placeholder="Opcional" />
+                            </div>
+                            <div className="mb-4">
+                                <label className="mb-1.5 block text-xs text-muted-foreground">Fecha HES</label>
+                                <DatePicker value={fechaHes} onChange={setFechaHes} />
+                            </div>
+                            <Button
+                                variant="link"
+                                size="sm"
+                                className="h-auto p-0"
+                                onClick={() => setPdfUrl(`${API_CONFIG.getBaseURL()}${confirmando.archivo_path}`)}
+                            >
+                                <IconFileTypePdf size={14} /> Ver el PDF mientras completas
+                            </Button>
+                        </>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmando(null)}>Cancelar</Button>
+                        <Button disabled={guardando} onClick={confirmar}>
+                            {guardando && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            Registrar OC
                         </Button>
-                    </>
-                )}
-            </Modal>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Subir una OC que llegó por correo */}
-            <Modal
-                title="Subir Orden de Compra"
-                open={subirOpen}
-                onCancel={() => setSubirOpen(false)}
-                onOk={subir}
-                confirmLoading={subiendo}
-                okText="Subir"
-                width={520}
-            >
-                <div className="adl-foc-field">
-                    <Space size={8}>
-                        <Switch size="small" checked={anticipada} onChange={setAnticipada} />
-                        <span style={{ fontSize: 13, color: C.textSec }}>Todavía no existe la pre-factura</span>
-                    </Space>
-                </div>
-                {anticipada ? (
-                    <div className="adl-foc-field">
-                        <label>Cliente al que corresponde *</label>
-                        <Select
-                            showSearch
-                            style={{ width: '100%' }}
-                            placeholder="Selecciona el cliente"
-                            optionFilterProp="label"
-                            value={idEmpresaSel}
-                            onChange={setIdEmpresaSel}
-                            options={empresas.map((e) => ({ value: e.id, label: e.nombre }))}
+            <Dialog open={subirOpen} onOpenChange={setSubirOpen}>
+                <DialogContent className="max-w-[520px]">
+                    <DialogHeader>
+                        <DialogTitle>Subir Orden de Compra</DialogTitle>
+                    </DialogHeader>
+                    <div className="mb-4 flex items-center gap-2">
+                        <Switch checked={anticipada} onCheckedChange={setAnticipada} />
+                        <span className="text-sm text-muted-foreground">Todavía no existe la pre-factura</span>
+                    </div>
+                    {anticipada ? (
+                        <div className="mb-4">
+                            <label className="mb-1.5 block text-xs text-muted-foreground">Cliente al que corresponde *</label>
+                            <Combobox
+                                value={idEmpresaSel !== undefined ? String(idEmpresaSel) : undefined}
+                                onValueChange={(v) => setIdEmpresaSel(Number(v))}
+                                placeholder="Selecciona el cliente"
+                                searchPlaceholder="Buscar cliente..."
+                                options={empresas.map((e) => ({ value: String(e.id), label: e.nombre }))}
+                            />
+                            <p className="mt-1.5 text-xs text-muted-foreground">
+                                Queda guardada esperando: cuando exista la pre-factura de este cliente, se confirma contra ella.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="mb-4">
+                            <label className="mb-1.5 block text-xs text-muted-foreground">Pre-factura a la que corresponde *</label>
+                            <Combobox
+                                value={idPrefacturaSel !== undefined ? String(idPrefacturaSel) : undefined}
+                                onValueChange={(v) => setIdPrefacturaSel(Number(v))}
+                                placeholder="Busca por número o cliente"
+                                searchPlaceholder="Buscar pre-factura..."
+                                options={prefacturas.map((p: any) => ({
+                                    value: String(p.id_prefactura),
+                                    label: `N° ${p.numero_id} — ${p.nombre_empresaservicios || 'Sin cliente'}`,
+                                }))}
+                            />
+                        </div>
+                    )}
+                    <div className="mb-4">
+                        <label className="mb-1.5 block text-xs text-muted-foreground">PDF de la OC *</label>
+                        <input
+                            ref={fileRef}
+                            type="file"
+                            accept="application/pdf"
+                            className="hidden"
+                            onChange={(e) => setArchivo(e.target.files?.[0] || null)}
                         />
-                        <p style={{ fontSize: 12, color: C.textTer, margin: '6px 0 0' }}>
-                            Queda guardada esperando: cuando exista la pre-factura de este cliente, se confirma contra ella.
+                        <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                            <IconUpload size={14} /> {archivo ? archivo.name : 'Seleccionar archivo'}
+                        </Button>
+                    </div>
+                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                        <p className="text-sm text-foreground">
+                            Al subirla se intentará leer el número de OC, la fecha y el monto del PDF. Siempre podrás corregirlos antes de confirmar.
                         </p>
                     </div>
-                ) : (
-                    <div className="adl-foc-field">
-                        <label>Pre-factura a la que corresponde *</label>
-                        <Select
-                            showSearch
-                            style={{ width: '100%' }}
-                            placeholder="Busca por número o cliente"
-                            optionFilterProp="label"
-                            value={idPrefacturaSel}
-                            onChange={setIdPrefacturaSel}
-                            options={prefacturas.map((p: any) => ({
-                                value: p.id_prefactura,
-                                label: `N° ${p.numero_id} — ${p.nombre_empresaservicios || 'Sin cliente'}`,
-                            }))}
-                        />
-                    </div>
-                )}
-                <div className="adl-foc-field">
-                    <label>PDF de la OC *</label>
-                    <input
-                        ref={fileRef}
-                        type="file"
-                        accept="application/pdf"
-                        style={{ display: 'none' }}
-                        onChange={(e) => setArchivo(e.target.files?.[0] || null)}
-                    />
-                    <Button icon={<IconUpload size={14} />} onClick={() => fileRef.current?.click()}>
-                        {archivo ? archivo.name : 'Seleccionar archivo'}
-                    </Button>
-                </div>
-                <Alert
-                    type="info"
-                    showIcon
-                    message="Al subirla se intentará leer el número de OC, la fecha y el monto del PDF. Siempre podrás corregirlos antes de confirmar."
-                />
-            </Modal>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSubirOpen(false)}>Cancelar</Button>
+                        <Button disabled={subiendo} onClick={subir}>
+                            {subiendo && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            Subir
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={descartando !== null} onOpenChange={(open) => { if (!open) setDescartando(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¿Descartar este candidato?</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        Se marcará como descartado y saldrá de la bandeja. El archivo queda guardado.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setDescartando(null)}>Cancelar</Button>
+                        <Button variant="destructive" disabled={procesandoDescarte} onClick={descartar}>
+                            {procesandoDescarte && <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            Descartar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <PdfViewerModal
                 open={pdfUrl !== null}
