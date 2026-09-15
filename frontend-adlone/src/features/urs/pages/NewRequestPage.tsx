@@ -1,17 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Combobox } from '@/components/ui/combobox';
+import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
-    Typography,
-    Select,
-    Segmented,
-    Input,
-    Button,
-    Tooltip,
-    Spin,
-    Card,
-    Tag
-} from 'antd';
-import {
-    IconSearch,
     IconCheck,
     IconUpload,
     IconSettings,
@@ -29,9 +23,6 @@ import { useNavStore } from '../../../store/navStore';
 import FileIcon from '../components/FileIcon';
 import { useToast } from '../../../contexts/ToastContext';
 
-const { Title, Text } = Typography;
-const { TextArea } = Input;
-
 // Memoize sub-forms to prevent heavy parent re-renders when local state changes
 const MemoizedEquipoTraspasoForm = React.memo(EquipoTraspasoForm);
 const MemoizedMuestreadorDeactivationForm = React.memo(MuestreadorDeactivationForm);
@@ -40,6 +31,12 @@ const MemoizedEquipoBajaForm = React.memo(EquipoBajaForm);
 const MemoizedNuevoEquipoForm = React.memo(NuevoEquipoForm);
 const MemoizedReporteProblemaForm = React.memo(ReporteProblemaForm);
 const MemoizedVigenciaExtensionForm = React.memo(VigenciaExtensionForm);
+
+const PRIORITY_OPTIONS: { value: string; label: string }[] = [
+    { value: 'BAJA', label: 'Baja' },
+    { value: 'MEDIA', label: 'Media' },
+    { value: 'ALTA', label: 'Alta' },
+];
 
 interface NewRequestPageProps {
     onBack?: () => void;
@@ -167,82 +164,44 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
 
     if (loading) {
         return (
-            <div style={{ height: '80vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                    <Spin size="large" />
-                    <Text type="secondary" strong style={{ fontSize: 13 }}>Cargando opciones ADL...</Text>
+            <div className="shadcn-scope flex h-[80vh] items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <span className="text-[13px] font-semibold text-muted-foreground">Cargando opciones ADL...</span>
                 </div>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: 32, position: 'relative', width: '100%' }}>
+        <div className="shadcn-scope relative w-full p-8">
             {isSubmitting && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(3px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin size="large" />
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-background/70 backdrop-blur-sm">
+                    <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             )}
 
             {/* Success Overlay */}
             {showSuccess && (
-                <div
-                    style={{
-                        position: 'fixed',
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        zIndex: 2000,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backdropFilter: 'blur(8px)',
-                        backgroundColor: 'rgba(255, 255, 255, 0.6)',
-                        animation: 'fadeIn 0.4s ease-out'
-                    }}
-                >
-                    <Card
-                        style={{
-                            width: 420,
-                            maxWidth: '90vw',
-                            borderColor: '#8ce99a',
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(240,255,240,0.95) 100%)',
-                            animation: 'scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                        }}
-                    >
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '24px 0' }}>
-                            <div style={{
-                                width: 80,
-                                height: 80,
-                                borderRadius: '50%',
-                                background: 'linear-gradient(135deg, #40c057 0%, #12b886 100%)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                boxShadow: '0 8px 32px rgba(34, 197, 94, 0.3)',
-                                animation: 'bounceIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both'
-                            }}>
-                                <IconCheck size={44} color="white" strokeWidth={3} />
+                <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-background/60 backdrop-blur-md animate-[fadeIn_0.4s_ease-out]">
+                    <Card className="w-[420px] max-w-[90vw] border-success/40 bg-gradient-to-br from-card to-success/5 animate-[scaleIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)] p-6">
+                        <div className="flex flex-col items-center gap-6 py-6">
+                            <div className="flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-success to-success/70 shadow-lg shadow-success/30 animate-[bounceIn_0.6s_cubic-bezier(0.34,1.56,0.64,1)_0.2s_both]">
+                                <IconCheck size={44} className="text-white" strokeWidth={3} />
                             </div>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                <Title level={2} style={{ margin: 0, letterSpacing: '-0.5px' }}>¡Solicitud Enviada!</Title>
+                            <div className="flex flex-col items-center gap-1">
+                                <h1 className="m-0 text-2xl font-bold tracking-tight">¡Solicitud Enviada!</h1>
                                 {createdRequestId && (
-                                    <Tag color="blue" style={{ fontWeight: 700, fontSize: 13, marginTop: 4 }}>
+                                    <Badge variant="outline" className="mt-1 font-bold">
                                         Solicitud #{createdRequestId}
-                                    </Tag>
+                                    </Badge>
                                 )}
                             </div>
-                            <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', maxWidth: 300 }}>
+                            <p className="max-w-[300px] text-center text-[13px] text-muted-foreground">
                                 Tu solicitud ha sido registrada correctamente. Redirigiendo a tu solicitud...
-                            </Text>
-                            <div style={{ width: '60%', overflow: 'hidden', borderRadius: 999, backgroundColor: 'var(--app-border)' }}>
-                                <div style={{
-                                    height: 4,
-                                    borderRadius: 999,
-                                    background: 'linear-gradient(90deg, #40c057, #12b886)',
-                                    animation: 'progressBar 2.5s ease-in-out forwards'
-                                }} />
+                            </p>
+                            <div className="w-3/5 overflow-hidden rounded-full bg-border">
+                                <div className="h-1 rounded-full bg-gradient-to-r from-success to-success/70 animate-[progressBar_2.5s_ease-in-out_forwards]" />
                             </div>
                         </div>
                     </Card>
@@ -255,55 +214,55 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                 </div>
             )}
 
-            <Card style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <Card className="bg-muted/30 p-6">
+                <div className="flex flex-col gap-6">
                     {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'nowrap' }}>
+                    <div className="flex flex-nowrap items-start justify-between">
                         <div>
-                            <Title level={1} style={{ margin: 0, fontSize: '1.8rem', letterSpacing: '-0.5px' }}>
+                            <h1 className="m-0 text-[1.8rem] font-bold tracking-tight">
                                 Nueva Solicitud
-                            </Title>
-                            <Text type="secondary" style={{ fontSize: 13 }}>
+                            </h1>
+                            <p className="text-[13px] text-muted-foreground">
                                 Complete la información requerida para su trámite de forma unificada.
-                            </Text>
+                            </p>
                         </div>
-                        <Tooltip title="Cerrar y volver a bandeja">
-                            <Button type="text" shape="circle" size="large" icon={<IconX size={24} />} onClick={onBack || goToInbox} />
-                        </Tooltip>
+                        <Button variant="ghost" size="icon" className="rounded-full" title="Cerrar y volver a bandeja" onClick={onBack || goToInbox}>
+                            <IconX size={24} />
+                        </Button>
                     </div>
 
                     {/* Section 1: Selector & Priority */}
-                    <Card size="small">
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <Card className="p-4">
+                        <div className="flex flex-col gap-4">
                             <Field label="Tipo de Solicitud">
-                                <Select
+                                <Combobox
                                     placeholder="Seleccione el trámite a realizar"
+                                    searchPlaceholder="Buscar trámite..."
+                                    emptyText="No se encontraron trámites"
                                     options={types.map(t => ({ value: t.id_tipo.toString(), label: t.nombre }))}
                                     value={selectedTypeId ?? undefined}
-                                    onChange={(v) => setSelectedTypeId(v ?? null)}
-                                    showSearch
-                                    allowClear
-                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                    notFoundContent="No se encontraron trámites"
-                                    size="large"
-                                    suffixIcon={<IconSearch size={16} />}
-                                    style={{ width: '100%' }}
+                                    onValueChange={(v) => setSelectedTypeId(v ?? null)}
                                 />
                             </Field>
 
                             {selectedTypeId && (
-                                <div style={{ marginTop: 4 }}>
-                                    <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 5 }}>Prioridad del Trámite</Text>
-                                    <Segmented
-                                        block
-                                        value={priority}
-                                        onChange={(v) => setPriority(v as string)}
-                                        options={[
-                                            { label: 'Baja', value: 'BAJA' },
-                                            { label: 'Media', value: 'MEDIA' },
-                                            { label: 'Alta', value: 'ALTA' },
-                                        ]}
-                                    />
+                                <div className="mt-1">
+                                    <span className="mb-1.5 block text-[13px] font-semibold">Prioridad del Trámite</span>
+                                    <div className="inline-flex h-9 w-full items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+                                        {PRIORITY_OPTIONS.map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setPriority(opt.value)}
+                                                className={cn(
+                                                    'flex-1 rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                                                    priority === opt.value ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                                                )}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -311,13 +270,13 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
 
                     {/* Section 2: Dynamic Form Area */}
                     {!!selectedTypeId && (
-                        <Card size="small">
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                <IconSettings size={20} color="#1c7ed6" />
-                                <Title level={4} style={{ margin: 0 }}>Información de {selectedType?.nombre}</Title>
+                        <Card className="p-4">
+                            <div className="mb-4 flex items-center gap-2">
+                                <IconSettings size={20} className="text-primary" />
+                                <h4 className="m-0 text-base font-semibold">Información de {selectedType?.nombre}</h4>
                             </div>
 
-                            <div style={{ padding: '8px 0' }}>
+                            <div className="py-2">
                                 {/* ID 1: Activación de Equipo */}
                                 {selectedType?.id_tipo === 1 || selectedType?.nombre === 'Activación de Equipo' ? (
                                     <MemoizedEquipoActivationForm
@@ -349,17 +308,11 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                                         onDataChange={setSubFormData}
                                     />
                                 ) : (
-                                    <div style={{
-                                        padding: 24,
-                                        border: '1px dashed var(--app-border)',
-                                        borderRadius: 8,
-                                        backgroundColor: 'var(--app-hover-bg)',
-                                        textAlign: 'center'
-                                    }}>
-                                        <Text type="secondary" style={{ fontSize: 13 }}>
+                                    <div className="rounded-lg border border-dashed border-border bg-muted/30 p-6 text-center">
+                                        <span className="text-[13px] text-muted-foreground">
                                             Este trámite no requiere campos adicionales. <br />
                                             Por favor complete los detalles en la sección de observaciones.
-                                        </Text>
+                                        </span>
                                     </div>
                                 )}
                             </div>
@@ -368,50 +321,49 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
 
                     {/* Section 3: Observations & Files */}
                     {!!selectedTypeId && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div className="flex flex-col gap-4">
                             <Field label="Observaciones *" hint="Explique brevemente los detalles de su solicitud">
-                                <TextArea
+                                <Textarea
                                     placeholder="Detalle su solicitud aquí..."
                                     value={observations}
                                     onChange={(e) => setObservations(e.target.value)}
-                                    autoSize={{ minRows: 3 }}
+                                    rows={3}
                                 />
                             </Field>
 
                             <div>
-                                <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 5 }}>Archivos Adjuntos</Text>
-                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                <span className="mb-1.5 block text-[13px] font-semibold">Archivos Adjuntos</span>
+                                <div className="flex items-center gap-3">
                                     <input
                                         ref={fileInputRef}
                                         type="file"
                                         multiple
                                         accept="image/png,image/jpeg,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                                        style={{ display: 'none' }}
+                                        hidden
                                         onChange={(e) => {
                                             if (e.target.files) setFiles(prev => [...prev, ...Array.from(e.target.files!)]);
                                             e.target.value = '';
                                         }}
                                     />
-                                    <Button icon={<IconUpload size={18} />} onClick={() => fileInputRef.current?.click()}>
-                                        Adjuntar Archivos
+                                    <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+                                        <IconUpload size={18} /> Adjuntar Archivos
                                     </Button>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>(PDF, Excel, Imágenes)</Text>
+                                    <span className="text-xs text-muted-foreground">(PDF, Excel, Imágenes)</span>
                                 </div>
 
                                 {files.length > 0 && (
-                                    <div style={{ marginTop: 16, padding: 8, backgroundColor: 'var(--app-bg-elevated)', borderRadius: 8, border: '1px solid var(--app-border)' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div className="mt-4 rounded-lg border border-border bg-card p-2">
+                                        <div className="flex flex-col gap-2">
                                             {files.map((file, idx) => (
-                                                <div key={idx} style={{
-                                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: 8,
-                                                    borderBottom: idx < files.length - 1 ? '1px solid var(--app-border)' : 'none'
-                                                }}>
-                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <div key={idx} className={cn('flex items-center justify-between p-2', idx < files.length - 1 && 'border-b border-border')}>
+                                                    <div className="flex items-center gap-2">
                                                         <FileIcon filename={file.name} mimetype={file.type} />
-                                                        <Text strong style={{ fontSize: 13, maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{file.name}</Text>
-                                                        <Tag>{(file.size / 1024).toFixed(0)} KB</Tag>
+                                                        <span className="max-w-[300px] truncate text-[13px] font-semibold">{file.name}</span>
+                                                        <Badge variant="outline">{(file.size / 1024).toFixed(0)} KB</Badge>
                                                     </div>
-                                                    <Button type="text" danger size="small" icon={<IconX size={14} />} onClick={() => removeFile(idx)} />
+                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => removeFile(idx)}>
+                                                        <IconX size={14} />
+                                                    </Button>
                                                 </div>
                                             ))}
                                         </div>
@@ -422,18 +374,20 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                     )}
 
                     {/* Footer Actions */}
-                    <div style={{ paddingTop: 16, borderTop: '1px solid var(--app-border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                            <Button onClick={goToInbox} disabled={isSubmitting}>
+                    <div className="border-t border-border pt-4">
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={goToInbox} disabled={isSubmitting}>
                                 Cancelar
                             </Button>
                             <Button
-                                type="primary"
                                 onClick={handleSubmit}
-                                loading={isSubmitting}
-                                disabled={!selectedTypeId || !observations.trim()}
-                                icon={!isSubmitting && <IconCheck size={18} />}
+                                disabled={isSubmitting || !selectedTypeId || !observations.trim()}
                             >
+                                {isSubmitting ? (
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                ) : (
+                                    <IconCheck size={18} />
+                                )}
                                 Enviar Solicitud ADL
                             </Button>
                         </div>
@@ -447,9 +401,9 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-[13px] font-semibold">{label}</span>
             {children}
-            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+            {hint && <span className="mt-0.5 block text-[11px] text-muted-foreground">{hint}</span>}
         </div>
     );
 }

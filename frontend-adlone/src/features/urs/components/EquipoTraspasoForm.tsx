@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Typography, Card, Input, Checkbox, Alert, Tag, Divider, Spin } from 'antd';
+import { Combobox } from '@/components/ui/combobox';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
 import { IconInfoCircle, IconArrowsExchange, IconUser, IconMapPin, IconCalendarEvent } from '@tabler/icons-react';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
 
 interface EquipoTraspasoFormProps {
     onDataChange: (data: any) => void;
@@ -118,114 +121,110 @@ const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange })
         selectedEquipoDetails, fetchingDetails, equipoLabel, muesNombreDestino, centroNombreDestino, ubicaciones
     ]);
 
+    const toggleTraspasoDe = (value: string, checked: boolean) => {
+        setTraspasoDe(prev => checked ? [...prev, value] : prev.filter(v => v !== value));
+    };
+
     return (
-        <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <Card className="p-4 bg-accent">
+            <div className="flex flex-col gap-4">
                 <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-                        <Text strong style={{ fontSize: 13, color: '#1864ab', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="mb-1.5 flex justify-between">
+                        <span className="flex items-center gap-2 text-xs font-semibold uppercase text-[#1864ab]">
                             <IconArrowsExchange size={18} /> Solicitud de Traspaso de Equipo
-                        </Text>
-                        <Tag color="blue">URS-03</Tag>
+                        </span>
+                        <Badge variant="outline">URS-03</Badge>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 12 }}>Utilice este formulario para cambiar la ubicación física o el responsable legal de un equipo.</Text>
+                    <span className="text-xs text-muted-foreground">Utilice este formulario para cambiar la ubicación física o el responsable legal de un equipo.</span>
                 </div>
 
                 <Field label="1. Seleccione el Equipo *">
-                    <Select
-                        placeholder={fetchingEquipos ? "Cargando..." : "Busque por nombre o código"}
+                    <Combobox
+                        placeholder={fetchingEquipos ? 'Cargando...' : 'Busque por nombre o código'}
+                        searchPlaceholder="Buscar equipo..."
+                        emptyText="No se encontraron equipos"
                         options={equipoOptions}
                         value={equipoId ?? undefined}
-                        onChange={(v) => setEquipoId(v ?? null)}
-                        showSearch
-                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                        notFoundContent="No se encontraron equipos"
-                        suffixIcon={fetchingEquipos ? <Spin size="small" /> : <IconInfoCircle size={16} />}
-                        style={{ width: '100%' }}
+                        onValueChange={(v) => setEquipoId(v ?? null)}
+                        disabled={fetchingEquipos}
                     />
                 </Field>
 
                 {fetchingDetails && (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8 }}>
-                        <Spin size="small" />
-                        <Text type="secondary" style={{ fontSize: 12 }}>Obteniendo información actual...</Text>
+                    <div className="flex items-center gap-2 p-2">
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <span className="text-xs text-muted-foreground">Obteniendo información actual...</span>
                     </div>
                 )}
 
                 {selectedEquipoDetails && !fetchingDetails && (
-                    <Alert
-                        type="info"
-                        showIcon
-                        icon={<IconInfoCircle size={16} />}
-                        message="Información Actual del Equipo"
-                        description={
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <IconMapPin size={14} color="#1c7ed6" />
-                                    <Text style={{ fontSize: 12 }}><strong>Ubicación:</strong> {selectedEquipoDetails.ubicacion || selectedEquipoDetails.sede || 'No registrada'}</Text>
-                                </div>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <IconUser size={14} color="#1c7ed6" />
-                                    <Text style={{ fontSize: 12 }}><strong>Responsable:</strong> {selectedEquipoDetails.nombre_asignado || selectedEquipoDetails.nombre_muestreador || 'No asignado'}</Text>
-                                </div>
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                    <IconCalendarEvent size={14} color="#1c7ed6" />
-                                    <Text style={{ fontSize: 12 }}><strong>Próxima Vigencia:</strong> {selectedEquipoDetails.vigencia || 'N/A'}</Text>
-                                </div>
+                    <div className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+                        <IconInfoCircle size={16} className="mt-0.5 shrink-0" />
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <span className="font-medium">Información Actual del Equipo</span>
+                            <div className="flex items-center gap-2">
+                                <IconMapPin size={14} className="text-primary" />
+                                <span><strong>Ubicación:</strong> {selectedEquipoDetails.ubicacion || selectedEquipoDetails.sede || 'No registrada'}</span>
                             </div>
-                        }
-                    />
+                            <div className="flex items-center gap-2">
+                                <IconUser size={14} className="text-primary" />
+                                <span><strong>Responsable:</strong> {selectedEquipoDetails.nombre_asignado || selectedEquipoDetails.nombre_muestreador || 'No asignado'}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <IconCalendarEvent size={14} className="text-primary" />
+                                <span><strong>Próxima Vigencia:</strong> {selectedEquipoDetails.vigencia || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
                 )}
 
-                <Divider style={{ margin: 0 }}>2. Detalles del Traspaso</Divider>
+                <div className="flex items-center gap-3 text-xs font-semibold uppercase text-muted-foreground">
+                    <div className="h-px flex-1 bg-border" />
+                    2. Detalles del Traspaso
+                    <div className="h-px flex-1 bg-border" />
+                </div>
 
                 <Field label="¿Qué desea traspasar? *" hint="Seleccione una o ambas opciones">
-                    <Checkbox.Group
-                        value={traspasoDe}
-                        onChange={(v) => setTraspasoDe(v as string[])}
-                        options={[
-                            { value: 'UBICACION', label: 'Cambio de Ubicación (Centro)' },
-                            { value: 'RESPONSABLE', label: 'Cambio de Responsable' },
-                        ]}
-                    />
+                    <div className="flex flex-col gap-2">
+                        <label className="flex items-center gap-2 text-sm">
+                            <Checkbox checked={traspasoDe.includes('UBICACION')} onCheckedChange={(c) => toggleTraspasoDe('UBICACION', c === true)} />
+                            Cambio de Ubicación (Centro)
+                        </label>
+                        <label className="flex items-center gap-2 text-sm">
+                            <Checkbox checked={traspasoDe.includes('RESPONSABLE')} onCheckedChange={(c) => toggleTraspasoDe('RESPONSABLE', c === true)} />
+                            Cambio de Responsable
+                        </label>
+                    </div>
                 </Field>
 
-                <div style={{ display: 'grid', gridTemplateColumns: traspasoDe.includes('UBICACION') && traspasoDe.includes('RESPONSABLE') ? '1fr 1fr' : '1fr', gap: 16 }}>
+                <div className={`grid gap-4 ${traspasoDe.includes('UBICACION') && traspasoDe.includes('RESPONSABLE') ? 'grid-cols-2' : 'grid-cols-1'}`}>
                     {traspasoDe.includes('UBICACION') && (
                         <Field label="Nueva Ubicación (Destino) *">
-                            <Select
+                            <Combobox
                                 placeholder="Seleccione lugar"
+                                searchPlaceholder="Buscar lugar..."
                                 options={ubicaciones}
                                 value={centroDestinoId ?? undefined}
-                                onChange={(v) => setCentroDestinoId(v ?? null)}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                style={{ width: '100%' }}
+                                onValueChange={(v) => setCentroDestinoId(v ?? null)}
                             />
                         </Field>
                     )}
                     {traspasoDe.includes('RESPONSABLE') && (
                         <Field label="Nuevo Responsable (Destino) *">
-                            <Select
+                            <Combobox
                                 placeholder="Seleccione persona"
+                                searchPlaceholder="Buscar persona..."
                                 options={muestreadores}
                                 value={muestreadorDestinoId ?? undefined}
-                                onChange={(v) => setMuestreadorDestinoId(v ?? null)}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                style={{ width: '100%' }}
+                                onValueChange={(v) => setMuestreadorDestinoId(v ?? null)}
                             />
                         </Field>
                     )}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Fecha Efectiva del Cambio *">
-                        <Input
-                            type="date"
-                            value={fecha}
-                            onChange={(e) => setFecha(e.target.value)}
-                        />
+                        <DatePicker value={fecha} onChange={setFecha} />
                     </Field>
                     <Field label="Motivo / Justificación *">
                         <Input
@@ -243,9 +242,9 @@ const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange })
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
-            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+            {hint && <span className="mt-0.5 block text-[11px] text-muted-foreground">{hint}</span>}
         </div>
     );
 }

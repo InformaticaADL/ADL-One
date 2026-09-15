@@ -1,5 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { ConfigProvider, Tabs, Input, Select, Tag, Button, Empty, Spin, Badge } from 'antd';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import {
     IconPlus, IconSearch, IconChevronRight, IconFolderOpen, IconCalendarEvent,
     IconClock, IconArrowLeft,
@@ -27,55 +32,16 @@ interface Request {
     unread_count?: number;
 }
 
-const STATUS_TAG: Record<string, string> = {
-    PENDIENTE: 'gold', EN_REVISION: 'blue', ACEPTADA: 'green',
-    REALIZADA: 'geekblue', RECHAZADA: 'red', CANCELADA: 'default',
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+
+const STATUS_BADGE: Record<string, BadgeVariant> = {
+    PENDIENTE: 'warning', EN_REVISION: 'default', ACEPTADA: 'success',
+    REALIZADA: 'outline', RECHAZADA: 'destructive', CANCELADA: 'secondary',
 };
 const STATUS_LABEL: Record<string, string> = {
     PENDIENTE: 'Pendiente', EN_REVISION: 'En revisión', ACEPTADA: 'Aceptada',
     REALIZADA: 'Realizada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada',
 };
-
-const C = {
-    border: '#f0f0f0',
-    text: 'rgba(0,0,0,0.88)',
-    textSec: 'rgba(0,0,0,0.65)',
-    textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff',
-    primaryBg: '#e6f4ff',
-    bg: '#ffffff',
-    bgLayout: '#f5f5f5',
-};
-
-const CSS = `
-.adl-urs-root { display:flex; height:100%; overflow:hidden; background:${C.bg}; }
-.adl-urs-col1 { flex-shrink:0; width:360px; display:flex; flex-direction:column; min-width:0; border-right:1px solid ${C.border}; }
-.adl-urs-col1.mobile { width:100%; border-right:none; }
-.adl-urs-col2 { flex:1; display:flex; flex-direction:column; min-width:0; border-right:1px solid ${C.border}; }
-.adl-urs-col3 { flex-shrink:0; width:360px; display:flex; flex-direction:column; min-width:0; }
-.adl-urs-header { padding:16px 16px 0; display:flex; flex-direction:column; row-gap:10px; border-bottom:1px solid ${C.border}; }
-.adl-urs-title { margin:0; font-size:20px; font-weight:700; color:${C.text}; }
-.adl-urs-filters { display:flex; column-gap:8px; }
-.adl-urs-scroll { flex:1; min-height:0; overflow-y:auto; padding:8px; }
-.adl-urs-group { font-size:12px; font-weight:700; color:${C.textTer}; text-transform:uppercase; letter-spacing:.5px; padding:12px 8px 4px; }
-.adl-urs-item { display:block; width:100%; text-align:left; border:1px solid transparent; background:transparent; cursor:pointer; border-radius:8px; padding:10px 12px; margin-bottom:2px; transition:background .15s; }
-.adl-urs-item:hover { background:${C.bgLayout}; }
-.adl-urs-item.active { background:${C.primaryBg}; border-color:#91caff; }
-.adl-urs-itemtop { display:flex; align-items:center; justify-content:space-between; column-gap:8px; margin-bottom:2px; }
-.adl-urs-id { display:inline-block; font-size:11px; font-weight:600; color:${C.textSec}; background:${C.bgLayout}; border-radius:4px; padding:1px 6px; }
-.adl-urs-from { font-size:12px; font-weight:600; color:${C.primary}; }
-.adl-urs-time { font-size:12px; color:${C.textTer}; flex-shrink:0; }
-.adl-urs-subject { font-size:14px; color:${C.text}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin:2px 0 6px; }
-.adl-urs-subject.unread { font-weight:700; }
-.adl-urs-itembottom { display:flex; align-items:center; justify-content:space-between; }
-.adl-urs-itembl { display:flex; align-items:center; column-gap:6px; }
-.adl-urs-empty { display:flex; flex-direction:column; align-items:center; row-gap:12px; padding:64px 24px; text-align:center; color:${C.textTer}; }
-.adl-urs-center { flex:1; display:flex; align-items:center; justify-content:center; height:100%; }
-.adl-urs-detail { flex:1; min-height:0; overflow-y:auto; padding:16px; background:${C.bgLayout}; }
-.adl-urs-mobilebar { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid ${C.border}; }
-.adl-urs-emptydetail { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; row-gap:6px; color:${C.textTer}; text-align:center; }
-.adl-urs-emptydetail h2 { font-size:16px; font-weight:600; margin:0; color:${C.textSec}; }
-`;
 
 const UniversalInbox: React.FC = () => {
     const {
@@ -199,133 +165,163 @@ const UniversalInbox: React.FC = () => {
     }, [filteredRequests]);
 
     return (
-        <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
-            <style>{CSS}</style>
-            <div className="adl-urs-root">
-                {/* COLUMNA 1 · Bandeja */}
-                {(!isMobile || !selectedRequestId) && (
-                    <div className={`adl-urs-col1 ${isMobile ? 'mobile' : ''}`}>
-                        <div className="adl-urs-header">
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                                <h1 className="adl-urs-title">Solicitudes</h1>
-                                <Button type="primary" shape="circle" icon={<IconPlus size={18} />} aria-label="Nueva solicitud"
-                                    onClick={() => setActiveSubmodule('urs-new-request')} />
+        <div className="shadcn-scope flex h-full overflow-hidden bg-background">
+            {/* COLUMNA 1 · Bandeja */}
+            {(!isMobile || !selectedRequestId) && (
+                <div className={cn('flex min-w-0 shrink-0 flex-col border-r border-border', isMobile ? 'w-full border-r-0' : 'w-[360px]')}>
+                    <div className="flex flex-col gap-2.5 border-b border-border px-4 pt-4">
+                        <div className="flex items-center justify-between">
+                            <h1 className="m-0 text-xl font-bold text-foreground">Solicitudes</h1>
+                            <Button size="icon" className="rounded-full" aria-label="Nueva solicitud" onClick={() => setActiveSubmodule('urs-new-request')}>
+                                <IconPlus size={18} />
+                            </Button>
+                        </div>
+                        <Tabs value={ursInboxMode} onValueChange={(k) => setUrsInboxMode(k as 'RECEIVED' | 'SENT')}>
+                            <TabsList className="w-full">
+                                <TabsTrigger value="RECEIVED" className="flex-1">Recibidas</TabsTrigger>
+                                <TabsTrigger value="SENT" className="flex-1">Enviadas</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                        <div className="relative">
+                            <IconSearch size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input placeholder="Buscar…" className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        </div>
+                        <div className="flex gap-2">
+                            <Combobox
+                                className="flex-1"
+                                value={filter.status || 'all'}
+                                onValueChange={(v) => setFilter({ ...filter, status: v === 'all' ? '' : v })}
+                                placeholder="Estado: todos"
+                                searchPlaceholder="Buscar estado..."
+                                options={[{ value: 'all', label: 'Estado: todos' }, ...Object.keys(STATUS_LABEL).map((k) => ({ value: k, label: STATUS_LABEL[k] }))]}
+                            />
+                            <Combobox
+                                className="flex-1"
+                                value={filter.area || 'all'}
+                                onValueChange={(v) => setFilter({ ...filter, area: v === 'all' ? '' : v })}
+                                placeholder="Área: todas"
+                                searchPlaceholder="Buscar área..."
+                                options={[{ value: 'all', label: 'Área: todas' }, ...areaOptions.map((a) => ({ value: a, label: a }))]}
+                            />
+                        </div>
+                        <div className="pb-3">
+                            <Combobox
+                                className="w-full"
+                                value={filter.type || 'all'}
+                                onValueChange={(v) => setFilter({ ...filter, type: v === 'all' ? '' : v })}
+                                placeholder="Todos los tipos"
+                                searchPlaceholder="Buscar tipo..."
+                                options={[{ value: 'all', label: 'Todos los tipos' }, ...tipoOptions.map((t) => ({ value: t, label: t }))]}
+                            />
+                        </div>
+                    </div>
+
+                    <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                        {loading ? (
+                            <div className="flex justify-center p-6">
+                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             </div>
-                            <Tabs activeKey={ursInboxMode} size="small" style={{ marginBottom: -8 }}
-                                onChange={(k) => setUrsInboxMode(k as 'RECEIVED' | 'SENT')}
-                                items={[{ key: 'RECEIVED', label: 'Recibidas' }, { key: 'SENT', label: 'Enviadas' }]} />
-                            <Input allowClear placeholder="Buscar…" prefix={<IconSearch size={16} color={C.textTer} />}
-                                value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
-                            <div className="adl-urs-filters">
-                                <Select size="small" style={{ flex: 1 }} value={filter.status}
-                                    onChange={(v) => setFilter({ ...filter, status: v })}
-                                    options={[{ value: '', label: 'Estado: todos' }, ...Object.keys(STATUS_LABEL).map((k) => ({ value: k, label: STATUS_LABEL[k] }))]} />
-                                <Select size="small" style={{ flex: 1 }} value={filter.area}
-                                    onChange={(v) => setFilter({ ...filter, area: v })}
-                                    options={[{ value: '', label: 'Área: todas' }, ...areaOptions.map((a) => ({ value: a, label: a }))]} />
+                        ) : filteredRequests.length > 0 ? (
+                            ['Hoy', 'Ayer', 'Esta semana', 'Más antiguas'].map((label) => {
+                                const groupReqs = groupedRequests[label];
+                                if (!groupReqs?.length) return null;
+                                return (
+                                    <div key={label}>
+                                        <div className="px-2 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">{label}</div>
+                                        {groupReqs.map((req) => {
+                                            const isActive = selectedRequestId === req.id_solicitud;
+                                            const unread = (req.unread_count || 0) > 0;
+                                            const isMine = Number(req.id_solicitante) === Number(user?.id);
+                                            return (
+                                                <button key={req.id_solicitud} type="button"
+                                                    ref={(el) => { itemRefs.current[req.id_solicitud] = el; }}
+                                                    className={cn(
+                                                        'mb-0.5 block w-full rounded-lg border border-transparent px-3 py-2.5 text-left transition-colors hover:bg-muted',
+                                                        isActive && 'border-primary/40 bg-primary/10'
+                                                    )}
+                                                    onClick={() => setSelectedRequestId(req.id_solicitud)}>
+                                                    <div className="mb-0.5 flex items-center justify-between gap-2">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <span className="rounded bg-muted px-1.5 py-px text-[11px] font-semibold text-muted-foreground">#{req.id_solicitud}</span>
+                                                            {!isMine && <span className="text-xs font-semibold text-primary">{req.nombre_solicitante?.split(' ').slice(0, 2).join(' ')}</span>}
+                                                        </span>
+                                                        <span className="shrink-0 text-xs text-muted-foreground">{formatDateTime(req.fecha_solicitud)}</span>
+                                                    </div>
+                                                    <div className={cn('mb-1.5 truncate text-sm text-foreground', unread && 'font-bold')}>{req.titulo || req.nombre_tipo}</div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="flex items-center gap-1.5">
+                                                            <Badge variant={STATUS_BADGE[req.estado] || 'outline'}>{STATUS_LABEL[req.estado] || req.estado}</Badge>
+                                                            {unread && <span className="h-2 w-2 rounded-full bg-destructive" />}
+                                                        </span>
+                                                        <IconChevronRight size={18} className="text-muted-foreground" />
+                                                    </div>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center text-muted-foreground">
+                                <IconFolderOpen size={40} className="opacity-50" />
+                                <span className="text-sm">No hay solicitudes.</span>
                             </div>
-                            <div style={{ paddingBottom: 12 }}>
-                                <Select size="small" style={{ width: '100%' }} value={filter.type}
-                                    onChange={(v) => setFilter({ ...filter, type: v })}
-                                    options={[{ value: '', label: 'Todos los tipos' }, ...tipoOptions.map((t) => ({ value: t, label: t }))]} />
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* COLUMNA 2 · Detalle */}
+            {(!isMobile || selectedRequestId) && (
+                <div className="flex min-w-0 flex-1 flex-col border-r border-border">
+                    {isMobile && selectedRequestId && (
+                        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+                            <Button variant="ghost" onClick={() => setSelectedRequestId(null)}>
+                                <IconArrowLeft size={18} /> Detalle de solicitud
+                            </Button>
+                            <span className="rounded bg-muted px-1.5 py-px text-[11px] font-semibold text-muted-foreground">#{selectedRequestId}</span>
+                        </div>
+                    )}
+                    {loadingDetail ? (
+                        <div className="flex h-full flex-1 items-center justify-center">
+                            <div className="flex flex-col items-center gap-3">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                <span className="text-sm text-muted-foreground">Abriendo solicitud…</span>
                             </div>
                         </div>
-
-                        <div className="adl-urs-scroll">
-                            {loading ? (
-                                <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}><Spin /></div>
-                            ) : filteredRequests.length > 0 ? (
-                                ['Hoy', 'Ayer', 'Esta semana', 'Más antiguas'].map((label) => {
-                                    const groupReqs = groupedRequests[label];
-                                    if (!groupReqs?.length) return null;
-                                    return (
-                                        <div key={label}>
-                                            <div className="adl-urs-group">{label}</div>
-                                            {groupReqs.map((req) => {
-                                                const isActive = selectedRequestId === req.id_solicitud;
-                                                const unread = (req.unread_count || 0) > 0;
-                                                const isMine = Number(req.id_solicitante) === Number(user?.id);
-                                                return (
-                                                    <button key={req.id_solicitud} type="button"
-                                                        ref={(el) => { itemRefs.current[req.id_solicitud] = el; }}
-                                                        className={`adl-urs-item ${isActive ? 'active' : ''}`}
-                                                        onClick={() => setSelectedRequestId(req.id_solicitud)}>
-                                                        <div className="adl-urs-itemtop">
-                                                            <span className="adl-urs-itembl">
-                                                                <span className="adl-urs-id">#{req.id_solicitud}</span>
-                                                                {!isMine && <span className="adl-urs-from">{req.nombre_solicitante?.split(' ').slice(0, 2).join(' ')}</span>}
-                                                            </span>
-                                                            <span className="adl-urs-time">{formatDateTime(req.fecha_solicitud)}</span>
-                                                        </div>
-                                                        <div className={`adl-urs-subject ${unread ? 'unread' : ''}`}>{req.titulo || req.nombre_tipo}</div>
-                                                        <div className="adl-urs-itembottom">
-                                                            <span className="adl-urs-itembl">
-                                                                <Tag color={STATUS_TAG[req.estado] || 'default'} style={{ marginInlineEnd: 0 }}>
-                                                                    {STATUS_LABEL[req.estado] || req.estado}
-                                                                </Tag>
-                                                                {unread && <Badge color="red" />}
-                                                            </span>
-                                                            <IconChevronRight size={18} color={C.textTer} />
-                                                        </div>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    );
-                                })
-                            ) : (
-                                <div className="adl-urs-empty">
-                                    <IconFolderOpen size={40} opacity={0.5} />
-                                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No hay solicitudes." />
+                    ) : selectedRequest ? (
+                        <div className="min-h-0 flex-1 overflow-y-auto bg-muted/30 p-4">
+                            <RequestDetailPanel request={selectedRequest} onRequestUpdate={loadInitialData} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
+                            {isMobile && (
+                                <div className="mt-4">
+                                    <div className="px-2 pb-1 pt-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">Actividad y chat</div>
+                                    <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
                                 </div>
                             )}
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <div className="flex flex-1 flex-col items-center justify-center gap-1.5 text-center text-muted-foreground">
+                            <IconCalendarEvent size={48} className="opacity-40" />
+                            <h2 className="m-0 text-base font-semibold text-foreground/80">Selecciona una solicitud</h2>
+                            <span>Haz clic en la lista para ver detalles.</span>
+                        </div>
+                    )}
+                </div>
+            )}
 
-                {/* COLUMNA 2 · Detalle */}
-                {(!isMobile || selectedRequestId) && (
-                    <div className="adl-urs-col2">
-                        {isMobile && selectedRequestId && (
-                            <div className="adl-urs-mobilebar">
-                                <Button type="text" icon={<IconArrowLeft size={18} />} onClick={() => setSelectedRequestId(null)}>Detalle de solicitud</Button>
-                                <span className="adl-urs-id">#{selectedRequestId}</span>
-                            </div>
-                        )}
-                        {loadingDetail ? (
-                            <div className="adl-urs-center"><Spin tip="Abriendo solicitud…"><div style={{ padding: 40 }} /></Spin></div>
-                        ) : selectedRequest ? (
-                            <div className="adl-urs-detail">
-                                <RequestDetailPanel request={selectedRequest} onRequestUpdate={loadInitialData} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
-                                {isMobile && (
-                                    <div style={{ marginTop: 16 }}>
-                                        <div className="adl-urs-group">Actividad y chat</div>
-                                        <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="adl-urs-emptydetail">
-                                <IconCalendarEvent size={48} opacity={0.4} />
-                                <h2>Selecciona una solicitud</h2>
-                                <span>Haz clic en la lista para ver detalles.</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {/* COLUMNA 3 · Actividad y chat */}
-                {!isMobile && (
-                    <div className="adl-urs-col3">
-                        {selectedRequest ? (
-                            <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
-                        ) : (
-                            <div className="adl-urs-center"><IconClock size={40} color={C.textTer} opacity={0.5} /></div>
-                        )}
-                    </div>
-                )}
-            </div>
-        </ConfigProvider>
+            {/* COLUMNA 3 · Actividad y chat */}
+            {!isMobile && (
+                <div className="flex w-[360px] min-w-0 shrink-0 flex-col">
+                    {selectedRequest ? (
+                        <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
+                    ) : (
+                        <div className="flex h-full flex-1 items-center justify-center">
+                            <IconClock size={40} className="text-muted-foreground opacity-50" />
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
     );
 };
 

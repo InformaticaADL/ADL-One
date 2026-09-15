@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Typography, Card, Spin, Input, Tag } from 'antd';
+import { Combobox } from '@/components/ui/combobox';
+import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
-const { TextArea } = Input;
 
 interface VigenciaExtensionFormProps {
     onDataChange: (data: any) => void;
@@ -82,63 +83,57 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
     }, [equipoId, fechaRevision, siguienteVerif, justificacion, selectedEquipoRaw]);
 
     return (
-        <Card size="small" style={{ backgroundColor: 'rgba(156,54,181,0.06)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: 13, color: '#862e9c', textTransform: 'uppercase' }}>
+        <Card className="p-4 bg-[rgba(156,54,181,0.06)]">
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase text-[#862e9c]">
                         Solicitud de Extensión de Vigencia
-                    </Text>
-                    <Tag color="purple">CALIDAD / MA</Tag>
+                    </span>
+                    <Badge variant="secondary">CALIDAD / MA</Badge>
                 </div>
 
                 <Field label="Seleccionar Equipo *">
-                    <Select
-                        placeholder={loadingEquipos ? "Cargando..." : "Busque equipo por nombre o código"}
-                        suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
+                    <Combobox
+                        placeholder={loadingEquipos ? 'Cargando...' : 'Busque equipo por nombre o código'}
+                        searchPlaceholder="Buscar equipo..."
                         options={equipos}
                         value={equipoId ?? undefined}
-                        onChange={(v) => setEquipoId(v ?? null)}
-                        showSearch
-                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                        style={{ width: '100%' }}
+                        onValueChange={(v) => setEquipoId(v ?? null)}
+                        disabled={loadingEquipos}
                     />
                 </Field>
 
                 {selectedEquipoRaw?.vigencia && (
-                    <div style={{ padding: 10, background: 'rgba(156,54,181,0.1)', borderRadius: 8 }}>
-                        <Text strong style={{ fontSize: 11, color: '#862e9c', textTransform: 'uppercase', display: 'block' }}>Vigencia actual</Text>
-                        <Text strong style={{ fontSize: 13, color: '#862e9c' }}>
+                    <div className="rounded-lg bg-[rgba(156,54,181,0.1)] p-2.5">
+                        <span className="block text-[11px] font-bold uppercase text-[#862e9c]">Vigencia actual</span>
+                        <span className="text-sm font-bold text-[#862e9c]">
                             {(() => {
                                 const d = parseDate(selectedEquipoRaw.vigencia);
                                 return d ? d.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Fecha Inválida';
                             })()}
-                        </Text>
+                        </span>
                     </div>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'end' }}>
+                <div className="grid grid-cols-2 items-end gap-4">
                     <Field label="Fecha de Revisión / Verificación *">
-                        <Input
-                            type="date"
-                            value={fechaRevision}
-                            onChange={(e) => setFechaRevision(e.target.value)}
-                        />
+                        <DatePicker value={fechaRevision} onChange={setFechaRevision} />
                     </Field>
                     {siguienteVerif && (
-                        <div style={{ padding: 8, background: 'rgba(9,143,131,0.08)', border: '1px solid rgba(9,143,131,0.2)', borderRadius: 8 }}>
-                            <Text strong style={{ fontSize: 11, color: '#087f5b', textTransform: 'uppercase', display: 'block' }}>Nueva Vigencia Autocalculada</Text>
-                            <Text strong style={{ fontSize: 13, color: '#087f5b', display: 'block' }}>
+                        <div className="rounded-lg border border-[rgba(9,143,131,0.2)] bg-[rgba(9,143,131,0.08)] p-2">
+                            <span className="block text-[11px] font-bold uppercase text-[#087f5b]">Nueva Vigencia Autocalculada</span>
+                            <span className="block text-sm font-bold text-[#087f5b]">
                                 {new Date(siguienteVerif + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
-                            </Text>
-                            <Text style={{ fontSize: 11, color: '#0ca678' }}>(Auto: Revisión + 90 días)</Text>
+                            </span>
+                            <span className="text-[11px] text-[#0ca678]">(Auto: Revisión + 90 días)</span>
                         </div>
                     )}
                 </div>
 
                 <Field label="Justificación de la Extensión *">
-                    <TextArea
+                    <Textarea
                         placeholder="Explique por qué se requiere extender el plazo de uso de este equipo..."
-                        autoSize={{ minRows: 3 }}
+                        rows={3}
                         value={justificacion}
                         onChange={(e) => setJustificacion(e.target.value)}
                     />
@@ -151,7 +146,7 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

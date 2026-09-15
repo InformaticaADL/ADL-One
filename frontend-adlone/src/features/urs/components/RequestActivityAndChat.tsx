@@ -1,49 +1,18 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { ConfigProvider, Button, Input, Tag, Divider, Tooltip } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import { IconMessage, IconSend, IconPaperclip, IconX } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import FileIcon from './FileIcon';
 
-const { TextArea } = Input;
-
 interface RequestActivityAndChatProps {
     request: any;
     onReload: () => void;
 }
-
-const BUBBLE_COLORS = ['#1677ff', '#389e0d', '#d46b08', '#722ed1', '#c41d7f', '#2f54eb', '#08979c', '#7cb305', '#531dab'];
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', primaryBg: '#e6f4ff', primaryBorder: '#91caff', bg: '#ffffff', bgLayout: '#fafafa',
-};
-
-const CSS = `
-.adl-ch-root { display:flex; flex-direction:column; height:100%; background:${C.bg}; overflow:hidden; }
-.adl-ch-header { display:flex; align-items:center; column-gap:8px; padding:12px; border-bottom:1px solid ${C.border}; flex-shrink:0; }
-.adl-ch-headicon { display:inline-flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:6px; background:${C.primaryBg}; color:${C.primary}; }
-.adl-ch-headtitle { margin:0; font-size:12px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:${C.textSec}; }
-.adl-ch-scroll { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; row-gap:12px; }
-.adl-ch-datelabel { font-size:11px; font-weight:600; color:${C.textTer}; text-transform:capitalize; }
-.adl-ch-msg { display:flex; flex-direction:column; max-width:85%; }
-.adl-ch-msg.own { align-self:flex-end; align-items:flex-end; }
-.adl-ch-msg.other { align-self:flex-start; align-items:flex-start; }
-.adl-ch-meta { display:flex; align-items:center; column-gap:6px; margin-bottom:3px; }
-.adl-ch-author { font-size:11px; font-weight:700; }
-.adl-ch-time { font-size:11px; color:${C.textTer}; }
-.adl-ch-bubble { padding:8px 12px; border-radius:12px; font-size:14px; line-height:1.5; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word; border:1px solid ${C.border}; }
-.adl-ch-bubble.own { background:${C.primaryBg}; border-color:${C.primaryBorder}; border-bottom-right-radius:4px; }
-.adl-ch-bubble.other { background:${C.bgLayout}; border-bottom-left-radius:4px; }
-.adl-ch-attach { display:flex; align-items:center; column-gap:6px; margin-top:6px; padding:4px 6px; border:1px solid ${C.border}; border-radius:6px; background:${C.bg}; text-decoration:none; color:${C.primary}; cursor:pointer; max-width:220px; }
-.adl-ch-attach:hover { background:${C.bgLayout}; }
-.adl-ch-attachname { font-size:11px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.adl-ch-emptychat { text-align:center; color:${C.textTer}; font-style:italic; font-size:12px; padding:40px 0; }
-.adl-ch-input { border-top:1px solid ${C.border}; padding:12px; display:flex; flex-direction:column; row-gap:8px; flex-shrink:0; }
-.adl-ch-chips { display:flex; flex-wrap:wrap; gap:6px; }
-.adl-ch-inputrow { display:flex; align-items:flex-end; column-gap:8px; }
-`;
 
 const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request, onReload }) => {
     const [comment, setComment] = useState('');
@@ -96,75 +65,95 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
     const chatMessages = useMemo(() => (request.conversacion || []).filter((m: any) => !m.es_sistema), [request.conversacion]);
 
     return (
-        <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
-            <style>{CSS}</style>
-            <div className="adl-ch-root">
-                <div className="adl-ch-header">
-                    <span className="adl-ch-headicon"><IconMessage size={15} /></span>
-                    <h4 className="adl-ch-headtitle">Chat de comunicación</h4>
-                </div>
+        <div className="flex h-full flex-col overflow-hidden bg-background">
+            <div className="flex shrink-0 items-center gap-2 border-b border-border p-3">
+                <span className="flex h-[26px] w-[26px] items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <IconMessage size={15} />
+                </span>
+                <h4 className="m-0 text-xs font-bold uppercase tracking-wide text-muted-foreground">Chat de comunicación</h4>
+            </div>
 
-                <div className="adl-ch-scroll" ref={viewport}>
-                    {chatMessages.length > 0 ? (
-                        chatMessages.map((msg: any, i: number) => {
-                            const isOwn = msg.es_mio;
-                            const userColor = getUserColor(msg.id_usuario);
-                            const msgDate = new Date(msg.fecha).toDateString();
-                            const prevDate = i > 0 ? new Date(chatMessages[i - 1].fecha).toDateString() : null;
-                            const showDateSep = msgDate !== prevDate;
-                            return (
-                                <React.Fragment key={i}>
-                                    {showDateSep && (
-                                        <Divider style={{ margin: '4px 0' }}><span className="adl-ch-datelabel">{getDateLabel(msg.fecha)}</span></Divider>
-                                    )}
-                                    <div className={`adl-ch-msg ${isOwn ? 'own' : 'other'}`}>
-                                        <div className="adl-ch-meta">
-                                            <span className="adl-ch-author" style={{ color: isOwn ? C.primary : userColor }}>{msg.nombre_usuario}</span>
-                                            <span className="adl-ch-time">{new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                        </div>
-                                        <div className={`adl-ch-bubble ${isOwn ? 'own' : 'other'}`}>
-                                            {msg.mensaje}
-                                            {msg.adjuntos && msg.adjuntos.length > 0 && msg.adjuntos.map((file: any) => (
-                                                <a key={file.id_adjunto} className="adl-ch-attach" target="_blank" rel="noreferrer"
-                                                    href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}>
-                                                    <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={18} />
-                                                    <span className="adl-ch-attachname">{file.nombre_archivo}</span>
-                                                </a>
-                                            ))}
-                                        </div>
+            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3" ref={viewport}>
+                {chatMessages.length > 0 ? (
+                    chatMessages.map((msg: any, i: number) => {
+                        const isOwn = msg.es_mio;
+                        const userColor = getUserColor(msg.id_usuario);
+                        const msgDate = new Date(msg.fecha).toDateString();
+                        const prevDate = i > 0 ? new Date(chatMessages[i - 1].fecha).toDateString() : null;
+                        const showDateSep = msgDate !== prevDate;
+                        return (
+                            <React.Fragment key={i}>
+                                {showDateSep && (
+                                    <div className="my-1 flex items-center gap-2">
+                                        <div className="h-px flex-1 bg-border" />
+                                        <span className="text-[11px] font-semibold capitalize text-muted-foreground">{getDateLabel(msg.fecha)}</span>
+                                        <div className="h-px flex-1 bg-border" />
                                     </div>
-                                </React.Fragment>
-                            );
-                        })
-                    ) : (
-                        <div className="adl-ch-emptychat">Sin mensajes aún.</div>
-                    )}
-                </div>
+                                )}
+                                <div className={cn('flex max-w-[85%] flex-col', isOwn ? 'self-end items-end' : 'self-start items-start')}>
+                                    <div className="mb-0.5 flex items-center gap-1.5">
+                                        <span className="text-[11px] font-bold" style={{ color: isOwn ? 'var(--sc-primary)' : userColor }}>{msg.nombre_usuario}</span>
+                                        <span className="text-[11px] text-muted-foreground">{new Date(msg.fecha).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                    </div>
+                                    <div className={cn(
+                                        'whitespace-pre-wrap break-words rounded-xl border border-border px-3 py-2 text-sm leading-relaxed',
+                                        isOwn ? 'rounded-br-sm bg-primary/10' : 'rounded-bl-sm bg-muted'
+                                    )}>
+                                        {msg.mensaje}
+                                        {msg.adjuntos && msg.adjuntos.length > 0 && msg.adjuntos.map((file: any) => (
+                                            <a key={file.id_adjunto}
+                                                className="mt-1.5 flex max-w-[220px] items-center gap-1.5 rounded-md border border-border bg-background px-1.5 py-1 text-primary no-underline hover:bg-muted"
+                                                target="_blank" rel="noreferrer"
+                                                href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}>
+                                                <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={18} />
+                                                <span className="truncate text-[11px] font-semibold">{file.nombre_archivo}</span>
+                                            </a>
+                                        ))}
+                                    </div>
+                                </div>
+                            </React.Fragment>
+                        );
+                    })
+                ) : (
+                    <div className="py-10 text-center text-xs italic text-muted-foreground">Sin mensajes aún.</div>
+                )}
+            </div>
 
-                <div className="adl-ch-input">
-                    {files.length > 0 && (
-                        <div className="adl-ch-chips">
-                            {files.map((f, i) => (
-                                <Tag key={i} color="blue" closable onClose={() => removeFile(i)} closeIcon={<IconX size={12} />}>{f.name}</Tag>
-                            ))}
-                        </div>
-                    )}
-                    <div className="adl-ch-inputrow">
-                        <input ref={fileInputRef} type="file" multiple style={{ display: 'none' }}
-                            accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv"
-                            onChange={(e) => { const list = Array.from(e.target.files || []); setFiles(prev => [...prev, ...list]); e.target.value = ''; }} />
-                        <Tooltip title="Adjuntar archivo">
-                            <Button type="text" icon={<IconPaperclip size={18} />} onClick={() => fileInputRef.current?.click()} />
-                        </Tooltip>
-                        <TextArea placeholder="Escribe un mensaje..." autoSize={{ minRows: 1, maxRows: 4 }} style={{ flex: 1 }}
-                            value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={handleKeyDown} />
-                        <Button type="primary" icon={<IconSend size={18} />} loading={sending}
-                            disabled={!comment.trim() && files.length === 0} onClick={handleSendMessage} />
+            <div className="flex shrink-0 flex-col gap-2 border-t border-border p-3">
+                {files.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                        {files.map((f, i) => (
+                            <Badge key={i} variant="secondary" className="gap-1">
+                                {f.name}
+                                <button type="button" onClick={() => removeFile(i)} aria-label="Quitar archivo">
+                                    <IconX size={12} />
+                                </button>
+                            </Badge>
+                        ))}
                     </div>
+                )}
+                <div className="flex items-end gap-2">
+                    <input ref={fileInputRef} type="file" multiple hidden
+                        accept="image/*,application/pdf,.xlsx,.xls,.doc,.docx,.txt,.csv"
+                        onChange={(e) => { const list = Array.from(e.target.files || []); setFiles(prev => [...prev, ...list]); e.target.value = ''; }} />
+                    <Button variant="ghost" size="icon" title="Adjuntar archivo" onClick={() => fileInputRef.current?.click()}>
+                        <IconPaperclip size={18} />
+                    </Button>
+                    <Textarea placeholder="Escribe un mensaje..." rows={1} className="flex-1 resize-none"
+                        value={comment} onChange={(e) => setComment(e.target.value)} onKeyDown={handleKeyDown} />
+                    <Button size="icon" disabled={sending || (!comment.trim() && files.length === 0)} onClick={handleSendMessage}>
+                        {sending ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                        ) : (
+                            <IconSend size={18} />
+                        )}
+                    </Button>
                 </div>
             </div>
-        </ConfigProvider>
+        </div>
     );
 };
+
+const BUBBLE_COLORS = ['#1677ff', '#389e0d', '#d46b08', '#722ed1', '#c41d7f', '#2f54eb', '#08979c', '#7cb305', '#531dab'];
 
 export default RequestActivityAndChat;

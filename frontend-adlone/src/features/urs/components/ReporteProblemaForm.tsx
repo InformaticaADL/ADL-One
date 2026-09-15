@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Typography, Card, Spin, Tag } from 'antd';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
-const { TextArea } = Input;
 
 interface ReporteProblemaFormProps {
     onDataChange: (data: any) => void;
@@ -52,13 +53,13 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
     }, [asunto, categoria, equipoId, descripcion, gravedad, equipos]);
 
     return (
-        <Card size="small" style={{ backgroundColor: 'rgba(232,140,0,0.06)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: 13, color: '#d9480f', textTransform: 'uppercase' }}>
+        <Card className="p-4 bg-[rgba(232,140,0,0.06)]">
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase text-[#d9480f]">
                         Reporte de Incidencia / Problema Técnico
-                    </Text>
-                    <Tag color="orange">SERVICIO TÉCNICO</Tag>
+                    </span>
+                    <Badge variant="warning">SERVICIO TÉCNICO</Badge>
                 </div>
 
                 <Field label="Asunto / Resumen corto *" hint={`Describa brevemente el problema (${asunto.length}/50 caract.)`}>
@@ -70,10 +71,11 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                     />
                 </Field>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Categoría del Problema *">
-                        <Select
+                        <Combobox
                             placeholder="Seleccione categoría"
+                            searchPlaceholder="Buscar categoría..."
                             options={[
                                 { value: 'HARDWARE', label: 'Fallo de Hardware / Piezas' },
                                 { value: 'SOFTWARE', label: 'Error de Software / App' },
@@ -83,13 +85,13 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                                 { value: 'OTRO', label: 'Otro / No especificado' }
                             ]}
                             value={categoria ?? undefined}
-                            onChange={(v) => setCategoria(v ?? null)}
-                            style={{ width: '100%' }}
+                            onValueChange={(v) => setCategoria(v ?? null)}
                         />
                     </Field>
                     <Field label="Nivel de Gravedad *">
-                        <Select
+                        <Combobox
                             placeholder="Seleccione nivel"
+                            searchPlaceholder="Buscar nivel..."
                             options={[
                                 { value: 'BAJO', label: '🟢 Bajo (Sin impacto crítico)' },
                                 { value: 'MEDIO', label: '🔵 Medio (Impacto parcial)' },
@@ -97,30 +99,26 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
                                 { value: 'CRITICO', label: '🔴 Crítico (Bloqueante)' }
                             ]}
                             value={gravedad ?? undefined}
-                            onChange={(v) => setGravedad(v ?? null)}
-                            style={{ width: '100%' }}
+                            onValueChange={(v) => setGravedad(v ?? null)}
                         />
                     </Field>
                 </div>
 
                 <Field label="Equipo Afectado (Opcional)">
-                    <Select
-                        placeholder={loadingEquipos ? "Cargando inventario..." : "Busque equipo afectado"}
-                        suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
-                        options={equipos}
-                        value={equipoId ?? undefined}
-                        onChange={(v) => setEquipoId(v ?? null)}
-                        showSearch
-                        allowClear
-                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                        style={{ width: '100%' }}
+                    <Combobox
+                        placeholder={loadingEquipos ? 'Cargando inventario...' : 'Busque equipo afectado'}
+                        searchPlaceholder="Buscar equipo..."
+                        options={[{ value: 'none', label: 'Ninguno / No aplica' }, ...equipos]}
+                        value={equipoId ?? 'none'}
+                        onValueChange={(v) => setEquipoId(v === 'none' ? null : v)}
+                        disabled={loadingEquipos}
                     />
                 </Field>
 
                 <Field label="Descripción detallada *">
-                    <TextArea
+                    <Textarea
                         placeholder="Explique qué sucedió, cuándo, frecuencia del fallo y si hay algún mensaje de error específico..."
-                        autoSize={{ minRows: 4 }}
+                        rows={4}
                         value={descripcion}
                         onChange={(e) => setDescripcion(e.target.value)}
                     />
@@ -133,9 +131,9 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
-            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+            {hint && <span className="mt-0.5 block text-[11px] text-muted-foreground">{hint}</span>}
         </div>
     );
 }
