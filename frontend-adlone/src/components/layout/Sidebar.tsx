@@ -20,7 +20,6 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
-import { NotificationBell } from './TopBar';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
@@ -328,29 +327,26 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     return (
         <nav className="shadcn-scope flex h-full flex-col bg-card">
-            <div className={cn('p-3', isCollapsed ? 'flex flex-col items-center gap-3' : 'flex items-center justify-between gap-2')}>
+            <div className={cn('border-b border-border p-3', isCollapsed ? 'flex flex-col items-center gap-3' : 'flex items-center justify-between gap-2')}>
                 <img
                     src={isCollapsed ? logoSmall : logoAdl}
                     alt="ADL"
                     className={cn('w-auto object-contain', isCollapsed ? 'h-8' : 'h-10')}
                 />
-                <div className={cn('flex items-center', isCollapsed ? 'flex-col gap-1' : 'gap-0.5')}>
-                    <NotificationBell compact={isCollapsed} />
-                    {!forceNotCollapsed && (
-                        <button
-                            onClick={toggleSidebar}
-                            aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                            title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                        >
-                            {isCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
-                        </button>
-                    )}
-                </div>
+                {!forceNotCollapsed && (
+                    <button
+                        onClick={toggleSidebar}
+                        aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
+                        title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                    >
+                        {isCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
+                    </button>
+                )}
             </div>
 
             {!isCollapsed && (
-                <div className="px-3 pb-4 pt-1">
+                <div className="px-3 pb-4 pt-4">
                     <div className="relative">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -363,7 +359,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 </div>
             )}
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
                 <div className="mb-3 flex flex-col gap-0.5">
                     {filteredTop.map((item) => renderFlatItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined))}
                 </div>

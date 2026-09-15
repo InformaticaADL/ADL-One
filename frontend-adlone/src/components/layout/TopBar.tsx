@@ -2,7 +2,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     IconBell,
-    IconChevronRight,
     IconHome,
     IconMoon,
     IconSun,
@@ -168,9 +167,9 @@ function useBreadcrumbLabels() {
     }, [activeModule, activeSubmodule, dynamicModules]);
 }
 
-// Ruta actual + toggle de tema, chico y solo sobre la columna de contenido
-// (no una barra global sobre sidebar+contenido — el logo y la campana ahora
-// viven en el header del Sidebar, ver Sidebar.tsx). shadcn-scope es
+// Ruta actual a la izquierda, campana + toggle de tema a la derecha —
+// funciona como el "navbar" de la app, chico y solo sobre la columna de
+// contenido (no una barra global sobre sidebar+contenido). shadcn-scope es
 // necesario acá: sin él el botón "Inicio" no recibe el reset de botones
 // (bg/border/padding nativos del navegador) y se ve encuadrado.
 export function RouteBreadcrumb() {
@@ -184,16 +183,19 @@ export function RouteBreadcrumb() {
                     <IconHome size={15} />
                     <span>Inicio</span>
                 </button>
-                <span className="shrink-0 text-border">—</span>
+                <span className="shrink-0 text-border">/</span>
                 <span className="truncate font-medium text-foreground">{moduleLabel || 'Inicio'}</span>
                 {submoduleLabel && (
                     <>
-                        <IconChevronRight size={13} className="shrink-0" />
+                        <span className="shrink-0 text-border">/</span>
                         <span className="truncate">{submoduleLabel}</span>
                     </>
                 )}
             </div>
-            <ThemeToggle />
+            <div className="flex shrink-0 items-center gap-1">
+                <NotificationBell />
+                <ThemeToggle />
+            </div>
         </div>
     );
 }
