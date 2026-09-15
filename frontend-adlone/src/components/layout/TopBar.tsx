@@ -1,42 +1,37 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Avatar, Badge, Dropdown, Input, Switch, Tooltip, Typography } from 'antd';
-import type { MenuProps } from 'antd';
 import {
     IconBell,
-    IconExclamationMark,
-    IconLogout,
+    IconChevronRight,
     IconMoon,
-    IconSearch,
     IconSun,
-    IconUserCircle,
 } from '@tabler/icons-react';
-import logoAdl from '../../assets/images/logo-adlone.png';
-import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
-import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useThemeStore } from '../../store/themeStore';
 import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
-import API_CONFIG from '../../config/api.config';
-
-const { Text } = Typography;
+import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+import { FIXED_TOP_MODULES, type DynamicModule } from '../../config/sidebarModules';
 
 interface UserActionsClusterProps {
-    onHelpClick?: () => void;
-    onNavigate?: () => void;
     compact?: boolean;
 }
 
-// Campana de notificaciones + toggle de tema + avatar/menú de usuario — el
-// bloque que antes vivía al fondo del Sidebar (ver Sidebar.tsx histórico).
-// Se usa tanto en el TopBar de escritorio como en el header compacto de
-// móvil (MainLayout), por eso vive en su propio componente reutilizable en
-// vez de duplicar el JSX en los dos lugares.
-export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserActionsClusterProps) {
-    const { user, logout } = useAuth();
+const STATIC_MODULE_LABELS: Record<string, string> = {
+    '': 'Inicio',
+    perfil: 'Mi Perfil',
+    notificaciones: 'Notificaciones',
+};
+
+// Campana de notificaciones + toggle de tema — el bloque que antes también
+// incluía el avatar/menú de usuario, ahora movido a la card de usuario al
+// fondo del Sidebar. Se usa tanto en el TopBar de escritorio como en el
+// header compacto de móvil (MainLayout), por eso vive en su propio
+// componente reutilizable en vez de duplicar el JSX en los dos lugares.
+export function UserActionsCluster({ compact }: UserActionsClusterProps) {
     const { mode, toggleMode } = useThemeStore();
-    const { setActiveModule, setActiveSubmodule } = useNavStore();
     const { notifications } = useNotificationStore();
     const unreadCount = notifications.filter((n) => !n.leido).length;
 
@@ -78,59 +73,33 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
         }
     }, [showBubble]);
 
-    const userMenuItems: MenuProps['items'] = [
-        { key: 'perfil', icon: <IconUserCircle size={14} />, label: 'Mi Perfil' },
-        { key: 'ayuda', icon: <IconExclamationMark size={14} />, label: 'Ayuda' },
-        { type: 'divider' },
-        { key: 'logout', icon: <IconLogout size={14} />, label: 'Cerrar sesión', danger: true },
-    ];
-
-    const handleUserMenuClick: MenuProps['onClick'] = ({ key }) => {
-        if (key === 'perfil') {
-            setActiveModule('perfil');
-            setActiveSubmodule('');
-            onNavigate?.();
-        } else if (key === 'ayuda') {
-            onHelpClick?.();
-            onNavigate?.();
-        } else if (key === 'logout') {
-            logout();
-        }
-    };
-
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <div ref={notificationsRef} style={{ position: 'relative' }}>
+        <div className="flex items-center gap-1">
+            <div ref={notificationsRef} className="relative">
                 <NotificationPopover opened={notifOpen} onClose={() => setNotifOpen(false)}>
-                    <Tooltip title="Notificaciones">
-                        <button
-                            onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
-                            style={{
-                                border: 'none',
-                                background: notifOpen ? 'var(--app-accent-bg)' : 'transparent',
-                                color: notifOpen ? 'var(--app-accent-text)' : 'var(--app-text)',
-                                width: 38, height: 38, borderRadius: 8, cursor: 'pointer',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}
-                        >
-                            <Badge count={unreadCount} size="small" offset={[-2, 2]}>
-                                <IconBell size={19} stroke={1.75} />
-                            </Badge>
-                        </button>
-                    </Tooltip>
+                    <button
+                        title="Notificaciones"
+                        onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
+                        className={cn(
+                            'flex h-[38px] w-[38px] items-center justify-center rounded-lg transition-colors',
+                            notifOpen ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+                        )}
+                    >
+                        <span className="relative inline-flex">
+                            <IconBell size={19} stroke={1.75} />
+                            {unreadCount > 0 && (
+                                <Badge variant="destructive" className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 py-0 text-[10px] leading-none">
+                                    {unreadCount > 99 ? '99+' : unreadCount}
+                                </Badge>
+                            )}
+                        </span>
+                    </button>
                 </NotificationPopover>
 
                 {showBubble && !notifOpen && bubblePosition && createPortal(
                     <div
-                        style={{
-                            position: 'fixed',
-                            top: bubblePosition.top,
-                            left: bubblePosition.left,
-                            backgroundColor: 'var(--app-bg-elevated)', color: 'var(--app-text)',
-                            padding: '10px 18px', borderRadius: 12, fontSize: 13, fontWeight: 600,
-                            whiteSpace: 'nowrap', boxShadow: '0 10px 25px rgba(0,0,0,0.25)', zIndex: 2200,
-                            pointerEvents: 'none', border: '1px solid var(--app-border)', borderTop: '4px solid #1677ff',
-                        }}
+                        style={{ top: bubblePosition.top, left: bubblePosition.left }}
+                        className="fixed z-[2200] whitespace-nowrap rounded-xl border border-border border-t-4 border-t-primary bg-card px-[18px] py-2.5 text-sm font-semibold text-foreground shadow-2xl"
                     >
                         {notifications[0]?.titulo || '¡Nueva notificación!'}
                     </div>,
@@ -139,93 +108,73 @@ export function UserActionsCluster({ onHelpClick, onNavigate, compact }: UserAct
             </div>
 
             {compact ? (
-                <Tooltip title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}>
-                    <button
-                        onClick={toggleMode}
-                        aria-label="Cambiar tema"
-                        style={{
-                            border: 'none', background: 'transparent', color: 'var(--app-text)',
-                            width: 38, height: 38, borderRadius: 8, cursor: 'pointer',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}
-                    >
-                        {mode === 'dark' ? <IconMoon size={19} stroke={1.75} /> : <IconSun size={19} stroke={1.75} />}
-                    </button>
-                </Tooltip>
-            ) : (
-                <Tooltip title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}>
-                    <Switch
-                        size="small"
-                        checked={mode === 'dark'}
-                        onChange={toggleMode}
-                        checkedChildren={<IconMoon size={12} />}
-                        unCheckedChildren={<IconSun size={12} />}
-                        style={{ marginInline: 4 }}
-                    />
-                </Tooltip>
-            )}
-
-            <Dropdown menu={{ items: userMenuItems, onClick: handleUserMenuClick }} placement="bottomRight" trigger={['click']}>
-                <button style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 2, borderRadius: '50%', display: 'flex' }}>
-                    <Avatar
-                        src={user?.foto ? `${API_CONFIG.getBaseURL()}${user.foto}` : undefined}
-                        size={34}
-                        style={{ backgroundColor: 'var(--app-hover-bg)', color: 'var(--app-text-secondary)', flexShrink: 0 }}
-                    >
-                        {user?.name?.charAt(0)}
-                    </Avatar>
+                <button
+                    onClick={toggleMode}
+                    aria-label="Cambiar tema"
+                    title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
+                    className="flex h-[38px] w-[38px] items-center justify-center rounded-lg text-foreground hover:bg-muted"
+                >
+                    {mode === 'dark' ? <IconMoon size={19} stroke={1.75} /> : <IconSun size={19} stroke={1.75} />}
                 </button>
-            </Dropdown>
+            ) : (
+                <div className="mx-1 flex items-center" title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}>
+                    <Switch checked={mode === 'dark'} onCheckedChange={toggleMode} />
+                </div>
+            )}
         </div>
     );
 }
 
-interface TopBarProps {
-    onHelpClick?: () => void;
+// Resuelve el label de un módulo/submódulo activo para la ruta del TopBar —
+// primero en los módulos fijos y dinámicos del Sidebar, con un mapa estático
+// de respaldo para vistas que no viven en el menú (perfil, notificaciones).
+function useBreadcrumbLabels() {
+    const { activeModule, activeSubmodule, dynamicModules: rawDynamicModules } = useNavStore();
+    const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
+
+    return useMemo(() => {
+        const dynMod = dynamicModules.find((m) => m.id === activeModule);
+        const fixedMod = FIXED_TOP_MODULES.find((m) => m.id === activeModule);
+        const moduleLabel = fixedMod?.label ?? dynMod?.label ?? STATIC_MODULE_LABELS[activeModule] ?? activeModule;
+
+        let submoduleLabel: string | null = null;
+        if (activeSubmodule) {
+            const link = dynamicModules
+                .flatMap((m) => m.links || [])
+                .find((l) => l.id === activeSubmodule);
+            submoduleLabel = link?.label ?? STATIC_MODULE_LABELS[activeSubmodule] ?? activeSubmodule;
+        }
+
+        return { moduleLabel, submoduleLabel };
+    }, [activeModule, activeSubmodule, dynamicModules]);
 }
 
 // Barra global fija sobre sidebar+contenido, solo desktop (ver MainLayout —
 // móvil extiende su propio header compacto con UserActionsCluster en vez de
-// montar este componente). Logo + búsqueda (solo visual, sin lógica real
-// todavía — ver spec) + UserActionsCluster.
-export function TopBar({ onHelpClick }: TopBarProps) {
-    const { resetNavigation, sidebarCollapsed } = useNavStore();
+// montar este componente). Ruta actual a la izquierda + UserActionsCluster
+// (notificaciones/tema) a la derecha — el logo y el buscador ahora viven en
+// el Sidebar.
+export function TopBar() {
+    const { resetNavigation } = useNavStore();
+    const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
 
     return (
-        <div
-            style={{
-                height: 72, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '0 24px', backgroundColor: 'var(--app-bg-elevated)',
-                borderBottom: '1px solid var(--app-border)', position: 'relative', zIndex: 210, gap: 20,
-            }}
-        >
-            {/* Mismo icono compacto que usaba el Sidebar cuando estaba colapsado —
-                el logo ahora vive solo aquí, así que replica ese comportamiento en
-                vez de mostrar siempre el logo completo sin importar el estado del
-                sidebar. El toggle de colapsar vive en Sidebar.tsx, sobre la línea
-                divisoria vertical (ver ese archivo). */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }} onClick={() => resetNavigation()}>
-                <img
-                    src={sidebarCollapsed ? logoSmall : logoAdl}
-                    alt="ADL"
-                    style={{ height: sidebarCollapsed ? 32 : 40, width: 'auto', objectFit: 'contain', transition: 'all 200ms ease' }}
-                />
-            </div>
+        <div className="relative z-[210] flex h-[72px] shrink-0 items-center justify-between gap-5 border-b border-border bg-card px-6">
+            <button
+                type="button"
+                onClick={() => resetNavigation()}
+                className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
+            >
+                <span className="truncate">{moduleLabel || 'Inicio'}</span>
+                {submoduleLabel && (
+                    <>
+                        <IconChevronRight size={14} className="shrink-0" />
+                        <span className="truncate font-semibold text-foreground">{submoduleLabel}</span>
+                    </>
+                )}
+            </button>
 
-            <Input
-                placeholder="Buscar..."
-                readOnly
-                title="Búsqueda global (próximamente)"
-                prefix={<IconSearch size={16} color="var(--app-text-secondary)" />}
-                suffix={
-                    <Text type="secondary" style={{ fontSize: 11, border: '1px solid var(--app-border)', borderRadius: 4, padding: '1px 6px' }}>
-                        ⌘K
-                    </Text>
-                }
-                style={{ maxWidth: 380, flex: 1 }}
-            />
-
-            <UserActionsCluster onHelpClick={onHelpClick} />
+            <UserActionsCluster />
         </div>
     );
 }

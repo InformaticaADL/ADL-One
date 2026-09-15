@@ -1,45 +1,47 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Menu, Tooltip } from 'antd';
-import type { MenuProps } from 'antd';
+import { useState, useEffect } from 'react';
 import {
-    IconMessageCircle,
-    IconFileInvoice,
-    IconClipboardList,
     IconChevronLeft,
     IconChevronRight,
+    IconChevronDown,
+    IconSearch,
+    IconSelector,
+    IconUserCircle,
+    IconExclamationMark,
+    IconLogout,
 } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import API_CONFIG from '../../config/api.config';
 import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
-import classes from './Sidebar.module.css';
+import { FIXED_TOP_MODULES, type DynamicModule, type DynamicModuleLink, type FixedModule } from '../../config/sidebarModules';
+import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import logoAdl from '../../assets/images/logo-adlone.png';
+import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
-// Módulos con iconos de Tabler
-const FIXED_TOP_MODULES = [
-    { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
-    { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
-    { label: 'Facturación', icon: IconFileInvoice, id: 'facturacion', permission: 'FAC_ACCESO' },
-];
+const FIXED_BOTTOM_MODULES: FixedModule[] = [];
 
-const FIXED_BOTTOM_MODULES: any[] = [];
-
-type MenuItem = Required<MenuProps>['items'][number];
-
-// Ícono + etiqueta con badge opcional a la derecha — reemplaza al antiguo
-// ThemeIcon/Group manual: antd ya resuelve estado activo/hover por token.
-function itemLabel(label: string, badgeCount?: number) {
-    if (!badgeCount) return label;
-    return (
-        <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-            <span>{label}</span>
-            <span className={classes.counter}>{badgeCount > 99 ? '99+' : badgeCount}</span>
-        </span>
-    );
+function matches(label: string, q: string) {
+    return !q || label.toLowerCase().includes(q.toLowerCase());
 }
 
-export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?: boolean, onNavigate?: () => void }) {
-    const { hasPermission, token } = useAuth();
+function hasAccess(permission: string | string[] | undefined, hasPermission: (p: string) => boolean) {
+    if (!permission || permission.length === 0) return true;
+    return Array.isArray(permission) ? permission.some(hasPermission) : hasPermission(permission);
+}
+
+interface SidebarProps {
+    forceNotCollapsed?: boolean;
+    onNavigate?: () => void;
+    onHelpClick?: () => void;
+}
+
+export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarProps) {
+    const { user, hasPermission, token, logout } = useAuth();
     const {
         activeModule,
         activeSubmodule,
@@ -48,13 +50,15 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
         setSidebarCollapsed,
         setActiveModule,
         setActiveSubmodule,
-        dynamicModules,
+        dynamicModules: rawDynamicModules,
         setDynamicModules,
         ursUnreadCount,
     } = useNavStore();
+    const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
+    const [search, setSearch] = useState('');
 
     // Notebooks con escalado de Windows alto (125-150%) le reportan al
     // navegador un viewport efectivo mucho más angosto que la resolución
@@ -96,27 +100,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
         }
     }, [activeModule]);
 
-    const canAccessModule = (module: any) => {
-        let hasBasePermission = false;
-
-        if (!module.permission || module.permission.length === 0) {
-            hasBasePermission = true;
-        } else {
-            hasBasePermission = Array.isArray(module.permission)
-                ? module.permission.some((perm: string) => hasPermission(perm))
-                : hasPermission(module.permission);
-        }
+    const canAccessModule = (module: DynamicModule) => {
+        const hasBasePermission = hasAccess(module.permission, hasPermission);
 
         // Si tiene submódulos (links), OBLIGATORIAMENTE debe tener acceso a al menos uno para ver el módulo padre
-        if (module.links && Array.isArray(module.links) && module.links.length > 0) {
-            const canAccessAnyLink = module.links.some((link: any) => {
-                if (!link.permission || link.permission.length === 0) return true;
-                if (Array.isArray(link.permission)) {
-                    return link.permission.some((p: string) => hasPermission(p));
-                }
-                return hasPermission(link.permission);
-            });
-
+        if (module.links && module.links.length > 0) {
+            const canAccessAnyLink = module.links.some((link) => hasAccess(link.permission, hasPermission));
             // Para ver el módulo, debe cumplir el permiso base (si lo hay) Y tener acceso a un link
             return hasBasePermission && canAccessAnyLink;
         }
@@ -125,8 +114,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
     };
 
     const handleModuleClick = (moduleId: string) => {
-        const mod = dynamicModules.find((m: any) => m.id === moduleId) || FIXED_TOP_MODULES.find(m => m.id === moduleId);
-        const hasSubItems = mod && 'links' in mod && Array.isArray((mod as any).links) && (mod as any).links.length > 0;
+        const mod = dynamicModules.find((m) => m.id === moduleId) || FIXED_TOP_MODULES.find((m) => m.id === moduleId);
+        const hasSubItems = !!mod && 'links' in mod && Array.isArray(mod.links) && mod.links.length > 0;
 
         if (hasSubItems) {
             // Si el módulo ya es el activo, no reseteamos el submódulo
@@ -142,132 +131,251 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: { forceNotCollapsed?:
         }
     };
 
+    const handleLeafClick = (leafId: string) => {
+        setActiveSubmodule(leafId);
+        onNavigate?.();
+    };
+
+    const handleToggleGroup = (moduleId: string, hasSubItems: boolean) => {
+        if (isCollapsed || !hasSubItems) {
+            handleModuleClick(moduleId);
+            return;
+        }
+        const next = openedModule === moduleId ? null : moduleId;
+        setOpenedModule(next);
+        if (next) handleModuleClick(next);
+    };
+
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
     // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
-    const visibleModules = dynamicModules.filter((m: any) => canAccessModule(m));
+    const visibleModules = dynamicModules.filter(canAccessModule);
 
     // Unidades: Filtrar módulos visibles según permisos
-    const unidades = visibleModules.filter((m: any) => m.group === 'unidades');
+    const unidades = visibleModules.filter((m) => m.group === 'unidades');
 
     // Gestión: Mostrar si el usuario tiene permiso para algún módulo de gestión
-    const gestionOp = visibleModules.filter((m: any) => m.group === 'gestion');
+    const gestionOp = visibleModules.filter((m) => m.group === 'gestion');
 
     const visibleBottom = FIXED_BOTTOM_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
 
     const visibleTop = FIXED_TOP_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
 
-    const buildDynamicItem = (mod: any): MenuItem => {
-        const filteredLinks = (mod.links || []).filter((link: any) => {
-            if (!link.permission) return true;
-            if (Array.isArray(link.permission)) {
-                return link.permission.some((perm: string) => hasPermission(perm));
-            }
-            return hasPermission(link.permission);
-        });
-        const Icon = getIconComponent(mod.icon);
-        return {
-            key: mod.id,
-            icon: <Icon size={18} stroke={1.75} />,
-            label: mod.label,
-            children: filteredLinks.length > 0
-                ? filteredLinks.map((l: any) => ({ key: l.id, label: l.label }))
-                : undefined,
-        };
-    };
+    const q = search.trim();
 
-    const items: MenuItem[] = useMemo(() => {
-        const result: MenuItem[] = visibleTop.map((item) => ({
-            key: item.id,
-            icon: <item.icon size={18} stroke={1.75} />,
-            label: itemLabel(item.label, item.id === 'solicitudes' ? ursUnreadCount : undefined),
-        }));
+    const filteredTop = visibleTop.filter((m) => matches(m.label, q));
 
-        if (unidades.length > 0) {
-            result.push({
-                type: 'group',
-                key: 'grp-unidades',
-                label: 'UNIDADES',
-                children: unidades.map(buildDynamicItem),
-            } as MenuItem);
-        }
-        if (gestionOp.length > 0) {
-            result.push({
-                type: 'group',
-                key: 'grp-gestion',
-                label: 'GESTIÓN',
-                children: gestionOp.map(buildDynamicItem),
-            } as MenuItem);
-        }
-        if (visibleBottom.length > 0) {
-            result.push({
-                type: 'group',
-                key: 'grp-soporte',
-                label: 'SOPORTE',
-                children: visibleBottom.map((item) => ({
-                    key: item.id,
-                    icon: <item.icon size={18} stroke={1.75} />,
-                    label: item.label,
-                })),
-            } as MenuItem);
+    const filterGroup = (mods: DynamicModule[]): (DynamicModule & { forceOpen: boolean })[] => {
+        if (!q) return mods.map((m) => ({ ...m, forceOpen: false }));
+        const result: (DynamicModule & { forceOpen: boolean })[] = [];
+        for (const m of mods) {
+            const selfMatches = matches(m.label, q);
+            const childMatches = (m.links || []).filter((l) => matches(l.label, q));
+            if (!selfMatches && childMatches.length === 0) continue;
+            result.push({ ...m, links: selfMatches ? m.links : childMatches, forceOpen: true });
         }
         return result;
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [visibleTop, unidades, gestionOp, visibleBottom, ursUnreadCount]);
-
-    // Selección: si hay submódulo activo, resalta ese; si no, el módulo raíz.
-    const selectedKeys = activeSubmodule ? [activeSubmodule] : (activeModule ? [activeModule] : []);
-    const openKeys = openedModule ? [openedModule] : [];
-
-    const handleClick: MenuProps['onClick'] = ({ key, keyPath }) => {
-        // keyPath.length > 1 → un ítem hoja dentro de un submódulo (el submódulo
-        // es keyPath[1]). keyPath.length === 1 → un módulo raíz sin hijos.
-        if (keyPath.length > 1) {
-            setActiveSubmodule(key);
-            onNavigate?.();
-        } else {
-            handleModuleClick(key);
-        }
     };
 
-    const handleOpenChange: MenuProps['onOpenChange'] = (keys) => {
-        // Solo un submódulo abierto a la vez (comportamiento acordeón previo).
-        const next = keys.find((k) => !openKeys.includes(k)) ?? null;
-        setOpenedModule(next);
-        if (next) handleModuleClick(next);
+    const filteredUnidades = filterGroup(unidades);
+    const filteredGestion = filterGroup(gestionOp);
+    const filteredBottom = visibleBottom.filter((m) => matches(m.label, q));
+
+    const renderFlatItem = (item: FixedModule, badgeCount?: number) => {
+        const active = !activeSubmodule && activeModule === item.id;
+        const Icon = item.icon;
+        return (
+            <button
+                key={item.id}
+                type="button"
+                title={isCollapsed ? item.label : undefined}
+                onClick={() => handleModuleClick(item.id)}
+                className={cn(
+                    'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+                    isCollapsed ? 'justify-center' : 'w-full',
+                    active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+                )}
+            >
+                <Icon size={18} stroke={1.75} className="shrink-0" />
+                {!isCollapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+                {!isCollapsed && !!badgeCount && (
+                    <Badge variant="destructive" className="px-1.5">{badgeCount > 99 ? '99+' : badgeCount}</Badge>
+                )}
+            </button>
+        );
     };
+
+    const renderDynamicModule = (mod: DynamicModule & { forceOpen?: boolean }) => {
+        const filteredLinks = (mod.links || []).filter((link: DynamicModuleLink) => hasAccess(link.permission, hasPermission));
+        const Icon = getIconComponent(mod.icon);
+        const hasSubItems = filteredLinks.length > 0;
+        const isOpen = isCollapsed ? false : (mod.forceOpen || openedModule === mod.id);
+        const isActiveParent = activeModule === mod.id;
+
+        return (
+            <div key={mod.id}>
+                <button
+                    type="button"
+                    title={isCollapsed ? mod.label : undefined}
+                    onClick={() => handleToggleGroup(mod.id, hasSubItems)}
+                    className={cn(
+                        'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+                        isCollapsed ? 'w-full justify-center' : 'w-full',
+                        isActiveParent && !activeSubmodule ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+                    )}
+                >
+                    <Icon size={18} stroke={1.75} className="shrink-0" />
+                    {!isCollapsed && <span className="flex-1 truncate text-left">{mod.label}</span>}
+                    {!isCollapsed && hasSubItems && (
+                        <IconChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+                    )}
+                </button>
+                {!isCollapsed && hasSubItems && isOpen && (
+                    <div className="ml-[13px] flex flex-col gap-0.5 border-l border-border py-1 pl-4">
+                        {filteredLinks.map((link) => {
+                            const active = activeSubmodule === link.id;
+                            return (
+                                <button
+                                    key={link.id}
+                                    type="button"
+                                    onClick={() => handleLeafClick(link.id)}
+                                    className={cn(
+                                        'truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+                                        active ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                    )}
+                                >
+                                    {link.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const renderGroup = (title: string, mods: (DynamicModule & { forceOpen?: boolean })[]) => {
+        if (mods.length === 0) return null;
+        return (
+            <div className="mb-3">
+                {!isCollapsed && (
+                    <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+                )}
+                <div className="flex flex-col gap-0.5">
+                    {mods.map(renderDynamicModule)}
+                </div>
+            </div>
+        );
+    };
+
+    const renderFixedGroup = (title: string, mods: FixedModule[]) => {
+        if (mods.length === 0) return null;
+        return (
+            <div className="mb-3">
+                {!isCollapsed && (
+                    <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
+                )}
+                <div className="flex flex-col gap-0.5">
+                    {mods.map((m) => renderFlatItem(m))}
+                </div>
+            </div>
+        );
+    };
+
+    const userMenu = (
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <button
+                    type="button"
+                    className={cn(
+                        'flex items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-muted',
+                        isCollapsed ? 'w-full justify-center' : 'w-full'
+                    )}
+                >
+                    <Avatar className="h-8 w-8 shrink-0">
+                        {user?.foto && <AvatarImage src={`${API_CONFIG.getBaseURL()}${user.foto}`} />}
+                        <AvatarFallback className="bg-muted text-muted-foreground">{user?.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    {!isCollapsed && (
+                        <>
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-semibold text-foreground">{user?.name}</p>
+                                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                            </div>
+                            <IconSelector size={16} className="shrink-0 text-muted-foreground" />
+                        </>
+                    )}
+                </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" side="top" className="w-56">
+                <DropdownMenuItem onSelect={() => { setActiveModule('perfil'); setActiveSubmodule(''); onNavigate?.(); }}>
+                    <IconUserCircle size={15} /> Mi Perfil
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => { onHelpClick?.(); onNavigate?.(); }}>
+                    <IconExclamationMark size={15} /> Ayuda
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem danger onSelect={() => logout()}>
+                    <IconLogout size={15} /> Cerrar sesión
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+    );
 
     return (
-        <nav className={`${classes.navbar} ${isCollapsed ? classes.navbarCollapsed : ''}`}>
-            {/* El logo vive en TopBar (solo desktop). Sidebar es el menú de
-                navegación + este botón redondo minimalista de colapsar/expandir,
-                que flota justo sobre la línea divisoria vertical (mitad adentro
-                del Sidebar, mitad sobre el borde con el contenido) — solo en
-                desktop, en mobile no hay concepto de colapsar. */}
-            {!forceNotCollapsed && (
-                <Tooltip title={isCollapsed ? 'Expandir menú' : 'Contraer menú'} placement="right">
+        <nav className="shadcn-scope flex h-full flex-col bg-card">
+            <div className={cn('flex items-center gap-2 px-4 pb-2 pt-4', isCollapsed && 'justify-center px-2')}>
+                <img
+                    src={isCollapsed ? logoSmall : logoAdl}
+                    alt="ADL"
+                    className={cn('w-auto object-contain transition-all', isCollapsed ? 'h-7' : 'h-9 flex-1')}
+                />
+                {!forceNotCollapsed && !isCollapsed && (
                     <button
                         onClick={toggleSidebar}
-                        aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                        className={classes.collapseToggle}
+                        aria-label="Contraer menú"
+                        title="Contraer menú"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
-                        {isCollapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
+                        <IconChevronLeft size={14} />
                     </button>
-                </Tooltip>
+                )}
+            </div>
+            {!forceNotCollapsed && isCollapsed && (
+                <button
+                    onClick={toggleSidebar}
+                    aria-label="Expandir menú"
+                    title="Expandir menú"
+                    className="mx-auto mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                    <IconChevronRight size={14} />
+                </button>
             )}
 
-            <div className={classes.links}>
-                <div className={classes.linksInner}>
-                    <Menu
-                        mode="inline"
-                        inlineCollapsed={isCollapsed}
-                        selectedKeys={selectedKeys}
-                        openKeys={isCollapsed ? undefined : openKeys}
-                        onOpenChange={handleOpenChange}
-                        onClick={handleClick}
-                        items={items}
-                        style={{ border: 'none', background: 'transparent' }}
-                    />
+            {!isCollapsed && (
+                <div className="px-3 pb-3">
+                    <div className="relative">
+                        <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="h-8 pl-8 text-sm"
+                        />
+                    </div>
                 </div>
+            )}
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
+                <div className="mb-3 flex flex-col gap-0.5">
+                    {filteredTop.map((item) => renderFlatItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined))}
+                </div>
+                {renderGroup('UNIDADES', filteredUnidades)}
+                {renderGroup('GESTIÓN', filteredGestion)}
+                {renderFixedGroup('SOPORTE', filteredBottom)}
+            </div>
+
+            <div className="border-t border-border p-2">
+                {userMenu}
             </div>
         </nav>
     );

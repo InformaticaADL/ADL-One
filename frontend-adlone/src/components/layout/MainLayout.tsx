@@ -104,14 +104,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         style={{ height: 36, width: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                         onClick={() => { resetNavigation(); close(); }}
                     />
-                    <UserActionsCluster
-                        onHelpClick={() => setHelpCenterOpen(true, true)}
-                        onNavigate={close}
-                        compact
-                    />
+                    <UserActionsCluster compact />
                 </div>
             ) : (
-                <TopBar onHelpClick={() => setHelpCenterOpen(true, true)} />
+                <TopBar />
             )}
 
             {/* Fila principal: sidebar + contenido lado a lado. Un <div> flex explícito
@@ -141,6 +137,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     <Sidebar
                         forceNotCollapsed={isCompact}
                         onNavigate={close}
+                        onHelpClick={() => setHelpCenterOpen(true, true)}
                     />
                 </div>
 
