@@ -16,7 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { FIXED_TOP_MODULES, type DynamicModule } from '../../config/sidebarModules';
 
-interface UserActionsClusterProps {
+interface CompactProp {
     compact?: boolean;
 }
 
@@ -26,13 +26,10 @@ const STATIC_MODULE_LABELS: Record<string, string> = {
     notificaciones: 'Notificaciones',
 };
 
-// Campana de notificaciones + toggle de tema — el bloque que antes también
-// incluía el avatar/menú de usuario, ahora movido a la card de usuario al
-// fondo del Sidebar. Se usa tanto en el TopBar de escritorio como en el
-// header compacto de móvil (MainLayout), por eso vive en su propio
+// Campana de notificaciones — vive en el header del Sidebar (desktop) y en
+// el header compacto de móvil (MainLayout), por eso está en su propio
 // componente reutilizable en vez de duplicar el JSX en los dos lugares.
-export function UserActionsCluster({ compact }: UserActionsClusterProps) {
-    const { mode, toggleMode } = useThemeStore();
+export function NotificationBell({ compact }: CompactProp) {
     const { notifications } = useNotificationStore();
     const unreadCount = notifications.filter((n) => !n.leido).length;
 
@@ -75,53 +72,73 @@ export function UserActionsCluster({ compact }: UserActionsClusterProps) {
     }, [showBubble]);
 
     return (
-        <div className="flex items-center gap-1">
-            <div ref={notificationsRef} className="relative">
-                <NotificationPopover opened={notifOpen} onClose={() => setNotifOpen(false)}>
-                    <button
-                        title="Notificaciones"
-                        onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
-                        className={cn(
-                            'flex h-[38px] w-[38px] items-center justify-center rounded-lg transition-colors',
-                            notifOpen ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-                        )}
-                    >
-                        <span className="relative inline-flex">
-                            <IconBell size={19} stroke={1.75} />
-                            {unreadCount > 0 && (
-                                <Badge variant="destructive" className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 py-0 text-[10px] leading-none">
-                                    {unreadCount > 99 ? '99+' : unreadCount}
-                                </Badge>
-                            )}
-                        </span>
-                    </button>
-                </NotificationPopover>
-
-                {showBubble && !notifOpen && bubblePosition && createPortal(
-                    <div
-                        style={{ top: bubblePosition.top, left: bubblePosition.left }}
-                        className="fixed z-[2200] whitespace-nowrap rounded-xl border border-border border-t-4 border-t-primary bg-card px-[18px] py-2.5 text-sm font-semibold text-foreground shadow-2xl"
-                    >
-                        {notifications[0]?.titulo || '¡Nueva notificación!'}
-                    </div>,
-                    document.body
-                )}
-            </div>
-
-            {compact ? (
+        <div ref={notificationsRef} className="relative">
+            <NotificationPopover opened={notifOpen} onClose={() => setNotifOpen(false)}>
                 <button
-                    onClick={toggleMode}
-                    aria-label="Cambiar tema"
-                    title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
-                    className="flex h-[38px] w-[38px] items-center justify-center rounded-lg text-foreground hover:bg-muted"
+                    title="Notificaciones"
+                    onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
+                    className={cn(
+                        'flex items-center justify-center rounded-lg transition-colors',
+                        compact ? 'h-[38px] w-[38px]' : 'h-8 w-8',
+                        notifOpen ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+                    )}
                 >
-                    {mode === 'dark' ? <IconMoon size={19} stroke={1.75} /> : <IconSun size={19} stroke={1.75} />}
+                    <span className="relative inline-flex">
+                        <IconBell size={compact ? 19 : 17} stroke={1.75} />
+                        {unreadCount > 0 && (
+                            <Badge variant="destructive" className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 py-0 text-[10px] leading-none">
+                                {unreadCount > 99 ? '99+' : unreadCount}
+                            </Badge>
+                        )}
+                    </span>
                 </button>
-            ) : (
-                <div className="mx-1 flex items-center" title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}>
-                    <Switch checked={mode === 'dark'} onCheckedChange={toggleMode} />
-                </div>
+            </NotificationPopover>
+
+            {showBubble && !notifOpen && bubblePosition && createPortal(
+                <div
+                    style={{ top: bubblePosition.top, left: bubblePosition.left }}
+                    className="fixed z-[2200] whitespace-nowrap rounded-xl border border-border border-t-4 border-t-primary bg-card px-[18px] py-2.5 text-sm font-semibold text-foreground shadow-2xl"
+                >
+                    {notifications[0]?.titulo || '¡Nueva notificación!'}
+                </div>,
+                document.body
             )}
+        </div>
+    );
+}
+
+// Toggle de tema claro/oscuro — vive a la derecha de la ruta (RouteBreadcrumb)
+// y en el header compacto de móvil.
+export function ThemeToggle({ compact }: CompactProp) {
+    const { mode, toggleMode } = useThemeStore();
+
+    if (compact) {
+        return (
+            <button
+                onClick={toggleMode}
+                aria-label="Cambiar tema"
+                title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
+                className="flex h-[38px] w-[38px] items-center justify-center rounded-lg text-foreground hover:bg-muted"
+            >
+                {mode === 'dark' ? <IconMoon size={19} stroke={1.75} /> : <IconSun size={19} stroke={1.75} />}
+            </button>
+        );
+    }
+
+    return (
+        <div className="flex items-center" title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}>
+            <Switch checked={mode === 'dark'} onCheckedChange={toggleMode} />
+        </div>
+    );
+}
+
+// Agrupa campana + tema para el header compacto de móvil (MainLayout), que
+// no tiene una franja de ruta separada donde poner el toggle de tema.
+export function UserActionsCluster({ compact }: CompactProp) {
+    return (
+        <div className="flex items-center gap-1">
+            <NotificationBell compact={compact} />
+            <ThemeToggle compact={compact} />
         </div>
     );
 }
@@ -151,27 +168,32 @@ function useBreadcrumbLabels() {
     }, [activeModule, activeSubmodule, dynamicModules]);
 }
 
-// Ruta actual, chica y solo sobre la columna de contenido (no una barra
-// global sobre sidebar+contenido — el logo y las acciones de usuario ahora
-// viven en el header del Sidebar, ver Sidebar.tsx).
+// Ruta actual + toggle de tema, chico y solo sobre la columna de contenido
+// (no una barra global sobre sidebar+contenido — el logo y la campana ahora
+// viven en el header del Sidebar, ver Sidebar.tsx). shadcn-scope es
+// necesario acá: sin él el botón "Inicio" no recibe el reset de botones
+// (bg/border/padding nativos del navegador) y se ve encuadrado.
 export function RouteBreadcrumb() {
     const { resetNavigation } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
 
     return (
-        <div className="flex h-11 shrink-0 items-center gap-1.5 border-b border-border px-4 text-sm text-muted-foreground md:px-6">
-            <button type="button" onClick={() => resetNavigation()} className="flex items-center gap-1.5 hover:text-foreground">
-                <IconHome size={15} />
-                <span>Inicio</span>
-            </button>
-            <span className="text-border">—</span>
-            <span className="truncate font-medium text-foreground">{moduleLabel || 'Inicio'}</span>
-            {submoduleLabel && (
-                <>
-                    <IconChevronRight size={13} className="shrink-0" />
-                    <span className="truncate">{submoduleLabel}</span>
-                </>
-            )}
+        <div className="shadcn-scope flex h-11 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+            <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                <button type="button" onClick={() => resetNavigation()} className="flex shrink-0 items-center gap-1.5 hover:text-foreground">
+                    <IconHome size={15} />
+                    <span>Inicio</span>
+                </button>
+                <span className="shrink-0 text-border">—</span>
+                <span className="truncate font-medium text-foreground">{moduleLabel || 'Inicio'}</span>
+                {submoduleLabel && (
+                    <>
+                        <IconChevronRight size={13} className="shrink-0" />
+                        <span className="truncate">{submoduleLabel}</span>
+                    </>
+                )}
+            </div>
+            <ThemeToggle />
         </div>
     );
 }
