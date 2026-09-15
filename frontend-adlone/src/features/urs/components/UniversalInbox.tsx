@@ -286,8 +286,11 @@ const UniversalInbox: React.FC = () => {
                                                         <div className="min-w-0 flex-1">
                                                             <div className="mb-0.5 flex items-center justify-between gap-2">
                                                                 <span className="flex min-w-0 items-center gap-1.5">
+                                                                    <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                                                                        {isMine ? 'Para' : 'De'}
+                                                                    </span>
                                                                     <span className="truncate text-sm font-semibold text-foreground">
-                                                                        {isMine ? (req.area_destino || 'Sin destino') : req.nombre_solicitante}
+                                                                        {isMine ? (req.area_destino || 'Sin destino') : (req.nombre_solicitante || 'Desconocido')}
                                                                     </span>
                                                                     {isHighPriority && <IconStarFilled size={12} className="shrink-0 text-warning" />}
                                                                     {unread && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />}
@@ -319,7 +322,7 @@ const UniversalInbox: React.FC = () => {
 
                 {/* COLUMNA · Detalle */}
                 {(!isMobile || selectedRequestId) && (
-                    <div className="flex min-w-0 flex-1 flex-col border-r border-border">
+                    <div className="flex min-w-0 flex-1 max-w-[760px] flex-col border-r border-border">
                         {isMobile && selectedRequestId && (
                             <div className="flex items-center justify-between border-b border-border px-3 py-2">
                                 <Button variant="ghost" onClick={() => setSelectedRequestId(null)}>
@@ -357,7 +360,7 @@ const UniversalInbox: React.FC = () => {
 
                 {/* COLUMNA · Actividad y chat */}
                 {!isMobile && (
-                    <div className="flex w-[420px] min-w-0 shrink-0 flex-col">
+                    <div className="flex min-w-[420px] flex-1 flex-col">
                         {selectedRequest ? (
                             <RequestActivityAndChat request={selectedRequest} onReload={() => loadRequestDetail(selectedRequestId!, true)} />
                         ) : (
