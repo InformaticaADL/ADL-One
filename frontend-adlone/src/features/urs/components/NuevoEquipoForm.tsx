@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Typography, Card } from 'antd';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Textarea } from '@/components/ui/textarea';
+import { Card } from '@/components/ui/card';
+import { DatePicker } from '@/components/ui/date-picker';
 import { TIPOS_EQUIPO } from '../constants/equipoTypes';
-
-const { Text } = Typography;
-const { TextArea } = Input;
 
 interface NuevoEquipoFormProps {
     onDataChange: (data: any) => void;
@@ -33,13 +34,13 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
     }, [nombre, tipo, marca, modelo, serie, fechaAdquisicion, observaciones]);
 
     return (
-        <Card size="small" style={{ backgroundColor: 'rgba(12,133,153,0.06)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <Text strong style={{ fontSize: 13, color: '#0c8599', textTransform: 'uppercase' }}>
+        <Card className="p-4 bg-[rgba(12,133,153,0.06)]">
+            <div className="flex flex-col gap-4">
+                <span className="text-xs font-semibold uppercase text-[#0c8599]">
                     Solicitud de Registro / Adquisición de Nuevo Equipo
-                </Text>
+                </span>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Nombre descriptivo *">
                         <Input
                             placeholder="Ej: Multiparámetro de Campo"
@@ -48,17 +49,17 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
                         />
                     </Field>
                     <Field label="Categoría / Tipo *">
-                        <Select
+                        <Combobox
                             placeholder="Seleccione tipo"
+                            searchPlaceholder="Buscar tipo..."
                             options={TIPOS_EQUIPO.map((t: string) => ({ value: t, label: t }))}
                             value={tipo ?? undefined}
-                            onChange={(v) => setTipo(v ?? null)}
-                            style={{ width: '100%' }}
+                            onValueChange={(v) => setTipo(v ?? null)}
                         />
                     </Field>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Marca">
                         <Input
                             placeholder="Ej: WTW, YSI, etc."
@@ -75,7 +76,7 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
                     </Field>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Número de Serie (si aplica)">
                         <Input
                             placeholder="Serie de fábrica"
@@ -84,18 +85,17 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
                         />
                     </Field>
                     <Field label="Fecha Estimada Ingreso *">
-                        <Input
-                            type="date"
+                        <DatePicker
                             value={fechaAdquisicion}
-                            onChange={(e) => setFechaAdquisicion(e.target.value)}
+                            onChange={setFechaAdquisicion}
                         />
                     </Field>
                 </div>
 
                 <Field label="Detalles / Justificación">
-                    <TextArea
+                    <Textarea
                         placeholder="Indique por qué se requiere este equipo o detalles adicionales..."
-                        autoSize={{ minRows: 3 }}
+                        rows={3}
                         value={observaciones}
                         onChange={(e) => setObservaciones(e.target.value)}
                     />
@@ -108,7 +108,7 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

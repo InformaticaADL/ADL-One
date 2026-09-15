@@ -3,15 +3,11 @@ import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
-import {
-    Select,
-    Typography,
-    Card,
-    Button,
-    Tag,
-    Spin,
-    Alert
-} from 'antd';
+import { Combobox } from '@/components/ui/combobox';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import {
     IconUserMinus,
     IconBuildingCommunity,
@@ -20,8 +16,6 @@ import {
     IconCheck,
     IconHash
 } from '@tabler/icons-react';
-
-const { Title, Text } = Typography;
 
 interface MuestreadorDeactivationFormProps {
     onSuccess?: () => void;
@@ -157,78 +151,70 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
 
     if (submitted && !isEmbedded) {
         return (
-            <Card style={{ textAlign: 'center' }}>
-                <div style={{
-                    width: 64, height: 64, borderRadius: '50%', backgroundColor: 'rgba(9,143,131,0.12)', color: '#0c8599',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-                }}>
+            <Card className="p-6 text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                     <IconCheck size={40} />
                 </div>
-                <Title level={2} style={{ marginBottom: 8 }}>¡Solicitud Enviada!</Title>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>La solicitud de deshabilitación ha sido creada correctamente.</Text>
-                <Button type="primary" onClick={() => setActiveSubmodule('')}>
+                <h2 className="mb-2 text-xl font-bold text-foreground">¡Solicitud Enviada!</h2>
+                <p className="mb-6 text-sm text-muted-foreground">La solicitud de deshabilitación ha sido creada correctamente.</p>
+                <Button onClick={() => setActiveSubmodule('')}>
                     Volver a la lista
                 </Button>
             </Card>
         );
     }
 
-    const opciones: { id: 'BASE' | 'MUESTREADOR' | 'MANUAL'; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
-        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: '#1c7ed6', bg: 'var(--app-accent-bg)' },
-        { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: '#0c8599', bg: 'rgba(12,133,153,0.1)' },
-        { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: '#4c6ef5', bg: 'rgba(76,110,245,0.1)' },
+    const opciones: { id: 'BASE' | 'MUESTREADOR' | 'MANUAL'; label: string; icon: React.ReactNode }[] = [
+        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} /> },
+        { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} /> },
+        { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} /> },
     ];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="flex flex-col gap-6">
             {!isEmbedded && (
-                <Alert type="info" showIcon icon={<IconUserMinus size={18} />} message="Baja de Muestreador" description="Procedimiento para deshabilitar a un compañero y reasignar sus equipos." />
+                <div className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                    <IconUserMinus size={18} className="mt-0.5 shrink-0" />
+                    <div>
+                        <div className="font-medium">Baja de Muestreador</div>
+                        <div className="text-muted-foreground">Procedimiento para deshabilitar a un compañero y reasignar sus equipos.</div>
+                    </div>
+                </div>
             )}
 
             <Field label="Persona a deshabilitar *">
-                <Select
+                <Combobox
                     placeholder="Seleccione un muestreador..."
+                    searchPlaceholder="Buscar muestreador..."
                     options={muestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
                     value={selectedId ?? undefined}
-                    onChange={(v) => setSelectedId(v ?? null)}
-                    showSearch
-                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                    style={{ width: '100%' }}
+                    onValueChange={(v) => setSelectedId(v ?? null)}
                 />
             </Field>
 
             {selectedId && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <Text strong style={{ fontSize: 13 }}>Reasignación de Equipos ({equipmentCount ?? '...'})</Text>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                <div className="flex flex-col gap-2">
+                    <span className="text-sm font-semibold text-foreground">Reasignación de Equipos ({equipmentCount ?? '...'})</span>
+                    <div className="grid grid-cols-3 gap-2">
                         {opciones.map((opt) => {
                             const selected = transferType === opt.id;
                             return (
-                                <div
+                                <button
                                     key={opt.id}
+                                    type="button"
                                     onClick={() => setTransferType(opt.id)}
-                                    style={{
-                                        padding: 16,
-                                        borderRadius: 8,
-                                        border: `1px solid ${selected ? opt.color : 'var(--app-border)'}`,
-                                        backgroundColor: selected ? opt.bg : 'var(--app-bg-elevated)',
-                                        transition: 'all 150ms ease',
-                                        textAlign: 'center',
-                                        cursor: 'pointer',
-                                    }}
+                                    className={cn(
+                                        'flex flex-col items-center rounded-lg border p-4 text-center transition-colors',
+                                        selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-muted/50'
+                                    )}
                                 >
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <div style={{
-                                            width: 36, height: 36, borderRadius: 8, backgroundColor: opt.bg, color: opt.color,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-                                        }}>
-                                            {opt.icon}
-                                        </div>
-                                        <Text strong style={{ fontSize: 12, color: selected ? opt.color : 'var(--app-text-secondary)' }}>
-                                            {opt.label}
-                                        </Text>
-                                    </div>
-                                </div>
+                                    <span className={cn('mb-2 flex h-9 w-9 items-center justify-center rounded-md', selected ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground')}>
+                                        {opt.icon}
+                                    </span>
+                                    <span className={cn('text-xs font-semibold', selected ? 'text-primary' : 'text-muted-foreground')}>
+                                        {opt.label}
+                                    </span>
+                                </button>
                             );
                         })}
                     </div>
@@ -237,55 +223,57 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
 
             {transferType === 'BASE' && (
                 <Field label="Base de destino *">
-                    <Select
+                    <Combobox
                         placeholder="Seleccione base..."
+                        searchPlaceholder="Buscar base..."
                         options={bases}
                         value={targetBase ?? undefined}
-                        onChange={(v) => setTargetBase(v ?? null)}
-                        style={{ width: '100%' }}
+                        onValueChange={(v) => setTargetBase(v ?? null)}
                     />
                 </Field>
             )}
 
             {transferType === 'MUESTREADOR' && (
                 <Field label="Muestreador de destino *">
-                    <Select
+                    <Combobox
                         placeholder="Seleccione destino..."
+                        searchPlaceholder="Buscar muestreador..."
                         options={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
                         value={targetMuestreadorId ?? undefined}
-                        onChange={(v) => setTargetMuestreadorId(v ?? null)}
-                        showSearch
-                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                        style={{ width: '100%' }}
+                        onValueChange={(v) => setTargetMuestreadorId(v ?? null)}
                     />
                 </Field>
             )}
 
             {transferType === 'MANUAL' && (
-                <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text type="secondary" strong style={{ fontSize: 11 }}>Equipos de {muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador}</Text>
-                        <Tag color="geekblue">{equipmentList.length} ítems</Tag>
+                <Card className="p-4">
+                    <div className="mb-2 flex justify-between">
+                        <span className="text-[11px] font-semibold text-muted-foreground">Equipos de {muestreadores.find(m => String(m.id_muestreador) === selectedId)?.nombre_muestreador}</span>
+                        <Badge variant="secondary">{equipmentList.length} ítems</Badge>
                     </div>
 
-                    <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '0 0 16px' }} />
+                    <hr className="my-0 mb-4 border-t border-border" />
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {loadingEquipos ? <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin size="small" /></div> : (
+                    <div className="flex flex-col gap-2">
+                        {loadingEquipos ? (
+                            <div className="flex justify-center p-8">
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </div>
+                        ) : (
                             equipmentList.map(eq => (
-                                <div key={eq.id_equipo} style={{ padding: 8, backgroundColor: 'var(--app-bg-elevated)', borderRadius: 8, border: '1px solid var(--app-border)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', overflow: 'hidden' }}>
-                                            <Tag icon={<IconHash size={10} style={{ verticalAlign: 'text-bottom' }} />}>{eq.codigo}</Tag>
-                                            <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.nombre}</Text>
+                                <div key={eq.id_equipo} className="rounded-lg border border-border bg-card p-2">
+                                    <div className="flex flex-nowrap items-center justify-between">
+                                        <div className="flex items-center gap-2 overflow-hidden">
+                                            <Badge variant="outline" className="gap-1"><IconHash size={10} />{eq.codigo}</Badge>
+                                            <span className="truncate text-sm font-semibold text-foreground">{eq.nombre}</span>
                                         </div>
-                                        <Select
-                                            size="small"
+                                        <Combobox
+                                            className="w-[140px]"
                                             placeholder="Destino"
+                                            searchPlaceholder="Buscar..."
                                             options={muestreadores.filter(m => String(m.id_muestreador) !== selectedId).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
                                             value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
-                                            onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                            style={{ width: 140 }}
+                                            onValueChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
                                         />
                                     </div>
                                 </div>
@@ -296,16 +284,15 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
             )}
 
             {!isEmbedded && (
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
-                    <Button onClick={onCancel}>
+                <div className="mt-6 flex justify-end gap-2">
+                    <Button variant="outline" onClick={onCancel}>
                         Cancelar
                     </Button>
                     <Button
-                        type="primary"
-                        loading={loading}
-                        disabled={!transferType}
+                        disabled={!transferType || loading}
                         onClick={() => handleSubmit()}
                     >
+                        {loading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />}
                         Confirmar Baja
                     </Button>
                 </div>
@@ -317,7 +304,7 @@ const MuestreadorDeactivationForm: React.FC<MuestreadorDeactivationFormProps> = 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

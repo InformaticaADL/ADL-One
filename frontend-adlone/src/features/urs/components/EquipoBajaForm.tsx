@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Select, Typography, Card, Spin, Input, Tag } from 'antd';
+import { Combobox } from '@/components/ui/combobox';
+import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { DatePicker } from '@/components/ui/date-picker';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
-const { TextArea } = Input;
 
 interface EquipoBajaFormProps {
     onDataChange: (data: any) => void;
@@ -50,32 +51,31 @@ const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
     }, [equipoId, motivo, fecha, observaciones, equipos]);
 
     return (
-        <Card size="small" style={{ backgroundColor: 'rgba(224,49,49,0.05)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: 13, color: '#c92a2a', textTransform: 'uppercase' }}>
+        <Card className="p-4 bg-[rgba(224,49,49,0.05)]">
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase text-[#c92a2a]">
                         Solicitud de Retiro / Baja de Equipo
-                    </Text>
-                    <Tag color="red">ALTA PRIORIDAD</Tag>
+                    </span>
+                    <Badge variant="destructive">ALTA PRIORIDAD</Badge>
                 </div>
 
                 <Field label="Equipo a Desvincular *" hint="Solo se muestran equipos actualmente activos en el sistema.">
-                    <Select
-                        placeholder={loadingEquipos ? "Cargando inventario..." : "Busque equipo por nombre o código"}
-                        suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
+                    <Combobox
+                        placeholder={loadingEquipos ? 'Cargando inventario...' : 'Busque equipo por nombre o código'}
+                        searchPlaceholder="Buscar equipo..."
                         options={equipos}
                         value={equipoId ?? undefined}
-                        onChange={(v) => setEquipoId(v ?? null)}
-                        showSearch
-                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                        style={{ width: '100%' }}
+                        onValueChange={(v) => setEquipoId(v ?? null)}
+                        disabled={loadingEquipos}
                     />
                 </Field>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Motivo del Cese *">
-                        <Select
+                        <Combobox
                             placeholder="Seleccione causa..."
+                            searchPlaceholder="Buscar motivo..."
                             options={[
                                 { value: 'OBSOLESCENCIA', label: 'Obsolescencia Técnica' },
                                 { value: 'DANIO', label: 'Daño Irreparable' },
@@ -85,23 +85,18 @@ const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
                                 { value: 'OTRO', label: 'Otro (Especificar en observaciones)' }
                             ]}
                             value={motivo ?? undefined}
-                            onChange={(v) => setMotivo(v ?? null)}
-                            style={{ width: '100%' }}
+                            onValueChange={(v) => setMotivo(v ?? null)}
                         />
                     </Field>
                     <Field label="Fecha Efectiva *">
-                        <Input
-                            type="date"
-                            value={fecha}
-                            onChange={(e) => setFecha(e.target.value)}
-                        />
+                        <DatePicker value={fecha} onChange={setFecha} />
                     </Field>
                 </div>
 
                 <Field label="Fundamento Técnico / Observaciones">
-                    <TextArea
+                    <Textarea
                         placeholder="Describa el estado final del equipo, el número del acta de baja (si aplica) o detalles del siniestro..."
-                        autoSize={{ minRows: 3 }}
+                        rows={3}
                         value={observaciones}
                         onChange={(e) => setObservaciones(e.target.value)}
                     />
@@ -114,9 +109,9 @@ const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
-            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+            {hint && <span className="mt-0.5 block text-[11px] text-muted-foreground">{hint}</span>}
         </div>
     );
 }

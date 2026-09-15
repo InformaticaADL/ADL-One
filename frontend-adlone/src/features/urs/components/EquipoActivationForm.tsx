@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Input, Select, Typography, Card, Spin, Button, Alert } from 'antd';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { DatePicker } from '@/components/ui/date-picker';
 import { IconInfoCircle } from '@tabler/icons-react';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
 import { TIPOS_EQUIPO } from '../constants/equipoTypes';
-
-const { Text } = Typography;
 
 interface EquipoActivationFormProps {
     onDataChange: (data: any) => void;
@@ -118,26 +120,26 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
     }, [nombre, tipo, ubicacionId, muestreadorId, ubicaciones, muestreadores, altaSubtype, fechaVigencia, equipoId, selectedEquipoData]);
 
     return (
-        <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text strong style={{ fontSize: 13, color: '#1864ab', textTransform: 'uppercase' }}>
+        <Card className="p-4 bg-accent">
+            <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase text-[#1864ab]">
                         Activación de Equipo
-                    </Text>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                    </span>
+                    <div className="flex gap-2">
                         <Button
-                            type={altaSubtype === 'EXISTENTE' ? 'primary' : 'default'}
+                            variant={altaSubtype === 'EXISTENTE' ? 'default' : 'outline'}
                             onClick={() => handleModeSwitch('EXISTENTE')}
-                            size="small"
-                            shape="round"
+                            size="sm"
+                            className="rounded-full"
                         >
                             Desde Inventario
                         </Button>
                         <Button
-                            type={altaSubtype === 'NUEVO' ? 'primary' : 'default'}
+                            variant={altaSubtype === 'NUEVO' ? 'default' : 'outline'}
                             onClick={() => handleModeSwitch('NUEVO')}
-                            size="small"
-                            shape="round"
+                            size="sm"
+                            className="rounded-full"
                         >
                             Nuevo Registro
                         </Button>
@@ -146,25 +148,29 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
 
                 {altaSubtype === 'EXISTENTE' ? (
                     <>
-                        <Alert type="info" showIcon icon={<IconInfoCircle size={14} />} message={<Text style={{ fontSize: 12 }}>Selecciona un equipo del inventario para reactivarlo o reasignarlo.</Text>} />
+                        <div className="flex gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+                            <IconInfoCircle size={14} className="mt-0.5 shrink-0" />
+                            <span>Selecciona un equipo del inventario para reactivarlo o reasignarlo.</span>
+                        </div>
                         <Field label="Equipo del Inventario *">
-                            <Select
+                            <Combobox
                                 placeholder={loadingEquipos ? 'Cargando inventario...' : 'Busque por nombre o código'}
-                                suffixIcon={loadingEquipos ? <Spin size="small" /> : undefined}
+                                searchPlaceholder="Buscar equipo..."
+                                emptyText="No se encontraron equipos"
                                 options={equipos}
                                 value={equipoId ?? undefined}
-                                onChange={(v) => setEquipoId(v ?? null)}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                notFoundContent="No se encontraron equipos"
-                                style={{ width: '100%' }}
+                                onValueChange={(v) => setEquipoId(v ?? null)}
+                                disabled={loadingEquipos}
                             />
                         </Field>
                     </>
                 ) : (
                     <>
-                        <Alert type="success" showIcon icon={<IconInfoCircle size={14} />} message={<Text style={{ fontSize: 12 }}>Completa los datos del equipo nuevo que ingresará al inventario.</Text>} />
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                        <div className="flex gap-2 rounded-lg border border-success/30 bg-success/5 p-3 text-xs">
+                            <IconInfoCircle size={14} className="mt-0.5 shrink-0" />
+                            <span>Completa los datos del equipo nuevo que ingresará al inventario.</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <Field label="Nombre / Modelo del Equipo *">
                                 <Input
                                     placeholder="Ej: Multiparámetro WTW Multi 3630"
@@ -173,53 +179,44 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
                                 />
                             </Field>
                             <Field label="Tipo de Equipo *">
-                                <Select
+                                <Combobox
                                     placeholder="Seleccione tipo"
+                                    searchPlaceholder="Buscar tipo..."
                                     options={TIPOS_EQUIPO.map((t: string) => ({ value: t, label: t }))}
                                     value={tipo ?? undefined}
-                                    onChange={(v) => setTipo(v ?? null)}
-                                    showSearch
-                                    style={{ width: '100%' }}
+                                    onValueChange={(v) => setTipo(v ?? null)}
                                 />
                             </Field>
                         </div>
                     </>
                 )}
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Ubicación Destino *">
-                        <Select
+                        <Combobox
                             placeholder={loadingUbicaciones ? 'Cargando...' : 'Seleccione base / laboratorio'}
-                            suffixIcon={loadingUbicaciones ? <Spin size="small" /> : undefined}
+                            searchPlaceholder="Buscar ubicación..."
                             options={ubicaciones}
                             value={ubicacionId ?? undefined}
-                            onChange={(v) => setUbicacionId(v ?? null)}
-                            showSearch
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            style={{ width: '100%' }}
+                            onValueChange={(v) => setUbicacionId(v ?? null)}
+                            disabled={loadingUbicaciones}
                         />
                     </Field>
                     <Field label="Responsable Asignado *">
-                        <Select
+                        <Combobox
                             placeholder={loadingMuestreadores ? 'Cargando...' : 'Seleccione responsable'}
-                            suffixIcon={loadingMuestreadores ? <Spin size="small" /> : undefined}
+                            searchPlaceholder="Buscar responsable..."
                             options={muestreadores}
                             value={muestreadorId ?? undefined}
-                            onChange={(v) => setMuestreadorId(v ?? null)}
-                            showSearch
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            style={{ width: '100%' }}
+                            onValueChange={(v) => setMuestreadorId(v ?? null)}
+                            disabled={loadingMuestreadores}
                         />
                     </Field>
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div className="grid grid-cols-2 gap-4">
                     <Field label="Fecha de Inicio / Vigencia *">
-                        <Input
-                            type="date"
-                            value={fechaVigencia}
-                            onChange={(e) => setFechaVigencia(e.target.value)}
-                        />
+                        <DatePicker value={fechaVigencia} onChange={setFechaVigencia} />
                     </Field>
                     <div />
                 </div>
@@ -231,7 +228,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );
