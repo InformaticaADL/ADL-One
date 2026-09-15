@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, Typography, Input, Tag, Spin, Tabs } from 'antd';
 import {
     IconSearch,
     IconFolder,
@@ -10,8 +9,10 @@ import { notificationService } from '../../../services/notification.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { PageHeader } from '../../../components/layout/PageHeader';
-
-const { Text } = Typography;
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 interface NotificationEvent {
     id_evento: number;
@@ -62,17 +63,6 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
         }
     };
 
-    const getThemeColor = (code: string) => {
-        if (code.includes('_ALTA')) return 'blue';
-        if (code.includes('_BAJA')) return 'red';
-        if (code.includes('_REVISION')) return 'orange';
-        if (code.includes('_VIGENCIA')) return 'magenta';
-        if (code.includes('_TRASPASO')) return 'cyan';
-        if (code.includes('_REAC')) return 'green';
-        if (code.includes('_NUEVO_EQUIPO')) return 'geekblue';
-        return 'default';
-    };
-
     const filteredEvents = useMemo(() => {
         return events.filter(ev =>
             ev.codigo_evento.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,17 +78,15 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
 
     if (loading) {
         return (
-            <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <Spin size="large" />
-                    <Text type="secondary" style={{ fontSize: 13 }}>Cargando catálogo de notificaciones...</Text>
-                </div>
+            <div className="shadcn-scope flex h-[400px] w-full flex-col items-center justify-center gap-3">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                <p className="text-sm text-muted-foreground">Cargando catálogo de notificaciones...</p>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: 16, width: '100%' }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Configuración de Notificaciones"
                 subtitle="Paso 1: Seleccione el evento del sistema que desea configurar."
@@ -109,51 +97,56 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
                     { label: 'Selección de Evento' }
                 ]}
                 rightSection={
-                    <Input
-                        placeholder="Buscar por código o descripción..."
-                        value={searchTerm}
-                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchTerm(e.target.value)}
-                        prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
-                        style={{ width: 350 }}
-                    />
+                    <div className="relative w-[350px]">
+                        <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar por código o descripción..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9"
+                        />
+                    </div>
                 }
             />
 
-            <div style={{ marginTop: 32 }}>
+            <div className="mt-8">
                 {searchTerm ? (
                     <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-                            <IconSearch size={20} color="#1c7ed6" />
-                            <Text strong>Resultados para "{searchTerm}" ({filteredEvents.length})</Text>
-                            <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                        <div className="mb-6 flex items-center gap-3">
+                            <IconSearch size={20} className="text-primary" />
+                            <p className="text-sm font-semibold text-foreground">Resultados para "{searchTerm}" ({filteredEvents.length})</p>
+                            <hr className="flex-1 border-t border-border" />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
                             {filteredEvents.map(ev => (
-                                <EventCard key={ev.id_evento} event={ev} onSelect={onSelectEvent} color={getThemeColor(ev.codigo_evento)} />
+                                <EventCard key={ev.id_evento} event={ev} onSelect={onSelectEvent} />
                             ))}
                             {filteredEvents.length === 0 && (
-                                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: 40 }}>
-                                    <Text type="secondary">No se encontraron eventos coincidentes.</Text>
+                                <div className="py-10 text-center text-sm text-muted-foreground" style={{ gridColumn: '1 / -1' }}>
+                                    No se encontraron eventos coincidentes.
                                 </div>
                             )}
                         </div>
                     </div>
                 ) : (
-                    <Tabs
-                        activeKey={activeTab}
-                        onChange={setActiveTab}
-                        items={modules.map(mod => ({
-                            key: mod,
-                            label: <span><IconFolder size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />{mod}</span>,
-                            children: (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <TabsList className="flex-wrap">
+                            {modules.map(mod => (
+                                <TabsTrigger key={mod} value={mod} className="gap-1.5">
+                                    <IconFolder size={16} /> {mod}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                        {modules.map(mod => (
+                            <TabsContent key={mod} value={mod}>
+                                <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
                                     {events.filter(e => (e.modulo || 'General') === mod).map(ev => (
-                                        <EventCard key={ev.id_evento} event={ev} onSelect={onSelectEvent} color={getThemeColor(ev.codigo_evento)} />
+                                        <EventCard key={ev.id_evento} event={ev} onSelect={onSelectEvent} />
                                     ))}
                                 </div>
-                            ),
-                        }))}
-                    />
+                            </TabsContent>
+                        ))}
+                    </Tabs>
                 )}
             </div>
         </div>
@@ -163,38 +156,25 @@ export const NotificationEventsPage: React.FC<Props> = ({ onBack, onSelectEvent 
 interface EventCardProps {
     event: NotificationEvent;
     onSelect: (event: NotificationEvent) => void;
-    color: string;
 }
 
-const EventCard = ({ event, onSelect, color }: EventCardProps) => {
-    const [hovering, setHovering] = useState(false);
+const EventCard = ({ event, onSelect }: EventCardProps) => {
     return (
-        <div onClick={() => onSelect(event)} onMouseEnter={() => setHovering(true)} onMouseLeave={() => setHovering(false)} style={{ cursor: 'pointer' }}>
-            <Card
-                size="small"
-                style={{
-                    height: '100%',
-                    transition: 'all 0.2s ease',
-                    transform: hovering ? 'translateY(-4px)' : 'none',
-                    boxShadow: hovering ? '0 8px 20px rgba(0,0,0,0.08)' : undefined,
-                }}
-            >
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, flexWrap: 'nowrap' }}>
-                    <Tag color={color}>{event.codigo_evento}</Tag>
-                    <IconChevronRight size={16} color="var(--app-text-secondary)" />
-                </div>
+        <Card
+            onClick={() => onSelect(event)}
+            className="flex cursor-pointer flex-col gap-2 p-4 transition-all hover:-translate-y-1 hover:shadow-md"
+        >
+            <div className="flex items-center justify-between">
+                <Badge variant="outline" className="font-mono normal-case">{event.codigo_evento}</Badge>
+                <IconChevronRight size={16} className="text-muted-foreground" />
+            </div>
 
-                <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 8 }}>
-                    {event.descripcion}
-                </Text>
+            <p className="text-sm font-semibold text-foreground">{event.descripcion}</p>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <IconMail size={14} color="var(--app-text-secondary)" />
-                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {event.asunto_template}
-                    </Text>
-                </div>
-            </Card>
-        </div>
+            <div className="flex items-center gap-2">
+                <IconMail size={14} className="shrink-0 text-muted-foreground" />
+                <p className="truncate text-xs text-muted-foreground">{event.asunto_template}</p>
+            </div>
+        </Card>
     );
 };
