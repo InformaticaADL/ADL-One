@@ -195,9 +195,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                     active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
                 )}
             >
-                <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', active ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground')}>
-                    <Icon size={16} stroke={1.75} />
-                </span>
+                <Icon size={18} stroke={1.75} className={cn('shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
                 {!isCollapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
                 {!isCollapsed && !!badgeCount && (
                     <Badge variant="destructive" className="px-1.5">{badgeCount > 99 ? '99+' : badgeCount}</Badge>
@@ -225,9 +223,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                         isActiveParent && !activeSubmodule ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
                     )}
                 >
-                    <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', isActiveParent && !activeSubmodule ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground')}>
-                        <Icon size={16} stroke={1.75} />
-                    </span>
+                    <Icon size={18} stroke={1.75} className={cn('shrink-0', isActiveParent && !activeSubmodule ? 'text-primary' : 'text-muted-foreground')} />
                     {!isCollapsed && <span className="flex-1 truncate text-left">{mod.label}</span>}
                     {!isCollapsed && hasSubItems && (
                         <IconChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
@@ -301,10 +297,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                     </Avatar>
                     {!isCollapsed && (
                         <>
-                            <div className="min-w-0 flex-1">
-                                <p className="truncate text-sm font-semibold text-foreground">{user?.name}</p>
-                                <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
-                            </div>
+                            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{user?.name}</p>
                             <IconSelector size={16} className="shrink-0 text-muted-foreground" />
                         </>
                     )}
@@ -327,18 +320,18 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     return (
         <nav className="shadcn-scope flex h-full flex-col bg-card">
-            <div className={cn('border-b border-border p-3', isCollapsed ? 'flex flex-col items-center gap-3' : 'flex items-center justify-between gap-2')}>
+            <div className={cn('h-16 shrink-0 border-b border-border px-3', isCollapsed ? 'flex flex-col items-center justify-center gap-1' : 'flex items-center justify-between gap-2')}>
                 <img
                     src={isCollapsed ? logoSmall : logoAdl}
                     alt="ADL"
-                    className={cn('w-auto object-contain', isCollapsed ? 'h-8' : 'h-10')}
+                    className={cn('w-auto object-contain', isCollapsed ? 'h-7' : 'h-9')}
                 />
                 {!forceNotCollapsed && (
                     <button
                         onClick={toggleSidebar}
                         aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
                         title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                         {isCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
                     </button>
