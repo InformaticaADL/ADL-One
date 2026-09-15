@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
     IconPlus, IconSearch, IconFolderOpen, IconCalendarEvent,
@@ -31,6 +32,8 @@ interface Request {
     unread_count?: number;
 }
 
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+
 const STATUS_LABEL: Record<string, string> = {
     PENDIENTE: 'Pendiente', EN_REVISION: 'En revisión', ACEPTADA: 'Aceptada',
     REALIZADA: 'Realizada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada',
@@ -38,6 +41,10 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_DOT: Record<string, string> = {
     PENDIENTE: 'bg-warning', EN_REVISION: 'bg-primary', ACEPTADA: 'bg-success',
     REALIZADA: 'bg-muted-foreground', RECHAZADA: 'bg-destructive', CANCELADA: 'bg-muted-foreground',
+};
+const STATUS_BADGE: Record<string, BadgeVariant> = {
+    PENDIENTE: 'warning', EN_REVISION: 'default', ACEPTADA: 'success',
+    REALIZADA: 'outline', RECHAZADA: 'destructive', CANCELADA: 'secondary',
 };
 const HIGH_PRIORITY = new Set(['ALTA', 'URGENTE', 'CRITICO']);
 
@@ -300,10 +307,9 @@ const UniversalInbox: React.FC = () => {
                                                             <div className={cn('truncate text-sm', unread ? 'font-bold text-foreground' : 'text-foreground/90')}>
                                                                 {req.titulo || req.nombre_tipo}
                                                             </div>
-                                                            <div className="truncate text-xs text-muted-foreground">
-                                                                #{req.id_solicitud}
-                                                                {req.titulo && req.titulo !== req.nombre_tipo ? ` · ${req.nombre_tipo}` : ''}
-                                                                {' · '}{req.area_destino || 'Sin área'}
+                                                            <div className="flex items-center justify-between gap-2">
+                                                                <Badge variant={STATUS_BADGE[req.estado] || 'outline'}>{STATUS_LABEL[req.estado] || req.estado}</Badge>
+                                                                <span className="shrink-0 text-[11px] text-muted-foreground">#{req.id_solicitud}</span>
                                                             </div>
                                                         </div>
                                                     </button>
