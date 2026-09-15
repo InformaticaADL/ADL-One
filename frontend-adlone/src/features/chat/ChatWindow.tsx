@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, Input, Spin, Dropdown, Tooltip } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
     IconArrowLeft, IconDotsVertical, IconPaperclip, IconSend, IconTrash,
     IconUsers, IconUser, IconEraser, IconFile, IconBan,
@@ -8,8 +10,6 @@ import type { ChatConversation, ChatMessage } from '../../services/general-chat.
 import API_CONFIG from '../../config/api.config';
 import { useConfirm } from './FluentConfirm';
 import ChatAvatar from './ChatAvatar';
-
-const { TextArea } = Input;
 
 interface ChatWindowProps {
     conversation: ChatConversation;
@@ -31,37 +31,6 @@ interface ChatWindowProps {
     hasMoreMessages: boolean;
     otherUserReadAt: string | null;
 }
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', primaryBg: '#e6f4ff', bg: '#ffffff', bgLayout: '#f5f5f5',
-};
-
-const CSS = `
-.adl-cw-win { flex:1; display:flex; flex-direction:column; min-width:0; overflow:hidden; background:${C.bg}; }
-.adl-cw-head { display:flex; align-items:center; column-gap:12px; padding:10px 16px; border-bottom:1px solid ${C.border}; }
-.adl-cw-who { flex:1; min-width:0; cursor:pointer; }
-.adl-cw-whoname { font-weight:700; font-size:15px; line-height:1.2; color:${C.text}; }
-.adl-cw-whost { font-size:12px; color:${C.textTer}; margin-top:2px; }
-.adl-cw-msgs { flex:1; min-height:0; overflow-y:auto; padding:16px 24px; display:flex; flex-direction:column; row-gap:4px; background:${C.bgLayout}; }
-.adl-cw-daysep { align-self:center; margin:8px 0; font-size:11px; font-weight:600; color:${C.textTer}; background:${C.bg}; border:1px solid ${C.border}; padding:3px 12px; border-radius:999px; text-transform:uppercase; }
-.adl-cw-sys { align-self:center; font-size:12px; color:${C.textSec}; background:${C.primaryBg}; padding:4px 12px; border-radius:999px; margin:3px 0; }
-.adl-cw-msg { display:flex; flex-direction:column; max-width:min(72%, 560px); }
-.adl-cw-msg.mine { align-self:flex-end; align-items:flex-end; }
-.adl-cw-msg.theirs { align-self:flex-start; align-items:flex-start; }
-.adl-cw-sender { font-size:12px; font-weight:600; margin:0 4px 2px; color:${C.primary}; }
-.adl-cw-bubble { padding:8px 12px; border-radius:12px; font-size:14px; line-height:1.45; word-break:break-word; white-space:pre-wrap; }
-.adl-cw-bubble.theirs { background:${C.bg}; border:1px solid ${C.border}; border-top-left-radius:4px; color:${C.text}; }
-.adl-cw-bubble.mine { background:${C.primary}; color:#fff; border-top-right-radius:4px; }
-.adl-cw-deleted { font-style:italic; opacity:.7; display:inline-flex; align-items:center; column-gap:4px; }
-.adl-cw-file { display:inline-flex; align-items:center; column-gap:8px; color:inherit; text-decoration:none; font-weight:600; }
-.adl-cw-meta { display:flex; align-items:center; column-gap:6px; margin:3px 4px 0; font-size:11px; color:${C.textTer}; }
-.adl-cw-reply { border-left:3px solid ${C.primary}; padding:2px 8px; margin-bottom:5px; background:${C.primaryBg}; border-radius:4px; font-size:12px; }
-.adl-cw-replyname { display:block; color:${C.primary}; font-size:11px; font-weight:600; }
-.adl-cw-typing { align-self:flex-start; font-size:12px; color:${C.textTer}; padding:4px 6px; font-style:italic; }
-.adl-cw-inputbar { display:flex; align-items:flex-end; column-gap:8px; padding:10px 16px; border-top:1px solid ${C.border}; }
-.adl-cw-center { flex:1; display:flex; align-items:center; justify-content:center; }
-`;
 
 const ChatWindow: React.FC<ChatWindowProps> = ({
     conversation, messages, loading, currentUserId, onSend, onClearChat, onDeleteMessage,
@@ -97,38 +66,54 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
     const typingText = typingUsers.length > 0
         ? (isGroup ? `${typingUsers.map((t) => t.name).filter(Boolean).join(', ')} escribiendo…` : 'escribiendo…') : '';
 
-    const headerMenu = [
-        isGroup
-            ? { key: 'edit', icon: <IconUsers size={16} />, label: 'Editar grupo', onClick: () => onEditGroup(conversation.id_conversacion) }
-            : { key: 'profile', icon: <IconUser size={16} />, label: 'Ver perfil', onClick: () => conversation.contacto_id && onViewProfile(conversation.contacto_id) },
-        {
-            key: 'clear', icon: <IconEraser size={16} />, danger: true, label: 'Limpiar chat',
-            onClick: () => ask({ title: 'Limpiar chat', danger: true, confirmLabel: 'Limpiar', message: 'Se eliminarán todos los mensajes de esta conversación para ti.', onConfirm: onClearChat }),
-        },
-    ];
-
     return (
-        <div className="adl-cw-win">
-            <style>{CSS}</style>
-            <div className="adl-cw-head">
-                {isMobile && <Button type="text" icon={<IconArrowLeft size={20} />} onClick={onBack} aria-label="Volver" />}
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
+            <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+                {isMobile && (
+                    <Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}>
+                        <IconArrowLeft size={20} />
+                    </Button>
+                )}
                 <ChatAvatar name={conversation.nombre_display} foto={conversation.foto_display} size={40} group={isGroup} onClick={openHeader} />
-                <div className="adl-cw-who" onClick={openHeader}>
-                    <div className="adl-cw-whoname">{conversation.nombre_display || 'Chat'}</div>
-                    <div className="adl-cw-whost">{isGroup ? `${conversation.total_miembros} miembros` : 'Conversación directa'}</div>
+                <div className="min-w-0 flex-1 cursor-pointer" onClick={openHeader}>
+                    <div className="truncate text-[15px] font-bold leading-tight text-foreground">{conversation.nombre_display || 'Chat'}</div>
+                    <div className="text-xs text-muted-foreground">{isGroup ? `${conversation.total_miembros} miembros` : 'Conversación directa'}</div>
                 </div>
-                <Dropdown trigger={['click']} placement="bottomRight" menu={{ items: headerMenu }}>
-                    <Button type="text" icon={<IconDotsVertical size={20} />} aria-label="Opciones" />
-                </Dropdown>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" aria-label="Opciones">
+                            <IconDotsVertical size={20} />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        {isGroup ? (
+                            <DropdownMenuItem onSelect={() => onEditGroup(conversation.id_conversacion)}>
+                                <IconUsers size={15} /> Editar grupo
+                            </DropdownMenuItem>
+                        ) : (
+                            <DropdownMenuItem onSelect={() => conversation.contacto_id && onViewProfile(conversation.contacto_id)}>
+                                <IconUser size={15} /> Ver perfil
+                            </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                            danger
+                            onSelect={() => ask({ title: 'Limpiar chat', danger: true, confirmLabel: 'Limpiar', message: 'Se eliminarán todos los mensajes de esta conversación para ti.', onConfirm: onClearChat })}
+                        >
+                            <IconEraser size={15} /> Limpiar chat
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
             </div>
 
-            <div className="adl-cw-msgs" ref={scrollRef}>
+            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto bg-muted/40 px-6 py-4" ref={scrollRef}>
                 {loading && messages.length === 0 ? (
-                    <div className="adl-cw-center"><Spin tip="Cargando mensajes…"><div style={{ padding: 30 }} /></Spin></div>
+                    <div className="flex flex-1 items-center justify-center">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
                 ) : (
                     <>
                         {hasMoreMessages && (
-                            <Button type="text" size="small" style={{ alignSelf: 'center', margin: '4px 0' }} onClick={onLoadMore}>
+                            <Button variant="ghost" size="sm" className="mx-auto my-1" onClick={onLoadMore}>
                                 Cargar mensajes anteriores
                             </Button>
                         )}
@@ -139,63 +124,89 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
 
                             if (m.tipo_mensaje === 'SISTEMA') {
                                 return (
-                                    <div key={m.id_mensaje} style={{ display: 'contents' }}>
-                                        {showDay && <div className="adl-cw-daysep">{thisDay}</div>}
-                                        <div className="adl-cw-sys">{m.mensaje}</div>
+                                    <div key={m.id_mensaje} className="contents">
+                                        {showDay && (
+                                            <div className="my-2 self-center rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
+                                                {thisDay}
+                                            </div>
+                                        )}
+                                        <div className="my-0.5 self-center rounded-full bg-accent px-3 py-1 text-xs text-accent-foreground">{m.mensaje}</div>
                                     </div>
                                 );
                             }
                             return (
-                                <div key={m.id_mensaje} style={{ display: 'contents' }}>
-                                    {showDay && <div className="adl-cw-daysep">{thisDay}</div>}
-                                    <div className={`adl-cw-msg ${mine ? 'mine' : 'theirs'}`}>
-                                        {isGroup && !mine && <span className="adl-cw-sender">{m.nombre_emisor}</span>}
+                                <div key={m.id_mensaje} className="contents">
+                                    {showDay && (
+                                        <div className="my-2 self-center rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
+                                            {thisDay}
+                                        </div>
+                                    )}
+                                    <div className={`flex max-w-[72%] flex-col ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
+                                        {isGroup && !mine && <span className="mb-0.5 ml-1 text-xs font-semibold text-primary">{m.nombre_emisor}</span>}
                                         {m.id_mensaje_padre && !m.padre_eliminado && (
-                                            <div className="adl-cw-reply">
-                                                <span className="adl-cw-replyname">{m.nombre_emisor_padre || 'Respuesta'}</span>
+                                            <div className="mb-1 rounded border-l-2 border-primary bg-accent px-2 py-0.5 text-xs">
+                                                <span className="block text-[11px] font-semibold text-primary">{m.nombre_emisor_padre || 'Respuesta'}</span>
                                                 {m.tipo_mensaje_padre === 'ARCHIVO' ? `📎 ${m.archivo_nombre_padre || 'Archivo'}` : (m.mensaje_padre || '')}
                                             </div>
                                         )}
-                                        <div className={`adl-cw-bubble ${mine ? 'mine' : 'theirs'}`}>
+                                        <div
+                                            className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${
+                                                mine
+                                                    ? 'rounded-tr-sm bg-primary text-primary-foreground'
+                                                    : 'rounded-tl-sm border border-border bg-card text-foreground'
+                                            }`}
+                                        >
                                             {m.eliminado ? (
-                                                <span className="adl-cw-deleted"><IconBan size={16} /> Mensaje eliminado</span>
+                                                <span className="inline-flex items-center gap-1 italic opacity-70"><IconBan size={16} /> Mensaje eliminado</span>
                                             ) : m.tipo_mensaje === 'ARCHIVO' && m.archivo_ruta ? (
-                                                <a className="adl-cw-file" href={`${baseUrl}${m.archivo_ruta}`} target="_blank" rel="noreferrer" download={m.archivo_nombre || undefined}>
+                                                <a className="inline-flex items-center gap-2 font-semibold text-inherit no-underline" href={`${baseUrl}${m.archivo_ruta}`} target="_blank" rel="noreferrer" download={m.archivo_nombre || undefined}>
                                                     <IconFile size={20} />
                                                     <span>{m.archivo_nombre || 'Archivo'}{m.mensaje ? <><br />{m.mensaje}</> : null}</span>
                                                 </a>
                                             ) : m.mensaje}
                                         </div>
-                                        <div className="adl-cw-meta">
+                                        <div className="mt-0.5 ml-1 mr-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                             <span>{timeLabel(m.fecha)}</span>
                                             {m.editado && !m.eliminado && <span>· editado</span>}
                                             {mine && !m.eliminado && (
-                                                <Tooltip title="Eliminar mensaje">
-                                                    <Button type="text" size="small" icon={<IconTrash size={15} />} aria-label="Eliminar mensaje"
-                                                        onClick={() => ask({ title: 'Eliminar mensaje', danger: true, confirmLabel: 'Eliminar', message: '¿Eliminar este mensaje para todos?', onConfirm: () => onDeleteMessage(m.id_mensaje) })} />
-                                                </Tooltip>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-5 w-5"
+                                                    title="Eliminar mensaje"
+                                                    aria-label="Eliminar mensaje"
+                                                    onClick={() => ask({ title: 'Eliminar mensaje', danger: true, confirmLabel: 'Eliminar', message: '¿Eliminar este mensaje para todos?', onConfirm: () => onDeleteMessage(m.id_mensaje) })}
+                                                >
+                                                    <IconTrash size={13} />
+                                                </Button>
                                             )}
                                         </div>
                                     </div>
                                 </div>
                             );
                         })}
-                        {typingText && <div className="adl-cw-typing">{typingText}</div>}
+                        {typingText && <div className="self-start px-1.5 py-1 text-xs italic text-muted-foreground">{typingText}</div>}
                     </>
                 )}
             </div>
 
-            <div className="adl-cw-inputbar">
+            <div className="flex items-end gap-2 border-t border-border px-4 py-2.5">
                 <input ref={fileRef} type="file" hidden onChange={handleFile} />
-                <Tooltip title="Adjuntar archivo">
-                    <Button type="text" icon={<IconPaperclip size={20} />} aria-label="Adjuntar archivo" onClick={() => fileRef.current?.click()} />
-                </Tooltip>
-                <TextArea style={{ flex: 1 }} value={text} autoSize={{ minRows: 1, maxRows: 5 }}
-                    placeholder="Escribe un mensaje…"
+                <Button variant="ghost" size="icon" title="Adjuntar archivo" aria-label="Adjuntar archivo" onClick={() => fileRef.current?.click()}>
+                    <IconPaperclip size={20} />
+                </Button>
+                <Textarea
+                    className="max-h-32 min-h-9 flex-1 resize-none py-2"
+                    rows={1}
+                    value={text}
+                    placeholder="Escribe un mensaje..."
                     onChange={(e) => handleType(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
-                    onBlur={onTypingStop} />
-                <Button type="primary" icon={<IconSend size={18} />} aria-label="Enviar" onClick={send} disabled={!text.trim()} />
+                    onBlur={onTypingStop}
+                />
+                <Button size="icon" aria-label="Enviar" onClick={send} disabled={!text.trim()}>
+                    <IconSend size={18} />
+                </Button>
             </div>
             {dialog}
         </div>

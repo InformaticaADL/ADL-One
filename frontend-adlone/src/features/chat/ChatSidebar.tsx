@@ -1,8 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Button, Input, Badge, Tag, Spin, Dropdown, Tooltip } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
     IconDotsVertical, IconStar, IconStarFilled, IconTrash, IconUser,
-    IconRefresh, IconMessages, IconUsers, IconSearch,
+    IconRefresh, IconMessages, IconUsers, IconSearch, IconPlus,
 } from '@tabler/icons-react';
 import { generalChatService } from '../../services/general-chat.service';
 import type { ChatConversation, ChatContact } from '../../services/general-chat.service';
@@ -16,6 +20,8 @@ interface ChatSidebarProps {
     conversations: ChatConversation[];
     activeConversation: ChatConversation | null;
     view: ChatView;
+    onChangeView: (v: ChatView) => void;
+    counts: { chats: number; favoritos: number; grupos: number };
     onSelect: (conv: ChatConversation) => void;
     onStartDirect: (contactId: number) => void;
     onSelectById: (conversationId: number) => void;
@@ -24,39 +30,8 @@ interface ChatSidebarProps {
     isMobile?: boolean;
 }
 
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', primaryBg: '#e6f4ff', bg: '#ffffff', hover: '#fafafa',
-};
-
-const CSS = `
-.adl-sb-list { width:360px; flex-shrink:0; display:flex; flex-direction:column; min-height:0; overflow:hidden; background:${C.bg}; border-right:1px solid ${C.border}; }
-.adl-sb-list.mobile { width:100%; }
-.adl-sb-toolbar { display:flex; align-items:center; column-gap:8px; padding:12px; border-bottom:1px solid ${C.border}; position:relative; }
-.adl-sb-results { position:absolute; top:100%; left:12px; right:12px; z-index:20; background:${C.bg}; border:1px solid ${C.border}; border-radius:8px; box-shadow:0 6px 16px rgba(0,0,0,.12); max-height:320px; overflow-y:auto; margin-top:4px; padding:4px; }
-.adl-sb-scroll { flex:1; min-height:0; overflow-y:auto; padding:4px; }
-.adl-sb-item { position:relative; display:flex; align-items:center; column-gap:12px; width:100%; padding:10px 12px; border:none; background:transparent; cursor:pointer; text-align:left; border-radius:8px; color:${C.text}; }
-.adl-sb-item:hover { background:${C.hover}; }
-.adl-sb-item.active { background:${C.primaryBg}; }
-.adl-sb-item.active::before { content:""; position:absolute; left:3px; top:50%; transform:translateY(-50%); width:4px; height:34px; border-radius:4px; background:${C.primary}; }
-.adl-sb-avatar { position:relative; flex-shrink:0; }
-.adl-sb-dot { position:absolute; top:-1px; right:-1px; width:12px; height:12px; border-radius:50%; background:#ff4d4f; border:2px solid ${C.bg}; }
-.adl-sb-body { flex:1; min-width:0; }
-.adl-sb-row1 { display:flex; align-items:center; justify-content:space-between; column-gap:8px; }
-.adl-sb-name { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${C.text}; }
-.adl-sb-time { font-size:12px; color:${C.textTer}; flex-shrink:0; }
-.adl-sb-row2 { display:flex; align-items:center; justify-content:space-between; column-gap:8px; margin-top:2px; }
-.adl-sb-preview { font-size:12px; color:${C.textTer}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.adl-sb-unread { color:${C.text}; font-weight:600; }
-.adl-sb-trailing { display:flex; align-items:center; column-gap:4px; flex-shrink:0; }
-.adl-sb-empty { display:flex; flex-direction:column; align-items:center; row-gap:12px; padding:48px 24px; text-align:center; color:${C.textTer}; }
-.adl-sb-emptytext { margin:0; font-size:14px; white-space:pre-line; }
-.adl-sb-acrow { display:flex; align-items:center; column-gap:12px; width:100%; padding:8px; border:none; background:transparent; cursor:pointer; border-radius:6px; text-align:left; }
-.adl-sb-acrow:hover { background:${C.hover}; }
-`;
-
 const ChatSidebar: React.FC<ChatSidebarProps> = ({
-    conversations, activeConversation, view, onStartDirect, onSelect, onSelectById, onViewProfile, isMobile,
+    conversations, activeConversation, view, onChangeView, counts, onStartDirect, onSelect, onSelectById, onCreateGroup, onViewProfile, isMobile,
 }) => {
     const [search, setSearch] = useState('');
     const [searchResults, setSearchResults] = useState<ChatContact[]>([]);
@@ -119,44 +94,60 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
         const preview = conv.ultimo_tipo_mensaje === 'ARCHIVO' ? '📎 Archivo adjunto'
             : conv.ultimo_tipo_mensaje === 'SISTEMA' ? `ℹ️ ${conv.ultimo_mensaje || ''}`
                 : conv.ultimo_mensaje || ' ';
-        const menuItems = [
-            {
-                key: 'fav', icon: isFav ? <IconStarFilled size={16} /> : <IconStar size={16} />,
-                label: isFav ? 'Quitar de favoritos' : 'Añadir a favoritos',
-                onClick: ({ domEvent }: { domEvent: any }) => { domEvent.stopPropagation(); toggleFav(conv); },
-            },
-            {
-                key: 'del', icon: <IconTrash size={16} />, danger: true, label: 'Eliminar chat',
-                onClick: ({ domEvent }: { domEvent: any }) => {
-                    domEvent.stopPropagation();
-                    ask({
-                        title: 'Eliminar conversación', danger: true, confirmLabel: 'Eliminar',
-                        message: 'Se ocultará y se limpiará el historial, pero reaparecerá si recibes nuevos mensajes.',
-                        onConfirm: () => deleteConversation(conv.id_conversacion),
-                    });
-                },
-            },
-        ];
         return (
-            <button key={conv.id_conversacion} type="button" className={`adl-sb-item ${active ? 'active' : ''}`} onClick={() => onSelect(conv)}>
-                <span className="adl-sb-avatar">
+            <button
+                key={conv.id_conversacion}
+                type="button"
+                onClick={() => onSelect(conv)}
+                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${active ? 'bg-accent' : 'hover:bg-muted'}`}
+            >
+                {active && <span className="absolute left-0.5 top-1/2 h-8 w-1 -translate-y-1/2 rounded-full bg-primary" />}
+                <span className="relative shrink-0">
                     <ChatAvatar name={conv.nombre_display} foto={conv.foto_display} size={40} group={group} />
-                    {unread && <span className="adl-sb-dot" />}
+                    {unread && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-destructive" />}
                 </span>
-                <span className="adl-sb-body">
-                    <span className="adl-sb-row1">
-                        <span className={`adl-sb-name ${unread ? 'adl-sb-unread' : ''}`}>{conv.nombre_display || 'Chat'}</span>
-                        <span className="adl-sb-time">{formatTime(conv.ultimo_mensaje_fecha)}</span>
+                <span className="min-w-0 flex-1">
+                    <span className="flex items-center justify-between gap-2">
+                        <span className={`truncate text-sm ${unread ? 'font-semibold text-foreground' : 'font-medium text-foreground'}`}>
+                            {conv.nombre_display || 'Chat'}
+                        </span>
+                        <span className="shrink-0 text-xs text-muted-foreground">{formatTime(conv.ultimo_mensaje_fecha)}</span>
                     </span>
-                    <span className="adl-sb-row2">
-                        <span className={`adl-sb-preview ${unread ? 'adl-sb-unread' : ''}`}>{preview}</span>
-                        <span className="adl-sb-trailing">
-                            {group && <Tag color="blue" style={{ marginInlineEnd: 0 }}>Grupo</Tag>}
-                            {unread && <Badge count={conv.no_leidos} size="small" />}
-                            <Dropdown trigger={['click']} placement="bottomRight" menu={{ items: menuItems }}>
-                                <Button type="text" size="small" icon={<IconDotsVertical size={18} />}
-                                    onClick={(e) => e.stopPropagation()} aria-label="Opciones" />
-                            </Dropdown>
+                    <span className="mt-0.5 flex items-center justify-between gap-2">
+                        <span className={`truncate text-xs ${unread ? 'font-medium text-foreground' : 'text-muted-foreground'}`}>{preview}</span>
+                        <span className="flex shrink-0 items-center gap-1">
+                            {group && <Badge variant="outline">Grupo</Badge>}
+                            {unread && <Badge variant="destructive">{conv.no_leidos}</Badge>}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        aria-label="Opciones"
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <IconDotsVertical size={16} />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenuItem onSelect={() => toggleFav(conv)}>
+                                        {isFav ? <IconStarFilled size={15} /> : <IconStar size={15} />}
+                                        {isFav ? 'Quitar de favoritos' : 'Añadir a favoritos'}
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        danger
+                                        onSelect={() => ask({
+                                            title: 'Eliminar conversación', danger: true, confirmLabel: 'Eliminar',
+                                            message: 'Se ocultará y se limpiará el historial, pero reaparecerá si recibes nuevos mensajes.',
+                                            onConfirm: () => deleteConversation(conv.id_conversacion),
+                                        })}
+                                    >
+                                        <IconTrash size={15} />
+                                        Eliminar chat
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </span>
                     </span>
                 </span>
@@ -172,29 +163,61 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     }[view];
 
     return (
-        <div className={`adl-sb-list ${isMobile ? 'mobile' : ''}`}>
-            <style>{CSS}</style>
-            <div className="adl-sb-toolbar"
-                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setShowResults(false); }}>
-                <Input allowClear placeholder="Buscar contacto o grupo…" prefix={<IconSearch size={16} color={C.textTer} />}
-                    style={{ flex: 1 }} value={search} onFocus={() => setShowResults(true)}
-                    onChange={(e) => handleSearch(e.target.value)} />
-                <Tooltip title="Actualizar">
-                    <Button type="text" icon={<IconRefresh size={18} />} aria-label="Actualizar"
-                        onClick={() => { fetchConversations(); fetchFavorites(); }} />
-                </Tooltip>
+        <div className={`flex min-h-0 flex-col overflow-hidden border-r border-border bg-card ${isMobile ? 'w-full' : 'w-[360px] shrink-0'}`}>
+            <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
+                <h1 className="text-xl font-bold text-foreground">Mensajes</h1>
+                <Button size="icon" className="h-8 w-8 rounded-full" title="Nuevo grupo" aria-label="Nuevo grupo" onClick={onCreateGroup}>
+                    <IconPlus size={16} />
+                </Button>
+            </div>
+
+            <div className="px-3 pb-2">
+                <Tabs value={view} onValueChange={(v) => onChangeView(v as ChatView)}>
+                    <TabsList className="w-full">
+                        <TabsTrigger value="chats" className="flex-1">Chats <span className="ml-1 text-xs opacity-70">{counts.chats}</span></TabsTrigger>
+                        <TabsTrigger value="favoritos" className="flex-1">Favoritos <span className="ml-1 text-xs opacity-70">{counts.favoritos}</span></TabsTrigger>
+                        <TabsTrigger value="grupos" className="flex-1">Grupos <span className="ml-1 text-xs opacity-70">{counts.grupos}</span></TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </div>
+
+            <div
+                className="relative flex items-center gap-2 border-b border-border px-3 pb-3"
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setShowResults(false); }}
+            >
+                <div className="relative flex-1">
+                    <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar conversaciones..."
+                        className="pl-8"
+                        value={search}
+                        onFocus={() => setShowResults(true)}
+                        onChange={(e) => handleSearch(e.target.value)}
+                    />
+                </div>
+                <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" title="Actualizar" aria-label="Actualizar"
+                    onClick={() => { fetchConversations(); fetchFavorites(); }}>
+                    <IconRefresh size={17} />
+                </Button>
                 {showResults && search.length > 0 && (
-                    <div className="adl-sb-results">
+                    <div className="absolute left-3 right-3 top-full z-20 mt-1 max-h-80 overflow-y-auto rounded-lg border border-border bg-card p-1 shadow-lg">
                         {searching ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spin size="small" /></div>
+                            <div className="flex justify-center p-4">
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </div>
                         ) : searchResults.length === 0 ? (
-                            <div style={{ padding: 16, textAlign: 'center', color: C.textTer, fontSize: 12 }}>Sin resultados</div>
+                            <div className="p-4 text-center text-xs text-muted-foreground">Sin resultados</div>
                         ) : searchResults.map((item) => (
-                            <button key={`${item.tipo_entidad}-${item.id_entidad}`} type="button" className="adl-sb-acrow" onClick={() => pickResult(item)}>
+                            <button
+                                key={`${item.tipo_entidad}-${item.id_entidad}`}
+                                type="button"
+                                className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted"
+                                onClick={() => pickResult(item)}
+                            >
                                 <ChatAvatar name={item.nombre} foto={item.foto} size={32} group={item.tipo_entidad === 'GROUP'} />
-                                <span style={{ minWidth: 0 }}>
-                                    <span style={{ display: 'block', fontWeight: 600, fontSize: 14, color: C.text }}>{item.nombre}</span>
-                                    <span style={{ display: 'block', fontSize: 12, color: C.textTer, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <span className="min-w-0">
+                                    <span className="block truncate text-sm font-semibold text-foreground">{item.nombre}</span>
+                                    <span className="block truncate text-xs text-muted-foreground">
                                         {item.tipo_entidad === 'GROUP' ? 'Grupo' : (item.cargo || item.email)}
                                     </span>
                                 </span>
@@ -204,27 +227,35 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 )}
             </div>
 
-            <div className="adl-sb-scroll">
+            <div className="min-h-0 flex-1 overflow-y-auto p-1">
                 {view === 'favoritos' ? (
                     favorites.length === 0 ? (
-                        <div className="adl-sb-empty">{empty.icon}<p className="adl-sb-emptytext">{empty.text}</p></div>
+                        <div className="flex flex-col items-center gap-3 px-6 py-16 text-center text-muted-foreground">
+                            {empty.icon}<p className="whitespace-pre-line text-sm">{empty.text}</p>
+                        </div>
                     ) : favorites.map((fav) => (
-                        <button key={`fav-${fav.tipo_entidad}-${fav.id_entidad}`} type="button" className="adl-sb-item"
-                            onClick={() => (fav.tipo_entidad === 'GROUP' ? onSelectById(fav.id_entidad) : onStartDirect(fav.id_entidad))}>
-                            <span className="adl-sb-avatar">
-                                <ChatAvatar name={fav.nombre} foto={fav.foto} size={40} group={fav.tipo_entidad === 'GROUP'} />
-                            </span>
-                            <span className="adl-sb-body">
-                                <span className="adl-sb-row1"><span className="adl-sb-name">{fav.nombre}</span></span>
-                                <span className="adl-sb-row2">
-                                    <span className="adl-sb-preview">{fav.tipo_entidad === 'GROUP' ? 'Grupo' : (fav.cargo || fav.email)}</span>
-                                    <span className="adl-sb-trailing">
+                        <button
+                            key={`fav-${fav.tipo_entidad}-${fav.id_entidad}`}
+                            type="button"
+                            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left hover:bg-muted"
+                            onClick={() => (fav.tipo_entidad === 'GROUP' ? onSelectById(fav.id_entidad) : onStartDirect(fav.id_entidad))}
+                        >
+                            <ChatAvatar name={fav.nombre} foto={fav.foto} size={40} group={fav.tipo_entidad === 'GROUP'} />
+                            <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-semibold text-foreground">{fav.nombre}</span>
+                                <span className="mt-0.5 flex items-center justify-between gap-2">
+                                    <span className="truncate text-xs text-muted-foreground">{fav.tipo_entidad === 'GROUP' ? 'Grupo' : (fav.cargo || fav.email)}</span>
+                                    <span className="flex shrink-0 items-center gap-1">
                                         {fav.tipo_entidad === 'USER' && (
-                                            <Button type="text" size="small" icon={<IconUser size={18} />} aria-label="Ver perfil"
-                                                onClick={(e) => { e.stopPropagation(); onViewProfile(fav.id_entidad); }} />
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Ver perfil" title="Ver perfil"
+                                                onClick={(e) => { e.stopPropagation(); onViewProfile(fav.id_entidad); }}>
+                                                <IconUser size={16} />
+                                            </Button>
                                         )}
-                                        <Button type="text" size="small" icon={<IconStarFilled size={18} color="#faad14" />} aria-label="Quitar de favoritos"
-                                            onClick={(e) => { e.stopPropagation(); toggleFavById(fav.id_entidad, fav.tipo_entidad); }} />
+                                        <Button variant="ghost" size="icon" className="h-7 w-7 text-warning" aria-label="Quitar de favoritos" title="Quitar de favoritos"
+                                            onClick={(e) => { e.stopPropagation(); toggleFavById(fav.id_entidad, fav.tipo_entidad); }}>
+                                            <IconStarFilled size={16} />
+                                        </Button>
                                     </span>
                                 </span>
                             </span>
@@ -232,7 +263,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     ))
                 ) : (
                     list.length === 0 ? (
-                        <div className="adl-sb-empty">{empty.icon}<p className="adl-sb-emptytext">{empty.text}</p></div>
+                        <div className="flex flex-col items-center gap-3 px-6 py-16 text-center text-muted-foreground">
+                            {empty.icon}<p className="whitespace-pre-line text-sm">{empty.text}</p>
+                        </div>
                     ) : list.map(renderConversation)
                 )}
             </div>
