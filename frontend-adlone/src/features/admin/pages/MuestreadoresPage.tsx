@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Modal } from 'antd';
 import {
     IconPlus,
     IconSearch,
@@ -12,6 +11,7 @@ import {
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
@@ -502,18 +502,16 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 }}
             />
 
-            <Modal
-                open={!!zoomedImage}
-                onCancel={() => setZoomedImage(null)}
-                footer={null}
-                width={560}
-                centered
-                title="Firma Digital"
-            >
-                <div style={{ border: '1px solid var(--app-border)', padding: 24, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-                    <img src={zoomedImage ?? undefined} style={{ maxHeight: 400, objectFit: 'contain' }} alt="Firma ampliada" />
-                </div>
-            </Modal>
+            <Dialog open={!!zoomedImage} onOpenChange={(open) => !open && setZoomedImage(null)}>
+                <DialogContent className="max-w-[560px]">
+                    <DialogHeader>
+                        <DialogTitle>Firma Digital</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex justify-center rounded-lg border border-border bg-muted/40 p-6">
+                        <img src={zoomedImage ?? undefined} className="max-h-[400px] object-contain" alt="Firma ampliada" />
+                    </div>
+                </DialogContent>
+            </Dialog>
         </>
     );
 };
