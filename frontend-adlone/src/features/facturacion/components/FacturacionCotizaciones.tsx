@@ -1,132 +1,49 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-    Table, Tag, Select, Button, Empty, Spin, message,
-    InputNumber, Input, Space, Divider, Tabs, Switch, Badge, Tooltip, Collapse, Timeline, Alert,
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import {
     IconRefresh, IconPlus, IconTrash, IconSend2, IconCircleCheck, IconCircleX,
     IconArrowLeft, IconMessageCircle2, IconWorldUpload, IconPaperclip, IconFileTypePdf, IconX,
     IconClipboardPlus, IconPhoto, IconFileSpreadsheet, IconFileTypeDoc, IconFile, IconDownload,
+    IconChevronDown, IconAlertTriangle, IconInfoCircle, IconInbox,
 } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
+import { cn } from '@/lib/utils';
 import { facturacionService } from '../services/facturacion.service';
 import { useVisorArchivo } from '../utils/useVisorArchivo';
 import { useNavStore } from '../../../store/navStore';
+import { useToast } from '../../../contexts/ToastContext';
 import logoAdl from '../../../assets/images/logo_adl.png';
 import { catalogosService, type EmpresaServicio, type Centro } from '../../medio-ambiente/services/catalogos.service';
 import { analysisService } from '../../medio-ambiente/services/analysis.service';
 
+// Colores de marca del PDF (mismos que _drawHeader en facturacion.service.js) —
+// se mantienen literales porque describen el documento impreso, no el tema de
+// la app.
 const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', bg: '#ffffff',
-    // Colores de marca del PDF (mismos que _drawHeader en facturacion.service.js)
     navy: '#173A5E', orange: '#F4801F', bandaTabla: '#EEF3F7',
 };
 
 // Estado unificado de una fila de la bandeja (mezcla el estado de la solicitud
 // del cliente con el estado de la cotización que arma el staff — ver
 // listarBandejaCotizaciones en el backend, que ya resuelve cuál manda).
-const ESTADO_COLOR: Record<string, string> = {
-    PENDIENTE: 'gold', BORRADOR: 'default', ENVIADA: 'blue',
-    ACEPTADA: 'green', RECHAZADA: 'red', CANCELADA: 'default', EXPIRADA: 'red',
+const ESTADO_BADGE_VARIANT: Record<string, 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive'> = {
+    PENDIENTE: 'warning', BORRADOR: 'secondary', ENVIADA: 'default',
+    ACEPTADA: 'success', RECHAZADA: 'destructive', CANCELADA: 'secondary', EXPIRADA: 'destructive',
 };
 const ESTADO_LABEL: Record<string, string> = {
     PENDIENTE: 'Solicitud pendiente', BORRADOR: 'En preparación', ENVIADA: 'Enviada al cliente',
     ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada por el cliente', EXPIRADA: 'Expirada',
 };
 
-const CSS = `
-.adl-fco-wrap { width:100%; padding:28px 32px 56px; background:#fff; }
-.adl-fco-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:26px; flex-wrap:wrap; gap:12px; }
-.adl-fco-title { margin:0; font-size:21px; font-weight:650; color:${C.text}; letter-spacing:-.3px; }
-.adl-fco-sub { margin:3px 0 0; font-size:13px; color:${C.textTer}; }
-.adl-fco-filters { display:flex; align-items:center; gap:16px; margin-bottom:20px; flex-wrap:wrap; }
-.adl-fco-sectitle { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.6px; color:${C.textTer}; margin:0 0 14px; }
-.adl-fco-itembuilder { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
-.adl-fco-field { margin-bottom:20px; }
-.adl-fco-field label { display:block; font-size:12.5px; color:${C.textSec}; margin-bottom:7px; }
-/* Dos campos por fila: el formulario ahora tiene ancho de sobra */
-.adl-fco-form-row { display:grid; grid-template-columns:1fr 1fr; column-gap:16px; }
-@media (max-width: 760px) { .adl-fco-form-row { grid-template-columns:1fr; } }
-.adl-fco-row-unread td { font-weight:600 !important; }
-
-/* Servicios (glosas) de la cotización: una tarjeta por servicio. El borde de
-   color marca cuál está activo — es al que se agregan las líneas nuevas. */
-.adl-fco-seccion { border:1px solid ${C.border}; border-radius:9px; padding:14px 14px 10px;
-                   margin-bottom:14px; background:#fff; cursor:pointer; transition:border-color .15s, box-shadow .15s; }
-.adl-fco-seccion:hover { border-color:${C.primary}; }
-.adl-fco-seccion-n { flex-shrink:0; width:22px; height:22px; border-radius:50%; background:${C.navy}; color:#fff;
-                     font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
-
-/* Encabezado de detalle / creación — separado por una línea, sin caja */
-.adl-fco-detail-header { display:flex; align-items:center; gap:14px; margin-bottom:28px; padding-bottom:20px; border-bottom:1px solid ${C.border}; flex-wrap:wrap; }
-
-.adl-fco-detail-grid { display:grid; grid-template-columns: 1fr 360px; gap:36px; align-items:start; }
-/* La hoja se queda en su ancho de página (740px) y el FORMULARIO se lleva el
-   espacio sobrante — así no queda una franja muerta al costado. El tope de
-   1500px evita que en pantallas muy anchas el formulario se estire de más. */
-.adl-fco-crear-grid { display:grid; grid-template-columns: minmax(320px, 1fr) minmax(0, 740px);
-                      gap:32px; align-items:start; max-width:1500px; }
-@media (max-width: 1150px) {
-  .adl-fco-detail-grid, .adl-fco-crear-grid { grid-template-columns: 1fr; gap:28px; }
-}
-
-/* Superficies: todo blanco, separadas por borde fino — nada de fondos grises */
-.adl-fco-card { border:1px solid ${C.border}; border-radius:10px; background:#fff; padding:24px; margin-bottom:22px; }
-
-/* El panel de comunicación ocupa el alto real de la ventana en vez de una
-   caja corta: el chat es lo que más se usa acá y antes quedaba media pantalla
-   vacía debajo. 190px ≈ encabezado de página + márgenes. */
-.adl-fco-panel { border:1px solid ${C.border}; border-radius:10px; background:#fff; position:sticky; top:20px;
-                 overflow:hidden; display:flex; flex-direction:column; height:calc(100vh - 190px); min-height:460px; }
-.adl-fco-panel > div:first-child { display:flex; flex-direction:column; height:100%; }
-.adl-fco-chat { display:flex; flex-direction:column; height:100%; }
-.adl-fco-chatlist { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px; }
-.adl-fco-bubble { max-width:82%; border-radius:10px; padding:9px 12px; font-size:13px; line-height:1.45; }
-/* Vista previa como HOJA de documento: proporción y aire de una página real,
-   no una tarjeta de resumen. Los colores y el orden replican el PDF que se
-   genera en el backend (Propuesta Técnico Económica). */
-/* Hoja con ancho de página (~A4 a escala de pantalla). El max-width evita que
-   la tarjeta se estire a todo el ancho disponible, que dejaba una banda blanca
-   enorme con el texto apretado al medio. */
-.adl-fco-preview { position:sticky; top:20px; max-height:calc(100vh - 150px); overflow-y:auto;
-                   width:100%; background:#fff; border:1px solid #e3e3e3; border-radius:6px;
-                   box-shadow:0 2px 12px rgba(0,0,0,0.06); padding:38px 46px 44px; }
-.adl-fco-doc { color:#000; font-size:11.5px; line-height:1.55; }
-.adl-fco-doc h3 { font-size:11.5px; font-weight:700; color:${C.navy}; margin:22px 0 9px; letter-spacing:.2px; }
-.adl-fco-doc h4 { font-size:11px; font-weight:700; color:#000; margin:13px 0 5px; }
-.adl-fco-doc p { margin:0 0 7px; }
-.adl-fco-doc table { width:100%; border-collapse:collapse; font-size:10.5px; }
-.adl-fco-doc thead th { background:${C.bandaTabla}; color:${C.navy}; font-weight:700; font-size:10px;
-                        text-align:left; padding:7px 8px; }
-.adl-fco-doc tbody td { padding:7px 8px; border-bottom:1px solid #eee; vertical-align:top; }
-.adl-fco-datos { display:grid; grid-template-columns:112px 1fr; row-gap:3.5px; column-gap:8px; font-size:11px; }
-.adl-fco-datos dt { color:${C.navy}; font-weight:700; }
-.adl-fco-datos dd { margin:0; }
-.adl-fco-preview-empty { text-align:center; color:${C.textTer}; font-size:11px; padding:30px 0;
-                         border:1px dashed #e0e0e0; border-radius:6px; }
-.adl-fco-tot { display:flex; justify-content:space-between; font-size:11px; padding:2.5px 0; }
-.adl-fco-nota { font-size:10px; color:${C.textSec}; line-height:1.5; }
-/* Listas legales: sangría colgante como en el documento Word */
-.adl-fco-legal { font-size:10px; line-height:1.5; color:#000; margin:0; padding:0; list-style:none; }
-.adl-fco-legal li { display:grid; grid-template-columns:16px 1fr; column-gap:4px; margin-bottom:5px; text-align:justify; }
-.adl-fco-legal li > span:first-child { font-weight:700; }
-.adl-fco-meta { font-size:12px; color:${C.textSec}; line-height:1.65; }
-.adl-fco-adjunto { display:flex; align-items:center; gap:10px; padding:9px 11px; border:1px solid ${C.border};
-                   border-radius:8px; background:#fff; cursor:pointer; width:100%; text-align:left;
-                   font-family:inherit; transition:border-color .12s, background .12s; }
-.adl-fco-adjunto:hover { border-color:${C.primary}; background:#f8fbff; }
-.adl-fco-adjunto-ico { display:flex; align-items:center; justify-content:center; width:34px; height:34px;
-                       border-radius:7px; flex-shrink:0; }
-.adl-fco-adjunto-nom { display:block; font-size:14px; font-weight:500; color:${C.text};
-                       overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.adl-fco-adjunto-meta { display:block; font-size:11.5px; color:${C.textTer}; margin-top:1px; }
-
-/* Las pestañas del panel no deben scrollear ellas mismas: scrollea la lista */
-.adl-fco-panel .ant-tabs { height:100%; display:flex; flex-direction:column; }
-.adl-fco-panel .ant-tabs-content-holder { flex:1; overflow:hidden; }
-.adl-fco-panel .ant-tabs-content, .adl-fco-panel .ant-tabs-tabpane { height:100%; }
-`;
+const BANDEJA_PAGE_SIZE = 20;
 
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -231,15 +148,62 @@ interface SeccionBuilder {
     items: ItemBuilder[];
 }
 
+const Spinner = ({ className }: { className?: string }) => (
+    <div className={cn('animate-spin rounded-full border-2 border-primary border-t-transparent', className || 'h-6 w-6')} />
+);
+
+const Field = ({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) => (
+    <div className="mb-5">
+        <Label className="mb-1.5 block text-[12.5px] font-normal text-muted-foreground">{label}</Label>
+        {children}
+        {hint && <p className="mt-1.5 text-[11.5px] text-muted-foreground">{hint}</p>}
+    </div>
+);
+
+const InlineAlert = ({ tone, title, description }: { tone: 'warning' | 'info'; title: string; description: string }) => (
+    <div className={cn(
+        'mb-3 flex items-start gap-2 rounded-lg border p-3',
+        tone === 'warning' ? 'border-warning/40 bg-warning/10' : 'border-border bg-muted/50'
+    )}>
+        {tone === 'warning'
+            ? <IconAlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
+            : <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />}
+        <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">{title}</p>
+            <p className="text-xs text-muted-foreground">{description}</p>
+        </div>
+    </div>
+);
+
+const TIMELINE_DOT: Record<string, string> = {
+    gray: 'bg-muted-foreground/40', blue: 'bg-primary', green: 'bg-success', red: 'bg-destructive',
+};
+
+const HistorialTimeline = ({ items }: { items: { color: string; children: React.ReactNode }[] }) => (
+    <div className="flex flex-col">
+        {items.map((it, i) => (
+            <div key={i} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                    <span className={cn('mt-1 h-2.5 w-2.5 shrink-0 rounded-full', TIMELINE_DOT[it.color] || TIMELINE_DOT.gray)} />
+                    {i < items.length - 1 && <span className="w-px flex-1 bg-border" />}
+                </div>
+                <div className="pb-5 text-sm text-foreground">{it.children}</div>
+            </div>
+        ))}
+    </div>
+);
+
 const FacturacionCotizaciones: React.FC = () => {
     const { setActiveSubmodule, setFichasMode, setCotizacionParaFicha } = useNavStore();
     const { abrirArchivo, Visores } = useVisorArchivo();
+    const { showToast } = useToast();
 
     // --- Bandeja unificada ---
     const [bandeja, setBandeja] = useState<BandejaRow[]>([]);
     const [bandejaLoading, setBandejaLoading] = useState(true);
     const [filtroEstado, setFiltroEstado] = useState<string | undefined>(undefined);
     const [filtroNoLeidos, setFiltroNoLeidos] = useState(false);
+    const [bandejaPage, setBandejaPage] = useState(1);
 
     // --- Vista: lista | detalle | crear ---
     const [seleccion, setSeleccion] = useState<BandejaRow | null>(null);
@@ -250,6 +214,7 @@ const FacturacionCotizaciones: React.FC = () => {
     const [rightTab, setRightTab] = useState('mensajes');
     const [accionLoading, setAccionLoading] = useState<string | null>(null);
     const [publicando, setPublicando] = useState(false);
+    const [solicitudAbierta, setSolicitudAbierta] = useState(() => !cotizacionDetalle);
 
     // --- Chat (siempre por id_solicitud_portal — misma conversación exista o no la cotización) ---
     const [mensajes, setMensajes] = useState<any[]>([]);
@@ -313,13 +278,14 @@ const FacturacionCotizaciones: React.FC = () => {
             });
             setBandeja(r || []);
         } catch {
-            message.error('No se pudo cargar la bandeja');
+            showToast({ type: 'error', message: 'No se pudo cargar la bandeja' });
         } finally {
             setBandejaLoading(false);
         }
-    }, [filtroEstado, filtroNoLeidos]);
+    }, [filtroEstado, filtroNoLeidos, showToast]);
 
     useEffect(() => { cargarBandeja(); }, [cargarBandeja]);
+    useEffect(() => { setBandejaPage(1); }, [filtroEstado, filtroNoLeidos]);
 
     // ------------------------------------------------------------------
     // Detalle
@@ -337,13 +303,13 @@ const FacturacionCotizaciones: React.FC = () => {
             setMensajes(msgs);
             setAdjuntos(adj || []);
         } catch {
-            if (!silencioso) message.error('No se pudo cargar el chat con el cliente');
+            if (!silencioso) showToast({ type: 'error', message: 'No se pudo cargar el chat con el cliente' });
         } finally {
             if (!silencioso) setMensajesLoading(false);
         }
-    }, []);
+    }, [showToast]);
 
-// Chat en vivo: el hilo vive en ADL WEB GO, así que no hay socket que
+    // Chat en vivo: el hilo vive en ADL WEB GO, así que no hay socket que
     // escuchar desde acá — se relee cada 8 segundos, el mismo intervalo que
     // usa el portal. Antes había que salir de la cotización y volver a entrar
     // para ver un mensaje nuevo.
@@ -384,7 +350,7 @@ const FacturacionCotizaciones: React.FC = () => {
                 setCotizacionDetalle(await facturacionService.getCotizacionDetalle(row.id_cotizacion));
             }
         } catch {
-            message.error('No se pudo cargar el detalle');
+            showToast({ type: 'error', message: 'No se pudo cargar el detalle' });
         } finally {
             setDetalleLoading(false);
         }
@@ -409,7 +375,7 @@ const FacturacionCotizaciones: React.FC = () => {
             setArchivosAdjuntar([]);
             await cargarChat(seleccion.id_solicitud_portal);
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo enviar el mensaje');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo enviar el mensaje' });
         } finally {
             setEnviandoMensaje(false);
         }
@@ -420,10 +386,10 @@ const FacturacionCotizaciones: React.FC = () => {
         setAccionLoading(nuevoEstado);
         try {
             await facturacionService.cambiarEstadoCotizacion(cotizacionDetalle.id_cotizacion, nuevoEstado);
-            message.success('Estado actualizado');
+            showToast({ type: 'success', message: 'Estado actualizado' });
             setCotizacionDetalle(await facturacionService.getCotizacionDetalle(cotizacionDetalle.id_cotizacion));
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo actualizar el estado');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo actualizar el estado' });
         } finally {
             setAccionLoading(null);
         }
@@ -438,7 +404,7 @@ const FacturacionCotizaciones: React.FC = () => {
         try {
             const prep = await facturacionService.getCotizacionParaFicha(cotizacionDetalle.id_cotizacion);
             if (prep.avisos?.length) {
-                message.warning(`${prep.avisos.length} análisis de esta cotización hay que agregarlos a mano (se cotizaron antes de que se guardara su normativa).`);
+                showToast({ type: 'warning', message: `${prep.avisos.length} análisis de esta cotización hay que agregarlos a mano (se cotizaron antes de que se guardara su normativa).` });
             }
             setCotizacionParaFicha(cotizacionDetalle.id_cotizacion);
             // 'ma-fichas-ingreso' se resuelve como submódulo compartido de alta
@@ -446,7 +412,7 @@ const FacturacionCotizaciones: React.FC = () => {
             setFichasMode('create_manual');
             setActiveSubmodule('ma-fichas-ingreso');
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo preparar la ficha');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo preparar la ficha' });
         } finally {
             setAccionLoading(null);
         }
@@ -458,7 +424,7 @@ const FacturacionCotizaciones: React.FC = () => {
         const limpio = String(valorCrudo ?? '').replace(',', '.').trim();
         if (limpio === '') return;
         const nuevo = Number(limpio);
-        if (!Number.isFinite(nuevo) || nuevo < 0) { message.warning('El precio debe ser un número mayor o igual a 0'); return; }
+        if (!Number.isFinite(nuevo) || nuevo < 0) { showToast({ type: 'warning', message: 'El precio debe ser un número mayor o igual a 0' }); return; }
         if (item.precio_unitario_uf != null && Number(item.precio_unitario_uf) === nuevo) return;
         setPrecioGuardando(item.id_item);
         try {
@@ -466,9 +432,9 @@ const FacturacionCotizaciones: React.FC = () => {
                 cotizacionDetalle.id_cotizacion, item.id_item, nuevo,
             );
             setCotizacionDetalle(actualizado);
-            message.success('Precio actualizado');
+            showToast({ type: 'success', message: 'Precio actualizado' });
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo actualizar el precio');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo actualizar el precio' });
         } finally {
             setPrecioGuardando(null);
         }
@@ -479,10 +445,10 @@ const FacturacionCotizaciones: React.FC = () => {
         setPublicando(true);
         try {
             await facturacionService.publicarCotizacionEnPortal(cotizacionDetalle.id_cotizacion);
-            message.success('Cotización enviada al cliente');
+            showToast({ type: 'success', message: 'Cotización enviada al cliente' });
             setCotizacionDetalle(await facturacionService.getCotizacionDetalle(cotizacionDetalle.id_cotizacion));
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo enviar la cotización');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo enviar la cotización' });
         } finally {
             setPublicando(false);
         }
@@ -558,7 +524,7 @@ const FacturacionCotizaciones: React.FC = () => {
             setTablas(t || []);
             if (t?.length === 1) setIdTablamaSel(Number(t[0].id_tablama));
         } catch {
-            message.error('No se pudieron cargar las tablas con tarifa de este centro');
+            showToast({ type: 'error', message: 'No se pudieron cargar las tablas con tarifa de este centro' });
         }
     };
 
@@ -574,7 +540,7 @@ const FacturacionCotizaciones: React.FC = () => {
             const raw: any[] = await catalogosService.getCentros(undefined, val);
             setCentros(raw.map((c) => ({ id: c.id_centro, nombre: (c.nombre_centro || '').trim() })));
         } catch {
-            message.error('No se pudieron cargar los centros de este cliente');
+            showToast({ type: 'error', message: 'No se pudieron cargar los centros de este cliente' });
         }
         try {
             setClienteConfig(await facturacionService.getClienteConfig(val));
@@ -597,17 +563,17 @@ const FacturacionCotizaciones: React.FC = () => {
     };
 
     const agregarItem = async () => {
-        if (!idEmpresaServicioSel) { message.warning('Selecciona el cliente primero — el precio depende de él.'); return; }
-        if (!idCentroSel) { message.warning('Selecciona el centro: el precio del mismo análisis cambia según el centro.'); return; }
+        if (!idEmpresaServicioSel) { showToast({ type: 'warning', message: 'Selecciona el cliente primero — el precio depende de él.' }); return; }
+        if (!idCentroSel) { showToast({ type: 'warning', message: 'Selecciona el centro: el precio del mismo análisis cambia según el centro.' }); return; }
         // La tabla solo se exige cuando el centro TIENE convenio. Si no hay
         // ninguna tarifa cargada (pasa en la mayoría de los clientes), exigirla
         // dejaría al cliente sin poder cotizarse: se permite seguir y los ítems
         // quedan marcados "Sin tarifa" para ponerles precio a mano.
         if (tablas.length > 0 && !idTablamaSel) {
-            message.warning('Selecciona la tabla: sin ella no se puede resolver la tarifa del convenio.');
+            showToast({ type: 'warning', message: 'Selecciona la tabla: sin ella no se puede resolver la tarifa del convenio.' });
             return;
         }
-        if (!tecnicaSel) { message.warning('Selecciona una técnica'); return; }
+        if (!tecnicaSel) { showToast({ type: 'warning', message: 'Selecciona una técnica' }); return; }
         const opt = tecnicasDisponibles.find((t) => String(t.id_referenciaanalisis) === tecnicaSel);
         if (!opt) return;
         const key = Date.now();
@@ -690,8 +656,8 @@ const FacturacionCotizaciones: React.FC = () => {
     const nFijoPreview = Math.max(1, secciones.filter((s) => s.items.length > 0).length);
 
     const guardarCotizacion = async () => {
-        if (!idEmpresaServicioSel) { message.warning('Selecciona un cliente'); return; }
-        if (items.length === 0) { message.warning('Agrega al menos un ítem'); return; }
+        if (!idEmpresaServicioSel) { showToast({ type: 'warning', message: 'Selecciona un cliente' }); return; }
+        if (items.length === 0) { showToast({ type: 'warning', message: 'Agrega al menos un ítem' }); return; }
         try {
             setGuardandoCotizacion(true);
             const r = await facturacionService.crearCotizacion({
@@ -718,15 +684,15 @@ const FacturacionCotizaciones: React.FC = () => {
                 vigenciaDias: vigenciaDiasSel || 30,
             });
             if (r.items_sin_precio?.length) {
-                message.warning(`Cotización N° ${r.numero_cotizacion} creada, pero ${r.items_sin_precio.length} ítem(s) quedaron sin tarifa. Ponles precio en el detalle antes de enviarla al cliente.`, 6);
+                showToast({ type: 'warning', duration: 6000, message: `Cotización N° ${r.numero_cotizacion} creada, pero ${r.items_sin_precio.length} ítem(s) quedaron sin tarifa. Ponles precio en el detalle antes de enviarla al cliente.` });
             } else {
-                message.success(`Cotización N° ${r.numero_cotizacion} creada`);
+                showToast({ type: 'success', message: `Cotización N° ${r.numero_cotizacion} creada` });
             }
             if (seleccion?.origen === 'PORTAL' && seleccion.id_solicitud_portal && !seleccion.id_cotizacion) {
                 try {
                     await facturacionService.vincularCotizacionAPortal(r.id_cotizacion, seleccion.id_solicitud_portal);
                 } catch (e: any) {
-                    message.warning('La cotización se creó, pero no se pudo vincular a la solicitud: ' + (e?.response?.data?.message || ''));
+                    showToast({ type: 'warning', message: 'La cotización se creó, pero no se pudo vincular a la solicitud: ' + (e?.response?.data?.message || '') });
                 }
             }
             setCreando(false);
@@ -737,42 +703,11 @@ const FacturacionCotizaciones: React.FC = () => {
             }
         } catch (e: any) {
             if (e?.errorFields) return;
-            message.error(e?.response?.data?.message || 'No se pudo crear la cotización');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo crear la cotización' });
         } finally {
             setGuardandoCotizacion(false);
         }
     };
-
-    // ------------------------------------------------------------------
-    // Tabla de la bandeja
-    // ------------------------------------------------------------------
-
-    const columns: ColumnsType<BandejaRow> = [
-        {
-            title: '', dataIndex: 'tiene_mensaje_nuevo', width: 8,
-            render: (v) => v ? <Badge status="processing" /> : null,
-        },
-        { title: 'Cliente', dataIndex: 'nombre_cliente', ellipsis: true },
-        { title: 'Título / Glosa', dataIndex: 'titulo', ellipsis: true, render: (v) => v || <span style={{ color: C.textTer }}>—</span> },
-        {
-            title: 'Estado', dataIndex: 'estado_label', width: 170,
-            render: (v, r) => <Tag color={ESTADO_COLOR[r.estado_unificado] || 'default'}>{v}</Tag>,
-        },
-        {
-            title: 'Último mensaje', dataIndex: 'ultimo_mensaje_texto', ellipsis: true,
-            render: (v, r) => v ? (
-                <span>
-                    <span style={{ color: C.textTer, fontSize: 11.5 }}>{r.ultimo_mensaje_autor === 'ADL_ONE' ? 'Tú: ' : 'Cliente: '}</span>
-                    {v}
-                </span>
-            ) : <span style={{ color: C.textTer }}>—</span>,
-        },
-        {
-            title: 'Total', dataIndex: 'total_uf', width: 130, align: 'right',
-            render: (v, r) => v ? <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtUf(v)} UF<br /><span style={{ fontSize: 11, color: C.textTer }}>$ {fmtClp(r.total_clp || 0)}</span></span> : <span style={{ color: C.textTer }}>—</span>,
-        },
-        { title: 'Actualizada', dataIndex: 'fecha_actualizacion', width: 150, render: fmtFechaHora },
-    ];
 
     // ------------------------------------------------------------------
     // Vista: CREAR (formulario + vista previa en vivo)
@@ -780,141 +715,126 @@ const FacturacionCotizaciones: React.FC = () => {
 
     if (creando) {
         return (
-            <div className="adl-fco-wrap">
-                <style>{CSS}</style>
-                <div className="adl-fco-detail-header">
-                    <Button icon={<IconArrowLeft size={16} />} onClick={cerrarCreacion}>Cancelar</Button>
-                    <div style={{ flex: 1 }}>
-                        <h2 className="adl-fco-title" style={{ fontSize: 19 }}>Armar cotización</h2>
+            <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
+                <div className="mb-7 flex flex-wrap items-center gap-3.5 border-b border-border pb-5">
+                    <Button variant="outline" onClick={cerrarCreacion}><IconArrowLeft size={16} /> Cancelar</Button>
+                    <div className="flex-1">
+                        <h2 className="text-lg font-semibold text-foreground">Armar cotización</h2>
                     </div>
-                    <Button type="primary" loading={guardandoCotizacion} onClick={guardarCotizacion}>Crear cotización</Button>
+                    <Button disabled={guardandoCotizacion} onClick={guardarCotizacion}>
+                        {guardandoCotizacion && <Spinner className="h-4 w-4 border-primary-foreground/40 border-t-transparent" />}
+                        Crear cotización
+                    </Button>
                 </div>
 
-                <div className="adl-fco-crear-grid">
+                <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(320px,1fr)_minmax(0,740px)] lg:gap-8" style={{ maxWidth: 1500 }}>
                     {/* Formulario */}
-                    <div className="adl-fco-card">
+                    <div className="mb-5 rounded-xl border border-border bg-card p-6">
                         <div>
-                            <div className="adl-fco-form-row">
-                                <div className="adl-fco-field">
-                                    <label>Cliente *</label>
-                                    <Select
-                                        showSearch
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <Field label="Cliente *" hint={items.length > 0 ? 'Quita los ítems para cambiar de cliente.' : undefined}>
+                                    <Combobox
                                         disabled={items.length > 0}
                                         placeholder="Selecciona un cliente"
-                                        optionFilterProp="label"
-                                        style={{ width: '100%' }}
-                                        value={idEmpresaServicioSel}
-                                        options={empresas.map((e) => ({ value: e.id, label: e.nombre }))}
-                                        onChange={(val) => onEmpresaChange(val)}
+                                        searchPlaceholder="Buscar cliente..."
+                                        value={idEmpresaServicioSel !== undefined ? String(idEmpresaServicioSel) : undefined}
+                                        options={empresas.map((e) => ({ value: String(e.id), label: e.nombre }))}
+                                        onValueChange={(val) => onEmpresaChange(Number(val))}
                                     />
-                                    {items.length > 0 && <p style={{ fontSize: 11.5, color: C.textTer, margin: '6px 0 0' }}>Quita los ítems para cambiar de cliente.</p>}
-                                </div>
-                                <div className="adl-fco-field">
-                                    <label>Centro *</label>
-                                    <Select
-                                        allowClear
-                                        showSearch
+                                </Field>
+                                <Field label="Centro *">
+                                    <Combobox
                                         disabled={!idEmpresaServicioSel || items.length > 0}
                                         placeholder={idEmpresaServicioSel ? 'Selecciona un centro' : 'Elige un cliente primero'}
-                                        optionFilterProp="label"
-                                        style={{ width: '100%' }}
-                                        value={idCentroSel}
-                                        options={centros.map((c) => ({ value: c.id, label: c.nombre }))}
-                                        onChange={onCentroChange}
+                                        searchPlaceholder="Buscar centro..."
+                                        value={idCentroSel !== undefined ? String(idCentroSel) : undefined}
+                                        options={[
+                                            { value: '', label: '— Ninguno —' },
+                                            ...centros.map((c) => ({ value: String(c.id), label: c.nombre })),
+                                        ]}
+                                        onValueChange={(val) => onCentroChange(val ? Number(val) : undefined)}
                                     />
-                                </div>
+                                </Field>
                             </div>
-                            <div className="adl-fco-field">
-                                <label>Tabla {tablas.length > 0 ? '*' : '(este centro no tiene convenio)'}</label>
-                                <Select
-                                    showSearch
+                            <Field
+                                label={`Tabla ${tablas.length > 0 ? '*' : '(este centro no tiene convenio)'}`}
+                                hint={`El precio del mismo análisis cambia según el centro y la tabla del convenio.${idCentroSel && tablas.length === 0 ? ' Este centro no tiene convenio cargado: los ítems saldrán sin tarifa.' : ''}`}
+                            >
+                                <Combobox
                                     disabled={!idCentroSel || tablas.length === 0 || items.length > 0}
                                     placeholder={idCentroSel ? (tablas.length ? 'Selecciona la tabla del convenio' : 'Este centro no tiene tarifas cargadas') : 'Elige un centro primero'}
-                                    optionFilterProp="label"
-                                    style={{ width: '100%' }}
-                                    value={idTablamaSel}
+                                    searchPlaceholder="Buscar tabla..."
+                                    value={idTablamaSel !== undefined ? String(idTablamaSel) : undefined}
                                     options={tablas.map((t: any) => ({
-                                        value: Number(t.id_tablama),
+                                        value: String(Number(t.id_tablama)),
                                         label: `${t.nombre_tablama || `Tabla ${t.id_tablama}`} · ${t.tarifas} tarifas`,
                                     }))}
-                                    onChange={setIdTablamaSel}
+                                    onValueChange={(val) => setIdTablamaSel(val ? Number(val) : undefined)}
                                 />
-                                <p style={{ fontSize: 11.5, color: C.textTer, margin: '6px 0 0' }}>
-                                    El precio del mismo análisis cambia según el centro y la tabla del convenio.
-                                    {idCentroSel && tablas.length === 0 && ' Este centro no tiene convenio cargado: los ítems saldrán sin tarifa.'}
-                                </p>
-                            </div>
-                            <div className="adl-fco-form-row">
-                                <div className="adl-fco-field">
-                                    <label>Título / Glosa</label>
+                            </Field>
+                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                                <Field label="Título / Glosa">
                                     <Input placeholder="Ej: Monitoreo trimestral" value={glosaSel} onChange={(e) => setGlosaSel(e.target.value)} />
-                                </div>
-                                <div className="adl-fco-field">
-                                    <label>Vigencia (días)</label>
-                                    <InputNumber min={1} style={{ width: '100%' }} value={vigenciaDiasSel} onChange={(v) => setVigenciaDiasSel(Number(v) || 30)} />
-                                </div>
+                                </Field>
+                                <Field label="Vigencia (días)">
+                                    <Input
+                                        type="number" min={1}
+                                        value={vigenciaDiasSel}
+                                        onChange={(e) => setVigenciaDiasSel(Number(e.target.value) || 30)}
+                                    />
+                                </Field>
                             </div>
-                            <div className="adl-fco-field">
-                                <label>Notas para el cliente</label>
-                                <Input.TextArea rows={2} placeholder="Opcional" value={observacionesSel} onChange={(e) => setObservacionesSel(e.target.value)} />
-                            </div>
+                            <Field label="Notas para el cliente">
+                                <Textarea rows={2} placeholder="Opcional" value={observacionesSel} onChange={(e) => setObservacionesSel(e.target.value)} />
+                            </Field>
 
-                            <Divider style={{ margin: '4px 0 14px' }} />
-                            <p className="adl-fco-sectitle">Agregar ítems</p>
+                            <div className="my-1 mb-3.5 border-t border-border" />
+                            <p className="mb-3.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Agregar ítems</p>
                             {(!idEmpresaServicioSel || !idCentroSel) ? (
-                                <Alert
-                                    type="warning"
-                                    showIcon
-                                    style={{ marginBottom: 12 }}
-                                    message="Completa cliente y centro antes de agregar ítems"
-                                    description="Las tarifas del convenio están definidas por esa combinación: sin ellas el precio no se puede resolver."
-                                />
+                                <InlineAlert tone="warning" title="Completa cliente y centro antes de agregar ítems"
+                                    description="Las tarifas del convenio están definidas por esa combinación: sin ellas el precio no se puede resolver." />
                             ) : tablas.length === 0 ? (
-                                <Alert
-                                    type="info"
-                                    showIcon
-                                    style={{ marginBottom: 12 }}
-                                    message="Este centro no tiene convenio cargado"
-                                    description="Puedes cotizar igual, pero los ítems quedarán marcados “Sin tarifa” y habrá que definir el precio a mano."
-                                />
+                                <InlineAlert tone="info" title="Este centro no tiene convenio cargado"
+                                    description="Puedes cotizar igual, pero los ítems quedarán marcados “Sin tarifa” y habrá que definir el precio a mano." />
                             ) : !idTablamaSel ? (
-                                <Alert
-                                    type="warning"
-                                    showIcon
-                                    style={{ marginBottom: 12 }}
-                                    message="Selecciona la tabla del convenio"
-                                    description="Sin la tabla el motor no puede calzar la tarifa y los precios saldrían en cero."
-                                />
+                                <InlineAlert tone="warning" title="Selecciona la tabla del convenio"
+                                    description="Sin la tabla el motor no puede calzar la tarifa y los precios saldrían en cero." />
                             ) : null}
 
-                            <div className="adl-fco-itembuilder">
-                                <Select
+                            <div className="mb-4 flex flex-wrap items-center gap-2">
+                                <Combobox
+                                    className="min-w-[130px] flex-1"
                                     placeholder="Normativa"
-                                    style={{ flex: '1 1 150px', minWidth: 130 }}
+                                    searchPlaceholder="Buscar normativa..."
                                     value={normativaSel}
-                                    onChange={onNormativaChange}
+                                    onValueChange={onNormativaChange}
                                     options={normativas.map((n) => ({ value: String(n.id_normativa), label: n.nombre_normativa }))}
                                 />
-                                <Select
+                                <Combobox
+                                    className="min-w-[130px] flex-1"
                                     placeholder="Referencia"
-                                    style={{ flex: '1 1 150px', minWidth: 130 }}
+                                    searchPlaceholder="Buscar referencia..."
                                     value={referenciaSel}
                                     disabled={!normativaSel}
-                                    onChange={onReferenciaChange}
+                                    onValueChange={onReferenciaChange}
                                     options={referencias.map((r) => ({ value: String(r.id_normativareferencia), label: r.nombre_normativareferencia }))}
                                 />
-                                <Select
+                                <Combobox
+                                    className="min-w-[160px] flex-[2_1_200px]"
                                     placeholder="Técnica"
-                                    style={{ flex: '2 1 200px', minWidth: 160 }}
+                                    searchPlaceholder="Buscar técnica..."
                                     value={tecnicaSel}
                                     disabled={!referenciaSel}
-                                    showSearch
-                                    optionFilterProp="label"
-                                    onChange={setTecnicaSel}
+                                    onValueChange={setTecnicaSel}
                                     options={tecnicasDisponibles.map((t) => ({ value: String(t.id_referenciaanalisis), label: t.nombre_tecnica }))}
                                 />
-                                <InputNumber min={1} value={cantidadSel} onChange={(v) => setCantidadSel(Number(v) || 1)} style={{ width: 72, flexShrink: 0 }} />
-                                <Button icon={<IconPlus size={14} />} onClick={agregarItem} style={{ flexShrink: 0 }}>Agregar</Button>
+                                <Input
+                                    type="number" min={1}
+                                    value={cantidadSel}
+                                    onChange={(e) => setCantidadSel(Number(e.target.value) || 1)}
+                                    className="w-[72px] shrink-0"
+                                />
+                                <Button variant="outline" className="shrink-0" onClick={agregarItem}><IconPlus size={14} /> Agregar</Button>
                             </div>
 
                             {/* Una tarjeta por servicio: el título y sus ítems.
@@ -923,139 +843,147 @@ const FacturacionCotizaciones: React.FC = () => {
                             {secciones.map((sec, idx) => (
                                 <div
                                     key={sec.key}
-                                    className="adl-fco-seccion"
-                                    style={{ borderColor: sec.key === seccionActiva ? C.primary : C.border }}
+                                    className={cn(
+                                        'mb-3.5 cursor-pointer rounded-lg border bg-card p-3.5 pb-2.5 transition-colors hover:border-primary',
+                                        sec.key === seccionActiva ? 'border-primary' : 'border-border'
+                                    )}
                                     onClick={() => setSeccionActiva(sec.key)}
                                 >
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 10 }}>
-                                        <span className="adl-fco-seccion-n">{idx + 1}</span>
+                                    <div className="mb-2.5 flex items-center gap-2">
+                                        <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11.5px] font-bold text-white" style={{ background: C.navy }}>
+                                            {idx + 1}
+                                        </span>
                                         <Input
-                                            size="small"
                                             placeholder={`Título del servicio ${idx + 1} — ej: Muestreo y análisis aguas residuales`}
                                             value={sec.titulo}
+                                            className="h-8"
                                             onChange={(e) => setSecciones((prev) => prev.map((s) => s.key === sec.key ? { ...s, titulo: e.target.value } : s))}
                                         />
                                         {secciones.length > 1 && (
-                                            <Tooltip title="Quitar este servicio">
-                                                <Button size="small" type="text" danger icon={<IconTrash size={14} />} onClick={() => quitarSeccion(sec.key)} />
-                                            </Tooltip>
+                                            <Button
+                                                variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                title="Quitar este servicio"
+                                                onClick={(e) => { e.stopPropagation(); quitarSeccion(sec.key); }}
+                                            >
+                                                <IconTrash size={14} />
+                                            </Button>
                                         )}
                                     </div>
 
                                     {sec.items.length > 0 ? (
-                                        <Table
-                                            size="small"
-                                            pagination={false}
-                                            rowKey="key"
-                                            dataSource={sec.items}
-                                            columns={[
-                                                {
-                                                    title: 'Ítem', dataIndex: 'nombre_tecnica',
-                                                    render: (v, r) => r.idTecnica ? v : (
-                                                        // Línea libre: el nombre lo escribe el usuario.
-                                                        <Input
-                                                            size="small"
-                                                            placeholder="Ej: Gastos de Traslado"
-                                                            value={v}
-                                                            onChange={(e) => parchearItem(sec.key, r.key, { nombre_tecnica: e.target.value })}
-                                                        />
-                                                    ),
-                                                },
-                                                {
-                                                    title: 'Cant.', dataIndex: 'cantidad', width: 70, align: 'right',
-                                                    render: (v, r) => (
-                                                        <InputNumber
-                                                            size="small" min={1} value={v} style={{ width: 60 }}
-                                                            onChange={(nv) => parchearItem(sec.key, r.key, { cantidad: Number(nv) || 1 })}
-                                                        />
-                                                    ),
-                                                },
-                                                {
-                                                    // Editable siempre: es la salida para los análisis
-                                                    // que el convenio no cubre y para las líneas libres.
-                                                    title: 'P. Unit. UF', dataIndex: 'precioUf', width: 120, align: 'right',
-                                                    render: (v, r) => r.resolviendo ? <Spin size="small" /> : (
-                                                        <InputNumber
-                                                            size="small" min={0} step={0.01} value={v ?? undefined}
-                                                            placeholder="Sin tarifa" style={{ width: 100 }}
-                                                            status={v == null ? 'warning' : undefined}
-                                                            onChange={(nv) => parchearItem(sec.key, r.key, { precioUf: nv == null ? null : Number(nv), precioManual: true })}
-                                                        />
-                                                    ),
-                                                },
-                                                {
-                                                    title: '', width: 40, align: 'center',
-                                                    render: (_, r) => <Button size="small" type="text" danger icon={<IconTrash size={14} />} onClick={() => quitarItem(sec.key, r.key)} />,
-                                                },
-                                            ]}
-                                        />
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableHead>Ítem</TableHead>
+                                                    <TableHead className="w-[70px] text-right">Cant.</TableHead>
+                                                    <TableHead className="w-[120px] text-right">P. Unit. UF</TableHead>
+                                                    <TableHead className="w-10" />
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {sec.items.map((it) => (
+                                                    <TableRow key={it.key} className="hover:bg-transparent" onClick={(e) => e.stopPropagation()}>
+                                                        <TableCell>
+                                                            {it.idTecnica ? it.nombre_tecnica : (
+                                                                // Línea libre: el nombre lo escribe el usuario.
+                                                                <Input
+                                                                    className="h-8"
+                                                                    placeholder="Ej: Gastos de Traslado"
+                                                                    value={it.nombre_tecnica}
+                                                                    onChange={(e) => parchearItem(sec.key, it.key, { nombre_tecnica: e.target.value })}
+                                                                />
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <Input
+                                                                type="number" min={1}
+                                                                className="h-8 w-[60px] text-right"
+                                                                value={it.cantidad}
+                                                                onChange={(e) => parchearItem(sec.key, it.key, { cantidad: Number(e.target.value) || 1 })}
+                                                            />
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            {it.resolviendo ? (
+                                                                <div className="flex justify-end"><Spinner className="h-4 w-4" /></div>
+                                                            ) : (
+                                                                <Input
+                                                                    type="number" min={0} step={0.01}
+                                                                    className={cn('h-8 w-[100px] text-right', it.precioUf == null && 'border-warning')}
+                                                                    placeholder="Sin tarifa"
+                                                                    value={it.precioUf ?? ''}
+                                                                    onChange={(e) => parchearItem(sec.key, it.key, { precioUf: e.target.value === '' ? null : Number(e.target.value), precioManual: true })}
+                                                                />
+                                                            )}
+                                                        </TableCell>
+                                                        <TableCell className="text-center">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => quitarItem(sec.key, it.key)}>
+                                                                <IconTrash size={14} />
+                                                            </Button>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
                                     ) : (
-                                        <p style={{ fontSize: 12.5, color: C.textTer, margin: 0 }}>
+                                        <p className="text-[12.5px] text-muted-foreground">
                                             Sin ítems. {sec.key === seccionActiva ? 'Agrégalos con el buscador de arriba.' : 'Haz clic para activarlo.'}
                                         </p>
                                     )}
 
                                     <Button
-                                        size="small"
-                                        type="link"
-                                        icon={<IconPlus size={13} />}
-                                        style={{ paddingLeft: 0, marginTop: 6 }}
+                                        variant="link" size="sm"
+                                        className="mt-1.5 h-auto px-0 text-xs"
                                         onClick={(e) => { e.stopPropagation(); agregarLineaLibre(sec.key); }}
                                     >
-                                        Agregar línea sin tarifa (traslado, manejo de muestras…)
+                                        <IconPlus size={13} /> Agregar línea sin tarifa (traslado, manejo de muestras…)
                                     </Button>
                                 </div>
                             ))}
 
-                            <Button
-                                icon={<IconPlus size={14} />}
-                                onClick={agregarSeccion}
-                                style={{ marginTop: 4 }}
-                                block
-                            >
-                                Agregar otro servicio a esta propuesta
+                            <Button variant="outline" className="mt-1 w-full" onClick={agregarSeccion}>
+                                <IconPlus size={14} /> Agregar otro servicio a esta propuesta
                             </Button>
                         </div>
                     </div>
 
                     {/* Vista previa en vivo — misma estructura y colores que el PDF
                         que genera el backend (Propuesta Técnico Económica). */}
-                    <div className="adl-fco-preview">
-                        <div className="adl-fco-doc">
+                    <div className="sticky top-5 w-full overflow-y-auto rounded-md border border-[#e3e3e3] bg-white px-[46px] pb-11 pt-[38px] shadow-[0_2px_12px_rgba(0,0,0,0.06)]" style={{ maxHeight: 'calc(100vh - 150px)' }}>
+                        <div className="text-[11.5px] leading-[1.55] text-black">
                             {/* Encabezado: logo + título + doble filete de marca */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 20 }}>
-                                <img src={logoAdl} alt="ADL Diagnostic" style={{ width: 170 }} />
-                                <div style={{ textAlign: 'right' }}>
-                                    <div style={{ fontSize: 16, fontWeight: 700, color: C.navy, lineHeight: 1.25 }}>
+                            <div className="flex items-start justify-between gap-5">
+                                <img src={logoAdl} alt="ADL Diagnostic" className="w-[170px]" />
+                                <div className="text-right">
+                                    <div className="text-base font-bold leading-tight" style={{ color: C.navy }}>
                                         PROPUESTA<br />TÉCNICO ECONÓMICA
                                     </div>
-                                    <div style={{ fontSize: 10.5, color: C.textTer, marginTop: 4 }}>Medio Ambiente</div>
+                                    <div className="mt-1 text-[10.5px] text-neutral-500">Medio Ambiente</div>
                                 </div>
                             </div>
-                            <div style={{ borderTop: `1.5px solid ${C.navy}`, marginTop: 16 }} />
-                            <div style={{ borderTop: `2.5px solid ${C.orange}`, marginTop: 2.5, marginBottom: 22 }} />
+                            <div className="mt-4 border-t-[1.5px]" style={{ borderColor: C.navy }} />
+                            <div className="mb-[22px] mt-[2.5px] border-t-[2.5px]" style={{ borderColor: C.orange }} />
 
                             {/* Datos de la propuesta */}
-                            <dl className="adl-fco-datos">
-                                <dt>Código Propuesta</dt>
-                                <dd>: MA-P<i style={{ color: C.textTer, fontStyle: 'normal' }}>(nuevo)</i>-{fmtDdmmyyyy(new Date())}-{(nombreClienteSel || '—').toUpperCase()}</dd>
-                                <dt>Señores</dt>
-                                <dd>: {nombreClienteSel || <span style={{ color: C.textTer }}>Selecciona un cliente</span>}</dd>
-                                <dt>RUT</dt>
-                                <dd>: {clienteConfig?.rut?.trim() || <span style={{ color: C.textTer }}>—</span>}</dd>
-                                <dt>Dirección</dt>
-                                <dd>: {clienteConfig?.direccion?.trim() || <span style={{ color: C.textTer }}>—</span>}</dd>
-                                <dt>Fecha</dt>
+                            <dl className="grid grid-cols-[112px_1fr] gap-x-2 gap-y-[3.5px] text-[11px]">
+                                <dt className="font-bold" style={{ color: C.navy }}>Código Propuesta</dt>
+                                <dd>: MA-P<i className="not-italic text-neutral-500">(nuevo)</i>-{fmtDdmmyyyy(new Date())}-{(nombreClienteSel || '—').toUpperCase()}</dd>
+                                <dt className="font-bold" style={{ color: C.navy }}>Señores</dt>
+                                <dd>: {nombreClienteSel || <span className="text-neutral-400">Selecciona un cliente</span>}</dd>
+                                <dt className="font-bold" style={{ color: C.navy }}>RUT</dt>
+                                <dd>: {clienteConfig?.rut?.trim() || <span className="text-neutral-400">—</span>}</dd>
+                                <dt className="font-bold" style={{ color: C.navy }}>Dirección</dt>
+                                <dd>: {clienteConfig?.direccion?.trim() || <span className="text-neutral-400">—</span>}</dd>
+                                <dt className="font-bold" style={{ color: C.navy }}>Fecha</dt>
                                 <dd>: {fmtFechaLarga(new Date())}</dd>
                                 {(clienteConfig?.contacto || '').trim() && (
                                     <>
-                                        <dt>Atención</dt>
+                                        <dt className="font-bold" style={{ color: C.navy }}>Atención</dt>
                                         <dd>: {clienteConfig.contacto.trim()}</dd>
                                     </>
                                 )}
                                 {nombreCentroSel && (
                                     <>
-                                        <dt>Centro</dt>
+                                        <dt className="font-bold" style={{ color: C.navy }}>Centro</dt>
                                         <dd>: {nombreCentroSel}</dd>
                                     </>
                                 )}
@@ -1064,8 +992,10 @@ const FacturacionCotizaciones: React.FC = () => {
                             {/* Un bloque numerado por servicio, igual que la propuesta en Word */}
                             {items.length === 0 ? (
                                 <>
-                                    <h3>1. {(secciones[0]?.titulo || glosaSel || 'SERVICIO DE MUESTREO Y ANÁLISIS').toUpperCase()}</h3>
-                                    <div className="adl-fco-preview-empty">
+                                    <h3 className="my-[22px] mb-2.5 text-[11.5px] font-bold tracking-wide" style={{ color: C.navy }}>
+                                        1. {(secciones[0]?.titulo || glosaSel || 'SERVICIO DE MUESTREO Y ANÁLISIS').toUpperCase()}
+                                    </h3>
+                                    <div className="rounded-md border border-dashed border-neutral-300 py-7 text-center text-[11px] text-neutral-400">
                                         Los ítems que agregues aparecerán acá, con el precio real del convenio del cliente.
                                     </div>
                                 </>
@@ -1074,25 +1004,27 @@ const FacturacionCotizaciones: React.FC = () => {
                                     const subtotalSec = sec.items.reduce((a, it) => a + (it.precioUf || 0) * it.cantidad, 0);
                                     return (
                                         <div key={sec.key}>
-                                            <h3>{idx + 1}. {(sec.titulo || glosaSel || `SERVICIO ${idx + 1}`).toUpperCase()}</h3>
-                                            <table>
+                                            <h3 className="my-[22px] mb-2.5 text-[11.5px] font-bold tracking-wide" style={{ color: C.navy }}>
+                                                {idx + 1}. {(sec.titulo || glosaSel || `SERVICIO ${idx + 1}`).toUpperCase()}
+                                            </h3>
+                                            <table className="w-full border-collapse text-[10.5px]">
                                                 <thead>
                                                     <tr>
-                                                        <th>ÍTEM</th>
-                                                        <th style={{ textAlign: 'right', width: 130 }}>Valor Neto Unitario (UF)</th>
-                                                        <th style={{ textAlign: 'right', width: 80 }}>N° Muestras</th>
-                                                        <th style={{ textAlign: 'right', width: 100 }}>Valor Neto (UF)</th>
+                                                        <th className="p-2 text-left text-[10px] font-bold" style={{ background: C.bandaTabla, color: C.navy }}>ÍTEM</th>
+                                                        <th className="w-[130px] p-2 text-right text-[10px] font-bold" style={{ background: C.bandaTabla, color: C.navy }}>Valor Neto Unitario (UF)</th>
+                                                        <th className="w-20 p-2 text-right text-[10px] font-bold" style={{ background: C.bandaTabla, color: C.navy }}>N° Muestras</th>
+                                                        <th className="w-[100px] p-2 text-right text-[10px] font-bold" style={{ background: C.bandaTabla, color: C.navy }}>Valor Neto (UF)</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     {sec.items.map((it) => (
                                                         <tr key={it.key}>
-                                                            <td>{it.nombre_tecnica || <span style={{ color: C.textTer }}>(sin nombre)</span>}</td>
-                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                                                                {it.resolviendo ? '…' : it.precioUf != null ? fmtUf(it.precioUf) : <span style={{ color: '#cf1322' }}>Sin tarifa</span>}
+                                                            <td className="border-b border-neutral-200 p-2 align-top">{it.nombre_tecnica || <span className="text-neutral-400">(sin nombre)</span>}</td>
+                                                            <td className="border-b border-neutral-200 p-2 text-right align-top tabular-nums">
+                                                                {it.resolviendo ? '…' : it.precioUf != null ? fmtUf(it.precioUf) : <span className="text-destructive">Sin tarifa</span>}
                                                             </td>
-                                                            <td style={{ textAlign: 'right' }}>{it.cantidad}</td>
-                                                            <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                                                            <td className="border-b border-neutral-200 p-2 text-right align-top">{it.cantidad}</td>
+                                                            <td className="border-b border-neutral-200 p-2 text-right align-top tabular-nums">
                                                                 {it.resolviendo ? '…' : it.precioUf != null ? fmtUf(it.precioUf * it.cantidad) : '—'}
                                                             </td>
                                                         </tr>
@@ -1101,9 +1033,9 @@ const FacturacionCotizaciones: React.FC = () => {
                                             </table>
                                             {/* El subtotal por servicio solo aporta si hay más de uno */}
                                             {visibles.length > 1 && (
-                                                <div className="adl-fco-tot" style={{ marginTop: 6, fontWeight: 700, color: C.navy, justifyContent: 'flex-end', gap: 18 }}>
+                                                <div className="mt-1.5 flex justify-end gap-4 text-[11px] font-bold" style={{ color: C.navy }}>
                                                     <span>Subtotal servicio U.F.:</span>
-                                                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtUf(subtotalSec)}</span>
+                                                    <span className="tabular-nums">{fmtUf(subtotalSec)}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -1113,23 +1045,23 @@ const FacturacionCotizaciones: React.FC = () => {
 
                             {items.length > 0 && (
                                 <>
-                                    <div style={{ marginTop: 18, marginLeft: 'auto', width: 290 }}>
-                                        <div style={{ borderTop: `1.5px solid ${C.navy}`, marginBottom: 8 }} />
-                                        <div className="adl-fco-tot"><span>Subtotal U.F.:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtUf(subtotalUf)}</span></div>
-                                        <div className="adl-fco-tot" style={{ fontWeight: 700, color: C.navy }}>
-                                            <span>TOTAL GENERAL U.F.:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{fmtUf(subtotalUf)}</span>
+                                    <div className="ml-auto mt-[18px] w-[290px]">
+                                        <div className="mb-2 border-t-[1.5px]" style={{ borderColor: C.navy }} />
+                                        <div className="flex justify-between py-0.5 text-[11px]"><span>Subtotal U.F.:</span><span className="tabular-nums">{fmtUf(subtotalUf)}</span></div>
+                                        <div className="flex justify-between py-0.5 text-[11px] font-bold" style={{ color: C.navy }}>
+                                            <span>TOTAL GENERAL U.F.:</span><span className="tabular-nums">{fmtUf(subtotalUf)}</span>
                                         </div>
                                         {valorUfHoy && (
                                             <>
-                                                <div className="adl-fco-tot" style={{ marginTop: 8 }}><span>TOTAL NETO $:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>$ {fmtClp(netoClp)}</span></div>
-                                                <div className="adl-fco-tot"><span>IVA (19%) $:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>$ {fmtClp(ivaClp)}</span></div>
-                                                <div className="adl-fco-tot" style={{ fontWeight: 700, color: C.orange, fontSize: 13 }}>
-                                                    <span>TOTAL $:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>$ {fmtClp(totalClp)}</span>
+                                                <div className="mt-2 flex justify-between py-0.5 text-[11px]"><span>TOTAL NETO $:</span><span className="tabular-nums">$ {fmtClp(netoClp)}</span></div>
+                                                <div className="flex justify-between py-0.5 text-[11px]"><span>IVA (19%) $:</span><span className="tabular-nums">$ {fmtClp(ivaClp)}</span></div>
+                                                <div className="flex justify-between py-0.5 text-[13px] font-bold" style={{ color: C.orange }}>
+                                                    <span>TOTAL $:</span><span className="tabular-nums">$ {fmtClp(totalClp)}</span>
                                                 </div>
                                             </>
                                         )}
                                     </div>
-                                    <p className="adl-fco-nota" style={{ marginTop: 14, fontStyle: 'italic' }}>
+                                    <p className="mt-3.5 text-[10px] italic leading-relaxed text-neutral-600">
                                         Valores expresados en UF.{valorUfHoy ? ` Conversión referencial con UF de $ ${fmtUf(valorUfHoy)}; se factura con la UF del día de facturación.` : ''}
                                     </p>
                                 </>
@@ -1137,23 +1069,25 @@ const FacturacionCotizaciones: React.FC = () => {
 
                             {/* Secciones fijas: su número va después de los
                                 servicios (con dos servicios son la 3 y la 4) */}
-                            <h3>{nFijoPreview + 1}. ANTECEDENTES GENERALES</h3>
-                            <ul className="adl-fco-legal">
+                            <h3 className="my-[22px] mb-2.5 text-[11.5px] font-bold tracking-wide" style={{ color: C.navy }}>{nFijoPreview + 1}. ANTECEDENTES GENERALES</h3>
+                            <ul className="m-0 list-none p-0 text-[10px] leading-relaxed text-black">
                                 {ANTECEDENTES_GENERALES.map((t, i) => (
-                                    <li key={i}><span>{String.fromCharCode(97 + i)}.</span><span>{t}</span></li>
+                                    <li key={i} className="mb-1.5 grid grid-cols-[16px_1fr] gap-x-1 text-justify">
+                                        <span className="font-bold">{String.fromCharCode(97 + i)}.</span><span>{t}</span>
+                                    </li>
                                 ))}
                             </ul>
 
-                            <h3>{nFijoPreview + 2}. CONDICIONES GENERALES DEL SERVICIO</h3>
+                            <h3 className="my-[22px] mb-2.5 text-[11.5px] font-bold tracking-wide" style={{ color: C.navy }}>{nFijoPreview + 2}. CONDICIONES GENERALES DEL SERVICIO</h3>
 
-                            <h4>a. VALIDEZ DE LA PROPUESTA</h4>
-                            <p className="adl-fco-nota">
+                            <h4 className="mb-1 mt-3.5 text-[11px] font-bold text-black">a. VALIDEZ DE LA PROPUESTA</h4>
+                            <p className="text-[10px] leading-relaxed text-neutral-600">
                                 La presente cotización tiene una validez de {vigenciaDiasSel} días a partir de la fecha de emisión
                                 (hasta el {fmtFecha(fechaVigenciaPreview.toISOString())}).
                             </p>
 
-                            <h4>b. DATOS EMPRESA</h4>
-                            <p className="adl-fco-nota">
+                            <h4 className="mb-1 mt-3.5 text-[11px] font-bold text-black">b. DATOS EMPRESA</h4>
+                            <p className="text-[10px] leading-relaxed text-neutral-600">
                                 Nombre: Soc. ADL Diagnostic Chile SpA.<br />
                                 Rut: 77.354.970-2<br />
                                 Giro: Laboratorio<br />
@@ -1163,31 +1097,33 @@ const FacturacionCotizaciones: React.FC = () => {
                                 comprobante respectivo a la Srta. Karina Rival a la casilla electrónica krival@adldiagnostic.cl
                             </p>
 
-                            <h4>c. CONDICIONES DE PAGO</h4>
-                            <p className="adl-fco-nota">
+                            <h4 className="mb-1 mt-3.5 text-[11px] font-bold text-black">c. CONDICIONES DE PAGO</h4>
+                            <p className="text-[10px] leading-relaxed text-neutral-600">
                                 El pago se realizará a 30 días, con valor de UF al día de facturación y previa emisión de la
                                 respectiva Orden de Compra a nombre de ADL Diagnostic Chile SpA.
                             </p>
 
-                            <h4>d. NOTAS IMPORTANTES DEL SERVICIO</h4>
-                            <ul className="adl-fco-legal">
+                            <h4 className="mb-1 mt-3.5 text-[11px] font-bold text-black">d. NOTAS IMPORTANTES DEL SERVICIO</h4>
+                            <ul className="m-0 list-none p-0 text-[10px] leading-relaxed text-black">
                                 {NOTAS_IMPORTANTES.map((t, i) => (
-                                    <li key={i}><span>•</span><span>{t}</span></li>
+                                    <li key={i} className="mb-1.5 grid grid-cols-[16px_1fr] gap-x-1 text-justify">
+                                        <span className="font-bold">•</span><span>{t}</span>
+                                    </li>
                                 ))}
                             </ul>
 
                             {observacionesSel && (
                                 <>
-                                    <h4>e. OBSERVACIONES</h4>
-                                    <p className="adl-fco-nota" style={{ whiteSpace: 'pre-wrap' }}>{observacionesSel}</p>
+                                    <h4 className="mb-1 mt-3.5 text-[11px] font-bold text-black">e. OBSERVACIONES</h4>
+                                    <p className="whitespace-pre-wrap text-[10px] leading-relaxed text-neutral-600">{observacionesSel}</p>
                                 </>
                             )}
 
-                            <div style={{ marginTop: 34 }}>
-                                <p style={{ margin: '0 0 34px' }}>Atentamente,</p>
-                                <div style={{ borderTop: '1px solid #bbb', width: 230 }} />
-                                <div style={{ fontWeight: 700, color: C.navy, fontSize: 11.5, marginTop: 5 }}>Jefe Comercial Medio Ambiente</div>
-                                <div style={{ fontSize: 11 }}>Soc. ADL Diagnostic Chile SpA.</div>
+                            <div className="mt-[34px]">
+                                <p className="mb-[34px]">Atentamente,</p>
+                                <div className="w-[230px] border-t border-neutral-400" />
+                                <div className="mt-[5px] text-[11.5px] font-bold" style={{ color: C.navy }}>Jefe Comercial Medio Ambiente</div>
+                                <div className="text-[11px]">Soc. ADL Diagnostic Chile SpA.</div>
                             </div>
                         </div>
                     </div>
@@ -1217,350 +1153,355 @@ const FacturacionCotizaciones: React.FC = () => {
             { color: 'gray', children: <span>Solicitud recibida — {fmtFechaHora(seleccion.fecha_creacion)}</span> },
             ...(cotizacionDetalle ? [{ color: 'blue', children: <span>Cotización N° {cotizacionDetalle.numero_cotizacion} creada — {fmtFechaHora(cotizacionDetalle.fecha_creacion)}</span> }] : []),
             ...(cotizacionDetalle?.portal_publicado ? [{ color: 'blue', children: <span>Enviada al cliente — {fmtFechaHora(cotizacionDetalle.fecha_portal_publicado)}</span> }] : []),
-            { color: ESTADO_COLOR[seleccion.estado_unificado] === 'green' ? 'green' : ESTADO_COLOR[seleccion.estado_unificado] === 'red' ? 'red' : 'blue', children: <span><b>Estado actual:</b> {seleccion.estado_label}</span> },
+            { color: ESTADO_BADGE_VARIANT[seleccion.estado_unificado] === 'success' ? 'green' : ESTADO_BADGE_VARIANT[seleccion.estado_unificado] === 'destructive' ? 'red' : 'blue', children: <span><b>Estado actual:</b> {seleccion.estado_label}</span> },
         ];
 
         return (
-            <div className="adl-fco-wrap">
-                <style>{CSS}</style>
-                <div className="adl-fco-detail-header">
-                    <Button icon={<IconArrowLeft size={16} />} onClick={volverALista}>Volver a la bandeja</Button>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 17, fontWeight: 700, color: C.text }}>
+            <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
+                <div className="mb-7 flex flex-wrap items-center gap-3.5 border-b border-border pb-5">
+                    <Button variant="outline" onClick={volverALista}><IconArrowLeft size={16} /> Volver a la bandeja</Button>
+                    <div className="min-w-0 flex-1">
+                        <div className="text-[17px] font-bold text-foreground">
                             {cotizacionDetalle ? `Cotización N° ${cotizacionDetalle.numero_cotizacion} — ` : ''}{seleccion.nombre_cliente}
                         </div>
-                        <div style={{ fontSize: 13, color: C.textSec }}>{seleccion.titulo || 'Sin título'}</div>
+                        <div className="text-sm text-muted-foreground">{seleccion.titulo || 'Sin título'}</div>
                     </div>
                     {cotizacionDetalle && (
-                        <div style={{ textAlign: 'right', marginRight: 4 }}>
-                            <div style={{ fontSize: 11, color: C.textTer, textTransform: 'uppercase' }}>Total</div>
-                            <div style={{ fontSize: 16, fontWeight: 700, color: C.primary }}>{fmtUf(cotizacionDetalle.total_uf)} UF</div>
+                        <div className="mr-1 text-right">
+                            <div className="text-[11px] uppercase text-muted-foreground">Total</div>
+                            <div className="text-base font-bold text-primary">{fmtUf(cotizacionDetalle.total_uf)} UF</div>
                         </div>
                     )}
-                    <Tag color={ESTADO_COLOR[seleccion.estado_unificado] || 'default'} style={{ fontSize: 12.5, padding: '4px 10px' }}>
+                    <Badge variant={ESTADO_BADGE_VARIANT[seleccion.estado_unificado] || 'secondary'} className="px-2.5 py-1 text-[12.5px]">
                         {seleccion.estado_label}
-                    </Tag>
+                    </Badge>
                     {cotizacionDetalle?.estado === 'ACEPTADA' && (
-                        <Tooltip title={cotizacionDetalle.fecha_convertida_ficha
-                            ? `Ya se generó trabajo desde esta cotización el ${fmtFecha(cotizacionDetalle.fecha_convertida_ficha)}. Puedes crear otra ficha si hace falta.`
-                            : 'Abre el formulario de ficha con el cliente, el centro y los análisis cotizados ya cargados'}>
-                            <Button
-                                type="primary"
-                                icon={<IconClipboardPlus size={15} />}
-                                loading={accionLoading === 'FICHA'}
-                                onClick={crearFichaDesdeCotizacion}
-                            >
-                                {cotizacionDetalle.fecha_convertida_ficha ? 'Crear otra ficha' : 'Crear ficha'}
-                            </Button>
-                        </Tooltip>
+                        <Button
+                            title={cotizacionDetalle.fecha_convertida_ficha
+                                ? `Ya se generó trabajo desde esta cotización el ${fmtFecha(cotizacionDetalle.fecha_convertida_ficha)}. Puedes crear otra ficha si hace falta.`
+                                : 'Abre el formulario de ficha con el cliente, el centro y los análisis cotizados ya cargados'}
+                            disabled={accionLoading === 'FICHA'}
+                            onClick={crearFichaDesdeCotizacion}
+                        >
+                            {accionLoading === 'FICHA' ? <Spinner className="h-4 w-4 border-primary-foreground/40 border-t-transparent" /> : <IconClipboardPlus size={15} />}
+                            {cotizacionDetalle.fecha_convertida_ficha ? 'Crear otra ficha' : 'Crear ficha'}
+                        </Button>
                     )}
                     {cotizacionDetalle && (
-                        <Tooltip title="Ver la Propuesta Técnico Económica">
-                            <Button
-                                icon={<IconFileTypePdf size={15} />}
-                                loading={accionLoading === 'PDF'}
-                                onClick={async () => {
-                                    setAccionLoading('PDF');
-                                    try {
-                                        await abrirArchivo(
-                                            facturacionService.urlPdfCotizacion(cotizacionDetalle.id_cotizacion),
-                                            `Propuesta_MA-P${cotizacionDetalle.numero_cotizacion}.pdf`,
-                                            'application/pdf');
-                                    } finally {
-                                        setAccionLoading(null);
-                                    }
-                                }}
-                            >
-                                PDF
-                            </Button>
-                        </Tooltip>
+                        <Button
+                            variant="outline"
+                            title="Ver la Propuesta Técnico Económica"
+                            disabled={accionLoading === 'PDF'}
+                            onClick={async () => {
+                                setAccionLoading('PDF');
+                                try {
+                                    await abrirArchivo(
+                                        facturacionService.urlPdfCotizacion(cotizacionDetalle.id_cotizacion),
+                                        `Propuesta_MA-P${cotizacionDetalle.numero_cotizacion}.pdf`,
+                                        'application/pdf');
+                                } finally {
+                                    setAccionLoading(null);
+                                }
+                            }}
+                        >
+                            {accionLoading === 'PDF' ? <Spinner className="h-4 w-4" /> : <IconFileTypePdf size={15} />}
+                            PDF
+                        </Button>
                     )}
                     {puedeGestionarCotizacion && (
-                        <Space>
+                        <div className="flex items-center gap-2">
                             {cotizacionDetalle.estado === 'BORRADOR' && !cotizacionDetalle.portal_publicado && (
-                                <Tooltip title="Genera el PDF y se lo entrega al cliente en su portal (ADL WEB GO); pasa a Enviada.">
-                                    <Button type="primary" icon={<IconWorldUpload size={14} />} loading={publicando} onClick={enviarCotizacionAlCliente}>
-                                        Enviar cotización al cliente
-                                    </Button>
-                                </Tooltip>
+                                <Button
+                                    title="Genera el PDF y se lo entrega al cliente en su portal (ADL WEB GO); pasa a Enviada."
+                                    disabled={publicando}
+                                    onClick={enviarCotizacionAlCliente}
+                                >
+                                    {publicando ? <Spinner className="h-4 w-4 border-primary-foreground/40 border-t-transparent" /> : <IconWorldUpload size={14} />}
+                                    Enviar cotización al cliente
+                                </Button>
                             )}
-                            <Button icon={<IconCircleCheck size={14} />} loading={accionLoading === 'ACEPTADA'} onClick={() => cambiarEstado('ACEPTADA')}>Aceptada</Button>
-                            <Button danger icon={<IconCircleX size={14} />} loading={accionLoading === 'RECHAZADA'} onClick={() => cambiarEstado('RECHAZADA')}>Rechazada</Button>
-                        </Space>
+                            <Button variant="outline" disabled={accionLoading === 'ACEPTADA'} onClick={() => cambiarEstado('ACEPTADA')}>
+                                {accionLoading === 'ACEPTADA' ? <Spinner className="h-4 w-4" /> : <IconCircleCheck size={14} />} Aceptada
+                            </Button>
+                            <Button variant="destructive" disabled={accionLoading === 'RECHAZADA'} onClick={() => cambiarEstado('RECHAZADA')}>
+                                {accionLoading === 'RECHAZADA' ? <Spinner className="h-4 w-4 border-white/40 border-t-transparent" /> : <IconCircleX size={14} />} Rechazada
+                            </Button>
+                        </div>
                     )}
                 </div>
 
                 {detalleLoading ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin /></div>
+                    <div className="flex justify-center py-16"><Spinner /></div>
                 ) : (
-                    <div className="adl-fco-detail-grid">
+                    <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[1fr_360px] lg:gap-9">
                         {/* Columna izquierda: datos / ítems / cotización */}
                         <div>
                             {seleccion.origen === 'PORTAL' && solicitudDetalle && (
-                                <Collapse
-                                    ghost
-                                    defaultActiveKey={cotizacionDetalle ? [] : ['sol']}
-                                    style={{ marginBottom: 22, background: '#fff', borderRadius: 10, border: `1px solid ${C.border}` }}
-                                    items={[{
-                                        key: 'sol',
-                                        label: <span style={{ fontWeight: 600, fontSize: 13 }}>Solicitud original del cliente</span>,
-                                        children: (
-                                            <div>
-                                                {!solicitudDetalle.id_empresaservicio && (
-                                                    <Tag color="orange" style={{ marginBottom: 10 }}>
-                                                        Cliente no resuelto — {solicitudDetalle.nombre_cliente_portal || 'sin nombre'}
-                                                    </Tag>
-                                                )}
-                                                {(solicitudDetalle.solicitante_nombre || solicitudDetalle.solicitante_email) && (
-                                                    <div className="adl-fco-meta" style={{ marginBottom: 12 }}>
-                                                        Enviada por <b style={{ color: C.text }}>{solicitudDetalle.solicitante_nombre || '—'}</b>
-                                                        {solicitudDetalle.solicitante_email && (
-                                                            <> · <a href={`mailto:${solicitudDetalle.solicitante_email}`}>{solicitudDetalle.solicitante_email}</a></>
-                                                        )}
-                                                        {' · '}{fmtFechaHora(solicitudDetalle.fecha_creacion)}
-                                                    </div>
-                                                )}
-                                                {solicitudDetalle.descripcion && (
-                                                    <p style={{ fontSize: 13, color: C.text, whiteSpace: 'pre-wrap', marginBottom: 10 }}>{solicitudDetalle.descripcion}</p>
-                                                )}
-                                                {solicitudDetalle.items?.length > 0 && (
-                                                    <ul style={{ paddingLeft: 18, fontSize: 13, color: C.text, margin: 0 }}>
-                                                        {solicitudDetalle.items.map((it: any, i: number) => (
-                                                            <li key={i}><b>{it.cantidad}×</b> {it.descripcion}</li>
-                                                        ))}
-                                                    </ul>
-                                                )}
-                                                {adjuntos.length > 0 && (
-                                                    <div style={{ marginTop: 14 }}>
-                                                        <p className="adl-fco-sectitle" style={{ marginBottom: 8 }}>Archivos ({adjuntos.length})</p>
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                            {adjuntos.map((a: any) => {
-                                                                const t = tipoArchivo(a.nombre_original, a.mime);
-                                                                return (
-                                                                    <button
-                                                                        key={a.id}
-                                                                        type="button"
-                                                                        className="adl-fco-adjunto"
-                                                                        onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)}
-                                                                    >
-                                                                        <span className="adl-fco-adjunto-ico" style={{ background: t.fondo, color: t.color }}>
-                                                                            <t.Icono size={17} />
+                                <div className="mb-5 rounded-xl border border-border bg-card">
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center justify-between gap-2 px-4 py-3 text-left"
+                                        onClick={() => setSolicitudAbierta((v) => !v)}
+                                    >
+                                        <span className="text-[13px] font-semibold text-foreground">Solicitud original del cliente</span>
+                                        <IconChevronDown size={16} className={cn('shrink-0 text-muted-foreground transition-transform', solicitudAbierta && 'rotate-180')} />
+                                    </button>
+                                    {solicitudAbierta && (
+                                        <div className="px-4 pb-4">
+                                            {!solicitudDetalle.id_empresaservicio && (
+                                                <Badge variant="warning" className="mb-2.5">
+                                                    Cliente no resuelto — {solicitudDetalle.nombre_cliente_portal || 'sin nombre'}
+                                                </Badge>
+                                            )}
+                                            {(solicitudDetalle.solicitante_nombre || solicitudDetalle.solicitante_email) && (
+                                                <div className="mb-3 text-sm leading-relaxed text-muted-foreground">
+                                                    Enviada por <b className="text-foreground">{solicitudDetalle.solicitante_nombre || '—'}</b>
+                                                    {solicitudDetalle.solicitante_email && (
+                                                        <> · <a href={`mailto:${solicitudDetalle.solicitante_email}`} className="text-primary hover:underline">{solicitudDetalle.solicitante_email}</a></>
+                                                    )}
+                                                    {' · '}{fmtFechaHora(solicitudDetalle.fecha_creacion)}
+                                                </div>
+                                            )}
+                                            {solicitudDetalle.descripcion && (
+                                                <p className="mb-2.5 whitespace-pre-wrap text-sm text-foreground">{solicitudDetalle.descripcion}</p>
+                                            )}
+                                            {solicitudDetalle.items?.length > 0 && (
+                                                <ul className="m-0 list-disc pl-[18px] text-sm text-foreground">
+                                                    {solicitudDetalle.items.map((it: any, i: number) => (
+                                                        <li key={i}><b>{it.cantidad}×</b> {it.descripcion}</li>
+                                                    ))}
+                                                </ul>
+                                            )}
+                                            {adjuntos.length > 0 && (
+                                                <div className="mt-3.5">
+                                                    <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Archivos ({adjuntos.length})</p>
+                                                    <div className="flex flex-col gap-2">
+                                                        {adjuntos.map((a: any) => {
+                                                            const t = tipoArchivo(a.nombre_original, a.mime);
+                                                            return (
+                                                                <button
+                                                                    key={a.id}
+                                                                    type="button"
+                                                                    className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                                                                    onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)}
+                                                                >
+                                                                    <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md" style={{ background: t.fondo, color: t.color }}>
+                                                                        <t.Icono size={17} />
+                                                                    </span>
+                                                                    <span className="min-w-0 flex-1 text-left">
+                                                                        <span className="block truncate text-sm font-medium text-foreground">{a.nombre_original}</span>
+                                                                        <span className="block text-[11.5px] text-muted-foreground">
+                                                                            {t.etiqueta}{a.tamano_bytes ? ` · ${fmtTamano(a.tamano_bytes)}` : ''}
+                                                                            {a.origen === 'ADL_ONE' ? ' · enviado por ADL' : ''}
                                                                         </span>
-                                                                        <span style={{ minWidth: 0, flex: 1, textAlign: 'left' }}>
-                                                                            <span className="adl-fco-adjunto-nom">{a.nombre_original}</span>
-                                                                            <span className="adl-fco-adjunto-meta">
-                                                                                {t.etiqueta}{a.tamano_bytes ? ` · ${fmtTamano(a.tamano_bytes)}` : ''}
-                                                                                {a.origen === 'ADL_ONE' ? ' · enviado por ADL' : ''}
-                                                                            </span>
-                                                                        </span>
-                                                                        <IconDownload size={15} style={{ color: C.textTer, flexShrink: 0 }} />
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
+                                                                    </span>
+                                                                    <IconDownload size={15} className="shrink-0 text-muted-foreground" />
+                                                                </button>
+                                                            );
+                                                        })}
                                                     </div>
-                                                )}
-                                            </div>
-                                        ),
-                                    }]}
-                                />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
                             )}
 
                             {!cotizacionDetalle ? (
-                                <div className="adl-fco-card" style={{ textAlign: 'center', padding: '48px 20px' }}>
-                                    <Empty description="Todavía no se ha armado la cotización real para esta solicitud." />
-                                    <Button type="primary" icon={<IconPlus size={16} />} style={{ marginTop: 16 }} onClick={() => abrirCreacion(solicitudDetalle || seleccion)}>
-                                        Armar cotización
+                                <div className="mb-5 rounded-xl border border-border bg-card p-12 text-center">
+                                    <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                                        <IconInbox size={22} />
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">Todavía no se ha armado la cotización real para esta solicitud.</p>
+                                    <Button className="mt-4" onClick={() => abrirCreacion(solicitudDetalle || seleccion)}>
+                                        <IconPlus size={16} /> Armar cotización
                                     </Button>
                                 </div>
                             ) : (
-                                <div className="adl-fco-card">
+                                <div className="mb-5 rounded-xl border border-border bg-card p-6">
                                     {/* Metadatos en una línea, no en una tabla de etiquetas — menos ruido visual */}
-                                    <div className="adl-fco-meta" style={{ marginBottom: 22, display: 'flex', gap: 22, flexWrap: 'wrap' }}>
-                                        <span>Vigente hasta <b style={{ color: C.text }}>{fmtFecha(cotizacionDetalle.fecha_vigencia)}</b></span>
-                                        <span>UF <b style={{ color: C.text }}>{fmtUf(cotizacionDetalle.valor_uf)}</b></span>
+                                    <div className="mb-[22px] flex flex-wrap gap-[22px] text-sm text-muted-foreground">
+                                        <span>Vigente hasta <b className="text-foreground">{fmtFecha(cotizacionDetalle.fecha_vigencia)}</b></span>
+                                        <span>UF <b className="text-foreground">{fmtUf(cotizacionDetalle.valor_uf)}</b></span>
                                     </div>
                                     {cotizacionDetalle.observaciones && (
-                                        <p style={{ fontSize: 13, color: C.textSec, marginBottom: 22, whiteSpace: 'pre-wrap' }}>{cotizacionDetalle.observaciones}</p>
+                                        <p className="mb-[22px] whitespace-pre-wrap text-sm text-muted-foreground">{cotizacionDetalle.observaciones}</p>
                                     )}
 
                                     {/* Una tabla por servicio: la cotización puede
                                         traer varias glosas, cada una con sus ítems. */}
                                     {seccionesDetalle.map((sec: any, idx: number) => (
-                                        <div key={sec.id_seccion ?? idx} style={{ marginBottom: 18 }}>
+                                        <div key={sec.id_seccion ?? idx} className="mb-[18px]">
                                             {seccionesDetalle.length > 1 && (
-                                                <p className="adl-fco-sectitle" style={{ marginBottom: 8 }}>
+                                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                                                     {idx + 1}. {sec.titulo || `Servicio ${idx + 1}`}
                                                 </p>
                                             )}
-                                            <Table
-                                                size="small"
-                                                pagination={false}
-                                                rowKey="id_item"
-                                                dataSource={sec.items || []}
-                                                columns={[
-                                                    { title: 'Ítem', dataIndex: 'descripcion', render: (v, r: any) => v || `Técnica #${r.id_tecnica}` },
-                                                    { title: 'Cant.', dataIndex: 'cantidad', width: 60, align: 'right' },
-                                                    {
-                                                        // Sin tarifa en el convenio o línea fuera de
-                                                        // catálogo: acá se le pone precio a mano.
-                                                        title: 'P. Unit. UF', dataIndex: 'precio_unitario_uf', width: 120, align: 'right',
-                                                        render: (v, r: any) => precioEditable ? (
-                                                            <InputNumber
-                                                                size="small" min={0} step={0.01}
-                                                                value={v == null ? undefined : Number(v)}
-                                                                placeholder="Sin tarifa" style={{ width: 100 }}
-                                                                status={v == null ? 'warning' : undefined}
-                                                                disabled={precioGuardando === r.id_item}
-                                                                onBlur={(e) => guardarPrecioItem(r, e.currentTarget.value)}
-                                                                onPressEnter={(e) => (e.currentTarget as HTMLInputElement).blur()}
-                                                            />
-                                                        ) : (v != null ? fmtUf(v) : <Tag color="red">Sin tarifa</Tag>),
-                                                    },
-                                                    { title: 'Subtotal', dataIndex: 'precio_total_uf', width: 90, align: 'right', render: (v) => v == null ? '—' : fmtUf(v) },
-                                                ]}
-                                            />
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="hover:bg-transparent">
+                                                        <TableHead>Ítem</TableHead>
+                                                        <TableHead className="w-[60px] text-right">Cant.</TableHead>
+                                                        <TableHead className="w-[120px] text-right">P. Unit. UF</TableHead>
+                                                        <TableHead className="w-[90px] text-right">Subtotal</TableHead>
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {(sec.items || []).map((it: any) => (
+                                                        <TableRow key={it.id_item} className="hover:bg-transparent">
+                                                            <TableCell>{it.descripcion || `Técnica #${it.id_tecnica}`}</TableCell>
+                                                            <TableCell className="text-right">{it.cantidad}</TableCell>
+                                                            <TableCell className="text-right">
+                                                                {precioEditable ? (
+                                                                    <Input
+                                                                        type="number" min={0} step={0.01}
+                                                                        className={cn('h-8 w-[100px] text-right', it.precio_unitario_uf == null && 'border-warning')}
+                                                                        placeholder="Sin tarifa"
+                                                                        defaultValue={it.precio_unitario_uf == null ? '' : Number(it.precio_unitario_uf)}
+                                                                        disabled={precioGuardando === it.id_item}
+                                                                        onBlur={(e) => guardarPrecioItem(it, e.currentTarget.value)}
+                                                                        onKeyDown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+                                                                    />
+                                                                ) : (it.precio_unitario_uf != null ? fmtUf(it.precio_unitario_uf) : <Badge variant="destructive">Sin tarifa</Badge>)}
+                                                            </TableCell>
+                                                            <TableCell className="text-right">{it.precio_total_uf == null ? '—' : fmtUf(it.precio_total_uf)}</TableCell>
+                                                        </TableRow>
+                                                    ))}
+                                                </TableBody>
+                                            </Table>
                                             {seccionesDetalle.length > 1 && (
-                                                <div style={{ textAlign: 'right', fontSize: 12.5, color: C.textSec, marginTop: 6 }}>
-                                                    Subtotal servicio: <b style={{ color: C.text }}>{fmtUf(sec.subtotal_uf)} UF</b>
+                                                <div className="mt-1.5 text-right text-[12.5px] text-muted-foreground">
+                                                    Subtotal servicio: <b className="text-foreground">{fmtUf(sec.subtotal_uf)} UF</b>
                                                 </div>
                                             )}
                                         </div>
                                     ))}
 
                                     {precioEditable && (cotizacionDetalle.items || []).some((i: any) => i.precio_unitario_uf == null) && (
-                                        <Alert
-                                            type="warning"
-                                            showIcon
-                                            style={{ marginBottom: 16 }}
-                                            message="Hay ítems sin tarifa en el convenio"
-                                            description="Escribe el valor unitario en UF directamente en la tabla; queda guardado como precio manual y se recalculan los totales."
-                                        />
+                                        <InlineAlert tone="warning" title="Hay ítems sin tarifa en el convenio"
+                                            description="Escribe el valor unitario en UF directamente en la tabla; queda guardado como precio manual y se recalculan los totales." />
                                     )}
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 24, fontSize: 13, color: C.textSec }}>
-                                        <span>Neto: <b style={{ color: C.text }}>$ {fmtClp(cotizacionDetalle.neto_clp)}</b></span>
-                                        <span>IVA: <b style={{ color: C.text }}>$ {fmtClp(cotizacionDetalle.iva_clp)}</b></span>
-                                        <span>Total: <b style={{ color: C.primary }}>$ {fmtClp(cotizacionDetalle.total_clp)}</b></span>
+                                    <div className="flex justify-end gap-6 text-sm text-muted-foreground">
+                                        <span>Neto: <b className="text-foreground">$ {fmtClp(cotizacionDetalle.neto_clp)}</b></span>
+                                        <span>IVA: <b className="text-foreground">$ {fmtClp(cotizacionDetalle.iva_clp)}</b></span>
+                                        <span>Total: <b className="text-primary">$ {fmtClp(cotizacionDetalle.total_clp)}</b></span>
                                     </div>
                                 </div>
                             )}
                         </div>
 
                         {/* Columna derecha: comunicación y actividad (fija) */}
-                        <div className="adl-fco-panel">
-                            <Tabs
-                                activeKey={rightTab}
-                                onChange={setRightTab}
-                                centered
-                                items={[
-                                    ...(seleccion.origen === 'PORTAL' ? [{
-                                        key: 'mensajes',
-                                        label: <span><IconMessageCircle2 size={14} style={{ marginRight: 6, verticalAlign: -2 }} />Mensajes</span>,
-                                        children: (
-                                            <div className="adl-fco-chat">
-                                                <div className="adl-fco-chatlist">
-                                                    {mensajesLoading ? (
-                                                        <div style={{ display: 'flex', justifyContent: 'center', padding: 30 }}><Spin /></div>
-                                                    ) : mensajes.length === 0 ? (
-                                                        <p style={{ fontSize: 13, color: C.textTer, textAlign: 'center', margin: '20px 0' }}>Aún no hay mensajes. Escribe el primero.</p>
-                                                    ) : (
-                                                        mensajes.map((m) => {
-                                                            const esNuestro = m.origen === 'ADL_ONE' || m.usuario_nombre === 'Facturación ADL ONE';
-                                                            const adjuntosMsg = adjuntos.filter((a: any) => a.id_mensaje === m.id);
-                                                            return (
-                                                                <div
-                                                                    key={m.id}
-                                                                    className="adl-fco-bubble"
-                                                                    style={{
-                                                                        background: m.es_sistema ? 'transparent' : (esNuestro ? C.primary : '#fff'),
-                                                                        color: m.es_sistema ? C.textTer : (esNuestro ? '#fff' : C.text),
-                                                                        border: m.es_sistema ? 'none' : (esNuestro ? 'none' : `1px solid ${C.border}`),
-                                                                        fontStyle: m.es_sistema ? 'italic' : 'normal',
-                                                                        textAlign: m.es_sistema ? 'center' : 'left',
-                                                                        padding: m.es_sistema ? '2px 4px' : '8px 12px',
-                                                                        fontSize: m.es_sistema ? 11.5 : 13,
-                                                                        alignSelf: m.es_sistema ? 'center' : (esNuestro ? 'flex-end' : 'flex-start'),
-                                                                    }}
-                                                                >
-                                                                    {!m.es_sistema && (
-                                                                        <div style={{ fontSize: 10.5, fontWeight: 600, opacity: 0.75, marginBottom: 2 }}>
-                                                                            {m.usuario_nombre}{m.usuario_email ? ` · ${m.usuario_email}` : ''}
-                                                                        </div>
-                                                                    )}
-                                                                    {m.mensaje}
-                                                                    {adjuntosMsg.map((a: any) => (
-                                                                        <button
-                                                                            key={a.id}
-                                                                            type="button"
-                                                                            onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)}
-                                                                            style={{
-                                                                                display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, fontSize: 11.5,
-                                                                                color: esNuestro ? '#fff' : C.primary, textDecoration: 'underline',
-                                                                                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
-                                                                            }}
-                                                                        >
-                                                                            <IconPaperclip size={12} />{a.nombre_original}
-                                                                        </button>
-                                                                    ))}
-                                                                    {!m.es_sistema && <div style={{ fontSize: 10, opacity: 0.6, marginTop: 3 }}>{fmtFechaHora(m.fecha)}</div>}
-                                                                </div>
-                                                            );
-                                                        })
-                                                    )}
-                                                    <div ref={finChatRef} />
-                                                </div>
+                        <div
+                            className="sticky top-5 flex flex-col overflow-hidden rounded-xl border border-border bg-card"
+                            style={{ height: 'calc(100vh - 190px)', minHeight: 460 }}
+                        >
+                            <Tabs value={rightTab} onValueChange={setRightTab} className="flex h-full flex-col">
+                                <TabsList className="mx-3 mt-3 shrink-0 justify-center">
+                                    {seleccion.origen === 'PORTAL' && (
+                                        <TabsTrigger value="mensajes"><IconMessageCircle2 size={14} className="mr-1.5" />Mensajes</TabsTrigger>
+                                    )}
+                                    <TabsTrigger value="historial">Historial</TabsTrigger>
+                                </TabsList>
 
-                                                <div style={{ padding: 12, borderTop: `1px solid ${C.border}` }}>
-                                                    {archivosAdjuntar.length > 0 && (
-                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                                                            {archivosAdjuntar.map((f, i) => (
-                                                                <Tag key={i} closable onClose={() => setArchivosAdjuntar((p) => p.filter((_, idx) => idx !== i))} closeIcon={<IconX size={11} />}>
-                                                                    {f.name} ({fmtTamano(f.size)})
-                                                                </Tag>
+                                {seleccion.origen === 'PORTAL' && (
+                                    <TabsContent value="mensajes" className="m-0 flex min-h-0 flex-1 flex-col">
+                                        <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto p-4">
+                                            {mensajesLoading ? (
+                                                <div className="flex justify-center py-7"><Spinner /></div>
+                                            ) : mensajes.length === 0 ? (
+                                                <p className="my-5 text-center text-sm text-muted-foreground">Aún no hay mensajes. Escribe el primero.</p>
+                                            ) : (
+                                                mensajes.map((m) => {
+                                                    const esNuestro = m.origen === 'ADL_ONE' || m.usuario_nombre === 'Facturación ADL ONE';
+                                                    const adjuntosMsg = adjuntos.filter((a: any) => a.id_mensaje === m.id);
+                                                    if (m.es_sistema) {
+                                                        return (
+                                                            <div key={m.id} className="self-center px-1 py-0.5 text-center text-[11.5px] italic text-muted-foreground">
+                                                                {m.mensaje}
+                                                            </div>
+                                                        );
+                                                    }
+                                                    return (
+                                                        <div
+                                                            key={m.id}
+                                                            className={cn(
+                                                                'max-w-[82%] rounded-lg px-3 py-2 text-[13px] leading-snug',
+                                                                esNuestro ? 'self-end bg-primary text-primary-foreground' : 'self-start border border-border bg-background text-foreground'
+                                                            )}
+                                                        >
+                                                            <div className="mb-0.5 text-[10.5px] font-semibold opacity-75">
+                                                                {m.usuario_nombre}{m.usuario_email ? ` · ${m.usuario_email}` : ''}
+                                                            </div>
+                                                            {m.mensaje}
+                                                            {adjuntosMsg.map((a: any) => (
+                                                                <button
+                                                                    key={a.id}
+                                                                    type="button"
+                                                                    onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)}
+                                                                    className={cn('mt-1.5 flex items-center gap-1.5 text-[11.5px] underline', esNuestro ? 'text-primary-foreground' : 'text-primary')}
+                                                                >
+                                                                    <IconPaperclip size={12} />{a.nombre_original}
+                                                                </button>
                                                             ))}
+                                                            <div className="mt-1 text-[10px] opacity-60">{fmtFechaHora(m.fecha)}</div>
                                                         </div>
-                                                    )}
-                                                    <div style={{ display: 'flex', gap: 8 }}>
-                                                        <input
-                                                            ref={fileInputRef}
-                                                            type="file"
-                                                            multiple
-                                                            style={{ display: 'none' }}
-                                                            onChange={(e) => {
-                                                                setArchivosAdjuntar((p) => [...p, ...Array.from(e.target.files || [])]);
-                                                                e.target.value = '';
-                                                            }}
-                                                        />
-                                                        <Tooltip title="Adjuntar archivos (Word, PDF, imágenes...)">
-                                                            <Button icon={<IconPaperclip size={15} />} onClick={() => fileInputRef.current?.click()} />
-                                                        </Tooltip>
-                                                        <Input
-                                                            placeholder="Escribe un mensaje al cliente..."
-                                                            value={mensajeNuevo}
-                                                            onChange={(e) => setMensajeNuevo(e.target.value)}
-                                                            onPressEnter={enviarMensaje}
-                                                            disabled={enviandoMensaje}
-                                                        />
-                                                        <Button
-                                                            type="primary"
-                                                            icon={<IconSend2 size={14} />}
-                                                            loading={enviandoMensaje}
-                                                            disabled={!mensajeNuevo.trim() && archivosAdjuntar.length === 0}
-                                                            onClick={enviarMensaje}
-                                                        />
-                                                    </div>
+                                                    );
+                                                })
+                                            )}
+                                            <div ref={finChatRef} />
+                                        </div>
+
+                                        <div className="shrink-0 border-t border-border p-3">
+                                            {archivosAdjuntar.length > 0 && (
+                                                <div className="mb-2 flex flex-wrap gap-1.5">
+                                                    {archivosAdjuntar.map((f, i) => (
+                                                        <Badge key={i} variant="secondary" className="gap-1 pr-1">
+                                                            {f.name} ({fmtTamano(f.size)})
+                                                            <button type="button" onClick={() => setArchivosAdjuntar((p) => p.filter((_, idx) => idx !== i))} className="rounded-full p-0.5 hover:bg-black/10">
+                                                                <IconX size={11} />
+                                                            </button>
+                                                        </Badge>
+                                                    ))}
                                                 </div>
+                                            )}
+                                            <div className="flex gap-2">
+                                                <input
+                                                    ref={fileInputRef}
+                                                    type="file"
+                                                    multiple
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                        setArchivosAdjuntar((p) => [...p, ...Array.from(e.target.files || [])]);
+                                                        e.target.value = '';
+                                                    }}
+                                                />
+                                                <Button variant="outline" size="icon" title="Adjuntar archivos (Word, PDF, imágenes...)" onClick={() => fileInputRef.current?.click()}>
+                                                    <IconPaperclip size={15} />
+                                                </Button>
+                                                <Input
+                                                    placeholder="Escribe un mensaje al cliente..."
+                                                    value={mensajeNuevo}
+                                                    onChange={(e) => setMensajeNuevo(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') enviarMensaje(); }}
+                                                    disabled={enviandoMensaje}
+                                                />
+                                                <Button
+                                                    size="icon"
+                                                    disabled={enviandoMensaje || (!mensajeNuevo.trim() && archivosAdjuntar.length === 0)}
+                                                    onClick={enviarMensaje}
+                                                >
+                                                    {enviandoMensaje ? <Spinner className="h-4 w-4 border-primary-foreground/40 border-t-transparent" /> : <IconSend2 size={14} />}
+                                                </Button>
                                             </div>
-                                        ),
-                                    }] : []),
-                                    {
-                                        key: 'historial',
-                                        label: 'Historial',
-                                        children: <div style={{ padding: '20px 20px 24px' }}><Timeline items={historialItems} /></div>,
-                                    },
-                                ]}
-                            />
+                                        </div>
+                                    </TabsContent>
+                                )}
+
+                                <TabsContent value="historial" className="m-0 min-h-0 flex-1 overflow-y-auto px-5 py-5">
+                                    <HistorialTimeline items={historialItems} />
+                                </TabsContent>
+                            </Tabs>
                         </div>
                     </div>
                 )}
@@ -1574,50 +1515,96 @@ const FacturacionCotizaciones: React.FC = () => {
     // Vista: LISTA (bandeja unificada)
     // ------------------------------------------------------------------
 
-    return (
-        <div className="adl-fco-wrap">
-            <style>{CSS}</style>
+    const bandejaPaginada = bandeja.slice((bandejaPage - 1) * BANDEJA_PAGE_SIZE, bandejaPage * BANDEJA_PAGE_SIZE);
 
-            <div className="adl-fco-header">
+    return (
+        <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
+            <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="adl-fco-title">Cotizaciones</h2>
-                    <p className="adl-fco-sub">Solicitudes de clientes y cotizaciones armadas — todo en una sola bandeja.</p>
+                    <h2 className="text-xl font-semibold tracking-tight text-foreground">Cotizaciones</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">Solicitudes de clientes y cotizaciones armadas — todo en una sola bandeja.</p>
                 </div>
-                <Space>
-                    <Button icon={<IconRefresh size={16} />} onClick={cargarBandeja}>Actualizar</Button>
-                    <Button type="primary" icon={<IconPlus size={16} />} onClick={() => abrirCreacion()}>Nueva cotización</Button>
-                </Space>
+                <div className="flex items-center gap-2">
+                    <Button variant="outline" onClick={cargarBandeja}><IconRefresh size={16} /> Actualizar</Button>
+                    <Button onClick={() => abrirCreacion()}><IconPlus size={16} /> Nueva cotización</Button>
+                </div>
             </div>
 
-            <div className="adl-fco-filters">
-                <Select
-                    allowClear
+            <div className="mb-5 flex flex-wrap items-center gap-4">
+                <Combobox
+                    className="w-[220px]"
                     placeholder="Filtrar por estado"
-                    style={{ width: 220 }}
-                    value={filtroEstado}
-                    onChange={setFiltroEstado}
-                    options={Object.entries(ESTADO_LABEL).map(([value, label]) => ({ value, label }))}
+                    searchPlaceholder="Buscar estado..."
+                    value={filtroEstado ?? ''}
+                    onValueChange={(v) => setFiltroEstado(v || undefined)}
+                    options={[{ value: '', label: 'Todos los estados' }, ...Object.entries(ESTADO_LABEL).map(([value, label]) => ({ value, label }))]}
                 />
-                <Space size={6}>
-                    <Switch size="small" checked={filtroNoLeidos} onChange={setFiltroNoLeidos} />
-                    <span style={{ fontSize: 13, color: C.textSec }}>Solo con mensajes nuevos</span>
-                </Space>
+                <div className="flex items-center gap-1.5">
+                    <Switch checked={filtroNoLeidos} onCheckedChange={setFiltroNoLeidos} />
+                    <span className="text-sm text-muted-foreground">Solo con mensajes nuevos</span>
+                </div>
             </div>
 
             {bandejaLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><Spin /></div>
+                <div className="flex justify-center py-16"><Spinner /></div>
             ) : bandeja.length === 0 ? (
-                <Empty description="No hay nada con ese filtro." />
+                <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border py-16 text-center text-muted-foreground">
+                    <IconInbox size={36} className="opacity-50" />
+                    <p className="text-sm">No hay nada con ese filtro.</p>
+                </div>
             ) : (
-                <Table<BandejaRow>
-                    rowKey={(r) => `${r.origen}-${r.id_solicitud_portal ?? r.id_cotizacion}`}
-                    columns={columns}
-                    dataSource={bandeja}
-                    size="small"
-                    pagination={{ pageSize: 20, size: 'small' }}
-                    rowClassName={(r) => r.tiene_mensaje_nuevo ? 'adl-fco-row-unread' : ''}
-                    onRow={(r) => ({ onClick: () => abrirDetalle(r), style: { cursor: 'pointer' } })}
-                />
+                <>
+                    <div className="overflow-hidden rounded-xl border border-border bg-card">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="w-2" />
+                                    <TableHead>Cliente</TableHead>
+                                    <TableHead>Título / Glosa</TableHead>
+                                    <TableHead className="w-[170px]">Estado</TableHead>
+                                    <TableHead>Último mensaje</TableHead>
+                                    <TableHead className="w-[130px] text-right">Total</TableHead>
+                                    <TableHead className="w-[150px]">Actualizada</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {bandejaPaginada.map((r) => (
+                                    <TableRow
+                                        key={`${r.origen}-${r.id_solicitud_portal ?? r.id_cotizacion}`}
+                                        className={cn('cursor-pointer', r.tiene_mensaje_nuevo && 'font-semibold')}
+                                        onClick={() => abrirDetalle(r)}
+                                    >
+                                        <TableCell>{r.tiene_mensaje_nuevo ? <span className="block h-2 w-2 rounded-full bg-primary" /> : null}</TableCell>
+                                        <TableCell className="max-w-[220px] truncate">{r.nombre_cliente}</TableCell>
+                                        <TableCell className="max-w-[260px] truncate">{r.titulo || <span className="font-normal text-muted-foreground">—</span>}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={ESTADO_BADGE_VARIANT[r.estado_unificado] || 'secondary'}>{r.estado_label}</Badge>
+                                        </TableCell>
+                                        <TableCell className="max-w-[280px] truncate font-normal">
+                                            {r.ultimo_mensaje_texto ? (
+                                                <span>
+                                                    <span className="text-[11.5px] text-muted-foreground">{r.ultimo_mensaje_autor === 'ADL_ONE' ? 'Tú: ' : 'Cliente: '}</span>
+                                                    {r.ultimo_mensaje_texto}
+                                                </span>
+                                            ) : <span className="text-muted-foreground">—</span>}
+                                        </TableCell>
+                                        <TableCell className="text-right font-normal">
+                                            {r.total_uf ? (
+                                                <span className="tabular-nums">
+                                                    {fmtUf(r.total_uf)} UF<br /><span className="text-[11px] text-muted-foreground">$ {fmtClp(r.total_clp || 0)}</span>
+                                                </span>
+                                            ) : <span className="text-muted-foreground">—</span>}
+                                        </TableCell>
+                                        <TableCell className="whitespace-nowrap font-normal text-muted-foreground">{fmtFechaHora(r.fecha_actualizacion)}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </div>
+                    <div className="mt-4">
+                        <DataPagination page={bandejaPage} pageSize={BANDEJA_PAGE_SIZE} total={bandeja.length} onPageChange={setBandejaPage} />
+                    </div>
+                </>
             )}
         </div>
     );
