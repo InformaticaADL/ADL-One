@@ -1,15 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
-    Typography,
-    Card,
-    Tag,
-    Segmented,
-    Select,
-    Input,
-    Button,
-    Spin
-} from 'antd';
-import {
     IconBell,
     IconCalendar,
     IconChevronRight,
@@ -25,12 +15,24 @@ import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { handleNotificationNavigation } from '../utils/notificationNavigation';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
-const { Title, Text } = Typography;
-
 dayjs.locale('es');
+
+const TYPE_OPTIONS = [
+    { label: 'Éxito', value: 'SUCCESS' },
+    { label: 'Advertencia', value: 'WARNING' },
+    { label: 'Error', value: 'ERROR' },
+    { label: 'Información', value: 'INFO' },
+];
 
 export const UserNotificationsPage = () => {
     const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore();
@@ -46,7 +48,6 @@ export const UserNotificationsPage = () => {
     const [typeFilter, setTypeFilter] = useState<string | null>(null);
     const [searchFilter, setSearchFilter] = useState('');
     const [markingAll, setMarkingAll] = useState(false);
-    const [hoveredId, setHoveredId] = useState<number | null>(null);
 
     useEffect(() => {
         fetchNotifications();
@@ -79,10 +80,10 @@ export const UserNotificationsPage = () => {
 
     const getIcon = (tipo: string) => {
         switch (tipo) {
-            case 'SUCCESS': return <IconCircleCheck size={20} color="#2f9e44" />;
-            case 'WARNING': return <IconAlertTriangle size={20} color="#e8590c" />;
-            case 'ERROR': return <IconCircleX size={20} color="#e03131" />;
-            default: return <IconInfoCircle size={20} color="#1c7ed6" />;
+            case 'SUCCESS': return <IconCircleCheck size={20} className="text-success" />;
+            case 'WARNING': return <IconAlertTriangle size={20} className="text-warning" />;
+            case 'ERROR': return <IconCircleX size={20} className="text-destructive" />;
+            default: return <IconInfoCircle size={20} className="text-primary" />;
         }
     };
 
@@ -137,137 +138,112 @@ export const UserNotificationsPage = () => {
     const grouped = groupNotifications();
 
     return (
-        <div style={{ padding: 32, width: '100%' }}>
-            <div style={{ marginBottom: 32 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, flexWrap: 'wrap', gap: 16 }}>
-                    <div>
-                        <Title level={1} style={{ margin: 0, letterSpacing: '-0.02em' }}>Notificaciones</Title>
-                        <Text type="secondary" style={{ fontSize: 13 }}>Historial completo de alertas y mensajes del sistema.</Text>
-                    </div>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <Input
-                            placeholder="Buscar notificaciones..."
-                            prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
-                            value={searchFilter}
-                            onChange={(e) => setSearchFilter(e.target.value)}
-                            style={{ minWidth: 200, flex: 1 }}
-                        />
-                        <Select
-                            placeholder="Tipo"
-                            options={[
-                                { label: 'Éxito', value: 'SUCCESS' },
-                                { label: 'Advertencia', value: 'WARNING' },
-                                { label: 'Error', value: 'ERROR' },
-                                { label: 'Información', value: 'INFO' }
-                            ]}
-                            value={typeFilter ?? undefined}
-                            onChange={(v) => setTypeFilter(v ?? null)}
-                            allowClear
-                            style={{ minWidth: 160 }}
-                        />
-                        {areas.length > 0 && (
-                            <Select
-                                placeholder="Área"
-                                options={areas.map(a => ({ value: a, label: a }))}
-                                value={areaFilter ?? undefined}
-                                onChange={(v) => setAreaFilter(v ?? null)}
-                                allowClear
-                                style={{ minWidth: 160 }}
-                            />
-                        )}
-                        <Segmented
-                            value={statusFilter}
-                            onChange={(v) => setStatusFilter(v as string)}
-                            options={[
-                                { label: 'Todas', value: 'ALL' },
-                                { label: 'No leídas', value: 'UNREAD' },
-                            ]}
-                        />
-                        {unreadCount > 0 && (
-                            <Button
-                                icon={<IconChecks size={16} />}
-                                loading={markingAll}
-                                onClick={handleMarkAllAsRead}
-                            >
-                                Marcar todas como leídas
-                            </Button>
-                        )}
-                    </div>
+        <div className="shadcn-scope w-full p-4 md:p-6">
+            <PageHeader
+                title="Notificaciones"
+                subtitle="Historial completo de alertas y mensajes del sistema."
+                breadcrumbItems={[{ label: 'Inicio' }, { label: 'Notificaciones' }]}
+                rightSection={unreadCount > 0 ? (
+                    <Button variant="outline" disabled={markingAll} onClick={handleMarkAllAsRead}>
+                        {markingAll ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconChecks size={16} />}
+                        Marcar todas como leídas
+                    </Button>
+                ) : null}
+            />
+
+            <div className="mb-6 flex flex-wrap items-center gap-3">
+                <div className="relative min-w-[200px] flex-1">
+                    <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar notificaciones..."
+                        value={searchFilter}
+                        onChange={(e) => setSearchFilter(e.target.value)}
+                        className="pl-9"
+                    />
                 </div>
+                <Combobox
+                    className="w-[170px]"
+                    placeholder="Tipo"
+                    value={typeFilter ?? undefined}
+                    onValueChange={(v) => setTypeFilter(v || null)}
+                    options={[{ value: '', label: 'Todos' }, ...TYPE_OPTIONS]}
+                />
+                {areas.length > 0 && (
+                    <Combobox
+                        className="w-[170px]"
+                        placeholder="Área"
+                        value={areaFilter ?? undefined}
+                        onValueChange={(v) => setAreaFilter(v || null)}
+                        options={[{ value: '', label: 'Todas' }, ...areas.map(a => ({ value: a, label: a }))]}
+                    />
+                )}
+                <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+                    <TabsList>
+                        <TabsTrigger value="ALL">Todas</TabsTrigger>
+                        <TabsTrigger value="UNREAD">No leídas</TabsTrigger>
+                    </TabsList>
+                </Tabs>
             </div>
 
             {loading ? (
-                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin size="large" />
+                <div className="flex h-[300px] items-center justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             ) : filteredNotifications.length === 0 ? (
-                <Card style={{ textAlign: 'center', backgroundColor: 'transparent', borderStyle: 'dashed' }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                        <IconBell size={48} color="var(--app-text-secondary)" strokeWidth={1} />
-                        <Title level={3} type="secondary" style={{ margin: 0 }}>
+                <Card className="border-dashed bg-transparent p-8 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                        <IconBell size={48} strokeWidth={1} className="text-muted-foreground" />
+                        <p className="m-0 text-lg font-semibold text-muted-foreground">
                             {notifications.length === 0 ? 'No tienes notificaciones' : 'No hay resultados'}
-                        </Title>
-                        <Text type="secondary" style={{ fontSize: 13 }}>
+                        </p>
+                        <p className="text-[13px] text-muted-foreground">
                             {notifications.length === 0 ? 'Te avisaremos cuando haya algo nuevo para ti.' : 'Intenta cambiar los filtros seleccionados.'}
-                        </Text>
+                        </p>
                     </div>
                 </Card>
             ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+                <div className="flex flex-col gap-6">
                     {grouped.map(([groupName, items]) => (
                         <div key={groupName}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                                <IconCalendar size={16} color="var(--app-text-secondary)" />
-                                <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>{groupName}</Text>
-                                <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                            <div className="mb-4 flex items-center gap-2">
+                                <IconCalendar size={16} className="text-muted-foreground" />
+                                <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{groupName}</span>
+                                <hr className="flex-1 border-t border-border" />
                             </div>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {items.map((notif) => {
-                                    const hovering = hoveredId === notif.id_notificacion;
-                                    return (
-                                        <Card
-                                            key={notif.id_notificacion}
-                                            size="small"
-                                            onClick={() => handleNotificationClick(notif)}
-                                            onMouseEnter={() => setHoveredId(notif.id_notificacion)}
-                                            onMouseLeave={() => setHoveredId(null)}
-                                            style={{
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s ease',
-                                                borderLeft: notif.leido ? undefined : '4px solid #1677ff',
-                                                backgroundColor: notif.leido ? undefined : 'var(--app-accent-bg)',
-                                                transform: hovering ? 'translateY(-2px)' : 'none',
-                                                boxShadow: hovering ? '0 8px 20px rgba(0,0,0,0.08)' : undefined,
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-start', gap: 12 }}>
-                                                <div style={{ paddingTop: 4 }}>
-                                                    {getIcon(notif.tipo)}
-                                                </div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                        <Text strong style={{ fontSize: 13 }}>
-                                                            {formatTitle(notif.titulo)}
-                                                        </Text>
-                                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                                            {dayjs(notif.fecha).format('HH:mm')}
-                                                        </Text>
-                                                    </div>
-                                                    <Text type="secondary" style={{ fontSize: 13, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                                        {notif.mensaje}
-                                                    </Text>
-                                                    {notif.area && (
-                                                        <Tag style={{ marginTop: 8 }}>
-                                                            {notif.area}
-                                                        </Tag>
-                                                    )}
-                                                </div>
-                                                <IconChevronRight size={18} color="var(--app-text-secondary)" style={{ alignSelf: 'center' }} />
+                            <div className="flex flex-col gap-3">
+                                {items.map((notif) => (
+                                    <Card
+                                        key={notif.id_notificacion}
+                                        onClick={() => handleNotificationClick(notif)}
+                                        className={`cursor-pointer p-3 transition-all hover:-translate-y-0.5 hover:shadow-md ${notif.leido ? '' : 'border-l-4 border-l-primary bg-primary/5'}`}
+                                    >
+                                        <div className="flex items-start gap-3">
+                                            <div className="pt-1">
+                                                {getIcon(notif.tipo)}
                                             </div>
-                                        </Card>
-                                    );
-                                })}
+                                            <div className="min-w-0 flex-1">
+                                                <div className="mb-1 flex justify-between gap-2">
+                                                    <span className="text-[13px] font-semibold text-foreground">
+                                                        {formatTitle(notif.titulo)}
+                                                    </span>
+                                                    <span className="shrink-0 text-xs text-muted-foreground">
+                                                        {dayjs(notif.fecha).format('HH:mm')}
+                                                    </span>
+                                                </div>
+                                                <p className="m-0 line-clamp-2 text-[13px] text-muted-foreground">
+                                                    {notif.mensaje}
+                                                </p>
+                                                {notif.area && (
+                                                    <Badge variant="outline" className="mt-2">
+                                                        {notif.area}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                            <IconChevronRight size={18} className="shrink-0 self-center text-muted-foreground" />
+                                        </div>
+                                    </Card>
+                                ))}
                             </div>
                         </div>
                     ))}
