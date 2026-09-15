@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Modal, Button, Tag, Input, Tabs, Spin, Dropdown, Avatar } from 'antd';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import {
     IconX, IconCamera, IconDotsVertical, IconUser, IconShield, IconTrash,
     IconUsers, IconLogout, IconUserPlus, IconSearch,
@@ -11,8 +17,6 @@ import { useChatStore } from '../../store/chatStore';
 import { useConfirm } from './FluentConfirm';
 import ChatAvatar from './ChatAvatar';
 
-const { TextArea } = Input;
-
 interface ChatGroupModalProps {
     opened: boolean;
     onClose: () => void;
@@ -20,33 +24,6 @@ interface ChatGroupModalProps {
     editConversationId: number | null;
     onViewMember: (userId: number) => void;
 }
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', primaryBg: '#e6f4ff', bg: '#ffffff', bgLayout: '#fafafa', hover: '#f5f5f5',
-};
-
-const CSS = `
-.adl-gm-photo { display:flex; justify-content:center; padding:16px; background:${C.bgLayout}; border-radius:8px; }
-.adl-gm-photoinner { position:relative; }
-.adl-gm-cam { position:absolute; bottom:0; right:0; }
-.adl-gm-fields { display:flex; flex-direction:column; row-gap:12px; margin-top:12px; }
-.adl-gm-flabel { font-size:13px; font-weight:600; color:${C.text}; margin-bottom:4px; }
-.adl-gm-tabbody { padding-top:8px; min-height:320px; }
-.adl-gm-cols { display:flex; column-gap:32px; flex-wrap:wrap; row-gap:16px; }
-.adl-gm-col { flex:1 1 260px; min-width:0; }
-.adl-gm-coltitle { font-size:14px; font-weight:600; margin-bottom:12px; color:${C.text}; }
-.adl-gm-scroll { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; row-gap:4px; margin-top:8px; }
-.adl-gm-row { display:flex; align-items:center; column-gap:12px; width:100%; padding:8px; border:none; background:transparent; cursor:pointer; border-radius:6px; text-align:left; }
-.adl-gm-row:hover { background:${C.hover}; }
-.adl-gm-rowbody { flex:1; min-width:0; }
-.adl-gm-rowname { font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:${C.text}; }
-.adl-gm-rowsub { font-size:12px; color:${C.textTer}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.adl-gm-pills { display:flex; flex-wrap:wrap; gap:4px; margin-top:12px; }
-.adl-gm-emptycol { display:flex; flex-direction:column; align-items:center; row-gap:12px; padding:40px 16px; color:${C.textTer}; text-align:center; }
-.adl-gm-footer { display:flex; justify-content:space-between; align-items:center; width:100%; }
-.adl-gm-trailing { display:flex; align-items:center; column-gap:4px; flex-shrink:0; }
-`;
 
 const ChatGroupModal: React.FC<ChatGroupModalProps> = ({ opened, onClose, onCreated, editConversationId, onViewMember }) => {
     const { user } = useAuth();
@@ -147,133 +124,169 @@ const ChatGroupModal: React.FC<ChatGroupModalProps> = ({ opened, onClose, onCrea
 
     const photoPreview = fotoFile ? URL.createObjectURL(fotoFile) : null;
 
-    const infoTab = (
-        <div className="adl-gm-tabbody">
-            <div className="adl-gm-photo">
-                <div className="adl-gm-photoinner">
-                    {photoPreview
-                        ? <Avatar src={photoPreview} size={120} />
-                        : <ChatAvatar name={nombre || 'Grupo'} foto={editingConv?.foto_display} size={120} group />}
-                    {(!isEditing || isAdmin) && (
-                        <>
-                            <input ref={(el) => { fotoRef.el = el; }} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => setFotoFile(e.target.files?.[0] || null)} />
-                            <span className="adl-gm-cam"><Button type="primary" shape="circle" icon={<IconCamera size={18} />} aria-label="Cambiar foto" onClick={() => fotoRef.el?.click()} /></span>
-                        </>
-                    )}
-                </div>
-            </div>
-            <div className="adl-gm-fields">
-                <div>
-                    <div className="adl-gm-flabel">Nombre del grupo</div>
-                    <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Equipo Informática" disabled={isEditing && !isAdmin} />
-                </div>
-                <div>
-                    <div className="adl-gm-flabel">Descripción</div>
-                    <TextArea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} autoSize={{ minRows: 3, maxRows: 6 }}
-                        placeholder={isAdmin || !isEditing ? 'Añade una descripción…' : 'Sin descripción'} disabled={isEditing && !isAdmin} />
-                </div>
-            </div>
-        </div>
-    );
-
-    const membersTab = (
-        <div className="adl-gm-tabbody">
-            <div className="adl-gm-cols">
-                <div className="adl-gm-col">
-                    {isEditing ? (
-                        <>
-                            <div className="adl-gm-coltitle">Miembros del grupo</div>
-                            <div className="adl-gm-scroll">
-                                {existingMembers.map((m) => {
-                                    const items = [
-                                        { key: 'profile', icon: <IconUser size={16} />, label: 'Ver perfil', onClick: () => { onClose(); onViewMember(m.id_entidad); } },
-                                        ...(isAdmin && m.id_entidad !== user?.id ? [
-                                            { key: 'role', icon: <IconShield size={16} />, label: m.rol !== 'ADMIN' ? 'Hacer administrador' : 'Quitar administrador', onClick: () => changeRole(m.id_entidad, m.rol !== 'ADMIN' ? 'ADMIN' : 'MIEMBRO') },
-                                            { key: 'kick', icon: <IconTrash size={16} />, danger: true, label: 'Expulsar del grupo', onClick: () => ask({ title: 'Expulsar miembro', danger: true, confirmLabel: 'Expulsar', message: '¿Expulsar a este miembro del grupo?', onConfirm: () => removeExisting(m.id_entidad) }) },
-                                        ] : []),
-                                    ];
-                                    return (
-                                        <Dropdown key={`${m.tipo_entidad || 'MEM'}-${m.id_entidad}`} trigger={['click']} placement="bottomLeft" menu={{ items }}>
-                                            <button type="button" className="adl-gm-row">
-                                                <ChatAvatar name={m.nombre} foto={m.foto} size={40} />
-                                                <span className="adl-gm-rowbody"><span className="adl-gm-rowname" style={{ display: 'block' }}>{m.nombre}</span><span className="adl-gm-rowsub" style={{ display: 'block' }}>{m.cargo || m.email}</span></span>
-                                                <span className="adl-gm-trailing">{m.rol === 'ADMIN' && <Tag color="blue" style={{ marginInlineEnd: 0 }}>Admin</Tag>}<IconDotsVertical size={18} /></span>
-                                            </button>
-                                        </Dropdown>
-                                    );
-                                })}
-                            </div>
-                        </>
-                    ) : (
-                        <div className="adl-gm-emptycol"><IconUsers size={34} /><span>Agrega miembros en el panel de la derecha</span></div>
-                    )}
-                </div>
-
-                <div className="adl-gm-col">
-                    {(!isEditing || isAdmin) ? (
-                        <>
-                            <div className="adl-gm-coltitle">{isEditing ? 'Agregar integrantes' : 'Seleccionar integrantes'}</div>
-                            <Input prefix={<IconSearch size={16} color={C.textTer} />} value={searchQuery} onChange={(e) => handleSearch(e.target.value)} placeholder="Buscar por nombre o correo…" />
-                            <div className="adl-gm-scroll">
-                                {searchResults.map((c) => (
-                                    <button key={`${c.tipo_entidad}-${c.id_entidad}`} type="button" className="adl-gm-row" onClick={() => addMember(c)}>
-                                        <ChatAvatar name={c.nombre} foto={c.foto} size={36} />
-                                        <span className="adl-gm-rowbody"><span className="adl-gm-rowname" style={{ display: 'block' }}>{c.nombre}</span><span className="adl-gm-rowsub" style={{ display: 'block' }}>{c.cargo || c.email}</span></span>
-                                        <IconUserPlus size={18} color={C.primary} />
-                                    </button>
-                                ))}
-                            </div>
-                            {selectedMembers.length > 0 && (
-                                <div className="adl-gm-pills">
-                                    {selectedMembers.map((m) => (
-                                        <Tag key={`${m.tipo_entidad}-${m.id_entidad}`} color="blue" closable onClose={() => removePending(m.id_entidad)} closeIcon={<IconX size={12} />}>
-                                            {m.nombre}
-                                        </Tag>
-                                    ))}
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="adl-gm-emptycol"><IconShield size={34} /><span>No tienes permisos para agregar miembros</span></div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-
     return (
-        <Modal
-            open={opened}
-            title={isEditing ? 'Configurar grupo' : 'Nuevo grupo'}
-            onCancel={onClose}
-            width="min(48rem, 96vw)"
-            styles={{ body: { paddingTop: 8 } }}
-            footer={
-                <div className="adl-gm-footer">
-                    {isEditing ? <Button type="text" icon={<IconLogout size={16} />} onClick={leaveGroup} disabled={saving}>Salir del grupo</Button> : <span />}
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <Button onClick={onClose}>{isEditing && !isAdmin ? 'Cerrar' : 'Cancelar'}</Button>
+        <Dialog open={opened} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="shadcn-scope max-w-[min(48rem,96vw)]">
+                <DialogHeader>
+                    <DialogTitle>{isEditing ? 'Configurar grupo' : 'Nuevo grupo'}</DialogTitle>
+                </DialogHeader>
+
+                {loading ? (
+                    <div className="flex justify-center py-10">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    </div>
+                ) : (
+                    <Tabs value={tab} onValueChange={(k) => setTab(k as 'info' | 'members')}>
+                        <TabsList>
+                            <TabsTrigger value="info">Información</TabsTrigger>
+                            <TabsTrigger value="members">Miembros{isEditing ? ` (${existingMembers.length})` : ''}</TabsTrigger>
+                        </TabsList>
+
+                        <TabsContent value="info" className="min-h-[320px] pt-2">
+                            <div className="flex justify-center rounded-lg bg-muted/60 p-4">
+                                <div className="relative">
+                                    {photoPreview
+                                        ? <img src={photoPreview} alt="Vista previa" className="h-[120px] w-[120px] rounded-full object-cover" />
+                                        : <ChatAvatar name={nombre || 'Grupo'} foto={editingConv?.foto_display} size={120} group />}
+                                    {(!isEditing || isAdmin) && (
+                                        <>
+                                            <input ref={(el) => { fotoRef.el = el; }} type="file" accept="image/png,image/jpeg" hidden onChange={(e) => setFotoFile(e.target.files?.[0] || null)} />
+                                            <Button size="icon" className="absolute bottom-0 right-0 h-8 w-8 rounded-full" aria-label="Cambiar foto" onClick={() => fotoRef.el?.click()}>
+                                                <IconCamera size={16} />
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="mt-3 flex flex-col gap-3">
+                                <div>
+                                    <div className="mb-1 text-xs font-semibold text-foreground">Nombre del grupo</div>
+                                    <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Equipo Informática" disabled={isEditing && !isAdmin} />
+                                </div>
+                                <div>
+                                    <div className="mb-1 text-xs font-semibold text-foreground">Descripción</div>
+                                    <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={3}
+                                        placeholder={isAdmin || !isEditing ? 'Añade una descripción…' : 'Sin descripción'} disabled={isEditing && !isAdmin} />
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="members" className="min-h-[320px] pt-2">
+                            <div className="flex flex-wrap gap-8">
+                                <div className="min-w-0 flex-1 basis-[260px]">
+                                    {isEditing ? (
+                                        <>
+                                            <div className="mb-3 text-sm font-semibold text-foreground">Miembros del grupo</div>
+                                            <div className="mt-2 flex max-h-[340px] flex-col gap-1 overflow-y-auto">
+                                                {existingMembers.map((m) => (
+                                                    <DropdownMenu key={`${m.tipo_entidad || 'MEM'}-${m.id_entidad}`}>
+                                                        <DropdownMenuTrigger asChild>
+                                                            <button type="button" className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted">
+                                                                <ChatAvatar name={m.nombre} foto={m.foto} size={40} />
+                                                                <span className="min-w-0 flex-1">
+                                                                    <span className="block truncate text-sm font-semibold text-foreground">{m.nombre}</span>
+                                                                    <span className="block truncate text-xs text-muted-foreground">{m.cargo || m.email}</span>
+                                                                </span>
+                                                                <span className="flex shrink-0 items-center gap-1">
+                                                                    {m.rol === 'ADMIN' && <Badge variant="outline">Admin</Badge>}
+                                                                    <IconDotsVertical size={18} />
+                                                                </span>
+                                                            </button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent align="start">
+                                                            <DropdownMenuItem onSelect={() => { onClose(); onViewMember(m.id_entidad); }}>
+                                                                <IconUser size={15} /> Ver perfil
+                                                            </DropdownMenuItem>
+                                                            {isAdmin && m.id_entidad !== user?.id && (
+                                                                <>
+                                                                    <DropdownMenuItem onSelect={() => changeRole(m.id_entidad, m.rol !== 'ADMIN' ? 'ADMIN' : 'MIEMBRO')}>
+                                                                        <IconShield size={15} /> {m.rol !== 'ADMIN' ? 'Hacer administrador' : 'Quitar administrador'}
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem
+                                                                        danger
+                                                                        onSelect={() => ask({ title: 'Expulsar miembro', danger: true, confirmLabel: 'Expulsar', message: '¿Expulsar a este miembro del grupo?', onConfirm: () => removeExisting(m.id_entidad) })}
+                                                                    >
+                                                                        <IconTrash size={15} /> Expulsar del grupo
+                                                                    </DropdownMenuItem>
+                                                                </>
+                                                            )}
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
+                                                ))}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-3 px-4 py-10 text-center text-muted-foreground">
+                                            <IconUsers size={34} /><span>Agrega miembros en el panel de la derecha</span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="min-w-0 flex-1 basis-[260px]">
+                                    {(!isEditing || isAdmin) ? (
+                                        <>
+                                            <div className="mb-3 text-sm font-semibold text-foreground">{isEditing ? 'Agregar integrantes' : 'Seleccionar integrantes'}</div>
+                                            <div className="relative">
+                                                <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                <Input className="pl-8" value={searchQuery} onChange={(e) => handleSearch(e.target.value)} placeholder="Buscar por nombre o correo…" />
+                                            </div>
+                                            <div className="mt-2 flex max-h-[340px] flex-col gap-1 overflow-y-auto">
+                                                {searchResults.map((c) => (
+                                                    <button key={`${c.tipo_entidad}-${c.id_entidad}`} type="button" className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-muted" onClick={() => addMember(c)}>
+                                                        <ChatAvatar name={c.nombre} foto={c.foto} size={36} />
+                                                        <span className="min-w-0 flex-1">
+                                                            <span className="block truncate text-sm font-semibold text-foreground">{c.nombre}</span>
+                                                            <span className="block truncate text-xs text-muted-foreground">{c.cargo || c.email}</span>
+                                                        </span>
+                                                        <IconUserPlus size={18} className="text-primary" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            {selectedMembers.length > 0 && (
+                                                <div className="mt-3 flex flex-wrap gap-1">
+                                                    {selectedMembers.map((m) => (
+                                                        <Badge key={`${m.tipo_entidad}-${m.id_entidad}`} variant="outline" className="gap-1 pr-1">
+                                                            {m.nombre}
+                                                            <button type="button" aria-label="Quitar" onClick={() => removePending(m.id_entidad)} className="rounded-full p-0.5 hover:bg-muted">
+                                                                <IconX size={12} />
+                                                            </button>
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-3 px-4 py-10 text-center text-muted-foreground">
+                                            <IconShield size={34} /><span>No tienes permisos para agregar miembros</span>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
+                )}
+
+                <DialogFooter className="sm:justify-between">
+                    {isEditing ? (
+                        <Button variant="ghost" className="text-muted-foreground" disabled={saving} onClick={leaveGroup}>
+                            <IconLogout size={16} /> Salir del grupo
+                        </Button>
+                    ) : <span />}
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={onClose}>{isEditing && !isAdmin ? 'Cerrar' : 'Cancelar'}</Button>
                         {(!isEditing || isAdmin) && (
-                            <Button type="primary" icon={<IconUsers size={16} />} onClick={handleSave} loading={saving}
-                                disabled={saving || (!isEditing && (!nombre.trim() || selectedMembers.length === 0))}>
-                                {isEditing ? 'Guardar cambios' : 'Crear grupo'}
+                            <Button
+                                onClick={handleSave}
+                                disabled={saving || (!isEditing && (!nombre.trim() || selectedMembers.length === 0))}
+                            >
+                                {saving ? 'Guardando…' : <><IconUsers size={16} /> {isEditing ? 'Guardar cambios' : 'Crear grupo'}</>}
                             </Button>
                         )}
                     </div>
-                </div>
-            }>
-            <style>{CSS}</style>
-            {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}><Spin tip="Cargando…"><div style={{ padding: 20 }} /></Spin></div>
-            ) : (
-                <Tabs activeKey={tab} onChange={(k) => setTab(k as 'info' | 'members')}
-                    items={[
-                        { key: 'info', label: 'Información', children: infoTab },
-                        { key: 'members', label: `Miembros${isEditing ? ` (${existingMembers.length})` : ''}`, children: membersTab },
-                    ]} />
-            )}
-            {dialog}
-        </Modal>
+                </DialogFooter>
+                {dialog}
+            </DialogContent>
+        </Dialog>
     );
 };
 

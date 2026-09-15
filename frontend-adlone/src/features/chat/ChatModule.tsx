@@ -1,9 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from 'react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
-// ── Rediseño con Ant Design v6 (solo la página de chat) ───────────────────
-// ConfigProvider aplica el tema antd a su subárbol. El estilo estructural se
-// hace con clases CSS inyectadas; los componentes son de antd.
-import { ConfigProvider, Spin } from 'antd';
 import { IconMessageCircle } from '@tabler/icons-react';
 import { useChatStore } from '../../store/chatStore';
 import { useAuth } from '../../contexts/AuthContext';
@@ -13,27 +9,14 @@ import { generalChatService } from '../../services/general-chat.service';
 import type { ChatMessage } from '../../services/general-chat.service';
 import { io, Socket } from 'socket.io-client';
 import API_CONFIG from '../../config/api.config';
+import { PageHeader } from '../../components/layout/PageHeader';
 import ChatSidebar from './ChatSidebar';
-import ChatNav, { type ChatView } from './ChatNav';
+import type { ChatView } from './ChatNav';
 import ChatWindow from './ChatWindow';
 import ChatGroupModal from './ChatGroupModal';
 import ContactProfileDrawer from './ContactProfileDrawer';
 
 let chatSocket: Socket | null = null;
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', primaryBg: '#e6f4ff', bg: '#ffffff',
-};
-
-const CSS = `
-.adl-cm-root { display:flex; height:100%; overflow:hidden; background:${C.bg}; }
-.adl-cm-center { display:flex; align-items:center; justify-content:center; height:100%; }
-.adl-cm-empty { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; row-gap:6px; text-align:center; background:${C.bg}; }
-.adl-cm-badge { width:104px; height:104px; border-radius:20px; display:grid; place-items:center; margin-bottom:12px; color:${C.primary}; background:${C.primaryBg}; }
-.adl-cm-title { font-size:18px; font-weight:700; margin:0; color:${C.text}; }
-.adl-cm-sub { color:${C.textTer}; font-size:14px; margin:0; }
-`;
 
 const ChatModule: React.FC = () => {
     const { user, token } = useAuth();
@@ -100,7 +83,7 @@ const ChatModule: React.FC = () => {
 
         chatSocket.on('nuevoChatMensaje', (msg: ChatMessage) => {
             const state = useChatStore.getState();
-            
+
             // If the conversation is not in our list (might be hidden), re-fetch list
             const convExists = state.conversations.find(c => c.id_conversacion === msg.id_conversacion);
             if (!convExists) {
@@ -298,31 +281,27 @@ const ChatModule: React.FC = () => {
 
     if (loading && conversations.length === 0) {
         return (
-            <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
-                <style>{CSS}</style>
-                <div className="adl-cm-center"><Spin tip="Cargando conversaciones…"><div style={{ padding: 40 }} /></Spin></div>
-            </ConfigProvider>
+            <div className="shadcn-scope flex h-full flex-col p-4 md:p-6">
+                <PageHeader title="Chat" subtitle="Mensajes y conversaciones." breadcrumbItems={[{ label: 'Dashboard' }, { label: 'Chat' }]} />
+                <div className="flex flex-1 items-center justify-center">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
+            </div>
         );
     }
 
     return (
-        <ConfigProvider theme={{ token: { colorPrimary: C.primary, borderRadius: 8 } }}>
-            <style>{CSS}</style>
-            <div className="adl-cm-root">
-                {!isMobile && (
-                    <ChatNav
-                        view={chatView}
-                        onChangeView={setChatView}
-                        counts={navCounts}
-                        onCreateGroup={() => setGroupModalOpen(true)}
-                    />
-                )}
+        <div className="shadcn-scope flex h-full flex-col p-4 md:p-6">
+            <PageHeader title="Chat" subtitle="Mensajes y conversaciones." breadcrumbItems={[{ label: 'Dashboard' }, { label: 'Chat' }]} />
 
+            <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
                 {(!isMobile || !activeConversation) && (
                     <ChatSidebar
                         conversations={conversations}
                         activeConversation={activeConversation}
                         view={chatView}
+                        onChangeView={setChatView}
+                        counts={navCounts}
                         onSelect={handleSelectConversation}
                         onStartDirect={handleStartDirectChat}
                         onSelectById={handleSelectConversationById}
@@ -356,10 +335,12 @@ const ChatModule: React.FC = () => {
                         />
                     )
                 ) : !isMobile && (
-                    <div className="adl-cm-empty">
-                        <div className="adl-cm-badge"><IconMessageCircle size={44} /></div>
-                        <h2 className="adl-cm-title">Chat General ADL One</h2>
-                        <p className="adl-cm-sub">Selecciona una conversación o busca un contacto para comenzar</p>
+                    <div className="flex flex-1 flex-col items-center justify-center gap-1.5 bg-background text-center">
+                        <div className="mb-3 grid h-[104px] w-[104px] place-items-center rounded-2xl bg-accent text-primary">
+                            <IconMessageCircle size={44} />
+                        </div>
+                        <h2 className="m-0 text-lg font-bold text-foreground">Chat General ADL One</h2>
+                        <p className="m-0 text-sm text-muted-foreground">Selecciona una conversación o busca un contacto para comenzar</p>
                     </div>
                 )}
             </div>
@@ -378,7 +359,7 @@ const ChatModule: React.FC = () => {
                 userId={profileUserId}
                 onStartChat={handleStartDirectChat}
             />
-        </ConfigProvider>
+        </div>
     );
 };
 

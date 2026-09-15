@@ -1,4 +1,3 @@
-import { Avatar } from 'antd';
 import { IconUsers } from '@tabler/icons-react';
 import API_CONFIG from '../../config/api.config';
 
@@ -24,20 +23,32 @@ interface ChatAvatarProps {
     group?: boolean;
     onClick?: (e?: React.MouseEvent<HTMLElement>) => void;
     style?: React.CSSProperties;
+    className?: string;
 }
 
-const ChatAvatar: React.FC<ChatAvatarProps> = ({ name, foto, size = 40, group, onClick, style }) => {
+const ChatAvatar: React.FC<ChatAvatarProps> = ({ name, foto, size = 40, group, onClick, style, className }) => {
     const src = foto ? `${API_CONFIG.getBaseURL()}${foto}` : undefined;
     const bg = group ? '#13a8a8' : stringToColor(name);
     return (
-        <Avatar
-            src={src}
-            size={size}
+        <div
             onClick={onClick}
-            icon={group && !src ? <IconUsers size={Math.round(size * 0.5)} /> : undefined}
-            style={{ backgroundColor: src ? undefined : bg, flexShrink: 0, cursor: onClick ? 'pointer' : undefined, ...style }}>
-            {!src && !group ? initials(name) : null}
-        </Avatar>
+            className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold text-white ${onClick ? 'cursor-pointer' : ''} ${className || ''}`}
+            style={{
+                width: size,
+                height: size,
+                fontSize: Math.max(11, Math.round(size * 0.38)),
+                backgroundColor: src ? undefined : bg,
+                ...style,
+            }}
+        >
+            {src ? (
+                <img src={src} alt={name || 'avatar'} className="h-full w-full object-cover" />
+            ) : group ? (
+                <IconUsers size={Math.round(size * 0.5)} />
+            ) : (
+                initials(name)
+            )}
+        </div>
     );
 };
 
