@@ -6,15 +6,16 @@ import {
     IconCircleCheck,
     IconCircleX,
     IconChevronRight,
-    IconX
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
-import { Popover, Button, Divider, Tag } from 'antd';
-import { createPortal } from 'react-dom';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/es';
@@ -34,16 +35,6 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
     const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode } = useNavStore();
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
-
-    // Referencia para saber dónde está el botón (panel móvil flotante)
-    const targetRef = React.useRef<HTMLDivElement>(null);
-    const [targetRect, setTargetRect] = React.useState<DOMRect | null>(null);
-
-    React.useEffect(() => {
-        if (opened && isMobile && targetRef.current) {
-            setTargetRect(targetRef.current.getBoundingClientRect());
-        }
-    }, [opened, isMobile]);
 
     // Mismos permisos que FichasIngresoPage exige para 'list_fichas' / 'list_ejecutados'
     const FICHA_DETALLE_PERMS = ['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR'];
@@ -130,10 +121,10 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
 
     const getIcon = (tipo: string) => {
         switch (tipo) {
-            case 'SUCCESS': return <IconCircleCheck size={16} color="#2f9e44" />;
-            case 'WARNING': return <IconAlertTriangle size={16} color="#e8590c" />;
-            case 'ERROR': return <IconCircleX size={16} color="#e03131" />;
-            default: return <IconInfoCircle size={16} color="#1c7ed6" />;
+            case 'SUCCESS': return <IconCircleCheck size={16} className="text-success" />;
+            case 'WARNING': return <IconAlertTriangle size={16} className="text-warning" />;
+            case 'ERROR': return <IconCircleX size={16} className="text-destructive" />;
+            default: return <IconInfoCircle size={16} className="text-primary" />;
         }
     };
 
@@ -146,168 +137,95 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
         setActiveSubmodule('');
     };
 
-    /* ── Contenido original del panel (compartido mobile/desktop) ── */
-    const panelContent = (
-        <>
-            <div style={{ padding: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8 }}>
-                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--app-text)' }}>Notificaciones Recientes</span>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {unreadNotifications.length > 0 && (
-                            <Tag color="red" bordered={false} style={{ marginInlineEnd: 0, fontSize: 11 }}>
-                                {unreadNotifications.length} nuevas
-                            </Tag>
-                        )}
-                        {unreadNotifications.length > 0 && (
-                            <Button type="text" size="small" onClick={markAllAsRead} style={{ fontSize: 11, color: 'var(--app-text-secondary)', height: 22, padding: '0 6px' }}>
-                                Marcar todas como leídas
-                            </Button>
-                        )}
-                        {isMobile && (
-                            <Button type="text" shape="circle" size="small" icon={<IconX size={16} />} onClick={onClose} />
+    return (
+        <Popover open={opened} onOpenChange={(next) => { if (!next) onClose(); }}>
+            <PopoverAnchor>
+                <div className="w-full">{children}</div>
+            </PopoverAnchor>
+            <PopoverContent
+                align={isMobile ? 'end' : 'start'}
+                side={isMobile ? 'bottom' : 'right'}
+                sideOffset={isMobile ? 8 : 4}
+                className={cn('shadcn-scope flex flex-col p-0', isMobile ? 'w-[calc(100vw-20px)] max-w-[340px]' : 'w-[350px]')}
+            >
+                <div className="p-4">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                        <span className="text-[13px] font-bold text-foreground">Notificaciones Recientes</span>
+                        <div className="flex items-center gap-1.5">
+                            {unreadNotifications.length > 0 && (
+                                <Badge variant="destructive">{unreadNotifications.length} nuevas</Badge>
+                            )}
+                            {unreadNotifications.length > 0 && (
+                                <Button variant="ghost" size="sm" className="h-[22px] px-1.5 text-[11px] text-muted-foreground" onClick={markAllAsRead}>
+                                    Marcar todas como leídas
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+                    <hr className="my-2 border-t border-border" />
+
+                    <div className="max-h-[400px] overflow-y-auto">
+                        {notifications.length === 0 ? (
+                            <div className="py-8 text-center">
+                                <IconBell size={32} strokeWidth={1} className="mx-auto text-border" />
+                                <div className="mt-2 text-xs text-muted-foreground">No tienes notificaciones pendientes</div>
+                            </div>
+                        ) : (
+                            <div className="flex flex-col gap-1">
+                                {recentNotifications.map((notif) => (
+                                    <button
+                                        key={notif.id_notificacion}
+                                        type="button"
+                                        onPointerDown={(e) => e.preventDefault()}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleItemClick(notif);
+                                        }}
+                                        className={cn(
+                                            'block w-full rounded-lg p-2 text-left transition-colors hover:bg-muted',
+                                            notif.leido ? 'bg-transparent' : 'bg-primary/5'
+                                        )}
+                                    >
+                                        <div className="flex items-start gap-2">
+                                            <div className="pt-0.5">{getIcon(notif.tipo)}</div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className={cn('truncate text-xs font-bold', notif.leido ? 'text-muted-foreground' : 'text-foreground')}>
+                                                    {formatTitle(notif.titulo)}
+                                                </div>
+                                                <div className="mb-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                                    {notif.mensaje}
+                                                </div>
+                                                <div className="text-[10px] font-medium text-primary">
+                                                    {dayjs(notif.fecha).fromNow()}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>
-                <Divider style={{ margin: '8px 0' }} />
 
-                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-                    {notifications.length === 0 ? (
-                        <div style={{ padding: '32px 0', textAlign: 'center' }}>
-                            <IconBell size={32} color="var(--app-border)" stroke={1} />
-                            <div style={{ fontSize: 12, color: 'var(--app-text-secondary)', marginTop: 8 }}>No tienes notificaciones pendientes</div>
-                        </div>
-                    ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {recentNotifications.map((notif) => (
-                                <div
-                                    key={notif.id_notificacion}
-                                    role="button"
-                                    tabIndex={0}
-                                    onPointerDown={(e) => e.preventDefault()}
-                                    onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        handleItemClick(notif);
-                                    }}
-                                    style={{
-                                        borderRadius: 8,
-                                        padding: 8,
-                                        backgroundColor: notif.leido ? 'transparent' : 'var(--app-accent-bg)',
-                                        transition: 'background-color 0.2s',
-                                        width: '100%',
-                                        display: 'block',
-                                        textAlign: 'left',
-                                        cursor: 'pointer',
-                                        border: 'none',
-                                    }}
-                                    onMouseEnter={(e) => { if (notif.leido) e.currentTarget.style.backgroundColor = 'var(--app-hover-bg)'; }}
-                                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = notif.leido ? 'transparent' : 'var(--app-accent-bg)')}
-                                >
-                                    <div style={{ display: 'flex', flexWrap: 'nowrap', alignItems: 'flex-start', gap: 8 }}>
-                                        <div style={{ paddingTop: 2 }}>{getIcon(notif.tipo)}</div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{
-                                                fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                                                color: notif.leido ? 'var(--app-text-secondary)' : 'var(--app-text)',
-                                            }}>
-                                                {formatTitle(notif.titulo)}
-                                            </div>
-                                            <div style={{
-                                                fontSize: 12, color: 'var(--app-text-secondary)', marginBottom: 2,
-                                                display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                            }}>
-                                                {notif.mensaje}
-                                            </div>
-                                            <div style={{ fontSize: 10, color: 'var(--app-accent-text)', fontWeight: 500 }}>
-                                                {dayjs(notif.fecha).fromNow()}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                <hr className="border-t border-border" />
+                <div className="p-2">
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full justify-between"
+                        onPointerDown={(e) => e.preventDefault()}
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleViewAll();
+                        }}
+                    >
+                        Ver todas las notificaciones
+                        <IconChevronRight size={14} />
+                    </Button>
                 </div>
-            </div>
-
-            <Divider style={{ margin: 0 }} />
-            <div style={{ padding: 8 }}>
-                <Button
-                    type="text"
-                    block
-                    size="small"
-                    icon={<IconChevronRight size={14} />}
-                    iconPosition="end"
-                    onPointerDown={(e) => e.preventDefault()}
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        handleViewAll();
-                    }}
-                >
-                    Ver todas las notificaciones
-                </Button>
-            </div>
-        </>
-    );
-
-    /* ── MOBILE: panel flotante posicionado sobre el sidebar ── */
-    if (isMobile) {
-        return (
-            <>
-                <div ref={targetRef} style={{ width: '100%' }}>
-                    {children}
-                </div>
-                {opened && createPortal(
-                    <>
-                        {/* Overlay para cerrar al tocar fuera */}
-                        <div onClick={onClose} style={{ position: 'fixed', inset: 0, zIndex: 299, backgroundColor: 'transparent' }} />
-                        <div
-                            style={{
-                                position: 'fixed',
-                                top: targetRect ? targetRect.bottom + 8 : 70,
-                                left: 10,
-                                width: 'calc(100% - 20px)',
-                                maxWidth: 340,
-                                zIndex: 300,
-                                backgroundColor: 'var(--app-glass-bg-strong)',
-                                backdropFilter: 'blur(12px)',
-                                WebkitBackdropFilter: 'blur(12px)',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                boxShadow: '0 8px 32px rgba(0,0,0,0.25)',
-                                borderRadius: 12,
-                                overflow: 'hidden',
-                                border: '1px solid var(--app-border)',
-                            }}
-                        >
-                            <div style={{ flex: 1, overflowY: 'auto' }}>
-                                {panelContent}
-                            </div>
-                        </div>
-                    </>,
-                    document.body
-                )}
-            </>
-        );
-    }
-
-    /* ── DESKTOP: Popover de Ant Design — cierre por click-afuera confiable
-       vía rc-trigger (a diferencia del Popover de Mantine, que en este panel
-       no lo detectaba de forma consistente). ── */
-    return (
-        <Popover
-            open={opened}
-            onOpenChange={(next) => { if (!next) onClose(); }}
-            trigger="click"
-            placement="rightTop"
-            arrow={{ pointAtCenter: true }}
-            styles={{ container: { padding: 0, borderRadius: 12, overflow: 'hidden', width: 350 } }}
-            content={panelContent}
-        >
-            <div style={{ width: '100%' }}>
-                {children}
-            </div>
+            </PopoverContent>
         </Popover>
     );
 };
