@@ -1,25 +1,24 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
-    Steps, Button, DatePicker, Table, Tag, Radio, Select, Input, message, Result,
-    Empty, Space, Statistic, Card, Alert, Tooltip,
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import {
     IconSearch, IconArrowRight, IconArrowLeft, IconCircleCheck, IconFileInvoice, IconEye,
-    IconMail, IconWorldUpload,
+    IconMail, IconWorldUpload, IconCheck,
 } from '@tabler/icons-react';
-import dayjs, { Dayjs } from 'dayjs';
+
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { Input } from '@/components/ui/input';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
+import { cn } from '@/lib/utils';
+import { useToast } from '../../../contexts/ToastContext';
 import { facturacionService } from '../services/facturacion.service';
 import API_CONFIG from '../../../config/api.config';
 import { catalogosService, type EmpresaServicio, type Centro } from '../../medio-ambiente/services/catalogos.service';
 import PdfViewerModal from './PdfViewerModal';
-
-const { RangePicker } = DatePicker;
-
-const C = {
-    border: '#f0f0f0', text: 'rgba(0,0,0,0.88)', textSec: 'rgba(0,0,0,0.65)', textTer: 'rgba(0,0,0,0.45)',
-    primary: '#1677ff', bg: '#ffffff',
-};
 
 type AgrupacionTipo = 'SIN_AGRUPACION' | 'CENTRO' | 'TIPO_AGUA';
 
@@ -38,30 +37,49 @@ interface CasoFacturable {
     precio_uf: number;
 }
 
-const CSS = `
-.adl-fp-wrap { width:100%; padding:24px 32px 48px; }
-.adl-fp-title { margin:0 0 4px; font-size:22px; font-weight:700; color:${C.text}; letter-spacing:-.3px; }
-.adl-fp-sub { margin:0 0 22px; font-size:13px; color:${C.textTer}; }
-.adl-fp-filters { display:flex; align-items:center; gap:10px; margin-bottom:16px; flex-wrap:wrap; }
-.adl-fp-footer { display:flex; align-items:center; justify-content:space-between; margin-top:16px; padding-top:16px; border-top:1px solid ${C.border}; }
-.adl-fp-selinfo { font-size:13px; color:${C.textSec}; }
-.adl-fp-selinfo b { color:${C.text}; font-variant-numeric:tabular-nums; }
-.adl-fp-groupcard { border:1px solid ${C.border}; border-radius:10px; padding:14px 16px; margin-bottom:10px; background:${C.bg}; }
-.adl-fp-groupname { font-weight:600; font-size:13.5px; color:${C.text}; }
-.adl-fp-groupmeta { font-size:12px; color:${C.textTer}; margin-top:2px; }
-.adl-fp-radiogroup .ant-radio-wrapper { display:flex; align-items:flex-start; padding:10px 12px; border:1px solid ${C.border}; border-radius:10px; margin:0 0 8px; }
-.adl-fp-radiotext { margin-left:4px; }
-.adl-fp-radiotitle { font-weight:600; font-size:13.5px; color:${C.text}; }
-.adl-fp-radiodesc { font-size:12px; color:${C.textTer}; margin-top:1px; }
-`;
+const PAGE_SIZE = 10;
+
+const STEP_LABELS = ['Seleccionar casos', 'Agrupar y configurar', 'Confirmar', 'Resultado'];
+
+function StepHeader({ step }: { step: number }) {
+    return (
+        <div className="mb-6 flex items-center">
+            {STEP_LABELS.map((label, i) => (
+                <div key={label} className="flex flex-1 items-center last:flex-none">
+                    <div className="flex items-center gap-2">
+                        <span
+                            className={cn(
+                                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                                i < step ? 'bg-primary text-primary-foreground' : i === step ? 'border-2 border-primary text-primary' : 'border border-border text-muted-foreground'
+                            )}
+                        >
+                            {i < step ? <IconCheck size={14} /> : i + 1}
+                        </span>
+                        <span className={cn('text-sm', i === step ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{label}</span>
+                    </div>
+                    {i < STEP_LABELS.length - 1 && <div className={cn('mx-3 h-px flex-1', i < step ? 'bg-primary' : 'bg-border')} />}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+const AGRUPACION_OPTIONS: { value: AgrupacionTipo; title: string; desc: string }[] = [
+    { value: 'SIN_AGRUPACION', title: 'Sin agrupación (recomendado)', desc: 'Todos los casos de un mismo cliente van en una sola pre-factura.' },
+    { value: 'CENTRO', title: 'Por centro', desc: 'Una pre-factura distinta por cada centro del cliente.' },
+    { value: 'TIPO_AGUA', title: 'Por tipo de agua', desc: 'Una pre-factura distinta por cada tipo de agua muestreada.' },
+];
 
 const FacturacionProcesar: React.FC = () => {
+    const { showToast } = useToast();
     const [step, setStep] = useState(0);
     const [loading, setLoading] = useState(false);
-    const [rango, setRango] = useState<[Dayjs, Dayjs] | null>(null);
+    const [fechaDesde, setFechaDesde] = useState('');
+    const [fechaHasta, setFechaHasta] = useState('');
     const [casos, setCasos] = useState<CasoFacturable[]>([]);
     const [buscado, setBuscado] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [page, setPage] = useState(1);
     const [agrupacionTipo, setAgrupacionTipo] = useState<AgrupacionTipo>('SIN_AGRUPACION');
     const [formaPago, setFormaPago] = useState('');
     const [glosa, setGlosa] = useState('');
@@ -82,24 +100,24 @@ const FacturacionProcesar: React.FC = () => {
     const [glosas, setGlosas] = useState<{ id_glosa: number; nombre_glosa: string }[]>([]);
     const [empresas, setEmpresas] = useState<EmpresaServicio[]>([]);
     const [centros, setCentros] = useState<Centro[]>([]);
-    const [idEmpresaServicioFiltro, setIdEmpresaServicioFiltro] = useState<number | undefined>();
-    const [idCentroFiltro, setIdCentroFiltro] = useState<number | undefined>();
+    const [idEmpresaServicioFiltro, setIdEmpresaServicioFiltro] = useState<string | undefined>();
+    const [idCentroFiltro, setIdCentroFiltro] = useState<string | undefined>();
 
     useEffect(() => {
-        facturacionService.listarFormasPago().then(setFormasPago).catch(() => message.error('No se pudieron cargar las formas de pago'));
-        facturacionService.listarGlosas().then(setGlosas).catch(() => message.error('No se pudieron cargar las glosas'));
+        facturacionService.listarFormasPago().then(setFormasPago).catch(() => showToast({ type: 'error', message: 'No se pudieron cargar las formas de pago' }));
+        facturacionService.listarGlosas().then(setGlosas).catch(() => showToast({ type: 'error', message: 'No se pudieron cargar las glosas' }));
         catalogosService.getEmpresasServicio()
             .then((raw: any[]) => setEmpresas(raw.map((e) => ({ id: e.id_empresaservicio, nombre: e.nombre_empresaservicios }))))
-            .catch(() => message.error('No se pudieron cargar los clientes'));
+            .catch(() => showToast({ type: 'error', message: 'No se pudieron cargar los clientes' }));
     }, []);
 
-    const onEmpresaFiltroChange = async (val: number | undefined) => {
+    const onEmpresaFiltroChange = async (val: string | undefined) => {
         setIdEmpresaServicioFiltro(val);
         setIdCentroFiltro(undefined);
         setCentros([]);
         if (!val) return;
         try {
-            const raw: any[] = await catalogosService.getCentros(undefined, val);
+            const raw: any[] = await catalogosService.getCentros(undefined, Number(val));
             setCentros(raw.map((c) => ({ id: c.id_centro, nombre: c.nombre_centro })));
         } catch { /* noop */ }
     };
@@ -109,17 +127,16 @@ const FacturacionProcesar: React.FC = () => {
         setBuscado(true);
         try {
             const filtros: Record<string, any> = {};
-            if (rango) {
-                filtros.fechaInicio = rango[0].format('YYYY-MM-DD');
-                filtros.fechaFin = rango[1].format('YYYY-MM-DD');
-            }
-            if (idEmpresaServicioFiltro) filtros.idEmpresaServicio = idEmpresaServicioFiltro;
-            if (idCentroFiltro) filtros.idCentro = idCentroFiltro;
+            if (fechaDesde) filtros.fechaInicio = fechaDesde;
+            if (fechaHasta) filtros.fechaFin = fechaHasta;
+            if (idEmpresaServicioFiltro) filtros.idEmpresaServicio = Number(idEmpresaServicioFiltro);
+            if (idCentroFiltro) filtros.idCentro = Number(idCentroFiltro);
             const data = await facturacionService.getCasosFacturables(filtros);
             setCasos(data || []);
             setSelectedIds([]);
+            setPage(1);
         } catch {
-            message.error('No se pudieron cargar los casos facturables');
+            showToast({ type: 'error', message: 'No se pudieron cargar los casos facturables' });
         } finally {
             setLoading(false);
         }
@@ -144,25 +161,24 @@ const FacturacionProcesar: React.FC = () => {
         return Array.from(map.values());
     }, [seleccionados, agrupacionTipo]);
 
-    const columns: ColumnsType<CasoFacturable> = [
-        { title: 'N° Caso', dataIndex: 'n_caso', width: 100 },
-        { title: 'Cliente', dataIndex: 'empresaservicio_nombre', ellipsis: true },
-        { title: 'Centro', dataIndex: 'centro_nombre', ellipsis: true, width: 180 },
-        {
-            title: 'Fecha informe', dataIndex: 'fecha_informe', width: 130,
-            render: (v) => v ? new Date(v).toLocaleDateString('es-CL') : '—',
-        },
-        {
-            title: 'Precio', dataIndex: 'precio_uf', width: 110, align: 'right',
-            render: (v) => <span style={{ fontVariantNumeric: 'tabular-nums' }}>{Number(v).toFixed(2)} UF</span>,
-        },
-    ];
+    const totalPages = Math.max(1, Math.ceil(casos.length / PAGE_SIZE));
+    const currentPage = Math.min(page, totalPages);
+    const paginatedCasos = casos.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const allPageSelected = paginatedCasos.length > 0 && paginatedCasos.every((c) => selectedIds.includes(c.id_agendamam));
+
+    const toggleSelected = (id: number) =>
+        setSelectedIds((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+
+    const togglePageSelected = () => {
+        const pageIds = paginatedCasos.map((c) => c.id_agendamam);
+        setSelectedIds((prev) => (allPageSelected ? prev.filter((id) => !pageIds.includes(id)) : [...new Set([...prev, ...pageIds])]));
+    };
 
     /** Al pasar a "Agrupar y configurar": auto-carga forma de pago del cliente (si la selección es de uno solo) y genera una glosa por defecto. */
     const irAConfigurar = async () => {
         setStep(1);
         if (!glosa) {
-            const mesAnio = dayjs().format('MMMM YYYY');
+            const mesAnio = new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
             setGlosa(`Servicio de Muestreo y Análisis de Medio Ambiente – ${mesAnio} – ${seleccionados.length} caso(s)`);
         }
         const idsEmpresa = new Set(seleccionados.map((c) => c.id_empresaservicio));
@@ -194,7 +210,7 @@ const FacturacionProcesar: React.FC = () => {
             const blob = await response.blob();
             setPreviewUrl(URL.createObjectURL(blob));
         } catch (e: any) {
-            message.error(e?.message || 'No se pudo generar la vista previa');
+            showToast({ type: 'error', message: e?.message || 'No se pudo generar la vista previa' });
         } finally {
             setPrevisualizando(false);
         }
@@ -212,13 +228,13 @@ const FacturacionProcesar: React.FC = () => {
             });
             setResultado(r);
             setStep(3);
-            message.success('Pre-factura(s) creada(s) correctamente');
+            showToast({ type: 'success', message: 'Pre-factura(s) creada(s) correctamente' });
             // Se generan los PDF de inmediato para que el documento quede a la
             // vista sin un paso extra: crear la pre-factura y no poder verla
             // era justo donde el proceso se cortaba.
             generarPdfsDeResultado(r);
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudieron crear las pre-facturas');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudieron crear las pre-facturas' });
         } finally {
             setCreando(false);
         }
@@ -242,9 +258,9 @@ const FacturacionProcesar: React.FC = () => {
         try {
             await facturacionService.publicarPrefacturaEnPortal(idPrefactura);
             setPublicadas((prev) => ({ ...prev, [idPrefactura]: true }));
-            message.success(`Pre-factura N° ${numeroId} publicada en el portal del cliente`);
+            showToast({ type: 'success', message: `Pre-factura N° ${numeroId} publicada en el portal del cliente` });
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo publicar en el portal');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo publicar en el portal' });
         } finally {
             setPublicando(null);
         }
@@ -255,100 +271,108 @@ const FacturacionProcesar: React.FC = () => {
         try {
             await facturacionService.enviarPorEmail(idPrefactura);
             setEnviadas((prev) => ({ ...prev, [idPrefactura]: true }));
-            message.success(`Pre-factura N° ${numeroId} enviada por email`);
+            showToast({ type: 'success', message: `Pre-factura N° ${numeroId} enviada por email` });
         } catch (e: any) {
-            message.error(e?.response?.data?.message || 'No se pudo enviar el email');
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo enviar el email' });
         } finally {
             setEnviando(null);
         }
     };
 
     const reiniciar = () => {
-        setStep(0); setCasos([]); setSelectedIds([]); setBuscado(false);
+        setStep(0); setCasos([]); setSelectedIds([]); setBuscado(false); setPage(1);
         setResultado(null); setAgrupacionTipo('SIN_AGRUPACION'); setFormaPago(''); setGlosa(''); setObservaciones('');
         setPdfs({}); setPublicadas({}); setEnviadas({});
     };
 
     return (
-        <div className="adl-fp-wrap">
-            <style>{CSS}</style>
-            <h2 className="adl-fp-title">Procesar Facturación</h2>
-            <p className="adl-fp-sub">Selecciona casos con informe cerrado, agrúpalos y genera las pre-facturas.</p>
+        <div className="shadcn-scope w-full p-6 pb-12">
+            <h2 className="mb-1 text-[22px] font-bold tracking-tight text-foreground">Procesar Facturación</h2>
+            <p className="mb-6 text-sm text-muted-foreground">Selecciona casos con informe cerrado, agrúpalos y genera las pre-facturas.</p>
 
-            <Steps
-                current={step}
-                style={{ marginBottom: 26 }}
-                items={[
-                    { title: 'Seleccionar casos' },
-                    { title: 'Agrupar y configurar' },
-                    { title: 'Confirmar' },
-                    { title: 'Resultado' },
-                ]}
-            />
+            <StepHeader step={step} />
 
             {step === 0 && (
                 <>
-                    <div className="adl-fp-filters">
-                        <Select
-                            allowClear
-                            showSearch
-                            placeholder="Cliente"
-                            style={{ width: 240 }}
-                            optionFilterProp="label"
+                    <div className="mb-4 flex flex-wrap items-center gap-2.5">
+                        <Combobox
                             value={idEmpresaServicioFiltro}
-                            onChange={onEmpresaFiltroChange}
-                            options={empresas.map((e) => ({ value: e.id, label: e.nombre }))}
+                            onValueChange={onEmpresaFiltroChange}
+                            placeholder="Cliente"
+                            searchPlaceholder="Buscar cliente..."
+                            className="w-60"
+                            options={[{ value: '', label: 'Todos los clientes' }, ...empresas.map((e) => ({ value: String(e.id), label: e.nombre }))]}
                         />
-                        <Select
-                            allowClear
-                            showSearch
-                            placeholder="Centro"
-                            style={{ width: 200 }}
-                            disabled={!idEmpresaServicioFiltro}
-                            optionFilterProp="label"
+                        <Combobox
                             value={idCentroFiltro}
-                            onChange={setIdCentroFiltro}
-                            options={centros.map((c) => ({ value: c.id, label: c.nombre }))}
+                            onValueChange={setIdCentroFiltro}
+                            placeholder="Centro"
+                            searchPlaceholder="Buscar centro..."
+                            className="w-52"
+                            disabled={!idEmpresaServicioFiltro}
+                            options={[{ value: '', label: 'Todos los centros' }, ...centros.map((c) => ({ value: String(c.id), label: c.nombre }))]}
                         />
-                        <RangePicker
-                            value={rango}
-                            onChange={(v) => setRango(v as [Dayjs, Dayjs] | null)}
-                            placeholder={['Informe desde', 'Informe hasta']}
-                        />
-                        <Button type="primary" icon={<IconSearch size={15} />} loading={loading} onClick={buscarCasos}>
+                        <DatePicker value={fechaDesde} onChange={setFechaDesde} placeholder="Informe desde" className="w-44" />
+                        <DatePicker value={fechaHasta} onChange={setFechaHasta} placeholder="Informe hasta" className="w-44" />
+                        <Button disabled={loading} onClick={buscarCasos}>
+                            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconSearch size={15} />}
                             Buscar casos facturables
                         </Button>
                     </div>
 
                     {!buscado ? (
-                        <Empty description="Define un rango de fechas (opcional) y busca los casos facturables." />
+                        <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+                            Define un rango de fechas (opcional) y busca los casos facturables.
+                        </p>
                     ) : casos.length === 0 ? (
-                        <Empty description="No hay casos facturables con esos filtros." />
+                        <p className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+                            No hay casos facturables con esos filtros.
+                        </p>
                     ) : (
                         <>
-                            <Table<CasoFacturable>
-                                rowKey="id_agendamam"
-                                columns={columns}
-                                dataSource={casos}
-                                size="small"
-                                pagination={{ pageSize: 10, size: 'small' }}
-                                rowSelection={{
-                                    selectedRowKeys: selectedIds,
-                                    onChange: (keys) => setSelectedIds(keys as number[]),
-                                }}
-                            />
-                            <div className="adl-fp-footer">
-                                <div className="adl-fp-selinfo">
-                                    <b>{selectedIds.length}</b> caso(s) seleccionado(s) · <b>{totalUfSeleccionado.toFixed(2)}</b> UF
+                            <div className="overflow-hidden rounded-xl border border-border bg-card">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead className="w-10">
+                                                <Checkbox checked={allPageSelected} onCheckedChange={togglePageSelected} aria-label="Seleccionar todos" />
+                                            </TableHead>
+                                            <TableHead>N° Caso</TableHead>
+                                            <TableHead>Cliente</TableHead>
+                                            <TableHead>Centro</TableHead>
+                                            <TableHead>Fecha informe</TableHead>
+                                            <TableHead className="text-right">Precio</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {paginatedCasos.map((c) => (
+                                            <TableRow key={c.id_agendamam}>
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={selectedIds.includes(c.id_agendamam)}
+                                                        onCheckedChange={() => toggleSelected(c.id_agendamam)}
+                                                        aria-label={`Seleccionar caso ${c.n_caso}`}
+                                                    />
+                                                </TableCell>
+                                                <TableCell>{c.n_caso}</TableCell>
+                                                <TableCell className="max-w-[220px] truncate">{c.empresaservicio_nombre}</TableCell>
+                                                <TableCell className="max-w-[180px] truncate">{c.centro_nombre}</TableCell>
+                                                <TableCell>{c.fecha_informe ? new Date(c.fecha_informe).toLocaleDateString('es-CL') : '—'}</TableCell>
+                                                <TableCell className="text-right tabular-nums">{Number(c.precio_uf).toFixed(2)} UF</TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                            <div className="mt-3">
+                                <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={casos.length} onPageChange={setPage} />
+                            </div>
+                            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                                <div className="text-sm text-muted-foreground">
+                                    <b className="tabular-nums text-foreground">{selectedIds.length}</b> caso(s) seleccionado(s) · <b className="tabular-nums text-foreground">{totalUfSeleccionado.toFixed(2)}</b> UF
                                 </div>
-                                <Button
-                                    type="primary"
-                                    disabled={selectedIds.length === 0}
-                                    icon={<IconArrowRight size={15} />}
-                                    iconPosition="end"
-                                    onClick={irAConfigurar}
-                                >
-                                    Continuar
+                                <Button disabled={selectedIds.length === 0} onClick={irAConfigurar}>
+                                    Continuar <IconArrowRight size={15} />
                                 </Button>
                             </div>
                         </>
@@ -358,95 +382,110 @@ const FacturacionProcesar: React.FC = () => {
 
             {step === 1 && (
                 <>
-                    <p className="adl-fp-sub" style={{ marginBottom: 10, fontWeight: 600, color: C.text }}>Agrupación de la(s) pre-factura(s)</p>
-                    <Radio.Group
-                        className="adl-fp-radiogroup"
-                        value={agrupacionTipo}
-                        onChange={(e) => setAgrupacionTipo(e.target.value)}
-                        style={{ display: 'block', marginBottom: 20 }}
-                    >
-                        <Radio value="SIN_AGRUPACION">
-                            <span className="adl-fp-radiotext">
-                                <div className="adl-fp-radiotitle">Sin agrupación (recomendado)</div>
-                                <div className="adl-fp-radiodesc">Todos los casos de un mismo cliente van en una sola pre-factura.</div>
-                            </span>
-                        </Radio>
-                        <Radio value="CENTRO">
-                            <span className="adl-fp-radiotext">
-                                <div className="adl-fp-radiotitle">Por centro</div>
-                                <div className="adl-fp-radiodesc">Una pre-factura distinta por cada centro del cliente.</div>
-                            </span>
-                        </Radio>
-                        <Radio value="TIPO_AGUA">
-                            <span className="adl-fp-radiotext">
-                                <div className="adl-fp-radiotitle">Por tipo de agua</div>
-                                <div className="adl-fp-radiodesc">Una pre-factura distinta por cada tipo de agua muestreada.</div>
-                            </span>
-                        </Radio>
-                    </Radio.Group>
+                    <p className="mb-2.5 text-sm font-semibold text-foreground">Agrupación de la(s) pre-factura(s)</p>
+                    <div className="mb-5 flex flex-col gap-2">
+                        {AGRUPACION_OPTIONS.map((opt) => (
+                            <label
+                                key={opt.value}
+                                className={cn(
+                                    'flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors',
+                                    agrupacionTipo === opt.value ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
+                                )}
+                            >
+                                <input
+                                    type="radio"
+                                    name="agrupacionTipo"
+                                    className="mt-1 h-4 w-4 accent-[var(--sc-primary)]"
+                                    checked={agrupacionTipo === opt.value}
+                                    onChange={() => setAgrupacionTipo(opt.value)}
+                                />
+                                <span>
+                                    <span className="block text-sm font-semibold text-foreground">{opt.title}</span>
+                                    <span className="block text-xs text-muted-foreground">{opt.desc}</span>
+                                </span>
+                            </label>
+                        ))}
+                    </div>
 
-                    <p className="adl-fp-sub" style={{ marginBottom: 10, fontWeight: 600, color: C.text }}>Datos adicionales</p>
-                    <Space direction="vertical" style={{ width: '100%', marginBottom: 20 }} size={10}>
-                        <Select
-                            mode="tags"
-                            placeholder="Forma de pago"
-                            loading={cargandoConfig}
-                            showSearch
-                            optionFilterProp="label"
-                            value={formaPago ? [formaPago] : []}
-                            onChange={(v) => setFormaPago(v[v.length - 1] || '')}
-                            options={formasPago.map((f) => ({ value: f.nombre_formapago, label: f.nombre_formapago }))}
-                            style={{ width: '100%' }}
+                    <p className="mb-2.5 text-sm font-semibold text-foreground">Datos adicionales</p>
+                    <div className="mb-5 flex flex-col gap-2.5">
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Forma de pago"
+                                value={formaPago}
+                                onChange={(e) => setFormaPago(e.target.value)}
+                                className="flex-1"
+                            />
+                            <Combobox
+                                value={undefined}
+                                onValueChange={setFormaPago}
+                                placeholder={cargandoConfig ? 'Cargando...' : 'Elegir'}
+                                searchPlaceholder="Buscar forma de pago..."
+                                className="w-44"
+                                disabled={cargandoConfig}
+                                options={formasPago.map((f) => ({ value: f.nombre_formapago, label: f.nombre_formapago }))}
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Glosa"
+                                value={glosa}
+                                onChange={(e) => setGlosa(e.target.value)}
+                                className="flex-1"
+                            />
+                            <Combobox
+                                value={undefined}
+                                onValueChange={setGlosa}
+                                placeholder="Elegir"
+                                searchPlaceholder="Buscar glosa..."
+                                className="w-44"
+                                options={glosas.map((g) => ({ value: g.nombre_glosa, label: g.nombre_glosa }))}
+                            />
+                        </div>
+                        <textarea
+                            placeholder="Observaciones"
+                            value={observaciones}
+                            onChange={(e) => setObservaciones(e.target.value)}
+                            rows={2}
+                            className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         />
-                        <Select
-                            mode="tags"
-                            placeholder="Glosa"
-                            showSearch
-                            optionFilterProp="label"
-                            value={glosa ? [glosa] : []}
-                            onChange={(v) => setGlosa(v[v.length - 1] || '')}
-                            options={glosas.map((g) => ({ value: g.nombre_glosa, label: g.nombre_glosa }))}
-                            style={{ width: '100%' }}
-                        />
-                        <Input.TextArea placeholder="Observaciones" value={observaciones} onChange={(e) => setObservaciones(e.target.value)} rows={2} />
-                    </Space>
+                    </div>
 
-                    <div className="adl-fp-footer">
-                        <Button icon={<IconArrowLeft size={15} />} onClick={() => setStep(0)}>Atrás</Button>
-                        <Space>
-                            <Button icon={<IconEye size={15} />} loading={previsualizando} onClick={previsualizarPdf}>
+                    <div className="flex items-center justify-between border-t border-border pt-4">
+                        <Button variant="outline" onClick={() => setStep(0)}><IconArrowLeft size={15} /> Atrás</Button>
+                        <div className="flex gap-2">
+                            <Button variant="outline" disabled={previsualizando} onClick={previsualizarPdf}>
+                                {previsualizando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconEye size={15} />}
                                 Vista previa PDF
                             </Button>
-                            <Button type="primary" icon={<IconArrowRight size={15} />} iconPosition="end" onClick={() => setStep(2)}>
-                                Continuar
-                            </Button>
-                        </Space>
+                            <Button onClick={() => setStep(2)}>Continuar <IconArrowRight size={15} /></Button>
+                        </div>
                     </div>
                 </>
             )}
 
             {step === 2 && (
                 <>
-                    <Alert
-                        style={{ marginBottom: 16 }}
-                        type="info"
-                        showIcon
-                        message={`Se crearán ${grupos.length} pre-factura(s)`}
-                        description="Revisa la agrupación antes de confirmar. Los casos se reclaman de forma exclusiva al crear la pre-factura."
-                    />
+                    <div className="mb-4 rounded-lg border border-border bg-muted/40 p-3 text-sm">
+                        <p className="font-medium text-foreground">Se crearán {grupos.length} pre-factura(s)</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                            Revisa la agrupación antes de confirmar. Los casos se reclaman de forma exclusiva al crear la pre-factura.
+                        </p>
+                    </div>
                     {grupos.map((g, i) => {
                         const totalUf = g.casos.reduce((s, c) => s + Number(c.precio_uf || 0), 0);
                         return (
-                            <div key={i} className="adl-fp-groupcard">
-                                <div className="adl-fp-groupname">{g.empresa}{g.sub ? ` — ${g.sub}` : ''}</div>
-                                <div className="adl-fp-groupmeta">{g.casos.length} caso(s) · {totalUf.toFixed(2)} UF</div>
+                            <div key={i} className="mb-2.5 rounded-lg border border-border bg-card p-3.5">
+                                <div className="text-sm font-semibold text-foreground">{g.empresa}{g.sub ? ` — ${g.sub}` : ''}</div>
+                                <div className="mt-0.5 text-xs text-muted-foreground">{g.casos.length} caso(s) · {totalUf.toFixed(2)} UF</div>
                             </div>
                         );
                     })}
 
-                    <div className="adl-fp-footer">
-                        <Button icon={<IconArrowLeft size={15} />} onClick={() => setStep(1)}>Atrás</Button>
-                        <Button type="primary" icon={<IconCircleCheck size={15} />} loading={creando} onClick={confirmar}>
+                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                        <Button variant="outline" onClick={() => setStep(1)}><IconArrowLeft size={15} /> Atrás</Button>
+                        <Button disabled={creando} onClick={confirmar}>
+                            {creando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconCircleCheck size={15} />}
                             Confirmar y crear pre-facturas
                         </Button>
                     </div>
@@ -454,65 +493,68 @@ const FacturacionProcesar: React.FC = () => {
             )}
 
             {step === 3 && resultado && (
-                <Result
-                    status="success"
-                    title="Pre-facturas creadas"
-                    subTitle={`Se generaron ${resultado.length} pre-factura(s) correctamente.`}
-                    extra={[
-                        <Button key="reset" onClick={reiniciar}>Procesar más casos</Button>,
-                    ]}
-                >
-                    <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                <div className="flex flex-col items-center gap-6 py-6 text-center">
+                    <div className="flex h-16 w-16 items-center justify-center rounded-full bg-success/15">
+                        <IconCircleCheck size={36} className="text-success" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-semibold text-foreground">Pre-facturas creadas</h3>
+                        <p className="mt-1 text-sm text-muted-foreground">Se generaron {resultado.length} pre-factura(s) correctamente.</p>
+                    </div>
+
+                    <div className="flex w-full max-w-xl flex-col gap-2.5 text-left">
                         {resultado.map((r) => {
                             const pdf = pdfs[r.id_prefactura];
                             return (
-                                <Card key={r.id_prefactura} size="small">
-                                    <Space align="center" style={{ width: '100%', justifyContent: 'space-between' }}>
-                                        <Space>
-                                            <IconFileInvoice size={18} color={C.primary} />
-                                            <span style={{ fontWeight: 600 }}>PF #{r.numero_id}</span>
-                                            <Tag>{r.agrupacion_valor || 'Sin agrupación'}</Tag>
-                                        </Space>
-                                        <Statistic value={r.total_uf} precision={2} suffix="UF" valueStyle={{ fontSize: 15 }} />
-                                    </Space>
+                                <Card key={r.id_prefactura}>
+                                    <CardContent className="p-4">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2">
+                                                <IconFileInvoice size={18} className="text-primary" />
+                                                <span className="font-semibold text-foreground">PF #{r.numero_id}</span>
+                                                <Badge variant="outline">{r.agrupacion_valor || 'Sin agrupación'}</Badge>
+                                            </div>
+                                            <span className="text-sm font-semibold tabular-nums text-foreground">{Number(r.total_uf).toFixed(2)} UF</span>
+                                        </div>
 
-                                    <Space wrap style={{ marginTop: 12 }}>
-                                        <Button
-                                            size="small"
-                                            icon={<IconEye size={14} />}
-                                            disabled={!pdf?.pdf_resumen_path}
-                                            loading={!pdf}
-                                            onClick={() => setPreviewUrl(`${API_CONFIG.getBaseURL()}${pdf.pdf_resumen_path}`)}
-                                        >
-                                            {pdf ? 'Ver documento' : 'Generando PDF…'}
-                                        </Button>
-                                        <Button
-                                            size="small"
-                                            icon={<IconMail size={14} />}
-                                            loading={enviando === r.id_prefactura}
-                                            disabled={enviadas[r.id_prefactura]}
-                                            onClick={() => enviarEmail(r.id_prefactura, r.numero_id)}
-                                        >
-                                            {enviadas[r.id_prefactura] ? 'Enviada por email' : 'Enviar por email'}
-                                        </Button>
-                                        <Tooltip title="Queda disponible en ADL WEB GO, donde el cliente puede cargar su OC">
+                                        <div className="mt-3 flex flex-wrap gap-2">
                                             <Button
-                                                size="small"
-                                                type={publicadas[r.id_prefactura] ? 'default' : 'primary'}
-                                                icon={<IconWorldUpload size={14} />}
-                                                loading={publicando === r.id_prefactura}
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={!pdf?.pdf_resumen_path}
+                                                onClick={() => setPreviewUrl(`${API_CONFIG.getBaseURL()}${pdf.pdf_resumen_path}`)}
+                                            >
+                                                {!pdf ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconEye size={14} />}
+                                                {pdf ? 'Ver documento' : 'Generando PDF…'}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={enviadas[r.id_prefactura]}
+                                                onClick={() => enviarEmail(r.id_prefactura, r.numero_id)}
+                                            >
+                                                {enviando === r.id_prefactura ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconMail size={14} />}
+                                                {enviadas[r.id_prefactura] ? 'Enviada por email' : 'Enviar por email'}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant={publicadas[r.id_prefactura] ? 'outline' : 'default'}
                                                 disabled={publicadas[r.id_prefactura]}
+                                                title="Queda disponible en ADL WEB GO, donde el cliente puede cargar su OC"
                                                 onClick={() => publicar(r.id_prefactura, r.numero_id)}
                                             >
+                                                {publicando === r.id_prefactura ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" /> : <IconWorldUpload size={14} />}
                                                 {publicadas[r.id_prefactura] ? 'Publicada en el portal' : 'Publicar en el portal'}
                                             </Button>
-                                        </Tooltip>
-                                    </Space>
+                                        </div>
+                                    </CardContent>
                                 </Card>
                             );
                         })}
-                    </Space>
-                </Result>
+                    </div>
+
+                    <Button variant="outline" onClick={reiniciar}>Procesar más casos</Button>
+                </div>
             )}
 
             <PdfViewerModal
