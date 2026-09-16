@@ -1,4 +1,3 @@
-import { Modal, Typography, Divider, Button } from 'antd';
 import {
     IconChevronRight,
     IconInfoCircle,
@@ -8,8 +7,8 @@ import {
     IconMessageCircle
 } from '@tabler/icons-react';
 import { useNavStore } from '../../store/navStore';
-
-const { Title, Text } = Typography;
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 // Círculo de ícono liviano — reemplaza al ThemeIcon de Mantine, usado por
 // todo este panel para las viñetas de "paso a paso" y consejos.
@@ -784,156 +783,147 @@ export const HelpCenter = ({ opened, onClose }: HelpCenterProps) => {
     const help = getContextHelp(activeModule, activeSubmodule, fichasMode, helpCenterIsGlobal);
 
     return (
-        <Modal
-            open={opened}
-            onCancel={onClose}
-            footer={null}
-            width={720}
-            title={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <IconCircle color="#1c7ed6" size={48}>
-                        <IconBook2 size={24} stroke={1.5} />
-                    </IconCircle>
-                    <div>
-                        <Title level={4} style={{ margin: 0, fontWeight: 800, letterSpacing: '-0.01em', lineHeight: 1.1 }}>
-                            Centro de Ayuda
-                        </Title>
-                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 600, display: 'block', marginTop: 4 }}>
-                            ADL ONE — Manual de Usuario
-                        </Text>
-                    </div>
-                </div>
-            }
-            styles={{
-                header: { borderBottom: 'none', paddingBottom: 0 },
-                body: { padding: '24px 0 8px', maxHeight: '72vh', overflowY: 'auto' },
-                root: { borderRadius: 24 },
-            }}
-        >
-            {help ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-                    {/* ── Header de sección ── */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'nowrap' }}>
-                        <IconCircle color="#1c7ed6" size={56}>
-                            <IconInfoCircle size={28} stroke={2} />
+        <Dialog open={opened} onOpenChange={(next) => !next && onClose()}>
+            <DialogContent className="max-w-[720px] rounded-3xl">
+                <DialogHeader>
+                    <div className="flex items-center gap-4">
+                        <IconCircle color="#1c7ed6" size={48}>
+                            <IconBook2 size={24} stroke={1.5} />
                         </IconCircle>
-                        <div style={{ flex: 1 }}>
-                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#1c7ed6', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>
-                                Módulo Activo
-                            </Text>
-                            <Title level={3} style={{ margin: '4px 0 0', fontWeight: 800, letterSpacing: '-0.02em' }}>
-                                {help.title}
-                            </Title>
-                        </div>
-                    </div>
-
-                    {/* ── ¿Qué es? y ¿Qué hace? ── */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginTop: 8 }}>
                         <div>
-                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#1c7ed6', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
-                                ¿Qué es?
-                            </Text>
-                            <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{help.queEs}</Text>
-                        </div>
-
-                        <div>
-                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#1c7ed6', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>
-                                ¿Qué hace?
-                            </Text>
-                            <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{help.queHace}</Text>
+                            <DialogTitle className="text-lg font-extrabold tracking-tight">
+                                Centro de Ayuda
+                            </DialogTitle>
+                            <p className="mt-1 text-xs font-semibold text-muted-foreground">
+                                ADL ONE — Manual de Usuario
+                            </p>
                         </div>
                     </div>
+                </DialogHeader>
 
-                    {/* ── Paso a Paso ── */}
-                    <div style={{ marginTop: 8 }}>
-                        <Text style={{ fontSize: 11, fontWeight: 800, color: '#e8590c', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 12 }}>
-                            Paso a Paso — ¿Cómo funciona?
-                        </Text>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            {help.comoFunciona.map((item, index) => (
-                                <div key={index} style={{
-                                    display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'nowrap',
-                                    padding: 12, border: '1px solid var(--app-border)', borderRadius: 16, backgroundColor: 'var(--app-hover-bg)',
-                                }}>
-                                    <IconCircle color="#e8590c" size={24}>
-                                        <IconChevronRight size={14} stroke={2.5} />
-                                    </IconCircle>
-                                    <Text style={{ fontSize: 13.5, lineHeight: 1.5, flex: 1, marginTop: 2 }}>{item}</Text>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
+                <div className="max-h-[72vh] overflow-y-auto pb-2 pt-2">
+                    {help ? (
+                        <div className="flex flex-col gap-4">
 
-                    {/* ── Consejos ── */}
-                    {help.tips && help.tips.length > 0 && (
-                        <div style={{ marginTop: 8 }}>
-                            <Text style={{ fontSize: 11, fontWeight: 800, color: '#2f9e44', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 12 }}>
-                                Consejos útiles
-                            </Text>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {help.tips.map((tip, index) => (
-                                    <div key={index} style={{
-                                        display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'nowrap',
-                                        padding: 12, border: '1px solid rgba(47,158,68,0.25)', borderRadius: 16, backgroundColor: 'rgba(47,158,68,0.08)',
-                                    }}>
-                                        <IconCircle color="#2f9e44" size={24}>
-                                            <IconBulb size={14} />
-                                        </IconCircle>
-                                        <Text style={{ fontSize: 13.5, lineHeight: 1.5, fontStyle: 'italic', flex: 1, marginTop: 2 }}>{tip}</Text>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Tarjetas de Contacto TI (Solo Global) ── */}
-                    {helpCenterIsGlobal && (
-                        <div style={{ marginTop: 24 }}>
-                            <Divider>
-                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)' }}>CONTACTO SOPORTE</Text>
-                            </Divider>
-                            <div style={{ display: 'flex', gap: 16 }}>
-                                <div style={{ flex: 1, padding: 16, borderRadius: 20, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                        <IconCircle color="#1c7ed6" size={40}><IconMail size={20} /></IconCircle>
-                                        <div>
-                                            <Text strong style={{ fontSize: 13, display: 'block' }}>Correo Soporte</Text>
-                                            <Text type="secondary" style={{ fontSize: 11 }}>informatica@adldiagnostic.cl</Text>
-                                        </div>
-                                        <Button type="text" size="small" block href="mailto:informatica@adldiagnostic.cl" style={{ color: '#1c7ed6' }}>
-                                            Enviar
-                                        </Button>
-                                    </div>
-                                </div>
-
-                                <div style={{ flex: 1, padding: 16, borderRadius: 20, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', textAlign: 'center' }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                        <IconCircle color="#2f9e44" size={40}><IconMessageCircle size={20} /></IconCircle>
-                                        <div>
-                                            <Text strong style={{ fontSize: 13, display: 'block' }}>WhatsApp</Text>
-                                            <Text type="secondary" style={{ fontSize: 11 }}>+56 9 5721 8268</Text>
-                                        </div>
-                                        <Button type="text" size="small" block href="https://wa.me/56957218268" target="_blank" style={{ color: '#2f9e44' }}>
-                                            Chat
-                                        </Button>
-                                    </div>
+                            {/* ── Header de sección ── */}
+                            <div className="flex flex-nowrap items-center gap-4">
+                                <IconCircle color="#1c7ed6" size={56}>
+                                    <IconInfoCircle size={28} stroke={2} />
+                                </IconCircle>
+                                <div className="flex-1">
+                                    <span className="block text-[11px] font-extrabold uppercase tracking-wide text-primary">
+                                        Módulo Activo
+                                    </span>
+                                    <h3 className="mt-1 text-xl font-extrabold tracking-tight text-foreground">
+                                        {help.title}
+                                    </h3>
                                 </div>
                             </div>
+
+                            {/* ── ¿Qué es? y ¿Qué hace? ── */}
+                            <div className="mt-2 flex flex-col gap-5">
+                                <div>
+                                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">
+                                        ¿Qué es?
+                                    </span>
+                                    <p className="text-[13.5px] leading-relaxed text-foreground">{help.queEs}</p>
+                                </div>
+
+                                <div>
+                                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">
+                                        ¿Qué hace?
+                                    </span>
+                                    <p className="text-[13.5px] leading-relaxed text-foreground">{help.queHace}</p>
+                                </div>
+                            </div>
+
+                            {/* ── Paso a Paso ── */}
+                            <div className="mt-2">
+                                <span className="mb-3 block text-[11px] font-extrabold uppercase tracking-wide text-warning">
+                                    Paso a Paso — ¿Cómo funciona?
+                                </span>
+                                <div className="flex flex-col gap-2">
+                                    {help.comoFunciona.map((item, index) => (
+                                        <div key={index} className="flex flex-nowrap items-start gap-3 rounded-2xl border border-border bg-muted/40 p-3">
+                                            <IconCircle color="#e8590c" size={24}>
+                                                <IconChevronRight size={14} stroke={2.5} />
+                                            </IconCircle>
+                                            <p className="mt-0.5 flex-1 text-[13.5px] leading-snug text-foreground">{item}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* ── Consejos ── */}
+                            {help.tips && help.tips.length > 0 && (
+                                <div className="mt-2">
+                                    <span className="mb-3 block text-[11px] font-extrabold uppercase tracking-wide text-success">
+                                        Consejos útiles
+                                    </span>
+                                    <div className="flex flex-col gap-2">
+                                        {help.tips.map((tip, index) => (
+                                            <div key={index} className="flex flex-nowrap items-start gap-3 rounded-2xl border border-success/25 bg-success/10 p-3">
+                                                <IconCircle color="#2f9e44" size={24}>
+                                                    <IconBulb size={14} />
+                                                </IconCircle>
+                                                <p className="mt-0.5 flex-1 text-[13.5px] italic leading-snug text-foreground">{tip}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Tarjetas de Contacto TI (Solo Global) ── */}
+                            {helpCenterIsGlobal && (
+                                <div className="mt-6">
+                                    <div className="mb-4 flex items-center gap-3">
+                                        <div className="h-px flex-1 bg-border" />
+                                        <span className="text-[11px] font-semibold text-muted-foreground">CONTACTO SOPORTE</span>
+                                        <div className="h-px flex-1 bg-border" />
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <div className="flex-1 rounded-[20px] border border-border bg-muted/40 p-4 text-center">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <IconCircle color="#1c7ed6" size={40}><IconMail size={20} /></IconCircle>
+                                                <div>
+                                                    <span className="block text-sm font-semibold text-foreground">Correo Soporte</span>
+                                                    <span className="text-[11px] text-muted-foreground">informatica@adldiagnostic.cl</span>
+                                                </div>
+                                                <Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary" asChild>
+                                                    <a href="mailto:informatica@adldiagnostic.cl">Enviar</a>
+                                                </Button>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex-1 rounded-[20px] border border-border bg-muted/40 p-4 text-center">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <IconCircle color="#2f9e44" size={40}><IconMessageCircle size={20} /></IconCircle>
+                                                <div>
+                                                    <span className="block text-sm font-semibold text-foreground">WhatsApp</span>
+                                                    <span className="text-[11px] text-muted-foreground">+56 9 5721 8268</span>
+                                                </div>
+                                                <Button variant="ghost" size="sm" className="w-full text-success hover:text-success" asChild>
+                                                    <a href="https://wa.me/56957218268" target="_blank" rel="noreferrer">Chat</a>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    ) : (
+                        <div className="rounded-xl border border-border p-8 text-center">
+                            <IconCircle color="#868e96" size={48}>
+                                <IconBook2 size={24} />
+                            </IconCircle>
+                            <p className="mt-3 text-sm text-muted-foreground">
+                                No hay contenido de ayuda disponible para esta sección.
+                            </p>
                         </div>
                     )}
-
                 </div>
-            ) : (
-                <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 32, textAlign: 'center' }}>
-                    <IconCircle color="#868e96" size={48}>
-                        <IconBook2 size={24} />
-                    </IconCircle>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 12 }}>
-                        No hay contenido de ayuda disponible para esta sección.
-                    </Text>
-                </div>
-            )}
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
