@@ -17,22 +17,11 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             id: 'admin-equipos-gestion',
             label: 'Gestión de Equipos',
             icon: (
-                <div style={{ position: 'relative' }}>
-                    <IconDeviceDesktop size={32} />
-                    <IconSettings
-                        size={16}
-                        style={{
-                            position: 'absolute',
-                            bottom: -4,
-                            right: -4,
-                            backgroundColor: 'white',
-                            borderRadius: '50%'
-                        }}
-                    />
+                <div className="relative">
+                    <IconDeviceDesktop size={19} stroke={1.75} />
+                    <IconSettings size={11} className="absolute -bottom-0.5 -right-0.5 rounded-full bg-background text-primary" />
                 </div>
             ),
-            color: '#1c7ed6',
-            bg: 'var(--app-accent-bg)',
             description: 'Inventario de equipos ADL, bitácora de mantenimiento y configuración técnica.',
         },
     ];
@@ -40,7 +29,7 @@ export const EquiposHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const visibleOptions = OPTIONS.filter(() => hasPermission('MA_A_GEST_EQUIPO'));
 
     return (
-        <div style={{ padding: 16, width: '100%' }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Centro de Equipos"
                 subtitle="Gestión y control centralizado del inventario tecnológico."

@@ -150,11 +150,6 @@ body {
   color: var(--dark);
 }
 
-.maestro-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12);
-}
-
 .status-loading,
 .status-success,
 .status-error {

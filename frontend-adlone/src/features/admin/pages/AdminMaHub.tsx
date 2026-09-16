@@ -16,9 +16,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
         {
             id: 'admin-muestreadores',
             label: 'Muestreadores',
-            icon: <IconUsers size={32} />,
-            color: '#0c8599',
-            bg: 'rgba(12,133,153,0.1)',
+            icon: <IconUsers size={19} stroke={1.75} />,
             description: 'Gestión de muestreadores activos, firmas y datos de personal técnico.',
         },
     ];
@@ -27,7 +25,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const visibleOptions = OPTIONS.filter(opt => hasPermission(PERMISSIONS[opt.id]));
 
     return (
-        <div style={{ padding: 16, width: '100%' }}>
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Medio Ambiente"
                 subtitle="Gestión de recursos, personal y equipos del área de Medio Ambiente."

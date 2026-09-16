@@ -41,7 +41,6 @@ import {
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { MaestroDataManager } from '../components';
 import { EmpresaServicioFormView } from '../../medio-ambiente/components/EmpresaServicioFormView';
-import '../../../App.css';
 
 type MaestroArea = 'general' | 'medio-ambiente' | 'logistica' | 'tecnica' | 'sistema';
 
@@ -70,27 +69,6 @@ interface MaestroConfig {
 
 interface Props {
     onBack: () => void;
-}
-
-const COLOR_HEX: Record<string, { base: string; bg: string; light: string }> = {
-    blue: { base: '#1c7ed6', bg: 'rgba(28,126,214,0.08)', light: '#4dabf7' },
-    teal: { base: '#0c8599', bg: 'rgba(12,133,153,0.08)', light: '#3bc9db' },
-    indigo: { base: '#4c6ef5', bg: 'rgba(76,110,245,0.08)', light: '#748ffc' },
-    violet: { base: '#7048e8', bg: 'rgba(112,72,232,0.08)', light: '#9775fa' },
-    green: { base: '#2f9e44', bg: 'rgba(47,158,68,0.08)', light: '#69db7c' },
-    cyan: { base: '#15aabf', bg: 'rgba(21,170,191,0.08)', light: '#66d9e8' },
-    red: { base: '#e03131', bg: 'rgba(224,49,49,0.08)', light: '#ff8787' },
-    grape: { base: '#9c36b5', bg: 'rgba(156,54,181,0.08)', light: '#da77f2' },
-    pink: { base: '#e64980', bg: 'rgba(230,73,128,0.08)', light: '#f783ac' },
-    orange: { base: '#e8590c', bg: 'rgba(232,89,12,0.08)', light: '#ffa94d' },
-    yellow: { base: '#f08c00', bg: 'rgba(240,140,0,0.08)', light: '#ffd43b' },
-    gray: { base: '#868e96', bg: 'rgba(134,142,150,0.08)', light: '#adb5bd' },
-    lime: { base: '#82c91e', bg: 'rgba(130,201,30,0.08)', light: '#a9e34b' },
-    dark: { base: '#1a1b1e', bg: 'rgba(26,27,30,0.08)', light: '#495057' },
-};
-
-function colorOf(name: string) {
-    return COLOR_HEX[name] || COLOR_HEX.gray;
 }
 
 export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
@@ -622,53 +600,34 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         }
 
         return (
-            <div className="mt-8 grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
-                {filtered.map((m) => {
-                    const c = colorOf(m.color);
-                    return (
-                        <div key={m.id} onClick={() => setSelectedMaestro(m.id)} className="h-full cursor-pointer">
-                            <Card
-                                className="maestro-card relative h-full overflow-hidden transition-all"
-                                style={{ borderTop: `3px solid ${c.base}` }}
-                            >
-                                {/* Subtle background gradient */}
-                                <div
-                                    className="pointer-events-none absolute right-0 top-0 h-[120px] w-[120px] rounded-full"
-                                    style={{ background: c.bg, transform: 'translate(40px, -40px)' }}
-                                />
-
-                                <div className="relative flex flex-col gap-1 p-5">
-                                    <div className="mb-2 flex items-center justify-between">
-                                        <div
-                                            className="flex h-12 w-12 items-center justify-center rounded-lg"
-                                            style={{ backgroundColor: c.bg, color: c.base }}
-                                        >
-                                            {m.icon}
-                                        </div>
-                                        <IconChevronRight size={18} stroke={2} color={c.light} />
-                                    </div>
-
-                                    <p className="text-[15px] font-semibold text-foreground">{m.label}</p>
-
-                                    <p className="mb-2 line-clamp-2 min-h-[2.4rem] text-sm text-muted-foreground">
-                                        {m.description}
-                                    </p>
-
-                                    <div className="flex flex-wrap gap-2">
-                                        <Badge variant="outline" className="font-mono normal-case">{m.tableName}</Badge>
-                                        {m.lookups && Object.keys(m.lookups).length > 0 && (
-                                            <Badge variant="outline">
-                                                {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
-                                            </Badge>
-                                        )}
-                                        {m.dependsOn && <Badge variant="outline">Jerárquico</Badge>}
-                                    </div>
-                                </div>
-                            </Card>
+            <Card className="mt-6 divide-y divide-border overflow-hidden p-0">
+                {filtered.map((m) => (
+                    <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => setSelectedMaestro(m.id)}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
+                    >
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                            {m.icon}
                         </div>
-                    );
-                })}
-            </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-foreground">{m.label}</p>
+                            <p className="truncate text-xs text-muted-foreground">{m.description}</p>
+                        </div>
+                        <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
+                            <Badge variant="outline" className="font-mono normal-case">{m.tableName}</Badge>
+                            {m.lookups && Object.keys(m.lookups).length > 0 && (
+                                <Badge variant="outline">
+                                    {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
+                                </Badge>
+                            )}
+                            {m.dependsOn && <Badge variant="outline">Jerárquico</Badge>}
+                        </div>
+                        <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />
+                    </button>
+                ))}
+            </Card>
         );
     };
 
