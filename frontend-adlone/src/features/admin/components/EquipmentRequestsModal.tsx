@@ -1,25 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Modal,
-    Table,
-    Tag,
-    Button,
-    Alert,
-    Tooltip,
-    Typography
-} from 'antd';
-import {
     IconCalendar,
     IconUser,
     IconMapPin,
     IconCheck,
     IconInfoCircle
 } from '@tabler/icons-react';
+
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
 
 interface EquipmentRequestsModalProps {
     idEquipo: number | string | null;
@@ -76,19 +72,19 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         }
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusVariant = (status: string): BadgeProps['variant'] => {
         const s = (status || '').toUpperCase().trim();
         switch (s) {
             case 'PENDIENTE':
             case 'PENDIENTE_TECNICA':
-            case 'PENDIENTE_CALIDAD': return 'gold';
+            case 'PENDIENTE_CALIDAD': return 'warning';
             case 'EN_REVISION':
-            case 'EN_REVISION_TECNICA': return 'cyan';
-            case 'ACEPTADA': return 'green';
+            case 'EN_REVISION_TECNICA': return 'secondary';
+            case 'ACEPTADA': return 'success';
             case 'RECHAZADA':
-            case 'RECHAZADO_TECNICA': return 'red';
-            case 'REALIZADA': return 'blue';
-            default: return 'default';
+            case 'RECHAZADO_TECNICA': return 'destructive';
+            case 'REALIZADA': return 'outline';
+            default: return 'outline';
         }
     };
 
@@ -126,37 +122,37 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         const isProblem = type.includes('PROBLEMA') || type.includes('FALLA');
 
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <Text strong style={{ fontSize: 13, color: '#1864ab' }}>{typeRaw}</Text>
+            <div className="flex flex-col gap-1">
+                <span className="text-[13px] font-semibold text-primary">{typeRaw}</span>
 
                 {/* Specific Details based on Type */}
-                <div style={{ marginTop: 2 }}>
+                <div className="mt-0.5">
                     {isTraspaso && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        <div className="flex flex-col gap-0.5">
                             {d.traspaso_de && (
-                                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                    <Text type="secondary" strong style={{ fontSize: 12 }}>Tipo Traspaso:</Text>
-                                    <Text strong style={{ fontSize: 12, color: '#1864ab' }}>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-xs font-semibold text-muted-foreground">Tipo Traspaso:</span>
+                                    <span className="text-xs font-semibold text-primary">
                                         {d.traspaso_de.map((t: string) => t === 'UBICACION' ? 'Sede' : (t === 'RESPONSABLE' ? 'Muestreador' : t)).join(' y ')}
-                                    </Text>
+                                    </span>
                                 </div>
                             )}
                             {(d.nombre_centro_destino || d.nueva_ubicacion || d.destino || d.ubicacion_destino) && (
-                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                    <IconMapPin size={12} color="#1c7ed6" />
-                                    <Text strong style={{ fontSize: 12 }}>Sede Destino:</Text>
-                                    <Tag color="blue" style={{ minWidth: 'fit-content' }}>
+                                <div className="flex flex-nowrap items-center gap-1">
+                                    <IconMapPin size={12} className="text-primary" />
+                                    <span className="text-xs font-semibold text-foreground">Sede Destino:</span>
+                                    <Badge variant="outline" className="min-w-fit">
                                         {d.nombre_centro_destino || d.nueva_ubicacion || d.destino || d.ubicacion_destino}
-                                    </Tag>
+                                    </Badge>
                                 </div>
                             )}
                             {(d.nombre_muestreador_destino || d.nuevo_responsable_nombre || d.nuevo_responsable || d.responsable_destino) && (
-                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                    <IconUser size={12} color="#4c6ef5" />
-                                    <Text strong style={{ fontSize: 12 }}>Nuevo Responsable:</Text>
-                                    <Text strong style={{ fontSize: 12, color: '#3b5bdb' }}>
+                                <div className="flex flex-nowrap items-center gap-1">
+                                    <IconUser size={12} className="text-primary" />
+                                    <span className="text-xs font-semibold text-foreground">Nuevo Responsable:</span>
+                                    <span className="text-xs font-semibold text-primary">
                                         {d.nombre_muestreador_destino || d.nuevo_responsable_nombre || d.nuevo_responsable || d.responsable_destino}
-                                    </Text>
+                                    </span>
                                 </div>
                             )}
                         </div>
@@ -164,25 +160,25 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
 
                     {/* ALTA / REACTIVACION DETAILS */}
                     {isAlta && (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                            <IconCalendar size={12} color="#0c8599" />
-                            <Text strong style={{ fontSize: 12 }}>Nueva Vigencia:</Text>
-                            <Tag color="cyan">
+                        <div className="flex flex-nowrap items-center gap-1">
+                            <IconCalendar size={12} className="text-primary" />
+                            <span className="text-xs font-semibold text-foreground">Nueva Vigencia:</span>
+                            <Badge variant="outline">
                                 {d.nueva_vigencia_solicitada || d.vigencia_propuesta || d.fecha_vigencia || d.vigencia}
-                            </Tag>
+                            </Badge>
                         </div>
                     )}
 
                     {/* PROBLEM REPORT DETAILS */}
                     {isProblem && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                        <div className="flex flex-col gap-0.5">
                             {d.criticidad && (
-                                <Tag color={d.criticidad.toUpperCase() === 'ALTA' ? 'red' : 'orange'}>
+                                <Badge variant={d.criticidad.toUpperCase() === 'ALTA' ? 'destructive' : 'warning'}>
                                     CRITICIDAD: {d.criticidad}
-                                </Tag>
+                                </Badge>
                             )}
                             {d.descripcion_falla && (
-                                <Text strong style={{ fontSize: 12, color: '#c92a2a' }}>Falla: {d.descripcion_falla}</Text>
+                                <span className="text-xs font-semibold text-destructive">Falla: {d.descripcion_falla}</span>
                             )}
                         </div>
                     )}
@@ -190,9 +186,9 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
 
                 {/* General Motive/Comments (Always at the bottom) */}
                 {(d.motivo || d.observaciones || d.descripcion || d.comentario) && (
-                    <Text type="secondary" italic style={{ fontSize: 12, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    <p className="line-clamp-3 text-xs italic text-muted-foreground">
                         "{formatCodeValue(String(d.motivo || d.observaciones || d.descripcion || d.comentario))}"
-                    </Text>
+                    </p>
                 )}
             </div>
         );
@@ -209,105 +205,97 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
         });
     };
 
-    const columns = [
-        {
-            title: 'ID', key: 'id',
-            render: (_: unknown, sol: any) => (
-                <Tooltip title={sol.origen_tabla === 'GENERAL' ? 'Solicitud GERR (Sistema General)' : 'Solicitud de Equipo'}>
-                    <Text strong style={{ fontSize: 13, color: sol.origen_tabla === 'GENERAL' ? '#3b5bdb' : undefined }}>
-                        #{sol.id_solicitud}
-                    </Text>
-                </Tooltip>
-            ),
-        },
-        { title: 'Tipo', key: 'tipo', render: (_: unknown, sol: any) => renderSolicitudDetails(sol) },
-        {
-            title: 'Solicitante', key: 'solicitante',
-            render: (_: unknown, sol: any) => (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
-                    <IconUser size={14} color="gray" />
-                    <Text style={{ fontSize: 12 }}>{sol.nombre_solicitante || 'N/A'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Fecha', key: 'fecha',
-            render: (_: unknown, sol: any) => (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
-                    <IconCalendar size={14} color="gray" />
-                    <Text style={{ fontSize: 12 }}>{formatDate(sol.fecha_creacion)}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Estado', key: 'estado',
-            render: (_: unknown, sol: any) => (
-                <Tag color={getStatusColor(sol.estado)} style={{ minWidth: 80, textAlign: 'center' }}>
-                    {getStatusLabel(sol.estado)}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Acciones', key: 'acciones', align: 'right' as const,
-            render: (_: unknown, sol: any) => (
-                (sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                    <Button
-                        size="small"
-                        type="primary"
-                        style={{ backgroundColor: '#2f9e44' }}
-                        icon={<IconCheck size={14} />}
-                        loading={processingId === sol.id_solicitud}
-                        onClick={() => handleMarkAsRealizada(sol)}
-                    >
-                        Realizar
-                    </Button>
-                )
-            ),
-        },
-    ];
-
     return (
-        <Modal
-            open={isOpen}
-            onCancel={onClose}
-            footer={null}
-            width={900}
-            title={
-                <div>
-                    <Text strong style={{ fontSize: 16, display: 'block' }}>Solicitudes Pendientes</Text>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        {codigoEquipo && (
-                            <Tag color="blue">{codigoEquipo}</Tag>
-                        )}
-                        <Text type="secondary" style={{ fontSize: 13 }}>{nombreEquipo}</Text>
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Solicitudes Pendientes</DialogTitle>
+                    <div className="flex items-center gap-1.5">
+                        {codigoEquipo && <Badge variant="outline">{codigoEquipo}</Badge>}
+                        <span className="text-[13px] text-muted-foreground">{nombreEquipo}</span>
                     </div>
+                </DialogHeader>
+
+                <div className="relative mt-2 min-h-[200px] min-w-0">
+                    {displayRequests.length === 0 ? (
+                        <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-foreground">
+                            <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                            <span>No hay solicitudes pendientes activas para este equipo.</span>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead>ID</TableHead>
+                                            <TableHead>Tipo</TableHead>
+                                            <TableHead>Solicitante</TableHead>
+                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>Estado</TableHead>
+                                            <TableHead className="text-right">Acciones</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {displayRequests.map((sol) => (
+                                            <TableRow key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
+                                                <TableCell title={sol.origen_tabla === 'GENERAL' ? 'Solicitud GERR (Sistema General)' : 'Solicitud de Equipo'}>
+                                                    <span className={cn('text-[13px] font-semibold', sol.origen_tabla === 'GENERAL' && 'text-primary')}>
+                                                        #{sol.id_solicitud}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>{renderSolicitudDetails(sol)}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-nowrap items-center gap-1.5">
+                                                        <IconUser size={14} className="text-muted-foreground" />
+                                                        <span className="text-xs text-foreground">{sol.nombre_solicitante || 'N/A'}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-nowrap items-center gap-1.5">
+                                                        <IconCalendar size={14} className="text-muted-foreground" />
+                                                        <span className="text-xs text-foreground">{formatDate(sol.fecha_creacion)}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant={getStatusVariant(sol.estado)} className="min-w-20 justify-center">
+                                                        {getStatusLabel(sol.estado)}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-success text-success-foreground hover:bg-success/90"
+                                                            disabled={processingId === sol.id_solicitud}
+                                                            onClick={() => handleMarkAsRealizada(sol)}
+                                                        >
+                                                            {processingId === sol.id_solicitud ? (
+                                                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                            ) : (
+                                                                <IconCheck size={14} />
+                                                            )}
+                                                            Realizar
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            <p className="text-xs italic text-muted-foreground">
+                                * Las solicitudes GERR provienen del sistema general de requerimientos.
+                            </p>
+                        </div>
+                    )}
                 </div>
-            }
-        >
-            <div style={{ position: 'relative', minWidth: 500, minHeight: 200, marginTop: 16 }}>
-                {displayRequests.length === 0 ? (
-                    <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="No hay solicitudes pendientes activas para este equipo." style={{ marginTop: 16 }} />
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
-                        <Table
-                            rowKey={(sol) => `${sol.origen_tabla}-${sol.id_solicitud}`}
-                            columns={columns}
-                            dataSource={displayRequests}
-                            pagination={false}
-                            size="small"
-                            scroll={{ x: 800 }}
-                        />
 
-                        <Text type="secondary" italic style={{ fontSize: 12 }}>
-                            * Las solicitudes GERR provienen del sistema general de requerimientos.
-                        </Text>
-                    </div>
-                )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-                <Button onClick={onClose}>Cerrar</Button>
-            </div>
-        </Modal>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onClose}>Cerrar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };

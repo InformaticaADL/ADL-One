@@ -1,25 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Typography,
-    Button,
-    Input,
-    AutoComplete,
-    Select,
-    InputNumber,
-    Checkbox,
-    Card,
-    Divider,
-    Steps,
-    Alert,
-    Table,
-    Tag,
-    Modal,
-    Tooltip,
-    Badge,
-    Spin
-} from 'antd';
-import type { ColumnsType } from 'antd/es/table';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import React, { useState, useEffect, useMemo, useId } from 'react';
 import {
     IconArrowLeft,
     IconHistory,
@@ -32,6 +11,16 @@ import {
     IconX
 } from '@tabler/icons-react';
 
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
 import { adminService } from '../../../services/admin.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
@@ -42,48 +31,57 @@ import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FieldLabel } from '../../../components/common/FieldHelp';
 
-const { Text, Title } = Typography;
-const { TextArea } = Input;
-
-// Local HybridSelect replacement using antd components.
-// If strict=true, it uses Select (must be in list).
-// If strict=false, it uses AutoComplete (can type any value).
-const HybridSelect: React.FC<any> = ({ label, value, options, onChange, placeholder, strict, required, disabled, error, ...others }) => {
+// Local HybridSelect replacement using shadcn components.
+// If strict=true, it uses Combobox (must be in list).
+// If strict=false, it uses an Input + datalist (can type any value, with suggestions).
+const HybridSelect: React.FC<{
+    label?: React.ReactNode;
+    value: any;
+    options: any[];
+    onChange: (val: string | null) => void;
+    placeholder?: string;
+    strict?: boolean;
+    required?: boolean;
+    disabled?: boolean;
+    error?: string | false;
+}> = ({ label, value, options, onChange, placeholder, strict, required, disabled, error }) => {
     const data = Array.from(new Set(options.map((o: any) => typeof o === 'string' ? o : (o.label || o.value)))) as string[];
-    const selectOptions = data.map((d) => ({ value: d, label: d }));
+    const comboOptions = data.map((d) => ({ value: d, label: d }));
+    const datalistId = useId();
 
     return (
         <div>
-            {label && <div style={{ marginBottom: 4 }}>{typeof label === 'string' ? <Text>{label}{required && ' *'}</Text> : label}</div>}
+            {label && (
+                <div className="mb-1">
+                    {typeof label === 'string' ? <span className="text-sm">{label}{required && ' *'}</span> : label}
+                </div>
+            )}
             {strict ? (
-                <Select
+                <Combobox
                     placeholder={placeholder}
-                    options={selectOptions}
+                    options={comboOptions}
                     value={value ?? undefined}
-                    onChange={(v) => onChange(v ?? null)}
-                    showSearch
-                    allowClear
+                    onValueChange={(v) => onChange(v || null)}
                     disabled={disabled}
-                    status={error ? 'error' : undefined}
-                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                    style={{ width: '100%' }}
-                    notFoundContent="No se encontró"
-                    {...others}
+                    emptyText="No se encontró"
+                    className={cn(error && 'border-destructive')}
                 />
             ) : (
-                <AutoComplete
-                    placeholder={placeholder}
-                    options={selectOptions}
-                    value={value ?? undefined}
-                    onChange={(v) => onChange(v ?? null)}
-                    disabled={disabled}
-                    status={error ? 'error' : undefined}
-                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                    style={{ width: '100%' }}
-                    {...others}
-                />
+                <>
+                    <Input
+                        list={datalistId}
+                        placeholder={placeholder}
+                        value={value ?? ''}
+                        onChange={(e) => onChange(e.target.value || null)}
+                        disabled={disabled}
+                        className={cn(error && 'border-destructive')}
+                    />
+                    <datalist id={datalistId}>
+                        {data.map((d) => <option key={d} value={d} />)}
+                    </datalist>
+                </>
             )}
-            {error && <Text type="danger" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>{error}</Text>}
+            {error && <p className="mt-0.5 text-xs text-destructive">{error}</p>}
         </div>
     );
 };
@@ -96,8 +94,26 @@ interface Props {
     onRefreshSolicitudes?: () => void;
 }
 
-// Grid helpers (replace Mantine Grid/Grid.Col)
-const gridRowStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16, width: '100%' };
+// Grid helper: 12-col layout that collapses to full-width on mobile.
+const colSpanClass = (md: number): string => {
+    switch (md) {
+        case 3: return 'col-span-12 md:col-span-3';
+        case 4: return 'col-span-12 md:col-span-4';
+        case 6: return 'col-span-12 md:col-span-6';
+        case 8: return 'col-span-12 md:col-span-8';
+        default: return 'col-span-12';
+    }
+};
+
+const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
+    <div className="my-2 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        {children && <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{children}</span>}
+        <div className="h-px flex-1 bg-border" />
+    </div>
+);
+
+const NO_ESTADO_EQUIPO = '__NONE__';
 
 export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes }) => {
     // --- Helpers for default dates ---
@@ -224,8 +240,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
     const isSuper = false;
-
-    const colSpan = (md: number): React.CSSProperties => ({ gridColumn: isMobile ? 'span 12' : `span ${md}` });
 
     // --- Helpers ---
     const autoGenerateSigla = (text: string) => {
@@ -752,124 +766,52 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         finally { setProcessingAction(false); setRejectingSolicitud(null); setAdminFeedback(''); }
     };
 
-    // --- Table columns ---
-    const historyColumns: ColumnsType<EquipoHistorial> = [
-        { title: 'Versión', dataIndex: 'version', key: 'version', render: (v) => <Text strong>{v}</Text> },
-        { title: 'Fecha', dataIndex: 'fecha_cambio', key: 'fecha_cambio', render: (v) => new Date(v).toLocaleString() },
-        { title: 'Usuario', dataIndex: 'nombre_usuario_cambio', key: 'nombre_usuario_cambio', render: (v) => v || 'Sistema' },
-        { title: 'Código', dataIndex: 'codigo', key: 'codigo' },
-        {
-            title: 'Acción', key: 'accion', render: (_, h) => (
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <Button size="small" onClick={() => setCompareVersion(h)}>Comparar</Button>
-                    <Button size="small" type="primary" onClick={() => handleRestore(h)}>Habilitar</Button>
-                </div>
-            )
-        }
-    ];
-
-    const bulkColumns: ColumnsType<any> = [
-        { title: '#', key: 'idx', width: 40, render: (_, __, idx) => idx + 1 },
-        {
-            title: 'Código', key: 'codigo', render: (_, item, idx) => (
-                <Input
-                    size="small"
-                    value={item.codigo}
-                    onChange={(e) => {
-                        const n = [...bulkItems];
-                        n[idx].codigo = e.target.value;
-                        setBulkItems(n);
-                    }}
-                />
-            )
-        },
-        {
-            title: 'Ubicación', key: 'ubicacion', render: (_, item, idx) => (
-                <Select
-                    size="small"
-                    options={sedeOptions.map(s => ({ value: s, label: s }))}
-                    value={item.ubicacion ?? undefined}
-                    onChange={(v) => {
-                        const n = [...bulkItems];
-                        n[idx].ubicacion = v;
-                        const fc = n[idx].correlativo < 10 ? `0${n[idx].correlativo}` : `${n[idx].correlativo}`;
-                        n[idx].codigo = `${n[idx].sigla}.${fc}/MA.${v}`;
-                        setBulkItems(n);
-                    }}
-                    style={{ width: '100%' }}
-                />
-            )
-        },
-        {
-            title: 'Vigencia', key: 'vigencia', render: (_, item, idx) => (
-                <Input
-                    type="date"
-                    size="small"
-                    value={item.vigencia}
-                    onChange={(e) => {
-                        const n = [...bulkItems];
-                        n[idx].vigencia = e.target.value;
-                        n[idx].siguiente_verificacion = e.target.value;
-                        setBulkItems(n);
-                    }}
-                />
-            )
-        },
-        {
-            title: 'Obs.', key: 'obs', width: 60, render: (_, item, idx) => (
-                <Button
-                    type="text"
-                    size="small"
-                    icon={<IconEdit size={16} color={item.observacion ? '#1c7ed6' : '#868e96'} />}
-                    onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
-                />
-            )
-        }
-    ];
-
     // --- Renders ---
     return (
-        <div style={{ padding: 16, width: '100%', position: 'relative' }}>
+        <div className="shadcn-scope relative w-full p-4">
             {(loading || processingAction) && (
-                <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin size="large" />
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             )}
 
-            <Card style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', flex: isMobile ? 'none' : 1 }}>
-                            <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
+            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                <div className="flex flex-col gap-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className={cn('flex flex-col', !isMobile && 'flex-1')}>
+                            <h2 className="m-0 text-xl font-semibold text-foreground">
                                 {requestedChanges?.isReactivation ? 'Activación de Equipo' : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')}
-                            </Title>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
+                            </h2>
+                            <span className="text-xs text-muted-foreground">
                                 {initialData?.id_equipo ? `Modificando equipo: ${formData.codigo}` : 'Completa los datos para dar de alta nuevos equipos en el sistema.'}
-                            </Text>
+                            </span>
                         </div>
 
-                        <div style={{ display: 'flex', gap: 8, width: isMobile ? '100%' : 'auto', flexWrap: 'wrap' }}>
-                            <Button icon={<IconArrowLeft size={18} />} onClick={onCancel} style={isMobile ? { flex: 1 } : undefined}>
-                                Volver
+                        <div className={cn('flex flex-wrap gap-2', isMobile && 'w-full')}>
+                            <Button variant="outline" onClick={onCancel} className={cn(isMobile && 'flex-1')}>
+                                <IconArrowLeft size={18} /> Volver
                             </Button>
                             <ProtectedContent permission="EQ_HISTORY">
                                 <Button
-                                    icon={<IconHistory size={18} />}
+                                    variant="outline"
                                     onClick={() => setShowHistory(!showHistory)}
-                                    style={isMobile ? { flex: 1 } : undefined}
+                                    className={cn(isMobile && 'flex-1')}
                                 >
-                                    {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
+                                    <IconHistory size={18} /> {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
                             </ProtectedContent>
                             {!initialData?.id_equipo && (
                                 <ProtectedContent permission="EQ_UPDATE">
                                     <Button
-                                        type="primary"
-                                        icon={<IconDeviceFloppy size={18} />}
                                         onClick={handleSave}
-                                        loading={loading}
-                                        style={isMobile ? { flex: 1 } : undefined}
+                                        disabled={loading}
+                                        className={cn(isMobile && 'flex-1')}
                                     >
+                                        {loading ? (
+                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                        ) : (
+                                            <IconDeviceFloppy size={18} />
+                                        )}
                                         Crear
                                     </Button>
                                 </ProtectedContent>
@@ -879,95 +821,148 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
                     {initialData && formData.version && (
                         <div>
-                            <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px' }}>
+                            <Badge variant="outline" className="border-primary/40 bg-primary/10 px-2.5 py-1 text-[13px] text-primary">
                                 Versión Activa: {formData.version}
-                            </Tag>
+                            </Badge>
                         </div>
                     )}
 
                     {warningsAlert && (
-                        <Alert
-                            icon={<IconAlertTriangle size={20} />}
-                            showIcon
-                            message={warningsAlert.title}
-                            type={warningsAlert.color}
-                            description={
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {warningsAlert.messages.map((msg, idx) => (
-                                        <Text key={idx} style={{ fontSize: 13, margin: 0 }}>{msg}</Text>
-                                    ))}
-                                </div>
-                            }
-                        />
+                        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3.5">
+                            <IconAlertTriangle size={20} className="mt-0.5 shrink-0 text-warning" />
+                            <div className="flex flex-col gap-1">
+                                <span className="text-sm font-semibold text-foreground">{warningsAlert.title}</span>
+                                {warningsAlert.messages.map((msg, idx) => (
+                                    <span key={idx} className="text-[13px] text-foreground">{msg}</span>
+                                ))}
+                            </div>
+                        </div>
                     )}
 
                     {/* Requested Changes (Traspaso/Alta Suggestion) */}
                     {!!(initialData?.requestId && requestedChanges) && (
-                        <Card size="small" style={{ backgroundColor: '#e7f3ff', borderColor: '#a5d8ff' }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 12 }}>
-                                <IconInfoCircle size={20} color="#1864ab" />
-                                <Text strong>Cambios sugeridos por Medio Ambiente</Text>
+                        <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                            <div className="mb-3 flex items-center gap-2">
+                                <IconInfoCircle size={20} className="text-primary" />
+                                <span className="text-sm font-semibold text-foreground">Cambios sugeridos por Medio Ambiente</span>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 8 }}>
+                            <div className="grid grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-2">
                                 {requestedChanges.nueva_ubicacion && (
-                                    <Card size="small" styles={{ body: { padding: 8 } }} style={{ backgroundColor: '#fff' }}>
-                                        <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Ubicación</Text>
-                                        <Text strong style={{ color: '#1c7ed6', fontSize: 13, display: 'block' }}>{requestedChanges.nueva_ubicacion}</Text>
-                                    </Card>
+                                    <div className="rounded-lg border border-border bg-card p-2">
+                                        <p className="text-[11px] uppercase text-muted-foreground">Ubicación</p>
+                                        <p className="text-[13px] font-semibold text-primary">{requestedChanges.nueva_ubicacion}</p>
+                                    </div>
                                 )}
                                 {requestedChanges.nuevo_responsable_id && (
-                                    <Card size="small" styles={{ body: { padding: 8 } }} style={{ backgroundColor: '#fff' }}>
-                                        <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Responsable</Text>
-                                        <Text strong style={{ color: '#1c7ed6', fontSize: 13, display: 'block' }}>{muestreadores.find(m => m.id_muestreador === requestedChanges.nuevo_responsable_id)?.nombre_muestreador || '---'}</Text>
-                                    </Card>
+                                    <div className="rounded-lg border border-border bg-card p-2">
+                                        <p className="text-[11px] uppercase text-muted-foreground">Responsable</p>
+                                        <p className="text-[13px] font-semibold text-primary">{muestreadores.find(m => m.id_muestreador === requestedChanges.nuevo_responsable_id)?.nombre_muestreador || '---'}</p>
+                                    </div>
                                 )}
                                 {requestedChanges.vigencia && (
-                                    <Card size="small" styles={{ body: { padding: 8 } }} style={{ backgroundColor: '#fff' }}>
-                                        <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Vigencia</Text>
-                                        <Text strong style={{ color: '#1c7ed6', fontSize: 13, display: 'block' }}>{requestedChanges.vigencia}</Text>
-                                    </Card>
+                                    <div className="rounded-lg border border-border bg-card p-2">
+                                        <p className="text-[11px] uppercase text-muted-foreground">Vigencia</p>
+                                        <p className="text-[13px] font-semibold text-primary">{requestedChanges.vigencia}</p>
+                                    </div>
                                 )}
                             </div>
-                        </Card>
+                        </div>
                     )}
 
                     {/* History Section */}
                     {showHistory && (
-                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
+                        <div className="rounded-lg border border-border bg-muted/40 p-4">
+                            <div className="mb-4 flex items-center gap-2">
                                 <IconHistory size={20} />
-                                <Text strong>Historial de Versiones</Text>
+                                <span className="text-sm font-semibold text-foreground">Historial de Versiones</span>
                             </div>
-                            <div style={{ overflowY: 'auto', maxHeight: 300 }}>
-                                <Table
-                                    size="small"
-                                    columns={historyColumns}
-                                    dataSource={history}
-                                    rowKey="id_historial"
-                                    loading={loadingHistory}
-                                    pagination={false}
-                                    locale={{ emptyText: 'Sin versiones previas.' }}
-                                    rowClassName={(h) => lastRestoredVersion?.previous === h.version ? 'row-restored' : ''}
-                                />
+                            <div className="max-h-[300px] overflow-y-auto">
+                                {loadingHistory ? (
+                                    <div className="flex justify-center py-6">
+                                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    </div>
+                                ) : (
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead>Versión</TableHead>
+                                                <TableHead>Fecha</TableHead>
+                                                <TableHead>Usuario</TableHead>
+                                                <TableHead>Código</TableHead>
+                                                <TableHead>Acción</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {history.length === 0 ? (
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">Sin versiones previas.</TableCell>
+                                                </TableRow>
+                                            ) : (
+                                                history.map((h: any) => (
+                                                    <TableRow key={h.id_historial} className={cn(lastRestoredVersion?.previous === h.version && 'bg-warning/10')}>
+                                                        <TableCell className="font-semibold text-foreground">{h.version}</TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">{new Date(h.fecha_cambio).toLocaleString()}</TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">{h.nombre_usuario_cambio || 'Sistema'}</TableCell>
+                                                        <TableCell className="text-sm text-foreground">{h.codigo}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex gap-2">
+                                                                <Button variant="outline" size="sm" onClick={() => setCompareVersion(h)}>Comparar</Button>
+                                                                <Button size="sm" onClick={() => handleRestore(h)}>Habilitar</Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                )}
                             </div>
-                        </Card>
+                        </div>
                     )}
 
-                    <Steps
-                        current={activeStep}
-                        onChange={setActiveStep}
-                        size="small"
-                        direction={isMobile ? 'vertical' : 'horizontal'}
-                        items={[
-                            { title: 'Información General', description: 'Datos del equipo' },
-                            ...(!initialData?.id_equipo ? [{ title: 'Revisión Masiva', description: 'Confirmar seriales' }] : [])
-                        ]}
-                    />
+                    {/* Step indicator */}
+                    {!initialData?.id_equipo ? (
+                        <div className="flex items-center gap-2">
+                            {[
+                                { idx: 0, title: 'Información General', desc: 'Datos del equipo' },
+                                { idx: 1, title: 'Revisión Masiva', desc: 'Confirmar seriales' },
+                            ].map((step, i) => (
+                                <React.Fragment key={step.idx}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setActiveStep(step.idx)}
+                                        className="flex items-center gap-2 rounded-md px-1 py-1 text-left"
+                                    >
+                                        <span className={cn(
+                                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium',
+                                            activeStep === step.idx ? 'border-primary bg-primary text-primary-foreground'
+                                                : activeStep > step.idx ? 'border-primary text-primary' : 'border-border text-muted-foreground'
+                                        )}>
+                                            {step.idx + 1}
+                                        </span>
+                                        <span className="flex flex-col">
+                                            <span className={cn('text-sm font-medium', activeStep === step.idx ? 'text-foreground' : 'text-muted-foreground')}>{step.title}</span>
+                                            <span className="text-xs text-muted-foreground">{step.desc}</span>
+                                        </span>
+                                    </button>
+                                    {i === 0 && <div className="h-px flex-1 bg-border" />}
+                                </React.Fragment>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-xs font-medium text-primary-foreground">1</span>
+                            <span className="flex flex-col">
+                                <span className="text-sm font-medium text-foreground">Información General</span>
+                                <span className="text-xs text-muted-foreground">Datos del equipo</span>
+                            </span>
+                        </div>
+                    )}
 
                     {activeStep === 0 && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 8 }}>
-                            <div style={gridRowStyle}>
-                                <div style={colSpan(4)}>
+                        <div className="mt-2 flex flex-col gap-6">
+                            <div className="grid grid-cols-12 gap-4">
+                                <div className={colSpanClass(4)}>
                                     <HybridSelect
                                         label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
                                         placeholder="Seleccione..."
@@ -980,7 +975,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         error={attemptedSubmit && !formData.tipo && "Obligatorio"}
                                     />
                                 </div>
-                                <div style={colSpan(4)}>
+                                <div className={colSpanClass(4)}>
                                     <HybridSelect
                                         label={<FieldLabel label="Ubicación (Sede) *" help="Sede física de ADL donde se almacena y opera el equipo (ej: PM para Puerto Montt, CO para Coyhaique)." />}
                                         placeholder="Seleccione..."
@@ -992,7 +987,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         error={attemptedSubmit && !formData.ubicacion && "Obligatorio"}
                                     />
                                 </div>
-                                <div style={colSpan(4)}>
+                                <div className={colSpanClass(4)}>
                                     <HybridSelect
                                         label={<FieldLabel label="Estado *" help="Estado de habilitación del equipo (ej: Habilitado) para su uso general en el sistema." />}
                                         placeholder="Seleccione..."
@@ -1004,7 +999,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         error={attemptedSubmit && !formData.estado && "Obligatorio"}
                                     />
                                 </div>
-                                <div style={colSpan(6)}>
+                                <div className={colSpanClass(6)}>
                                     <HybridSelect
                                         label={<FieldLabel label="Nombre del Equipo *" help="Modelo o nombre específico del equipo (ej: HI98194, YSI ProDSS) según catálogo." />}
                                         placeholder="Seleccione o escriba..."
@@ -1024,97 +1019,105 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         error={attemptedSubmit && !formData.nombre && "Obligatorio"}
                                     />
                                 </div>
-                                <div style={colSpan(3)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Sigla" help="Sigla identificadora que forma parte del código de barra del equipo (ej: MULTI, PH, TERM)." /></div>
-                                    <Input
-                                        placeholder="Ej: PH"
-                                        value={formData.sigla}
-                                        onChange={(e) => setFormData((p: any) => ({ ...p, sigla: e.target.value }))}
-                                        suffix={generatingCode ? <Spin size="small" /> : undefined}
-                                    />
+                                <div className={colSpanClass(3)}>
+                                    <div className="mb-1"><FieldLabel label="Sigla" help="Sigla identificadora que forma parte del código de barra del equipo (ej: MULTI, PH, TERM)." /></div>
+                                    <div className="relative">
+                                        <Input
+                                            placeholder="Ej: PH"
+                                            value={formData.sigla}
+                                            onChange={(e) => setFormData((p: any) => ({ ...p, sigla: e.target.value }))}
+                                            className={cn(generatingCode && 'pr-8')}
+                                        />
+                                        {generatingCode && (
+                                            <span className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                                                <span className="block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                                <div style={colSpan(3)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." /></div>
-                                    <InputNumber
+                                <div className={colSpanClass(3)}>
+                                    <div className="mb-1"><FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." /></div>
+                                    <Input
+                                        type="number"
                                         value={formData.correlativo}
-                                        onChange={(val) => setFormData((p: any) => ({ ...p, correlativo: val }))}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, correlativo: e.target.value === '' ? null : Number(e.target.value) }))}
                                         disabled={!isSuper}
-                                        style={{ width: '100%' }}
                                     />
                                 </div>
                                 {initialData?.id_equipo ? (
                                     <>
-                                        <div style={colSpan(4)}>
-                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
+                                        <div className={colSpanClass(4)}>
+                                            <div className="mb-1"><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
                                             <Input
                                                 value={formData.codigo}
                                                 readOnly={!isSuper}
-                                                style={{ fontWeight: 700 }}
-                                                status={attemptedSubmit && !formData.codigo ? 'error' : undefined}
+                                                className={cn('font-bold', attemptedSubmit && !formData.codigo && 'border-destructive')}
                                             />
-                                            {formData.previousCode && <Text type="secondary" style={{ fontSize: 12 }}>Anterior: {formData.previousCode}</Text>}
-                                            {attemptedSubmit && !formData.codigo && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                            {formData.previousCode && <span className="text-xs text-muted-foreground">Anterior: {formData.previousCode}</span>}
+                                            {attemptedSubmit && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
                                         </div>
-                                        <div style={colSpan(4)}>
-                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Última Revisión" help="Fecha de la última revisión registrada de este equipo." /></div>
+                                        <div className={colSpanClass(4)}>
+                                            <div className="mb-1"><FieldLabel label="Última Revisión" help="Fecha de la última revisión registrada de este equipo." /></div>
                                             <Input
                                                 value={formatDateToSpanish(originalUltimaVerificacion)}
                                                 readOnly
                                                 disabled
                                             />
                                         </div>
-                                        <div style={colSpan(4)}>
-                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Revisión Actual" help="Presione para registrar la nueva revisión técnica con fecha de hoy." /></div>
-                                            <Input
-                                                placeholder="Presione para registrar hoy"
-                                                value={formData.ultima_verificacion === originalUltimaVerificacion ? '' : formatDateToSpanish(formData.ultima_verificacion)}
-                                                onClick={() => setShowRevisionConfirm(true)}
-                                                style={{ cursor: 'pointer' }}
-                                                readOnly
-                                                suffix={
-                                                    formData.ultima_verificacion !== originalUltimaVerificacion && (
-                                                        <Button
-                                                            type="text"
-                                                            size="small"
-                                                            icon={<IconX size={16} />}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleResetRevision();
-                                                            }}
-                                                        />
-                                                    )
-                                                }
-                                            />
+                                        <div className={colSpanClass(4)}>
+                                            <div className="mb-1"><FieldLabel label="Revisión Actual" help="Presione para registrar la nueva revisión técnica con fecha de hoy." /></div>
+                                            <div className="relative">
+                                                <Input
+                                                    placeholder="Presione para registrar hoy"
+                                                    value={formData.ultima_verificacion === originalUltimaVerificacion ? '' : formatDateToSpanish(formData.ultima_verificacion)}
+                                                    onClick={() => setShowRevisionConfirm(true)}
+                                                    className="cursor-pointer pr-8"
+                                                    readOnly
+                                                />
+                                                {formData.ultima_verificacion !== originalUltimaVerificacion && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="absolute right-0.5 top-1/2 h-7 w-7 -translate-y-1/2"
+                                                        title="Restablecer"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleResetRevision();
+                                                        }}
+                                                    >
+                                                        <IconX size={16} />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div style={colSpan(8)}>
-                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
+                                        <div className={colSpanClass(8)}>
+                                            <div className="mb-1"><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
                                             <Input
                                                 value={formData.codigo}
                                                 readOnly={!isSuper}
-                                                style={{ fontWeight: 700 }}
-                                                status={attemptedSubmit && !formData.codigo ? 'error' : undefined}
+                                                className={cn('font-bold', attemptedSubmit && !formData.codigo && 'border-destructive')}
                                             />
-                                            {formData.previousCode && <Text type="secondary" style={{ fontSize: 12 }}>Anterior: {formData.previousCode}</Text>}
-                                            {attemptedSubmit && !formData.codigo && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                            {formData.previousCode && <span className="text-xs text-muted-foreground">Anterior: {formData.previousCode}</span>}
+                                            {attemptedSubmit && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
                                         </div>
-                                        <div style={colSpan(4)}>
-                                            <div style={{ marginBottom: 4 }}><FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." /></div>
+                                        <div className={colSpanClass(4)}>
+                                            <div className="mb-1"><FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." /></div>
                                             <Input
                                                 type="date"
                                                 value={formData.ultima_verificacion}
                                                 readOnly
-                                                status={attemptedSubmit && !formData.ultima_verificacion ? 'error' : undefined}
+                                                className={cn(attemptedSubmit && !formData.ultima_verificacion && 'border-destructive')}
                                             />
-                                            {attemptedSubmit && !formData.ultima_verificacion && <Text type="danger" style={{ fontSize: 12 }}>Se requiere una fecha de creación válida</Text>}
+                                            {attemptedSubmit && !formData.ultima_verificacion && <p className="text-xs text-destructive">Se requiere una fecha de creación válida</p>}
                                         </div>
                                     </>
                                 )}
-                                <div style={colSpan(6)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." /></div>
-                                    <Select
+                                <div className={colSpanClass(6)}>
+                                    <div className="mb-1"><FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." /></div>
+                                    <Combobox
                                         placeholder="Seleccione..."
                                         options={muestreadores.map(m => ({
                                             value: String(m.id_muestreador),
@@ -1123,18 +1126,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 : m.nombre_muestreador
                                         }))}
                                         value={formData.id_muestreador ? String(formData.id_muestreador) : undefined}
-                                        onChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val ?? null }))}
-                                        showSearch
-                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                        status={attemptedSubmit && !formData.id_muestreador ? 'error' : undefined}
-                                        style={{ width: '100%' }}
+                                        onValueChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val ?? null }))}
+                                        className={cn(attemptedSubmit && !formData.id_muestreador && 'border-destructive')}
                                     />
-                                    {attemptedSubmit && !formData.id_muestreador && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                    {attemptedSubmit && !formData.id_muestreador && <p className="text-xs text-destructive">Obligatorio</p>}
                                 </div>
-                                <div style={colSpan(6)}>
+                                <div className={colSpanClass(6)}>
                                     {/* E-01: mostrar nombre + código para que el usuario pueda elegir, no IDs crudos */}
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Equipo Asociado" help="Equipo complementario asignado a esta unidad (ej: sonda de repuesto, electrodo asociado)." /></div>
-                                    <Select
+                                    <div className="mb-1"><FieldLabel label="Equipo Asociado" help="Equipo complementario asignado a esta unidad (ej: sonda de repuesto, electrodo asociado)." /></div>
+                                    <Combobox
                                         placeholder={allEquipos.length === 0 ? 'No hay equipos para asociar' : 'Buscar equipo...'}
                                         value={formData.equipo_asociado ? String(formData.equipo_asociado) : undefined}
                                         options={(() => {
@@ -1154,18 +1154,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 return true;
                                             });
                                         })()}
-                                        onChange={(val) => setFormData((p: any) => ({ ...p, equipo_asociado: val || 'No Aplica' }))}
-                                        showSearch
-                                        allowClear
-                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                        notFoundContent="Sin coincidencias"
-                                        style={{ width: '100%' }}
+                                        onValueChange={(val) => setFormData((p: any) => ({ ...p, equipo_asociado: val || 'No Aplica' }))}
+                                        emptyText="Sin coincidencias"
                                     />
                                 </div>
                             </div>
-                            <Divider>Configuración Técnica</Divider>
-                            <div style={gridRowStyle}>
-                                <div style={colSpan(4)}>
+                            <SectionDivider>Configuración Técnica</SectionDivider>
+                            <div className="grid grid-cols-12 gap-4">
+                                <div className={colSpanClass(4)}>
                                     <HybridSelect
                                         label={<FieldLabel label="¿Qué Mide? *" help="Parámetro o variable física/química que mide el equipo (ej: pH, Conductividad, Oxígeno Disuelto, Temperatura)." />}
                                         value={formData.que_mide}
@@ -1182,77 +1178,83 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         error={attemptedSubmit && !formData.que_mide && "Obligatorio"}
                                     />
                                 </div>
-                                <div style={colSpan(4)}>
+                                <div className={colSpanClass(4)}>
                                     <HybridSelect
                                         label={<FieldLabel label="Unidad de Medida" help="Nombre completo de la unidad de medida utilizada para registrar los datos (ej: Miligramos por Litro, Grados Celsius)." />}
                                         value={formData.unidad_medida_textual}
                                         options={unidadesOptions}
                                         onChange={(val: any) => {
-                                            const sig = autoGenerateSigla(val);
+                                            const sig = autoGenerateSigla(val || '');
                                             setFormData((p: any) => ({ ...p, unidad_medida_textual: val, unidad_medida_sigla: sig || p.unidad_medida_sigla }));
                                         }}
                                     />
                                 </div>
-                                <div style={colSpan(4)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Sigla Unidad" help="Abreviación técnica de la unidad de medida (ej: mg/L, °C, µS/cm)." /></div>
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Sigla Unidad" help="Abreviación técnica de la unidad de medida (ej: mg/L, °C, µS/cm)." /></div>
                                     <Input
                                         value={formData.unidad_medida_sigla}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, unidad_medida_sigla: e.target.value }))}
                                         placeholder="mg/L, %"
                                     />
                                 </div>
-                                <div style={{ gridColumn: 'span 12' }}>
-                                    <div style={{ display: 'flex', gap: 24, padding: 16, backgroundColor: 'var(--app-hover-bg)', flexWrap: 'wrap' }}>
-                                        <Checkbox
-                                            checked={formData.tiene_fc === 'SI'}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, tiene_fc: e.target.checked ? 'SI' : 'NO' }))}
-                                        >
+                                <div className="col-span-12">
+                                    <div className="flex flex-wrap gap-6 rounded-lg bg-muted/40 p-4">
+                                        <label className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={formData.tiene_fc === 'SI'}
+                                                onCheckedChange={(checked) => setFormData((p: any) => ({ ...p, tiene_fc: checked ? 'SI' : 'NO' }))}
+                                            />
                                             <FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo." />
-                                        </Checkbox>
-                                        <Checkbox
-                                            checked={formData.visible_muestreador === 'SI'}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, visible_muestreador: e.target.checked ? 'SI' : 'NO' }))}
-                                        >
+                                        </label>
+                                        <label className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={formData.visible_muestreador === 'SI'}
+                                                onCheckedChange={(checked) => setFormData((p: any) => ({ ...p, visible_muestreador: checked ? 'SI' : 'NO' }))}
+                                            />
                                             <FieldLabel label="Visible para Muestreadores" help="Determina si el equipo estará visible y seleccionable para los muestreadores en la aplicación móvil." />
-                                        </Checkbox>
-                                        <Checkbox
-                                            checked={formData.informe === 'SI'}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, informe: e.target.checked ? 'SI' : 'NO' }))}
-                                        >
+                                        </label>
+                                        <label className="flex items-center gap-2">
+                                            <Checkbox
+                                                checked={formData.informe === 'SI'}
+                                                onCheckedChange={(checked) => setFormData((p: any) => ({ ...p, informe: checked ? 'SI' : 'NO' }))}
+                                            />
                                             <FieldLabel label="Incluir en Informe" help="Indica si el equipo y sus mediciones asociadas deben ser impresos en el informe final de resultados." />
-                                        </Checkbox>
+                                        </label>
                                     </div>
                                 </div>
-                                <div style={colSpan(4)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." /></div>
-                                    <InputNumber value={formData.error0} onChange={(v) => setFormData((p: any) => ({ ...p, error0: v }))} step={0.01} style={{ width: '100%' }} />
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." /></div>
+                                    <Input type="number" step="0.01" value={formData.error0} onChange={(e) => setFormData((p: any) => ({ ...p, error0: e.target.value === '' ? null : Number(e.target.value) }))} />
                                 </div>
-                                <div style={colSpan(4)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." /></div>
-                                    <InputNumber value={formData.error15} onChange={(v) => setFormData((p: any) => ({ ...p, error15: v }))} step={0.01} style={{ width: '100%' }} />
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." /></div>
+                                    <Input type="number" step="0.01" value={formData.error15} onChange={(e) => setFormData((p: any) => ({ ...p, error15: e.target.value === '' ? null : Number(e.target.value) }))} />
                                 </div>
-                                <div style={colSpan(4)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." /></div>
-                                    <InputNumber value={formData.error30} onChange={(v) => setFormData((p: any) => ({ ...p, error30: v }))} step={0.01} style={{ width: '100%' }} />
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." /></div>
+                                    <Input type="number" step="0.01" value={formData.error30} onChange={(e) => setFormData((p: any) => ({ ...p, error30: e.target.value === '' ? null : Number(e.target.value) }))} />
                                 </div>
-                                <div style={{ gridColumn: 'span 12' }}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
-                                    <TextArea
+                                <div className="col-span-12">
+                                    <div className="mb-1"><FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
+                                    <textarea
                                         placeholder="Detalles sobre el equipo..."
                                         value={formData.observacion || ''}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
                                         rows={3}
-                                        status={attemptedSubmit && !formData.observacion ? 'error' : undefined}
+                                        className={cn(
+                                            'flex min-h-[72px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                                            attemptedSubmit && !formData.observacion && 'border-destructive'
+                                        )}
                                     />
-                                    {attemptedSubmit && !formData.observacion && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                    {attemptedSubmit && !formData.observacion && <p className="text-xs text-destructive">Obligatorio</p>}
                                 </div>
                             </div>
-                            <Divider>Verificación y Estado</Divider>
-                            <div style={gridRowStyle}>
-                                <div style={colSpan(6)}>
-                                    <div style={{ marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                            <SectionDivider>Verificación y Estado</SectionDivider>
+                            <div className="grid grid-cols-12 gap-4">
+                                <div className={colSpanClass(6)}>
+                                    <div className="mb-1 inline-flex flex-wrap items-center gap-1.5">
                                         <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help="Fecha programada para la próxima revisión técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
-                                        <span style={{ fontSize: 12, color: '#868e96', fontWeight: 400 }}>
+                                        <span className="text-xs font-normal text-muted-foreground">
                                             (Auto: Última + 90 días)
                                         </span>
                                     </div>
@@ -1260,34 +1262,35 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         type="date"
                                         value={formData.siguiente_verificacion}
                                         readOnly
-                                        status={attemptedSubmit && !formData.siguiente_verificacion ? 'error' : undefined}
+                                        className={cn(attemptedSubmit && !formData.siguiente_verificacion && 'border-destructive')}
                                     />
-                                    {attemptedSubmit && !formData.siguiente_verificacion && <Text type="danger" style={{ fontSize: 12 }}>Obligatorio</Text>}
+                                    {attemptedSubmit && !formData.siguiente_verificacion && <p className="text-xs text-destructive">Obligatorio</p>}
                                 </div>
-                                <div style={colSpan(6)}>
-                                    <div style={{ marginBottom: 4 }}><FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." /></div>
-                                    <Select
+                                <div className={colSpanClass(6)}>
+                                    <div className="mb-1"><FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." /></div>
+                                    <Combobox
                                         placeholder="Seleccione..."
-                                        options={(estadoEquipoOptions.length > 0 ? estadoEquipoOptions : [
-                                            'Operativo',
-                                            'Dado de Baja',
-                                            'En Mantención',
-                                            'En Calibración',
-                                            'Fuera de Servicio',
-                                        ]).map(o => ({ value: o, label: o }))}
-                                        value={formData.estado_equipo || undefined}
-                                        onChange={(val) => setFormData((p: any) => ({ ...p, estado_equipo: val || '' }))}
-                                        allowClear
-                                        style={{ width: '100%' }}
+                                        options={[
+                                            { value: NO_ESTADO_EQUIPO, label: 'Sin especificar' },
+                                            ...(estadoEquipoOptions.length > 0 ? estadoEquipoOptions : [
+                                                'Operativo',
+                                                'Dado de Baja',
+                                                'En Mantención',
+                                                'En Calibración',
+                                                'Fuera de Servicio',
+                                            ]).map(o => ({ value: o, label: o }))
+                                        ]}
+                                        value={formData.estado_equipo || NO_ESTADO_EQUIPO}
+                                        onValueChange={(val) => setFormData((p: any) => ({ ...p, estado_equipo: val === NO_ESTADO_EQUIPO ? '' : val }))}
                                     />
                                 </div>
-                                <div style={{ gridColumn: 'span 12' }}>
-                                    <div style={{ marginBottom: 4 }}>
+                                <div className="col-span-12">
+                                    <div className="mb-1">
                                         <FieldLabel
                                             label={
                                                 <>
                                                     Plazo Vigencia{" "}
-                                                    <span style={{ fontSize: '11px', fontWeight: 400, color: 'var(--app-text-secondary)' }}>
+                                                    <span className="text-[11px] font-normal text-muted-foreground">
                                                         (observación)
                                                     </span>
                                                 </>
@@ -1295,150 +1298,211 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             help="Comentarios o aclaraciones sobre el plazo de vigencia de la calibración del equipo (ej: Hasta el día 30 del mes...)."
                                         />
                                     </div>
-                                    <TextArea
+                                    <textarea
                                         placeholder="Ej: Hasta el día 30 del mes..."
                                         value={formData.plazo_vigencia || ''}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
-                                        autoSize={{ minRows: 2 }}
+                                        rows={2}
+                                        className="flex min-h-[56px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                     />
                                 </div>
                             </div>
 
                             {!initialData?.id_equipo && (
-                                <Card size="small" style={{ backgroundColor: '#e7f3ff' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
                                         <div>
-                                            <Text strong style={{ color: '#1864ab' }}>Creación Masiva</Text>
-                                            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>¿Deseas crear múltiples unidades de este modelo?</Text>
+                                            <p className="font-semibold text-primary">Creación Masiva</p>
+                                            <p className="text-xs text-muted-foreground">¿Deseas crear múltiples unidades de este modelo?</p>
                                         </div>
                                         <div>
-                                            <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Cantidad</Text>
-                                            <InputNumber
+                                            <p className="mb-1 text-xs text-foreground">Cantidad</p>
+                                            <Input
+                                                type="number"
+                                                min={1}
+                                                max={50}
                                                 value={bulkQuantity}
-                                                onChange={(val) => setBulkQuantity(Number(val) || 1)}
-                                                min={1} max={50}
-                                                style={{ width: 80 }}
+                                                onChange={(e) => setBulkQuantity(Number(e.target.value) || 1)}
+                                                className="w-20"
                                             />
                                         </div>
                                     </div>
-                                </Card>
+                                </div>
                             )}
                         </div>
                     )}
                     {activeStep === 1 && !initialData?.id_equipo && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 8 }}>
-                            <Alert type="info" showIcon icon={<IconInfoCircle size={18} />} message={
-                                `Se generarán ${bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.`
-                            } />
-                            <Card size="small" styles={{ body: { padding: 0 } }}>
-                                <div style={{ overflowY: 'auto', maxHeight: 400 }}>
-                                    <Table
-                                        size="small"
-                                        columns={bulkColumns}
-                                        dataSource={bulkItems}
-                                        rowKey="id_temp"
-                                        pagination={false}
-                                    />
+                        <div className="mt-2 flex flex-col gap-4">
+                            <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3.5">
+                                <IconInfoCircle size={18} className="mt-0.5 shrink-0 text-primary" />
+                                <span className="text-sm text-foreground">
+                                    {`Se generarán ${bulkQuantity} equipos basados en la plantilla. Puedes ajustar los códigos y sedes individualmente antes de confirmar.`}
+                                </span>
+                            </div>
+                            <div className="overflow-hidden rounded-lg border border-border">
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="hover:bg-transparent">
+                                                <TableHead className="w-10">#</TableHead>
+                                                <TableHead>Código</TableHead>
+                                                <TableHead>Ubicación</TableHead>
+                                                <TableHead>Vigencia</TableHead>
+                                                <TableHead className="w-16">Obs.</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {bulkItems.map((item, idx) => (
+                                                <TableRow key={item.id_temp}>
+                                                    <TableCell>{idx + 1}</TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            value={item.codigo}
+                                                            onChange={(e) => {
+                                                                const n = [...bulkItems];
+                                                                n[idx].codigo = e.target.value;
+                                                                setBulkItems(n);
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Combobox
+                                                            options={sedeOptions.map(s => ({ value: s, label: s }))}
+                                                            value={item.ubicacion ?? undefined}
+                                                            onValueChange={(v) => {
+                                                                const n = [...bulkItems];
+                                                                n[idx].ubicacion = v;
+                                                                const fc = n[idx].correlativo < 10 ? `0${n[idx].correlativo}` : `${n[idx].correlativo}`;
+                                                                n[idx].codigo = `${n[idx].sigla}.${fc}/MA.${v}`;
+                                                                setBulkItems(n);
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Input
+                                                            type="date"
+                                                            value={item.vigencia}
+                                                            onChange={(e) => {
+                                                                const n = [...bulkItems];
+                                                                n[idx].vigencia = e.target.value;
+                                                                n[idx].siguiente_verificacion = e.target.value;
+                                                                setBulkItems(n);
+                                                            }}
+                                                        />
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            title="Editar observación"
+                                                            className={item.observacion ? 'text-primary' : 'text-muted-foreground'}
+                                                            onClick={() => { setEditingObsIdx(idx); setEditingObsText(item.observacion || ''); }}
+                                                        >
+                                                            <IconEdit size={16} />
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
                                 </div>
-                            </Card>
+                            </div>
                         </div>
                     )}
 
-                    <Divider style={{ marginTop: 24 }} />
-                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+                    <SectionDivider />
+                    <div className="flex flex-wrap justify-between gap-3">
                         {activeStep === 1 ? (
-                            <Button icon={<IconChevronLeft size={18} />} onClick={() => setActiveStep(0)}>
-                                Volver al Formulario
+                            <Button variant="outline" onClick={() => setActiveStep(0)}>
+                                <IconChevronLeft size={18} /> Volver al Formulario
                             </Button>
                         ) : <div />}
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <Button onClick={onCancel}>Cancelar</Button>
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" onClick={onCancel}>Cancelar</Button>
                             {initialData?.requestId && (!initialData.id_equipo) && (
                                 <Button
-                                    danger
+                                    variant="destructive"
                                     onClick={() => setRejectingSolicitud({ id_solicitud: initialData.requestId, tipo_solicitud: 'ALTA', datos_json: initialData })}
                                 >
                                     Rechazar Solicitud
                                 </Button>
                             )}
-                            <Tooltip
+                            <span
+                                className="inline-block"
                                 title={!isFormValid ? `Campos obligatorios faltantes: ${missingFields.join(', ')}` : (initialData?.id_equipo ? 'Actualizar equipo' : 'Guardar equipo')}
-                                open={isFormValid && (initialData?.id_equipo ? canEditEquipo : canCreateEquipo) ? false : undefined}
                             >
-                                <span style={{ display: 'inline-block' }}>
-                                    <Button
-                                        type="primary"
-                                        disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
-                                        onClick={handleNext}
-                                        icon={activeStep === 0 && !initialData?.id_equipo ? undefined : <IconDeviceFloppy size={18} />}
-                                    >
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                            {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
-                                            {activeStep === 0 && !initialData?.id_equipo && <IconChevronRight size={18} />}
-                                        </span>
-                                    </Button>
-                                </span>
-                            </Tooltip>
+                                <Button
+                                    disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
+                                    onClick={handleNext}
+                                >
+                                    {!(activeStep === 0 && !initialData?.id_equipo) && <IconDeviceFloppy size={18} />}
+                                    {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
+                                    {activeStep === 0 && !initialData?.id_equipo && <IconChevronRight size={18} />}
+                                </Button>
+                            </span>
                         </div>
                     </div>
                 </div>
-            </Card>
+            </div>
 
             {/* --- Modals --- */}
-            <Modal open={showSaveConfirm} onCancel={() => setShowSaveConfirm(false)} title="Confirmar Guardado" centered footer={null} width={420}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '16px 0' }}>
-                    <IconDeviceFloppy size={48} color="#1c7ed6" />
-                    <Text style={{ textAlign: 'center' }}>¿Deseas confirmar los cambios realizados en el sistema?</Text>
-                    <div style={{ display: 'flex', gap: 8, width: '100%', marginTop: 16 }}>
-                        <Button style={{ flex: 1 }} onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
-                        <Button style={{ flex: 1 }} type="primary" onClick={handleSave}>Sí, confirmar</Button>
+            <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
+                <DialogContent className="max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle>Confirmar Guardado</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col items-center gap-3 py-2">
+                        <IconDeviceFloppy size={48} className="text-primary" />
+                        <p className="text-center text-sm text-foreground">¿Deseas confirmar los cambios realizados en el sistema?</p>
                     </div>
-                </div>
-            </Modal>
+                    <DialogFooter className="sm:justify-stretch">
+                        <Button variant="outline" className="flex-1" onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
+                        <Button className="flex-1" onClick={handleSave}>Sí, confirmar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            <Modal
-                open={showRevisionConfirm}
-                onCancel={() => setShowRevisionConfirm(false)}
-                title="Registrar Revisión"
-                centered
-                footer={null}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <Text style={{ fontSize: 13 }}>
-                        Se registrará la revisión técnica del equipo con la fecha de hoy:
-                    </Text>
-                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                            <div style={{ gridColumn: 'span 2' }}>
-                                <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Fecha de Revisión</Text>
-                                <Text strong style={{ color: '#1c7ed6', fontSize: 15, display: 'block' }}>
-                                    {formatDateToSpanish(getTodayString())}
-                                </Text>
-                            </div>
-                            <div>
-                                <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Próxima Verificación</Text>
-                                <Text strong style={{ color: '#0c8599', fontSize: 15, display: 'block' }}>
-                                    {formatDateToSpanish(calculateNext90Days(getTodayString()))}
-                                </Text>
-                            </div>
-                            <div>
-                                <Text style={{ fontSize: 11, textTransform: 'uppercase' }} type="secondary">Vigencia Hasta</Text>
-                                <Text strong style={{ color: '#2f9e44', fontSize: 15, display: 'block' }}>
-                                    {formatDateToSpanish(calculateNext90Days(getTodayString()))}
-                                </Text>
+            <Dialog open={showRevisionConfirm} onOpenChange={setShowRevisionConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Registrar Revisión</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-3">
+                        <p className="text-[13px] text-foreground">
+                            Se registrará la revisión técnica del equipo con la fecha de hoy:
+                        </p>
+                        <div className="rounded-lg border border-border bg-muted/40 p-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="col-span-2">
+                                    <p className="text-[11px] uppercase text-muted-foreground">Fecha de Revisión</p>
+                                    <p className="text-[15px] font-semibold text-primary">
+                                        {formatDateToSpanish(getTodayString())}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] uppercase text-muted-foreground">Próxima Verificación</p>
+                                    <p className="text-[15px] font-semibold text-primary">
+                                        {formatDateToSpanish(calculateNext90Days(getTodayString()))}
+                                    </p>
+                                </div>
+                                <div>
+                                    <p className="text-[11px] uppercase text-muted-foreground">Vigencia Hasta</p>
+                                    <p className="text-[15px] font-semibold text-success">
+                                        {formatDateToSpanish(calculateNext90Days(getTodayString()))}
+                                    </p>
+                                </div>
                             </div>
                         </div>
-                    </Card>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        * Al confirmar, se actualizará el estado temporal del equipo. Los cambios se guardarán definitivamente al presionar el botón "Actualizar" del formulario.
-                    </Text>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <Button style={{ flex: 1 }} onClick={() => setShowRevisionConfirm(false)}>
+                        <p className="text-xs text-muted-foreground">
+                            * Al confirmar, se actualizará el estado temporal del equipo. Los cambios se guardarán definitivamente al presionar el botón "Actualizar" del formulario.
+                        </p>
+                    </div>
+                    <DialogFooter className="sm:justify-stretch">
+                        <Button variant="outline" className="flex-1" onClick={() => setShowRevisionConfirm(false)}>
                             Cancelar
                         </Button>
                         <Button
-                            style={{ flex: 1 }}
-                            type="primary"
+                            className="flex-1"
                             onClick={() => {
                                 handleSetToday();
                                 setShowRevisionConfirm(false);
@@ -1446,129 +1510,140 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         >
                             Confirmar y Registrar
                         </Button>
-                    </div>
-                </div>
-            </Modal>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            <Modal open={!!rejectingSolicitud} onCancel={() => setRejectingSolicitud(null)} title="Motivo de Rechazo" centered footer={null}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>Explica brevemente por qué se rechaza esta solicitud.</Text>
-                    <div>
-                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Observaciones *</Text>
-                        <TextArea
-                            rows={4}
-                            value={adminFeedback}
-                            onChange={(e) => setAdminFeedback(e.currentTarget.value)}
-                            placeholder="Ej: Información insuficiente..."
-                        />
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                        <Button style={{ flex: 1 }} onClick={() => setRejectingSolicitud(null)}>Cancelar</Button>
-                        <Button style={{ flex: 1 }} danger type="primary" onClick={handleRejectIndividual} disabled={!adminFeedback.trim()}>Confirmar Rechazo</Button>
-                    </div>
-                </div>
-            </Modal>
-
-            <Modal open={editingObsIdx !== null} onCancel={() => setEditingObsIdx(null)} title={`Editar Observación - Item #${(editingObsIdx || 0) + 1}`} width={600} footer={null}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <TextArea
-                        rows={8}
-                        value={editingObsText}
-                        onChange={(e) => setEditingObsText(e.currentTarget.value)}
-                        autoFocus
-                    />
-                    <Button type="primary" onClick={() => {
-                        const n = [...bulkItems];
-                        n[editingObsIdx!].observacion = editingObsText;
-                        setBulkItems(n);
-                        setEditingObsIdx(null);
-                    }}>Guardar Observación</Button>
-                </div>
-            </Modal>
-
-            <Modal
-                open={compareVersion !== null}
-                onCancel={() => setCompareVersion(null)}
-                title={
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <IconHistory size={20} color="#1c7ed6" />
-                        <Text strong>Comparación con Versión del Historial</Text>
-                    </div>
-                }
-                centered
-                width={800}
-                footer={null}
-            >
-                {compareVersion && (() => {
-                    const diffs = getVersionDiff(compareVersion);
-                    return (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                            <Text type="secondary" style={{ fontSize: 13 }}>
-                                Mostrando las diferencias entre el registro histórico (<strong>{compareVersion.version}</strong>, modificado por <strong>{compareVersion.nombre_usuario_cambio || 'Sistema'}</strong> el {new Date(compareVersion.fecha_cambio).toLocaleString()}) y el estado actual del formulario.
-                            </Text>
-
-                            {diffs.length === 0 ? (
-                                <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="Sin diferencias" description="Los datos de la versión del historial seleccionada coinciden exactamente con los datos actuales en el formulario." />
-                            ) : (
-                                <div style={{ overflowX: 'auto' }}>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                        <thead>
-                                            <tr style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                                                <th style={{ textAlign: 'left', padding: 8, border: '1px solid var(--app-border)' }}>Campo</th>
-                                                <th style={{ textAlign: 'left', padding: 8, border: '1px solid var(--app-border)' }}>Versión Histórica ({compareVersion.version})</th>
-                                                <th style={{ textAlign: 'left', padding: 8, border: '1px solid var(--app-border)' }}>Valor en Formulario (Actual)</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {diffs.map((d, index) => (
-                                                <tr key={index}>
-                                                    <td style={{ padding: 8, border: '1px solid var(--app-border)', fontWeight: 500 }}>{d.campo}</td>
-                                                    <td style={{ padding: 8, border: '1px solid var(--app-border)', color: '#c92a2a', backgroundColor: '#fff5f5' }}>
-                                                        {d.oldValue}
-                                                    </td>
-                                                    <td style={{ padding: 8, border: '1px solid var(--app-border)', color: '#2b8a3e', backgroundColor: '#ebfbee' }}>
-                                                        {d.newValue}
-                                                    </td>
-                                                </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            )}
-
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                                <Button onClick={() => setCompareVersion(null)}>
-                                    Cerrar
-                                </Button>
-                                <Button
-                                    type="primary"
-                                    onClick={() => {
-                                        handleRestore(compareVersion);
-                                        setCompareVersion(null);
-                                    }}
-                                >
-                                    Restaurar esta Versión
-                                </Button>
-                            </div>
+            <Dialog open={!!rejectingSolicitud} onOpenChange={(open) => { if (!open) setRejectingSolicitud(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Motivo de Rechazo</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-3">
+                        <p className="text-[13px] text-muted-foreground">Explica brevemente por qué se rechaza esta solicitud.</p>
+                        <div>
+                            <p className="mb-1 text-xs text-foreground">Observaciones *</p>
+                            <textarea
+                                rows={4}
+                                value={adminFeedback}
+                                onChange={(e) => setAdminFeedback(e.currentTarget.value)}
+                                placeholder="Ej: Información insuficiente..."
+                                className="flex min-h-[96px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            />
                         </div>
-                    );
-                })()}
-            </Modal>
+                    </div>
+                    <DialogFooter className="sm:justify-stretch">
+                        <Button variant="outline" className="flex-1" onClick={() => setRejectingSolicitud(null)}>Cancelar</Button>
+                        <Button variant="destructive" className="flex-1" onClick={handleRejectIndividual} disabled={!adminFeedback.trim()}>Confirmar Rechazo</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={editingObsIdx !== null} onOpenChange={(open) => { if (!open) setEditingObsIdx(null); }}>
+                <DialogContent className="max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle>{`Editar Observación - Item #${(editingObsIdx || 0) + 1}`}</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-3">
+                        <textarea
+                            rows={8}
+                            value={editingObsText}
+                            onChange={(e) => setEditingObsText(e.currentTarget.value)}
+                            autoFocus
+                            className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        />
+                        <Button onClick={() => {
+                            const n = [...bulkItems];
+                            n[editingObsIdx!].observacion = editingObsText;
+                            setBulkItems(n);
+                            setEditingObsIdx(null);
+                        }}>Guardar Observación</Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={compareVersion !== null} onOpenChange={(open) => { if (!open) setCompareVersion(null); }}>
+                <DialogContent className="max-h-[85vh] max-w-[800px] overflow-y-auto">
+                    <DialogHeader>
+                        <div className="flex items-center gap-2">
+                            <IconHistory size={20} className="text-primary" />
+                            <DialogTitle>Comparación con Versión del Historial</DialogTitle>
+                        </div>
+                    </DialogHeader>
+                    {compareVersion && (() => {
+                        const diffs = getVersionDiff(compareVersion);
+                        return (
+                            <div className="flex flex-col gap-3">
+                                <p className="text-[13px] text-muted-foreground">
+                                    Mostrando las diferencias entre el registro histórico (<strong>{compareVersion.version}</strong>, modificado por <strong>{compareVersion.nombre_usuario_cambio || 'Sistema'}</strong> el {new Date(compareVersion.fecha_cambio).toLocaleString()}) y el estado actual del formulario.
+                                </p>
+
+                                {diffs.length === 0 ? (
+                                    <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
+                                        <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                                        <div>
+                                            <p className="text-sm font-semibold text-foreground">Sin diferencias</p>
+                                            <p className="text-sm text-muted-foreground">Los datos de la versión del historial seleccionada coinciden exactamente con los datos actuales en el formulario.</p>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto">
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow className="hover:bg-transparent">
+                                                    <TableHead>Campo</TableHead>
+                                                    <TableHead>{`Versión Histórica (${compareVersion.version})`}</TableHead>
+                                                    <TableHead>Valor en Formulario (Actual)</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {diffs.map((d, index) => (
+                                                    <TableRow key={index}>
+                                                        <TableCell className="font-medium text-foreground">{d.campo}</TableCell>
+                                                        <TableCell className="bg-destructive/10 text-destructive">{d.oldValue}</TableCell>
+                                                        <TableCell className="bg-success/10 text-success">{d.newValue}</TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    </div>
+                                )}
+
+                                <DialogFooter>
+                                    <Button variant="outline" onClick={() => setCompareVersion(null)}>
+                                        Cerrar
+                                    </Button>
+                                    <Button
+                                        onClick={() => {
+                                            handleRestore(compareVersion);
+                                            setCompareVersion(null);
+                                        }}
+                                    >
+                                        Restaurar esta Versión
+                                    </Button>
+                                </DialogFooter>
+                            </div>
+                        );
+                    })()}
+                </DialogContent>
+            </Dialog>
 
             {/* Floating button for requests */}
             {initialData?.id_equipo && pendingRequests && pendingRequests.length > 0 && (
-                <div style={{ position: 'fixed', bottom: 40, right: 40, zIndex: 100 }}>
-                    <Badge count={pendingRequests.length} color="red">
-                        <Tooltip title="Ver Solicitudes Pendientes" placement="left">
-                            <Button
-                                shape="circle"
-                                type="primary"
-                                style={{ width: 56, height: 56, backgroundColor: '#e8590c', borderColor: '#e8590c', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
-                                icon={<IconAlertTriangle size={28} />}
-                                onClick={() => setShowRequestsModal(true)}
-                            />
-                        </Tooltip>
-                    </Badge>
+                <div className="fixed bottom-10 right-10 z-[100]">
+                    <div className="relative">
+                        <Button
+                            size="icon"
+                            title="Ver Solicitudes Pendientes"
+                            className="h-14 w-14 rounded-full bg-warning text-warning-foreground shadow-lg hover:bg-warning/90"
+                            onClick={() => setShowRequestsModal(true)}
+                        >
+                            <IconAlertTriangle size={28} />
+                        </Button>
+                        <Badge variant="destructive" className="absolute -right-1 -top-1 h-5 min-w-5 justify-center rounded-full px-1">
+                            {pendingRequests.length}
+                        </Badge>
+                    </div>
                 </div>
             )}
 
