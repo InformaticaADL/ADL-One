@@ -1,18 +1,15 @@
 import { useEffect, useState } from 'react';
 import { fichaService } from '../services/ficha.service';
-import {
-    Typography,
-    Tag,
-    Tabs,
-    Button,
-    Alert,
-    Card,
-    Modal,
-    Input,
-    Tooltip,
-    Switch,
-    Spin
-} from 'antd';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
+import { cn } from '@/lib/utils';
 import {
     IconArrowLeft,
     IconDatabase,
@@ -21,7 +18,6 @@ import {
     IconSignature,
     IconCalendarTime,
     IconMapPin,
-    IconAlertCircle,
     IconFlask,
     IconFileText,
     IconDownload,
@@ -41,8 +37,6 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 
-const { Text, Title } = Typography;
-
 // El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
 // como si fueran UTC. Usamos los componentes UTC para evitar que el navegador
 // reste el offset horario nuevamente.
@@ -53,26 +47,11 @@ const formatFechaHoraServidor = (value: string | Date) => {
     return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 };
 
-function Th({ children, center = false }: { children?: React.ReactNode; center?: boolean }) {
-    return (
-        <th style={{ textAlign: center ? 'center' : 'left', padding: '8px 12px', fontSize: 12, fontWeight: 700, color: 'var(--app-text-secondary)', borderBottom: '1px solid var(--app-border)' }}>
-            {children}
-        </th>
-    );
-}
-function Td({ children, center = false, bold = false, colSpan }: { children?: React.ReactNode; center?: boolean; bold?: boolean; colSpan?: number }) {
-    return (
-        <td colSpan={colSpan} style={{ textAlign: center ? 'center' : 'left', padding: '8px 12px', fontSize: 13, fontWeight: bold ? 600 : 400, borderBottom: '1px solid var(--app-border)' }}>
-            {children}
-        </td>
-    );
-}
-
 function KV({ label, value, color }: { label: string; value: React.ReactNode; color?: string }) {
     return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-            <Text type="secondary" style={{ fontSize: 13 }}>{label}</Text>
-            <Text strong style={{ fontSize: 13, color }}>{value}</Text>
+        <div className="flex flex-wrap items-center justify-between gap-1">
+            <span className="text-[13px] text-muted-foreground">{label}</span>
+            <span className="text-[13px] font-semibold" style={color ? { color } : undefined}>{value}</span>
         </div>
     );
 }
@@ -280,10 +259,10 @@ export const FichaDetailView = () => {
 
     if (loading) {
         return (
-            <div style={{ padding: 32, width: '100%' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, height: '50vh' }}>
-                    <Spin size="large" />
-                    <Text style={{ fontSize: 16 }}>Cargando detalles de la ejecución...</Text>
+            <div className="shadcn-scope w-full p-8">
+                <div className="flex h-[50vh] flex-col items-center justify-center gap-4">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    <span className="text-base">Cargando detalles de la ejecución...</span>
                 </div>
             </div>
         );
@@ -291,10 +270,10 @@ export const FichaDetailView = () => {
 
     if (error || !data) {
         return (
-            <div style={{ padding: 32, width: '100%' }}>
-                <Alert type="error" showIcon icon={<IconAlertCircle size={16} />} message="Error" description={error || 'No se pudo cargar la información'} />
-                <Button icon={<IconArrowLeft size={16} />} style={{ marginTop: 16 }} onClick={handleBack}>
-                    Volver
+            <div className="shadcn-scope w-full p-8">
+                <WorkflowAlert type="error" title="Error" message={error || 'No se pudo cargar la información'} />
+                <Button variant="outline" className="mt-4" onClick={handleBack}>
+                    <IconArrowLeft size={16} /> Volver
                 </Button>
             </div>
         );
@@ -327,150 +306,146 @@ export const FichaDetailView = () => {
     };
 
     const isRechazada = (ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA');
+    const showUf = hasPermission('FI_EXP_VER_UF');
+
+    const equiposInstUsados = equipos?.filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S')
+        .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx) || [];
+    const equiposInstalacion = equipos?.filter((e: any) => e.usado_instalacion === 'S') || [];
+    const equiposRetiro = equipos?.filter((e: any) => e.usado_retiro === 'S') || [];
+
+    const analisisTerreno = analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo') || [];
+    const analisisLaboratorio = analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio') || [];
+
+    const fotosPuntual = media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro'))
+        .filter((p: string, idx: number, arr: string[]) => arr.indexOf(p) === idx);
+    const fotosInstalacion = media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion'));
+    const fotosRetiro = media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('retiro'));
 
     return (
-        <div style={{ padding: 16, width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+        <div className="shadcn-scope w-full max-w-full overflow-x-hidden p-4">
 
             {/* Header */}
-            <Card style={{ marginBottom: 16, background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '3fr 7fr 2fr', gap: 24, alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                        <Button type="text" shape="circle" icon={<IconArrowLeft size={20} />} onClick={handleBack} style={{ marginTop: 5 }} />
+            <Card className="mb-4 overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+                <div className="grid items-center gap-6 p-6" style={{ gridTemplateColumns: '3fr 7fr 2fr' }}>
+                    <div className="flex items-start gap-2">
+                        <Button variant="ghost" size="icon" className="mt-1" onClick={handleBack}>
+                            <IconArrowLeft size={20} />
+                        </Button>
                         <div>
-                            <Title level={2} style={{ margin: 0, lineHeight: 1.2, color: '#1864ab' }}>{ficha?.caso_adlab || 'Caso S/N'}</Title>
-                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginTop: 4 }}>{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</Text>
-                            <Tag color="green" style={{ marginTop: 6 }}>EJECUTADO</Tag>
+                            <h2 className="m-0 text-2xl font-bold leading-tight text-primary">{ficha?.caso_adlab || 'Caso S/N'}</h2>
+                            <span className="mt-1 block text-xs font-semibold text-muted-foreground">{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</span>
+                            <Badge variant="success" className="mt-1.5">EJECUTADO</Badge>
                         </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 24 }}>
+                    <div className="grid grid-cols-3 gap-6">
                         {/* Group 1: Empresa Context */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <Text strong style={{ fontSize: 11, color: '#1864ab', whiteSpace: 'nowrap' }}>EMPRESA / CONTACTO / UBICACIÓN</Text>
-                            <Text strong style={{ fontSize: 13, color: '#1864ab' }}>{ficha?.nombre_empresa || '—'}</Text>
-                            <Text type="secondary" style={{ fontSize: 12 }}>{ficha?.nombre_contacto || '—'}</Text>
-                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4 }}>
-                                <IconMapPin size={12} color="gray" />
-                                <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</Text>
+                        <div className="flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-[11px] font-semibold text-primary">EMPRESA / CONTACTO / UBICACIÓN</span>
+                            <span className="text-[13px] font-semibold text-primary">{ficha?.nombre_empresa || '—'}</span>
+                            <span className="text-xs text-muted-foreground">{ficha?.nombre_contacto || '—'}</span>
+                            <div className="mt-1 flex items-center gap-1">
+                                <IconMapPin size={12} className="text-muted-foreground" />
+                                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</span>
                                 {ficha?.referencia_googlemaps && (
-                                    <Button
-                                        type="text"
-                                        size="small"
-                                        icon={<IconMapPin size={14} />}
-                                        href={ficha.referencia_googlemaps}
-                                        target="_blank"
-                                    />
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
+                                        <a href={ficha.referencia_googlemaps} target="_blank" rel="noopener noreferrer">
+                                            <IconMapPin size={14} />
+                                        </a>
+                                    </Button>
                                 )}
                             </div>
                         </div>
 
                         {/* Group 2: Technical Context */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <Text strong style={{ fontSize: 11, color: '#1864ab', whiteSpace: 'nowrap' }}>CENTRO / OBJETIVO</Text>
-                            <Text strong style={{ fontSize: 13 }}>{ficha?.nombre_centro || '—'}</Text>
-                            <Text type="secondary" style={{ fontSize: 12 }}>{ficha?.nombre_objetivomuestreo_ma || '—'}</Text>
+                        <div className="flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-[11px] font-semibold text-primary">CENTRO / OBJETIVO</span>
+                            <span className="text-[13px] font-semibold">{ficha?.nombre_centro || '—'}</span>
+                            <span className="text-xs text-muted-foreground">{ficha?.nombre_objetivomuestreo_ma || '—'}</span>
                         </div>
 
                         {/* Group 3: Operational */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <Text strong style={{ fontSize: 11, color: '#1864ab', whiteSpace: 'nowrap' }}>DETALLE ACTIVIDAD</Text>
+                        <div className="flex flex-col gap-1">
+                            <span className="whitespace-nowrap text-[11px] font-semibold text-primary">DETALLE ACTIVIDAD</span>
                             {isPuntual ? (
                                 <div>
-                                    <Text type="secondary" strong style={{ fontSize: 10 }}>FECHA MUESTREO</Text>
-                                    <Text strong style={{ fontSize: 12, display: 'block' }}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                    <span className="text-[10px] font-semibold text-muted-foreground">FECHA MUESTREO</span>
+                                    <span className="block text-xs font-semibold">{parseFechaStr(ficha?.ma_muestreo_fechai)}</span>
+                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground" title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</span>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                                <div className="grid grid-cols-2 gap-2">
                                     <div>
-                                        <Text type="secondary" strong style={{ fontSize: 10 }}>INICIO</Text>
-                                        <Text strong style={{ fontSize: 12, display: 'block' }}>{parseFechaStr(ficha?.ma_muestreo_fechai)}</Text>
-                                        <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</Text>
+                                        <span className="text-[10px] font-semibold text-muted-foreground">INICIO</span>
+                                        <span className="block text-xs font-semibold">{parseFechaStr(ficha?.ma_muestreo_fechai)}</span>
+                                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground" title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</span>
                                     </div>
                                     <div>
-                                        <Text type="secondary" strong style={{ fontSize: 10 }}>TÉRMINO</Text>
-                                        <Text strong style={{ fontSize: 12, display: 'block' }}>{parseFechaStr(ficha?.ma_muestreo_fechat)}</Text>
-                                        <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</Text>
+                                        <span className="text-[10px] font-semibold text-muted-foreground">TÉRMINO</span>
+                                        <span className="block text-xs font-semibold">{parseFechaStr(ficha?.ma_muestreo_fechat)}</span>
+                                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground" title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</span>
                                     </div>
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end', justifyContent: 'center', height: '100%' }}>
+                    <div className="flex h-full flex-col items-end justify-center gap-2">
                         {/* Botón Información — abre el HelpCenter */}
-                        <Button
-                            block
-                            icon={<IconInfoCircle size={14} />}
-                            onClick={() => setHelpCenterOpen(true)}
-                            style={{ fontWeight: 600 }}
-                        >
-                            Información
+                        <Button variant="outline" className="w-full font-semibold" onClick={() => setHelpCenterOpen(true)}>
+                            <IconInfoCircle size={14} /> Información
                         </Button>
 
                         {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
                             <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
-                                <Button
-                                    block
-                                    style={{ color: '#9c36b5' }}
-                                    icon={<IconRefresh size={18} />}
-                                    onClick={() => setActiveSubmodule('ma-remuestreo')}
-                                >
-                                    Remuestreo
+                                <Button variant="outline" className="w-full text-[#9c36b5] hover:text-[#9c36b5]" onClick={() => setActiveSubmodule('ma-remuestreo')}>
+                                    <IconRefresh size={18} /> Remuestreo
                                 </Button>
                             </ProtectedContent>
                         )}
                         <ProtectedContent permission="FI_EXP_MC">
-                            <Tooltip
+                            <Button
+                                className="w-full"
+                                variant={isRechazada ? 'destructive' : 'default'}
                                 title={isRechazada ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
+                                onClick={async () => {
+                                    try {
+                                        const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
+                                        const url = window.URL.createObjectURL(pdfBlob);
+                                        const link = document.createElement('a');
+                                        const fileName = ficha?.caso_adlab || selectedCorrelativo || `Ficha_${selectedFichaId}`;
+                                        link.href = url;
+                                        link.setAttribute('download', `${fileName}.pdf`);
+                                        document.body.appendChild(link);
+                                        link.click();
+                                        document.body.removeChild(link);
+                                        window.URL.revokeObjectURL(url);
+                                    } catch (err) {
+                                        console.error('Error downloading PDF:', err);
+                                    }
+                                }}
                             >
-                                <Button
-                                    block
-                                    icon={<IconDownload size={16} />}
-                                    type="primary"
-                                    danger={isRechazada}
-                                    onClick={async () => {
-                                        try {
-                                            const pdfBlob = await fichaService.downloadPdf(Number(selectedFichaId));
-                                            const url = window.URL.createObjectURL(pdfBlob);
-                                            const link = document.createElement('a');
-                                            const fileName = ficha?.caso_adlab || selectedCorrelativo || `Ficha_${selectedFichaId}`;
-                                            link.href = url;
-                                            link.setAttribute('download', `${fileName}.pdf`);
-                                            document.body.appendChild(link);
-                                            link.click();
-                                            document.body.removeChild(link);
-                                            window.URL.revokeObjectURL(url);
-                                        } catch (err) {
-                                            console.error('Error downloading PDF:', err);
-                                        }
-                                    }}
-                                >
-                                    Exportar PDF
-                                </Button>
-                            </Tooltip>
+                                <IconDownload size={16} /> Exportar PDF
+                            </Button>
                         </ProtectedContent>
 
                         {/* Realizado por GEM - solo visible para rol GEM MAM PM */}
                         {(activeModule === 'gem' || activeModule === 'unidades-gem') && isGemMamPm && (
-                            <div style={{
-                                width: '100%', border: `1px solid ${realizadoGem?.realizado ? '#38d9a9' : 'var(--app-border)'}`, borderRadius: 8, padding: 8,
-                                background: realizadoGem?.realizado ? 'rgba(34,197,94,0.07)' : undefined,
-                            }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                                    <Text strong style={{ fontSize: 11, color: realizadoGem?.realizado ? '#0c8599' : 'var(--app-text-secondary)', textAlign: 'center' }}>
+                            <div className={cn('w-full rounded-lg border p-2', realizadoGem?.realizado ? 'border-success bg-success/10' : 'border-border')}>
+                                <div className="flex flex-col items-center gap-1">
+                                    <span className={cn('text-center text-[11px] font-semibold', realizadoGem?.realizado ? 'text-success' : 'text-muted-foreground')}>
                                         Realizado por GEM
-                                    </Text>
+                                    </span>
                                     <Switch
                                         checked={realizadoGem?.realizado || false}
                                         disabled={realizadoGem?.realizado || realizadoLoading}
-                                        onChange={() => { if (!realizadoGem?.realizado) setConfirmModalOpen(true); }}
+                                        onCheckedChange={() => { if (!realizadoGem?.realizado) setConfirmModalOpen(true); }}
                                     />
                                     {realizadoGem?.realizado && (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                            <Text strong style={{ fontSize: 10, color: '#0c8599' }}>✓ Confirmado</Text>
-                                            <Text type="secondary" style={{ fontSize: 10 }}><strong>Por:</strong> {realizadoGem.userName}</Text>
-                                            <Text type="secondary" style={{ fontSize: 10 }}><strong>Fecha:</strong> {realizadoGem.fecha}</Text>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-[10px] font-semibold text-success">✓ Confirmado</span>
+                                            <span className="text-[10px] text-muted-foreground"><strong>Por:</strong> {realizadoGem.userName}</span>
+                                            <span className="text-[10px] text-muted-foreground"><strong>Fecha:</strong> {realizadoGem.fecha}</span>
                                         </div>
                                     )}
                                 </div>
@@ -481,718 +456,693 @@ export const FichaDetailView = () => {
             </Card>
 
             {/* Modal de confirmación Realizado por GEM + OI */}
-            <Modal
+            <Dialog
                 open={confirmModalOpen}
-                onCancel={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
-                footer={null}
-                width={520}
-                centered
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconAlertTriangle size={18} color="#e8590c" />
-                        <Text strong style={{ fontSize: 15, color: '#d9480f' }}>Confirmar ingreso en ADL Soft</Text>
-                    </div>
-                }
+                onOpenChange={(open) => {
+                    if (!open) { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }
+                }}
             >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
-                    {/* Texto explicativo */}
-                    <Alert
-                        type="warning"
-                        showIcon
-                        icon={<IconAlertTriangle size={16} />}
-                        message={
-                            <div>
-                                <Text style={{ fontSize: 13 }}>
+                <DialogContent className="max-w-[520px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-warning">
+                            <IconAlertTriangle size={18} />
+                            Confirmar ingreso en ADL Soft
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-6">
+                        {/* Texto explicativo */}
+                        <div className="flex items-start gap-3 rounded-lg border border-warning/30 bg-warning/10 p-3.5 text-warning">
+                            <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
+                            <div className="text-[13px]">
+                                <p className="m-0">
                                     Estás a punto de marcar como <strong>Realizado por GEM</strong> este muestreo.
                                     Esto significa que la información ya fue ingresada <strong>correctamente</strong> en el sistema{' '}
                                     <strong>ADL Soft</strong>.
-                                </Text>
-                                <Text style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
+                                </p>
+                                <p className="m-0 mt-2">
                                     Si es así, ingresa el <strong>ID de caso</strong> generado por ADL Soft:
-                                </Text>
+                                </p>
                             </div>
-                        }
-                    />
-
-                    {/* Input OI */}
-                    <div>
-                        <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>Código de caso (ADL Soft)</Text>
-                        <div style={{ display: 'flex', alignItems: 'flex-start' }}>
-                            {/* Prefijo fijo */}
-                            <div
-                                style={{
-                                    height: 36,
-                                    padding: '0 12px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    background: 'var(--app-hover-bg)',
-                                    border: '1.5px solid var(--app-border)',
-                                    borderRight: 'none',
-                                    borderRadius: '6px 0 0 6px',
-                                    fontWeight: 800,
-                                    fontSize: 15,
-                                    color: '#1864ab',
-                                    letterSpacing: 1,
-                                    userSelect: 'none',
-                                    whiteSpace: 'nowrap'
-                                }}
-                            >
-                                OI-
-                            </div>
-                            {/* Input numérico */}
-                            <Input
-                                placeholder="ingrese el id"
-                                value={oiNumero}
-                                onChange={(e) => {
-                                    setOiError('');
-                                    setOiNumero(e.target.value.replace(/\D/g, ''));
-                                }}
-                                status={oiError ? 'error' : undefined}
-                                style={{ flex: 1, borderRadius: '0 6px 6px 0', fontWeight: 700, fontSize: 15, letterSpacing: 1 }}
-                                maxLength={7}
-                                autoFocus
-                                onKeyDown={(e) => { if (e.key === 'Enter' && oiNumero.trim()) handleConfirmRealizado(); }}
-                            />
                         </div>
-                        {oiError && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{oiError}</Text>}
-                        {/* Preview */}
-                        {oiNumero.trim() && !oiError && (
-                            <Text strong style={{ fontSize: 12, color: '#1c7ed6', display: 'block', marginTop: 6 }}>
-                                Resultado: <strong>OI-{oiNumero.trim()}</strong>
-                            </Text>
-                        )}
-                    </div>
 
-                    <div>
-                        <Text type="secondary" strong style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', marginBottom: 6 }}>Regenerar documentos con este Caso</Text>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <Switch checked={generarFoma} onChange={(checked) => setGenerarFoma(checked)} />
-                                <div>
-                                    <Text style={{ fontSize: 13, display: 'block' }}>Generar FoMa</Text>
-                                    <Text type="secondary" style={{ fontSize: 11 }}>Reemplaza el encabezado 'Folio' por 'ID CASO' en el FoMa ya generado por la app móvil.</Text>
+                        {/* Input OI */}
+                        <div>
+                            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Código de caso (ADL Soft)</span>
+                            <div className="flex items-start">
+                                {/* Prefijo fijo */}
+                                <div className="flex h-9 select-none items-center whitespace-nowrap rounded-l-md border border-r-0 border-border bg-muted px-3 text-[15px] font-extrabold tracking-wide text-primary">
+                                    OI-
                                 </div>
+                                {/* Input numérico */}
+                                <Input
+                                    placeholder="ingrese el id"
+                                    value={oiNumero}
+                                    onChange={(e) => {
+                                        setOiError('');
+                                        setOiNumero(e.target.value.replace(/\D/g, ''));
+                                    }}
+                                    className={cn('flex-1 rounded-l-none text-[15px] font-bold tracking-wide', oiError && 'border-destructive')}
+                                    maxLength={7}
+                                    autoFocus
+                                    onKeyDown={(e) => { if (e.key === 'Enter' && oiNumero.trim()) handleConfirmRealizado(); }}
+                                />
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                                <Switch checked={generarCadena} onChange={(checked) => setGenerarCadena(checked)} />
-                                <div>
-                                    <Text style={{ fontSize: 13, display: 'block' }}>Generar Cadena de Custodia</Text>
-                                    <Text type="secondary" style={{ fontSize: 11 }}>Regenera todas las Cadenas de Custodia ya generadas (una por laboratorio) con el nuevo encabezado.</Text>
+                            {oiError && <span className="mt-1 block text-[11px] text-destructive">{oiError}</span>}
+                            {/* Preview */}
+                            {oiNumero.trim() && !oiError && (
+                                <span className="mt-1.5 block text-xs font-semibold text-primary">
+                                    Resultado: <strong>OI-{oiNumero.trim()}</strong>
+                                </span>
+                            )}
+                        </div>
+
+                        <div>
+                            <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Regenerar documentos con este Caso</span>
+                            <div className="flex flex-col gap-2">
+                                <div className="flex items-start gap-2">
+                                    <Switch checked={generarFoma} onCheckedChange={setGenerarFoma} />
+                                    <div>
+                                        <span className="block text-[13px]">Generar FoMa</span>
+                                        <span className="text-[11px] text-muted-foreground">Reemplaza el encabezado 'Folio' por 'ID CASO' en el FoMa ya generado por la app móvil.</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <Switch checked={generarCadena} onCheckedChange={setGenerarCadena} />
+                                    <div>
+                                        <span className="block text-[13px]">Generar Cadena de Custodia</span>
+                                        <span className="text-[11px] text-muted-foreground">Regenera todas las Cadenas de Custodia ya generadas (una por laboratorio) con el nuevo encabezado.</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
+
+                        <div className="h-px bg-border" />
                     </div>
-
-                    <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: 0 }} />
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    <DialogFooter>
                         <Button
-                            onClick={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
+                            variant="outline"
                             disabled={realizadoLoading}
+                            onClick={() => { setConfirmModalOpen(false); setOiNumero(''); setOiError(''); setGenerarFoma(true); setGenerarCadena(true); }}
                         >
                             Cancelar
                         </Button>
                         <Button
-                            type="primary"
-                            style={{ backgroundColor: '#0c8599' }}
-                            loading={realizadoLoading}
-                            icon={<IconCheck size={16} />}
+                            className="bg-[#0c8599] text-white hover:bg-[#0c8599]/90"
+                            disabled={realizadoLoading || !oiNumero.trim()}
                             onClick={handleConfirmRealizado}
-                            disabled={!oiNumero.trim()}
                         >
-                            Confirmar y Guardar
+                            {realizadoLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            <IconCheck size={16} /> Confirmar y Guardar
                         </Button>
-                    </div>
-                </div>
-            </Modal>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            <Tabs
-                defaultActiveKey="datos_ingresados"
-                style={{ width: '100%' }}
-                items={[
-                    {
-                        key: 'datos_ingresados',
-                        label: <span><IconDatabase size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Datos ingresados</span>,
-                        children: (
-                            <Card style={{ width: '100%', overflow: 'hidden' }} styles={{ body: { padding: 0 } }}>
-                                <Tabs
-                                    defaultActiveKey="equipos"
-                                    style={{ width: '100%', padding: '0 16px' }}
-                                    items={[
-                                        {
-                                            key: 'equipos',
-                                            label: <span><IconTool size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Equipos</span>,
-                                            children: (
-                                                <div style={{ padding: 16 }}>
-                                                    {isPuntual ? (
-                                                        <div>
-                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                <IconTool color="orange" size={20} />
-                                                                <Title level={5} style={{ margin: 0 }}>Equipos Utilizados</Title>
-                                                            </div>
-                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                {equipos?.filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S').length > 0 ? (
-                                                                    equipos
-                                                                        .filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S')
-                                                                        .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx)
-                                                                        .map((eq: any, i: number) => (
-                                                                            <div key={i} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
-                                                                                <Text strong style={{ fontSize: 13, display: 'block' }}>{eq.nombre}</Text>
-                                                                                <Text type="secondary" style={{ fontSize: 12 }}>Código: {eq.codigo}</Text>
-                                                                            </div>
-                                                                        ))
-                                                                ) : <Text type="secondary" italic style={{ fontSize: 13 }}>No hay equipos registrados.</Text>}
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 24 }}>
-                                                            <div>
-                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                    <IconTool color="orange" size={20} />
-                                                                    <Title level={5} style={{ margin: 0 }}>Equipos Instalación</Title>
-                                                                </div>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                    {equipos?.filter((e: any) => e.usado_instalacion === 'S').length > 0 ? (
-                                                                        equipos.filter((e: any) => e.usado_instalacion === 'S').map((eq: any, i: number) => (
-                                                                            <div key={i} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
-                                                                                <Text strong style={{ fontSize: 13, display: 'block' }}>{eq.nombre}</Text>
-                                                                                <Text type="secondary" style={{ fontSize: 12 }}>Código: {eq.codigo}</Text>
-                                                                            </div>
-                                                                        ))
-                                                                    ) : <Text type="secondary" italic style={{ fontSize: 13 }}>No hay equipos registrados.</Text>}
-                                                                </div>
-                                                            </div>
-                                                            <div>
-                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                    <IconTool color="#1c7ed6" size={20} />
-                                                                    <Title level={5} style={{ margin: 0 }}>Equipos Retiro</Title>
-                                                                </div>
-                                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                    {equipos?.filter((e: any) => e.usado_retiro === 'S').length > 0 ? (
-                                                                        equipos.filter((e: any) => e.usado_retiro === 'S').map((eq: any, i: number) => (
-                                                                            <div key={i} style={{ border: '1px solid var(--app-border)', borderRadius: 6, padding: 8 }}>
-                                                                                <Text strong style={{ fontSize: 13, display: 'block' }}>{eq.nombre}</Text>
-                                                                                <Text type="secondary" style={{ fontSize: 12 }}>Código: {eq.codigo}</Text>
-                                                                            </div>
-                                                                        ))
-                                                                    ) : <Text type="secondary" italic style={{ fontSize: 13 }}>No hay equipos registrados.</Text>}
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '24px 0' }}>
-                                                        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
-                                                        <Text type="secondary" style={{ fontSize: 12 }}>Condiciones de Medición</Text>
-                                                        <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
-                                                    </div>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 24 }}>
-                                                        <div>
-                                                            <Text strong type="secondary" style={{ fontSize: 11, display: 'block' }}>FLUJO LAMINAR</Text>
-                                                            <Tag color={procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'green' : 'default'}>
-                                                                {procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'SÍ' : 'NO'}
-                                                            </Tag>
-                                                        </div>
-                                                        <div>
-                                                            <Text strong type="secondary" style={{ fontSize: 11, display: 'block' }}>VELOCIDAD UNIFORME</Text>
-                                                            <Tag color={procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'green' : 'default'}>
-                                                                {procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'SÍ' : 'NO'}
-                                                            </Tag>
-                                                        </div>
-                                                    </div>
-                                                    <Text strong type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 16 }}>OBSERVACIONES TÉCNICAS</Text>
-                                                    <Text type="secondary" italic style={{ fontSize: 13 }}>{procesos?.instalacion?.condiciones?.observaciones || 'Sin observaciones.'}</Text>
-                                                </div>
-                                            ),
-                                        },
-                                        {
-                                            key: 'datos',
-                                            label: <span><IconCalendarTime size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Datos</span>,
-                                            children: (
-                                                <div style={{ padding: 16 }}>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(260px, 1fr))`, gap: 20 }}>
-                                                        {isPuntual ? (
-                                                            <div style={{ maxWidth: 360 }}>
-                                                                <Title level={5} style={{ marginBottom: 8, color: '#e8590c' }}>Muestreo</Title>
-                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                        <KV label="Fecha Muestreo" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
-                                                                        <KV label="Hora Muestreo" value={fmt(ficha?.ma_muestreo_horai)} />
-                                                                        <KV label="Temperatura" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
-                                                                        <KV label="Temperatura corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
-                                                                        <KV label="pH" value={fmt(ficha?.ma_phi)} color="#d9480f" />
-                                                                        {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
-                                                                        {ficha?.totalizador_final && <KV label="Totalizador Término" value={`${fmt(ficha?.totalizador_final)} m³`} />}
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ) : (
-                                                            <>
-                                                                <div>
-                                                                    <Title level={5} style={{ marginBottom: 8, color: '#e8590c' }}>Instalación</Title>
-                                                                    <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                            <KV label="Fecha Inicio" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
-                                                                            <KV label="Hora Inicio" value={fmt(ficha?.ma_muestreo_horai)} />
-                                                                            <KV label="Temp. Inicio" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
-                                                                            <KV label="Temp. Inicio corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
-                                                                            <KV label="pH Inicio" value={fmt(ficha?.ma_phi)} color="#d9480f" />
-                                                                            {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                                <div>
-                                                                    <Title level={5} style={{ marginBottom: 8, color: '#1864ab' }}>Retiro</Title>
-                                                                    <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                            <KV label="Fecha Término" value={parseFechaStr(ficha?.ma_muestreo_fechat)} />
-                                                                            <KV label="Hora Término" value={fmt(ficha?.ma_muestreo_horat)} />
-                                                                            <KV label="Temp. Término" value={`${fmt(ficha?.ma_temperaturat)} °C`} color="#1864ab" />
-                                                                            <KV label="Temp. Término corregida" value={`${fmt(ficha?.temperatura_corregidat)} °C`} color="#1864ab" />
-                                                                            <KV label="pH Término" value={fmt(ficha?.ma_pht)} color="#1864ab" />
-                                                                            {ficha?.totalizador_final && <KV label="Totalizador Final" value={`${fmt(ficha?.totalizador_final)} m³`} />}
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </>
-                                                        )}
+            <Tabs defaultValue="datos_ingresados" className="w-full">
+                <TabsList>
+                    <TabsTrigger value="datos_ingresados" className="gap-1.5">
+                        <IconDatabase size={16} /> Datos ingresados
+                    </TabsTrigger>
+                    <TabsTrigger value="documentos" className="gap-1.5">
+                        <IconFileText size={16} /> Documentos
+                    </TabsTrigger>
+                </TabsList>
 
-                                                        {/* Datos Compuestos / VDD */}
-                                                        {ficha?.tipo_fichaingresoservicio !== 'Puntual' && (
-                                                            <div>
-                                                                <Title level={5} style={{ marginBottom: 8, color: '#0c8599' }}>Datos Compuestos / VDD</Title>
-                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                                        <KV label="Fecha Compuesta" value={parseFechaStr(ficha?.ma_fecha_compuesta)} />
-                                                                        <KV label="Hora Compuesta" value={fmt(ficha?.ma_hora_compuesta)} />
-                                                                        <KV label="Temp. Compuesta" value={`${fmt(ficha?.ma_temperatura_compuesta)} °C`} color="#0c8599" />
-                                                                        <KV label="Temp. Compuesta corregida" value={`${fmt(ficha?.temperatura_corregidacompuesta)} °C`} color="#0c8599" />
-                                                                        <KV label="pH Compuesto" value={fmt(ficha?.ma_ph_compuesta)} color="#0c8599" />
-                                                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                                            <Text type="secondary" strong style={{ fontSize: 13 }}>VDD</Text>
-                                                                            <Text strong style={{ fontSize: 15, color: '#1864ab' }}>{fmt(ficha?.vdd)} m³/h</Text>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ),
-                                        },
-                                        {
-                                            key: 'analisis',
-                                            label: <span><IconFlask size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Análisis</span>,
-                                            children: (
-                                                <div style={{ padding: 16 }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                                                        {/* Análisis de Terreno */}
-                                                        <div>
-                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                <IconTool color="#0c8599" size={20} />
-                                                                <Title level={5} style={{ margin: 0 }}>Análisis de Terreno</Title>
-                                                            </div>
-                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'auto' }}>
-                                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                                    <thead style={{ backgroundColor: 'rgba(12,133,153,0.06)' }}>
-                                                                        <tr>
-                                                                            <Th>Parámetro</Th>
-                                                                            <Th center>Valor</Th>
-                                                                            {hasPermission('FI_EXP_VER_UF') && <Th center>UF</Th>}
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').map((item: any, i: number) => (
-                                                                            <tr key={i}>
-                                                                                <Td bold>{item.parametro}</Td>
-                                                                                <Td center><Tag color="cyan">{item.valor}</Tag></Td>
-                                                                                {hasPermission('FI_EXP_VER_UF') && (
-                                                                                    <Td center bold>{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Td>
-                                                                                )}
-                                                                            </tr>
-                                                                        ))}
-                                                                        {analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo').length === 0 && (
-                                                                            <tr>
-                                                                                <Td colSpan={3} center>
-                                                                                    <Text type="secondary" italic style={{ fontSize: 13 }}>No hay parámetros de terreno registrados.</Text>
-                                                                                </Td>
-                                                                            </tr>
-                                                                        )}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
+                <TabsContent value="datos_ingresados" className="mt-4">
+                    <Card className="w-full overflow-hidden p-0">
+                        <Tabs defaultValue="equipos" className="w-full px-4">
+                            <TabsList>
+                                <TabsTrigger value="equipos" className="gap-1.5">
+                                    <IconTool size={16} /> Equipos
+                                </TabsTrigger>
+                                <TabsTrigger value="datos" className="gap-1.5">
+                                    <IconCalendarTime size={16} /> Datos
+                                </TabsTrigger>
+                                <TabsTrigger value="analisis" className="gap-1.5">
+                                    <IconFlask size={16} /> Análisis
+                                </TabsTrigger>
+                                <TabsTrigger value="fotos" className="gap-1.5">
+                                    <IconPhoto size={16} /> Fotos
+                                </TabsTrigger>
+                                <TabsTrigger value="firmas" className="gap-1.5">
+                                    <IconSignature size={16} /> Firmas
+                                </TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="equipos" className="mt-0">
+                                <div className="p-4">
+                                    {isPuntual ? (
+                                        <div>
+                                            <div className="mb-4 flex items-center gap-2">
+                                                <IconTool className="text-[#e8590c]" size={20} />
+                                                <h5 className="m-0 text-base font-semibold">Equipos Utilizados</h5>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                                {equiposInstUsados.length > 0 ? (
+                                                    equiposInstUsados.map((eq: any, i: number) => (
+                                                        <div key={i} className="rounded-md border border-border p-2">
+                                                            <span className="block text-[13px] font-semibold">{eq.nombre}</span>
+                                                            <span className="text-xs text-muted-foreground">Código: {eq.codigo}</span>
                                                         </div>
-
-                                                        {/* Análisis de Laboratorio */}
-                                                        <div>
-                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                <IconFlask color="#1c7ed6" size={20} />
-                                                                <Title level={5} style={{ margin: 0 }}>Análisis de Laboratorio</Title>
-                                                            </div>
-                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'auto' }}>
-                                                                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                                                    <thead style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-                                                                        <tr>
-                                                                            <Th>Parámetro</Th>
-                                                                            <Th>Laboratorio Asignado</Th>
-                                                                            {hasPermission('FI_EXP_VER_UF') && <Th center>UF</Th>}
-                                                                        </tr>
-                                                                    </thead>
-                                                                    <tbody>
-                                                                        {analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio').map((item: any, i: number) => (
-                                                                            <tr key={i}>
-                                                                                <Td bold>{item.parametro}</Td>
-                                                                                <Td>
-                                                                                    <Text style={{ fontSize: 12, color: item.id_laboratorioensayo_2 > 0 ? '#d9480f' : '#1864ab' }}>
-                                                                                        {item.nombre_laboratorioensayo || '—'}
-                                                                                    </Text>
-                                                                                </Td>
-                                                                                {hasPermission('FI_EXP_VER_UF') && (
-                                                                                    <Td center bold>{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</Td>
-                                                                                )}
-                                                                            </tr>
-                                                                        ))}
-                                                                        {analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio').length === 0 && (
-                                                                            <tr>
-                                                                                <Td colSpan={3} center>
-                                                                                    <Text type="secondary" italic style={{ fontSize: 13 }}>No hay parámetros de laboratorio registrados.</Text>
-                                                                                </Td>
-                                                                            </tr>
-                                                                        )}
-                                                                    </tbody>
-                                                                </table>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ),
-                                        },
-                                        {
-                                            key: 'fotos',
-                                            label: <span><IconPhoto size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Fotos</span>,
-                                            children: (
-                                                <div style={{ padding: 16 }}>
-                                                    {isPuntual ? (
-                                                        <div>
-                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                <IconPhoto color="orange" size={20} />
-                                                                <Title level={5} style={{ margin: 0 }}>Fotos Muestreo</Title>
-                                                            </div>
-                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                <PhotoGrid
-                                                                    photos={media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro'))
-                                                                        .filter((p: string, idx: number, arr: string[]) => arr.indexOf(p) === idx)}
-                                                                    emptyText="No hay fotos de muestreo."
-                                                                    onOpen={setOpenedImage}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                    ) : (
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                                                            <div>
-                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                    <IconPhoto color="orange" size={20} />
-                                                                    <Title level={5} style={{ margin: 0 }}>Fotos Instalación</Title>
-                                                                </div>
-                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                    <PhotoGrid
-                                                                        photos={media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion'))}
-                                                                        emptyText="No hay fotos de instalación."
-                                                                        onOpen={setOpenedImage}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                            <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)' }} />
-                                                            <div>
-                                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 16 }}>
-                                                                    <IconPhoto color="#1c7ed6" size={20} />
-                                                                    <Title level={5} style={{ margin: 0 }}>Fotos Retiro</Title>
-                                                                </div>
-                                                                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
-                                                                    <PhotoGrid
-                                                                        photos={media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('retiro'))}
-                                                                        emptyText="No hay fotos de retiro."
-                                                                        onOpen={setOpenedImage}
-                                                                    />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            ),
-                                        },
-                                        {
-                                            key: 'firmas',
-                                            label: <span><IconSignature size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Firmas</span>,
-                                            children: (
-                                                <div style={{ padding: 16 }}>
-                                                    {isPuntual ? (
-                                                        <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" />
-                                                    ) : (
-                                                        <Tabs
-                                                            defaultActiveKey="instalacion_f"
-                                                            centered
-                                                            items={[
-                                                                { key: 'instalacion_f', label: 'Instalación', children: <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" /> },
-                                                                { key: 'retiro_f', label: 'Retiro', children: <FirmasBloque proceso={procesos?.retiro} nombreOrigen="retiro" /> },
-                                                            ]}
-                                                        />
-                                                    )}
-                                                </div>
-                                            ),
-                                        },
-                                    ]}
-                                />
-                            </Card>
-                        ),
-                    },
-                    {
-                        key: 'documentos',
-                        label: <span><IconFileText size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Documentos</span>,
-                        children: (
-                            <Card style={{ width: '100%' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                                    <div>
-                                        <Title level={4} style={{ margin: 0, color: '#1864ab' }}>Documentos de Respaldo</Title>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>Archivos PDF generados para el cliente y laboratorios</Text>
-                                    </div>
-
-                                    {media?.documentos && media.documentos.length > 0 ? (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                                            {/* FoMa Group */}
-                                            {media.documentos.filter((d: any) => d.tipo === 'FoMa').length > 0 && (
-                                                <div>
-                                                    <SectionDivider label="FOMA" />
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        {media.documentos.filter((d: any) => d.tipo === 'FoMa').map((doc: any, index: number) => (
-                                                            <Card key={`foma-${index}`} size="small">
-                                                                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                                        <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)"><IconFileText size={18} /></IconWrap>
-                                                                        <div>
-                                                                            <Text strong style={{ fontSize: 13, display: 'block' }}>{doc.label}</Text>
-                                                                            <Text type="secondary" style={{ fontSize: 12 }}>{doc.nombre}</Text>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div style={{ display: 'flex', gap: 8 }}>
-                                                                        <Button size="small" icon={<IconExternalLink size={12} />} onClick={() => window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank')}>
-                                                                            Abrir
-                                                                        </Button>
-                                                                        <Button
-                                                                            size="small"
-                                                                            style={{ color: '#2f9e44' }}
-                                                                            icon={<IconSend size={12} />}
-                                                                            onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
-                                                                        >
-                                                                            Reenviar
-                                                                        </Button>
-                                                                        <Button
-                                                                            type="text"
-                                                                            size="small"
-                                                                            icon={<IconDownload size={12} />}
-                                                                            onClick={() => handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre)}
-                                                                        >
-                                                                            Descargar
-                                                                        </Button>
-                                                                    </div>
-                                                                </div>
-                                                            </Card>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-
-                                            {/* Cadena de Custodia Group */}
-                                            {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').length > 0 && (
-                                                <div>
-                                                    <SectionDivider label="CADENAS DE CUSTODIA" />
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').map((doc: any, index: number) => {
-                                                            const isExpanded = expandedDocs.includes(doc.nombre);
-                                                            const labTests = analisis?.filter((a: any) =>
-                                                                a.tipo_analisis === 'Laboratorio' &&
-                                                                doc.label && a.nombre_laboratorioensayo &&
-                                                                (a.nombre_laboratorioensayo.toLowerCase().includes(doc.label.toLowerCase()) ||
-                                                                    doc.label.toLowerCase().includes(a.nombre_laboratorioensayo.toLowerCase()))
-                                                            ) || [];
-
-                                                            return (
-                                                                <Card key={`cadena-${index}`} size="small" styles={{ body: { padding: 0 } }}>
-                                                                    <div style={{ padding: 8, cursor: 'pointer' }} onClick={() => toggleDoc(doc.nombre)}>
-                                                                        <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                                                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                                                <IconWrap color="#1864ab" bg="var(--app-accent-bg)"><IconFileText size={18} /></IconWrap>
-                                                                                <div>
-                                                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                                                        <Text strong style={{ fontSize: 13 }}>{doc.label}</Text>
-                                                                                        {isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
-                                                                                    </div>
-                                                                                    <Text type="secondary" style={{ fontSize: 12 }}>{doc.nombre}</Text>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div style={{ display: 'flex', gap: 8 }}>
-                                                                                <Button size="small" icon={<IconExternalLink size={12} />} onClick={(e) => { e.stopPropagation(); window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank'); }}>
-                                                                                    Abrir
-                                                                                </Button>
-                                                                                <Button
-                                                                                    size="small"
-                                                                                    style={{ color: '#2f9e44' }}
-                                                                                    icon={<IconSend size={12} />}
-                                                                                    onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
-                                                                                >
-                                                                                    Reenviar
-                                                                                </Button>
-                                                                                <Button
-                                                                                    type="text"
-                                                                                    size="small"
-                                                                                    icon={<IconDownload size={12} />}
-                                                                                    onClick={(e) => { e.stopPropagation(); handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre); }}
-                                                                                >
-                                                                                    Descargar
-                                                                                </Button>
-                                                                            </div>
-                                                                        </div>
-                                                                    </div>
-
-                                                                    {isExpanded && (
-                                                                        <div style={{ padding: 16, backgroundColor: 'var(--app-hover-bg)', borderTop: '1px solid var(--app-border)' }}>
-                                                                            <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>ANÁLISIS ASOCIADOS A ESTA CADENA:</Text>
-                                                                            {labTests.length > 0 ? (
-                                                                                <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: 'var(--app-bg-elevated)' }}>
-                                                                                    <thead>
-                                                                                        <tr><Th>Parámetro</Th></tr>
-                                                                                    </thead>
-                                                                                    <tbody>
-                                                                                        {labTests.map((t: any, idx: number) => (
-                                                                                            <tr key={idx}><Td>{t.parametro}</Td></tr>
-                                                                                        ))}
-                                                                                    </tbody>
-                                                                                </table>
-                                                                            ) : (
-                                                                                <Text type="secondary" italic style={{ fontSize: 12 }}>No se pudieron vincular análisis automáticamente por nombre.</Text>
-                                                                            )}
-                                                                        </div>
-                                                                    )}
-                                                                </Card>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
+                                                    ))
+                                                ) : <span className="text-[13px] italic text-muted-foreground">No hay equipos registrados.</span>}
+                                            </div>
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '32px 0' }}>
-                                            <IconFileText size={40} color="gray" />
-                                            <Text type="secondary">No se encontraron documentos (FoMa/Cadenas) en la carpeta del correlativo.</Text>
+                                        <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
+                                            <div>
+                                                <div className="mb-4 flex items-center gap-2">
+                                                    <IconTool className="text-[#e8590c]" size={20} />
+                                                    <h5 className="m-0 text-base font-semibold">Equipos Instalación</h5>
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    {equiposInstalacion.length > 0 ? (
+                                                        equiposInstalacion.map((eq: any, i: number) => (
+                                                            <div key={i} className="rounded-md border border-border p-2">
+                                                                <span className="block text-[13px] font-semibold">{eq.nombre}</span>
+                                                                <span className="text-xs text-muted-foreground">Código: {eq.codigo}</span>
+                                                            </div>
+                                                        ))
+                                                    ) : <span className="text-[13px] italic text-muted-foreground">No hay equipos registrados.</span>}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <div className="mb-4 flex items-center gap-2">
+                                                    <IconTool className="text-[#1c7ed6]" size={20} />
+                                                    <h5 className="m-0 text-base font-semibold">Equipos Retiro</h5>
+                                                </div>
+                                                <div className="flex flex-col gap-2">
+                                                    {equiposRetiro.length > 0 ? (
+                                                        equiposRetiro.map((eq: any, i: number) => (
+                                                            <div key={i} className="rounded-md border border-border p-2">
+                                                                <span className="block text-[13px] font-semibold">{eq.nombre}</span>
+                                                                <span className="text-xs text-muted-foreground">Código: {eq.codigo}</span>
+                                                            </div>
+                                                        ))
+                                                    ) : <span className="text-[13px] italic text-muted-foreground">No hay equipos registrados.</span>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="my-6 flex items-center gap-3">
+                                        <hr className="flex-1 border-t border-border" />
+                                        <span className="text-xs text-muted-foreground">Condiciones de Medición</span>
+                                        <hr className="flex-1 border-t border-border" />
+                                    </div>
+                                    <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                                        <div>
+                                            <span className="block text-[11px] font-semibold text-muted-foreground">FLUJO LAMINAR</span>
+                                            <Badge variant={procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'success' : 'outline'}>
+                                                {procesos?.instalacion?.condiciones?.flujoLaminar === 'S' ? 'SÍ' : 'NO'}
+                                            </Badge>
+                                        </div>
+                                        <div>
+                                            <span className="block text-[11px] font-semibold text-muted-foreground">VELOCIDAD UNIFORME</span>
+                                            <Badge variant={procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'success' : 'outline'}>
+                                                {procesos?.instalacion?.condiciones?.velUniforme === 'S' ? 'SÍ' : 'NO'}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                    <span className="mt-4 block text-[11px] font-semibold text-muted-foreground">OBSERVACIONES TÉCNICAS</span>
+                                    <span className="text-[13px] italic text-muted-foreground">{procesos?.instalacion?.condiciones?.observaciones || 'Sin observaciones.'}</span>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="datos" className="mt-0">
+                                <div className="p-4">
+                                    <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
+                                        {isPuntual ? (
+                                            <div style={{ maxWidth: 360 }}>
+                                                <h5 className="mb-2 text-base font-semibold text-[#e8590c]">Muestreo</h5>
+                                                <div className="rounded-lg border border-border p-4">
+                                                    <div className="flex flex-col gap-2">
+                                                        <KV label="Fecha Muestreo" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
+                                                        <KV label="Hora Muestreo" value={fmt(ficha?.ma_muestreo_horai)} />
+                                                        <KV label="Temperatura" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
+                                                        <KV label="Temperatura corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
+                                                        <KV label="pH" value={fmt(ficha?.ma_phi)} color="#d9480f" />
+                                                        {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
+                                                        {ficha?.totalizador_final && <KV label="Totalizador Término" value={`${fmt(ficha?.totalizador_final)} m³`} />}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    <h5 className="mb-2 text-base font-semibold text-[#e8590c]">Instalación</h5>
+                                                    <div className="rounded-lg border border-border p-4">
+                                                        <div className="flex flex-col gap-2">
+                                                            <KV label="Fecha Inicio" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
+                                                            <KV label="Hora Inicio" value={fmt(ficha?.ma_muestreo_horai)} />
+                                                            <KV label="Temp. Inicio" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
+                                                            <KV label="Temp. Inicio corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
+                                                            <KV label="pH Inicio" value={fmt(ficha?.ma_phi)} color="#d9480f" />
+                                                            {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <h5 className="mb-2 text-base font-semibold text-primary">Retiro</h5>
+                                                    <div className="rounded-lg border border-border p-4">
+                                                        <div className="flex flex-col gap-2">
+                                                            <KV label="Fecha Término" value={parseFechaStr(ficha?.ma_muestreo_fechat)} />
+                                                            <KV label="Hora Término" value={fmt(ficha?.ma_muestreo_horat)} />
+                                                            <KV label="Temp. Término" value={`${fmt(ficha?.ma_temperaturat)} °C`} color="#1864ab" />
+                                                            <KV label="Temp. Término corregida" value={`${fmt(ficha?.temperatura_corregidat)} °C`} color="#1864ab" />
+                                                            <KV label="pH Término" value={fmt(ficha?.ma_pht)} color="#1864ab" />
+                                                            {ficha?.totalizador_final && <KV label="Totalizador Final" value={`${fmt(ficha?.totalizador_final)} m³`} />}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Datos Compuestos / VDD */}
+                                        {ficha?.tipo_fichaingresoservicio !== 'Puntual' && (
+                                            <div>
+                                                <h5 className="mb-2 text-base font-semibold text-[#0c8599]">Datos Compuestos / VDD</h5>
+                                                <div className="rounded-lg border border-border p-4">
+                                                    <div className="flex flex-col gap-2">
+                                                        <KV label="Fecha Compuesta" value={parseFechaStr(ficha?.ma_fecha_compuesta)} />
+                                                        <KV label="Hora Compuesta" value={fmt(ficha?.ma_hora_compuesta)} />
+                                                        <KV label="Temp. Compuesta" value={`${fmt(ficha?.ma_temperatura_compuesta)} °C`} color="#0c8599" />
+                                                        <KV label="Temp. Compuesta corregida" value={`${fmt(ficha?.temperatura_corregidacompuesta)} °C`} color="#0c8599" />
+                                                        <KV label="pH Compuesto" value={fmt(ficha?.ma_ph_compuesta)} color="#0c8599" />
+                                                        <div className="flex justify-between">
+                                                            <span className="text-[13px] font-semibold text-muted-foreground">VDD</span>
+                                                            <span className="text-[15px] font-semibold text-primary">{fmt(ficha?.vdd)} m³/h</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="analisis" className="mt-0">
+                                <div className="p-4">
+                                    <div className="flex flex-col gap-6">
+                                        {/* Análisis de Terreno */}
+                                        <div>
+                                            <div className="mb-4 flex items-center gap-2">
+                                                <IconTool className="text-[#0c8599]" size={20} />
+                                                <h5 className="m-0 text-base font-semibold">Análisis de Terreno</h5>
+                                            </div>
+                                            <div className="overflow-auto rounded-lg border border-border">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-[#0c8599]/5 hover:bg-[#0c8599]/5">
+                                                            <TableHead>Parámetro</TableHead>
+                                                            <TableHead className="text-center">Valor</TableHead>
+                                                            {showUf && <TableHead className="text-center">UF</TableHead>}
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {analisisTerreno.map((item: any, i: number) => (
+                                                            <TableRow key={i}>
+                                                                <TableCell className="font-semibold">{item.parametro}</TableCell>
+                                                                <TableCell className="text-center"><Badge variant="outline">{item.valor}</Badge></TableCell>
+                                                                {showUf && (
+                                                                    <TableCell className="text-center font-semibold">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</TableCell>
+                                                                )}
+                                                            </TableRow>
+                                                        ))}
+                                                        {analisisTerreno.length === 0 && (
+                                                            <TableRow>
+                                                                <TableCell colSpan={showUf ? 3 : 2} className="text-center">
+                                                                    <span className="text-[13px] italic text-muted-foreground">No hay parámetros de terreno registrados.</span>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+
+                                        {/* Análisis de Laboratorio */}
+                                        <div>
+                                            <div className="mb-4 flex items-center gap-2">
+                                                <IconFlask className="text-[#1c7ed6]" size={20} />
+                                                <h5 className="m-0 text-base font-semibold">Análisis de Laboratorio</h5>
+                                            </div>
+                                            <div className="overflow-auto rounded-lg border border-border">
+                                                <Table>
+                                                    <TableHeader>
+                                                        <TableRow className="bg-primary/5 hover:bg-primary/5">
+                                                            <TableHead>Parámetro</TableHead>
+                                                            <TableHead>Laboratorio Asignado</TableHead>
+                                                            {showUf && <TableHead className="text-center">UF</TableHead>}
+                                                        </TableRow>
+                                                    </TableHeader>
+                                                    <TableBody>
+                                                        {analisisLaboratorio.map((item: any, i: number) => (
+                                                            <TableRow key={i}>
+                                                                <TableCell className="font-semibold">{item.parametro}</TableCell>
+                                                                <TableCell>
+                                                                    <span className="text-xs" style={{ color: item.id_laboratorioensayo_2 > 0 ? '#d9480f' : '#1864ab' }}>
+                                                                        {item.nombre_laboratorioensayo || '—'}
+                                                                    </span>
+                                                                </TableCell>
+                                                                {showUf && (
+                                                                    <TableCell className="text-center font-semibold">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</TableCell>
+                                                                )}
+                                                            </TableRow>
+                                                        ))}
+                                                        {analisisLaboratorio.length === 0 && (
+                                                            <TableRow>
+                                                                <TableCell colSpan={showUf ? 3 : 2} className="text-center">
+                                                                    <span className="text-[13px] italic text-muted-foreground">No hay parámetros de laboratorio registrados.</span>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )}
+                                                    </TableBody>
+                                                </Table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="fotos" className="mt-0">
+                                <div className="p-4">
+                                    {isPuntual ? (
+                                        <div>
+                                            <div className="mb-4 flex items-center gap-2">
+                                                <IconPhoto className="text-[#e8590c]" size={20} />
+                                                <h5 className="m-0 text-base font-semibold">Fotos Muestreo</h5>
+                                            </div>
+                                            <div className="rounded-lg border border-border p-4">
+                                                <PhotoGrid
+                                                    photos={fotosPuntual}
+                                                    emptyText="No hay fotos de muestreo."
+                                                    onOpen={setOpenedImage}
+                                                />
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col gap-6">
+                                            <div>
+                                                <div className="mb-4 flex items-center gap-2">
+                                                    <IconPhoto className="text-[#e8590c]" size={20} />
+                                                    <h5 className="m-0 text-base font-semibold">Fotos Instalación</h5>
+                                                </div>
+                                                <div className="rounded-lg border border-border p-4">
+                                                    <PhotoGrid
+                                                        photos={fotosInstalacion}
+                                                        emptyText="No hay fotos de instalación."
+                                                        onOpen={setOpenedImage}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <hr className="border-t border-border" />
+                                            <div>
+                                                <div className="mb-4 flex items-center gap-2">
+                                                    <IconPhoto className="text-[#1c7ed6]" size={20} />
+                                                    <h5 className="m-0 text-base font-semibold">Fotos Retiro</h5>
+                                                </div>
+                                                <div className="rounded-lg border border-border p-4">
+                                                    <PhotoGrid
+                                                        photos={fotosRetiro}
+                                                        emptyText="No hay fotos de retiro."
+                                                        onOpen={setOpenedImage}
+                                                    />
+                                                </div>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
-                            </Card>
-                        ),
-                    },
-                ]}
-            />
+                            </TabsContent>
 
-            <Modal open={!!openedImage} onCancel={() => setOpenedImage(null)} footer={null} width="80%" centered styles={{ body: { padding: 0 } }}>
-                {openedImage && (
-                    <img
-                        src={openedImage}
-                        style={{ maxHeight: '90vh', width: '100%', objectFit: 'contain' }}
-                        alt=""
-                    />
-                )}
-            </Modal>
+                            <TabsContent value="firmas" className="mt-0">
+                                <div className="p-4">
+                                    {isPuntual ? (
+                                        <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" />
+                                    ) : (
+                                        <Tabs defaultValue="instalacion_f" className="w-full">
+                                            <div className="flex justify-center">
+                                                <TabsList>
+                                                    <TabsTrigger value="instalacion_f">Instalación</TabsTrigger>
+                                                    <TabsTrigger value="retiro_f">Retiro</TabsTrigger>
+                                                </TabsList>
+                                            </div>
+                                            <TabsContent value="instalacion_f">
+                                                <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" />
+                                            </TabsContent>
+                                            <TabsContent value="retiro_f">
+                                                <FirmasBloque proceso={procesos?.retiro} nombreOrigen="retiro" />
+                                            </TabsContent>
+                                        </Tabs>
+                                    )}
+                                </div>
+                            </TabsContent>
+                        </Tabs>
+                    </Card>
+                </TabsContent>
 
-            <Modal
-                open={resendModalOpen}
-                onCancel={() => setResendModalOpen(false)}
-                footer={null}
-                width={520}
-                centered
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconWrap color="#1864ab" bg="var(--app-accent-bg)" size={28}><IconSend size={16} /></IconWrap>
-                        <Text strong style={{ color: '#1864ab' }}>Gestión de Reenvío de Documentos</Text>
-                    </div>
-                }
-            >
-                {selectedDocument && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
-                        {resendSuccess ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, padding: '32px 0' }}>
-                                <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.15)" size={80}><IconCheck size={40} /></IconWrap>
-                                <Title level={3} style={{ margin: 0, textAlign: 'center' }}>¡Documento Enviado!</Title>
-                                <Text type="secondary" style={{ textAlign: 'center' }}>El documento ha sido despachado exitosamente.</Text>
-                                <Button onClick={() => setResendModalOpen(false)} style={{ marginTop: 16 }}>
-                                    Cerrar y volver a la ficha
-                                </Button>
+                <TabsContent value="documentos" className="mt-4">
+                    <Card className="w-full p-5">
+                        <div className="flex flex-col gap-6">
+                            <div>
+                                <h4 className="m-0 text-lg font-semibold text-primary">Documentos de Respaldo</h4>
+                                <span className="text-xs text-muted-foreground">Archivos PDF generados para el cliente y laboratorios</span>
                             </div>
-                        ) : (
-                            <>
-                                <Alert type="info" showIcon icon={<IconMailForward size={16} />} message={<>Está preparando el envío de: <b>{selectedDocument.label}</b> ({selectedDocument.tipo || 'Documento'})</>} />
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
-                                    <div>
-                                        <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>Para (To)</Text>
-                                        <Input
-                                            placeholder="correo@ejemplo.com"
-                                            value={resendTo}
-                                            onChange={(e) => setResendTo(e.target.value)}
-                                            disabled // Temporary for testing phase
-                                        />
-                                        <Text type="secondary" style={{ fontSize: 11 }}>Destinatario bloqueado en fase de pruebas.</Text>
-                                    </div>
-                                    <div>
-                                        <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 4 }}>Copia (CC)</Text>
-                                        <Input
-                                            placeholder="copia@ejemplo.com"
-                                            value={resendCc}
-                                            onChange={(e) => setResendCc(e.target.value)}
-                                        />
-                                        <Text type="secondary" style={{ fontSize: 11 }}>Separar multiplicidad con comas.</Text>
-                                    </div>
-
-                                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                            <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)" size={36}><IconFileText size={20} /></IconWrap>
-                                            <div style={{ flex: 1, overflow: 'hidden' }}>
-                                                <Text style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>Archivo Adjunto</Text>
-                                                <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>
-                                                    {selectedDocument.nombre || 'Documento.pdf'}
-                                                </Text>
+                            {media?.documentos && media.documentos.length > 0 ? (
+                                <div className="flex flex-col gap-6">
+                                    {/* FoMa Group */}
+                                    {media.documentos.filter((d: any) => d.tipo === 'FoMa').length > 0 && (
+                                        <div>
+                                            <SectionDivider label="FOMA" />
+                                            <div className="flex flex-col gap-2">
+                                                {media.documentos.filter((d: any) => d.tipo === 'FoMa').map((doc: any, index: number) => (
+                                                    <Card key={`foma-${index}`} className="p-3">
+                                                        <div className="flex flex-nowrap justify-between">
+                                                            <div className="flex flex-nowrap items-center gap-2">
+                                                                <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)"><IconFileText size={18} /></IconWrap>
+                                                                <div>
+                                                                    <span className="block text-[13px] font-semibold">{doc.label}</span>
+                                                                    <span className="text-xs text-muted-foreground">{doc.nombre}</span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex gap-2">
+                                                                <Button size="sm" variant="outline" onClick={() => window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank')}>
+                                                                    <IconExternalLink size={12} /> Abrir
+                                                                </Button>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="text-[#2f9e44] hover:text-[#2f9e44]"
+                                                                    onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
+                                                                >
+                                                                    <IconSend size={12} /> Reenviar
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    onClick={() => handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre)}
+                                                                >
+                                                                    <IconDownload size={12} /> Descargar
+                                                                </Button>
+                                                            </div>
+                                                        </div>
+                                                    </Card>
+                                                ))}
                                             </div>
                                         </div>
-                                    </Card>
+                                    )}
 
-                                    {resendError && <Alert type="error" message="Error de envío" description={resendError} />}
+                                    {/* Cadena de Custodia Group */}
+                                    {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').length > 0 && (
+                                        <div>
+                                            <SectionDivider label="CADENAS DE CUSTODIA" />
+                                            <div className="flex flex-col gap-2">
+                                                {media.documentos.filter((d: any) => d.tipo === 'Cadena de Custodia').map((doc: any, index: number) => {
+                                                    const isExpanded = expandedDocs.includes(doc.nombre);
+                                                    const labTests = analisis?.filter((a: any) =>
+                                                        a.tipo_analisis === 'Laboratorio' &&
+                                                        doc.label && a.nombre_laboratorioensayo &&
+                                                        (a.nombre_laboratorioensayo.toLowerCase().includes(doc.label.toLowerCase()) ||
+                                                            doc.label.toLowerCase().includes(a.nombre_laboratorioensayo.toLowerCase()))
+                                                    ) || [];
 
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                        <Button onClick={() => setResendModalOpen(false)} disabled={resendLoading}>Cancelar</Button>
-                                        <Button
-                                            type="primary"
-                                            style={{ backgroundColor: '#2f9e44' }}
-                                            onClick={handleResend}
-                                            loading={resendLoading}
-                                            icon={<IconSend size={16} />}
-                                        >
-                                            Enviar Correo
-                                        </Button>
-                                    </div>
+                                                    return (
+                                                        <Card key={`cadena-${index}`} className="overflow-hidden p-0">
+                                                            <div className="cursor-pointer p-2" onClick={() => toggleDoc(doc.nombre)}>
+                                                                <div className="flex flex-nowrap justify-between">
+                                                                    <div className="flex flex-nowrap items-center gap-2">
+                                                                        <IconWrap color="#1864ab" bg="rgba(22,119,255,0.1)"><IconFileText size={18} /></IconWrap>
+                                                                        <div>
+                                                                            <div className="flex items-center gap-2">
+                                                                                <span className="text-[13px] font-semibold">{doc.label}</span>
+                                                                                {isExpanded ? <IconChevronUp size={14} /> : <IconChevronDown size={14} />}
+                                                                            </div>
+                                                                            <span className="text-xs text-muted-foreground">{doc.nombre}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex gap-2">
+                                                                        <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); window.open(`${apiClient.defaults.baseURL}${doc.ruta}`, '_blank'); }}>
+                                                                            <IconExternalLink size={12} /> Abrir
+                                                                        </Button>
+                                                                        <Button
+                                                                            size="sm"
+                                                                            variant="outline"
+                                                                            className="text-[#2f9e44] hover:text-[#2f9e44]"
+                                                                            onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
+                                                                        >
+                                                                            <IconSend size={12} /> Reenviar
+                                                                        </Button>
+                                                                        <Button
+                                                                            variant="ghost"
+                                                                            size="sm"
+                                                                            onClick={(e) => { e.stopPropagation(); handleDownload(`${apiClient.defaults.baseURL}${doc.ruta}`, doc.nombre); }}
+                                                                        >
+                                                                            <IconDownload size={12} /> Descargar
+                                                                        </Button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+
+                                                            {isExpanded && (
+                                                                <div className="border-t border-border bg-muted/40 p-4">
+                                                                    <span className="mb-2 block text-[11px] font-semibold text-muted-foreground">ANÁLISIS ASOCIADOS A ESTA CADENA:</span>
+                                                                    {labTests.length > 0 ? (
+                                                                        <div className="overflow-hidden rounded-md border border-border bg-card">
+                                                                            <Table>
+                                                                                <TableHeader>
+                                                                                    <TableRow><TableHead>Parámetro</TableHead></TableRow>
+                                                                                </TableHeader>
+                                                                                <TableBody>
+                                                                                    {labTests.map((t: any, idx: number) => (
+                                                                                        <TableRow key={idx}><TableCell>{t.parametro}</TableCell></TableRow>
+                                                                                    ))}
+                                                                                </TableBody>
+                                                                            </Table>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-xs italic text-muted-foreground">No se pudieron vincular análisis automáticamente por nombre.</span>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </Card>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            </>
-                        )}
-                    </div>
-                )}
-            </Modal>
+                            ) : (
+                                <div className="flex flex-col items-center gap-2 py-8">
+                                    <IconFileText size={40} className="text-muted-foreground" />
+                                    <span className="text-muted-foreground">No se encontraron documentos (FoMa/Cadenas) en la carpeta del correlativo.</span>
+                                </div>
+                            )}
+                        </div>
+                    </Card>
+                </TabsContent>
+            </Tabs>
+
+            <Dialog open={!!openedImage} onOpenChange={(open) => { if (!open) setOpenedImage(null); }}>
+                <DialogContent className="max-w-[80vw] p-0">
+                    {openedImage && (
+                        <img
+                            src={openedImage}
+                            className="max-h-[90vh] w-full object-contain"
+                            alt=""
+                        />
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={resendModalOpen} onOpenChange={setResendModalOpen}>
+                <DialogContent className="max-w-[520px]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-primary">
+                            <IconWrap color="#1864ab" bg="rgba(22,119,255,0.1)" size={28}><IconSend size={16} /></IconWrap>
+                            Gestión de Reenvío de Documentos
+                        </DialogTitle>
+                    </DialogHeader>
+                    {selectedDocument && (
+                        <div className="flex flex-col gap-4">
+                            {resendSuccess ? (
+                                <div className="flex flex-col items-center gap-4 py-8">
+                                    <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.15)" size={80}><IconCheck size={40} /></IconWrap>
+                                    <h3 className="m-0 text-center text-xl font-semibold">¡Documento Enviado!</h3>
+                                    <span className="text-center text-muted-foreground">El documento ha sido despachado exitosamente.</span>
+                                    <Button variant="outline" className="mt-4" onClick={() => setResendModalOpen(false)}>
+                                        Cerrar y volver a la ficha
+                                    </Button>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-primary">
+                                        <IconMailForward size={16} className="mt-0.5 shrink-0" />
+                                        <span className="text-[13px]">Está preparando el envío de: <b>{selectedDocument.label}</b> ({selectedDocument.tipo || 'Documento'})</span>
+                                    </div>
+
+                                    <div className="flex flex-col gap-4">
+                                        <div>
+                                            <span className="mb-1 block text-[13px] font-semibold">Para (To)</span>
+                                            <Input
+                                                placeholder="correo@ejemplo.com"
+                                                value={resendTo}
+                                                onChange={(e) => setResendTo(e.target.value)}
+                                                disabled // Temporary for testing phase
+                                            />
+                                            <span className="text-[11px] text-muted-foreground">Destinatario bloqueado en fase de pruebas.</span>
+                                        </div>
+                                        <div>
+                                            <span className="mb-1 block text-[13px] font-semibold">Copia (CC)</span>
+                                            <Input
+                                                placeholder="copia@ejemplo.com"
+                                                value={resendCc}
+                                                onChange={(e) => setResendCc(e.target.value)}
+                                            />
+                                            <span className="text-[11px] text-muted-foreground">Separar multiplicidad con comas.</span>
+                                        </div>
+
+                                        <Card className="bg-muted/40 p-3">
+                                            <div className="flex flex-nowrap items-center gap-2">
+                                                <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)" size={36}><IconFileText size={20} /></IconWrap>
+                                                <div className="min-w-0 flex-1">
+                                                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px]">Archivo Adjunto</span>
+                                                    <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
+                                                        {selectedDocument.nombre || 'Documento.pdf'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Card>
+
+                                        {resendError && <WorkflowAlert type="error" title="Error de envío" message={resendError} />}
+
+                                        <div className="flex justify-end gap-2">
+                                            <Button variant="outline" disabled={resendLoading} onClick={() => setResendModalOpen(false)}>Cancelar</Button>
+                                            <Button
+                                                className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
+                                                disabled={resendLoading}
+                                                onClick={handleResend}
+                                            >
+                                                {resendLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                                <IconSend size={16} /> Enviar Correo
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
 
 function IconWrap({ children, color, bg, size = 24 }: { children: React.ReactNode; color: string; bg: string; size?: number }) {
     return (
-        <div style={{
-            width: size, height: size, borderRadius: '50%', backgroundColor: bg, color,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-        }}>
+        <div
+            className="flex shrink-0 items-center justify-center rounded-full"
+            style={{ width: size, height: size, backgroundColor: bg, color }}
+        >
             {children}
         </div>
     );
@@ -1200,26 +1150,26 @@ function IconWrap({ children, color, bg, size = 24 }: { children: React.ReactNod
 
 function SectionDivider({ label }: { label: string }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <Text type="secondary" strong style={{ fontSize: 11 }}>{label}</Text>
-            <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+        <div className="mb-4 flex items-center gap-3">
+            <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
+            <hr className="flex-1 border-t border-border" />
         </div>
     );
 }
 
 function PhotoGrid({ photos, emptyText, onOpen }: { photos?: string[]; emptyText: string; onOpen: (url: string) => void }) {
     if (!photos || photos.length === 0) {
-        return <Text type="secondary" italic style={{ fontSize: 13 }}>{emptyText}</Text>;
+        return <span className="text-[13px] italic text-muted-foreground">{emptyText}</span>;
     }
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
             {photos.map((photo, idx) => {
                 const url = `${apiClient.defaults.baseURL}${photo}`;
                 return (
-                    <Card key={idx} size="small" hoverable style={{ cursor: 'pointer' }} styles={{ body: { padding: 4 } }} onClick={() => onOpen(url)}>
+                    <Card key={idx} className="cursor-pointer p-1 transition-shadow hover:shadow-md" onClick={() => onOpen(url)}>
                         <img
                             src={url}
-                            style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4 }}
+                            className="h-[140px] w-full rounded object-cover"
                             onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x300?text=Sin+Imagen'; }}
                             alt=""
                         />
@@ -1236,24 +1186,24 @@ function FirmasBloque({ proceso, nombreOrigen }: { proceso: any; nombreOrigen: s
     const tieneObservador = proceso?.nombreObservador && proceso?.nombreObservador !== 'S/D';
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <Card>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+        <div className="flex flex-col gap-6">
+            <Card className="p-5">
+                <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                     <div>
-                        <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>MUESTREADOR</Text>
-                        <Text strong style={{ fontSize: 16 }}>{proceso?.nombreMuestreador || '—'}</Text>
-                        <div style={{ marginTop: 16, padding: 8, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, border: '1px dashed var(--app-border)', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span className="mb-1 block text-xs font-semibold text-muted-foreground">MUESTREADOR</span>
+                        <span className="text-base font-semibold">{proceso?.nombreMuestreador || '—'}</span>
+                        <div className="mt-4 flex min-h-[120px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 p-2">
                             {firmaMuestreador ? (
-                                <img src={`${apiClient.defaults.baseURL}${firmaMuestreador.ruta}`} style={{ height: 100, objectFit: 'contain' }} alt={`Firma muestreador ${nombreOrigen}`} />
-                            ) : <Text type="secondary" italic style={{ fontSize: 12 }}>Sin firma registrada.</Text>}
+                                <img src={`${apiClient.defaults.baseURL}${firmaMuestreador.ruta}`} className="h-[100px] object-contain" alt={`Firma muestreador ${nombreOrigen}`} />
+                            ) : <span className="text-xs italic text-muted-foreground">Sin firma registrada.</span>}
                         </div>
                     </div>
                     <div>
-                        <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>OBSERVACIONES MUESTREADOR</Text>
-                        <div style={{ padding: 16, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, height: 160, overflowY: 'auto' }}>
-                            <Text italic style={{ fontSize: 13 }}>
+                        <span className="mb-1 block text-xs font-semibold text-muted-foreground">OBSERVACIONES MUESTREADOR</span>
+                        <div className="h-40 overflow-y-auto rounded-lg bg-muted/40 p-4">
+                            <span className="text-[13px] italic">
                                 {proceso?.observaciones || 'Sin observaciones.'}
-                            </Text>
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -1262,26 +1212,26 @@ function FirmasBloque({ proceso, nombreOrigen }: { proceso: any; nombreOrigen: s
             <SectionDivider label="Observador de terreno" />
 
             {tieneObservador ? (
-                <Card>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 24 }}>
+                <Card className="p-5">
+                    <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                         <div>
-                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>NOMBRE OBSERVADOR</Text>
-                            <Text strong style={{ fontSize: 14 }}>{proceso.nombreObservador}</Text>
-                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginTop: 16, marginBottom: 4 }}>CARGO</Text>
-                            <Text style={{ fontSize: 13 }}>{proceso.cargoObservador || '—'}</Text>
+                            <span className="mb-1 block text-xs font-semibold text-muted-foreground">NOMBRE OBSERVADOR</span>
+                            <span className="text-sm font-semibold">{proceso.nombreObservador}</span>
+                            <span className="mb-1 mt-4 block text-xs font-semibold text-muted-foreground">CARGO</span>
+                            <span className="text-[13px]">{proceso.cargoObservador || '—'}</span>
                         </div>
                         <div>
-                            <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>FIRMA OBSERVADOR</Text>
-                            <div style={{ padding: 8, backgroundColor: 'var(--app-hover-bg)', borderRadius: 8, border: '1px dashed var(--app-border)', minHeight: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <span className="mb-1 block text-xs font-semibold text-muted-foreground">FIRMA OBSERVADOR</span>
+                            <div className="flex min-h-[120px] items-center justify-center rounded-lg border border-dashed border-border bg-muted/40 p-2">
                                 {firmaObservador ? (
-                                    <img src={`${apiClient.defaults.baseURL}${firmaObservador.ruta}`} style={{ height: 100, objectFit: 'contain' }} alt={`Firma observador ${nombreOrigen}`} />
-                                ) : <Text type="secondary" italic style={{ fontSize: 12 }}>Sin firma registrada.</Text>}
+                                    <img src={`${apiClient.defaults.baseURL}${firmaObservador.ruta}`} className="h-[100px] object-contain" alt={`Firma observador ${nombreOrigen}`} />
+                                ) : <span className="text-xs italic text-muted-foreground">Sin firma registrada.</span>}
                             </div>
                         </div>
                     </div>
                 </Card>
             ) : (
-                <Alert type="info" showIcon icon={<IconAlertCircle size={16} />} message="Observador de terreno no registrado en el proceso" />
+                <WorkflowAlert type="info" title="Observador de terreno no registrado en el proceso" message="No se registró un observador de terreno para este proceso." />
             )}
         </div>
     );
