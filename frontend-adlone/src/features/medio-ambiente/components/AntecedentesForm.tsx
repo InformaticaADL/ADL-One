@@ -3,15 +3,6 @@ import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import type { LugarAnalisis, EmpresaServicio, Cliente, Contacto, Centro } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import {
-    Input,
-    Select as AntSelect,
-    Typography,
-    Divider,
-    Button,
-    Alert,
-    Spin,
-} from 'antd';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconInfoCircle,
@@ -30,8 +21,10 @@ import {
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
 import apiClient from '../../../config/axios.config';
 import { FieldLabel } from '../../../components/common/FieldHelp';
-
-const { Text } = Typography;
+import { Input } from '../../../components/ui/input';
+import { Button } from '../../../components/ui/button';
+import { Combobox } from '../../../components/ui/combobox';
+import { cn } from '../../../lib/utils';
 
 // Validates a Google Maps reference string client-side before hitting the backend.
 // Defined outside the component so it is never recreated on re-renders.
@@ -63,10 +56,10 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
     });
 };
 
-// Extremely Fast TextInput Wrapper to isolate typing updates.
+// Extremely Fast Input Wrapper to isolate typing updates.
 // Uses startTransition for the parent callback so AntecedentesForm (30+ states)
 // only re-renders at low priority — the local input state updates immediately.
-const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, style, ...props }: any) => {
+const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, style, className, ...props }: any) => {
     const [localValue, setLocalValue] = useState(parentValue || '');
 
     // Sincronizar desde arriba sólo si difiere
@@ -83,38 +76,41 @@ const TextInput = React.memo(({ value: parentValue, onChange, label, description
     };
 
     return (
-        <div style={style}>
-            {label && <div style={{ marginBottom: 6 }}>{typeof label === 'string' ? <Text style={{ fontSize: 13, fontWeight: 500 }}>{label}</Text> : label}</div>}
-            <Input value={localValue} onChange={handleChange} status={error ? 'error' : undefined} {...props} />
-            {error && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{error}</Text>}
-            {description && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>{description}</Text>}
+        <div style={style} className={className}>
+            {label && <div className="mb-1.5">{typeof label === 'string' ? <span className="text-[13px] font-medium">{label}</span> : label}</div>}
+            <Input
+                value={localValue}
+                onChange={handleChange}
+                className={cn(error && 'border-destructive focus-visible:ring-destructive')}
+                {...props}
+            />
+            {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
+            {description && <p className="mt-1 text-[11px] text-muted-foreground">{description}</p>}
         </div>
     );
 });
 
-// Select con label (FieldLabel u otro nodo) arriba, al estilo Mantine — antd's
-// Select no acepta `label` directamente.
-const Select = ({ label, data, value, onChange, disabled, searchable, placeholder, size, style, rightSection, onDropdownOpen, error, ...rest }: any) => {
-    const options = (data || []).map((opt: any) => (typeof opt === 'string' ? { value: opt, label: opt } : opt));
+// Select con label arriba (mantiene la firma value/onChange/data de siempre) —
+// implementado sobre Combobox (buscador integrado), reemplazo obligatorio de
+// todo AntD Select según convención del proyecto.
+const Select = ({ label, data, value, onChange, disabled, placeholder, style, rightSection, onDropdownOpen, error }: any) => {
+    const options = (data || []).map((opt: any) => (typeof opt === 'string' ? { value: opt, label: opt } : { value: String(opt.value), label: opt.label }));
     return (
-        <div style={{ position: 'relative' }}>
-            {label && <div style={{ marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>{typeof label === 'string' ? <Text style={{ fontSize: 13, fontWeight: 500 }}>{label}</Text> : label}</div>}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AntSelect
-                    style={{ width: '100%', ...style }}
+        <div style={style}>
+            {label && <div className="mb-1.5 flex items-center justify-between">{typeof label === 'string' ? <span className="text-[13px] font-medium">{label}</span> : label}</div>}
+            <div className="flex items-center gap-1.5">
+                <Combobox
+                    className={cn('flex-1', error && 'border-destructive')}
                     options={options}
                     value={value || undefined}
-                    onChange={(v) => onChange?.(v ?? null)}
+                    onValueChange={(v) => onChange?.(v ?? null)}
                     disabled={disabled}
-                    showSearch={searchable}
                     placeholder={placeholder}
-                    status={error ? 'error' : undefined}
-                    onOpenChange={(open) => { if (open) onDropdownOpen?.(); }}
-                    filterOption={(input, option) => String(option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                    {...rest}
+                    onOpenChange={(open: boolean) => { if (open) onDropdownOpen?.(); }}
                 />
                 {rightSection}
             </div>
+            {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
         </div>
     );
 };
@@ -122,12 +118,12 @@ const Select = ({ label, data, value, onChange, disabled, searchable, placeholde
 // Module-level memoized component (avoids recreation on every parent render)
 const StaticField = React.memo(({ label, value, icon: Icon }: { label: string, value: string, icon: any }) => (
     <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-            <Icon size={12} color="var(--app-text-secondary)" />
-            <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase' }}>{label}</Text>
+        <div className="mb-0.5 flex items-center gap-1">
+            <Icon size={12} className="text-muted-foreground" />
+            <span className="text-[11px] font-bold uppercase text-muted-foreground">{label}</span>
         </div>
-        <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: '6px 10px', backgroundColor: 'var(--app-hover-bg)' }}>
-            <Text style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }} title={value}>{value || '-'}</Text>
+        <div className="rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
+            <span className="block truncate text-[13.5px] font-medium" title={value}>{value || '-'}</span>
         </div>
     </div>
 ));
@@ -140,7 +136,7 @@ export interface AntecedentesFormHandle {
 // Tarjeta de bloque compartida — reemplaza Paper withBorder p="md" radius="lg".
 function Block({ children }: { children: React.ReactNode }) {
     return (
-        <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 20, backgroundColor: 'var(--app-bg)' }}>
+        <div className="rounded-xl border border-border bg-background p-5">
             {children}
         </div>
     );
@@ -148,9 +144,35 @@ function Block({ children }: { children: React.ReactNode }) {
 
 function BlockTitle({ icon: Icon, color, children }: { icon: any; color: string; children: React.ReactNode }) {
     return (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+        <div className="mb-4 flex items-center gap-2">
             <Icon size={18} color={color} />
-            <Text strong style={{ fontSize: 13, color }}>{children}</Text>
+            <span className="text-[13px] font-semibold" style={{ color }}>{children}</span>
+        </div>
+    );
+}
+
+// Separador horizontal simple, con o sin etiqueta centrada — reemplaza AntD Divider.
+function Divider({ label }: { label?: React.ReactNode }) {
+    if (!label) return <div className="my-2 h-px w-full bg-border" />;
+    return (
+        <div className="my-2 flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs text-muted-foreground">{label}</span>
+            <div className="h-px flex-1 bg-border" />
+        </div>
+    );
+}
+
+const ALERT_STYLES: Record<string, string> = {
+    success: 'border-success/30 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/10 text-warning',
+};
+
+function InlineAlert({ type, icon, children }: { type: 'success' | 'warning'; icon?: React.ReactNode; children: React.ReactNode }) {
+    return (
+        <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', ALERT_STYLES[type])}>
+            {icon}
+            <div className="flex-1 text-xs">{children}</div>
         </div>
     );
 }
@@ -825,13 +847,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
     }, [frecuencia, factor]);
 
-    const gridCols = (n: number) => ({ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : `repeat(${n}, 1fr)`, gap: 16 });
+    const gridCols = (n: number): React.CSSProperties => ({ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : `repeat(${n}, 1fr)`, gap: 16 });
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 16 : 24 }}>
+        <div className="shadcn-scope flex flex-col" style={{ gap: isMobile ? 16 : 24 }}>
             {/* Block 1: Identificación */}
             <Block>
-                <BlockTitle icon={IconBuilding} color="var(--app-accent-text)">Identificación y Ubicación</BlockTitle>
+                <BlockTitle icon={IconBuilding} color="var(--sc-primary)">Identificación y Ubicación</BlockTitle>
 
                 <div style={{ ...gridCols(4), marginBottom: 16 }}>
                     <Select
@@ -848,7 +870,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={selectedLugar}
                         onChange={setSelectedLugar}
                         disabled={!tipoMonitoreo}
-                        searchable
                     />
                     <Select
                         label={<FieldLabel label="Empresa a Facturar *" help="Empresa o cliente al que se emitirá la factura por el servicio de análisis. Puede ser diferente de la empresa de servicio." />}
@@ -856,7 +877,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         data={clientesData}
                         value={selectedCliente}
                         onChange={(v: string | null) => setSelectedCliente(v || '')}
-                        searchable
                     />
                     <Select
                         label={<FieldLabel label="Empresa de servicio *" help="Empresa que opera el establecimiento a muestrear (ej. salmonicultura, industria). Al seleccionarla se cargarán automáticamente sus centros, contactos y objetivos." />}
@@ -864,16 +884,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         data={empresasData}
                         value={selectedEmpresa}
                         onChange={handleEmpresaChange}
-                        searchable
                         rightSection={
                             hasPermission('FI_CREAR_EMPRESA') && (
                                 <Button
-                                    type="text"
-                                    shape="circle"
-                                    icon={<IconPlus size={16} />}
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 shrink-0 rounded-full"
                                     onClick={() => setCreateEmpresaOpened(true)}
                                     title="Crear nueva empresa"
-                                />
+                                >
+                                    <IconPlus size={16} />
+                                </Button>
                             )
                         }
                     />
@@ -887,7 +909,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={selectedFuente}
                         onChange={(v: string | null) => setSelectedFuente(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                        searchable
                     />
                     <StaticField label="Tipo agua" value={tipoAgua} icon={IconFlask} />
                     <StaticField label="Comuna" value={comuna} icon={IconMapPin} />
@@ -912,7 +933,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={selectedContacto}
                         onChange={(v: string | null) => setSelectedContacto(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                        searchable
                     />
                 </div>
                 <div style={{ marginTop: 16 }}>
@@ -936,7 +956,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={selectedObjetivo}
                         onChange={(v: string | null) => setSelectedObjetivo(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
-                        searchable
                     />
                     <Select
                         label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
@@ -954,7 +973,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     />
                 </div>
 
-                <Divider style={{ margin: '8px 0 16px' }} />
+                <Divider />
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: 12 }}>
                     <TextInput
@@ -982,17 +1001,17 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(e: any) => setFactor(e.target.value)}
                     />
                     <div>
-                        <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Total Servicios</Text>
-                        <div style={{ height: 34, borderRadius: 8, backgroundColor: 'var(--app-accent-text)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 15 }}>
+                        <span className="mb-1 block text-[11px] font-bold uppercase text-muted-foreground">Total Servicios</span>
+                        <div className="flex h-[34px] items-center justify-center rounded-lg bg-primary text-[15px] font-bold text-primary-foreground">
                             {totalServicios || '0'}
                         </div>
                     </div>
                 </div>
 
                 {periodo && periodo !== 'No Aplica' && frecuencia && factor && totalServicios && (
-                    <Text type="secondary" italic style={{ fontSize: 12, display: 'block', textAlign: 'center', marginTop: 8 }}>
+                    <p className="mt-2 text-center text-xs italic text-muted-foreground">
                         Se realizarán <b>{totalServicios}</b> muestreo(s) en total, con una frecuencia de <b>{frecuencia}</b> vez/veces cada periodo <b>{frecuenciasData.find(f => f.value === periodo)?.label?.toLowerCase() || periodo}</b>, multiplicado por un factor de <b>{factor}</b>.
-                    </Text>
+                    </p>
                 )}
             </Block>
 
@@ -1021,7 +1040,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     />
                 </div>
 
-                <Divider style={{ margin: '8px 0 16px' }} />
+                <Divider />
 
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isVerySmall ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)'), gap: 16, marginBottom: 16 }}>
                     <div style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
@@ -1040,7 +1059,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                     setEsETFA('Si');
                                 }
                             }}
-                            searchable
                         />
                     </div>
                     <TextInput
@@ -1187,53 +1205,55 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     />
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 16 }}>
-                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                        <div style={{ flex: 1 }}>
-                            <TextInput
-                                label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
-                                description="Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas."
-                                placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
-                                value={refGoogle}
-                                onChange={(e: any) => setRefGoogle(e.target.value)}
-                                onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
-                                error={verifyStatus === 'invalid' ? verifyError : undefined}
-                                suffix={verifyStatus === 'loading' ? <Spin size="small" /> : undefined}
-                            />
+                <div className="mb-4 flex flex-col gap-1.5">
+                    <div className="flex items-end gap-2">
+                        <div className="flex-1">
+                            <div className="relative">
+                                <TextInput
+                                    label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
+                                    description="Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas."
+                                    placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
+                                    value={refGoogle}
+                                    onChange={(e: any) => setRefGoogle(e.target.value)}
+                                    onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
+                                    error={verifyStatus === 'invalid' ? verifyError : undefined}
+                                    className="pr-8"
+                                />
+                                {verifyStatus === 'loading' && (
+                                    <div className="pointer-events-none absolute right-2.5 top-[34px] h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                )}
+                            </div>
                         </div>
                         <Button
+                            type="button"
+                            variant="outline"
                             onClick={handleVerifyLink}
-                            loading={verifyStatus === 'loading'}
-                            disabled={!refGoogle.trim()}
-                            style={{ flexShrink: 0 }}
+                            disabled={!refGoogle.trim() || verifyStatus === 'loading'}
+                            className="shrink-0"
                         >
+                            {verifyStatus === 'loading' && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
                             Verificar
                         </Button>
                     </div>
 
                     {verifyStatus === 'ok' && verifiedCoords && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                            <Alert
-                                type="success"
-                                showIcon
-                                icon={<IconCheck size={16} />}
-                                message={
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'nowrap' }}>
-                                        <Text style={{ fontSize: 12 }}>
-                                            Ubicación detectada — Lat: {verifiedCoords.lat.toFixed(6)} · Lon: {verifiedCoords.lon.toFixed(6)}
-                                        </Text>
-                                        <a
-                                            href={`https://www.google.com/maps?q=${verifiedCoords.lat},${verifiedCoords.lon}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--app-accent-text)' }}
-                                        >
-                                            <IconExternalLink size={12} /> Abrir
-                                        </a>
-                                    </div>
-                                }
-                            />
-                            <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(47,158,68,0.3)', height: 200 }}>
+                        <div className="flex flex-col gap-1.5">
+                            <InlineAlert type="success" icon={<IconCheck size={16} />}>
+                                <div className="flex flex-nowrap items-center justify-between gap-2">
+                                    <span>
+                                        Ubicación detectada — Lat: {verifiedCoords.lat.toFixed(6)} · Lon: {verifiedCoords.lon.toFixed(6)}
+                                    </span>
+                                    <a
+                                        href={`https://www.google.com/maps?q=${verifiedCoords.lat},${verifiedCoords.lon}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex shrink-0 items-center gap-1 text-primary"
+                                    >
+                                        <IconExternalLink size={12} /> Abrir
+                                    </a>
+                                </div>
+                            </InlineAlert>
+                            <div className="h-[200px] overflow-hidden rounded-lg border border-success/30">
                                 <iframe
                                     title="Ubicación en mapa"
                                     src={`https://www.openstreetmap.org/export/embed.html?bbox=${verifiedCoords.lon - 0.01},${verifiedCoords.lat - 0.01},${verifiedCoords.lon + 0.01},${verifiedCoords.lat + 0.01}&layer=mapnik&marker=${verifiedCoords.lat},${verifiedCoords.lon}`}
@@ -1247,13 +1267,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     )}
 
                     {verifyStatus === 'warn' && (
-                        <Alert type="warning" showIcon icon={<IconAlertTriangle size={16} />} message={<Text style={{ fontSize: 12 }}>{verifyError}</Text>} />
+                        <InlineAlert type="warning" icon={<IconAlertTriangle size={16} />}>{verifyError}</InlineAlert>
                     )}
                 </div>
 
-                <Divider titlePlacement="center" style={{ margin: '8px 0 16px' }}>
-                    <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)' }}>Hidráulica y Caudal</Text>
-                </Divider>
+                <Divider label="Hidráulica y Caudal" />
 
                 <div style={gridCols(4)}>
                     <Select
@@ -1269,7 +1287,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setSelectedModalidad(v || '')}
                         disabled={isNoAplicaValue(medicionCaudal)}
                     />
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div className="flex flex-col gap-1">
                         <Select
                             label={<FieldLabel label="Forma Canal" help="Geometría del canal o sección de descarga donde se medirá el caudal. Ejemplos: Rectangular, Trapezoidal, Circular. Determina la fórmula hidráulica que se aplicará." />}
                             data={formasCanalData}
@@ -1277,7 +1295,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             onChange={(v: string | null) => setFormaCanal(v || '')}
                             disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
-                        <div style={{ display: 'flex', gap: 4 }}>
+                        <div className="flex gap-1">
                             <Select
                                 placeholder="Unidad"
                                 data={unidadesMedida}
@@ -1295,7 +1313,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             />
                         </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <div className="flex flex-col gap-1">
                         <Select
                             label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
                             data={dispositivosData}
@@ -1303,7 +1321,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             onChange={(v: string | null) => setDispositivo(v || '')}
                             disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
-                        <div style={{ display: 'flex', gap: 4 }}>
+                        <div className="flex gap-1">
                             <Select
                                 placeholder="Unidad"
                                 data={unidadesMedida}
