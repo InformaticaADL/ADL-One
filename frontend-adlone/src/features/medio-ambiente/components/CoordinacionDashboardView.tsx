@@ -4,15 +4,18 @@ import {
   PieChart, Pie, Cell, AreaChart, Area, LineChart, Line
 } from 'recharts';
 import {
-  Select, Button, Tag, Progress, Timeline, Modal, Segmented, Typography, DatePicker
-} from 'antd';
-import dayjs from 'dayjs';
-import {
   IconChevronLeft, IconX, IconBuilding, IconMapPin, IconUsers, IconInfoCircle, IconPlayerPauseFilled, IconPlayerPlayFilled, IconClock
 } from '@tabler/icons-react';
 import { fichaService } from '../services/ficha.service';
-
-const { Text, Title } = Typography;
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Timeline } from '@/components/ui/timeline';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface Props {
   onBack: () => void;
@@ -24,20 +27,23 @@ const normalize = (s: string) =>
     (s || '').normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 // Tarjeta base compartida por todos los widgets del dashboard.
-function DashCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function DashCard({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div style={{
-      borderRadius: 20, padding: 24, backgroundColor: 'var(--app-bg)',
-      border: '1px solid var(--app-border)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-      position: 'relative', height: '100%', boxSizing: 'border-box',
-      ...style,
-    }}>
+    <Card className={cn('relative h-full rounded-[20px] p-6', className)}>
       {children}
-    </div>
+    </Card>
   );
 }
 
-const tooltipStyle = { borderRadius: 12, border: '1px solid var(--app-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--app-bg-elevated)' };
+const tooltipStyle = { borderRadius: 12, border: '1px solid var(--sc-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--sc-card)' };
+
+const dateToInputValue = (d: Date | null) => {
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const [loading, setLoading] = useState(true);
@@ -339,17 +345,17 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
     return Object.values(dailyData);
   }, [operationalEvents, trendFilter]);
 
-  const StatCard = ({ title, value, color, data }: { title: string, value: string | number, color: string, data?: any[] }) => (
+  const StatCard = ({ title, value, data }: { title: string, value: string | number, color: string, data?: any[] }) => (
     <DashCard>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text strong style={{ fontSize: 13 }}>{title}</Text>
-          <Tag color={color}>Filtrado</Tag>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <span className="text-[13px] font-semibold">{title}</span>
+          <Badge variant="secondary">Filtrado</Badge>
         </div>
-        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between' }}>
-          <Text style={{ fontSize: 40, fontWeight: 800, lineHeight: 1 }}>{value}</Text>
+        <div className="flex items-end justify-between">
+          <span className="text-[40px] font-extrabold leading-none">{value}</span>
           {data && (
-             <div style={{ width: 80, height: 40 }}>
+             <div className="h-10 w-20">
                 <ResponsiveContainer width="100%" height="100%">
                    <AreaChart data={data}>
                       <Area type="monotone" dataKey="value" stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.15} strokeWidth={2} />
@@ -365,11 +371,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const InfoButton = ({ title, detail }: { title: string, detail: any }) => (
     <button
       onClick={() => setInfoModal({ title, ...detail })}
-      style={{
-        position: 'absolute', top: '1rem', right: '1rem', width: 28, height: 28, borderRadius: 8,
-        backgroundColor: 'var(--app-bg)', border: '1px solid var(--app-border)', color: 'var(--app-text-secondary)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10,
-      }}
+      className="absolute right-4 top-4 z-10 flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
       title="Explicación detallada"
     >
       <IconInfoCircle size={16} />
@@ -421,10 +423,9 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '500px', gap: '1rem' }}>
-        <div style={{ width: 40, height: 40, border: '3px solid var(--app-hover-bg)', borderTopColor: '#0ea5e9', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <Text type="secondary" strong>Cargando Inteligencia Operativa...</Text>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="flex h-[500px] flex-col items-center justify-center gap-4">
+        <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-muted border-t-primary" />
+        <span className="text-sm font-semibold text-muted-foreground">Cargando Inteligencia Operativa...</span>
       </div>
     );
   }
@@ -433,120 +434,125 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
   const activePieData = activeTab === 'operativa' ? statusAnalytics : activeTab === 'comercial' ? objectiveAnalytics : subAreaAnalytics;
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <Button shape="circle" size="large" icon={<IconChevronLeft size={24} />} onClick={onBack} />
+    <div className="shadcn-scope">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="icon" className="h-11 w-11 rounded-full" onClick={onBack}>
+            <IconChevronLeft size={24} />
+          </Button>
           <div>
-            <Title level={3} style={{ margin: 0 }}>Dashboard Operativo</Title>
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 1 }}>Análisis Minimalista</Text>
+            <h3 className="m-0 text-xl font-semibold">Dashboard Operativo</h3>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Análisis Minimalista</span>
           </div>
         </div>
-        <Button danger icon={<IconX size={16} />} onClick={() => {
+        <Button
+          variant="destructive"
+          onClick={() => {
             setFilterMuestreador(null); setFilterEstado(null); setFilterEmpresaServicio(null); setFilterCentro(null); setFilterDateFrom(null); setFilterDateTo(null);
-        }}>
-          Limpiar Filtros
+          }}
+        >
+          <IconX size={16} /> Limpiar Filtros
         </Button>
       </div>
 
-      <Segmented
-        value={activeTab}
-        onChange={(v) => setActiveTab(v as string)}
-        style={{ marginBottom: 24 }}
-        options={[
-          { label: 'Operativa', value: 'operativa', icon: <IconUsers size={16} /> },
-          { label: 'Comercial', value: 'comercial', icon: <IconBuilding size={16} /> },
-          { label: 'Logística', value: 'logistica', icon: <IconMapPin size={16} /> },
-        ]}
-      />
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="operativa" className="gap-1.5"><IconUsers size={16} /> Operativa</TabsTrigger>
+          <TabsTrigger value="comercial" className="gap-1.5"><IconBuilding size={16} /> Comercial</TabsTrigger>
+          <TabsTrigger value="logistica" className="gap-1.5"><IconMapPin size={16} /> Logística</TabsTrigger>
+        </TabsList>
+      </Tabs>
 
-      <DashCard style={{ marginBottom: 24, height: 'auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16 }}>
+      <DashCard className="mb-6 h-auto">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-4">
           {activeTab === 'operativa' && (
             <>
-              <Field label="Muestreador"><Select placeholder="Todos" options={muestreadores} value={filterMuestreador || undefined} onChange={(v) => setFilterMuestreador(v || null)} allowClear style={{ width: '100%' }} /></Field>
-              <Field label="Estado"><Select placeholder="Todos" options={estados} value={filterEstado || undefined} onChange={(v) => setFilterEstado(v || null)} allowClear style={{ width: '100%' }} /></Field>
+              <Field label="Muestreador"><Combobox placeholder="Todos" options={muestreadores} value={filterMuestreador ?? ''} onValueChange={(v) => setFilterMuestreador(v || null)} /></Field>
+              <Field label="Estado"><Combobox placeholder="Todos" options={estados} value={filterEstado ?? ''} onValueChange={(v) => setFilterEstado(v || null)} /></Field>
             </>
           )}
           {activeTab === 'comercial' && (
             <>
-              <Field label="Empresa"><Select placeholder="Todas" options={empresasServicio} value={filterEmpresaServicio || undefined} onChange={(v) => { setFilterEmpresaServicio(v || null); setFilterCentro(null); }} allowClear style={{ width: '100%' }} /></Field>
-              <Field label="Objetivo"><Select placeholder="Todos" options={objetivos} value={filterObjetivo || undefined} onChange={(v) => setFilterObjetivo(v || null)} allowClear style={{ width: '100%' }} /></Field>
+              <Field label="Empresa"><Combobox placeholder="Todas" options={empresasServicio} value={filterEmpresaServicio ?? ''} onValueChange={(v) => { setFilterEmpresaServicio(v || null); setFilterCentro(null); }} /></Field>
+              <Field label="Objetivo"><Combobox placeholder="Todos" options={objetivos} value={filterObjetivo ?? ''} onValueChange={(v) => setFilterObjetivo(v || null)} /></Field>
             </>
           )}
           {activeTab === 'logistica' && (
             <>
               <Field label="Centro">
-                <Select
+                <Combobox
                   placeholder="Todos"
                   options={Array.from(new Map(centros.filter(c => !filterEmpresaServicio || c.empresa === filterEmpresaServicio).map(c => [c.value, c])).values())}
-                  value={filterCentro || undefined} onChange={(v) => setFilterCentro(v || null)} allowClear showSearch style={{ width: '100%' }}
+                  value={filterCentro ?? ''} onValueChange={(v) => setFilterCentro(v || null)}
                 />
               </Field>
-              <Field label="Sub-Área"><Select placeholder="Todas" options={subAreas} value={filterSubArea || undefined} onChange={(v) => setFilterSubArea(v || null)} allowClear style={{ width: '100%' }} /></Field>
+              <Field label="Sub-Área"><Combobox placeholder="Todas" options={subAreas} value={filterSubArea ?? ''} onValueChange={(v) => setFilterSubArea(v || null)} /></Field>
             </>
           )}
           <Field label="Desde">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" value={filterDateFrom ? dayjs(filterDateFrom) : null} onChange={(d) => setFilterDateFrom(d ? d.toDate() : null)} />
+            <DatePicker value={dateToInputValue(filterDateFrom)} onChange={(v) => setFilterDateFrom(v ? new Date(v) : null)} />
           </Field>
           <Field label="Hasta">
-            <DatePicker style={{ width: '100%' }} format="DD/MM/YYYY" value={filterDateTo ? dayjs(filterDateTo) : null} onChange={(d) => setFilterDateTo(d ? d.toDate() : null)} />
+            <DatePicker value={dateToInputValue(filterDateTo)} onChange={(v) => setFilterDateTo(v ? new Date(v) : null)} />
           </Field>
         </div>
       </DashCard>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(12, 1fr)', gap: 16 }}>
-        <div style={{ gridColumn: 'span 12 / span 12' }} className="dash-col-4">
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12 md:col-span-4">
           <DashCard>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text strong style={{ fontSize: 13 }}>Inicios Hoy</Text>
-              <Tag>{todayAgenda.filter(a => a.tipo_display === 'INICIO').length}</Tag>
+            <div className="mb-4 flex justify-between">
+              <span className="text-[13px] font-semibold">Inicios Hoy</span>
+              <Badge variant="secondary">{todayAgenda.filter(a => a.tipo_display === 'INICIO').length}</Badge>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
                {todayAgenda.filter(a => a.tipo_display === 'INICIO').slice(0, 3).map((ev, i) => (
-                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, border: '1px solid var(--app-border)', borderRadius: 16 }}>
+                 <div key={i} className="flex items-center gap-2.5 rounded-2xl border border-border p-2.5">
                    <IconCircle color="#1677ff"><IconPlayerPlayFilled size={12} /></IconCircle>
-                   <div style={{ flex: 1, minWidth: 0 }}>
-                     <Text strong style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev._centro_name}</Text>
-                     <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.muestreador_display}</Text>
+                   <div className="min-w-0 flex-1">
+                     <span className="block truncate text-xs font-semibold">{ev._centro_name}</span>
+                     <span className="block truncate text-xs text-muted-foreground">{ev.muestreador_display}</span>
                    </div>
                  </div>
                ))}
-               {todayAgenda.filter(a => a.tipo_display === 'INICIO').length === 0 && <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>Sin inicios programados</Text>}
+               {todayAgenda.filter(a => a.tipo_display === 'INICIO').length === 0 && <span className="text-center text-xs text-muted-foreground">Sin inicios programados</span>}
             </div>
           </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
           <DashCard>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text strong style={{ fontSize: 13 }}>Retiros Hoy</Text>
-              <Tag>{todayAgenda.filter(a => a.tipo_display === 'RETIRO').length}</Tag>
+            <div className="mb-4 flex justify-between">
+              <span className="text-[13px] font-semibold">Retiros Hoy</span>
+              <Badge variant="secondary">{todayAgenda.filter(a => a.tipo_display === 'RETIRO').length}</Badge>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
                {todayAgenda.filter(a => a.tipo_display === 'RETIRO').slice(0, 3).map((ev, i) => (
-                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 10, border: '1px solid var(--app-border)', borderRadius: 16 }}>
+                 <div key={i} className="flex items-center gap-2.5 rounded-2xl border border-border p-2.5">
                    <IconCircle color="#e03131"><IconPlayerPauseFilled size={12} /></IconCircle>
-                   <div style={{ flex: 1, minWidth: 0 }}>
-                     <Text strong style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev._centro_name}</Text>
-                     <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{ev.muestreador_display}</Text>
+                   <div className="min-w-0 flex-1">
+                     <span className="block truncate text-xs font-semibold">{ev._centro_name}</span>
+                     <span className="block truncate text-xs text-muted-foreground">{ev.muestreador_display}</span>
                    </div>
                  </div>
                ))}
-               {todayAgenda.filter(a => a.tipo_display === 'RETIRO').length === 0 && <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>Sin retiros programados</Text>}
+               {todayAgenda.filter(a => a.tipo_display === 'RETIRO').length === 0 && <span className="text-center text-xs text-muted-foreground">Sin retiros programados</span>}
             </div>
           </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
           <DashCard>
             <InfoButton title="Actividad" detail={chartExplanations['Actividad']} />
-            <Text strong style={{ fontSize: 13 }}>Actividad <Tag color="green">{(filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length / (filteredData.length || 1) * 100).toFixed(0)}%</Tag></Text>
-            <Text style={{ fontSize: 32, fontWeight: 800, display: 'block', margin: '8px 0 12px' }}>{filteredData.length}</Text>
-            <div style={{ height: 90 }}>
+            <span className="text-[13px] font-semibold">
+              Actividad{' '}
+              <Badge variant="success">{(filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length / (filteredData.length || 1) * 100).toFixed(0)}%</Badge>
+            </span>
+            <span className="my-2 block text-[32px] font-extrabold">{filteredData.length}</span>
+            <div className="h-[90px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={trendAnalytics.slice(-6)}>
-                  <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
+                  <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--sc-muted)'}} />
                   <Bar dataKey="ejecutados" radius={[4,4,0,0]} fill="#10b981" name="Completados" />
                   <Bar dataKey="pendientes" radius={[4,4,0,0]} fill="#cbd5e1" name="Activos" />
                 </BarChart>
@@ -555,61 +561,66 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
           </DashCard>
         </div>
 
-        <div className="dash-col-4"><StatCard title="Total Fichas" value={filteredData.length} color="blue" data={trendAnalytics.map(t => ({ value: t.ejecutados + t.pendientes }))} /></div>
-        <div className="dash-col-4"><StatCard title="En Proceso" value={filteredData.filter(f => normalize(f._status_name).includes('proceso')).length} color="orange" data={trendAnalytics.map(t => ({ value: t.pendientes }))} /></div>
-        <div className="dash-col-4"><StatCard title="Ejecutados" value={filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length} color="green" data={trendAnalytics.map(t => ({ value: t.ejecutados }))} /></div>
+        <div className="col-span-12 md:col-span-4"><StatCard title="Total Fichas" value={filteredData.length} color="blue" data={trendAnalytics.map(t => ({ value: t.ejecutados + t.pendientes }))} /></div>
+        <div className="col-span-12 md:col-span-4"><StatCard title="En Proceso" value={filteredData.filter(f => normalize(f._status_name).includes('proceso')).length} color="orange" data={trendAnalytics.map(t => ({ value: t.pendientes }))} /></div>
+        <div className="col-span-12 md:col-span-4"><StatCard title="Ejecutados" value={filteredData.filter(f => normalize(f._status_name).includes('ejecutado')).length} color="green" data={trendAnalytics.map(t => ({ value: t.ejecutados }))} /></div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
            <DashCard>
              <InfoButton title="Carga Operativa" detail={chartExplanations['Carga Operativa']} />
-             <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 24 }}>Resumen de Carga</Text>
-             <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+             <span className="mb-6 block text-[13px] font-semibold">Resumen de Carga</span>
+             <div className="flex flex-col gap-5">
                 {activeAnalyticsList.slice(0, 5).map((item, i) => (
                   <div key={i}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                      <Text style={{ fontSize: 12, fontWeight: 700 }}>{item.name}</Text>
-                      <Text style={{ fontSize: 12, fontWeight: 800 }}>{item.value} Fts.</Text>
+                    <div className="mb-1.5 flex justify-between">
+                      <span className="text-xs font-bold">{item.name}</span>
+                      <span className="text-xs font-extrabold">{item.value} Fts.</span>
                     </div>
-                    <Progress percent={(item.value / (filteredData.length || 1)) * 100} showInfo={false} strokeColor={COLORS[i % COLORS.length]} />
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${Math.min(100, (item.value / (filteredData.length || 1)) * 100)}%`, backgroundColor: COLORS[i % COLORS.length] }}
+                      />
+                    </div>
                   </div>
                 ))}
              </div>
            </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
            <DashCard>
              <InfoButton title="Agenda para Hoy" detail={chartExplanations['Agenda para Hoy']} />
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 24 }}>
-               <Text strong style={{ fontSize: 13 }}>Cronograma</Text>
-               <Tag>Hoy</Tag>
+             <div className="mb-6 flex justify-between">
+               <span className="text-[13px] font-semibold">Cronograma</span>
+               <Badge variant="secondary">Hoy</Badge>
              </div>
              <Timeline
                 items={todayAgenda.slice(0, 4).map((ev, i) => ({
                     key: i,
                     dot: <IconClock size={12} />,
-                    color: ev.tipo_display === 'INICIO' ? 'blue' : 'red',
-                    children: (
+                    color: ev.tipo_display === 'INICIO' ? '#1677ff' : '#e03131',
+                    content: (
                         <>
-                            <Text strong style={{ fontSize: 12, display: 'block' }}>{ev._centro_name}</Text>
-                            <Text type="secondary" style={{ fontSize: 12 }}>{ev.tipo_display} - {ev.muestreador_display}</Text>
+                            <span className="block text-xs font-semibold">{ev._centro_name}</span>
+                            <span className="text-xs text-muted-foreground">{ev.tipo_display} - {ev.muestreador_display}</span>
                         </>
                     ),
                 }))}
              />
-             {todayAgenda.length === 0 && <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', display: 'block', marginTop: 24 }}>No hay eventos para hoy</Text>}
+             {todayAgenda.length === 0 && <span className="mt-6 block text-center text-sm text-muted-foreground">No hay eventos para hoy</span>}
            </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
            <DashCard>
              <InfoButton title="Distribución Global" detail={chartExplanations['Distribución Global']} />
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-               <Text strong style={{ fontSize: 13 }}>Distribución</Text>
-               <Tag color="red">{filteredData.filter(f => normalize(f._status_name).includes('cancela')).length} Anulados</Tag>
+             <div className="mb-4 flex justify-between">
+               <span className="text-[13px] font-semibold">Distribución</span>
+               <Badge variant="destructive">{filteredData.filter(f => normalize(f._status_name).includes('cancela')).length} Anulados</Badge>
              </div>
-             <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-               <div style={{ height: 180, width: '100%' }}>
+             <div className="mt-4 flex justify-center">
+               <div className="h-[180px] w-full">
                  <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie data={activePieData} innerRadius={50} outerRadius={75} paddingAngle={3} dataKey="value" stroke="none">
@@ -620,13 +631,13 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
                  </ResponsiveContainer>
                </div>
              </div>
-             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 20 }}>
+             <div className="mt-5 grid grid-cols-2 gap-3">
                 {activePieData.slice(0, 4).map((item, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: COLORS[i % COLORS.length], flexShrink: 0 }} />
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }} />
                     <div>
-                      <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 90 }}>{item.name}</Text>
-                      <Text strong style={{ fontSize: 12 }}>{((item.value / (filteredData.length || 1)) * 100).toFixed(1)}%</Text>
+                      <span className="block max-w-[90px] truncate text-xs text-muted-foreground">{item.name}</span>
+                      <span className="text-xs font-semibold">{((item.value / (filteredData.length || 1)) * 100).toFixed(1)}%</span>
                     </div>
                   </div>
                 ))}
@@ -634,26 +645,24 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
            </DashCard>
         </div>
 
-        <div style={{ gridColumn: 'span 12 / span 12' }}>
+        <div className="col-span-12">
            <DashCard>
              <InfoButton title="Balance Diario" detail={chartExplanations['Balance Diario']} />
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-               <Text strong style={{ fontSize: 13 }}>Balance Operativo Diario (Inicios vs Retiros)</Text>
-               <Segmented
-                 value={trendFilter}
-                 onChange={(v) => setTrendFilter(v as string)}
-                 options={[
-                   { label: '15 Días', value: '15' },
-                   { label: '30 Días', value: '30' },
-                   { label: '3 Meses', value: '90' },
-                   { label: '1 Año', value: '365' },
-                 ]}
-               />
+             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+               <span className="text-[13px] font-semibold">Balance Operativo Diario (Inicios vs Retiros)</span>
+               <Tabs value={trendFilter} onValueChange={setTrendFilter}>
+                 <TabsList>
+                   <TabsTrigger value="15">15 Días</TabsTrigger>
+                   <TabsTrigger value="30">30 Días</TabsTrigger>
+                   <TabsTrigger value="90">3 Meses</TabsTrigger>
+                   <TabsTrigger value="365">1 Año</TabsTrigger>
+                 </TabsList>
+               </Tabs>
              </div>
-             <div style={{ height: 300, width: '100%' }}>
+             <div className="h-[300px] w-full">
                <ResponsiveContainer width="100%" height="100%">
                  <LineChart data={dailyInOutTrend} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} minTickGap={30} />
                    <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                    <Tooltip contentStyle={tooltipStyle} />
@@ -665,20 +674,20 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
            </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
            <DashCard>
              <InfoButton title="Top Centros" detail={chartExplanations['Top Centros']} />
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-               <Text strong style={{ fontSize: 13 }}>Top Centros Logísticos</Text>
-               <Tag color="blue">Zonas</Tag>
+             <div className="mb-4 flex justify-between">
+               <span className="text-[13px] font-semibold">Top Centros Logísticos</span>
+               <Badge variant="secondary">Zonas</Badge>
              </div>
-             <div style={{ height: 250, width: '100%' }}>
+             <div className="h-[250px] w-full">
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={centroAnalytics} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--app-border)" />
+                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--sc-border)" />
                    <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                    <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
+                   <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--sc-muted)'}} />
                    <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#0ea5e9" name="Servicios" />
                  </BarChart>
                </ResponsiveContainer>
@@ -686,20 +695,20 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
            </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
            <DashCard>
              <InfoButton title="Carga por Día" detail={chartExplanations['Carga por Día']} />
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-               <Text strong style={{ fontSize: 13 }}>Carga por Día de la Semana</Text>
-               <Tag color="purple">Patrón</Tag>
+             <div className="mb-4 flex justify-between">
+               <span className="text-[13px] font-semibold">Carga por Día de la Semana</span>
+               <Badge variant="secondary">Patrón</Badge>
              </div>
-             <div style={{ height: 250, width: '100%' }}>
+             <div className="h-[250px] w-full">
                <ResponsiveContainer width="100%" height="100%">
                  <BarChart data={weekdayAnalytics} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
+                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
                    <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                    <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                   <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
+                   <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--sc-muted)'}} />
                    <Bar dataKey="value" radius={[4, 4, 0, 0]} fill="#d946ef" name="Fichas Históricas" />
                  </BarChart>
                </ResponsiveContainer>
@@ -707,27 +716,27 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
            </DashCard>
         </div>
 
-        <div className="dash-col-4">
+        <div className="col-span-12 md:col-span-4">
            <DashCard>
              <InfoButton title="Motivos de Cancelación" detail={chartExplanations['Motivos de Cancelación']} />
-             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-               <Text strong style={{ fontSize: 13 }}>Motivos de Cancelación</Text>
-               <Tag color="red">Pérdidas</Tag>
+             <div className="mb-4 flex justify-between">
+               <span className="text-[13px] font-semibold">Motivos de Cancelación</span>
+               <Badge variant="destructive">Pérdidas</Badge>
              </div>
-             <div style={{ height: 250, width: '100%' }}>
+             <div className="h-[250px] w-full">
                {cancellationAnalytics.length > 0 ? (
                  <ResponsiveContainer width="100%" height="100%">
                    <BarChart data={cancellationAnalytics} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--app-border)" />
+                     <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--sc-border)" />
                      <XAxis type="number" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                      <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
-                     <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--app-hover-bg)'}} />
+                     <Tooltip contentStyle={tooltipStyle} cursor={{fill: 'var(--sc-muted)'}} />
                      <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#ef4444" name="Anulados" />
                    </BarChart>
                  </ResponsiveContainer>
                ) : (
-                 <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                   <Text type="secondary" style={{ fontSize: 13 }}>No se registran anulaciones</Text>
+                 <div className="flex h-full items-center justify-center">
+                   <span className="text-sm text-muted-foreground">No se registran anulaciones</span>
                  </div>
                )}
              </div>
@@ -735,50 +744,38 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
         </div>
       </div>
 
-      <Modal
-        open={!!infoModal}
-        onCancel={() => setInfoModal(null)}
-        closable={false}
-        width={640}
-        footer={null}
-        styles={{ root: { borderRadius: 24 }, body: { padding: 32 } }}
-      >
-        {infoModal && (
-          <div style={{ maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
-              <Button type="text" shape="circle" icon={<IconX size={20} />} onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 0, right: 0 }} />
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+      <Dialog open={!!infoModal} onOpenChange={(open) => { if (!open) setInfoModal(null); }}>
+        <DialogContent className="max-w-[640px] rounded-3xl p-8">
+          {infoModal && (
+            <div className="max-h-[80vh] overflow-y-auto">
+              <DialogHeader className="mb-6 flex-row items-center gap-4 space-y-0">
                 <IconCircle color="#1677ff" size={56}><IconInfoCircle size={28} /></IconCircle>
                 <div>
-                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>Explicación Detallada</Text>
-                  <Title level={4} style={{ margin: 0 }}>{infoModal.title}</Title>
+                  <span className="block text-[11px] font-extrabold uppercase tracking-wide text-primary">Explicación Detallada</span>
+                  <DialogTitle className="text-lg">{infoModal.title}</DialogTitle>
+                </div>
+              </DialogHeader>
+
+              <div className="flex flex-col gap-5">
+                <div>
+                  <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">¿Qué muestra este gráfico?</span>
+                  <span className="text-[13.5px] leading-relaxed">{infoModal.definition}</span>
+                </div>
+                <div>
+                  <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">¿Cómo se procesa la información?</span>
+                  <span className="text-[13.5px] leading-relaxed">{infoModal.operation}</span>
+                </div>
+                <div>
+                  <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">Interpretación y Uso</span>
+                  <span className="text-[13.5px] leading-relaxed">{infoModal.data}</span>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                <div>
-                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Qué muestra este gráfico?</Text>
-                  <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.definition}</Text>
-                </div>
-                <div>
-                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Cómo se procesa la información?</Text>
-                  <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.operation}</Text>
-                </div>
-                <div>
-                  <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>Interpretación y Uso</Text>
-                  <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.data}</Text>
-                </div>
-              </div>
-
-              <Button block size="large" style={{ marginTop: 24 }} onClick={() => setInfoModal(null)}>Entendido</Button>
-          </div>
-        )}
-      </Modal>
-
-      <style>{`
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @media (min-width: 768px) { .dash-col-4 { grid-column: span 4 / span 4 !important; } }
-      `}</style>
+              <Button size="lg" className="mt-6 w-full" onClick={() => setInfoModal(null)}>Entendido</Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
@@ -786,7 +783,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+      <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
       {children}
     </div>
   );
@@ -794,11 +791,10 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function IconCircle({ children, color, size = 32 }: { children: React.ReactNode; color: string; size?: number }) {
   return (
-    <div style={{
-      flexShrink: 0, width: size, height: size, borderRadius: '50%',
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      backgroundColor: `${color}1f`, color,
-    }}>
+    <div
+      className="flex shrink-0 items-center justify-center rounded-full"
+      style={{ width: size, height: size, backgroundColor: `${color}1f`, color }}
+    >
       {children}
     </div>
   );

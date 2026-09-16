@@ -3,14 +3,14 @@ import { MapContainer, Marker, Popup } from 'react-leaflet';
 import { BaseTiles } from './BaseTiles';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { Card, Typography, Button, Tag } from 'antd';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 // Fix for default Leaflet markers missing in React bundle
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-
-const { Text } = Typography;
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -58,17 +58,17 @@ export const AssignmentMapView: React.FC<AssignmentMapViewProps> = ({ fichas, on
     }, [fichas]);
 
     return (
-        <Card style={{ overflow: 'hidden', height: '100%', minHeight: 400 }} styles={{ body: { padding: 0, height: '100%' } }}>
+        <Card className="shadcn-scope h-full min-h-[400px] overflow-hidden p-0">
             <MapContainer center={fallbackCenter} zoom={5} style={{ height: '100%', width: '100%', minHeight: 400 }}>
                 <BaseTiles />
                 {markers.map(m => (
                     <Marker key={m.id} position={[m.lat, m.lng]}>
                         <Popup>
-                            <div>
-                                <Text strong style={{ fontSize: 13, display: 'block' }}>{m.title}</Text>
-                                <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>Cliente: {m.client}</Text>
-                                <Tag style={{ marginTop: 4, marginBottom: 8 }}>{m.estado}</Tag>
-                                <Button size="small" block onClick={() => onViewAssignment(m.id)}>
+                            <div className="shadcn-scope">
+                                <span className="block text-sm font-semibold">{m.title}</span>
+                                <span className="block text-xs text-muted-foreground">Cliente: {m.client}</span>
+                                <Badge variant="outline" className="mb-2 mt-1">{m.estado}</Badge>
+                                <Button size="sm" className="w-full" onClick={() => onViewAssignment(m.id)}>
                                     Gestionar Asignación
                                 </Button>
                             </div>

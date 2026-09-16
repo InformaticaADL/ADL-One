@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Timeline, Typography, Tag, Spin } from 'antd';
 import {
     IconPencil,
     IconCheck,
@@ -11,8 +10,9 @@ import {
     IconArrowRight
 } from '@tabler/icons-react';
 import { adminService } from '../../../services/admin.service';
-
-const { Text } = Typography;
+import { Timeline } from '@/components/ui/timeline';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface TimelineEvent {
     id: string; // Unique ID for key/expansion
@@ -34,13 +34,20 @@ interface SolicitudTimelineProps {
     };
 }
 
-const TYPE_COLOR: Record<TimelineEvent['type'], { antd: string; hex: string; bg: string }> = {
-    CREATION: { antd: 'geekblue', hex: '#4263eb', bg: 'rgba(66,99,235,0.08)' },
-    APPROVAL: { antd: 'green', hex: '#2f9e44', bg: 'rgba(47,158,68,0.08)' },
-    REJECTION: { antd: 'red', hex: '#e03131', bg: 'rgba(224,49,49,0.08)' },
-    REVIEW: { antd: 'gold', hex: '#f08c00', bg: 'rgba(240,140,0,0.08)' },
-    ASSIGNMENT: { antd: 'purple', hex: '#9c36b5', bg: 'rgba(156,54,181,0.08)' },
-    OTHER: { antd: 'gray', hex: '#868e96', bg: 'var(--app-hover-bg)' },
+type TimelineTypeStyle = {
+    badgeVariant: NonNullable<BadgeProps['variant']>;
+    dotClass: string;
+    expandedClass: string;
+    borderClass: string;
+};
+
+const TYPE_STYLE: Record<TimelineEvent['type'], TimelineTypeStyle> = {
+    CREATION: { badgeVariant: 'default', dotClass: 'bg-primary text-primary-foreground', expandedClass: 'bg-primary/5', borderClass: 'border-primary/20' },
+    APPROVAL: { badgeVariant: 'success', dotClass: 'bg-success text-success-foreground', expandedClass: 'bg-success/5', borderClass: 'border-success/20' },
+    REJECTION: { badgeVariant: 'destructive', dotClass: 'bg-destructive text-destructive-foreground', expandedClass: 'bg-destructive/5', borderClass: 'border-destructive/20' },
+    REVIEW: { badgeVariant: 'warning', dotClass: 'bg-warning text-warning-foreground', expandedClass: 'bg-warning/5', borderClass: 'border-warning/20' },
+    ASSIGNMENT: { badgeVariant: 'secondary', dotClass: 'bg-violet-500 text-white', expandedClass: 'bg-violet-500/5', borderClass: 'border-violet-500/20' },
+    OTHER: { badgeVariant: 'outline', dotClass: 'bg-muted-foreground text-background', expandedClass: 'bg-muted/40', borderClass: 'border-border' },
 };
 
 export const SolicitudTimeline: React.FC<SolicitudTimelineProps> = ({ solicitudId, creationData }) => {
@@ -150,93 +157,81 @@ export const SolicitudTimeline: React.FC<SolicitudTimelineProps> = ({ solicitudI
     };
 
     if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 32 }}>
-            <Spin size="small" />
-            <Text type="secondary" style={{ fontSize: 12 }}>Cargando historial...</Text>
+        <div className="flex flex-col items-center gap-2 py-8">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-xs text-muted-foreground">Cargando historial...</span>
         </div>
     );
 
     if (events.length === 0) return (
-        <div style={{ padding: 32, textAlign: 'center' }}>
-            <Text type="secondary" italic style={{ fontSize: 13 }}>No hay historial disponible.</Text>
+        <div className="py-8 text-center">
+            <span className="text-sm italic text-muted-foreground">No hay historial disponible.</span>
         </div>
     );
 
     return (
-        <Timeline
-            items={events.map((event) => {
-                const isExpanded = expandedIds.has(event.id);
-                const color = TYPE_COLOR[event.type];
+        <Timeline items={events.map((event) => {
+            const isExpanded = expandedIds.has(event.id);
+            const style = TYPE_STYLE[event.type];
 
-                return {
-                    key: event.id,
-                    dot: (
-                        <div style={{
-                            width: 22, height: 22, borderRadius: '50%', backgroundColor: color.bg, color: color.hex,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
-                            {getIcon(event.type)}
-                        </div>
-                    ),
-                    children: (
-                        <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, overflow: 'hidden' }}>
-                            <button
-                                onClick={() => toggleExpand(event.id)}
-                                style={{
-                                    width: '100%', padding: 12, backgroundColor: isExpanded ? color.bg : 'transparent',
-                                    border: 'none', borderBottom: isExpanded ? `1px solid ${color.hex}33` : 'none',
-                                    cursor: 'pointer', textAlign: 'left',
-                                    display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8,
-                                }}
-                            >
-                                <div style={{ flex: 1 }}>
-                                    <Text strong style={{ fontSize: 13, display: 'block' }}>{getFriendlyAction(event.action)}</Text>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                        <Tag style={{ fontSize: 11, marginInlineEnd: 0 }}>{event.user}</Tag>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            {event.date.toLocaleDateString('es-CL')} {event.date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
-                                        </Text>
-                                    </div>
-                                </div>
-                                <IconChevronDown
-                                    size={16}
-                                    style={{
-                                        transform: isExpanded ? 'rotate(180deg)' : 'none',
-                                        transition: 'transform 200ms ease',
-                                        color: 'var(--app-text-secondary)',
-                                        flexShrink: 0,
-                                        marginTop: 2,
-                                    }}
-                                />
-                            </button>
-
-                            {isExpanded && (
-                                <div style={{ padding: 12 }}>
-                                    {event.stateChange && (
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                                            {event.stateChange.from && (
-                                                <>
-                                                    <Tag>{getFriendlyState(event.stateChange.from)}</Tag>
-                                                    <IconArrowRight size={12} style={{ color: 'var(--app-text-secondary)' }} />
-                                                </>
-                                            )}
-                                            <Tag color={color.antd}>{getFriendlyState(event.stateChange.to)}</Tag>
-                                        </div>
-                                    )}
-
-                                    {event.observation ? (
-                                        <div style={{ backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', borderRadius: 8, padding: 10 }}>
-                                            <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{event.observation}</Text>
-                                        </div>
-                                    ) : (
-                                        <Text type="secondary" italic style={{ fontSize: 12 }}>Sin observaciones registradas.</Text>
-                                    )}
-                                </div>
+            return {
+                key: event.id,
+                dot: (
+                    <div className={cn('flex h-[22px] w-[22px] items-center justify-center rounded-full', style.dotClass)}>
+                        {getIcon(event.type)}
+                    </div>
+                ),
+                content: (
+                    <div className={cn('overflow-hidden rounded-[10px] border', style.borderClass)}>
+                        <button
+                            type="button"
+                            onClick={() => toggleExpand(event.id)}
+                            className={cn(
+                                'flex w-full items-start justify-between gap-2 border-none p-3 text-left transition-colors',
+                                isExpanded ? style.expandedClass : 'bg-transparent'
                             )}
-                        </div>
-                    ),
-                };
-            })}
-        />
+                        >
+                            <div className="flex-1">
+                                <span className="block text-[13px] font-semibold leading-tight text-foreground">{getFriendlyAction(event.action)}</span>
+                                <div className="mt-1 flex items-center gap-2">
+                                    <Badge variant="outline" className="text-[11px]">{event.user}</Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                        {event.date.toLocaleDateString('es-CL')} {event.date.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                </div>
+                            </div>
+                            <IconChevronDown
+                                size={16}
+                                className={cn('mt-0.5 shrink-0 text-muted-foreground transition-transform duration-200', isExpanded && 'rotate-180')}
+                            />
+                        </button>
+
+                        {isExpanded && (
+                            <div className="p-3">
+                                {event.stateChange && (
+                                    <div className="mb-3 flex items-center gap-2">
+                                        {event.stateChange.from && (
+                                            <>
+                                                <Badge variant="outline">{getFriendlyState(event.stateChange.from)}</Badge>
+                                                <IconArrowRight size={12} className="text-muted-foreground" />
+                                            </>
+                                        )}
+                                        <Badge variant={style.badgeVariant}>{getFriendlyState(event.stateChange.to)}</Badge>
+                                    </div>
+                                )}
+
+                                {event.observation ? (
+                                    <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+                                        <span className="whitespace-pre-wrap text-sm">{event.observation}</span>
+                                    </div>
+                                ) : (
+                                    <span className="text-xs italic text-muted-foreground">Sin observaciones registradas.</span>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                ),
+            };
+        })} />
     );
 };
