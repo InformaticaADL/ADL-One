@@ -1,16 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Modal,
-    Select,
-    Typography,
-    Card,
-    Button,
-    Tag,
-    Spin,
-    Alert
-} from 'antd';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import {
     IconUserMinus,
     IconBuildingCommunity,
     IconUsers,
@@ -18,11 +7,18 @@ import {
     IconHash,
     IconAlertTriangle
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { adminService } from '../../../services/admin.service';
 import apiClient from '../../../config/axios.config';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Title, Text } = Typography;
 
 interface SamplerDeactivationModalProps {
     opened: boolean;
@@ -148,215 +144,213 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
     };
 
     const opciones: { id: 'BASE' | 'MUESTREADOR' | 'MANUAL'; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
-        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: '#1c7ed6', bg: 'var(--app-accent-bg)' },
+        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: '#1c7ed6', bg: 'rgba(28,126,214,0.1)' },
         { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: '#0c8599', bg: 'rgba(12,133,153,0.1)' },
         { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: '#4c6ef5', bg: 'rgba(76,110,245,0.1)' },
     ];
 
-    return (
-        <Modal
-            open={opened}
-            onCancel={onClose}
-            footer={null}
-            width={isMobile ? '100%' : 640}
-            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
-            title={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IconUserMinus size={20} color="#e03131" />
-                    <Title level={4} style={{ margin: 0 }}>Deshabilitar Muestreador</Title>
-                </div>
-            }
-        >
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 16 }}>
-                <Alert
-                    type="warning"
-                    showIcon
-                    icon={<IconAlertTriangle size={18} />}
-                    message={<>Está a punto de deshabilitar a <b>{sampler?.nombre_muestreador}</b>. Todos sus equipos deben ser reasignados para completar esta acción.</>}
-                />
+    const otherMuestreadores = muestreadores
+        .filter(m => m.id_muestreador !== sampler?.id_muestreador)
+        .map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }));
 
-                {/* MS-04: advertencia si hay muestreos futuros */}
-                {futureAssignments && futureAssignments.count > 0 && (
-                    <Alert
-                        type="error"
-                        showIcon
-                        icon={<IconAlertTriangle size={18} />}
-                        message="Asignaciones de muestreo pendientes"
-                        description={
-                            <div>
-                                <Text style={{ fontSize: 13 }}>
+    return (
+        <Dialog open={opened} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-h-[85vh] max-w-2xl overflow-y-auto">
+                <DialogHeader>
+                    <div className="flex items-center gap-2">
+                        <IconUserMinus size={20} className="text-destructive" />
+                        <DialogTitle>Deshabilitar Muestreador</DialogTitle>
+                    </div>
+                </DialogHeader>
+
+                <div className="flex flex-col gap-6">
+                    <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+                        <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
+                        <p className="text-sm text-foreground">
+                            Está a punto de deshabilitar a <b>{sampler?.nombre_muestreador}</b>. Todos sus equipos deben ser reasignados para completar esta acción.
+                        </p>
+                    </div>
+
+                    {/* MS-04: advertencia si hay muestreos futuros */}
+                    {futureAssignments && futureAssignments.count > 0 && (
+                        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                            <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-destructive" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-foreground">Asignaciones de muestreo pendientes</p>
+                                <p className="text-[13px] text-muted-foreground">
                                     Este muestreador tiene <b>{futureAssignments.count}</b> muestreo{futureAssignments.count !== 1 ? 's' : ''} programado{futureAssignments.count !== 1 ? 's' : ''} para fechas futuras.
                                     Tras deshabilitarlo, esos muestreos quedarán <b>huérfanos</b> y deberán ser reasignados manualmente desde Asignación o el Calendario.
-                                </Text>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8 }}>
+                                </p>
+                                <div className="mt-2 flex flex-col gap-0.5">
                                     {futureAssignments.assignments.slice(0, 5).map((a: any) => (
-                                        <Text key={a.id_agendamam} type="secondary" style={{ fontSize: 12 }}>
+                                        <p key={a.id_agendamam} className="text-xs text-muted-foreground">
                                             • Ficha #{a.id_fichaingresoservicio} — {a.frecuencia_correlativo} ({a.rol === 'INSTALACION' ? 'instalación' : 'retiro'}) — {a.fecha_muestreo ? new Date(a.fecha_muestreo).toLocaleDateString('es-CL') : '-'}
-                                        </Text>
+                                        </p>
                                     ))}
                                     {futureAssignments.assignments.length > 5 && (
-                                        <Text type="secondary" italic style={{ fontSize: 12 }}>y {futureAssignments.assignments.length - 5} más...</Text>
+                                        <p className="text-xs italic text-muted-foreground">y {futureAssignments.assignments.length - 5} más...</p>
                                     )}
                                 </div>
                             </div>
-                        }
-                    />
-                )}
+                        </div>
+                    )}
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <Text strong style={{ fontSize: 13 }}>¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</Text>
+                    <div className="flex flex-col gap-2">
+                        <p className="text-[13px] font-semibold text-foreground">¿Qué desea hacer con los equipos? ({equipmentCount ?? '...'})</p>
 
-                    {/* Equipos list */}
-                    {equipmentList.length > 0 && (
-                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 140, overflowY: 'auto' }}>
-                                {loadingEquipos ? (
-                                    <div style={{ display: 'flex', justifyContent: 'center', padding: 8 }}><Spin size="small" /></div>
-                                ) : equipmentList.map(eq => (
-                                    <div key={eq.id_equipo} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                        <Tag style={{ flexShrink: 0 }}>{eq.codigo || `#${eq.id_equipo}`}</Tag>
-                                        <Text strong style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.nombre}</Text>
-                                        {eq.ubicacion && <Text type="secondary" style={{ fontSize: 12, flexShrink: 0 }}>{eq.ubicacion}</Text>}
+                        {/* Equipos list */}
+                        {equipmentList.length > 0 && (
+                            <Card className="bg-muted/40 p-3">
+                                <div className="flex max-h-[140px] flex-col gap-1 overflow-y-auto">
+                                    {loadingEquipos ? (
+                                        <div className="flex justify-center p-2">
+                                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                        </div>
+                                    ) : equipmentList.map(eq => (
+                                        <div key={eq.id_equipo} className="flex flex-nowrap items-center gap-2">
+                                            <Badge variant="secondary" className="shrink-0">{eq.codigo || `#${eq.id_equipo}`}</Badge>
+                                            <span className="truncate text-xs font-semibold text-foreground">{eq.nombre}</span>
+                                            {eq.ubicacion && <span className="shrink-0 text-xs text-muted-foreground">{eq.ubicacion}</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </Card>
+                        )}
+
+                        <div className={cn('grid gap-2', isMobile ? 'grid-cols-1' : 'grid-cols-3')}>
+                            {opciones.map((opt) => {
+                                const selected = transferType === opt.id;
+                                return (
+                                    <div
+                                        key={opt.id}
+                                        onClick={() => setTransferType(opt.id)}
+                                        className="cursor-pointer rounded-lg border p-4 text-center transition-colors"
+                                        style={{
+                                            borderColor: selected ? opt.color : 'var(--sc-border)',
+                                            backgroundColor: selected ? opt.bg : 'var(--sc-card)',
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-center">
+                                            <div
+                                                className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg"
+                                                style={{ backgroundColor: opt.bg, color: opt.color }}
+                                            >
+                                                {opt.icon}
+                                            </div>
+                                            <span className="text-xs font-semibold" style={{ color: selected ? opt.color : 'var(--sc-muted-foreground)' }}>
+                                                {opt.label}
+                                            </span>
+                                        </div>
                                     </div>
-                                ))}
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {transferType === 'BASE' && (
+                        <Field label="Base de destino *">
+                            <Combobox
+                                placeholder="Seleccione base..."
+                                options={bases}
+                                value={targetBase ?? undefined}
+                                onValueChange={(v) => setTargetBase(v || null)}
+                                className="w-full"
+                            />
+                        </Field>
+                    )}
+
+                    {transferType === 'MUESTREADOR' && (
+                        <Field label="Muestreador de destino *">
+                            <Combobox
+                                placeholder="Seleccione destino..."
+                                options={otherMuestreadores}
+                                value={targetMuestreadorId ?? undefined}
+                                onValueChange={(v) => setTargetMuestreadorId(v || null)}
+                                className="w-full"
+                            />
+                        </Field>
+                    )}
+
+                    {transferType === 'MANUAL' && (
+                        <Card className="bg-muted/40 p-3">
+                            <div className="mb-2 flex justify-between">
+                                <span className="text-[11px] font-semibold text-muted-foreground">Equipos de {sampler?.nombre_muestreador}</span>
+                                <Badge variant="secondary">{equipmentList.length} ítems</Badge>
+                            </div>
+
+                            <div className="mb-4 border-t border-border" />
+
+                            <div className="flex max-h-[300px] flex-col gap-3 overflow-y-auto">
+                                {loadingEquipos ? (
+                                    <div className="flex justify-center p-8">
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                    </div>
+                                ) : equipmentList.length === 0 ? (
+                                    <p className="py-4 text-center text-sm text-muted-foreground">No hay equipos asignados.</p>
+                                ) : (
+                                    equipmentList.map(eq => (
+                                        <div key={eq.id_equipo} className="rounded-lg border border-border bg-card p-2">
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex flex-nowrap items-center justify-between">
+                                                    <div className="flex flex-1 items-center gap-2 overflow-hidden">
+                                                        <Badge variant="outline" className="shrink-0">
+                                                            <IconHash size={10} /> {eq.codigo}
+                                                        </Badge>
+                                                        <span className="truncate text-sm font-semibold text-foreground">{eq.nombre}</span>
+                                                    </div>
+                                                    {!isMobile && (
+                                                        <Combobox
+                                                            placeholder="Destino"
+                                                            options={otherMuestreadores}
+                                                            value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
+                                                            onValueChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
+                                                            className="w-[140px]"
+                                                        />
+                                                    )}
+                                                </div>
+                                                {isMobile && (
+                                                    <Field label="Asignar a:">
+                                                        <Combobox
+                                                            placeholder="Seleccione destino"
+                                                            options={otherMuestreadores}
+                                                            value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
+                                                            onValueChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
+                                                            className="w-full"
+                                                        />
+                                                    </Field>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </Card>
                     )}
 
-                    <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 8 }}>
-                        {opciones.map((opt) => {
-                            const selected = transferType === opt.id;
-                            return (
-                                <div
-                                    key={opt.id}
-                                    onClick={() => setTransferType(opt.id)}
-                                    style={{
-                                        padding: 16,
-                                        borderRadius: 8,
-                                        border: `1px solid ${selected ? opt.color : 'var(--app-border)'}`,
-                                        backgroundColor: selected ? opt.bg : 'var(--app-bg-elevated)',
-                                        transition: 'all 150ms ease',
-                                        textAlign: 'center',
-                                        cursor: 'pointer',
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                        <div style={{
-                                            width: 36, height: 36, borderRadius: 8, backgroundColor: opt.bg, color: opt.color,
-                                            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 8,
-                                        }}>
-                                            {opt.icon}
-                                        </div>
-                                        <Text strong style={{ fontSize: 12, color: selected ? opt.color : 'var(--app-text-secondary)' }}>
-                                            {opt.label}
-                                        </Text>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                    <div className={cn('mt-6 flex justify-end gap-2', isMobile && 'flex-col')}>
+                        <Button variant="outline" className={isMobile ? 'w-full' : undefined} onClick={onClose}>
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            className={isMobile ? 'w-full' : undefined}
+                            disabled={loading || !transferType || (transferType === 'BASE' && !targetBase) || (transferType === 'MUESTREADOR' && !targetMuestreadorId)}
+                            onClick={handleConfirm}
+                        >
+                            {loading && <span className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />}
+                            Confirmar Baja
+                        </Button>
                     </div>
                 </div>
-
-                {transferType === 'BASE' && (
-                    <Field label="Base de destino *">
-                        <Select
-                            placeholder="Seleccione base..."
-                            options={bases}
-                            value={targetBase ?? undefined}
-                            onChange={(v) => setTargetBase(v ?? null)}
-                            style={{ width: '100%' }}
-                        />
-                    </Field>
-                )}
-
-                {transferType === 'MUESTREADOR' && (
-                    <Field label="Muestreador de destino *">
-                        <Select
-                            placeholder="Seleccione destino..."
-                            options={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                            value={targetMuestreadorId ?? undefined}
-                            onChange={(v) => setTargetMuestreadorId(v ?? null)}
-                            showSearch
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            style={{ width: '100%' }}
-                        />
-                    </Field>
-                )}
-
-                {transferType === 'MANUAL' && (
-                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                            <Text type="secondary" strong style={{ fontSize: 11 }}>Equipos de {sampler?.nombre_muestreador}</Text>
-                            <Tag color="geekblue">{equipmentList.length} ítems</Tag>
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '0 0 16px' }} />
-
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: 300, overflowY: 'auto' }}>
-                            {loadingEquipos ? <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin size="small" /></div> : (
-                                equipmentList.length === 0 ? <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', padding: '16px 0' }}>No hay equipos asignados.</Text> :
-                                equipmentList.map(eq => (
-                                    <div key={eq.id_equipo} style={{ padding: 8, backgroundColor: 'var(--app-bg-elevated)', borderRadius: 8, border: '1px solid var(--app-border)' }}>
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flex: 1, overflow: 'hidden' }}>
-                                                    <Tag icon={<IconHash size={10} style={{ verticalAlign: 'text-bottom' }} />}>{eq.codigo}</Tag>
-                                                    <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{eq.nombre}</Text>
-                                                </div>
-                                                {!isMobile && (
-                                                    <Select
-                                                        size="small"
-                                                        placeholder="Destino"
-                                                        options={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                                                        value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
-                                                        onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                                        style={{ width: 140 }}
-                                                    />
-                                                )}
-                                            </div>
-                                            {isMobile && (
-                                                <Field label="Asignar a:">
-                                                    <Select
-                                                        placeholder="Seleccione destino"
-                                                        options={muestreadores.filter(m => m.id_muestreador !== sampler?.id_muestreador).map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador }))}
-                                                        value={manualAssignments[eq.id_equipo] ? String(manualAssignments[eq.id_equipo]) : undefined}
-                                                        onChange={(val) => setManualAssignments({ ...manualAssignments, [eq.id_equipo]: Number(val) })}
-                                                        style={{ width: '100%' }}
-                                                    />
-                                                </Field>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))
-                            )}
-                        </div>
-                    </Card>
-                )}
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24, flexDirection: isMobile ? 'column' : 'row' }}>
-                    <Button onClick={onClose} block={isMobile}>
-                        Cancelar
-                    </Button>
-                    <Button
-                        danger
-                        type="primary"
-                        loading={loading}
-                        block={isMobile}
-                        disabled={!transferType || (transferType === 'BASE' && !targetBase) || (transferType === 'MUESTREADOR' && !targetMuestreadorId)}
-                        onClick={handleConfirm}
-                    >
-                        Confirmar Baja
-                    </Button>
-                </div>
-            </div>
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

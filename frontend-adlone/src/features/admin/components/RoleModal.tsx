@@ -1,16 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import {
-    Modal,
-    Input,
-    Typography,
-    Button,
-    Checkbox,
-    Divider,
-    Tag,
-    Select
-} from 'antd';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import {
     IconSearch,
     IconShield,
     IconInfoCircle,
@@ -25,12 +14,20 @@ import {
     IconChartBar,
     IconLeaf
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { rbacService } from '../services/rbac.service';
 import type { Role, Permission } from '../services/rbac.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
-
-const { Text, Title } = Typography;
 
 interface Props {
     role: Role | null;
@@ -224,20 +221,16 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
             <div
                 key={p.id_permiso}
                 onClick={() => togglePermission(p.id_permiso)}
-                style={{
-                    border: `1px solid ${selected ? '#4dabf7' : 'var(--app-border)'}`,
-                    borderRadius: 6,
-                    padding: 8,
-                    backgroundColor: selected ? 'var(--app-accent-bg)' : 'var(--app-bg-elevated)',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                }}
+                className={cn(
+                    'cursor-pointer rounded-md border p-2 transition-colors',
+                    selected ? 'border-primary bg-primary/10' : 'border-border bg-card'
+                )}
             >
-                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-                    <Checkbox checked={selected} onChange={() => {}} style={{ marginTop: 3 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}>{p.nombre}</Text>
-                        <Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>{p.codigo}</Text>
+                <div className="flex flex-nowrap items-start gap-2">
+                    <Checkbox checked={selected} className="pointer-events-none mt-0.5" />
+                    <div className="min-w-0 flex-1">
+                        <p className="block truncate text-[13px] font-semibold text-foreground">{p.nombre}</p>
+                        <p className="font-mono text-[11px] text-muted-foreground">{p.codigo}</p>
                     </div>
                 </div>
             </div>
@@ -245,13 +238,13 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
     };
 
     const generalPanel = (
-        <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: isMobile ? 120 : 0 }}>
+        <div className="flex-1 overflow-y-auto p-4">
+            <div className={cn('flex flex-col gap-6', isMobile && 'pb-[120px]')}>
                 <div>
-                    <Title level={4} style={{ marginBottom: 16 }}>Información del Rol</Title>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 24 }}>
+                    <h3 className="mb-4 text-base font-semibold text-foreground">Información del Rol</h3>
+                    <p className="mb-6 block text-[13px] text-muted-foreground">
                         Introduce el nombre y una descripción clara para que otros administradores sepan qué permite hacer este rol.
-                    </Text>
+                    </p>
                 </div>
 
                 <Field label="Nombre del Rol *">
@@ -269,14 +262,14 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                     />
                 </Field>
 
-                <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16, backgroundColor: 'var(--app-hover-bg)', marginTop: 8 }}>
-                    <div style={{ display: 'flex', gap: 16 }}>
-                        <IconShield color="#1c7ed6" />
+                <div className="mt-2 rounded-lg border border-border bg-muted/40 p-4">
+                    <div className="flex gap-4">
+                        <IconShield className="shrink-0 text-primary" />
                         <div>
-                            <Text strong style={{ fontSize: 13, display: 'block' }}>Resumen de Permisos</Text>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                Este rol tiene actualmente <Text strong style={{ color: '#1c7ed6', fontSize: 12 }}>{selectedPermissions.length}</Text> permisos otorgados de un total de {allPermissions.length}.
-                            </Text>
+                            <p className="block text-[13px] font-semibold text-foreground">Resumen de Permisos</p>
+                            <p className="text-xs text-muted-foreground">
+                                Este rol tiene actualmente <span className="text-xs font-semibold text-primary">{selectedPermissions.length}</span> permisos otorgados de un total de {allPermissions.length}.
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -289,28 +282,28 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
         const allSelectedInModule = allModulePerms.every(p => selectedPermissions.includes(p.id_permiso));
 
         return (
-            <div style={{ flex: 1, overflowY: 'auto', padding: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, paddingBottom: isMobile ? 120 : 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
+            <div className="flex-1 overflow-y-auto p-4">
+                <div className={cn('flex flex-col gap-6', isMobile && 'pb-[120px]')}>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                            <Title level={3} style={{ margin: 0 }}>{moduleName}</Title>
-                            <Text type="secondary" style={{ fontSize: 13 }}>Administra los accesos específicos para este módulo.</Text>
+                            <h3 className="m-0 text-lg font-semibold text-foreground">{moduleName}</h3>
+                            <p className="text-[13px] text-muted-foreground">Administra los accesos específicos para este módulo.</p>
                         </div>
                         <Button
-                            type="text"
-                            size="small"
-                            block={isMobile}
+                            variant="ghost"
+                            size="sm"
+                            className={isMobile ? 'w-full' : undefined}
                             onClick={() => toggleSelectAllCategory(allModulePerms)}
                         >
                             {allSelectedInModule ? 'Desmarcar' : 'Marcar Todo'}
                         </Button>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                    <div className="flex flex-col gap-4">
                         {moduleName === 'Medio Ambiente' ? (
-                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                            <div className="rounded-lg border border-border p-4">
                                 <div
-                                    style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer', flexWrap: 'wrap', gap: 8 }}
+                                    className="flex cursor-pointer flex-wrap items-center justify-between gap-2"
                                     onClick={() => {
                                         const allSubKeys = Object.keys(submodules).map(s => `${moduleName}:${s}`);
                                         const someClosed = allSubKeys.some(k => expandedSubmodules[k] === false);
@@ -319,29 +312,29 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                         setExpandedSubmodules(prev => ({ ...prev, ...newState }));
                                     }}
                                 >
-                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                    <div className="flex items-center gap-2">
                                         <IconChevronDown size={14} />
-                                        <Text strong style={{ fontSize: 13, textTransform: 'uppercase' }}>MEDIOAMBIENTE</Text>
-                                        <Tag>{Object.values(submodules).reduce((acc, curr) => acc + curr.length, 0)} permisos</Tag>
+                                        <span className="text-[13px] font-semibold uppercase text-foreground">MEDIOAMBIENTE</span>
+                                        <Badge variant="secondary">{Object.values(submodules).reduce((acc, curr) => acc + curr.length, 0)} permisos</Badge>
                                     </div>
-                                    <Checkbox
-                                        checked={allSelectedInModule}
-                                        onClick={(e) => e.stopPropagation()}
-                                        onChange={() => toggleSelectAllCategory(allModulePerms)}
-                                    >
-                                        Marcar Todo Gestión
-                                    </Checkbox>
+                                    <label className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                        <Checkbox
+                                            checked={allSelectedInModule}
+                                            onCheckedChange={() => toggleSelectAllCategory(allModulePerms)}
+                                        />
+                                        <span className="text-sm text-foreground">Marcar Todo Gestión</span>
+                                    </label>
                                 </div>
 
-                                <div style={{ marginTop: 16 }}>
+                                <div className="mt-4">
                                     {Object.entries(submodules).map(([subName, perms], idx) => (
-                                        <div key={subName} style={{ marginTop: idx > 0 ? 24 : 0 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                                <Text strong style={{ fontSize: 11, color: '#1864ab' }}>{subName}</Text>
-                                                <Tag>{perms.length}</Tag>
-                                                <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--app-border)' }} />
+                                        <div key={subName} className={idx > 0 ? 'mt-6' : undefined}>
+                                            <div className="mb-2 flex items-center gap-2">
+                                                <span className="text-[11px] font-semibold text-primary">{subName}</span>
+                                                <Badge variant="secondary">{perms.length}</Badge>
+                                                <div className="h-px flex-1 bg-border" />
                                             </div>
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                                            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
                                                 {perms.map(p => renderPermissionCard(p))}
                                             </div>
                                         </div>
@@ -355,27 +348,27 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                                 const allSubSelected = perms.every(p => selectedPermissions.includes(p.id_permiso));
 
                                 return (
-                                    <div key={subName} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16 }}>
+                                    <div key={subName} className="rounded-lg border border-border p-4">
                                         <div
-                                            style={{ display: 'flex', justifyContent: 'space-between', cursor: 'pointer', flexWrap: 'wrap', gap: 8 }}
+                                            className="flex cursor-pointer flex-wrap items-center justify-between gap-2"
                                             onClick={() => toggleSubmodule(moduleName, subName)}
                                         >
-                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                            <div className="flex items-center gap-2">
                                                 {isExpanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                                                <Text strong style={{ fontSize: 13, textTransform: 'uppercase' }}>{subName}</Text>
-                                                <Tag>{perms.length} permisos</Tag>
+                                                <span className="text-[13px] font-semibold uppercase text-foreground">{subName}</span>
+                                                <Badge variant="secondary">{perms.length} permisos</Badge>
                                             </div>
-                                            <Checkbox
-                                                checked={allSubSelected}
-                                                onClick={(e) => e.stopPropagation()}
-                                                onChange={() => toggleSelectAllCategory(perms)}
-                                            >
-                                                Marcar Submódulo
-                                            </Checkbox>
+                                            <label className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <Checkbox
+                                                    checked={allSubSelected}
+                                                    onCheckedChange={() => toggleSelectAllCategory(perms)}
+                                                />
+                                                <span className="text-sm text-foreground">Marcar Submódulo</span>
+                                            </label>
                                         </div>
 
                                         {isExpanded && (
-                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginTop: 16 }}>
+                                            <div className="mt-4 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))' }}>
                                                 {perms.map(p => renderPermissionCard(p))}
                                             </div>
                                         )}
@@ -390,139 +383,136 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
     };
 
     return (
-        <Modal
-            open={isOpen}
-            onCancel={onClose}
-            footer={null}
-            width={isMobile ? '100%' : '85%'}
-            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
-            styles={{ body: { padding: 0 } }}
-            title={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IconShield size={22} color="#1677ff" />
-                    <div>
-                        <Text strong style={{ display: 'block' }}>{role ? 'Configurar Rol / Permisos' : 'Crear Nuevo Rol de Acceso'}</Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{role ? `Editando: ${role.nombre_rol}` : 'Define capacidades del sistema'}</Text>
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="flex h-[85vh] max-w-5xl flex-col gap-0 p-0">
+                <DialogHeader className="border-b border-border p-4">
+                    <div className="flex items-center gap-2">
+                        <IconShield size={22} className="text-primary" />
+                        <div>
+                            <DialogTitle>{role ? 'Configurar Rol / Permisos' : 'Crear Nuevo Rol de Acceso'}</DialogTitle>
+                            <p className="text-xs text-muted-foreground">{role ? `Editando: ${role.nombre_rol}` : 'Define capacidades del sistema'}</p>
+                        </div>
                     </div>
-                </div>
-            }
-        >
-            <div style={{ height: isMobile ? 'calc(100dvh - 240px)' : '75vh', display: 'flex', overflow: 'hidden', flexDirection: isMobile ? 'column' : 'row', borderTop: '1px solid var(--app-border)' }}>
-                {isMobile ? (
-                    <>
-                        <div style={{ padding: 16, backgroundColor: 'var(--app-hover-bg)', borderBottom: '1px solid var(--app-border)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                </DialogHeader>
+
+                <div className={cn('flex flex-1 overflow-hidden', isMobile ? 'flex-col' : 'flex-row')}>
+                    {isMobile ? (
+                        <>
+                            <div className="flex flex-col gap-2 border-b border-border bg-muted/40 p-4">
                                 <Button
-                                    type={activeTab === 'GENERAL' ? 'primary' : 'default'}
-                                    icon={<IconInfoCircle size={16} />}
+                                    variant={activeTab === 'GENERAL' ? 'default' : 'outline'}
+                                    className="w-full"
                                     onClick={() => setActiveTab('GENERAL')}
-                                    block
                                 >
-                                    Info. General
+                                    <IconInfoCircle size={16} /> Info. General
                                 </Button>
 
-                                <Input
-                                    placeholder="Buscar permisos..."
-                                    prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
+                                <div className="relative">
+                                    <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Buscar permisos..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-8"
+                                    />
+                                </div>
 
-                                <Select
+                                <Combobox
                                     placeholder="Seleccionar módulo..."
                                     options={Object.keys(hierarchicalPermissions).map(mod => ({ value: mod, label: mod }))}
                                     value={activeTab === 'GENERAL' ? undefined : activeTab}
-                                    onChange={(val) => val && setActiveTab(val)}
-                                    style={{ width: '100%' }}
+                                    onValueChange={(val) => val && setActiveTab(val)}
+                                    className="w-full"
                                 />
                             </div>
-                        </div>
-                        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-                            {activeTab === 'GENERAL' ? generalPanel : (
-                                hierarchicalPermissions[activeTab] ? renderModulePanel(activeTab, hierarchicalPermissions[activeTab]) : generalPanel
-                            )}
-                        </div>
-                    </>
-                ) : (
-                    <>
-                        <div style={{ width: 280, borderRight: '1px solid var(--app-border)', backgroundColor: 'var(--app-hover-bg)', padding: 12, display: 'flex', flexDirection: 'column' }}>
-                            <Input
-                                placeholder="Buscar permisos..."
-                                prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                style={{ marginBottom: 16 }}
-                            />
+                            <div className="flex min-h-0 flex-1">
+                                {activeTab === 'GENERAL' ? generalPanel : (
+                                    hierarchicalPermissions[activeTab] ? renderModulePanel(activeTab, hierarchicalPermissions[activeTab]) : generalPanel
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="flex w-[280px] flex-col border-r border-border bg-muted/40 p-3">
+                                <div className="relative mb-4">
+                                    <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Buscar permisos..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        className="pl-8"
+                                    />
+                                </div>
 
-                            <button
-                                onClick={() => setActiveTab('GENERAL')}
-                                style={{
-                                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, marginBottom: 4,
-                                    border: 'none', cursor: 'pointer', fontWeight: 600, textAlign: 'left',
-                                    backgroundColor: activeTab === 'GENERAL' ? '#1677ff' : 'transparent',
-                                    color: activeTab === 'GENERAL' ? '#fff' : 'var(--app-text)',
-                                }}
-                            >
-                                <IconInfoCircle size={16} />
-                                Info. General
-                            </button>
+                                <button
+                                    onClick={() => setActiveTab('GENERAL')}
+                                    className={cn(
+                                        'mb-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold',
+                                        activeTab === 'GENERAL' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
+                                    )}
+                                >
+                                    <IconInfoCircle size={16} />
+                                    Info. General
+                                </button>
 
-                            <Divider style={{ margin: '12px 0' }}>Módulos</Divider>
+                                <div className="my-3 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                                    <span>Módulos</span>
+                                    <div className="h-px flex-1 bg-border" />
+                                </div>
 
-                            <div style={{ flex: 1, overflowY: 'auto' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                    {Object.entries(hierarchicalPermissions).map(([moduleName, submods]) => {
-                                        const modulePerms = Object.values(submods).flat();
-                                        const selectedInModule = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
-                                        const isActive = activeTab === moduleName;
+                                <div className="flex-1 overflow-y-auto">
+                                    <div className="flex flex-col gap-1">
+                                        {Object.entries(hierarchicalPermissions).map(([moduleName, submods]) => {
+                                            const modulePerms = Object.values(submods).flat();
+                                            const selectedInModule = modulePerms.filter(p => selectedPermissions.includes(p.id_permiso)).length;
+                                            const isActive = activeTab === moduleName;
 
-                                        return (
-                                            <button
-                                                key={moduleName}
-                                                onClick={() => setActiveTab(moduleName)}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8,
-                                                    border: 'none', cursor: 'pointer', fontWeight: 600, textAlign: 'left',
-                                                    backgroundColor: isActive ? '#1677ff' : 'transparent',
-                                                    color: isActive ? '#fff' : 'var(--app-text)',
-                                                }}
-                                            >
-                                                {getModuleIcon(moduleName)}
-                                                <Text style={{ fontSize: 13, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: isActive ? '#fff' : undefined }}>{moduleName}</Text>
-                                                {selectedInModule > 0 && (
-                                                    <Tag color={isActive ? undefined : 'blue'} style={{ marginInlineEnd: 0 }}>{selectedInModule}</Tag>
-                                                )}
-                                            </button>
-                                        );
-                                    })}
+                                            return (
+                                                <button
+                                                    key={moduleName}
+                                                    onClick={() => setActiveTab(moduleName)}
+                                                    className={cn(
+                                                        'flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-semibold',
+                                                        isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
+                                                    )}
+                                                >
+                                                    {getModuleIcon(moduleName)}
+                                                    <span className="flex-1 truncate">{moduleName}</span>
+                                                    {selectedInModule > 0 && (
+                                                        <Badge variant={isActive ? 'outline' : 'secondary'} className={isActive ? 'border-primary-foreground/40 text-primary-foreground' : undefined}>
+                                                            {selectedInModule}
+                                                        </Badge>
+                                                    )}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-                            {activeTab === 'GENERAL' ? generalPanel : (
-                                hierarchicalPermissions[activeTab] ? renderModulePanel(activeTab, hierarchicalPermissions[activeTab]) : generalPanel
-                            )}
-                        </div>
-                    </>
-                )}
-            </div>
+                            <div className="flex min-h-0 flex-1">
+                                {activeTab === 'GENERAL' ? generalPanel : (
+                                    hierarchicalPermissions[activeTab] ? renderModulePanel(activeTab, hierarchicalPermissions[activeTab]) : generalPanel
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
 
-            <Divider style={{ margin: 0 }} />
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: 24, paddingBottom: isMobile ? 60 : 24, backgroundColor: 'var(--app-hover-bg)' }}>
-                <Button onClick={onClose} block={isMobile}>
-                    Cancelar / Descartar
-                </Button>
-                <Button
-                    type="primary"
-                    loading={loading}
-                    onClick={handleSave}
-                    icon={<IconCheck size={18} />}
-                    block={isMobile}
-                >
-                    Guardar Cambios
-                </Button>
-            </div>
+                <div className={cn('flex justify-end gap-2 border-t border-border bg-muted/40 p-6', isMobile && 'flex-col pb-[60px]')}>
+                    <Button variant="outline" className={isMobile ? 'w-full' : undefined} onClick={onClose}>
+                        Cancelar / Descartar
+                    </Button>
+                    <Button
+                        disabled={loading}
+                        onClick={handleSave}
+                        className={isMobile ? 'w-full' : undefined}
+                    >
+                        {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconCheck size={18} />}
+                        Guardar Cambios
+                    </Button>
+                </div>
+            </DialogContent>
 
             <ConfirmModal
                 isOpen={confirmSaveOpen}
@@ -534,14 +524,14 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                 onConfirm={doSave}
                 onCancel={() => { setConfirmSaveOpen(false); setAffectedCount(null); }}
             />
-        </Modal>
+        </Dialog>
     );
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

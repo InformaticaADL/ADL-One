@@ -1,16 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    Input,
-    Button,
-    Typography,
-    Spin,
-    Alert,
-    Checkbox,
-    Tag,
-    Card
-} from 'antd';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import {
     IconDeviceFloppy,
     IconTrash,
     IconUpload,
@@ -20,12 +9,20 @@ import {
     IconUser,
     IconBell
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-
-const { Text } = Typography;
 
 interface Muestreador {
     id_muestreador?: number;
@@ -211,10 +208,10 @@ export const MuestreadorForm: React.FC<Props> = ({
     };
 
     return (
-        <div style={{ maxWidth: 720, margin: '0 auto', padding: isMobile ? '16px 8px' : '32px 16px' }}>
+        <div className={cn('shadcn-scope mx-auto max-w-3xl', isMobile ? 'px-2 py-4' : 'px-4 py-8')}>
             {loading && (
-                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(255,255,255,0.6)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin size="large" />
+                <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-background/60">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             )}
 
@@ -229,47 +226,69 @@ export const MuestreadorForm: React.FC<Props> = ({
             />
 
             <form onSubmit={handleSubmit}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, marginTop: 32 }}>
+                <div className="mt-8 flex flex-col gap-6">
                     {error && (
-                        <Alert type="error" showIcon icon={<IconAlertCircle size={16} />} message="Error" description={error} closable onClose={() => setError(null)} />
+                        <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-4">
+                            <IconAlertCircle size={16} className="mt-0.5 shrink-0 text-destructive" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-foreground">Error</p>
+                                <p className="text-sm text-muted-foreground">{error}</p>
+                            </div>
+                            <button type="button" onClick={() => setError(null)} className="text-xs font-medium text-muted-foreground hover:text-foreground">
+                                Cerrar
+                            </button>
+                        </div>
                     )}
 
                     {duplicateWarning && (
-                        <Alert type="warning" showIcon icon={<IconAlertCircle size={16} />} message="Advertencia" description={duplicateWarning} />
+                        <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-4">
+                            <IconAlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-foreground">Advertencia</p>
+                                <p className="text-sm text-muted-foreground">{duplicateWarning}</p>
+                            </div>
+                        </div>
                     )}
 
-                    <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Información Personal</Text>
+                    <Card className="p-5">
+                        <div className="flex flex-col gap-4">
+                            <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Información Personal</p>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                            <div className={cn('grid gap-4', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
                                 <Field label="Nombre Completo *">
-                                    <Input
-                                        placeholder="Ej: Juan Pérez"
-                                        prefix={<IconUser size={18} style={{ color: 'var(--app-text-secondary)' }} />}
-                                        value={formData.nombre_muestreador}
-                                        onChange={(e) => setFormData({ ...formData, nombre_muestreador: e.target.value })}
-                                    />
+                                    <div className="relative">
+                                        <IconUser size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            placeholder="Ej: Juan Pérez"
+                                            value={formData.nombre_muestreador}
+                                            onChange={(e) => setFormData({ ...formData, nombre_muestreador: e.target.value })}
+                                            className="pl-9"
+                                        />
+                                    </div>
                                 </Field>
                                 <Field label="Correo Electrónico *">
-                                    <Input
-                                        placeholder="ejemplo@adldiagnostic.cl"
-                                        prefix={<IconMail size={18} style={{ color: 'var(--app-text-secondary)' }} />}
-                                        value={formData.correo_electronico}
-                                        onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
-                                    />
+                                    <div className="relative">
+                                        <IconMail size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            placeholder="ejemplo@adldiagnostic.cl"
+                                            value={formData.correo_electronico}
+                                            onChange={(e) => setFormData({ ...formData, correo_electronico: e.target.value })}
+                                            className="pl-9"
+                                        />
+                                    </div>
                                 </Field>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 16 }}>
+                            <div className={cn('grid gap-4', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
                                 <Field
-                                    label={initialData?.id_muestreador ? "Clave de Acceso (opcional)" : "Clave de Acceso *"}
+                                    label={initialData?.id_muestreador ? 'Clave de Acceso (opcional)' : 'Clave de Acceso *'}
                                     hint={initialData?.id_muestreador
                                         ? `${claveLength} / 6 caracteres — solo escriba si desea cambiarla`
                                         : `${claveLength} / 6 caracteres`}
                                 >
-                                    <Input.Password
-                                        placeholder={initialData?.id_muestreador ? "Dejar vacío para conservar la actual" : "******"}
+                                    <Input
+                                        type="password"
+                                        placeholder={initialData?.id_muestreador ? 'Dejar vacío para conservar la actual' : '******'}
                                         maxLength={6}
                                         value={formData.clave_usuario ?? ''}
                                         onChange={(e) => setFormData({ ...formData, clave_usuario: e.target.value })}
@@ -280,62 +299,49 @@ export const MuestreadorForm: React.FC<Props> = ({
                         </div>
                     </Card>
 
-                    <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Firma Digital</Text>
-                            <Text type="secondary" style={{ fontSize: 13, textAlign: isMobile ? 'center' : 'left' }}>Esta firma se utilizará para validar las fichas de muestreo electrónicamente.</Text>
+                    <Card className="p-5">
+                        <div className="flex flex-col gap-4">
+                            <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Firma Digital</p>
+                            <p className={cn('text-[13px] text-muted-foreground', isMobile ? 'text-center' : 'text-left')}>Esta firma se utilizará para validar las fichas de muestreo electrónicamente.</p>
 
-                            <div
-                                style={{
-                                    border: '2px dashed var(--app-border)',
-                                    borderRadius: 12,
-                                    padding: 32,
-                                    backgroundColor: 'var(--app-hover-bg)',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    minHeight: 200
-                                }}
-                            >
+                            <div className="flex min-h-[200px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-border bg-muted/40 p-8">
                                 {formData.firma_muestreador ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                                        <Card size="small">
+                                    <div className="flex flex-col items-center gap-3">
+                                        <Card className="p-2">
                                             <img
                                                 src={formData.firma_muestreador}
-                                                style={{ height: 120, objectFit: 'contain' }}
+                                                className="h-[120px] object-contain"
                                                 alt="Vista previa firma"
                                             />
                                         </Card>
                                         <ProtectedContent permission="MU_FIRMA">
                                             <Button
-                                                danger
-                                                size="small"
-                                                icon={<IconTrash size={14} />}
+                                                variant="destructive"
+                                                size="sm"
                                                 onClick={() => setFormData({ ...formData, firma_muestreador: '' })}
                                             >
-                                                Eliminar Firma
+                                                <IconTrash size={14} /> Eliminar Firma
                                             </Button>
                                         </ProtectedContent>
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                                        <IconSignature size={48} strokeWidth={1} color="var(--app-text-secondary)" />
-                                        <Text type="secondary" style={{ fontSize: 13 }}>No hay firma registrada</Text>
+                                    <div className="flex flex-col items-center gap-2">
+                                        <IconSignature size={48} strokeWidth={1} className="text-muted-foreground" />
+                                        <p className="text-[13px] text-muted-foreground">No hay firma registrada</p>
                                         <ProtectedContent permission="MU_FIRMA">
                                             <input
                                                 ref={firmaFileInputRef}
                                                 type="file"
                                                 accept="image/png,image/jpeg"
-                                                style={{ display: 'none' }}
+                                                className="hidden"
                                                 onChange={(e) => { handleFileChange(e.target.files?.[0] ?? null); e.target.value = ''; }}
                                             />
                                             <Button
-                                                icon={<IconUpload size={16} />}
-                                                style={{ marginTop: 8 }}
+                                                variant="outline"
+                                                className="mt-2"
                                                 onClick={() => firmaFileInputRef.current?.click()}
                                             >
-                                                Subir Imagen de Firma
+                                                <IconUpload size={16} /> Subir Imagen de Firma
                                             </Button>
                                         </ProtectedContent>
                                     </div>
@@ -345,30 +351,30 @@ export const MuestreadorForm: React.FC<Props> = ({
                     </Card>
 
                     {/* --- Competencias --- */}
-                    <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Competencias</Text>
-                            <Text type="secondary" style={{ fontSize: 13 }}>Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</Text>
-                            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 4 }}>
+                    <Card className="p-5">
+                        <div className="flex flex-col gap-4">
+                            <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Competencias</p>
+                            <p className="text-[13px] text-muted-foreground">Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</p>
+                            <div className={cn('grid gap-1', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
                                 {allCompetencias.map(c => (
-                                    <Checkbox
-                                        key={c.id_competencia}
-                                        checked={compSeleccionadas.includes(c.id_competencia)}
-                                        onChange={(e) => {
-                                            const on = e.target.checked;
-                                            setCompSeleccionadas(prev => on ? [...prev, c.id_competencia] : prev.filter(x => x !== c.id_competencia));
-                                        }}
-                                    >
-                                        {c.nombre_competencia}
-                                    </Checkbox>
+                                    <label key={c.id_competencia} className="flex items-center gap-2 py-1">
+                                        <Checkbox
+                                            checked={compSeleccionadas.includes(c.id_competencia)}
+                                            onCheckedChange={(checked) => {
+                                                const on = checked === true;
+                                                setCompSeleccionadas(prev => on ? [...prev, c.id_competencia] : prev.filter(x => x !== c.id_competencia));
+                                            }}
+                                        />
+                                        <span className="text-sm text-foreground">{c.nombre_competencia}</span>
+                                    </label>
                                 ))}
                             </div>
                             {compAsignadas.filter(c => c.activo !== 'S').length > 0 && (
                                 <div>
-                                    <Text type="secondary" strong style={{ fontSize: 12, display: 'block', marginTop: 8 }}>Competencias inactivas (conservadas):</Text>
-                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                                    <p className="mt-2 text-xs font-semibold text-muted-foreground">Competencias inactivas (conservadas):</p>
+                                    <div className="mt-1 flex flex-wrap gap-1">
                                         {compAsignadas.filter(c => c.activo !== 'S').map(c => (
-                                            <Tag key={c.id_competencia}>{c.nombre_competencia}</Tag>
+                                            <Badge key={c.id_competencia} variant="outline">{c.nombre_competencia}</Badge>
                                         ))}
                                     </div>
                                 </div>
@@ -378,54 +384,67 @@ export const MuestreadorForm: React.FC<Props> = ({
 
                     {/* --- Documentos / Certificados (solo en edición) --- */}
                     {initialData?.id_muestreador && (
-                        <Card>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                <Text strong style={{ fontSize: 16, color: '#1864ab', textAlign: isMobile ? 'center' : 'left' }}>Documentos / Certificados</Text>
-                                <Text type="secondary" style={{ fontSize: 13 }}>Adjunte respaldos de cursos o capacitaciones (disponible para cualquier muestreador).</Text>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    {documentos.length === 0 && <Text type="secondary" style={{ fontSize: 12 }}>Sin documentos.</Text>}
+                        <Card className="p-5">
+                            <div className="flex flex-col gap-4">
+                                <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Documentos / Certificados</p>
+                                <p className="text-[13px] text-muted-foreground">Adjunte respaldos de cursos o capacitaciones (disponible para cualquier muestreador).</p>
+                                <div className="flex flex-col gap-2">
+                                    {documentos.length === 0 && <p className="text-xs text-muted-foreground">Sin documentos.</p>}
                                     {documentos.map(d => (
-                                        <div key={d.id_documento} style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', alignItems: 'center' }}>
-                                            <a href={d.ruta_archivo} target="_blank" rel="noreferrer" style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.nombre_documento}</a>
-                                            <Button type="text" danger size="small" icon={<IconTrash size={16} />} onClick={() => handleDeleteDoc(d.id_documento)} />
+                                        <div key={d.id_documento} className="flex flex-nowrap items-center justify-between">
+                                            <a href={d.ruta_archivo} target="_blank" rel="noreferrer" className="truncate text-[13px] text-primary hover:underline">{d.nombre_documento}</a>
+                                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDoc(d.id_documento)}>
+                                                <IconTrash size={16} />
+                                            </Button>
                                         </div>
                                     ))}
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                                    <div style={{ flex: 1, minWidth: 160 }}>
+                                <div className="flex flex-wrap items-end gap-2">
+                                    <div className="min-w-[160px] flex-1">
                                         <input
                                             ref={docFileInputRef}
                                             type="file"
                                             accept="application/pdf,image/*"
-                                            style={{ display: 'none' }}
+                                            className="hidden"
                                             onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
                                         />
-                                        <Input
-                                            readOnly
-                                            placeholder="Seleccionar archivo"
-                                            value={docFile?.name ?? ''}
-                                            onClick={() => docFileInputRef.current?.click()}
-                                            suffix={docFile ? <IconTrash size={14} style={{ cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setDocFile(null); }} /> : undefined}
-                                        />
+                                        <div className="relative">
+                                            <Input
+                                                readOnly
+                                                placeholder="Seleccionar archivo"
+                                                value={docFile?.name ?? ''}
+                                                onClick={() => docFileInputRef.current?.click()}
+                                                className={cn('cursor-pointer', docFile && 'pr-8')}
+                                            />
+                                            {docFile && (
+                                                <IconTrash
+                                                    size={14}
+                                                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground"
+                                                    onClick={(e) => { e.stopPropagation(); setDocFile(null); }}
+                                                />
+                                            )}
+                                        </div>
                                     </div>
-                                    <Input style={{ flex: 1, minWidth: 160 }} placeholder="Nombre/Título (opcional)" value={docNombre} onChange={e => setDocNombre(e.target.value)} />
-                                    <Button onClick={handleUploadDoc} loading={docUploading} disabled={!docFile} icon={<IconUpload size={16} />}>Subir</Button>
+                                    <Input className="min-w-[160px] flex-1" placeholder="Nombre/Título (opcional)" value={docNombre} onChange={e => setDocNombre(e.target.value)} />
+                                    <Button onClick={handleUploadDoc} disabled={docUploading || !docFile}>
+                                        {docUploading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconUpload size={16} />}
+                                        Subir
+                                    </Button>
                                 </div>
                             </div>
                         </Card>
                     )}
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24, flexDirection: isMobile ? 'column' : 'row' }}>
-                        <Button onClick={onCancel} block={isMobile}>
+                    <div className={cn('mt-6 flex justify-end gap-2', isMobile && 'flex-col')}>
+                        <Button variant="outline" className={isMobile ? 'w-full' : undefined} onClick={onCancel}>
                             Cancelar
                         </Button>
                         <Button
-                            htmlType="submit"
-                            type="primary"
-                            icon={<IconDeviceFloppy size={18} />}
-                            loading={loading}
-                            block={isMobile}
+                            type="submit"
+                            disabled={loading}
+                            className={isMobile ? 'w-full' : undefined}
                         >
+                            {loading ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconDeviceFloppy size={18} />}
                             Guardar {isMobile ? '' : 'Muestreador'}
                         </Button>
                     </div>
@@ -433,16 +452,13 @@ export const MuestreadorForm: React.FC<Props> = ({
             </form>
 
             {pendingRequests.length > 0 && (
-                <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 100 }}>
+                <div className="fixed bottom-5 right-5 z-[100]">
                     <Button
-                        type="primary"
-                        style={{ backgroundColor: '#e8590c', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}
-                        icon={<IconBell size={20} />}
-                        size="large"
-                        shape="round"
+                        className="rounded-full bg-[#e8590c] text-white shadow-lg hover:bg-[#e8590c]/90"
+                        size="lg"
                         onClick={onViewRequests}
                     >
-                        Solicitudes ({pendingRequests.length})
+                        <IconBell size={20} /> Solicitudes ({pendingRequests.length})
                     </Button>
                 </div>
             )}
@@ -453,9 +469,9 @@ export const MuestreadorForm: React.FC<Props> = ({
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <Label className="mb-1 block text-xs font-normal text-muted-foreground">{label}</Label>
             {children}
-            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+            {hint && <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>}
         </div>
     );
 }
