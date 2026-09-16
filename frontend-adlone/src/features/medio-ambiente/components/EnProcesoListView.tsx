@@ -3,7 +3,15 @@ import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-import { Card, Input, Select, Button, Table, Tag, Tooltip, Typography } from 'antd';
+import { useTableSort } from '../../../hooks/useTableSort';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
 import {
     IconSearch,
     IconEraser,
@@ -12,12 +20,12 @@ import {
     IconClockPlay
 } from '@tabler/icons-react';
 
-const { Text } = Typography;
-
 interface Props {
     onBackToMenu: () => void;
     onViewDetail: (id: number) => void;
 }
+
+type SortKey = 'id' | 'fecha' | 'muestreador' | 'tipo' | 'empresa' | 'objetivo';
 
 export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
     // State
@@ -39,7 +47,7 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
     const [searchObjetivo, setSearchObjetivo] = useState<string | null>(null);
     const [searchSubArea, setSearchSubArea] = useState<string | null>(null);
 
-    const [currentPage, setCurrentPage] = useState(1);
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
 
@@ -90,7 +98,7 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
         setSearchMuestreador(null);
         setSearchObjetivo(null);
         setSearchSubArea(null);
-        setCurrentPage(1);
+        setPage(1);
     };
 
     const filteredFichas = useMemo(() => {
@@ -129,79 +137,28 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
         });
     }, [fichas, searchId, dateFrom, dateTo, searchTipo, searchEmpresaServicio, searchMuestreador, searchObjetivo, searchSubArea]);
 
-    const sortedFichas = useMemo(() => {
-        return [...filteredFichas].sort((a, b) => {
-            const dateA = a.fecha ? new Date(a.fecha).getTime() : 0;
-            const dateB = b.fecha ? new Date(b.fecha).getTime() : 0;
-            return dateB - dateA;
-        });
-    }, [filteredFichas]);
+    const sortAccessors: Record<SortKey, (f: any) => string | number | null | undefined> = {
+        id: (f) => f.correlativo || f.id,
+        fecha: (f) => f.fecha,
+        muestreador: (f) => f.muestreador,
+        tipo: (f) => f.tipo_ficha,
+        empresa: (f) => f.empresa_servicio,
+        objetivo: (f) => f.objetivo,
+    };
+    const { sorted: sortedFichas, sort, toggleSort } = useTableSort(
+        filteredFichas,
+        sortAccessors,
+        { key: 'fecha' as SortKey, direction: 'desc' }
+    );
+    const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => { toggleSort(key); setPage(1); } });
 
-    // Columnas consolidadas: 6 en vez de 9 — Empresa+Contacto y
-    // Objetivo+Sub Área comparten celda apilada, como en las otras bandejas
-    // ya migradas.
-    const columns = [
-        {
-            title: 'N° Ficha', width: 90,
-            render: (_: any, f: any) => <Text strong style={{ color: '#0d9488' }}>{f.correlativo || f.id || '-'}</Text>,
-        },
-        {
-            title: 'Fecha M.', width: 110,
-            render: (_: any, f: any) => <Text style={{ fontSize: 12.5, fontWeight: 500 }}>{f.fecha ? new Date(f.fecha).toLocaleDateString('es-ES') : 'Sin Fecha'}</Text>,
-        },
-        {
-            title: 'Muestreador', width: 160,
-            render: (_: any, f: any) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <IconClockPlay size={14} color="var(--app-accent-text)" />
-                    <Text style={{ fontSize: 12.5, fontWeight: 500 }}>{f.muestreador || 'Por Asignar'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Tipo', width: 120,
-            render: (_: any, f: any) => <Tag color="blue">{f.tipo_ficha || '-'}</Tag>,
-        },
-        {
-            title: 'Empresa / Contacto', width: 220,
-            render: (_: any, f: any) => (
-                <div>
-                    <Text style={{ fontSize: 12.5, fontWeight: 500, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.empresa_servicio}>
-                        {f.empresa_servicio || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={f.contacto}>
-                        {f.contacto || f.correo_empresa || '-'}
-                    </Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Objetivo / Sub Área', width: 220,
-            render: (_: any, f: any) => (
-                <div>
-                    <Text style={{ fontSize: 12.5, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.objetivo}>
-                        {f.objetivo || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{f.subarea || '-'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: '', width: 60, align: 'center' as const,
-            render: (_: any, f: any) => (
-                <ProtectedContent permission="FI_VER">
-                    <Tooltip title="Gestionar Ficha">
-                        <Button type="primary" style={{ backgroundColor: '#0d9488' }} shape="circle" size="small" icon={<IconEdit size={16} />} onClick={() => onViewDetail(f.id)} />
-                    </Tooltip>
-                </ProtectedContent>
-            ),
-        },
-    ];
-
-    const selectProps = { showSearch: true, allowClear: true, style: { width: '100%' }, placeholder: 'Todos' } as const;
+    const paginatedFichas = useMemo(() => {
+        const start = (page - 1) * itemsPerPage;
+        return sortedFichas.slice(start, start + itemsPerPage);
+    }, [sortedFichas, page]);
 
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title="Fichas en Proceso"
                 subtitle="Seguimiento de servicios programados y en ejecución"
@@ -211,66 +168,123 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
                     { label: 'En Proceso' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{filteredFichas.length} registros</Text>
-                        <Button icon={<IconEraser size={14} />} onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">{filteredFichas.length} registros</span>
+                        <Button variant="outline" onClick={handleClearFilters}>
+                            <IconEraser size={14} /> Limpiar Filtros
+                        </Button>
                     </div>
                 }
             />
 
-            <Card
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--app-accent-text)' }}>
-                        <IconFilter size={18} /> Filtros de búsqueda
-                    </span>
-                }
-                styles={{ header: { border: 'none' } }}
-                style={{ marginBottom: 16 }}
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+            <Card className="mb-4 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+                    <IconFilter size={18} /> Filtros de búsqueda
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
                     <Field label="N° Ficha">
-                        <Input placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} prefix={<IconSearch size={14} />} />
+                        <div className="relative">
+                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="pl-8" placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+                        </div>
                     </Field>
                     <Field label="Desde">
-                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                        <DatePicker value={dateFrom} onChange={setDateFrom} />
                     </Field>
                     <Field label="Hasta">
-                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                        <DatePicker value={dateTo} onChange={setDateTo} />
                     </Field>
                     <Field label="Tipo Ficha">
-                        <Select options={uniqueTipos} value={searchTipo || undefined} onChange={(v) => setSearchTipo(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar tipo..." options={uniqueTipos} value={searchTipo ?? ''} onValueChange={(v) => setSearchTipo(v || null)} />
                     </Field>
                     <Field label="Empresa Servicio">
-                        <Select options={uniqueEmpServicio} value={searchEmpresaServicio || undefined} onChange={(v) => setSearchEmpresaServicio(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpServicio} value={searchEmpresaServicio ?? ''} onValueChange={(v) => setSearchEmpresaServicio(v || null)} />
                     </Field>
                     <Field label="Muestreador">
-                        <Select options={uniqueMuestreadores} value={searchMuestreador || undefined} onChange={(v) => setSearchMuestreador(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar muestreador..." options={uniqueMuestreadores} value={searchMuestreador ?? ''} onValueChange={(v) => setSearchMuestreador(v || null)} />
                     </Field>
                     <Field label="Objetivo">
-                        <Select options={uniqueObjetivos} value={searchObjetivo || undefined} onChange={(v) => setSearchObjetivo(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
                     </Field>
                     <Field label="Sub Área">
-                        <Select options={uniqueSubAreas} value={searchSubArea || undefined} onChange={(v) => setSearchSubArea(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar sub área..." options={uniqueSubAreas} value={searchSubArea ?? ''} onValueChange={(v) => setSearchSubArea(v || null)} />
                     </Field>
                 </div>
             </Card>
 
-            <Card styles={{ body: { padding: 0 } }}>
-                <Table
-                    rowKey={(f) => `${f.id}-${f.correlativo}`}
-                    columns={columns}
-                    dataSource={sortedFichas}
-                    loading={loading}
-                    scroll={{ x: 900 }}
-                    pagination={{
-                        current: currentPage,
-                        pageSize: itemsPerPage,
-                        total: sortedFichas.length,
-                        onChange: setCurrentPage,
-                        style: { paddingInline: 16 },
-                    }}
-                    locale={{ emptyText: 'No se encontraron fichas en proceso.' }}
-                />
+            <Card className="p-0">
+                <div className="relative overflow-hidden rounded-xl">
+                    {loading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                    )}
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                                <SortableTableHead {...sortProps('id')} className="w-[90px]">N° Ficha</SortableTableHead>
+                                <SortableTableHead {...sortProps('fecha')} className="w-[110px]">Fecha M.</SortableTableHead>
+                                <SortableTableHead {...sortProps('muestreador')} className="w-[160px]">Muestreador</SortableTableHead>
+                                <SortableTableHead {...sortProps('tipo')} className="w-[120px]">Tipo</SortableTableHead>
+                                <SortableTableHead {...sortProps('empresa')} className="w-[220px]">Empresa / Contacto</SortableTableHead>
+                                <SortableTableHead {...sortProps('objetivo')} className="w-[220px]">Objetivo / Sub Área</SortableTableHead>
+                                <TableHead className="w-[60px] text-center" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedFichas.length === 0 ? (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                                        {loading ? 'Cargando...' : 'No se encontraron fichas en proceso.'}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginatedFichas.map((f) => (
+                                    <TableRow key={`${f.id}-${f.correlativo}`}>
+                                        <TableCell className="font-semibold text-primary">{f.correlativo || f.id || '-'}</TableCell>
+                                        <TableCell className="text-[12.5px] font-medium">{f.fecha ? new Date(f.fecha).toLocaleDateString('es-ES') : 'Sin Fecha'}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1.5">
+                                                <IconClockPlay size={14} className="text-primary" />
+                                                <span className="text-[12.5px] font-medium">{f.muestreador || 'Por Asignar'}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell><Badge variant="secondary">{f.tipo_ficha || '-'}</Badge></TableCell>
+                                        <TableCell>
+                                            <span className="block max-w-[200px] truncate text-[12.5px] font-medium" title={f.empresa_servicio}>
+                                                {f.empresa_servicio || '-'}
+                                            </span>
+                                            <span className="block max-w-[200px] truncate text-xs text-muted-foreground" title={f.contacto}>
+                                                {f.contacto || f.correo_empresa || '-'}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="block max-w-[200px] truncate text-[12.5px]" title={f.objetivo}>
+                                                {f.objetivo || '-'}
+                                            </span>
+                                            <span className="text-xs text-muted-foreground">{f.subarea || '-'}</span>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            <ProtectedContent permission="FI_VER">
+                                                <Button
+                                                    size="icon"
+                                                    className="bg-teal-600 text-white hover:bg-teal-600/90"
+                                                    title="Gestionar Ficha"
+                                                    onClick={() => onViewDetail(f.id)}
+                                                >
+                                                    <IconEdit size={16} />
+                                                </Button>
+                                            </ProtectedContent>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                <div className="px-4 py-3">
+                    <DataPagination page={page} pageSize={itemsPerPage} total={sortedFichas.length} onPageChange={setPage} />
+                </div>
             </Card>
         </div>
     );
@@ -279,7 +293,7 @@ export const EnProcesoListView: React.FC<Props> = ({ onBackToMenu, onViewDetail 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

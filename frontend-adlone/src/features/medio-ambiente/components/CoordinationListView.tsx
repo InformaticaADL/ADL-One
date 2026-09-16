@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import { Card, Input, Button, Table, Tag, Tooltip, Typography } from 'antd';
+import { useToast } from '../../../contexts/ToastContext';
+import { useTableSort } from '../../../hooks/useTableSort';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
 import {
     IconSearch,
     IconEraser,
@@ -9,14 +17,13 @@ import {
     IconEye,
     IconFilter
 } from '@tabler/icons-react';
-import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
     onViewDetail: (id: number) => void;
 }
+
+type SortKey = 'id' | 'estado' | 'fecha' | 'tipo' | 'empresaFacturar' | 'centro';
 
 export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
     const { showToast } = useToast();
@@ -25,7 +32,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const [dateFrom, setDateFrom] = useState('');
     const [dateTo, setDateTo] = useState('');
 
-    const [currentPage, setCurrentPage] = useState(1);
+    const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
 
@@ -57,7 +64,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         setSearchId('');
         setDateFrom('');
         setDateTo('');
-        setCurrentPage(1);
+        setPage(1);
     };
 
     const handleDownloadPdf = async (id: number) => {
@@ -102,80 +109,36 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         });
     }, [fichas, searchId, dateFrom, dateTo]);
 
-    const sortedFichas = useMemo(() => {
-        return [...filteredFichas].sort((a, b) => {
-            return (b.id_fichaingresoservicio || 0) - (a.id_fichaingresoservicio || 0);
-        });
-    }, [filteredFichas]);
-
-    const getStatusColor = (status: string) => {
+    const getStatusProps = (status: string): { variant: NonNullable<BadgeProps['variant']>; label: string } => {
         const s = (status || '').toUpperCase();
-        if (s.includes('EMITIDA') || s.includes('VIGENTE') || s.includes('APROBADA')) return 'green';
-        if (s.includes('RECHAZADA') || s.includes('ANULADA')) return 'red';
-        if (s.includes('PENDIENTE')) return 'gold';
-        return 'default';
+        if (s.includes('EMITIDA') || s.includes('VIGENTE') || s.includes('APROBADA')) return { variant: 'success', label: status };
+        if (s.includes('RECHAZADA') || s.includes('ANULADA')) return { variant: 'destructive', label: status };
+        if (s.includes('PENDIENTE')) return { variant: 'warning', label: status };
+        return { variant: 'outline', label: status || '-' };
     };
 
-    // Columnas consolidadas: 5 en vez de 9 — el detalle secundario (fuente
-    // emisora, objetivo, sub área) va apilado en una sola celda en vez de
-    // ocupar 3 columnas propias. Menos ancho, misma información.
-    const columns = [
-        {
-            title: 'N° Ficha', width: 90,
-            render: (_: any, f: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{f.fichaingresoservicio || '-'}</Text>,
-        },
-        {
-            title: 'Estado', width: 140,
-            render: (_: any, f: any) => <Tag color={getStatusColor(f.estado_ficha)}>{f.estado_ficha || '-'}</Tag>,
-        },
-        { title: 'Fecha', dataIndex: 'fecha', width: 100 },
-        { title: 'Tipo', dataIndex: 'tipo_fichaingresoservicio', width: 110 },
-        {
-            title: 'Empresa', width: 220,
-            render: (_: any, f: any) => (
-                <div>
-                    <Text style={{ fontSize: 12.5, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.empresa_facturar}>
-                        {f.empresa_facturar || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={f.empresa_servicio}>
-                        {f.empresa_servicio || '-'}
-                    </Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Servicio', width: 260,
-            render: (_: any, f: any) => (
-                <div>
-                    <Text style={{ fontSize: 12.5, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f.centro}>
-                        {f.centro || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={`${f.nombre_objetivomuestreo_ma || ''} · ${f.nombre_subarea || ''}`}>
-                        {f.nombre_objetivomuestreo_ma || '-'}{f.nombre_subarea ? ` · ${f.nombre_subarea}` : ''}
-                    </Text>
-                </div>
-            ),
-        },
-        {
-            title: '', width: 90, align: 'center' as const,
-            render: (_: any, f: any) => {
-                const id = f.id_fichaingresoservicio || f.fichaingresoservicio;
-                return (
-                    <div style={{ display: 'flex', justifyContent: 'center', gap: 4 }}>
-                        <Tooltip title="Descargar PDF">
-                            <Button type="text" danger shape="circle" size="small" icon={<IconFileDownload size={16} />} onClick={() => handleDownloadPdf(id)} />
-                        </Tooltip>
-                        <Tooltip title="Ver Detalle">
-                            <Button type="primary" shape="circle" size="small" icon={<IconEye size={16} />} onClick={() => onViewDetail(id)} />
-                        </Tooltip>
-                    </div>
-                );
-            },
-        },
-    ];
+    const sortAccessors: Record<SortKey, (f: any) => string | number | null | undefined> = {
+        id: (f) => f.fichaingresoservicio || f.id_fichaingresoservicio,
+        estado: (f) => f.estado_ficha,
+        fecha: (f) => f.fecha,
+        tipo: (f) => f.tipo_fichaingresoservicio,
+        empresaFacturar: (f) => f.empresa_facturar,
+        centro: (f) => f.centro,
+    };
+    const { sorted: sortedFichas, sort, toggleSort } = useTableSort(
+        filteredFichas,
+        sortAccessors,
+        { key: 'id' as SortKey, direction: 'desc' }
+    );
+    const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => { toggleSort(key); setPage(1); } });
+
+    const paginatedFichas = useMemo(() => {
+        const start = (page - 1) * itemsPerPage;
+        return sortedFichas.slice(start, start + itemsPerPage);
+    }, [sortedFichas, page]);
 
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title="Bandeja de Coordinación"
                 subtitle="Consulta y seguimiento general de fichas de servicio"
@@ -185,51 +148,122 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                     { label: 'Coordinación' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{filteredFichas.length} fichas encontradas</Text>
-                        <Button icon={<IconEraser size={14} />} onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">{filteredFichas.length} fichas encontradas</span>
+                        <Button variant="outline" onClick={handleClearFilters}>
+                            <IconEraser size={14} /> Limpiar Filtros
+                        </Button>
                     </div>
                 }
             />
 
-            <Card
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--app-accent-text)' }}>
-                        <IconFilter size={18} /> Filtros de búsqueda
-                    </span>
-                }
-                styles={{ header: { border: 'none' } }}
-                style={{ marginBottom: 16 }}
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+            <Card className="mb-4 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+                    <IconFilter size={18} /> Filtros de búsqueda
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
                     <Field label="N° Ficha">
-                        <Input placeholder="Ej: 105" value={searchId} onChange={(e) => setSearchId(e.target.value)} prefix={<IconSearch size={14} />} />
+                        <div className="relative">
+                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="pl-8" placeholder="Ej: 105" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+                        </div>
                     </Field>
                     <Field label="Fecha Desde">
-                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                        <DatePicker value={dateFrom} onChange={setDateFrom} />
                     </Field>
                     <Field label="Fecha Hasta">
-                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                        <DatePicker value={dateTo} onChange={setDateTo} />
                     </Field>
                 </div>
             </Card>
 
-            <Card styles={{ body: { padding: 0 } }}>
-                <Table
-                    rowKey={(f) => `${f.id_fichaingresoservicio || f.fichaingresoservicio}`}
-                    columns={columns}
-                    dataSource={sortedFichas}
-                    loading={loading}
-                    scroll={{ x: 900 }}
-                    pagination={{
-                        current: currentPage,
-                        pageSize: itemsPerPage,
-                        total: sortedFichas.length,
-                        onChange: setCurrentPage,
-                        style: { paddingInline: 16 },
-                    }}
-                    locale={{ emptyText: 'No se encontraron fichas en la bandeja.' }}
-                />
+            <Card className="p-0">
+                <div className="relative overflow-hidden rounded-xl">
+                    {loading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                    )}
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                                <SortableTableHead {...sortProps('id')} className="w-[90px]">N° Ficha</SortableTableHead>
+                                <SortableTableHead {...sortProps('estado')} className="w-[140px]">Estado</SortableTableHead>
+                                <SortableTableHead {...sortProps('fecha')} className="w-[100px]">Fecha</SortableTableHead>
+                                <SortableTableHead {...sortProps('tipo')} className="w-[110px]">Tipo</SortableTableHead>
+                                <SortableTableHead {...sortProps('empresaFacturar')} className="w-[220px]">Empresa</SortableTableHead>
+                                <TableHead className="w-[260px]">Servicio</TableHead>
+                                <TableHead className="w-[90px] text-center" />
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedFichas.length === 0 ? (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
+                                        {loading ? 'Cargando...' : 'No se encontraron fichas en la bandeja.'}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginatedFichas.map((f) => {
+                                    const id = f.id_fichaingresoservicio || f.fichaingresoservicio;
+                                    const status = getStatusProps(f.estado_ficha);
+                                    return (
+                                        <TableRow key={String(id)}>
+                                            <TableCell className="font-semibold text-primary">{f.fichaingresoservicio || '-'}</TableCell>
+                                            <TableCell><Badge variant={status.variant}>{status.label}</Badge></TableCell>
+                                            <TableCell className="whitespace-nowrap text-xs">{f.fecha || '-'}</TableCell>
+                                            <TableCell className="text-xs">{f.tipo_fichaingresoservicio || '-'}</TableCell>
+                                            <TableCell>
+                                                <span className="block max-w-[200px] truncate text-[12.5px] font-semibold" title={f.empresa_facturar}>
+                                                    {f.empresa_facturar || '-'}
+                                                </span>
+                                                <span className="block max-w-[200px] truncate text-xs text-muted-foreground" title={f.empresa_servicio}>
+                                                    {f.empresa_servicio || '-'}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="block max-w-[240px] truncate text-[12.5px]" title={f.centro}>
+                                                    {f.centro || '-'}
+                                                </span>
+                                                <span
+                                                    className="block max-w-[240px] truncate text-xs text-muted-foreground"
+                                                    title={`${f.nombre_objetivomuestreo_ma || ''} · ${f.nombre_subarea || ''}`}
+                                                >
+                                                    {f.nombre_objetivomuestreo_ma || '-'}{f.nombre_subarea ? ` · ${f.nombre_subarea}` : ''}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <div className="flex justify-center gap-1">
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                        title="Descargar PDF"
+                                                        onClick={() => handleDownloadPdf(id)}
+                                                    >
+                                                        <IconFileDownload size={16} />
+                                                    </Button>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="text-primary hover:bg-primary/10 hover:text-primary"
+                                                        title="Ver Detalle"
+                                                        onClick={() => onViewDetail(id)}
+                                                    >
+                                                        <IconEye size={16} />
+                                                    </Button>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                <div className="px-4 py-3">
+                    <DataPagination page={page} pageSize={itemsPerPage} total={sortedFichas.length} onPageChange={setPage} />
+                </div>
             </Card>
         </div>
     );
@@ -238,7 +272,7 @@ export const CoordinationListView: React.FC<Props> = ({ onBackToMenu, onViewDeta
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );
