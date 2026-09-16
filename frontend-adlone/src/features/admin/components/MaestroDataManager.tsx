@@ -1,19 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-    Typography,
-    Button,
-    Input,
-    Modal,
-    Card,
-    Tag,
-    Tooltip,
-    Spin,
-    Select,
-    Alert,
-    Pagination,
-    Tabs,
-    Upload
-} from 'antd';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
+import { useTableSort } from '../../../hooks/useTableSort';
 import {
     IconEdit,
     IconTrash,
@@ -22,6 +19,7 @@ import {
     IconArrowLeft,
     IconCheck,
     IconAlertCircle,
+    IconAlertTriangle,
     IconSettings,
     IconActivity,
     IconMail,
@@ -36,8 +34,6 @@ import {
 } from '@tabler/icons-react';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text, Title } = Typography;
 
 interface MaestroConfig {
     id: string;
@@ -63,18 +59,34 @@ interface Props {
     onBack: () => void;
 }
 
-// Small colored icon badge (replaces Mantine ThemeIcon)
 const iconColors: Record<string, string> = {
     blue: '#1c7ed6', teal: '#0c8599', green: '#2f9e44', grape: '#9c36b5', orange: '#e8590c', gray: '#868e96'
 };
 const IconBadge: React.FC<{ children: React.ReactNode; color?: string; size?: number }> = ({ children, color = 'blue', size = 32 }) => {
     const hex = iconColors[color] || color;
     return (
-        <div style={{ width: size, height: size, borderRadius: 8, backgroundColor: `${hex}1a`, color: hex, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <div
+            className="flex shrink-0 items-center justify-center rounded-lg"
+            style={{ width: size, height: size, backgroundColor: `${hex}1a`, color: hex }}
+        >
             {children}
         </div>
     );
 };
+
+const AlertBox: React.FC<{ variant: 'error' | 'warning'; icon?: React.ReactNode; children: React.ReactNode }> = ({ variant, icon, children }) => (
+    <div
+        className={cn(
+            'flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-sm',
+            variant === 'error'
+                ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                : 'border-warning/30 bg-warning/10 text-warning'
+        )}
+    >
+        {icon}
+        <div className="min-w-0 flex-1">{children}</div>
+    </div>
+);
 
 export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     const { showToast } = useToast();
@@ -129,6 +141,8 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     // For dependency checks
     const [dependencyData, setDependencyData] = useState<any[]>([]);
     const [dependencyLoading, setDependencyLoading] = useState(false);
+
+    const firmaFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
     // Fetch primary data
     const fetchData = async () => {
@@ -231,12 +245,69 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         );
     }, [data, searchTerm, statusFilter, dynamicFilters, config]);
 
+    // Get columns to show in the main table based on config or discovery
+    const mainTableColumns = useMemo(() => {
+        if (data.length === 0) return [];
+
+        // Columns that are always rendered separately (ID column + Estado column)
+        const alwaysExcluded = [
+            config.idName,
+            'id',
+            config.statusColumn,  // explicit status column
+            // Auto-detect common status column names to avoid duplication with the fixed Estado column
+            'habilitado', 'activo', 'estado', 'active', 'enabled'
+        ].filter(Boolean) as string[];
+
+        if (config.summaryColumns && config.summaryColumns.length > 0) {
+            // Even in summaryColumns, remove any that match excluded names
+            return config.summaryColumns.filter(col => !alwaysExcluded.includes(col));
+        }
+        // Auto-discover: show everything except excluded cols
+        return Object.keys(data[0]).filter(key => !alwaysExcluded.includes(key));
+    }, [data, config]);
+
+    // Detect if table actually has a status column in the data
+    const hasStatusColumn = useMemo(() => {
+        if (data.length === 0) return false;
+        const knownStatusCols = ['habilitado', 'activo', 'estado', 'active', 'enabled'];
+        const explicit = config.statusColumn;
+        const dataKeys = Object.keys(data[0]);
+        return explicit ? dataKeys.includes(explicit) : knownStatusCols.some(c => dataKeys.includes(c));
+    }, [data, config]);
+
+    const sortAccessors = useMemo(() => {
+        const acc: Record<string, (row: any) => string | number | null | undefined> = {};
+        mainTableColumns.forEach((col: string) => {
+            acc[col] = (row: any) => {
+                const v = row[col];
+                if (v === null || v === undefined || v === '') return null;
+                if (typeof v === 'number') return v;
+                if (typeof v === 'boolean') return v ? 1 : 0;
+                return String(v);
+            };
+        });
+        if (hasStatusColumn) {
+            acc.__estado = (row: any) => {
+                const status = row[config.statusColumn || 'habilitado'] || row.activo || row.estado || 'S';
+                const isActive = status === 'S' || status === 'V' || status === 1 || status === true;
+                return isActive ? 0 : 1;
+            };
+        }
+        return acc;
+    }, [mainTableColumns, hasStatusColumn, config]);
+
+    const { sorted: sortedData, sort, toggleSort } = useTableSort(filteredData, sortAccessors);
+
     const paginatedData = useMemo(() => {
         const start = (page - 1) * itemsPerPage;
-        return filteredData.slice(start, start + itemsPerPage);
-    }, [filteredData, page]);
+        return sortedData.slice(start, start + itemsPerPage);
+    }, [sortedData, page]);
 
-    const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+    const sortProps = (col: string) => ({
+        active: sort.key === col,
+        direction: sort.direction,
+        onSort: () => { toggleSort(col); setPage(1); },
+    });
 
     // Reset page when search changes
     useEffect(() => {
@@ -397,27 +468,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             .join(' ');
     };
 
-    // Get columns to show in the main table based on config or discovery
-    const mainTableColumns = useMemo(() => {
-        if (data.length === 0) return [];
-
-        // Columns that are always rendered separately (ID column + Estado column)
-        const alwaysExcluded = [
-            config.idName,
-            'id',
-            config.statusColumn,  // explicit status column
-            // Auto-detect common status column names to avoid duplication with the fixed Estado column
-            'habilitado', 'activo', 'estado', 'active', 'enabled'
-        ].filter(Boolean) as string[];
-
-        if (config.summaryColumns && config.summaryColumns.length > 0) {
-            // Even in summaryColumns, remove any that match excluded names
-            return config.summaryColumns.filter(col => !alwaysExcluded.includes(col));
-        }
-        // Auto-discover: show everything except excluded cols
-        return Object.keys(data[0]).filter(key => !alwaysExcluded.includes(key));
-    }, [data, config]);
-
     // All columns for the form view
     const allDetailColumns = useMemo(() => {
         if (data.length === 0) return [];
@@ -428,15 +478,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
     const needsDependency = useMemo(() =>
         Boolean(config.dependsOn && dependencyData.length === 0 && !dependencyLoading),
     [config.dependsOn, dependencyData.length, dependencyLoading]);
-
-    // Detect if table actually has a status column in the data
-    const hasStatusColumn = useMemo(() => {
-        if (data.length === 0) return false;
-        const knownStatusCols = ['habilitado', 'activo', 'estado', 'active', 'enabled'];
-        const explicit = config.statusColumn;
-        const dataKeys = Object.keys(data[0]);
-        return explicit ? dataKeys.includes(explicit) : knownStatusCols.some(c => dataKeys.includes(c));
-    }, [data, config]);
 
     // Detect icon for a field based on name patterns
     const getFieldIcon = (col: string) => {
@@ -459,29 +500,34 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             const lookup = config.lookups![col];
             const options = lookupData[col] || [];
 
+            const comboOptions = (() => {
+                const seen = new Set<string>();
+                const opts = options
+                    .map(opt => ({
+                        value: String(opt[lookup.idColumn]),
+                        label: String(opt[lookup.displayColumn])
+                    }))
+                    .filter(opt => {
+                        if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
+                        if (seen.has(opt.value)) return false;
+                        seen.add(opt.value);
+                        return true;
+                    });
+                return [{ value: '', label: '(Sin selección)' }, ...opts];
+            })();
+
             return (
-                <div key={col} style={{ display: 'flex', alignItems: 'flex-end', gap: 6, flexWrap: 'nowrap' }}>
-                    <div style={{ flex: 1 }}>
-                        <Text style={{ fontSize: 13, color: '#1c7ed6', fontWeight: 600, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                        <Select
-                            style={{ width: '100%', borderLeft: '3px solid #4dabf7', borderRadius: 6 }}
+                <div key={col} className="flex flex-nowrap items-end gap-1.5">
+                    <div className="flex-1">
+                        <Label className="mb-1 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                        <Combobox
+                            className="border-l-[3px] border-l-sky-400"
                             placeholder={`Seleccione ${formatHeader(col)}...`}
-                            options={(() => {
-                                const seen = new Set();
-                                return options
-                                    .map(opt => ({
-                                        value: String(opt[lookup.idColumn]),
-                                        label: String(opt[lookup.displayColumn])
-                                    }))
-                                    .filter(opt => {
-                                        if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
-                                        if (seen.has(opt.value)) return false;
-                                        seen.add(opt.value);
-                                        return true;
-                                    });
-                            })()}
-                            value={formData[col] === null || formData[col] === undefined || formData[col] === '' ? undefined : String(formData[col])}
-                            onChange={(v) => {
+                            searchPlaceholder="Buscar..."
+                            emptyText="Sin opciones disponibles"
+                            options={comboOptions}
+                            value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
+                            onValueChange={(v) => {
                                 const updatedForm = { ...formData, [col]: v };
                                 if (v) {
                                     const selectedOpt = options.find(opt => String(opt[lookup.idColumn]) === String(v));
@@ -515,22 +561,19 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
                                 setFormData(updatedForm);
                             }}
-                            showSearch
-                            allowClear
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            notFoundContent="Sin opciones disponibles"
                         />
                     </div>
                     {!lookup.noCreate && (
-                        <Tooltip title={`Crear nuevo en ${lookup.tableName}`}>
-                            <Button
-                                type="text"
-                                size="large"
-                                style={{ color: '#2f9e44', marginBottom: 1 }}
-                                icon={<IconPlus size={18} />}
-                                onClick={() => openQuickFk(col, lookup)}
-                            />
-                        </Tooltip>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="mb-0.5 h-9 w-9 text-success"
+                            title={`Crear nuevo en ${lookup.tableName}`}
+                            onClick={() => openQuickFk(col, lookup)}
+                        >
+                            <IconPlus size={18} />
+                        </Button>
                     )}
                 </div>
             );
@@ -568,25 +611,28 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
             return (
                 <div key={col}>
-                    <Text style={{ fontSize: 13, fontWeight: 600, color: '#1c7ed6', display: 'block', marginBottom: 6 }}>{formatHeader(col)}</Text>
+                    <Label className="mb-1.5 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
                     {previewUrl && (
-                        <div style={{ marginBottom: 8, border: '1px solid #dee2e6', borderRadius: 8, padding: 8, display: 'inline-block', background: '#f8f9fa' }}>
+                        <div className="mb-2 inline-block rounded-lg border border-border bg-muted/40 p-2">
                             <img
                                 src={previewUrl}
                                 alt={col}
-                                style={{ height: 120, width: 'auto', objectFit: 'contain', borderRadius: 4 }}
+                                className="h-[120px] w-auto rounded object-contain"
                                 onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/200x120?text=Sin+imagen'; }}
                             />
-                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', marginTop: 4, textAlign: 'center', display: 'block' }}>{currentPath}</Text>
+                            <p className="mt-1 block text-center text-[11px] text-muted-foreground">{currentPath}</p>
                         </div>
                     )}
-                    <Upload
+                    <input
+                        ref={(el) => { firmaFileInputRefs.current[col] = el; }}
+                        type="file"
                         accept="image/*"
-                        showUploadList={false}
-                        beforeUpload={(file) => { handleFileChange(file); return false; }}
-                    >
-                        <Button icon={<IconUpload size={16} />}>{previewUrl ? 'Cambiar imagen...' : 'Seleccionar imagen...'}</Button>
-                    </Upload>
+                        className="hidden"
+                        onChange={(e) => { handleFileChange(e.target.files?.[0] ?? null); e.target.value = ''; }}
+                    />
+                    <Button type="button" variant="outline" onClick={() => firmaFileInputRefs.current[col]?.click()}>
+                        <IconUpload size={16} /> {previewUrl ? 'Cambiar imagen...' : 'Seleccionar imagen...'}
+                    </Button>
                 </div>
             );
         }
@@ -606,15 +652,14 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             const isCurrentlyTrue = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1' || raw === 'SI' || raw === 'Si' || raw === 'si' || raw === 'SÍ' || raw === 'sí';
             return (
                 <div key={col}>
-                    <Text style={{ fontSize: 13, color: '#1c7ed6', fontWeight: 600, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                    <Select
-                        style={{ width: '100%' }}
+                    <Label className="mb-1 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                    <Combobox
                         options={[
                             { value: 'true', label: '✅ Sí' },
                             { value: 'false', label: '❌ No' },
                         ]}
                         value={isCurrentlyTrue ? 'true' : 'false'}
-                        onChange={(v) => {
+                        onValueChange={(v) => {
                             const isTrue = v === 'true';
                             const originalRaw = formData[col];
                             const c = col.toLowerCase();
@@ -666,149 +711,161 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
             }
             return (
                 <div key={col}>
-                    <Text style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                    <Input
-                        placeholder={col}
-                        type="date"
-                        prefix={icon}
-                        value={val}
-                        onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
-                    />
+                    <Label className="mb-1 block text-[13px]">{formatHeader(col)}</Label>
+                    <div className="relative">
+                        {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
+                        <Input
+                            placeholder={col}
+                            type="date"
+                            value={val}
+                            onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
+                            className={icon ? 'pl-8' : undefined}
+                        />
+                    </div>
                 </div>
             );
         }
 
         return (
             <div key={col}>
-                <Text style={{ fontSize: 13, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                <Input
-                    placeholder={col}
-                    prefix={icon}
-                    value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
-                    onChange={(e) => {
-                        const newVal = e.currentTarget.value;
-                        const updatedForm = { ...formData, [col]: newVal };
-                        if (col === 'nombre' && 'es_fijo' in updatedForm) {
-                            const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
-                            updatedForm.es_fijo = fijos.some(f => newVal.trim().toUpperCase() === f.toUpperCase());
-                        }
-                        setFormData(updatedForm);
-                    }}
-                />
+                <Label className="mb-1 block text-[13px]">{formatHeader(col)}</Label>
+                <div className="relative">
+                    {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
+                    <Input
+                        placeholder={col}
+                        value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
+                        onChange={(e) => {
+                            const newVal = e.currentTarget.value;
+                            const updatedForm = { ...formData, [col]: newVal };
+                            if (col === 'nombre' && 'es_fijo' in updatedForm) {
+                                const fijos = ['MUESTREADOR AUTOMÁTICO', 'SONDA CAUDAL', 'SONDA PH/TEMPERATURA', 'BATERIA', 'POWER PACK', 'FILTRO', 'Pedestal'];
+                                updatedForm.es_fijo = fijos.some(f => newVal.trim().toUpperCase() === f.toUpperCase());
+                            }
+                            setFormData(updatedForm);
+                        }}
+                        className={icon ? 'pl-8' : undefined}
+                    />
+                </div>
             </div>
         );
     };
 
     const quickFkModal = (
-        <Modal
-            open={!!quickFk}
-            onCancel={() => !quickFkSaving && setQuickFk(null)}
-            title={
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <IconBadge color="green" size={28}><IconPlus size={16} /></IconBadge>
-                    <Text strong style={{ fontSize: 13 }}>
-                        Crear nuevo en <Tag color="blue" style={{ fontFamily: 'monospace' }}>{quickFk?.lookup.tableName}</Tag>
-                    </Text>
-                </div>
-            }
-            width={700}
-            centered
-            footer={null}
-        >
-            {quickFk && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {quickFkCols.length === 0 ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: 16 }}><Spin size="small" /></div>
-                    ) : (
-                        <div style={{ maxHeight: 420, overflowY: 'auto', paddingRight: 8 }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                                {quickFkCols.map(col => {
-                                    const boolPats = ['habilitado','activo','active','enabled','envia_','es_','oculto','visible','is_','tiene_','permite_','transaccional','vigente','estado'];
-                                    const imgPats  = ['firma_','foto','imagen','logo','avatar','signature'];
-                                    const isBool = boolPats.some(p => col.toLowerCase().includes(p));
-                                    const isImg  = imgPats.some(p => col.toLowerCase().includes(p));
+        <Dialog open={!!quickFk} onOpenChange={(open) => { if (!open && !quickFkSaving) setQuickFk(null); }}>
+            <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <IconBadge color="green" size={28}><IconPlus size={16} /></IconBadge>
+                        <span className="text-[13px] font-semibold">
+                            Crear nuevo en <Badge variant="outline" className="font-mono">{quickFk?.lookup.tableName}</Badge>
+                        </span>
+                    </DialogTitle>
+                </DialogHeader>
 
-                                    if (isImg) {
+                {quickFk && (
+                    <div className="flex flex-col gap-4">
+                        {quickFkCols.length === 0 ? (
+                            <div className="flex justify-center p-4">
+                                <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </div>
+                        ) : (
+                            <div className="max-h-[420px] overflow-y-auto pr-2">
+                                <div className="grid grid-cols-2 gap-4">
+                                    {quickFkCols.map(col => {
+                                        const boolPats = ['habilitado','activo','active','enabled','envia_','es_','oculto','visible','is_','tiene_','permite_','transaccional','vigente','estado'];
+                                        const imgPats  = ['firma_','foto','imagen','logo','avatar','signature'];
+                                        const isBool = boolPats.some(p => col.toLowerCase().includes(p));
+                                        const isImg  = imgPats.some(p => col.toLowerCase().includes(p));
+
+                                        if (isImg) {
+                                            return (
+                                                <div key={col}>
+                                                    <Label className="mb-1 block text-xs font-semibold text-primary">{formatHeader(col)}</Label>
+                                                    <input
+                                                        id={`quickfk-file-${col}`}
+                                                        type="file"
+                                                        accept="image/*"
+                                                        className="hidden"
+                                                        onChange={async (e) => {
+                                                            const file = e.target.files?.[0];
+                                                            e.target.value = '';
+                                                            if (!file) return;
+                                                            const fd = new FormData();
+                                                            fd.append('archivo', file);
+                                                            const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+                                                            const token = localStorage.getItem('token');
+                                                            const res = await fetch(`${apiBase}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
+                                                            const json = await res.json();
+                                                            if (json.success) setQuickFkFormData((p: any) => ({ ...p, [col]: json.filePath }));
+                                                        }}
+                                                    />
+                                                    <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={() => document.getElementById(`quickfk-file-${col}`)?.click()}
+                                                    >
+                                                        <IconUpload size={14} /> Seleccionar imagen...
+                                                    </Button>
+                                                </div>
+                                            );
+                                        }
+                                        if (isBool) {
+                                            return (
+                                                <div key={col}>
+                                                    <Label className="mb-1 block text-xs font-semibold">{formatHeader(col)}</Label>
+                                                    <Combobox
+                                                        options={[{ value: '1', label: '✅ Sí / Habilitado' }, { value: '0', label: '❌ No / Deshabilitado' }]}
+                                                        value={quickFkFormData[col] !== undefined ? String(quickFkFormData[col]) : '1'}
+                                                        onValueChange={(v) => setQuickFkFormData((p: any) => ({ ...p, [col]: v }))}
+                                                    />
+                                                </div>
+                                            );
+                                        }
                                         return (
                                             <div key={col}>
-                                                <Text style={{ fontSize: 12, fontWeight: 600, color: '#1c7ed6', display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                                                <Upload
-                                                    accept="image/*"
-                                                    showUploadList={false}
-                                                    beforeUpload={async (file) => {
-                                                        const fd = new FormData();
-                                                        fd.append('archivo', file);
-                                                        const apiBase = import.meta.env.VITE_API_URL || 'http://localhost:4000';
-                                                        const token = localStorage.getItem('token');
-                                                        const res = await fetch(`${apiBase}/api/upload`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd });
-                                                        const json = await res.json();
-                                                        if (json.success) setQuickFkFormData((p: any) => ({ ...p, [col]: json.filePath }));
-                                                        return false;
-                                                    }}
-                                                >
-                                                    <Button size="small" icon={<IconUpload size={14} />}>Seleccionar imagen...</Button>
-                                                </Upload>
-                                            </div>
-                                        );
-                                    }
-                                    if (isBool) {
-                                        return (
-                                            <div key={col}>
-                                                <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                                                <Select
-                                                    style={{ width: '100%' }}
-                                                    options={[{ value: '1', label: '✅ Sí / Habilitado' }, { value: '0', label: '❌ No / Deshabilitado' }]}
-                                                    value={quickFkFormData[col] !== undefined ? String(quickFkFormData[col]) : '1'}
-                                                    onChange={(v) => setQuickFkFormData((p: any) => ({ ...p, [col]: v }))}
+                                                <Label className={cn('mb-1 block text-xs font-semibold', col === quickFk.lookup.displayColumn && 'text-primary')}>{formatHeader(col)}</Label>
+                                                <Input
+                                                    placeholder={col}
+                                                    value={quickFkFormData[col] || ''}
+                                                    onChange={(e) => setQuickFkFormData((p: any) => ({ ...p, [col]: e.currentTarget.value }))}
                                                 />
                                             </div>
                                         );
-                                    }
-                                    return (
-                                        <div key={col}>
-                                            <Text style={{ fontSize: 12, fontWeight: 600, color: col === quickFk.lookup.displayColumn ? '#1c7ed6' : undefined, display: 'block', marginBottom: 4 }}>{formatHeader(col)}</Text>
-                                            <Input
-                                                placeholder={col}
-                                                value={quickFkFormData[col] || ''}
-                                                onChange={(e) => setQuickFkFormData((p: any) => ({ ...p, [col]: e.currentTarget.value }))}
-                                            />
-                                        </div>
-                                    );
-                                })}
+                                    })}
+                                </div>
                             </div>
-                        </div>
-                    )}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={() => setQuickFk(null)} disabled={quickFkSaving}>Cancelar</Button>
-                        <Button
-                            type="primary"
-                            style={{ backgroundColor: '#2f9e44', borderColor: '#2f9e44' }}
-                            icon={<IconPlus size={16} />}
-                            loading={quickFkSaving}
-                            disabled={!quickFkFormData[quickFk.lookup.displayColumn]?.trim?.()}
-                            onClick={async () => {
-                                setQuickFkSaving(true);
-                                try {
-                                    const newRecord = await catalogosService.createMaestro(quickFk.lookup.tableName, quickFkFormData);
-                                    const fresh = await catalogosService.getMaestroData(quickFk.lookup.tableName);
-                                    setLookupData(prev => ({ ...prev, [quickFk.field]: fresh || [] }));
-                                    const newId = newRecord?.[quickFk.lookup.idColumn] || newRecord?.id;
-                                    if (newId) setFormData((prev: any) => ({ ...prev, [quickFk.field]: String(newId) }));
-                                    showToast({ type: 'success', message: `Registro creado correctamente` });
-                                    setQuickFk(null);
-                                } catch {
-                                    showToast({ type: 'error', message: 'Error al crear el registro' });
-                                } finally {
-                                    setQuickFkSaving(false);
-                                }
-                            }}
-                        >
-                            Crear
-                        </Button>
+                        )}
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setQuickFk(null)} disabled={quickFkSaving}>Cancelar</Button>
+                            <Button
+                                type="button"
+                                className="bg-success text-success-foreground hover:bg-success/90"
+                                disabled={quickFkSaving || !quickFkFormData[quickFk.lookup.displayColumn]?.trim?.()}
+                                onClick={async () => {
+                                    setQuickFkSaving(true);
+                                    try {
+                                        const newRecord = await catalogosService.createMaestro(quickFk.lookup.tableName, quickFkFormData);
+                                        const fresh = await catalogosService.getMaestroData(quickFk.lookup.tableName);
+                                        setLookupData(prev => ({ ...prev, [quickFk.field]: fresh || [] }));
+                                        const newId = newRecord?.[quickFk.lookup.idColumn] || newRecord?.id;
+                                        if (newId) setFormData((prev: any) => ({ ...prev, [quickFk.field]: String(newId) }));
+                                        showToast({ type: 'success', message: `Registro creado correctamente` });
+                                        setQuickFk(null);
+                                    } catch {
+                                        showToast({ type: 'error', message: 'Error al crear el registro' });
+                                    } finally {
+                                        setQuickFkSaving(false);
+                                    }
+                                }}
+                            >
+                                <IconPlus size={16} /> {quickFkSaving ? 'Creando...' : 'Crear'}
+                            </Button>
+                        </DialogFooter>
                     </div>
-                </div>
-            )}
-        </Modal>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 
     if (view === 'form') {
@@ -830,7 +887,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         const advancedFields = renderableColumns.filter(col => allPrimary.length > 0 && !allPrimary.includes(col));
 
         const generalPanel = (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="flex flex-col gap-6">
                 {/* Estado */}
                 {config.statusColumn && (() => {
                     const statusCol = config.statusColumn!;
@@ -843,24 +900,24 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                     const isOn = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1';
                     return (
                         <div>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                            <div className="mb-1 flex items-center gap-2">
                                 <IconBadge color="blue" size={28}><IconSettings size={16} /></IconBadge>
-                                <Title level={5} style={{ margin: 0 }}>Estado del Registro</Title>
+                                <h5 className="m-0 text-base font-semibold">Estado del Registro</h5>
                             </div>
-                            <Select
+                            <Combobox
+                                className="max-w-[300px]"
                                 options={[
                                     { value: 'on', label: '✅ Habilitado / Activo' },
                                     { value: 'off', label: '🚫 Deshabilitado / Inactivo' }
                                 ]}
                                 value={isOn ? 'on' : 'off'}
-                                onChange={(v) => {
+                                onValueChange={(v) => {
                                     const isActive = v === 'on';
                                     let newVal: any = isActive;
                                     if (isInt) newVal = isActive ? 1 : 0;
                                     else if (isStr) newVal = isActive ? 'S' : 'N';
                                     setFormData({ ...formData, [statusCol]: newVal });
                                 }}
-                                style={{ maxWidth: 300, width: '100%' }}
                             />
                         </div>
                     );
@@ -869,22 +926,21 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                 {/* Dependency selectors (clientes, componentes) */}
                 {config.dependsOn === 'clientes' && (
                     <div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <div className="mb-2 flex items-center gap-2">
                             <IconBadge color="teal" size={28}><IconBuilding size={16} /></IconBadge>
-                            <Title level={5} style={{ margin: 0 }}>Cliente Asociado</Title>
+                            <h5 className="m-0 text-base font-semibold">Cliente Asociado</h5>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                            <Select
+                        <div className="flex items-end gap-2">
+                            <Combobox
+                                className="max-w-[400px] flex-1"
                                 placeholder="Seleccione cliente..."
+                                searchPlaceholder="Buscar..."
                                 options={dependencyData.map(c => ({ value: String(c.id || c.id_empresa), label: String(c.nombre || c.nombre_empresa || '(sin nombre)') }))}
-                                value={formData.id_empresa ? String(formData.id_empresa) : undefined}
-                                onChange={(v) => setFormData({ ...formData, id_empresa: v })}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                style={{ flex: 1, maxWidth: 400 }}
+                                value={formData.id_empresa ? String(formData.id_empresa) : ''}
+                                onValueChange={(v) => setFormData({ ...formData, id_empresa: v })}
                             />
-                            <Button icon={<IconPlus size={14} />} onClick={() => { setQuickCreateType('clientes'); setQuickFormData({}); }}>
-                                Nuevo Cliente
+                            <Button type="button" variant="outline" onClick={() => { setQuickCreateType('clientes'); setQuickFormData({}); }}>
+                                <IconPlus size={14} /> Nuevo Cliente
                             </Button>
                         </div>
                     </div>
@@ -892,58 +948,52 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
                 {config.dependsOn === 'componentes' && (
                     <div>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                        <div className="mb-2 flex items-center gap-2">
                             <IconBadge color="green" size={28}><IconBuilding size={16} /></IconBadge>
-                            <Title level={5} style={{ margin: 0 }}>Componente Asociado</Title>
+                            <h5 className="m-0 text-base font-semibold">Componente Asociado</h5>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
-                            <Select
+                        <div className="flex items-end gap-2">
+                            <Combobox
+                                className="max-w-[400px] flex-1"
                                 placeholder="Seleccione componente..."
+                                searchPlaceholder="Buscar..."
                                 options={dependencyData.map(c => ({ value: String(c.id || c.id_tipomuestra), label: String(c.nombre || c.nombre_tipomuestra || '(sin nombre)') }))}
-                                value={formData.id_tipomuestra ? String(formData.id_tipomuestra) : undefined}
-                                onChange={(v) => setFormData({ ...formData, id_tipomuestra: v })}
-                                showSearch
-                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                style={{ flex: 1, maxWidth: 400 }}
+                                value={formData.id_tipomuestra ? String(formData.id_tipomuestra) : ''}
+                                onValueChange={(v) => setFormData({ ...formData, id_tipomuestra: v })}
                             />
-                            <Button icon={<IconPlus size={14} />} onClick={() => { setQuickCreateType('componentes'); setQuickFormData({}); }}>
-                                Nuevo Componente
+                            <Button type="button" variant="outline" onClick={() => { setQuickCreateType('componentes'); setQuickFormData({}); }}>
+                                <IconPlus size={14} /> Nuevo Componente
                             </Button>
                         </div>
                     </div>
                 )}
 
-                <div style={{ borderTop: '1px solid var(--app-border)' }} />
+                <div className="border-t border-border" />
 
                 {/* Main fields */}
                 <div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                    <div className="mb-1 flex items-center gap-2">
                         <IconBadge color="blue" size={28}><IconSettings size={16} /></IconBadge>
-                        <Title level={5} style={{ margin: 0 }}>Atributos de {config.label}</Title>
+                        <h5 className="m-0 text-base font-semibold">Atributos de {config.label}</h5>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 20 }}>Complete los campos para registrar la información.</Text>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                    <p className="mb-5 block text-[13px] text-muted-foreground">Complete los campos para registrar la información.</p>
+                    <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                         {generalFields.map((col: string) => renderField(col))}
                     </div>
                 </div>
 
                 {advancedFields.length === 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button
-                            type="primary"
-                            icon={<IconCheck size={18} />}
-                            onClick={() => setConfirmSaveOpen(true)}
-                            loading={saving}
-                        >
-                            {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
+                    <div className="flex justify-end">
+                        <Button type="button" onClick={() => setConfirmSaveOpen(true)} disabled={saving}>
+                            <IconCheck size={18} /> {saving ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Crear Registro'}
                         </Button>
                     </div>
                 )}
 
                 {advancedFields.length > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                        <Button onClick={() => setActiveFormTab('advanced')}>
-                            Ver Datos Detallados <IconArrowRight size={16} style={{ marginLeft: 6, verticalAlign: 'middle' }} />
+                    <div className="flex justify-end">
+                        <Button type="button" variant="outline" onClick={() => setActiveFormTab('advanced')}>
+                            Ver Datos Detallados <IconArrowRight size={16} />
                         </Button>
                     </div>
                 )}
@@ -951,201 +1001,188 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
         );
 
         const advancedPanel = (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="flex flex-col gap-6">
                 <div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                    <div className="mb-1 flex items-center gap-2">
                         <IconBadge color="grape" size={28}><IconActivity size={16} /></IconBadge>
-                        <Title level={5} style={{ margin: 0 }}>Configuración Detallada</Title>
+                        <h5 className="m-0 text-base font-semibold">Configuración Detallada</h5>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 20 }}>Campos adicionales y configuración avanzada del registro.</Text>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
+                    <p className="mb-5 block text-[13px] text-muted-foreground">Campos adicionales y configuración avanzada del registro.</p>
+                    <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
                         {advancedFields.map((col: string) => renderField(col))}
                     </div>
                 </div>
 
-                <div style={{ borderTop: '1px solid var(--app-border)' }} />
-                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <Button
-                        type="primary"
-                        icon={<IconCheck size={18} />}
-                        onClick={() => setConfirmSaveOpen(true)}
-                        loading={saving}
-                    >
-                        {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
+                <div className="border-t border-border" />
+                <div className="flex justify-end">
+                    <Button type="button" onClick={() => setConfirmSaveOpen(true)} disabled={saving}>
+                        <IconCheck size={18} /> {saving ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Crear Registro'}
                     </Button>
                 </div>
             </div>
         );
 
         return (
-            <div style={{ animation: 'fadeIn 0.4s ease' }}>
-                <style dangerouslySetInnerHTML={{ __html: `
-                    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-                `}} />
+            <div className="shadcn-scope animate-in fade-in slide-in-from-bottom-2 duration-300">
                 {/* Header bar */}
-                <div style={{ padding: '16px 16px 0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <div className="p-4 pb-0">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
                             <Button
-                                type="text"
-                                icon={<IconArrowLeft size={16} />}
+                                type="button"
+                                variant="ghost"
+                                className="h-auto w-fit p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
                                 onClick={() => setView('list')}
-                                style={{ width: 'fit-content', padding: 0, color: 'var(--app-text-secondary)' }}
                             >
-                                Volver al Listado
+                                <IconArrowLeft size={16} /> Volver al Listado
                             </Button>
-                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                            <div className="flex items-center gap-2">
                                 <IconBadge color="blue" size={44}>
                                     {editingItem ? <IconEdit size={22} /> : <IconPlus size={22} />}
                                 </IconBadge>
                                 <div>
-                                    <Text type="secondary" style={{ fontSize: 12, fontWeight: 500, display: 'block' }}>
+                                    <p className="block text-xs font-medium text-muted-foreground">
                                         {editingItem ? 'Editando registro' : 'Nuevo Registro'} — {config.tableName}
-                                    </Text>
-                                    <Title level={3} style={{ margin: 0, color: '#1864ab' }}>
+                                    </p>
+                                    <h3 className="m-0 text-xl font-semibold text-primary">
                                         {editingItem && config.displayColumn
                                             ? (editingItem[config.displayColumn] || config.label)
                                             : config.label}
-                                    </Title>
+                                    </h3>
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: 8, marginTop: 24 }}>
-                            <Button onClick={() => setView('list')}>
+                        <div className="mt-6 flex gap-2">
+                            <Button type="button" variant="outline" onClick={() => setView('list')}>
                                 Cancelar
                             </Button>
-                            <Button
-                                type="primary"
-                                icon={<IconCheck size={18} />}
-                                onClick={() => setConfirmSaveOpen(true)}
-                                loading={saving}
-                            >
-                                {editingItem ? 'Guardar Cambios' : 'Crear Registro'}
+                            <Button type="button" onClick={() => setConfirmSaveOpen(true)} disabled={saving}>
+                                <IconCheck size={18} /> {saving ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Crear Registro'}
                             </Button>
                         </div>
                     </div>
                 </div>
 
-                <div style={{ padding: '24px 16px' }}>
+                <div className="p-4 py-6">
                     <Card>
-                        <Tabs
-                            activeKey={activeFormTab}
-                            onChange={setActiveFormTab}
-                            items={[
-                                { key: 'general', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconSettings size={16} /> Información General</span>, children: generalPanel },
-                                ...(advancedFields.length > 0 ? [{ key: 'advanced', label: <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><IconActivity size={16} /> Datos Detallados</span>, children: advancedPanel }] : [])
-                            ]}
-                        />
+                        <CardContent className="p-5">
+                            <Tabs value={activeFormTab} onValueChange={setActiveFormTab}>
+                                <TabsList>
+                                    <TabsTrigger value="general" className="gap-1.5"><IconSettings size={16} /> Información General</TabsTrigger>
+                                    {advancedFields.length > 0 && (
+                                        <TabsTrigger value="advanced" className="gap-1.5"><IconActivity size={16} /> Datos Detallados</TabsTrigger>
+                                    )}
+                                </TabsList>
+                                <TabsContent value="general">{generalPanel}</TabsContent>
+                                {advancedFields.length > 0 && (
+                                    <TabsContent value="advanced">{advancedPanel}</TabsContent>
+                                )}
+                            </Tabs>
+                        </CardContent>
                     </Card>
                 </div>
 
                 {/* Quick Create Modal */}
-                <Modal
-                    open={quickCreateType !== null}
-                    onCancel={() => !quickSaving && setQuickCreateType(null)}
-                    title={
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <IconBadge color="green" size={28}><IconPlus size={18} /></IconBadge>
-                            <Text strong>Creación Rápida: {quickCreateType === 'clientes' ? 'Nuevo Cliente' : 'Nuevo Componente'}</Text>
-                        </div>
-                    }
-                    width={480}
-                    centered
-                    footer={null}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                        {quickCreateType === 'clientes' ? (
-                            <>
-                                <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Nombre de Empresa *</Text>
-                                    <Input
-                                        value={quickFormData.nombre_empresa || ''}
-                                        onChange={(e) => setQuickFormData({...quickFormData, nombre_empresa: e.currentTarget.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>RUT *</Text>
-                                    <Input
-                                        placeholder="12.345.678-9"
-                                        value={quickFormData.rut_empresa || ''}
-                                        onChange={(e) => setQuickFormData({...quickFormData, rut_empresa: e.currentTarget.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Dirección *</Text>
-                                    <Input
-                                        value={quickFormData.direccion_empresa || ''}
-                                        onChange={(e) => setQuickFormData({...quickFormData, direccion_empresa: e.currentTarget.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Email Empresa *</Text>
-                                    <Input
-                                        value={quickFormData.email_empresa || ''}
-                                        onChange={(e) => setQuickFormData({...quickFormData, email_empresa: e.currentTarget.value})}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Nombre Componente *</Text>
-                                    <Input
-                                        value={quickFormData.nombre_tipomuestra || ''}
-                                        onChange={(e) => setQuickFormData({...quickFormData, nombre_tipomuestra: e.currentTarget.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Sigla *</Text>
-                                    <Input
-                                        value={quickFormData.sigla_tipomuestra || ''}
-                                        onChange={(e) => setQuickFormData({...quickFormData, sigla_tipomuestra: e.currentTarget.value})}
-                                    />
-                                </div>
-                            </>
-                        )}
+                <Dialog open={quickCreateType !== null} onOpenChange={(open) => { if (!open && !quickSaving) setQuickCreateType(null); }}>
+                    <DialogContent className="max-w-md">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2">
+                                <IconBadge color="green" size={28}><IconPlus size={18} /></IconBadge>
+                                Creación Rápida: {quickCreateType === 'clientes' ? 'Nuevo Cliente' : 'Nuevo Componente'}
+                            </DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col gap-3">
+                            {quickCreateType === 'clientes' ? (
+                                <>
+                                    <div>
+                                        <Label className="mb-1 block text-xs">Nombre de Empresa *</Label>
+                                        <Input
+                                            value={quickFormData.nombre_empresa || ''}
+                                            onChange={(e) => setQuickFormData({...quickFormData, nombre_empresa: e.currentTarget.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1 block text-xs">RUT *</Label>
+                                        <Input
+                                            placeholder="12.345.678-9"
+                                            value={quickFormData.rut_empresa || ''}
+                                            onChange={(e) => setQuickFormData({...quickFormData, rut_empresa: e.currentTarget.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1 block text-xs">Dirección *</Label>
+                                        <Input
+                                            value={quickFormData.direccion_empresa || ''}
+                                            onChange={(e) => setQuickFormData({...quickFormData, direccion_empresa: e.currentTarget.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1 block text-xs">Email Empresa *</Label>
+                                        <Input
+                                            value={quickFormData.email_empresa || ''}
+                                            onChange={(e) => setQuickFormData({...quickFormData, email_empresa: e.currentTarget.value})}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
+                                <>
+                                    <div>
+                                        <Label className="mb-1 block text-xs">Nombre Componente *</Label>
+                                        <Input
+                                            value={quickFormData.nombre_tipomuestra || ''}
+                                            onChange={(e) => setQuickFormData({...quickFormData, nombre_tipomuestra: e.currentTarget.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1 block text-xs">Sigla *</Label>
+                                        <Input
+                                            value={quickFormData.sigla_tipomuestra || ''}
+                                            onChange={(e) => setQuickFormData({...quickFormData, sigla_tipomuestra: e.currentTarget.value})}
+                                        />
+                                    </div>
+                                </>
+                            )}
 
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-                            <Button onClick={() => setQuickCreateType(null)} disabled={quickSaving}>Cancelar</Button>
-                            <Button
-                                type="primary"
-                                style={{ backgroundColor: '#2f9e44', borderColor: '#2f9e44' }}
-                                onClick={handleQuickSave}
-                                loading={quickSaving}
-                            >
-                                Crear y Seleccionar
-                            </Button>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setQuickCreateType(null)} disabled={quickSaving}>Cancelar</Button>
+                                <Button
+                                    type="button"
+                                    className="bg-success text-success-foreground hover:bg-success/90"
+                                    onClick={handleQuickSave}
+                                    disabled={quickSaving}
+                                >
+                                    {quickSaving ? 'Creando...' : 'Crear y Seleccionar'}
+                                </Button>
+                            </DialogFooter>
                         </div>
-                    </div>
-                </Modal>
+                    </DialogContent>
+                </Dialog>
 
                 {/* Confirm Save Modal */}
-                <Modal
-                    open={confirmSaveOpen}
-                    onCancel={() => !saving && setConfirmSaveOpen(false)}
-                    title={<Text strong style={{ color: '#1864ab' }}>Confirmación de Guardado</Text>}
-                    width={420}
-                    centered
-                    footer={null}
-                >
-                    <Text style={{ fontSize: 13, display: 'block', marginBottom: 24 }}>
-                        ¿Está seguro que desea {editingItem ? 'actualizar' : 'crear'} este registro en {config.label}?
-                    </Text>
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={() => setConfirmSaveOpen(false)} disabled={saving}>Cancelar</Button>
-                        <Button
-                            type="primary"
-                            onClick={() => {
-                                setConfirmSaveOpen(false);
-                                handleSave();
-                            }}
-                            loading={saving}
-                        >
-                            Confirmar
-                        </Button>
-                    </div>
-                </Modal>
+                <Dialog open={confirmSaveOpen} onOpenChange={(open) => { if (!open && !saving) setConfirmSaveOpen(false); }}>
+                    <DialogContent className="max-w-sm">
+                        <DialogHeader>
+                            <DialogTitle className="text-primary">Confirmación de Guardado</DialogTitle>
+                        </DialogHeader>
+                        <p className="block text-[13px]">
+                            ¿Está seguro que desea {editingItem ? 'actualizar' : 'crear'} este registro en {config.label}?
+                        </p>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setConfirmSaveOpen(false)} disabled={saving}>Cancelar</Button>
+                            <Button
+                                type="button"
+                                onClick={() => {
+                                    setConfirmSaveOpen(false);
+                                    handleSave();
+                                }}
+                                disabled={saving}
+                            >
+                                {saving ? 'Guardando...' : 'Confirmar'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {/* ── QUICK-CREATE FK MODAL ── */}
                 {quickFkModal}
@@ -1157,93 +1194,90 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
 
     return (
-        <>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div className="shadcn-scope flex flex-col gap-4">
+            <div className="flex flex-wrap justify-between gap-3">
 
                 {fetchError && (
-                    <Alert icon={<IconAlertCircle size={16} />} showIcon type="error" style={{ width: '100%' }} message={fetchError} />
+                    <AlertBox variant="error" icon={<IconAlertCircle size={16} className="mt-0.5 shrink-0" />}>
+                        {fetchError}
+                    </AlertBox>
                 )}
-                <Button
-                    icon={<IconArrowLeft size={16} />}
-                    onClick={onBack}
-                >
-                    Volver al Panel
+                <Button type="button" variant="outline" onClick={onBack}>
+                    <IconArrowLeft size={16} /> Volver al Panel
                 </Button>
-                <Button
-                    type="primary"
-                    icon={<IconPlus size={20} />}
-                    onClick={() => handleOpenModal()}
-                    disabled={needsDependency}
-                >
-                    Añadir {config.label}
+                <Button type="button" onClick={() => handleOpenModal()} disabled={needsDependency}>
+                    <IconPlus size={20} /> Añadir {config.label}
                 </Button>
             </div>
 
             {needsDependency && (
-                <Alert icon={<IconAlertCircle size={16} />} showIcon type="warning" message="Atención" description={
-                    <>Necesita crear primero registros en el maestro <strong>{config.dependsOn}</strong> antes de poder añadir nuevos {config.label}.</>
-                } />
+                <AlertBox variant="warning" icon={<IconAlertTriangle size={16} className="mt-0.5 shrink-0" />}>
+                    <span className="font-semibold">Atención: </span>
+                    Necesita crear primero registros en el maestro <strong>{config.dependsOn}</strong> antes de poder añadir nuevos {config.label}.
+                </AlertBox>
             )}
 
             {/* ── MAESTRO INFO PANEL ─────────────────────────────────────── */}
-            <Card size="small" style={{ background: '#e7f3ff', borderColor: '#a5d8ff' }}>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6 }}>
-                    <IconBadge color="blue" size={20}><IconSettings size={12} /></IconBadge>
-                    <Text strong style={{ fontSize: 12, color: '#1864ab' }}>Información del Maestro</Text>
-                </div>
-                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                    {/* Tabla */}
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12 }} type="secondary">Tabla:</Text>
-                        <Tag color="blue" style={{ fontFamily: 'monospace' }}>{config.tableName}</Tag>
+            <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-3">
+                    <div className="mb-1.5 flex items-center gap-2">
+                        <IconBadge color="blue" size={20}><IconSettings size={12} /></IconBadge>
+                        <span className="text-xs font-semibold text-primary">Información del Maestro</span>
                     </div>
-                    {/* ID */}
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <Text style={{ fontSize: 12 }} type="secondary">ID:</Text>
-                        <Tag style={{ fontFamily: 'monospace' }}>{config.idName}</Tag>
+                    <div className="flex flex-wrap items-center gap-4">
+                        {/* Tabla */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">Tabla:</span>
+                            <Badge variant="outline" className="font-mono">{config.tableName}</Badge>
+                        </div>
+                        {/* ID */}
+                        <div className="flex items-center gap-1">
+                            <span className="text-xs text-muted-foreground">ID:</span>
+                            <Badge variant="outline" className="font-mono">{config.idName}</Badge>
+                        </div>
+                        {/* Status column */}
+                        {config.statusColumn && (
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">Estado:</span>
+                                <Badge variant="outline" className="font-mono">{config.statusColumn}</Badge>
+                            </div>
+                        )}
+                        {/* Lookups / FK relations */}
+                        {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => (
+                            <div key={field} className="flex items-center gap-1">
+                                <Badge variant="outline" className="font-mono">{field}</Badge>
+                                <span className="text-xs text-muted-foreground">→</span>
+                                <Badge variant="outline" className="font-mono">{lookup.tableName}.{lookup.displayColumn}</Badge>
+                            </div>
+                        ))}
+                        {/* Dependency */}
+                        {config.dependsOn && (
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">Depende de:</span>
+                                <Badge variant="outline">{config.dependsOn}</Badge>
+                            </div>
+                        )}
+                        {/* Total records */}
+                        {data.length > 0 && (
+                            <div className="flex items-center gap-1">
+                                <span className="text-xs text-muted-foreground">Registros:</span>
+                                <Badge variant="outline">{data.length}</Badge>
+                            </div>
+                        )}
                     </div>
-                    {/* Status column */}
-                    {config.statusColumn && (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 12 }} type="secondary">Estado:</Text>
-                            <Tag color="green" style={{ fontFamily: 'monospace' }}>{config.statusColumn}</Tag>
-                        </div>
-                    )}
-                    {/* Lookups / FK relations */}
-                    {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => (
-                        <div key={field} style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <Tag color="purple" style={{ fontFamily: 'monospace' }}>{field}</Tag>
-                            <Text style={{ fontSize: 12 }} type="secondary">→</Text>
-                            <Tag color="purple" style={{ fontFamily: 'monospace' }}>{lookup.tableName}.{lookup.displayColumn}</Tag>
-                        </div>
-                    ))}
-                    {/* Dependency */}
-                    {config.dependsOn && (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 12 }} type="secondary">Depende de:</Text>
-                            <Tag color="orange">{config.dependsOn}</Tag>
-                        </div>
-                    )}
-                    {/* Total records */}
-                    {data.length > 0 && (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                            <Text style={{ fontSize: 12 }} type="secondary">Registros:</Text>
-                            <Tag color="blue">{data.length}</Tag>
-                        </div>
-                    )}
-                </div>
+                </CardContent>
             </Card>
 
             <Card>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <Text strong style={{ fontSize: 20 }}>{config.label}</Text>
-                            <Tag>{config.tableName}</Tag>
+                <CardContent className="flex flex-col gap-4 p-5">
+                    <div className="flex flex-wrap justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-semibold">{config.label}</span>
+                            <Badge variant="outline">{config.tableName}</Badge>
                         </div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                            <Select
+                        <div className="flex flex-wrap gap-2">
+                            <Combobox
+                                className="w-[190px]"
                                 placeholder="Estado"
                                 options={[
                                     { value: 'all', label: 'Todos los estados' },
@@ -1251,124 +1285,121 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                     { value: 'inactive', label: 'Solo Inactivos' }
                                 ]}
                                 value={statusFilter}
-                                onChange={(v) => setStatusFilter(v || 'all')}
-                                style={{ width: 190 }}
+                                onValueChange={(v) => setStatusFilter(v || 'all')}
                             />
 
                             {/* Dynamic filters based on FK lookups */}
                             {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => {
                                 if (!lookup) return null;
                                 const options = lookupData[field] || [];
+                                const comboOptions = (() => {
+                                    const seen = new Set<string>();
+                                    const opts = options
+                                        .map(opt => ({
+                                            value: String(opt[lookup.idColumn]),
+                                            label: String(opt[lookup.displayColumn])
+                                        }))
+                                        .filter(opt => {
+                                            if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
+                                            if (seen.has(opt.value)) return false;
+                                            seen.add(opt.value);
+                                            return true;
+                                        });
+                                    return [{ value: '', label: `Todos` }, ...opts];
+                                })();
                                 return (
-                                    <Select
+                                    <Combobox
                                         key={`filter-${field}`}
+                                        className="w-[200px]"
                                         placeholder={`Filtrar por ${formatHeader(field)}`}
-                                        options={(() => {
-                                            const seen = new Set();
-                                            return options
-                                                .map(opt => ({
-                                                    value: String(opt[lookup.idColumn]),
-                                                    label: String(opt[lookup.displayColumn])
-                                                }))
-                                                .filter(opt => {
-                                                    if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
-                                                    if (seen.has(opt.value)) return false;
-                                                    seen.add(opt.value);
-                                                    return true;
-                                                });
-                                        })()}
-                                        value={dynamicFilters[field] || undefined}
-                                        onChange={(v) => setDynamicFilters(prev => ({ ...prev, [field]: v || '' }))}
-                                        allowClear
-                                        showSearch
-                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                        style={{ width: 200 }}
+                                        searchPlaceholder="Buscar..."
+                                        options={comboOptions}
+                                        value={dynamicFilters[field] || ''}
+                                        onValueChange={(v) => setDynamicFilters(prev => ({ ...prev, [field]: v || '' }))}
                                     />
                                 );
                             })}
 
                             {/* Dynamic filters based on hierarchical dependencies */}
                             {config.dependsOn === 'clientes' && (
-                                <Select
+                                <Combobox
+                                    className="w-[200px]"
                                     placeholder="Filtrar por Cliente"
-                                    options={dependencyData.map(c => ({
+                                    searchPlaceholder="Buscar..."
+                                    options={[{ value: '', label: 'Todos' }, ...dependencyData.map(c => ({
                                         value: String(c.id || c.id_empresa),
                                         label: String(c.nombre || c.nombre_empresa)
-                                    }))}
-                                    value={dynamicFilters['id_empresa'] || undefined}
-                                    onChange={(v) => setDynamicFilters(prev => ({ ...prev, id_empresa: v || '' }))}
-                                    allowClear
-                                    showSearch
-                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                    style={{ width: 200 }}
+                                    }))]}
+                                    value={dynamicFilters['id_empresa'] || ''}
+                                    onValueChange={(v) => setDynamicFilters(prev => ({ ...prev, id_empresa: v || '' }))}
                                 />
                             )}
 
                             {config.dependsOn === 'componentes' && (
-                                <Select
+                                <Combobox
+                                    className="w-[200px]"
                                     placeholder="Filtrar por Componente"
-                                    options={dependencyData.map(c => ({
+                                    searchPlaceholder="Buscar..."
+                                    options={[{ value: '', label: 'Todos' }, ...dependencyData.map(c => ({
                                         value: String(c.id || c.id_tipomuestra),
                                         label: String(c.nombre || c.nombre_tipomuestra)
-                                    }))}
-                                    value={dynamicFilters['id_tipomuestra'] || undefined}
-                                    onChange={(v) => setDynamicFilters(prev => ({ ...prev, id_tipomuestra: v || '' }))}
-                                    allowClear
-                                    showSearch
-                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                    style={{ width: 200 }}
+                                    }))]}
+                                    value={dynamicFilters['id_tipomuestra'] || ''}
+                                    onValueChange={(v) => setDynamicFilters(prev => ({ ...prev, id_tipomuestra: v || '' }))}
                                 />
                             )}
 
-                            <Input
-                                placeholder="Buscar..."
-                                prefix={<IconSearch size={16} />}
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                style={{ width: 250 }}
-                            />
+                            <div className="relative w-[250px]">
+                                <IconSearch size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="Buscar..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
+                                    className="pl-8"
+                                />
+                            </div>
                         </div>
                     </div>
 
-                    <div style={{ overflowX: 'auto' }}>
-                        <table style={{ width: '100%', minWidth: 800, borderCollapse: 'collapse' }}>
-                            <thead style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                                <tr>
-                                    <th style={{ width: 80, textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>ID</th>
+                    <div className="overflow-hidden rounded-lg border border-border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="hover:bg-transparent">
+                                    <TableHead className="w-20">ID</TableHead>
 
                                     {/* Granular columns */}
                                     {mainTableColumns.map((col: string) => (
-                                        <th key={col} style={{ textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>{formatHeader(col)}</th>
+                                        <SortableTableHead key={col} {...sortProps(col)}>{formatHeader(col)}</SortableTableHead>
                                     ))}
 
-                                    {hasStatusColumn && <th style={{ width: 100, textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>Estado</th>}
-                                    <th style={{ width: 100, textAlign: 'left', padding: '10px 12px', borderBottom: '1px solid var(--app-border)' }}>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
+                                    {hasStatusColumn && <SortableTableHead className="w-28" {...sortProps('__estado')}>Estado</SortableTableHead>}
+                                    <TableHead className="w-24">Acciones</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
                                 {loading ? (
-                                    <tr>
-                                        <td colSpan={mainTableColumns.length + 3} style={{ textAlign: 'center', padding: '32px 0' }}>
-                                            <Spin size="small" />
-                                            <Text style={{ fontSize: 13, display: 'block', marginTop: 8 }}>Cargando datos...</Text>
-                                        </td>
-                                    </tr>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableCell colSpan={mainTableColumns.length + 3} className="py-8 text-center">
+                                            <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                            <p className="mt-2 block text-[13px]">Cargando datos...</p>
+                                        </TableCell>
+                                    </TableRow>
                                 ) : filteredData.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={mainTableColumns.length + 3} style={{ textAlign: 'center', padding: '32px 0' }}>
-                                            <Text type="secondary">No se encontraron registros</Text>
-                                        </td>
-                                    </tr>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableCell colSpan={mainTableColumns.length + 3} className="py-8 text-center text-sm text-muted-foreground">
+                                            No se encontraron registros
+                                        </TableCell>
+                                    </TableRow>
                                 ) : (
                                     paginatedData.map((item) => {
                                         const status = item[config.statusColumn || 'habilitado'] || item.activo || item.estado || 'S';
                                         const isActive = status === 'S' || status === 'V' || status === 1 || status === true;
 
                                         return (
-                                            <tr key={item[config.idName]} style={{ borderBottom: '1px solid var(--app-border)' }}>
-                                                <td style={{ padding: '10px 12px' }}>
-                                                    <Text style={{ fontSize: 12, fontWeight: 500 }} type="secondary">{item[config.idName]}</Text>
-                                                </td>
+                                            <TableRow key={item[config.idName]}>
+                                                <TableCell>
+                                                    <span className="text-xs font-medium text-muted-foreground">{item[config.idName]}</span>
+                                                </TableCell>
 
                                                 {/* Granular data cells */}
                                                 {mainTableColumns.map((col: string) => {
@@ -1380,15 +1411,15 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                                     const isNullValue = raw === null || raw === undefined || raw === '';
                                                     const isDescCol = /descrip|observ/i.test(col);
                                                     let displayValue: React.ReactNode = isNullValue
-                                                        ? <Text style={{ fontSize: 12, fontStyle: 'italic' }} type="secondary">{isDescCol ? 'Sin observaciones' : 'null'}</Text>
+                                                        ? <span className="text-xs italic text-muted-foreground">{isDescCol ? 'Sin observaciones' : 'null'}</span>
                                                         : String(raw);
 
                                                     if (isBoolCol && raw !== null && raw !== undefined) {
                                                         const isTrue = raw === true || raw === 1;
                                                         displayValue = (
-                                                            <Tag color={isTrue ? 'green' : 'default'}>
+                                                            <Badge variant={isTrue ? 'success' : 'secondary'}>
                                                                 {isTrue ? '✅ Sí' : '❌ No'}
-                                                            </Tag>
+                                                            </Badge>
                                                         );
                                                     }
 
@@ -1408,83 +1439,68 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
 
                                                     const isNameCol = col === config.displayColumn;
                                                     return (
-                                                        <td key={col} style={{ padding: '10px 12px', minWidth: isNameCol ? 220 : undefined }}>
-                                                            <Text
-                                                                style={{
-                                                                    fontSize: 13,
-                                                                    fontWeight: isNameCol ? 600 : 400,
-                                                                    ...(isNameCol
-                                                                        ? { whiteSpace: 'normal', wordBreak: 'break-word' }
-                                                                        : { whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 250, display: 'block' })
-                                                                }}
+                                                        <TableCell key={col} style={isNameCol ? { minWidth: 220 } : undefined}>
+                                                            <span
+                                                                className={cn(
+                                                                    'text-[13px]',
+                                                                    isNameCol
+                                                                        ? 'font-semibold whitespace-normal break-words'
+                                                                        : 'block max-w-[250px] truncate font-normal'
+                                                                )}
                                                             >
                                                                 {displayValue}
-                                                            </Text>
-                                                        </td>
+                                                            </span>
+                                                        </TableCell>
                                                     );
                                                 })}
 
                                                 {hasStatusColumn && (
-                                                    <td style={{ padding: '10px 12px' }}>
-                                                        <Tag color={isActive ? 'green' : 'red'}>
+                                                    <TableCell>
+                                                        <Badge variant={isActive ? 'success' : 'destructive'}>
                                                             {isActive ? 'Activo' : 'Inactivo'}
-                                                        </Tag>
-                                                    </td>
+                                                        </Badge>
+                                                    </TableCell>
                                                 )}
 
-                                                <td style={{ padding: '10px 12px' }}>
-                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'nowrap' }}>
-                                                        <Tooltip title="Editar">
-                                                            <Button
-                                                                type="text"
-                                                                size="small"
-                                                                style={{ color: '#1c7ed6' }}
-                                                                icon={<IconEdit size={14} />}
-                                                                onClick={() => handleOpenModal(item)}
-                                                            />
-                                                        </Tooltip>
+                                                <TableCell>
+                                                    <div className="flex flex-nowrap gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8 text-primary"
+                                                            title="Editar"
+                                                            onClick={() => handleOpenModal(item)}
+                                                        >
+                                                            <IconEdit size={14} />
+                                                        </Button>
                                                         {hasStatusColumn && (
-                                                            <Tooltip title={isActive ? 'Deshabilitar' : 'Habilitar'}>
-                                                                <Button
-                                                                    type="text"
-                                                                    size="small"
-                                                                    style={{ color: isActive ? '#e03131' : '#2f9e44' }}
-                                                                    icon={isActive ? <IconTrash size={14} /> : <IconCheck size={14} />}
-                                                                    onClick={() => handleToggleStatus(item)}
-                                                                />
-                                                            </Tooltip>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className={cn('h-8 w-8', isActive ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : 'text-success hover:bg-success/10 hover:text-success')}
+                                                                title={isActive ? 'Deshabilitar' : 'Habilitar'}
+                                                                onClick={() => handleToggleStatus(item)}
+                                                            >
+                                                                {isActive ? <IconTrash size={14} /> : <IconCheck size={14} />}
+                                                            </Button>
                                                         )}
                                                     </div>
-                                                </td>
-                                            </tr>
+                                                </TableCell>
+                                            </TableRow>
                                         );
                                     })
                                 )}
-                            </tbody>
-                        </table>
+                            </TableBody>
+                        </Table>
                     </div>
 
-                    {totalPages > 1 && (
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16, marginBottom: 8 }}>
-                            <Pagination
-                                total={filteredData.length}
-                                pageSize={itemsPerPage}
-                                current={page}
-                                onChange={setPage}
-                                showSizeChanger={false}
-                            />
-                        </div>
-                    )}
-                </div>
+                    <DataPagination page={page} pageSize={itemsPerPage} total={sortedData.length} onPageChange={setPage} />
+                </CardContent>
             </Card>
-        </div>
-        <style dangerouslySetInnerHTML={{ __html: `
-            @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-        `}} />
 
-        {/* ── QUICK-CREATE FK MODAL (list view) ── */}
-        {quickFkModal}
-        </>
+            {/* ── QUICK-CREATE FK MODAL (list view) ── */}
+            {quickFkModal}
+        </div>
 
     );
 };
