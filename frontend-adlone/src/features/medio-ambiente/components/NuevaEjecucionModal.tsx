@@ -1,18 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-    Modal, Typography, Button, Spin, Tag, Select,
-    Input, Checkbox, Card, Divider, Alert, Tooltip
-} from 'antd';
-import {
-    IconCalendarEvent, IconUserPlus, IconCheck, IconAlertCircle,
-    IconRefresh, IconChevronDown
+    IconCalendarEvent, IconCheck, IconAlertCircle, IconRefresh
 } from '@tabler/icons-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { rutasEjecucionesService, type FichaDisponible, type CorrelativoOption } from '../services/rutasEjecuciones.service';
 import { catalogosService } from '../services/catalogos.service';
 import { useCatalogos } from '../context/CatalogosContext';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
 
 interface NuevaEjecucionModalProps {
     opened: boolean;
@@ -22,10 +23,12 @@ interface NuevaEjecucionModalProps {
     onSuccess: () => void;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-    DISPONIBLE: 'green',
-    AGENDADO: 'orange',
-    EN_RUTA: 'purple'
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+
+const STATUS_VARIANT: Record<string, BadgeVariant> = {
+    DISPONIBLE: 'success',
+    AGENDADO: 'warning',
+    EN_RUTA: 'secondary'
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -33,6 +36,10 @@ const STATUS_LABEL: Record<string, string> = {
     AGENDADO: 'Agendado',
     EN_RUTA: 'En Ruta'
 };
+
+const Spinner = ({ className }: { className?: string }) => (
+    <div className={cn('h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent', className)} />
+);
 
 export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
     opened, onClose, rutaId, rutaNombre, onSuccess
@@ -177,224 +184,196 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
     const noneSelected = selectedCount === 0;
 
     return (
-        <Modal
-            open={opened}
-            onCancel={onClose}
-            footer={null}
-            centered
-            width={840}
-            title={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <IconCalendarEvent size={20} color="#2f9e44" />
-                    <Text strong style={{ fontSize: 16 }}>Nueva Ejecución</Text>
-                    <Tag color="blue" style={{ marginInlineEnd: 0 }}>{rutaNombre}</Tag>
-                </div>
-            }
-        >
-            {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}><Spin /></div>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 12 }}>
-                    {/* Header fields */}
-                    <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, alignItems: 'start' }}>
-                            <Field label="Fecha de Muestreo *">
-                                <Input
-                                    type="date"
-                                    value={fecha}
-                                    onChange={e => setFecha(e.target.value)}
-                                    prefix={<IconCalendarEvent size={14} style={{ color: 'var(--app-text-secondary)' }} />}
-                                />
-                            </Field>
-                            <Field label="Muestreador Instalación *">
-                                <Select
-                                    options={muestreadorOptions}
-                                    value={muestreadorInst ?? undefined}
-                                    onChange={v => { setMuestreadorInst(v); if (!muestreadorRet) setMuestreadorRet(v); }}
-                                    showSearch
-                                    allowClear
-                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                    placeholder="Seleccionar..."
-                                    style={{ width: '100%' }}
-                                    suffixIcon={<IconUserPlus size={14} />}
-                                />
-                            </Field>
-                            <Field label="Muestreador Retiro">
-                                <Select
-                                    options={muestreadorOptions}
-                                    value={muestreadorRet ?? undefined}
-                                    onChange={v => setMuestreadorRet(v ?? null)}
-                                    showSearch
-                                    allowClear
-                                    filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                    placeholder="Igual al de instalación"
-                                    style={{ width: '100%' }}
-                                    suffixIcon={<IconUserPlus size={14} />}
-                                />
-                            </Field>
-                        </div>
-                        <div style={{ marginTop: 8 }}>
-                            <Field label="Observaciones">
-                                <Input
-                                    placeholder="Opcional"
-                                    value={observaciones}
-                                    onChange={e => setObservaciones(e.target.value)}
-                                />
-                            </Field>
-                        </div>
-                    </Card>
+        <Dialog open={opened} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-h-[85vh] max-w-[840px] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <IconCalendarEvent size={20} className="text-[#2f9e44]" />
+                        Nueva Ejecución
+                        <Badge variant="outline">{rutaNombre}</Badge>
+                    </DialogTitle>
+                </DialogHeader>
+                {loading ? (
+                    <div className="flex justify-center py-8"><Spinner /></div>
+                ) : (
+                    <div className="flex flex-col gap-3">
+                        {/* Header fields */}
+                        <Card className="bg-muted/40 p-3">
+                            <div className="grid grid-cols-3 items-start gap-3">
+                                <Field label="Fecha de Muestreo *">
+                                    <Input
+                                        type="date"
+                                        value={fecha}
+                                        onChange={e => setFecha(e.target.value)}
+                                    />
+                                </Field>
+                                <Field label="Muestreador Instalación *">
+                                    <Combobox
+                                        options={muestreadorOptions}
+                                        value={muestreadorInst ?? ''}
+                                        onValueChange={v => { setMuestreadorInst(v || null); if (!muestreadorRet) setMuestreadorRet(v || null); }}
+                                        placeholder="Seleccionar..."
+                                        searchPlaceholder="Buscar muestreador..."
+                                    />
+                                </Field>
+                                <Field label="Muestreador Retiro">
+                                    <Combobox
+                                        options={muestreadorOptions}
+                                        value={muestreadorRet ?? ''}
+                                        onValueChange={v => setMuestreadorRet(v || null)}
+                                        placeholder="Igual al de instalación"
+                                        searchPlaceholder="Buscar muestreador..."
+                                    />
+                                </Field>
+                            </div>
+                            <div className="mt-2">
+                                <Field label="Observaciones">
+                                    <Input
+                                        placeholder="Opcional"
+                                        value={observaciones}
+                                        onChange={e => setObservaciones(e.target.value)}
+                                    />
+                                </Field>
+                            </div>
+                        </Card>
 
-                    <Divider style={{ margin: 0 }} />
+                        <hr className="border-t border-border" />
 
-                    {/* Banner fichas agotadas */}
-                    {(plantillaData?.fichas ?? []).some(f => f.disponibles === 0) && (
-                        <Alert
-                            type="warning"
-                            showIcon
-                            icon={<IconAlertCircle size={16} />}
-                            message={
-                                <Text style={{ fontSize: 12 }}>
-                                    <strong>{(plantillaData?.fichas ?? []).filter(f => f.disponibles === 0).length} ficha(s)</strong> no tienen correlativos disponibles y fueron deseleccionadas automáticamente.
+                        {/* Banner fichas agotadas */}
+                        {(plantillaData?.fichas ?? []).some(f => f.disponibles === 0) && (
+                            <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                                <IconAlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
+                                <p className="text-xs text-foreground">
+                                    <span className="font-semibold">{(plantillaData?.fichas ?? []).filter(f => f.disponibles === 0).length} ficha(s)</span> no tienen correlativos disponibles y fueron deseleccionadas automáticamente.
                                     Puedes seleccionarlas manualmente si lo requieres, pero su correlativo sugerido puede estar ya ejecutado.
-                                </Text>
-                            }
-                        />
-                    )}
+                                </p>
+                            </div>
+                        )}
 
-                    {/* Fichas list */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Text strong style={{ fontSize: 13 }}>
-                            Fichas de la plantilla
-                            <Text type="secondary" style={{ fontWeight: 400, fontSize: 13 }}> — {selectedCount} de {plantillaData?.fichas.length ?? 0} seleccionadas</Text>
-                        </Text>
-                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                            <Button type="text" size="small" onClick={() => handleSelectAll(true)} disabled={allSelected}>Todas</Button>
-                            <Button type="text" size="small" onClick={() => handleSelectAll(false)} disabled={noneSelected}>Ninguna</Button>
-                            <Tooltip title="Recargar correlativos disponibles">
-                                <Button type="text" size="small" icon={<IconRefresh size={14} />} onClick={loadData} />
-                            </Tooltip>
-                        </div>
-                    </div>
-
-                    {plantillaData?.fichas.length === 0 ? (
-                        <Alert type="warning" showIcon icon={<IconAlertCircle size={16} />} message="Esta plantilla no tiene fichas. Edítala primero para agregar fichas." />
-                    ) : selectedCount === 0 && (plantillaData?.fichas ?? []).every(f => f.disponibles === 0) ? (
-                        <Alert
-                            type="error"
-                            showIcon
-                            icon={<IconAlertCircle size={16} />}
-                            message="Sin fichas ejecutables"
-                            description="Todas las fichas de esta ruta tienen sus correlativos agotados (ejecutados o cancelados). No es posible crear una ejecución hasta que las fichas tengan nuevos servicios disponibles."
-                        />
-                    ) : (
-                        <div style={{ maxHeight: 340, overflowY: 'auto', paddingRight: 4 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                {(plantillaData?.fichas ?? []).map((f) => {
-                                    const state = fichaState.get(f.id_fichaingresoservicio);
-                                    const isSelected = state?.selected ?? false;
-                                    const currentCorr = state?.correlativo ?? '';
-                                    const sinDisponibles = f.disponibles === 0;
-                                    const corrOptions = f.correlativos.map((c: CorrelativoOption) => ({
-                                        value: c.frecuencia_correlativo,
-                                        label: `${c.frecuencia_correlativo} — ${STATUS_LABEL[c.status] ?? c.status}${c.fecha_muestreo ? ` (${new Date(c.fecha_muestreo).toLocaleDateString('es-CL')})` : ''}`
-                                    }));
-
-                                    const selectedCorrObj = f.correlativos.find(c => c.frecuencia_correlativo === currentCorr);
-
-                                    return (
-                                        <Card
-                                            key={f.id_fichaingresoservicio}
-                                            size="small"
-                                            style={{
-                                                opacity: isSelected ? 1 : 0.5,
-                                                backgroundColor: sinDisponibles ? 'rgba(232,140,0,0.06)' : undefined,
-                                                borderColor: sinDisponibles
-                                                    ? '#e8590c'
-                                                    : isSelected ? '#4dabf7' : undefined,
-                                                transition: 'opacity 0.15s'
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'nowrap' }}>
-                                                <Checkbox
-                                                    checked={isSelected}
-                                                    onChange={() => toggleFicha(f.id_fichaingresoservicio)}
-                                                    style={{ marginTop: 4 }}
-                                                />
-                                                <div style={{
-                                                    flexShrink: 0, marginTop: 2, width: 20, height: 20, borderRadius: '50%',
-                                                    backgroundColor: '#9c36b5', color: '#fff',
-                                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                    fontSize: 10, fontWeight: 700,
-                                                }}>
-                                                    {f.orden}
-                                                </div>
-                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'center' }}>
-                                                        <Text strong style={{ fontSize: 12, color: '#1864ab' }}>#{f.id_fichaingresoservicio}</Text>
-                                                        {f.centro && <Text type="secondary" style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.centro}</Text>}
-                                                        {f.empresa_servicio && <Text type="secondary" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.empresa_servicio}</Text>}
-                                                        {sinDisponibles && (
-                                                            <Tooltip title="Todos los correlativos de esta ficha ya fueron ejecutados o cancelados">
-                                                                <Tag color="orange" style={{ flexShrink: 0, marginInlineEnd: 0 }}>
-                                                                    Sin disponibles
-                                                                </Tag>
-                                                            </Tooltip>
-                                                        )}
-                                                    </div>
-                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                        <Select
-                                                            size="small"
-                                                            options={corrOptions}
-                                                            value={currentCorr || undefined}
-                                                            onChange={v => v && setCorrelativo(f.id_fichaingresoservicio, f, v)}
-                                                            disabled={!isSelected || corrOptions.length === 0}
-                                                            placeholder={corrOptions.length === 0 ? 'Sin correlativos' : 'Seleccionar correlativo...'}
-                                                            style={{ flex: 1, minWidth: 200 }}
-                                                            suffixIcon={<IconChevronDown size={12} />}
-                                                        />
-                                                        {selectedCorrObj && (
-                                                            <Tag color={STATUS_COLOR[selectedCorrObj.status] ?? 'default'} style={{ flexShrink: 0, marginInlineEnd: 0 }}>
-                                                                {STATUS_LABEL[selectedCorrObj.status] ?? selectedCorrObj.status}
-                                                            </Tag>
-                                                        )}
-                                                        <Text type="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
-                                                            {f.disponibles}/{f.total} disp.
-                                                        </Text>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </Card>
-                                    );
-                                })}
+                        {/* Fichas list */}
+                        <div className="flex items-center justify-between">
+                            <span className="text-[13px] font-semibold">
+                                Fichas de la plantilla
+                                <span className="font-normal text-muted-foreground"> — {selectedCount} de {plantillaData?.fichas.length ?? 0} seleccionadas</span>
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <Button variant="ghost" size="sm" onClick={() => handleSelectAll(true)} disabled={allSelected}>Todas</Button>
+                                <Button variant="ghost" size="sm" onClick={() => handleSelectAll(false)} disabled={noneSelected}>Ninguna</Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" title="Recargar correlativos disponibles" onClick={loadData}>
+                                    <IconRefresh size={14} />
+                                </Button>
                             </div>
                         </div>
-                    )}
 
-                    <Divider style={{ margin: 0 }} />
+                        {plantillaData?.fichas.length === 0 ? (
+                            <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 p-3">
+                                <IconAlertCircle size={16} className="mt-0.5 shrink-0 text-warning" />
+                                <p className="text-xs text-foreground">Esta plantilla no tiene fichas. Edítala primero para agregar fichas.</p>
+                            </div>
+                        ) : selectedCount === 0 && (plantillaData?.fichas ?? []).every(f => f.disponibles === 0) ? (
+                            <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                                <IconAlertCircle size={16} className="mt-0.5 shrink-0 text-destructive" />
+                                <div>
+                                    <p className="text-xs font-semibold text-foreground">Sin fichas ejecutables</p>
+                                    <p className="text-xs text-muted-foreground">Todas las fichas de esta ruta tienen sus correlativos agotados (ejecutados o cancelados). No es posible crear una ejecución hasta que las fichas tengan nuevos servicios disponibles.</p>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="max-h-[340px] overflow-y-auto pr-1">
+                                <div className="flex flex-col gap-2">
+                                    {(plantillaData?.fichas ?? []).map((f) => {
+                                        const state = fichaState.get(f.id_fichaingresoservicio);
+                                        const isSelected = state?.selected ?? false;
+                                        const currentCorr = state?.correlativo ?? '';
+                                        const sinDisponibles = f.disponibles === 0;
+                                        const corrOptions = f.correlativos.map((c: CorrelativoOption) => ({
+                                            value: c.frecuencia_correlativo,
+                                            label: `${c.frecuencia_correlativo} — ${STATUS_LABEL[c.status] ?? c.status}${c.fecha_muestreo ? ` (${new Date(c.fecha_muestreo).toLocaleDateString('es-CL')})` : ''}`
+                                        }));
 
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={onClose} disabled={submitting}>Cancelar</Button>
-                        <Button
-                            type="primary"
-                            style={{ backgroundColor: '#2f9e44' }}
-                            icon={<IconCheck size={16} />}
-                            onClick={handleSubmit}
-                            loading={submitting}
-                            disabled={selectedCount === 0 || !fecha || !muestreadorInst}
-                        >
-                            Crear Ejecución ({selectedCount} ficha{selectedCount !== 1 ? 's' : ''})
-                        </Button>
+                                        const selectedCorrObj = f.correlativos.find(c => c.frecuencia_correlativo === currentCorr);
+
+                                        return (
+                                            <Card
+                                                key={f.id_fichaingresoservicio}
+                                                className={cn(
+                                                    'p-3 transition-opacity',
+                                                    isSelected ? 'opacity-100' : 'opacity-50',
+                                                    sinDisponibles ? 'border-[#e8590c] bg-[#e8590c]/5' : isSelected && 'border-[#4dabf7]'
+                                                )}
+                                            >
+                                                <div className="flex flex-nowrap items-start gap-2.5">
+                                                    <Checkbox
+                                                        checked={isSelected}
+                                                        onCheckedChange={() => toggleFicha(f.id_fichaingresoservicio)}
+                                                        className="mt-1"
+                                                    />
+                                                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#9c36b5] text-[10px] font-bold text-white">
+                                                        {f.orden}
+                                                    </div>
+                                                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                                                        <div className="flex flex-nowrap items-center gap-2">
+                                                            <span className="text-xs font-semibold text-primary">#{f.id_fichaingresoservicio}</span>
+                                                            {f.centro && <span className="truncate text-xs text-muted-foreground">{f.centro}</span>}
+                                                            {f.empresa_servicio && <span className="truncate text-[10px] text-muted-foreground">{f.empresa_servicio}</span>}
+                                                            {sinDisponibles && (
+                                                                <Badge variant="warning" className="shrink-0" title="Todos los correlativos de esta ficha ya fueron ejecutados o cancelados">
+                                                                    Sin disponibles
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex flex-nowrap items-center gap-2">
+                                                            <Combobox
+                                                                options={corrOptions}
+                                                                value={currentCorr}
+                                                                onValueChange={v => v && setCorrelativo(f.id_fichaingresoservicio, f, v)}
+                                                                disabled={!isSelected || corrOptions.length === 0}
+                                                                placeholder={corrOptions.length === 0 ? 'Sin correlativos' : 'Seleccionar correlativo...'}
+                                                                searchPlaceholder="Buscar correlativo..."
+                                                                className="min-w-[200px] flex-1"
+                                                            />
+                                                            {selectedCorrObj && (
+                                                                <Badge variant={STATUS_VARIANT[selectedCorrObj.status] ?? 'outline'} className="shrink-0">
+                                                                    {STATUS_LABEL[selectedCorrObj.status] ?? selectedCorrObj.status}
+                                                                </Badge>
+                                                            )}
+                                                            <span className="shrink-0 text-[10px] text-muted-foreground">
+                                                                {f.disponibles}/{f.total} disp.
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </Card>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        <hr className="border-t border-border" />
+
+                        <div className="flex justify-end gap-2">
+                            <Button variant="outline" onClick={onClose} disabled={submitting}>Cancelar</Button>
+                            <Button
+                                className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
+                                onClick={handleSubmit}
+                                disabled={submitting || selectedCount === 0 || !fecha || !muestreadorInst}
+                            >
+                                {submitting ? <Spinner className="h-4 w-4 border-white/40 border-t-white" /> : <IconCheck size={16} />}
+                                Crear Ejecución ({selectedCount} ficha{selectedCount !== 1 ? 's' : ''})
+                            </Button>
+                        </div>
                     </div>
-                </div>
-            )}
-        </Modal>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );
