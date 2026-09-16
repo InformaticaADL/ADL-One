@@ -1,16 +1,5 @@
 import React, { useState } from 'react';
 import {
-    Modal,
-    Table,
-    Tag,
-    Button,
-    Alert,
-    Typography,
-    Collapse,
-    Card
-} from 'antd';
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import {
     IconCalendar,
     IconUser,
     IconCheck,
@@ -19,13 +8,20 @@ import {
     IconSignature,
     IconArrowRight,
     IconBuildingCommunity,
-    IconList
+    IconList,
+    IconChevronDown
 } from '@tabler/icons-react';
+
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
 
 interface SamplerRequestsModalProps {
     idMuestreador: number | string | null;
@@ -45,6 +41,7 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
 }) => {
     const displayRequests = requests || [];
     const [processingId, setProcessingId] = useState<number | null>(null);
+    const [confirmDisableSol, setConfirmDisableSol] = useState<any | null>(null);
     const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -52,66 +49,54 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         const typeRaw = sol.tipo_solicitud || sol.nombre_tipo || '';
         const isDeshabilitar = typeRaw.toUpperCase().includes('DESHABILITAR');
 
-        const executeUpdate = async () => {
-            setProcessingId(sol.id_solicitud);
-            try {
-                if (sol.id_tipo || (sol.origen_tabla && sol.origen_tabla !== 'GENERAL')) {
-                    // Es URS
-                    await ursService.updateStatus(sol.id_solicitud, {
-                        status: 'REALIZADA',
-                        comment: 'Solicitud gestionada y marcada como realizada automáticamente.'
-                    });
-                } else {
-                    // Es Legacy
-                    await adminService.updateSolicitudStatus(
-                        sol.id_solicitud,
-                        'REALIZADA',
-                        'Solicitud marcada como realizada desde el panel de muestreadores.'
-                    );
-                }
-                showToast({ type: 'success', message: `Solicitud #${sol.id_solicitud} marcada como realizada` });
-                onRefresh();
-
-            } catch (error) {
-                console.error('Error updating status:', error);
-                showToast({ type: 'error', message: 'Error al actualizar la solicitud' });
-            } finally {
-                setProcessingId(null);
-            }
-        };
-
         if (isDeshabilitar) {
-            Modal.confirm({
-                title: 'Confirmar Deshabilitación',
-                content: (
-                    <Text style={{ fontSize: 13 }}>
-                        ¿Está seguro de que desea deshabilitar este muestreador y reasignar todos sus equipos según lo solicitado?
-                        Esta acción es irreversible y afectará el acceso del usuario.
-                    </Text>
-                ),
-                okText: 'Confirmar y Ejecutar',
-                cancelText: 'Cancelar',
-                okButtonProps: { danger: true },
-                onOk: executeUpdate,
-            });
-        } else {
-            executeUpdate();
+            setConfirmDisableSol(sol);
+            return;
+        }
+
+        await executeUpdate(sol);
+    };
+
+    const executeUpdate = async (sol: any) => {
+        setProcessingId(sol.id_solicitud);
+        try {
+            if (sol.id_tipo || (sol.origen_tabla && sol.origen_tabla !== 'GENERAL')) {
+                // Es URS
+                await ursService.updateStatus(sol.id_solicitud, {
+                    status: 'REALIZADA',
+                    comment: 'Solicitud gestionada y marcada como realizada automáticamente.'
+                });
+            } else {
+                // Es Legacy
+                await adminService.updateSolicitudStatus(
+                    sol.id_solicitud,
+                    'REALIZADA',
+                    'Solicitud marcada como realizada desde el panel de muestreadores.'
+                );
+            }
+            showToast({ type: 'success', message: `Solicitud #${sol.id_solicitud} marcada como realizada` });
+            onRefresh();
+        } catch (error) {
+            console.error('Error updating status:', error);
+            showToast({ type: 'error', message: 'Error al actualizar la solicitud' });
+        } finally {
+            setProcessingId(null);
         }
     };
 
-    const getStatusColor = (status: string) => {
+    const getStatusVariant = (status: string): 'success' | 'destructive' | 'warning' | 'secondary' | 'default' => {
         const s = (status || '').toUpperCase().trim();
         switch (s) {
             case 'PENDIENTE':
             case 'PENDIENTE_TECNICA':
-            case 'PENDIENTE_CALIDAD': return 'gold';
+            case 'PENDIENTE_CALIDAD': return 'warning';
             case 'EN_REVISION':
-            case 'EN_REVISION_TECNICA': return 'cyan';
-            case 'ACEPTADA': return 'green';
+            case 'EN_REVISION_TECNICA': return 'secondary';
+            case 'ACEPTADA': return 'success';
             case 'RECHAZADA':
-            case 'RECHAZADO_TECNICA': return 'red';
-            case 'REALIZADA': return 'blue';
-            default: return 'default';
+            case 'RECHAZADO_TECNICA': return 'destructive';
+            case 'REALIZADA': return 'default';
+            default: return 'secondary';
         }
     };
 
@@ -132,81 +117,78 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         const equipmentCount = d.reasignacion_manual?.length || 0;
 
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <Text strong style={{ fontSize: 13, color: '#1864ab' }}>{typeRaw}</Text>
+            <div className="flex flex-col gap-2">
+                <p className="text-[13px] font-semibold text-primary">{typeRaw}</p>
 
                 <div>
                     {isDeshabilitar && (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                <IconBriefcase size={14} color="red" />
-                                <Text strong style={{ fontSize: 12, color: '#c92a2a' }}>Solicitud de Deshabilitación</Text>
+                        <div className="flex flex-col gap-1">
+                            <div className="flex flex-nowrap items-center gap-1">
+                                <IconBriefcase size={14} className="text-destructive" />
+                                <span className="text-xs font-semibold text-destructive">Solicitud de Deshabilitación</span>
                             </div>
 
                             {transferType === 'BASE' && (
-                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                    <IconBuildingCommunity size={12} color="gray" />
-                                    <Text strong style={{ fontSize: 12 }}>Traspaso a Base:</Text>
-                                    <Text style={{ fontSize: 12, color: '#1c7ed6' }}>{d.base_destino || 'Principal'}</Text>
+                                <div className="flex flex-nowrap items-center gap-1">
+                                    <IconBuildingCommunity size={12} className="text-muted-foreground" />
+                                    <span className="text-xs font-semibold text-foreground">Traspaso a Base:</span>
+                                    <span className="text-xs text-primary">{d.base_destino || 'Principal'}</span>
                                 </div>
                             )}
 
                             {transferType === 'MUESTREADOR' && (
-                                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                    <IconUser size={12} color="gray" />
-                                    <Text strong style={{ fontSize: 12 }}>Traspaso a:</Text>
-                                    <Text style={{ fontSize: 12, color: '#1c7ed6' }}>{d.muestreador_destino_nombre || 'Muestreador Destino'}</Text>
+                                <div className="flex flex-nowrap items-center gap-1">
+                                    <IconUser size={12} className="text-muted-foreground" />
+                                    <span className="text-xs font-semibold text-foreground">Traspaso a:</span>
+                                    <span className="text-xs text-primary">{d.muestreador_destino_nombre || 'Muestreador Destino'}</span>
                                 </div>
                             )}
 
                             {transferType === 'MANUAL' && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                        <IconList size={12} color="gray" />
-                                        <Text strong style={{ fontSize: 12 }}>Traspaso Manual ({equipmentCount} equipos)</Text>
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="flex flex-nowrap items-center gap-1">
+                                        <IconList size={12} className="text-muted-foreground" />
+                                        <span className="text-xs font-semibold text-foreground">Traspaso Manual ({equipmentCount} equipos)</span>
                                     </div>
-                                    <Collapse
-                                        size="small"
-                                        items={[{
-                                            key: 'manual-list',
-                                            label: <Text strong style={{ fontSize: 12 }}>Ver Detalle de Equipos</Text>,
-                                            children: (
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                                    {d.reasignacion_manual?.map((item: any, idx: number) => (
-                                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap', gap: 4 }}>
-                                                            <Text style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.nombre_equipo}</Text>
-                                                            <IconArrowRight size={10} />
-                                                            <Text strong style={{ fontSize: 12, color: '#0c8599' }}>{item.id_muestreador_nuevo ? 'Asignado' : 'Pendiente'}</Text>
-                                                        </div>
-                                                    ))}
+                                    <details className="text-xs">
+                                        <summary className="flex cursor-pointer list-none items-center gap-1 font-semibold text-foreground">
+                                            <IconChevronDown size={12} />
+                                            Ver Detalle de Equipos
+                                        </summary>
+                                        <div className="mt-1 flex flex-col gap-0.5 pl-4">
+                                            {d.reasignacion_manual?.map((item: any, idx: number) => (
+                                                <div key={idx} className="flex flex-nowrap justify-between gap-1">
+                                                    <span className="truncate text-xs text-foreground">{item.nombre_equipo}</span>
+                                                    <IconArrowRight size={10} />
+                                                    <span className="text-xs font-semibold text-secondary-foreground">{item.id_muestreador_nuevo ? 'Asignado' : 'Pendiente'}</span>
                                                 </div>
-                                            ),
-                                        }]}
-                                    />
+                                            ))}
+                                        </div>
+                                    </details>
                                 </div>
                             )}
                         </div>
                     )}
                     {isFirma && (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                            <IconSignature size={12} color="#4c6ef5" />
-                            <Text strong style={{ fontSize: 12, color: '#3b5bdb' }}>Actualización de Firma</Text>
+                        <div className="flex flex-nowrap items-center gap-1">
+                            <IconSignature size={12} className="text-primary" />
+                            <span className="text-xs font-semibold text-primary">Actualización de Firma</span>
                         </div>
                     )}
                     {isTraspaso && (
-                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                            <IconUser size={12} color="#0c8599" />
-                            <Text strong style={{ fontSize: 12, color: '#087f5b' }}>Asignación de Equipos</Text>
+                        <div className="flex flex-nowrap items-center gap-1">
+                            <IconUser size={12} className="text-primary" />
+                            <span className="text-xs font-semibold text-success">Asignación de Equipos</span>
                         </div>
                     )}
                 </div>
 
                 {(d.observaciones || d.descripcion || d.comentario) && (
-                    <div style={{ marginTop: 4 }}>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>Observaciones</Text>
-                        <Text type="secondary" italic style={{ fontSize: 12 }}>
+                    <div className="mt-1">
+                        <p className="mb-1 block text-[11px] text-muted-foreground">Observaciones</p>
+                        <p className="text-xs italic text-muted-foreground">
                             "{d.observaciones || d.descripcion || d.comentario}"
-                        </Text>
+                        </p>
                     </div>
                 )}
             </div>
@@ -224,130 +206,154 @@ export const SamplerRequestsModal: React.FC<SamplerRequestsModalProps> = ({
         });
     };
 
-    const columns = [
-        { title: 'ID', key: 'id', render: (_: unknown, sol: any) => <Text strong style={{ fontSize: 13 }}>#{sol.id_solicitud}</Text> },
-        { title: 'Tipo', key: 'tipo', render: (_: unknown, sol: any) => renderSolicitudDetails(sol) },
-        {
-            title: 'Solicitante', key: 'solicitante',
-            render: (_: unknown, sol: any) => (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
-                    <IconUser size={14} color="gray" />
-                    <Text style={{ fontSize: 12 }}>{sol.nombre_solicitante || 'N/A'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Fecha', key: 'fecha',
-            render: (_: unknown, sol: any) => (
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'nowrap' }}>
-                    <IconCalendar size={14} color="gray" />
-                    <Text style={{ fontSize: 12 }}>{formatDate(sol.fecha_creacion)}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Estado', key: 'estado',
-            render: (_: unknown, sol: any) => <Tag color={getStatusColor(sol.estado)} style={{ minWidth: 80, textAlign: 'center' }}>{getStatusLabel(sol.estado)}</Tag>,
-        },
-        {
-            title: 'Acciones', key: 'acciones', align: 'right' as const,
-            render: (_: unknown, sol: any) => (
-                (sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                    <Button
-                        size="small"
-                        type="primary"
-                        style={{ backgroundColor: '#2f9e44' }}
-                        icon={<IconCheck size={14} />}
-                        loading={processingId === sol.id_solicitud}
-                        onClick={() => handleMarkAsRealizada(sol)}
-                    >
-                        Realizar
-                    </Button>
-                )
-            ),
-        },
-    ];
-
     return (
-        <Modal
-            open={isOpen}
-            onCancel={onClose}
-            footer={null}
-            width={isMobile ? '100%' : 900}
-            style={isMobile ? { top: 0, maxWidth: '100vw', margin: 0 } : undefined}
-            maskClosable={false}
-            title={
-                <div>
-                    <Text strong style={{ fontSize: 16, display: 'block' }}>Solicitudes Pendientes</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>{nombreMuestreador}</Text>
+        <>
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-h-[85vh] max-w-[900px] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Solicitudes Pendientes</DialogTitle>
+                    <p className="text-[13px] text-muted-foreground">{nombreMuestreador}</p>
+                </DialogHeader>
+
+                <div className="relative min-h-[200px]">
+                    {displayRequests.length === 0 ? (
+                        <div className="flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
+                            <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-primary" />
+                            <p className="text-sm text-foreground">No hay solicitudes pendientes activas para este muestreador.</p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-4">
+                            {!isMobile ? (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead>ID</TableHead>
+                                            <TableHead>Tipo</TableHead>
+                                            <TableHead>Solicitante</TableHead>
+                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>Estado</TableHead>
+                                            <TableHead className="text-right">Acciones</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {displayRequests.map((sol: any) => (
+                                            <TableRow key={`${sol.origen_tabla}-${sol.id_solicitud}`}>
+                                                <TableCell><span className="text-[13px] font-semibold text-foreground">#{sol.id_solicitud}</span></TableCell>
+                                                <TableCell>{renderSolicitudDetails(sol)}</TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-nowrap items-center gap-1.5">
+                                                        <IconUser size={14} className="text-muted-foreground" />
+                                                        <span className="text-xs text-foreground">{sol.nombre_solicitante || 'N/A'}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-nowrap items-center gap-1.5">
+                                                        <IconCalendar size={14} className="text-muted-foreground" />
+                                                        <span className="text-xs text-foreground">{formatDate(sol.fecha_creacion)}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell><Badge variant={getStatusVariant(sol.estado)} className="min-w-[80px] justify-center">{getStatusLabel(sol.estado)}</Badge></TableCell>
+                                                <TableCell className="text-right">
+                                                    {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                                                        <Button
+                                                            size="sm"
+                                                            className="bg-success text-success-foreground hover:bg-success/90"
+                                                            disabled={processingId === sol.id_solicitud}
+                                                            onClick={() => handleMarkAsRealizada(sol)}
+                                                        >
+                                                            {processingId === sol.id_solicitud ? (
+                                                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-success-foreground border-t-transparent" />
+                                                            ) : (
+                                                                <IconCheck size={14} />
+                                                            )}
+                                                            Realizar
+                                                        </Button>
+                                                    )}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            ) : (
+                                <div className="flex flex-col gap-3">
+                                    {displayRequests.map((sol: any) => (
+                                        <Card key={`${sol.origen_tabla}-${sol.id_solicitud}`} className="p-3">
+                                            <div className="flex flex-col gap-2">
+                                                <div className="flex justify-between">
+                                                    <span className="text-[13px] font-semibold text-primary">#{sol.id_solicitud}</span>
+                                                    <Badge variant={getStatusVariant(sol.estado)}>{getStatusLabel(sol.estado)}</Badge>
+                                                </div>
+
+                                                <div className="border-t border-dashed border-border" />
+
+                                                {renderSolicitudDetails(sol)}
+
+                                                <div className="border-t border-dashed border-border" />
+
+                                                <div className="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <p className="block text-[11px] font-semibold text-muted-foreground">SOLICITANTE</p>
+                                                        <p className="text-xs font-semibold text-foreground">{sol.nombre_solicitante || 'N/A'}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="block text-[11px] font-semibold text-muted-foreground">FECHA</p>
+                                                        <p className="text-xs font-semibold text-foreground">{formatDate(sol.fecha_creacion)}</p>
+                                                    </div>
+                                                </div>
+
+                                                {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
+                                                    <Button
+                                                        className="mt-2 w-full bg-success text-success-foreground hover:bg-success/90"
+                                                        disabled={processingId === sol.id_solicitud}
+                                                        onClick={() => handleMarkAsRealizada(sol)}
+                                                    >
+                                                        {processingId === sol.id_solicitud ? (
+                                                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-success-foreground border-t-transparent" />
+                                                        ) : (
+                                                            <IconCheck size={16} />
+                                                        )}
+                                                        Marcar como Realizada
+                                                    </Button>
+                                                )}
+                                            </div>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
-            }
-        >
-            <div style={{ position: 'relative', minWidth: isMobile ? 'auto' : 500, minHeight: 200, padding: isMobile ? 8 : 0, marginTop: 16 }}>
-                {displayRequests.length === 0 ? (
-                    <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="No hay solicitudes pendientes activas para este muestreador." />
-                ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {!isMobile ? (
-                            <Table
-                                rowKey={(sol) => `${sol.origen_tabla}-${sol.id_solicitud}`}
-                                columns={columns}
-                                dataSource={displayRequests}
-                                pagination={false}
-                                size="small"
-                                scroll={{ x: 800 }}
-                            />
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {displayRequests.map((sol: any) => (
-                                    <Card key={`${sol.origen_tabla}-${sol.id_solicitud}`} size="small">
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                <Text strong style={{ fontSize: 13, color: '#1864ab' }}>#{sol.id_solicitud}</Text>
-                                                <Tag color={getStatusColor(sol.estado)}>{getStatusLabel(sol.estado)}</Tag>
-                                            </div>
 
-                                            <hr style={{ border: 'none', borderTop: '1px dashed var(--app-border)' }} />
+                <DialogFooter>
+                    <Button variant="outline" className={isMobile ? 'w-full' : undefined} onClick={onClose}>Cerrar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
 
-                                            {renderSolicitudDetails(sol)}
-
-                                            <hr style={{ border: 'none', borderTop: '1px dashed var(--app-border)' }} />
-
-                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                                <div>
-                                                    <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>SOLICITANTE</Text>
-                                                    <Text strong style={{ fontSize: 12 }}>{sol.nombre_solicitante || 'N/A'}</Text>
-                                                </div>
-                                                <div>
-                                                    <Text type="secondary" strong style={{ fontSize: 11, display: 'block' }}>FECHA</Text>
-                                                    <Text strong style={{ fontSize: 12 }}>{formatDate(sol.fecha_creacion)}</Text>
-                                                </div>
-                                            </div>
-
-                                            {(sol.estado === 'PENDIENTE' || sol.estado === 'ACEPTADA') && (
-                                                <Button
-                                                    block
-                                                    type="primary"
-                                                    style={{ backgroundColor: '#2f9e44', marginTop: 8 }}
-                                                    icon={<IconCheck size={16} />}
-                                                    loading={processingId === sol.id_solicitud}
-                                                    onClick={() => handleMarkAsRealizada(sol)}
-                                                >
-                                                    Marcar como Realizada
-                                                </Button>
-                                            )}
-                                        </div>
-                                    </Card>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
-                <Button onClick={onClose} block={isMobile}>Cerrar</Button>
-            </div>
-        </Modal>
+            <Dialog open={!!confirmDisableSol} onOpenChange={(open) => { if (!open) setConfirmDisableSol(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirmar Deshabilitación</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        ¿Está seguro de que desea deshabilitar este muestreador y reasignar todos sus equipos según lo solicitado?
+                        Esta acción es irreversible y afectará el acceso del usuario.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmDisableSol(null)}>Cancelar</Button>
+                        <Button
+                            variant="destructive"
+                            onClick={async () => {
+                                const sol = confirmDisableSol;
+                                setConfirmDisableSol(null);
+                                if (sol) await executeUpdate(sol);
+                            }}
+                        >
+                            Confirmar y Ejecutar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </>
     );
 };
