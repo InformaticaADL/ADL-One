@@ -1,9 +1,8 @@
 import React from 'react';
-import { Typography, Button, Card } from 'antd';
 import { IconAlertCircle, IconHome } from '@tabler/icons-react';
 import '../features/auth/Login.css'; // Reuse login styles for background
-
-const { Title, Text } = Typography;
+import { Card } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 interface ErrorPageProps {
     code?: string | number;
@@ -27,45 +26,26 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
 
     return (
         <div className="login-page">
-            <div className="login-container" style={{ maxWidth: 420, margin: '0 auto' }}>
-                <Card className="login-card" style={{ borderRadius: 20 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                        <div style={{
-                            width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(224,49,49,0.12)', color: '#e03131',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
+            <div className="login-container mx-auto max-w-[420px]">
+                <Card className="shadcn-scope login-card rounded-[20px] p-6">
+                    <div className="flex flex-col items-center gap-4">
+                        <div className="flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                             <IconAlertCircle size={48} />
                         </div>
 
-                        <div style={{ textAlign: 'center', position: 'relative' }}>
-                            <Text
-                                strong
-                                style={{
-                                    fontSize: 64,
-                                    lineHeight: 1,
-                                    opacity: 0.1,
-                                    position: 'absolute',
-                                    top: '10%',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    zIndex: 0
-                                }}
-                            >
+                        <div className="relative text-center">
+                            <span className="absolute left-1/2 top-[10%] z-0 -translate-x-1/2 text-[64px] font-bold leading-none text-foreground/10">
                                 {code}
-                            </Text>
-                            <Title level={2} style={{ position: 'relative', zIndex: 1, margin: 0 }}>{title}</Title>
-                            <Text type="secondary" style={{ fontSize: 13, position: 'relative', zIndex: 1, display: 'block', marginTop: 8 }}>
+                            </span>
+                            <h2 className="relative z-10 m-0 text-2xl font-bold text-foreground">{title}</h2>
+                            <p className="relative z-10 mt-2 text-[13px] text-muted-foreground">
                                 {message}
-                            </Text>
+                            </p>
                         </div>
 
-                        <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-                            <Button
-                                block
-                                size="large"
-                                icon={<IconHome size={18} />}
-                                onClick={handleBackToHome}
-                            >
+                        <div className="mt-6 flex w-full justify-center">
+                            <Button size="lg" className="w-full" onClick={handleBackToHome}>
+                                <IconHome size={18} />
                                 Regresar al Inicio
                             </Button>
                         </div>

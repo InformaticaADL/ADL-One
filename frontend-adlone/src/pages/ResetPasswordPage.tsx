@@ -1,18 +1,11 @@
 import { useEffect, useState } from 'react';
-import {
-    Card,
-    Input,
-    Button,
-    Typography,
-    Alert,
-    Spin
-} from 'antd';
-import { IconLock, IconAlertCircle, IconCheck, IconArrowLeft } from '@tabler/icons-react';
+import { IconLock, IconAlertCircle, IconCheck, IconArrowLeft, IconEye, IconEyeOff } from '@tabler/icons-react';
 import apiClient from '../config/axios.config';
 import { useToast } from '../contexts/ToastContext';
 import logoAdl from '../assets/images/logo-adlone.png';
-
-const { Title, Text } = Typography;
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface Props {
     onDone: () => void; // volver al login
@@ -82,35 +75,32 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
     return (
         <div className="login-page">
             <div className="login-container">
-                <Card
-                    style={{
-                        width: '100%',
-                        borderRadius: 16,
-                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                        backdropFilter: 'blur(10px)'
-                    }}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                                <img src={logoAdl} style={{ width: 260, marginBottom: 24 }} alt="ADL" />
-                                <Title level={2} style={{ margin: 0 }}>Restablecer contraseña</Title>
-                                {nombreUsuario && (
-                                    <Text type="secondary" style={{ fontSize: 13, textAlign: 'center' }}>
-                                        para <strong>{nombreUsuario}</strong>
-                                    </Text>
-                                )}
-                            </div>
+                <Card className="shadcn-scope w-full rounded-2xl bg-white/95 p-6 shadow-lg backdrop-blur">
+                    <div className="flex flex-col gap-6">
+                        <div className="flex flex-col items-center">
+                            <img src={logoAdl} className="mb-6 w-[260px]" alt="ADL" />
+                            <h2 className="m-0 text-2xl font-bold text-foreground">Restablecer contraseña</h2>
+                            {nombreUsuario && (
+                                <p className="text-center text-[13px] text-muted-foreground">
+                                    para <strong>{nombreUsuario}</strong>
+                                </p>
+                            )}
                         </div>
 
                         {validating && (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin /></div>
+                            <div className="flex justify-center p-8">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </div>
                         )}
 
                         {!validating && validationError && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                <Alert type="error" showIcon icon={<IconAlertCircle size={18} />} message={validationError} />
-                                <Button icon={<IconArrowLeft size={16} />} onClick={backToLogin}>
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-foreground">
+                                    <IconAlertCircle size={18} className="mt-0.5 shrink-0 text-destructive" />
+                                    {validationError}
+                                </div>
+                                <Button variant="outline" onClick={backToLogin}>
+                                    <IconArrowLeft size={16} />
                                     Volver al login
                                 </Button>
                             </div>
@@ -118,37 +108,27 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
 
                         {!validating && !validationError && !done && (
                             <form onSubmit={handleSubmit}>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div className="flex flex-col gap-4">
                                     <Field label="Nueva contraseña *">
-                                        <Input.Password
+                                        <PasswordField
                                             placeholder="Ingrese su nueva contraseña"
-                                            prefix={<IconLock size={18} style={{ color: 'var(--app-text-secondary)' }} />}
                                             value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
-                                            size="large"
+                                            onChange={setPassword}
                                             disabled={saving}
                                         />
                                     </Field>
                                     <Field label="Confirmar contraseña *">
-                                        <Input.Password
+                                        <PasswordField
                                             placeholder="Repita la contraseña"
-                                            prefix={<IconLock size={18} style={{ color: 'var(--app-text-secondary)' }} />}
                                             value={password2}
-                                            onChange={(e) => setPassword2(e.target.value)}
-                                            size="large"
+                                            onChange={setPassword2}
                                             disabled={saving}
-                                            status={passwordsMismatch ? 'error' : undefined}
+                                            invalid={passwordsMismatch}
                                         />
-                                        {passwordsMismatch && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>Las contraseñas no coinciden</Text>}
+                                        {passwordsMismatch && <p className="mt-0.5 text-[11px] text-destructive">Las contraseñas no coinciden</p>}
                                     </Field>
-                                    <Button
-                                        htmlType="submit"
-                                        type="primary"
-                                        size="large"
-                                        block
-                                        loading={saving}
-                                        style={{ marginTop: 8 }}
-                                    >
+                                    <Button type="submit" size="lg" disabled={saving} className="mt-2 w-full">
+                                        {saving ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : null}
                                         Restablecer contraseña
                                     </Button>
                                 </div>
@@ -156,9 +136,15 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
                         )}
 
                         {done && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                <Alert type="success" showIcon icon={<IconCheck size={18} />} message="Listo" description="Tu contraseña fue actualizada. Ya puedes iniciar sesión con ella." />
-                                <Button onClick={backToLogin} size="large">
+                            <div className="flex flex-col gap-4">
+                                <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-foreground">
+                                    <IconCheck size={18} className="mt-0.5 shrink-0 text-success" />
+                                    <div>
+                                        <p className="font-medium">Listo</p>
+                                        <p className="mt-1 text-muted-foreground">Tu contraseña fue actualizada. Ya puedes iniciar sesión con ella.</p>
+                                    </div>
+                                </div>
+                                <Button size="lg" onClick={backToLogin}>
                                     Ir al login
                                 </Button>
                             </div>
@@ -173,8 +159,34 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 6 }}>{label}</Text>
+            <span className="mb-1.5 block text-[13px] font-semibold text-foreground">{label}</span>
             {children}
+        </div>
+    );
+}
+
+function PasswordField({ placeholder, value, onChange, disabled, invalid }: { placeholder?: string; value: string; onChange: (v: string) => void; disabled?: boolean; invalid?: boolean }) {
+    const [visible, setVisible] = useState(false);
+    return (
+        <div className="relative">
+            <IconLock size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+                type={visible ? 'text' : 'password'}
+                placeholder={placeholder}
+                value={value}
+                onChange={(e) => onChange(e.target.value)}
+                disabled={disabled}
+                autoComplete="new-password"
+                className={`h-11 pl-10 pr-10 ${invalid ? 'border-destructive' : ''}`}
+            />
+            <button
+                type="button"
+                aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setVisible((v) => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+                {visible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
+            </button>
         </div>
     );
 }
