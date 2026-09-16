@@ -11,23 +11,18 @@ import { useCatalogos } from '../context/CatalogosContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import {
-    Input,
-    Select,
-    Button,
-    Tag,
-    Spin,
-    Checkbox,
-    Tooltip,
-    Modal,
-    Typography,
-    Card
-} from 'antd';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import {
     IconRoute,
     IconMapPin,
-    IconCalendarEvent,
-    IconUserPlus,
     IconDeviceFloppy,
     IconSearch,
     IconEraser,
@@ -40,9 +35,6 @@ import {
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-
-const { Text } = Typography;
-const { TextArea } = Input;
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
@@ -194,6 +186,14 @@ interface SelectedItem {
     numero_servicio: number;
 }
 
+interface ConfirmDialogState {
+    title: string;
+    content: React.ReactNode;
+    okText?: string;
+    cancelText?: string;
+    onOk: () => void;
+}
+
 // Servicio por defecto al agregar una ficha: primero DISPONIBLE (no en otra ruta);
 // si no hay, el primero AGENDADO (para reagendar). Los EN_RUTA quedan excluidos.
 const pickDefaultCorrelativo = (corrs: CorrelativoInfo[]): CorrelativoInfo | undefined =>
@@ -239,6 +239,10 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     const [osrmRoute, setOsrmRoute] = useState<[number, number][]>([]);
     const [routeDistance, setRouteDistance] = useState<number | null>(null); // metros
     const [routeDuration, setRouteDuration] = useState<number | null>(null); // segundos
+
+    // Generic confirmation dialog — replaces antd Modal.confirm (usado al
+    // reagendar servicios que ya tienen equipos/resultados cargados).
+    const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
 
     // Load data
     useEffect(() => {
@@ -751,26 +755,23 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
             // Si hay reagendamientos sobre servicios con equipos/resultados, confirmar primero.
             if (reagendaConDatos.length > 0) {
-                Modal.confirm({
+                setConfirmDialog({
                     title: 'Reagendar servicios con datos cargados',
-                    centered: true,
-                    zIndex: 10002,
+                    okText: 'Reagendar de todas formas',
+                    cancelText: 'Cancelar',
                     content: (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <Text style={{ fontSize: 13 }}>
+                        <div className="flex flex-col gap-2">
+                            <p className="text-[13px]">
                                 {reagendaConDatos.length} servicio{reagendaConDatos.length !== 1 ? 's' : ''} que vas a reagendar ya
                                 {' '}tiene{reagendaConDatos.length !== 1 ? 'n' : ''} equipos y/o resultados cargados:
-                            </Text>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                {reagendaConDatos.map(s => <Text key={s} strong style={{ fontSize: 12 }}>• {s}</Text>)}
+                            </p>
+                            <div className="flex flex-col gap-0.5">
+                                {reagendaConDatos.map(s => <span key={s} className="text-xs font-semibold">• {s}</span>)}
                             </div>
-                            <Text style={{ fontSize: 13, color: '#e8590c' }}>Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</Text>
+                            <p className="text-[13px] text-[#e8590c]">Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</p>
                         </div>
                     ),
-                    okText: 'Reagendar de todas formas',
-                    okButtonProps: { style: { backgroundColor: '#e8590c' } },
-                    cancelText: 'Cancelar',
-                    onOk: executePost
+                    onOk: () => { setConfirmDialog(null); executePost(); }
                 });
                 return;
             }
@@ -788,7 +789,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 
     if (loading) {
         return (
-            <div style={{ padding: 16 }}>
+            <div className="shadcn-scope p-4">
                 <PageHeader
                     title="Planificador de Rutas"
                     onBack={onBack}
@@ -797,82 +798,74 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         { label: 'Planificador' }
                     ]}
                 />
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 32 }}><Spin size="large" /></div>
+                <div className="mt-8 flex justify-center">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                </div>
             </div>
         );
     }
 
     return (
-        <div style={{ padding: 16, width: '100%' }}>
-            <Modal
-                open={isModalOpen}
-                onCancel={() => setIsModalOpen(false)}
-                footer={null}
-                title="Asignación de Ruta"
-                centered
-                width={480}
-                zIndex={10000}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
-                    <Field label="Fecha Muestreo *">
-                        <Input
-                            type="date"
-                            min={todayStr}
-                            value={assignDate}
-                            onChange={(e) => setAssignDate(e.target.value)}
-                            prefix={<IconCalendarEvent size={16} style={{ color: 'var(--app-text-secondary)' }} />}
-                        />
-                    </Field>
-                    <Field label="Muestreador Instalación *">
-                        <Select
-                            options={muestreadorOptions}
-                            value={assignMuestreadorInst ?? undefined}
-                            onChange={(v) => { setAssignMuestreadorInst(v); if (!assignMuestreadorRet) setAssignMuestreadorRet(v); }}
-                            showSearch
-                            allowClear
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            placeholder="Seleccionar..."
-                            style={{ width: '100%' }}
-                            suffixIcon={<IconUserPlus size={14} />}
-                        />
-                    </Field>
-                    <Field label="Muestreador Retiro" hint="Solo compuestas. Si se omite, se usa el de instalación (en puntuales no aplica).">
-                        <Select
-                            options={muestreadorOptions}
-                            value={assignMuestreadorRet ?? undefined}
-                            onChange={(v) => setAssignMuestreadorRet(v ?? null)}
-                            showSearch
-                            allowClear
-                            filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                            placeholder="Igual al de instalación"
-                            style={{ width: '100%' }}
-                            suffixIcon={<IconUserPlus size={14} />}
-                        />
-                    </Field>
-                    <Field label="Observación para la notificación" hint="Se incluirá en el correo de asignación enviado al responsable">
-                        <TextArea
-                            placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
-                            autoSize={{ minRows: 2 }}
-                            value={assignObservacion}
-                            onChange={(e) => setAssignObservacion(e.target.value)}
-                        />
-                    </Field>
-                    <Button
-                        block
-                        type="primary"
-                        style={{ backgroundColor: '#9c36b5' }}
-                        size="large"
-                        icon={<IconDeviceFloppy size={20} />}
-                        onClick={handleSaveRoute}
-                        loading={saving}
-                        disabled={selectedCount === 0 || !assignDate || !assignMuestreadorInst}
-                    >
-                        Confirmar Asignación ({selectedCount} fichas)
-                    </Button>
-                </div>
-            </Modal>
+        <div className="shadcn-scope w-full p-4">
+            <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+                <DialogContent className="max-w-[480px]">
+                    <DialogHeader>
+                        <DialogTitle>Asignación de Ruta</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <Field label="Fecha Muestreo *">
+                            <DatePicker
+                                value={assignDate}
+                                onChange={(v) => {
+                                    // El input nativo original usaba min={todayStr}; DatePicker no
+                                    // soporta min/max, así que la regla se aplica en el handler.
+                                    if (v && v < todayStr) return;
+                                    setAssignDate(v);
+                                }}
+                            />
+                        </Field>
+                        <Field label="Muestreador Instalación *">
+                            <Combobox
+                                placeholder="Seleccionar..."
+                                options={muestreadorOptions}
+                                value={assignMuestreadorInst ?? ''}
+                                onValueChange={(v) => { setAssignMuestreadorInst(v || null); if (!assignMuestreadorRet) setAssignMuestreadorRet(v || null); }}
+                            />
+                        </Field>
+                        <Field label="Muestreador Retiro" hint="Solo compuestas. Si se omite, se usa el de instalación (en puntuales no aplica).">
+                            <Combobox
+                                placeholder="Igual al de instalación"
+                                options={muestreadorOptions}
+                                value={assignMuestreadorRet ?? ''}
+                                onValueChange={(v) => setAssignMuestreadorRet(v || null)}
+                            />
+                        </Field>
+                        <Field label="Observación para la notificación" hint="Se incluirá en el correo de asignación enviado al responsable">
+                            <Textarea
+                                placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
+                                rows={2}
+                                value={assignObservacion}
+                                onChange={(e) => setAssignObservacion(e.target.value)}
+                            />
+                        </Field>
+                        <Button
+                            className="w-full bg-violet-500 text-white hover:bg-violet-600"
+                            size="lg"
+                            onClick={handleSaveRoute}
+                            disabled={selectedCount === 0 || !assignDate || !assignMuestreadorInst || saving}
+                        >
+                            {saving ? (
+                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            ) : (
+                                <IconDeviceFloppy size={20} />
+                            )}
+                            Confirmar Asignación ({selectedCount} fichas)
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="flex flex-col gap-6">
                 <PageHeader
                     title={editRutaId ? `Editando Ruta #${editRutaId}` : 'Planificador de Rutas'}
                     subtitle={editRutaId ? 'Modifique las fichas y guarde los cambios' : 'Seleccione fichas para armar una ruta de muestreo y asignar recursos'}
@@ -882,40 +875,50 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         { label: editRutaId ? 'Editar Ruta' : 'Planificador' }
                     ]}
                     rightSection={
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Tag color="blue" icon={<IconMapPin size={14} style={{ verticalAlign: 'text-bottom' }} />}>
+                        <div className="flex gap-2">
+                            <Badge variant="secondary" className="gap-1">
+                                <IconMapPin size={14} />
                                 {fichasWithCoords.length} con ubicación
-                            </Tag>
-                            <Tag>
+                            </Badge>
+                            <Badge variant="outline">
                                 {fichas.length} fichas totales
-                            </Tag>
+                            </Badge>
                         </div>
                     }
                 />
 
-                <div style={{ display: 'flex', gap: 16, height: 'calc(100vh - 180px)', minHeight: 500 }}>
+                <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)', minHeight: 500 }}>
                     {/* LEFT PANEL */}
-                    <Card style={{ width: '35%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: '100%' } }}>
+                    <div className="flex w-[35%] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                         {/* Filters */}
-                        <div style={{ padding: 12, borderBottom: '1px solid var(--app-border)' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                <Input
-                                    size="small"
-                                    placeholder="Buscar ficha, empresa, centro..."
-                                    value={searchText}
-                                    onChange={(e) => setSearchText(e.target.value)}
-                                    prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
-                                    suffix={searchText ? <IconEraser size={14} style={{ cursor: 'pointer' }} onClick={() => setSearchText('')} /> : null}
-                                />
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <Select size="small" placeholder="Empresa" options={uniqueEmpresas} value={filterEmpresa ?? undefined} onChange={(v) => setFilterEmpresa(v ?? null)} allowClear showSearch style={{ width: '100%' }} />
-                                    <Select size="small" placeholder="Centro" options={uniqueCentros} value={filterCentro ?? undefined} onChange={(v) => setFilterCentro(v ?? null)} allowClear showSearch style={{ width: '100%' }} />
-                                    <Select size="small" placeholder="Objetivo" options={uniqueObjetivos} value={filterObjetivo ?? undefined} onChange={(v) => setFilterObjetivo(v ?? null)} allowClear showSearch style={{ width: '100%' }} />
+                        <div className="border-b border-border p-3">
+                            <div className="flex flex-col gap-2">
+                                <div className="relative">
+                                    <IconSearch size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Buscar ficha, empresa, centro..."
+                                        value={searchText}
+                                        onChange={(e) => setSearchText(e.target.value)}
+                                        className="h-8 pl-8 pr-8 text-sm"
+                                    />
+                                    {searchText && (
+                                        <IconEraser
+                                            size={14}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-muted-foreground"
+                                            onClick={() => setSearchText('')}
+                                        />
+                                    )}
+                                </div>
+                                <div className="flex flex-col gap-2">
+                                    <Combobox placeholder="Empresa" options={uniqueEmpresas} value={filterEmpresa ?? ''} onValueChange={(v) => setFilterEmpresa(v || null)} className="h-8 text-sm" />
+                                    <Combobox placeholder="Centro" options={uniqueCentros} value={filterCentro ?? ''} onValueChange={(v) => setFilterCentro(v || null)} className="h-8 text-sm" />
+                                    <Combobox placeholder="Objetivo" options={uniqueObjetivos} value={filterObjetivo ?? ''} onValueChange={(v) => setFilterObjetivo(v || null)} className="h-8 text-sm" />
 
                                     {(filterEmpresa || filterCentro || filterObjetivo || searchText) && (
                                         <Button
-                                            type="text"
-                                            size="small"
+                                            variant="ghost"
+                                            size="sm"
+                                            className="w-full"
                                             onClick={() => { setFilterEmpresa(null); setFilterCentro(null); setFilterObjetivo(null); setSearchText(''); }}
                                         >
                                             Limpiar Filtros
@@ -926,8 +929,8 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                         </div>
 
                         {/* Fichas List */}
-                        <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div className="flex-1 overflow-y-auto p-2">
+                            <div className="flex flex-col gap-1">
                                 {filteredFichas.map(f => {
                                     const isSelected = selectedIds.includes(f.id);
                                     const hasCoords = f.lat !== null;
@@ -942,51 +945,42 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                     return (
                                         <div
                                             key={f.id}
-                                            style={{
-                                                padding: 8,
-                                                borderRadius: 6,
-                                                border: `${isSelected ? 2 : 1}px solid ${isSelected ? '#4dabf7' : isMissingCoords ? '#ffa8a8' : 'var(--app-border)'}`,
-                                                backgroundColor: isFullyBlocked ? 'var(--app-hover-bg)' : isMissingCoords ? 'rgba(224,49,49,0.05)' : isSelected ? 'var(--app-accent-bg)' : undefined,
-                                                cursor: isFullyBlocked ? 'not-allowed' : 'pointer',
-                                                transition: 'all 0.15s ease',
-                                                opacity: isFullyBlocked ? 0.55 : 1
-                                            }}
+                                            className={cn(
+                                                'rounded-md p-2 transition-colors',
+                                                isSelected ? 'border-2 border-sky-400 bg-accent' : isMissingCoords ? 'border border-destructive/40 bg-destructive/5' : 'border border-border',
+                                                isFullyBlocked ? 'cursor-not-allowed bg-muted/40 opacity-55' : 'cursor-pointer'
+                                            )}
                                             onClick={() => !isFullyBlocked && toggleFicha(f.id)}
                                         >
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap', alignItems: 'flex-start' }}>
-                                                <Checkbox checked={isSelected} onChange={() => {}} />
+                                            <div className="flex flex-nowrap items-start gap-2">
+                                                <Checkbox checked={isSelected} onCheckedChange={() => {}} />
                                                 {orderNum && (
-                                                    <div style={{
-                                                        width: 20, height: 20, borderRadius: '50%', backgroundColor: '#1c7ed6', color: '#fff',
-                                                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                                                    }}>
-                                                        <Text strong style={{ fontSize: 10, color: '#fff' }}>{orderNum}</Text>
+                                                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-sky-600">
+                                                        <span className="text-[10px] font-bold text-white">{orderNum}</span>
                                                     </div>
                                                 )}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                        <Text strong style={{ fontSize: 12, color: '#1864ab' }}>#{f.id}</Text>
-                                                        {hasCoords && <IconMapPin size={12} color="#2f9e44" />}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex flex-nowrap items-center gap-1">
+                                                        <span className="text-xs font-bold text-sky-800">#{f.id}</span>
+                                                        {hasCoords && <IconMapPin size={12} className="text-success" />}
                                                         {!hasCoords && (
-                                                            <Tooltip title="Ubicación incorrecta o mal ingresada">
-                                                                <IconMapPin size={12} color="#ffa8a8" />
-                                                            </Tooltip>
+                                                            <IconMapPin size={12} className="text-destructive/40" title="Ubicación incorrecta o mal ingresada" />
                                                         )}
                                                     </div>
-                                                    <Text style={{ fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={f.centro}>{f.centro}</Text>
-                                                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
-                                                        <Text type="secondary" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.empresa_servicio}</Text>
+                                                    <span className="block truncate text-xs" title={f.centro}>{f.centro}</span>
+                                                    <div className="flex flex-wrap items-center gap-1">
+                                                        <span className="truncate text-[10px] text-muted-foreground">{f.empresa_servicio}</span>
                                                         {f.total_servicios > 0 && (
-                                                            <Tag color={isSelected ? 'cyan' : 'blue'} style={{ fontSize: 10, marginInlineEnd: 0 }}>
+                                                            <Badge variant={isSelected ? 'default' : 'secondary'} className="px-1 py-0 text-[10px]">
                                                                 {selectedCorr
                                                                     ? `Servicio ${selectedCorr.numero_servicio} de ${f.total_servicios}`
                                                                     : `${f.servicios_disponibles} de ${f.total_servicios} disp.`}
-                                                            </Tag>
+                                                            </Badge>
                                                         )}
                                                         {f.servicios_en_ruta > 0 && !isSelected && (
-                                                            <Tag color="orange" style={{ fontSize: 10, marginInlineEnd: 0 }}>
+                                                            <Badge variant="warning" className="px-1 py-0 text-[10px]">
                                                                 {f.servicios_en_ruta} en ruta
-                                                            </Tag>
+                                                            </Badge>
                                                         )}
                                                     </div>
                                                 </div>
@@ -995,27 +989,27 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                     );
                                 })}
                                 {filteredFichas.length === 0 && (
-                                    <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', padding: '32px 0' }}>No hay fichas que coincidan con los filtros</Text>
+                                    <p className="py-8 text-center text-[13px] text-muted-foreground">No hay fichas que coincidan con los filtros</p>
                                 )}
                             </div>
                         </div>
 
                         {/* Route section */}
-                        <div style={{ borderTop: '1px solid var(--app-border)' }}>
-                            <div style={{ padding: 8, backgroundColor: 'var(--app-accent-bg)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                        <IconRoute size={16} color="#1864ab" />
-                                        <Text strong style={{ fontSize: 13, color: '#1864ab' }}>Ruta ({selectedCount})</Text>
+                        <div className="border-t border-border">
+                            <div className="bg-accent p-2">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1">
+                                        <IconRoute size={16} className="text-sky-800" />
+                                        <span className="text-[13px] font-semibold text-sky-800">Ruta ({selectedCount})</span>
                                     </div>
                                     {selectedCount > 0 && (
                                         <Button
-                                            type="text"
-                                            size="small"
-                                            danger
-                                            icon={<IconTrash size={12} />}
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-destructive hover:text-destructive"
                                             onClick={() => { setSelectedItems([]); setIsSavingBase(false); setNombreRuta(''); setDescripcionRuta(''); setSelectedGrupo(null); }}
                                         >
+                                            <IconTrash size={12} />
                                             Limpiar
                                         </Button>
                                     )}
@@ -1023,24 +1017,23 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                             </div>
 
                             {selectedCount > 0 && (
-                                <div style={{ height: 100, overflowY: 'auto', padding: 8 }}>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <div className="h-[100px] overflow-y-auto p-2">
+                                    <div className="flex flex-col gap-0.5">
                                         {selectedItems.map((item, i) => {
                                             const f = fichas.find(ff => ff.id === item.fichaId);
                                             return (
-                                                <div key={`${item.fichaId}-${item.frecuencia_correlativo}`} style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
-                                                    <div style={{ width: 16, height: 16, borderRadius: '50%', backgroundColor: '#1c7ed6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                        <Text style={{ fontSize: 8, fontWeight: 700, color: '#fff' }}>{i + 1}</Text>
+                                                <div key={`${item.fichaId}-${item.frecuencia_correlativo}`} className="flex flex-nowrap items-center gap-1">
+                                                    <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-sky-600">
+                                                        <span className="text-[8px] font-bold text-white">{i + 1}</span>
                                                     </div>
-                                                    <Text style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={f?.centro}>
+                                                    <span className="flex-1 truncate text-xs" title={f?.centro}>
                                                         #{item.fichaId} - {f?.centro || '?'}
-                                                    </Text>
+                                                    </span>
                                                     {f?.correlativos && f.correlativos.length > 0 ? (
-                                                        <Select
-                                                            size="small"
-                                                            style={{ width: 105 }}
+                                                        <Combobox
+                                                            className="h-7 w-[115px] text-xs"
                                                             value={item.frecuencia_correlativo}
-                                                            onChange={(val) => val && updateSelectedCorrelativo(item.fichaId, val)}
+                                                            onValueChange={(val) => val && updateSelectedCorrelativo(item.fichaId, val)}
                                                             options={f.correlativos
                                                                 .filter(c => (c.status === 'DISPONIBLE' && !c.en_ruta) || c.status === 'AGENDADO' || c.frecuencia_correlativo === item.frecuencia_correlativo)
                                                                 .map(c => ({
@@ -1053,11 +1046,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                                             }
                                                         />
                                                     ) : (
-                                                        <Tag color="cyan" style={{ fontSize: 10, marginInlineEnd: 0 }}>
+                                                        <Badge variant="secondary" className="px-1 py-0 text-[10px]">
                                                             Serv. {item.numero_servicio}/{f?.total_servicios || '?'}
-                                                        </Tag>
+                                                        </Badge>
                                                     )}
-                                                    <div style={{ display: 'flex', gap: 2, marginLeft: 4 }}>
+                                                    <div className="ml-1 flex gap-0.5">
                                                         <ActionIconMini onClick={() => moveUp(i)} disabled={i === 0}><IconArrowUp size={10} /></ActionIconMini>
                                                         <ActionIconMini onClick={() => moveDown(i)} disabled={i === selectedCount - 1}><IconArrowDown size={10} /></ActionIconMini>
                                                     </div>
@@ -1069,63 +1062,70 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                             )}
 
                             {/* Assignment Controls */}
-                            <div style={{ padding: 8, borderTop: '1px solid var(--app-border)', backgroundColor: 'var(--app-hover-bg)' }}>
+                            <div className="border-t border-border bg-muted/40 p-2">
                                 {isSavingBase ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                    <div className="flex flex-col gap-2">
                                         <Input
-                                            size="small"
+                                            className="h-8 text-sm"
                                             placeholder="Ej. Ruta Chiloé Sur - Martes"
                                             value={nombreRuta}
                                             onChange={(e) => setNombreRuta(e.target.value)}
                                             autoFocus
                                         />
-                                        <Select
-                                            size="small"
+                                        <Combobox
+                                            className="h-8 text-sm"
                                             placeholder="Grupo (opcional)"
                                             options={grupos.map(g => ({ value: String(g.id_grupo), label: g.nombre_grupo }))}
-                                            value={selectedGrupo ?? undefined}
-                                            onChange={(v) => setSelectedGrupo(v ?? null)}
-                                            allowClear
-                                            showSearch
-                                            style={{ width: '100%' }}
+                                            value={selectedGrupo ?? ''}
+                                            onValueChange={(v) => setSelectedGrupo(v || null)}
                                         />
-                                        <TextArea
+                                        <Textarea
                                             placeholder="Notas o descripción (opcional)"
                                             value={descripcionRuta}
                                             onChange={(e) => setDescripcionRuta(e.target.value)}
-                                            autoSize={{ minRows: 2, maxRows: 3 }}
+                                            rows={2}
                                         />
-                                        <div style={{ display: 'flex', gap: 8 }}>
-                                            <Button size="small" style={{ flex: 1 }} onClick={() => setIsSavingBase(false)}>Cancelar</Button>
-                                            <Button size="small" style={{ flex: 1, backgroundColor: '#2f9e44' }} type="primary" icon={<IconDeviceFloppy size={14} />} onClick={handleGuardarRutaBase} loading={isLoading}>
+                                        <div className="flex gap-2">
+                                            <Button variant="outline" size="sm" className="flex-1" onClick={() => setIsSavingBase(false)}>Cancelar</Button>
+                                            <Button
+                                                size="sm"
+                                                className="flex-1 bg-success text-success-foreground hover:bg-success/90"
+                                                onClick={handleGuardarRutaBase}
+                                                disabled={isLoading}
+                                            >
+                                                {isLoading ? (
+                                                    <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-success-foreground border-t-transparent" />
+                                                ) : (
+                                                    <IconDeviceFloppy size={14} />
+                                                )}
                                                 Guardar
                                             </Button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <div style={{ display: 'flex', gap: 8 }}>
-                                        <Button style={{ flex: 1 }} type="primary" onClick={() => setIsModalOpen(true)} disabled={selectedItems.length === 0}>
+                                    <div className="flex gap-2">
+                                        <Button className="flex-1" onClick={() => setIsModalOpen(true)} disabled={selectedItems.length === 0}>
                                             Asignar Oficial ({selectedCount})
                                         </Button>
-                                        <Button style={{ flex: 1 }} onClick={() => setIsSavingBase(true)} disabled={selectedItems.length === 0}>
+                                        <Button variant="outline" className="flex-1" onClick={() => setIsSavingBase(true)} disabled={selectedItems.length === 0}>
                                             {editRutaId ? 'Actualizar Ruta' : 'Guardar Ruta Base'}
                                         </Button>
                                     </div>
                                 )}
                             </div>
                         </div>
-                    </Card>
+                    </div>
 
                     {/* RIGHT PANEL - MAP */}
-                    <Card style={{ flex: 1, overflow: 'hidden' }} styles={{ body: { padding: 0, height: '100%' } }}>
+                    <div className="flex-1 overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                         {fichasWithCoords.length === 0 ? (
-                            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
-                                    <IconMapPin size={48} color="var(--app-text-secondary)" />
-                                    <Text type="secondary" style={{ textAlign: 'center' }}>
+                            <div className="flex h-full items-center justify-center">
+                                <div className="flex flex-col items-center gap-4">
+                                    <IconMapPin size={48} className="text-muted-foreground" />
+                                    <p className="text-center text-muted-foreground">
                                         No se detectaron coordenadas válidas en las fichas mostradas.<br />
                                         La ubicación es incorrecta o está mal ingresada en el enlace.
-                                    </Text>
+                                    </p>
                                 </div>
                             </div>
                         ) : (
@@ -1196,9 +1196,25 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                 )}
                             </MapContainer>
                         )}
-                    </Card>
+                    </div>
                 </div>
             </div>
+
+            {/* Confirmación genérica — reemplaza Modal.confirm de antd */}
+            <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{confirmDialog?.title}</DialogTitle>
+                    </DialogHeader>
+                    {confirmDialog?.content}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmDialog(null)}>{confirmDialog?.cancelText || 'Cancelar'}</Button>
+                        <Button className="bg-[#e8590c] text-white hover:bg-[#d9480f]" onClick={() => confirmDialog?.onOk()}>
+                            {confirmDialog?.okText || 'Confirmar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
@@ -1206,9 +1222,9 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
-            {hint && <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{hint}</Text>}
+            {hint && <span className="mt-0.5 block text-[11px] text-muted-foreground">{hint}</span>}
         </div>
     );
 }
@@ -1217,17 +1233,10 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 const ActionIconMini: React.FC<{ onClick: () => void; disabled?: boolean; children: React.ReactNode }> = ({ onClick, disabled, children }) => (
     <div
         onClick={disabled ? undefined : onClick}
-        style={{
-            width: 18,
-            height: 18,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: disabled ? 'default' : 'pointer',
-            opacity: disabled ? 0.3 : 0.7,
-            borderRadius: 3,
-            background: 'var(--app-hover-bg)'
-        }}
+        className={cn(
+            'flex h-[18px] w-[18px] items-center justify-center rounded-sm bg-muted',
+            disabled ? 'cursor-default opacity-30' : 'cursor-pointer opacity-70'
+        )}
     >
         {children}
     </div>

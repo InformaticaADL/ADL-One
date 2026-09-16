@@ -1,16 +1,4 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import {
-    Button,
-    Select,
-    Input,
-    Tooltip,
-    Tag,
-    Modal,
-    Divider,
-    Spin,
-    Typography,
-    Segmented,
-} from 'antd';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
@@ -19,6 +7,14 @@ import { catalogosService } from '../services/catalogos.service';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { FichaUniversalView } from '../components/FichaUniversalView';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
     IconCalendar,
     IconChevronLeft,
@@ -28,8 +24,6 @@ import {
     IconDeviceFloppy,
     IconAlertCircle
 } from '@tabler/icons-react';
-
-const { Text, Title } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
@@ -93,17 +87,28 @@ interface UpdateAgendaPayload {
 }
 
 const STATUS_HEX: Record<string, string> = { orange: '#e8590c', green: '#2f9e44', red: '#e03131' };
+const STATUS_VARIANT: Record<string, 'warning' | 'success' | 'destructive'> = { orange: 'warning', green: 'success', red: 'destructive' };
 
-const StaticField = ({ label, value }: { label: string, value: any }) => (
+const StaticField = ({ label, value }: { label: string; value: any }) => (
     <div>
-        <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block' }}>{label}</Text>
-        <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: '6px 10px', backgroundColor: 'var(--app-hover-bg)', marginTop: 2 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }} title={String(value || '-')}>
+        <span className="block text-[11px] font-bold uppercase text-muted-foreground">{label}</span>
+        <div className="mt-0.5 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
+            <span className="block truncate text-[13.5px] font-medium" title={String(value || '-')}>
                 {value || '-'}
-            </Text>
+            </span>
         </div>
     </div>
 );
+
+function SectionDivider({ children }: { children?: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            {children && <span className="text-xs text-primary">{children}</span>}
+            <div className="h-px flex-1 bg-border" />
+        </div>
+    );
+}
 
 export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const { showToast } = useToast();
@@ -473,15 +478,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
     if (!hasPermission('MA_CALENDARIO_ACCESO')) {
         return (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-                <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Acceso Denegado</h2>
-                <p>No tiene permisos para ver el Calendario En Proceso.</p>
-                <button
-                    onClick={onBackToMenu}
-                    style={{ marginTop: '1rem', padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid #cbd5e1', cursor: 'pointer' }}
-                >
-                    Volver
-                </button>
+            <div className="shadcn-scope flex flex-col items-center gap-4 p-8 text-center">
+                <h2 className="text-2xl font-semibold text-muted-foreground">Acceso Denegado</h2>
+                <p className="text-muted-foreground">No tiene permisos para ver el Calendario En Proceso.</p>
+                <Button variant="outline" onClick={onBackToMenu}>Volver</Button>
             </div>
         );
     }
@@ -504,43 +504,40 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     }
                     setSelectedEvent(ev);
                 }}
+                className={cn('cursor-pointer rounded-md border border-border bg-card', compact ? 'p-1.5' : 'p-2', cancelled && 'opacity-65')}
                 style={{
-                    border: '1px solid var(--app-border)',
                     borderLeft: `4px solid ${STATUS_HEX[statusColor]}`,
-                    borderRadius: 6, padding: compact ? 6 : 8,
-                    opacity: cancelled ? 0.65 : 1,
-                    backgroundColor: cancelled ? 'rgba(224,49,49,0.06)' : 'var(--app-bg)',
-                    cursor: 'pointer',
+                    backgroundColor: cancelled ? 'rgba(224,49,49,0.06)' : undefined
                 }}
             >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                    <Text style={{
-                        fontSize: 10, fontWeight: 900, color: STATUS_HEX[statusColor], whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                        textDecoration: cancelled ? 'line-through' : 'none',
-                    }}>
+                <div className="mb-0.5 flex items-center justify-between gap-2">
+                    <span
+                        className={cn('truncate text-[10px] font-black', cancelled && 'line-through')}
+                        style={{ color: STATUS_HEX[statusColor] }}
+                    >
                         {ev.correlativo}
-                    </Text>
-                    <Tag color={statusColor} style={{ flexShrink: 0, fontSize: compact ? 8 : 10, lineHeight: '14px', padding: '0 4px', marginInlineEnd: 0 }}>
+                    </span>
+                    <Badge variant={STATUS_VARIANT[statusColor]} className={cn('shrink-0 px-1 py-0 leading-[14px]', compact ? 'text-[8px]' : 'text-[10px]')}>
                         {cancelled ? (compact ? 'C' : 'CANCEL.') : (isPuntualEvent(ev) ? (compact ? 'P' : 'PUNT.') : (compact ? ev.tipo_evento.charAt(0) : ev.tipo_evento))}
-                    </Tag>
+                    </Badge>
                 </div>
-                <Text style={{ fontSize: 12, fontWeight: 700, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ev.empresa_servicio}>
+                <span className="block truncate text-xs font-bold" title={ev.empresa_servicio}>
                     {ev.empresa_servicio}
-                </Text>
-                <Text type="secondary" style={{ fontSize: compact ? 9 : 10, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                </span>
+                <span className="block truncate text-muted-foreground" style={{ fontSize: compact ? 9 : 10 }}>
                     {compact ? (ev.muestreador || 'Sin Asignar') : ev.centro}
-                </Text>
+                </span>
                 {cancelled && ev.motivo_cancelacion && (
-                    <Text style={{ fontSize: 9, color: '#e03131', fontWeight: 600, display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={ev.motivo_cancelacion}>
+                    <span className="block truncate text-[9px] font-semibold text-destructive" title={ev.motivo_cancelacion}>
                         ⚠ {ev.motivo_cancelacion}
-                    </Text>
+                    </span>
                 )}
             </div>
         );
     };
 
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title="Calendario de Servicios"
                 subtitle={!isCompact ? `${capitalizedMonth} ${currentMonth.getFullYear()}` : undefined}
@@ -550,10 +547,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     { label: 'Calendario Terreno' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: isCompact ? 'wrap' : 'nowrap' }}>
-                        <Segmented
+                    <div className={cn('flex items-center gap-2', isCompact && 'flex-wrap')}>
+                        <Tabs
                             value={viewMode}
-                            onChange={(v) => {
+                            onValueChange={(v) => {
                                 const val = v as typeof viewMode;
                                 if (val === 'day') {
                                     const today = new Date();
@@ -567,96 +564,110 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 }
                                 setViewMode(val);
                             }}
-                            options={[
-                                { label: 'Mes', value: 'month' },
-                                { label: 'Semana', value: 'week' },
-                                { label: 'Día', value: 'day' },
-                                { label: 'Año', value: 'year' },
-                            ]}
-                        />
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                            <Button type="text" shape="circle" icon={<IconChevronLeft size={16} />} onClick={() => changeViewDate(-1)} />
-                            <Button type="text" size="small" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
-                            <Button type="text" shape="circle" icon={<IconChevronRight size={16} />} onClick={() => changeViewDate(1)} />
+                        >
+                            <TabsList>
+                                <TabsTrigger value="month">Mes</TabsTrigger>
+                                <TabsTrigger value="week">Semana</TabsTrigger>
+                                <TabsTrigger value="day">Día</TabsTrigger>
+                                <TabsTrigger value="year">Año</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                        <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => changeViewDate(-1)}>
+                                <IconChevronLeft size={16} />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => setCurrentMonth(new Date())}>Hoy</Button>
+                            <Button variant="ghost" size="icon" className="rounded-full" onClick={() => changeViewDate(1)}>
+                                <IconChevronRight size={16} />
+                            </Button>
                         </div>
-                        <Tooltip title="Filtros Avanzados">
-                            <Button
-                                type={showFilters ? 'primary' : 'default'}
-                                shape="circle"
-                                size="large"
-                                icon={<IconFilter size={20} />}
-                                onClick={() => setShowFilters(!showFilters)}
-                            />
-                        </Tooltip>
+                        <Button
+                            variant={showFilters ? 'default' : 'outline'}
+                            size="icon"
+                            className="h-11 w-11 rounded-full"
+                            title="Filtros Avanzados"
+                            onClick={() => setShowFilters(!showFilters)}
+                        >
+                            <IconFilter size={20} />
+                        </Button>
                     </div>
                 }
             />
 
             {showFilters && (
-                <div ref={filterPanelRef} style={{ border: '1px solid var(--app-border)', borderRadius: 10, padding: 16, marginBottom: 16 }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                <div ref={filterPanelRef} className="mb-4 rounded-[10px] border border-border p-4">
+                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
                         <Field label="Buscar">
-                            <Input placeholder="N° ficha, correlativo, empresa, muestreador..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} prefix={<IconSearch size={14} />} />
+                            <div className="relative">
+                                <IconSearch size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    placeholder="N° ficha, correlativo, empresa, muestreador..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className="pl-8"
+                                />
+                            </div>
                         </Field>
                         <Field label="Empresa Servicio">
-                            <Select placeholder="Todas" options={empresas.map(e => ({ value: e, label: e }))} value={selectedEmpresa || undefined} onChange={(v) => setSelectedEmpresa(v || '')} allowClear showSearch style={{ width: '100%' }} />
+                            <Combobox placeholder="Todas" options={empresas.map(e => ({ value: e, label: e }))} value={selectedEmpresa} onValueChange={(v) => setSelectedEmpresa(v || '')} />
                         </Field>
                         <Field label="Muestreador">
-                            <Select placeholder="Todos" options={muestreadores.map(m => ({ value: m, label: m }))} value={selectedMuestreador || undefined} onChange={(v) => setSelectedMuestreador(v || '')} allowClear showSearch style={{ width: '100%' }} />
+                            <Combobox placeholder="Todos" options={muestreadores.map(m => ({ value: m, label: m }))} value={selectedMuestreador} onValueChange={(v) => setSelectedMuestreador(v || '')} />
                         </Field>
                         <Field label="Centro / Fuente">
-                            <Select placeholder="Todos" options={centros.map(c => ({ value: c, label: c }))} value={selectedCentro || undefined} onChange={(v) => setSelectedCentro(v || '')} allowClear showSearch style={{ width: '100%' }} />
+                            <Combobox placeholder="Todos" options={centros.map(c => ({ value: c, label: c }))} value={selectedCentro} onValueChange={(v) => setSelectedCentro(v || '')} />
                         </Field>
                     </div>
                 </div>
             )}
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Text type="secondary" style={{ fontSize: 12, fontWeight: 600 }}>Leyenda:</Text>
-                <Tag color="orange">Pendiente</Tag>
-                <Tag color="green">Ejecutado</Tag>
-                <Tag color="red">Cancelado</Tag>
+            <div className="mb-2 flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted-foreground">Leyenda:</span>
+                <Badge variant="warning">Pendiente</Badge>
+                <Badge variant="success">Ejecutado</Badge>
+                <Badge variant="destructive">Cancelado</Badge>
             </div>
 
-            <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, padding: 16, position: 'relative', minHeight: 650 }}>
+            <div className="relative min-h-[650px] rounded-[10px] border border-border p-4">
                 {isLoading && (
-                    <div style={{ position: 'absolute', inset: 0, backgroundColor: 'var(--app-bg)', opacity: 0.75, zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                            <Spin size="large" />
-                            <Text strong style={{ color: 'var(--app-accent-text)' }}>Cargando datos...</Text>
+                    <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/75">
+                        <div className="flex flex-col items-center gap-2">
+                            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            <span className="font-semibold text-primary">Cargando datos...</span>
                         </div>
                     </div>
                 )}
 
                 {viewMode === 'day' && selectedDay !== null && (
-                    <div style={{ padding: '8px 0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                            <Button type="text" icon={<IconChevronLeft size={16} />} onClick={() => { setViewMode('month'); setSelectedDay(null); }}>
+                    <div className="py-2">
+                        <div className="mb-4 flex items-center justify-between">
+                            <Button variant="ghost" onClick={() => { setViewMode('month'); setSelectedDay(null); }}>
+                                <IconChevronLeft size={16} />
                                 Volver al Mes
                             </Button>
-                            <Title level={4} style={{ margin: 0 }}>{selectedDay} de {capitalizedMonth} de {currentMonth.getFullYear()}</Title>
+                            <h4 className="m-0 text-lg font-semibold">{selectedDay} de {capitalizedMonth} de {currentMonth.getFullYear()}</h4>
                         </div>
 
-                        <div style={{ maxHeight: 500, overflowY: 'auto' }}>
+                        <div className="max-h-[500px] overflow-y-auto">
                             {Object.entries(samplerGroups).length === 0 ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '80px 0' }}>
-                                    <IconCalendar size={48} color="var(--app-text-secondary)" />
-                                    <Text type="secondary" style={{ fontSize: 16, fontWeight: 500 }}>No hay servicios para este dia</Text>
+                                <div className="flex flex-col items-center gap-2 py-20">
+                                    <IconCalendar size={48} className="text-muted-foreground" />
+                                    <span className="text-base font-medium text-muted-foreground">No hay servicios para este dia</span>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+                                <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
                                     {Object.entries(samplerGroups).map(([muestreador, events]) => (
-                                        <div key={muestreador} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 10, backgroundColor: 'var(--app-hover-bg)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#1677ff', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13 }}>
+                                        <div key={muestreador} className="rounded-lg border border-border bg-muted/40 p-2.5">
+                                            <div className="mb-2 flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-[13px] font-bold text-primary-foreground">
                                                         {muestreador.charAt(0)}
                                                     </div>
-                                                    <Text strong style={{ fontSize: 13 }}>{muestreador}</Text>
+                                                    <span className="text-[13px] font-semibold">{muestreador}</span>
                                                 </div>
-                                                <Tag>{events.length}</Tag>
+                                                <Badge variant="secondary">{events.length}</Badge>
                                             </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            <div className="flex flex-col gap-1.5">
                                                 {events.sort((a, b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => (
                                                     <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} />
                                                 ))}
@@ -670,24 +681,28 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 )}
 
                 {viewMode === 'month' && (
-                    <div style={{ padding: '8px 0' }}>
+                    <div className="py-2">
                         {isCompact && (
-                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 8, backgroundColor: 'var(--app-accent-bg)', marginBottom: 16 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Button type="text" shape="circle" icon={<IconChevronLeft size={20} />} onClick={() => changeViewDate(-1)} />
-                                    <Text strong style={{ fontSize: 15, textTransform: 'capitalize', color: 'var(--app-accent-text)' }}>{capitalizedMonth} {currentMonth.getFullYear()}</Text>
-                                    <Button type="text" shape="circle" icon={<IconChevronRight size={20} />} onClick={() => changeViewDate(1)} />
+                            <div className="mb-4 rounded-lg border border-border bg-accent p-2">
+                                <div className="flex items-center justify-between">
+                                    <Button variant="ghost" size="icon" className="rounded-full" onClick={() => changeViewDate(-1)}>
+                                        <IconChevronLeft size={20} />
+                                    </Button>
+                                    <span className="text-[15px] font-semibold capitalize text-primary">{capitalizedMonth} {currentMonth.getFullYear()}</span>
+                                    <Button variant="ghost" size="icon" className="rounded-full" onClick={() => changeViewDate(1)}>
+                                        <IconChevronRight size={20} />
+                                    </Button>
                                 </div>
                             </div>
                         )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isCompact ? 4 : 5, marginBottom: 8 }}>
+                        <div className="mb-2 grid grid-cols-7" style={{ gap: isCompact ? 4 : 5 }}>
                             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
-                                <Text key={d} type="secondary" style={{ fontSize: isCompact ? 10 : 12, fontWeight: 800, textAlign: 'center', textTransform: 'uppercase' }}>{d}</Text>
+                                <span key={d} className="text-center font-extrabold uppercase text-muted-foreground" style={{ fontSize: isCompact ? 10 : 12 }}>{d}</span>
                             ))}
                         </div>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: isCompact ? 4 : 5 }}>
+                        <div className="grid grid-cols-7" style={{ gap: isCompact ? 4 : 5 }}>
                             {calendarCells.map((day, idx) => {
                                 const events = day ? filteredEvents.filter(ev => ev.event_dia === day && ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear()) : [];
                                 const todayDate = new Date();
@@ -698,43 +713,47 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     <div
                                         key={idx}
                                         onClick={() => { if (day) { setSelectedDay(day); setViewMode('day'); } }}
+                                        className={cn(
+                                            'overflow-hidden rounded-lg border border-border',
+                                            day ? 'cursor-pointer' : 'cursor-default opacity-30',
+                                            day ? (isToday ? 'bg-accent shadow-[inset_0_0_0_1px_var(--sc-primary)]' : 'bg-card') : 'bg-transparent'
+                                        )}
                                         style={{
                                             padding: isCompact ? 2 : 5,
                                             height: isMobile ? 65 : (isCompact ? 100 : 120),
-                                            border: '1px solid var(--app-border)',
-                                            borderRadius: 8,
-                                            cursor: day ? 'pointer' : 'default',
-                                            backgroundColor: isToday ? 'var(--app-accent-bg)' : (day ? 'var(--app-bg)' : 'transparent'),
-                                            opacity: day ? 1 : 0.3,
-                                            boxShadow: isToday ? 'inset 0 0 0 1px var(--app-accent-text)' : 'none',
-                                            overflow: 'hidden',
                                         }}
                                     >
                                         {day && (
                                             <>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: `0 ${isCompact ? 2 : 4}px` }}>
-                                                    <Text style={{ fontSize: isCompact && !isMobile ? 13 : (isMobile ? 12 : 13), fontWeight: isToday ? 900 : 700, color: isToday ? 'var(--app-accent-text)' : 'var(--app-text)' }}>{day}</Text>
+                                                <div className="flex items-center justify-between" style={{ padding: `0 ${isCompact ? 2 : 4}px` }}>
+                                                    <span
+                                                        className={isToday ? 'text-primary' : 'text-foreground'}
+                                                        style={{ fontSize: isCompact && !isMobile ? 13 : (isMobile ? 12 : 13), fontWeight: isToday ? 900 : 700 }}
+                                                    >
+                                                        {day}
+                                                    </span>
                                                     {isMobile && events.length > 0 && (
-                                                        <div style={{ display: 'flex', gap: 2 }}>
+                                                        <div className="flex gap-0.5">
                                                             {events.slice(0, 2).map((_, eidx) => (
-                                                                <div key={eidx} style={{ height: 4, width: 4, borderRadius: '50%', backgroundColor: '#1677ff' }} />
+                                                                <div key={eidx} className="h-1 w-1 rounded-full bg-primary" />
                                                             ))}
                                                         </div>
                                                     )}
                                                 </div>
                                                 {!isMobile && (
-                                                    <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                    <div className="mt-1 flex flex-col gap-0.5">
                                                         {events.slice(0, maxBadges).map((ev, eidx) => (
-                                                            <Tag
+                                                            <Badge
                                                                 key={eidx}
-                                                                color={getStatusColor(ev)}
-                                                                style={{ width: '100%', textAlign: 'center', fontSize: isCompact ? 10 : 8, padding: '1px 2px', margin: 0, lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                                                                variant={STATUS_VARIANT[getStatusColor(ev)]}
+                                                                className="w-full justify-center truncate px-0.5 py-0 text-center leading-[1.4]"
+                                                                style={{ fontSize: isCompact ? 10 : 8 }}
                                                             >
                                                                 {ev.correlativo}
-                                                            </Tag>
+                                                            </Badge>
                                                         ))}
                                                         {events.length > maxBadges && (
-                                                            <Text type="secondary" style={{ fontSize: 10, textAlign: 'center' }}>+{events.length - maxBadges}</Text>
+                                                            <span className="text-center text-[10px] text-muted-foreground">+{events.length - maxBadges}</span>
                                                         )}
                                                     </div>
                                                 )}
@@ -748,8 +767,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 )}
 
                 {viewMode === 'week' && (
-                    <div style={{ padding: '8px 0' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 8 }}>
+                    <div className="py-2">
+                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
                             {weekDays.map((date, idx) => {
                                 const d = date.getDate();
                                 const m = date.getMonth() + 1;
@@ -760,12 +779,12 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 const dayEvents = filteredEvents.filter(ev => ev.event_dia === d && ev.event_mes === m && ev.event_ano === y);
 
                                 return (
-                                    <div key={idx} style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 8, backgroundColor: isToday ? 'var(--app-accent-bg)' : 'var(--app-hover-bg)', minHeight: 550, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        <div style={{ textAlign: 'center', paddingBottom: 4, borderBottom: '1px solid var(--app-border)' }}>
-                                            <Text type="secondary" style={{ fontSize: 12, fontWeight: 800, color: isToday ? 'var(--app-accent-text)' : undefined }}>{dayName}</Text>
-                                            <Text style={{ fontSize: 18, fontWeight: 900, display: 'block', color: isToday ? 'var(--app-accent-text)' : 'var(--app-text)' }}>{d}</Text>
+                                    <div key={idx} className={cn('flex min-h-[550px] flex-col gap-2 rounded-lg border border-border p-2', isToday ? 'bg-accent' : 'bg-muted/40')}>
+                                        <div className="border-b border-border pb-1 text-center">
+                                            <span className={cn('text-xs font-extrabold', isToday ? 'text-primary' : 'text-muted-foreground')}>{dayName}</span>
+                                            <span className={cn('block text-lg font-black', isToday ? 'text-primary' : 'text-foreground')}>{d}</span>
                                         </div>
-                                        <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
                                             {dayEvents.sort((a, b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => (
                                                 <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} compact />
                                             ))}
@@ -778,8 +797,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 )}
 
                 {viewMode === 'year' && (
-                    <div style={{ padding: '8px 0' }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 20 }}>
+                    <div className="py-2">
+                        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                             {Array.from({ length: 12 }).map((_, mIdx) => {
                                 const mDate = new Date(currentMonth.getFullYear(), mIdx, 1);
                                 const mName = mDate.toLocaleString('es-ES', { month: 'long' });
@@ -790,24 +809,19 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     <div
                                         key={mIdx}
                                         onClick={() => { setCurrentMonth(mDate); setViewMode('month'); }}
-                                        style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 16, cursor: 'pointer', height: 200 }}
+                                        className="h-[200px] cursor-pointer rounded-lg border border-border p-4"
                                     >
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                                            <Text strong style={{ fontSize: 15 }}>{mCaps}</Text>
-                                            <Tag>{mEvents.length}</Tag>
+                                        <div className="mb-4 flex items-center justify-between">
+                                            <span className="text-[15px] font-semibold">{mCaps}</span>
+                                            <Badge variant="secondary">{mEvents.length}</Badge>
                                         </div>
-                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 3 }}>
+                                        <div className="grid grid-cols-7 gap-[3px]">
                                             {Array.from({ length: 31 }).map((__, dIdx) => {
                                                 const hasEvent = mEvents.some(e => e.event_dia === dIdx + 1);
                                                 return (
                                                     <div
                                                         key={dIdx}
-                                                        style={{
-                                                            height: 10,
-                                                            backgroundColor: hasEvent ? '#1677ff' : 'var(--app-hover-bg)',
-                                                            borderRadius: 2,
-                                                            border: hasEvent ? '1px solid #00508a' : 'none'
-                                                        }}
+                                                        className={cn('h-2.5 rounded-sm', hasEvent ? 'border border-[#00508a] bg-primary' : 'bg-muted/40')}
                                                     />
                                                 );
                                             })}
@@ -820,188 +834,188 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 )}
             </div>
 
-            <Modal
-                open={!!selectedEvent}
-                onCancel={() => setSelectedEvent(null)}
-                width={720}
-                footer={null}
-                title={
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 24 }}>
-                        <Text strong style={{ fontSize: 16 }}>Resumen de Muestreo - {selectedEvent?.correlativo}</Text>
-                        {selectedEvent && <Tag color={getStatusColor(selectedEvent)} style={{ fontSize: 13 }}>{selectedEvent.estado_caso}</Tag>}
-                    </div>
-                }
-            >
-                {selectedEvent && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        {selectedEvent.es_remuestreo === 'S' && (
-                            <div style={{ border: '1px solid var(--app-accent-text)', borderRadius: 8, padding: 8, backgroundColor: 'var(--app-accent-bg)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <IconAlertCircle size={18} color="var(--app-accent-text)" />
-                                    <Text strong style={{ fontSize: 13, color: 'var(--app-accent-text)' }}>REMUESTREO DE LA FICHA N° {selectedEvent.id_ficha_original}</Text>
+            <Dialog open={!!selectedEvent} onOpenChange={(open) => { if (!open) setSelectedEvent(null); }}>
+                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[720px]">
+                    <DialogHeader>
+                        <div className="flex items-center justify-between pr-6">
+                            <DialogTitle>Resumen de Muestreo - {selectedEvent?.correlativo}</DialogTitle>
+                            {selectedEvent && <Badge variant={STATUS_VARIANT[getStatusColor(selectedEvent)]} className="text-[13px]">{selectedEvent.estado_caso}</Badge>}
+                        </div>
+                    </DialogHeader>
+                    {selectedEvent && (
+                        <div className="flex flex-col gap-4">
+                            {selectedEvent.es_remuestreo === 'S' && (
+                                <div className="rounded-lg border border-primary bg-accent p-2">
+                                    <div className="flex items-center gap-2">
+                                        <IconAlertCircle size={18} className="text-primary" />
+                                        <span className="text-[13px] font-semibold text-primary">REMUESTREO DE LA FICHA N° {selectedEvent.id_ficha_original}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
+                                <StaticField label="Monitoreo" value={selectedEvent.tipo_ficha} />
+                                <StaticField label="Sub Área" value={selectedEvent.subarea} />
+                                <StaticField label="Objetivo" value={selectedEvent.objetivo} />
+                            </div>
+
+                            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                                <StaticField label="Empresa Servicio" value={selectedEvent.empresa_servicio} />
+                                <StaticField label="Centro / Fuente" value={selectedEvent.centro} />
+                            </div>
+
+                            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+                                <StaticField label="Contacto Empresa" value={selectedEvent.contacto || ''} />
+                                <StaticField label="E-mail Contacto" value={selectedEvent.correo_contacto || ''} />
+                            </div>
+
+                            <StaticField label="Glosa / Tabla" value={selectedEvent.glosa} />
+
+                            <SectionDivider>Gestión de Agenda</SectionDivider>
+
+                            <div className="grid grid-cols-2 items-end gap-4">
+                                <div>
+                                    {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent) ? (
+                                        <>
+                                            <span className="mb-1 block text-xs">Fecha de Muestreo (Agenda)</span>
+                                            <DatePicker
+                                                value={editedDate}
+                                                onChange={(v) => {
+                                                    // Reglas de negocio originales no permitían fechas pasadas (min={todayStr}
+                                                    // del input nativo); DatePicker no soporta min/max, así que se valida aquí.
+                                                    if (v && v < todayStr) return;
+                                                    setEditedDate(v);
+                                                    setIsEditingDate(true);
+                                                }}
+                                            />
+                                        </>
+                                    ) : (
+                                        <StaticField label="Fecha de Muestreo (Agenda)" value={editedDate} />
+                                    )}
+                                </div>
+                                <div>
+                                    {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent) ? (
+                                        <>
+                                            <span className="mb-1 block text-xs">Re-Asignar Muestreador</span>
+                                            <Combobox
+                                                placeholder="Seleccione..."
+                                                options={muestreadorOptions}
+                                                value={editedSamplerId ? String(editedSamplerId) : ''}
+                                                onValueChange={(val) => { if (val) setEditedSamplerId(Number(val)); setIsEditingSampler(true); }}
+                                            />
+                                        </>
+                                    ) : (
+                                        <StaticField
+                                            label="Muestreador Asignado"
+                                            value={globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}
+                                        />
+                                    )}
                                 </div>
                             </div>
-                        )}
 
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-                            <StaticField label="Monitoreo" value={selectedEvent.tipo_ficha} />
-                            <StaticField label="Sub Área" value={selectedEvent.subarea} />
-                            <StaticField label="Objetivo" value={selectedEvent.objetivo} />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                            <StaticField label="Empresa Servicio" value={selectedEvent.empresa_servicio} />
-                            <StaticField label="Centro / Fuente" value={selectedEvent.centro} />
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                            <StaticField label="Contacto Empresa" value={selectedEvent.contacto || ''} />
-                            <StaticField label="E-mail Contacto" value={selectedEvent.correo_contacto || ''} />
-                        </div>
-
-                        <StaticField label="Glosa / Tabla" value={selectedEvent.glosa} />
-
-                        <Divider titlePlacement="center">
-                            <Text style={{ fontSize: 12, color: 'var(--app-accent-text)' }}>Gestión de Agenda</Text>
-                        </Divider>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, alignItems: 'flex-end' }}>
-                            <div>
-                                {hasPermission('MA_CALENDARIO_REAGENDAR') && !isExecutedEvent(selectedEvent) ? (
-                                    <>
-                                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Fecha de Muestreo (Agenda)</Text>
-                                        <Input type="date" min={todayStr} value={editedDate} onChange={(e) => { setEditedDate(e.target.value); setIsEditingDate(true); }} />
-                                    </>
-                                ) : (
-                                    <StaticField label="Fecha de Muestreo (Agenda)" value={editedDate} />
-                                )}
-                            </div>
-                            <div>
-                                {hasPermission('MA_CALENDARIO_REASIGNAR') && !isExecutedEvent(selectedEvent) ? (
-                                    <>
-                                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Re-Asignar Muestreador</Text>
-                                        <Select
-                                            style={{ width: '100%' }}
-                                            placeholder="Seleccione..."
-                                            options={muestreadorOptions}
-                                            value={editedSamplerId ? String(editedSamplerId) : undefined}
-                                            onChange={(val) => { if (val) setEditedSamplerId(Number(val)); setIsEditingSampler(true); }}
-                                            showSearch
-                                        />
-                                    </>
-                                ) : (
-                                    <StaticField
-                                        label="Muestreador Asignado"
-                                        value={globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}
-                                    />
-                                )}
-                            </div>
-                        </div>
-
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8 }}>
-                            <ProtectedContent permission="FI_CAL_DETALLE">
-                                <Button
-                                    icon={<IconSearch size={16} />}
-                                    onClick={() => {
-                                        if (selectedEvent) {
-                                            setDetailFichaId(selectedEvent.id);
-                                            setSelectedEvent(null);
-                                        }
-                                    }}
-                                >
-                                    Ver Detalle Completo
-                                </Button>
-                            </ProtectedContent>
-
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {selectedEvent && !isCancelledEvent(selectedEvent) && !isExecutedEvent(selectedEvent) && (
-                                    <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
-                                        <Button danger onClick={() => setShowCancelConfirm(true)}>Cancelar Muestreo</Button>
-                                    </ProtectedContent>
-                                )}
-                                <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
+                            <div className="mt-2 flex justify-between">
+                                <ProtectedContent permission="FI_CAL_DETALLE">
                                     <Button
-                                        type="primary"
-                                        icon={<IconDeviceFloppy size={18} />}
-                                        disabled={(!isEditingDate && !isEditingSampler) || isSavingEvent}
-                                        loading={isSavingEvent}
-                                        onClick={async () => {
-                                            if (!selectedEvent) return;
-
-                                            const payload = buildUpdatePayload();
-                                            if (!payload) return;
-
-                                            // Cancelled services show reactivation modal
-                                            if (isCancelledEvent(selectedEvent)) {
-                                                setPendingPayload(payload);
-                                                setShowReactivateConfirm(true);
-                                                return;
-                                            }
-
-                                            // Pending services: check if date changed for version prompt
-                                            if (isEditingDate) {
-                                                setPendingPayload(payload);
-                                                setShowVersionPrompt(true);
-                                            } else {
-                                                // Only sampler changed: save directly
-                                                setIsSavingEvent(true);
-                                                fichaService.batchUpdateAgenda(payload)
-                                                    .then(() => {
-                                                        showToast({ type: 'success', message: 'Muestreador re-asignado correctamente.' });
-                                                        lastFetchRef.current = '';
-                                                        setSelectedEvent(null);
-                                                        loadData();
-                                                    })
-                                                    .catch((error) => {
-                                                        console.error('Error saving reassignment:', error);
-                                                        showToast({ type: 'error', message: 'Error al re-asignar el muestreador.' });
-                                                    })
-                                                    .finally(() => setIsSavingEvent(false));
+                                        variant="outline"
+                                        onClick={() => {
+                                            if (selectedEvent) {
+                                                setDetailFichaId(selectedEvent.id);
+                                                setSelectedEvent(null);
                                             }
                                         }}
                                     >
-                                        Guardar Cambios
+                                        <IconSearch size={16} />
+                                        Ver Detalle Completo
                                     </Button>
                                 </ProtectedContent>
+
+                                <div className="flex gap-2">
+                                    {selectedEvent && !isCancelledEvent(selectedEvent) && !isExecutedEvent(selectedEvent) && (
+                                        <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
+                                            <Button variant="destructive" onClick={() => setShowCancelConfirm(true)}>Cancelar Muestreo</Button>
+                                        </ProtectedContent>
+                                    )}
+                                    <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
+                                        <Button
+                                            disabled={(!isEditingDate && !isEditingSampler) || isSavingEvent}
+                                            onClick={async () => {
+                                                if (!selectedEvent) return;
+
+                                                const payload = buildUpdatePayload();
+                                                if (!payload) return;
+
+                                                // Cancelled services show reactivation modal
+                                                if (isCancelledEvent(selectedEvent)) {
+                                                    setPendingPayload(payload);
+                                                    setShowReactivateConfirm(true);
+                                                    return;
+                                                }
+
+                                                // Pending services: check if date changed for version prompt
+                                                if (isEditingDate) {
+                                                    setPendingPayload(payload);
+                                                    setShowVersionPrompt(true);
+                                                } else {
+                                                    // Only sampler changed: save directly
+                                                    setIsSavingEvent(true);
+                                                    fichaService.batchUpdateAgenda(payload)
+                                                        .then(() => {
+                                                            showToast({ type: 'success', message: 'Muestreador re-asignado correctamente.' });
+                                                            lastFetchRef.current = '';
+                                                            setSelectedEvent(null);
+                                                            loadData();
+                                                        })
+                                                        .catch((error) => {
+                                                            console.error('Error saving reassignment:', error);
+                                                            showToast({ type: 'error', message: 'Error al re-asignar el muestreador.' });
+                                                        })
+                                                        .finally(() => setIsSavingEvent(false));
+                                                }
+                                            }}
+                                        >
+                                            {isSavingEvent ? (
+                                                <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                            ) : (
+                                                <IconDeviceFloppy size={18} />
+                                            )}
+                                            Guardar Cambios
+                                        </Button>
+                                    </ProtectedContent>
+                                </div>
                             </div>
                         </div>
+                    )}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Confirmar Cancelación de Muestreo</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-[13px]">¿Está seguro que desea cancelar este muestreo? Esta acción es irreversible.</p>
+
+                        <div>
+                            <span className="mb-1 block text-xs">Motivo de Cancelación *</span>
+                            <Combobox
+                                placeholder="Seleccione un motivo..."
+                                options={cancellationOptions}
+                                value={selectedReasonId ? String(selectedReasonId) : ''}
+                                onValueChange={(val) => setSelectedReasonId(Number(val) || '')}
+                            />
+                        </div>
+
+                        <div>
+                            <span className="mb-1 block text-xs">Observaciones adicionales *</span>
+                            <Input placeholder="Ingrese detalle del motivo..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+                        </div>
                     </div>
-                )}
-            </Modal>
-
-            <Modal
-                open={showCancelConfirm}
-                onCancel={() => setShowCancelConfirm(false)}
-                title="Confirmar Cancelación de Muestreo"
-                centered
-                footer={null}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <Text style={{ fontSize: 13 }}>¿Está seguro que desea cancelar este muestreo? Esta acción es irreversible.</Text>
-
-                    <div>
-                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Motivo de Cancelación *</Text>
-                        <Select
-                            style={{ width: '100%' }}
-                            placeholder="Seleccione un motivo..."
-                            options={cancellationOptions}
-                            value={selectedReasonId ? String(selectedReasonId) : undefined}
-                            onChange={(val) => setSelectedReasonId(Number(val) || '')}
-                        />
-                    </div>
-
-                    <div>
-                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Observaciones adicionales *</Text>
-                        <Input placeholder="Ingrese detalle del motivo..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={() => setShowCancelConfirm(false)}>No, Volver</Button>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCancelConfirm(false)}>No, Volver</Button>
                         <Button
-                            danger
-                            type="primary"
+                            variant="destructive"
                             disabled={!cancelReason.trim() || !selectedReasonId || isSavingEvent}
-                            loading={isSavingEvent}
                             onClick={async () => {
                                 if (!selectedEvent) return;
                                 setIsSavingEvent(true);
@@ -1028,162 +1042,160 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 }
                             }}
                         >
+                            {isSavingEvent && <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />}
                             Sí, Cancelar
                         </Button>
-                    </div>
-                </div>
-            </Modal>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
-            <Modal
-                open={showVersionPrompt}
-                onCancel={() => setShowVersionPrompt(false)}
-                title="Versión de Equipos"
-                centered
-                footer={null}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    <Text style={{ fontSize: 13 }}>
-                        ¿Desea mantener la versión de equipos registrada al momento de la asignación original o actualizar con la versión actual de los equipos maestros?
-                    </Text>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <Button
-                            style={{ flex: 1 }}
-                            onClick={async () => {
-                                if (!pendingPayload) return;
-                                setShowVersionPrompt(false);
-                                setIsSavingEvent(true);
-                                try {
-                                    await fichaService.batchUpdateAgenda(pendingPayload);
-                                    showToast({ type: 'success', message: 'Muestreo reprogramado (versión original mantenida).' });
-                                    lastFetchRef.current = '';
-                                    setSelectedEvent(null);
-                                    loadData();
-                                } catch (error) {
-                                    console.error('Error saving event:', error);
-                                    showToast({ type: 'error', message: 'Error al intentar re-agendar el muestreo.' });
-                                } finally {
-                                    setIsSavingEvent(false);
-                                    setPendingPayload(null);
-                                }
-                            }}
-                        >
-                            Mantener original
-                        </Button>
-                        <Button
-                            type="primary"
-                            style={{ flex: 1 }}
-                            onClick={async () => {
-                                if (!pendingPayload) return;
-                                setShowVersionPrompt(false);
-                                setIsSavingEvent(true);
-                                try {
-                                    const updatedPayload: any = { ...pendingPayload };
-                                    updatedPayload.assignments = updatedPayload.assignments.map((a: any) => ({
-                                        ...a,
-                                        actualizarVersiones: true
-                                    }));
-                                    await fichaService.batchUpdateAgenda(updatedPayload);
-                                    showToast({ type: 'success', message: 'Muestreo reprogramado con versiones actualizadas.' });
-                                    lastFetchRef.current = '';
-                                    setSelectedEvent(null);
-                                    loadData();
-                                } catch (error) {
-                                    console.error('Error saving event:', error);
-                                    showToast({ type: 'error', message: 'Error al intentar re-agendar el muestreo.' });
-                                } finally {
-                                    setIsSavingEvent(false);
-                                    setPendingPayload(null);
-                                }
-                            }}
-                        >
-                            Usar versión actual
-                        </Button>
+            <Dialog open={showVersionPrompt} onOpenChange={setShowVersionPrompt}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Versión de Equipos</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-[13px]">
+                            ¿Desea mantener la versión de equipos registrada al momento de la asignación original o actualizar con la versión actual de los equipos maestros?
+                        </p>
+                        <div className="flex gap-2">
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={async () => {
+                                    if (!pendingPayload) return;
+                                    setShowVersionPrompt(false);
+                                    setIsSavingEvent(true);
+                                    try {
+                                        await fichaService.batchUpdateAgenda(pendingPayload);
+                                        showToast({ type: 'success', message: 'Muestreo reprogramado (versión original mantenida).' });
+                                        lastFetchRef.current = '';
+                                        setSelectedEvent(null);
+                                        loadData();
+                                    } catch (error) {
+                                        console.error('Error saving event:', error);
+                                        showToast({ type: 'error', message: 'Error al intentar re-agendar el muestreo.' });
+                                    } finally {
+                                        setIsSavingEvent(false);
+                                        setPendingPayload(null);
+                                    }
+                                }}
+                            >
+                                Mantener original
+                            </Button>
+                            <Button
+                                className="flex-1"
+                                onClick={async () => {
+                                    if (!pendingPayload) return;
+                                    setShowVersionPrompt(false);
+                                    setIsSavingEvent(true);
+                                    try {
+                                        const updatedPayload: any = { ...pendingPayload };
+                                        updatedPayload.assignments = updatedPayload.assignments.map((a: any) => ({
+                                            ...a,
+                                            actualizarVersiones: true
+                                        }));
+                                        await fichaService.batchUpdateAgenda(updatedPayload);
+                                        showToast({ type: 'success', message: 'Muestreo reprogramado con versiones actualizadas.' });
+                                        lastFetchRef.current = '';
+                                        setSelectedEvent(null);
+                                        loadData();
+                                    } catch (error) {
+                                        console.error('Error saving event:', error);
+                                        showToast({ type: 'error', message: 'Error al intentar re-agendar el muestreo.' });
+                                    } finally {
+                                        setIsSavingEvent(false);
+                                        setPendingPayload(null);
+                                    }
+                                }}
+                            >
+                                Usar versión actual
+                            </Button>
+                        </div>
                     </div>
-                </div>
-            </Modal>
+                </DialogContent>
+            </Dialog>
 
-            <Modal
-                open={showReactivateConfirm}
-                onCancel={() => setShowReactivateConfirm(false)}
-                title="Reactivar y Reagendar Muestreo"
-                centered
-                footer={null}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {selectedEvent && (
-                        <>
-                            <div style={{ border: '1px solid rgba(224,49,49,0.25)', borderRadius: 8, padding: 10, backgroundColor: 'rgba(224,49,49,0.08)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                    <IconAlertCircle size={18} color="#e03131" />
-                                    <Text strong style={{ fontSize: 13 }}>Este muestreo fue cancelado anteriormente</Text>
+            <Dialog open={showReactivateConfirm} onOpenChange={setShowReactivateConfirm}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reactivar y Reagendar Muestreo</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        {selectedEvent && (
+                            <>
+                                <div className="rounded-lg border border-destructive/25 bg-destructive/10 p-2.5">
+                                    <div className="flex items-center gap-2">
+                                        <IconAlertCircle size={18} className="text-destructive" />
+                                        <span className="text-[13px] font-semibold">Este muestreo fue cancelado anteriormente</span>
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div>
-                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block' }}>Motivo de cancelación</Text>
-                                <Text style={{ fontSize: 13 }}>{selectedEvent.motivo_cancelacion || 'No especificado'}</Text>
-                            </div>
-
-                            {cancelReason && (
                                 <div>
-                                    <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block' }}>Observaciones</Text>
-                                    <Text style={{ fontSize: 13 }}>{cancelReason}</Text>
+                                    <span className="block text-[11px] font-bold uppercase text-muted-foreground">Motivo de cancelación</span>
+                                    <span className="text-[13px]">{selectedEvent.motivo_cancelacion || 'No especificado'}</span>
                                 </div>
-                            )}
 
-                            <Divider style={{ margin: 0 }} />
-
-                            <div>
-                                <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>Nuevos datos</Text>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Text style={{ fontSize: 13 }}>Fecha:</Text>
-                                        <Text strong style={{ fontSize: 13 }}>{editedDate ? new Date(editedDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</Text>
+                                {cancelReason && (
+                                    <div>
+                                        <span className="block text-[11px] font-bold uppercase text-muted-foreground">Observaciones</span>
+                                        <span className="text-[13px]">{cancelReason}</span>
                                     </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Text style={{ fontSize: 13 }}>Muestreador:</Text>
-                                        <Text strong style={{ fontSize: 13 }}>{globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}</Text>
+                                )}
+
+                                <div className="h-px bg-border" />
+
+                                <div>
+                                    <span className="mb-2 block text-[11px] font-bold uppercase text-muted-foreground">Nuevos datos</span>
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex justify-between">
+                                            <span className="text-[13px]">Fecha:</span>
+                                            <span className="text-[13px] font-semibold">{editedDate ? new Date(editedDate).toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '-'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-[13px]">Muestreador:</span>
+                                            <span className="text-[13px] font-semibold">{globalMuestreadores.find(m => m.id_muestreador === Number(editedSamplerId))?.nombre_muestreador || 'Sin Asignar'}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            <Text type="secondary" style={{ fontSize: 13 }}>¿Desea reactivar este muestreo y aplicar los cambios?</Text>
+                                <p className="text-[13px] text-muted-foreground">¿Desea reactivar este muestreo y aplicar los cambios?</p>
+                            </>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowReactivateConfirm(false)}>No, Volver</Button>
+                        <Button
+                            disabled={isReactivating}
+                            onClick={async () => {
+                                setIsReactivating(true);
+                                try {
+                                    if (!pendingPayload) return;
+                                    const reactivatePayload: any = {
+                                        ...pendingPayload,
+                                        reactivating: true
+                                    };
 
-                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                                <Button onClick={() => setShowReactivateConfirm(false)}>No, Volver</Button>
-                                <Button
-                                    type="primary"
-                                    loading={isReactivating}
-                                    onClick={async () => {
-                                        setIsReactivating(true);
-                                        try {
-                                            if (!pendingPayload) return;
-                                            const reactivatePayload: any = {
-                                                ...pendingPayload,
-                                                reactivating: true
-                                            };
-
-                                            await fichaService.batchUpdateAgenda(reactivatePayload);
-                                            showToast({ type: 'success', message: 'Muestreo reactivado y reprogramado.' });
-                                            lastFetchRef.current = '';
-                                            setSelectedEvent(null);
-                                            setShowReactivateConfirm(false);
-                                            loadData();
-                                        } catch (error) {
-                                            console.error('Error reactivating:', error);
-                                            showToast({ type: 'error', message: 'Error al reactivar el muestreo.' });
-                                        } finally {
-                                            setIsReactivating(false);
-                                        }
-                                    }}
-                                >
-                                    Sí, Reactivar
-                                </Button>
-                            </div>
-                        </>
-                    )}
-                </div>
-            </Modal>
+                                    await fichaService.batchUpdateAgenda(reactivatePayload);
+                                    showToast({ type: 'success', message: 'Muestreo reactivado y reprogramado.' });
+                                    lastFetchRef.current = '';
+                                    setSelectedEvent(null);
+                                    setShowReactivateConfirm(false);
+                                    loadData();
+                                } catch (error) {
+                                    console.error('Error reactivating:', error);
+                                    showToast({ type: 'error', message: 'Error al reactivar el muestreo.' });
+                                } finally {
+                                    setIsReactivating(false);
+                                }
+                            }}
+                        >
+                            {isReactivating && <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />}
+                            Sí, Reactivar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
@@ -1191,7 +1203,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );
