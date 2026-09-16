@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
-/** Non-Mantine replacement for `@mantine/hooks`' useMediaQuery, so the parts of the
- * app already migrated to Ant Design don't need to pull in Mantine hooks. */
+/** Dependency-free media-query hook (no external UI library needed). */
 export function useMediaQuery(query: string): boolean {
     const [matches, setMatches] = useState(() =>
         typeof window !== 'undefined' ? window.matchMedia(query).matches : false
