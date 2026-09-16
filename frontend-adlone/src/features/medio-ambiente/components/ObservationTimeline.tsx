@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from 'react';
-import { Timeline, Typography, Tag, Spin } from 'antd';
 import {
     IconPencil,
     IconCheck,
@@ -10,8 +9,9 @@ import {
     IconChevronDown
 } from '@tabler/icons-react';
 import { fichaService } from '../services/ficha.service';
-
-const { Text } = Typography;
+import { Timeline } from '@/components/ui/timeline';
+import { Badge, type BadgeProps } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 interface TimelineEvent {
     id: string; // Unique ID for key/expansion
@@ -33,13 +33,20 @@ interface ObservationTimelineProps {
     };
 }
 
-const TYPE_COLOR: Record<TimelineEvent['type'], { antd: string; hex: string; bg: string }> = {
-    CREATION: { antd: 'blue', hex: '#1677ff', bg: 'var(--app-accent-bg)' },
-    APPROVAL: { antd: 'green', hex: '#0d9488', bg: 'rgba(13,148,136,0.1)' },
-    REJECTION: { antd: 'red', hex: '#e03131', bg: 'rgba(224,49,49,0.08)' },
-    REVIEW: { antd: 'orange', hex: '#e8590c', bg: 'rgba(232,89,12,0.08)' },
-    ASSIGNMENT: { antd: 'purple', hex: '#9c36b5', bg: 'rgba(156,54,181,0.08)' },
-    OTHER: { antd: 'gray', hex: '#868e96', bg: 'var(--app-hover-bg)' },
+type TimelineTypeStyle = {
+    badgeVariant: NonNullable<BadgeProps['variant']>;
+    dotClass: string;
+    expandedClass: string;
+    borderClass: string;
+};
+
+const TYPE_STYLE: Record<TimelineEvent['type'], TimelineTypeStyle> = {
+    CREATION: { badgeVariant: 'default', dotClass: 'bg-primary text-primary-foreground', expandedClass: 'bg-primary/5', borderClass: 'border-primary/20' },
+    APPROVAL: { badgeVariant: 'success', dotClass: 'bg-success text-success-foreground', expandedClass: 'bg-success/5', borderClass: 'border-success/20' },
+    REJECTION: { badgeVariant: 'destructive', dotClass: 'bg-destructive text-destructive-foreground', expandedClass: 'bg-destructive/5', borderClass: 'border-destructive/20' },
+    REVIEW: { badgeVariant: 'warning', dotClass: 'bg-warning text-warning-foreground', expandedClass: 'bg-warning/5', borderClass: 'border-warning/20' },
+    ASSIGNMENT: { badgeVariant: 'secondary', dotClass: 'bg-violet-500 text-white', expandedClass: 'bg-violet-500/5', borderClass: 'border-violet-500/20' },
+    OTHER: { badgeVariant: 'outline', dotClass: 'bg-muted-foreground text-background', expandedClass: 'bg-muted/40', borderClass: 'border-border' },
 };
 
 export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaId, creationData }) => {
@@ -145,93 +152,81 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
     };
 
     if (loading) return (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 32 }}>
-            <Spin size="small" />
-            <Text type="secondary" style={{ fontSize: 12 }}>Cargando línea de tiempo...</Text>
+        <div className="flex flex-col items-center gap-2 py-8">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            <span className="text-xs text-muted-foreground">Cargando línea de tiempo...</span>
         </div>
     );
 
     if (events.length === 0) return (
-        <div style={{ padding: 32, textAlign: 'center' }}>
-            <Text type="secondary" italic style={{ fontSize: 13 }}>No hay eventos registrados.</Text>
+        <div className="py-8 text-center">
+            <span className="text-sm italic text-muted-foreground">No hay eventos registrados.</span>
         </div>
     );
 
     return (
-        <div style={{ maxHeight: 350, overflowY: 'auto', overflowX: 'hidden', paddingRight: 8 }}>
-            <Timeline
-                items={events.map((event) => {
-                    const isExpanded = expandedIds.has(event.id);
-                    const color = TYPE_COLOR[event.type];
+        <div className="max-h-[350px] overflow-y-auto overflow-x-hidden pr-2">
+            <Timeline items={events.map((event) => {
+                const isExpanded = expandedIds.has(event.id);
+                const style = TYPE_STYLE[event.type];
 
-                    return {
-                        key: event.id,
-                        dot: (
-                            <div style={{
-                                width: 24, height: 24, borderRadius: '50%', backgroundColor: color.hex, color: '#fff',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                {getIcon(event.type)}
-                            </div>
-                        ),
-                        children: (
-                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, overflow: 'hidden' }}>
-                                <button
-                                    onClick={() => toggleExpand(event.id)}
-                                    style={{
-                                        width: '100%', padding: 12, backgroundColor: isExpanded ? color.bg : 'transparent',
-                                        border: 'none', borderBottom: isExpanded ? `1px solid ${color.hex}33` : 'none',
-                                        cursor: 'pointer', textAlign: 'left',
-                                        display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8,
-                                    }}
-                                >
-                                    <div style={{ flex: 1 }}>
-                                        <Text strong style={{ fontSize: 13, lineHeight: 1.2, display: 'block' }}>
-                                            {`Ficha ${fichaId} ${humanizeAction(event.action)}`}
-                                        </Text>
-                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-                                            Responsable: <Text strong style={{ fontSize: 12 }}>{event.user}</Text>
-                                        </Text>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            {event.date.toLocaleString()}
-                                        </Text>
-                                    </div>
-                                    <IconChevronDown
-                                        size={16}
-                                        style={{
-                                            transform: isExpanded ? 'rotate(180deg)' : 'none',
-                                            transition: 'transform 200ms ease',
-                                            color: 'var(--app-text-secondary)',
-                                            flexShrink: 0,
-                                            marginTop: 2,
-                                        }}
-                                    />
-                                </button>
-
-                                {isExpanded && (
-                                    <div style={{ padding: 12 }}>
-                                        {event.stateChange && (
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                                                <Tag>{event.stateChange.from || 'Inicio'}</Tag>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>→</Text>
-                                                <Tag color={color.antd}>{event.stateChange.to}</Tag>
-                                            </div>
-                                        )}
-
-                                        {event.observation ? (
-                                            <div style={{ backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)', borderRadius: 8, padding: 10 }}>
-                                                <Text style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{event.observation}</Text>
-                                            </div>
-                                        ) : (
-                                            <Text type="secondary" italic style={{ fontSize: 12 }}>Sin observaciones registradas.</Text>
-                                        )}
-                                    </div>
+                return {
+                    key: event.id,
+                    dot: (
+                        <div className={cn('flex h-6 w-6 items-center justify-center rounded-full', style.dotClass)}>
+                            {getIcon(event.type)}
+                        </div>
+                    ),
+                    content: (
+                        <div className={cn('overflow-hidden rounded-lg border', style.borderClass)}>
+                            <button
+                                type="button"
+                                onClick={() => toggleExpand(event.id)}
+                                className={cn(
+                                    'flex w-full items-start justify-between gap-2 border-none p-3 text-left transition-colors',
+                                    isExpanded ? style.expandedClass : 'bg-transparent'
                                 )}
-                            </div>
-                        ),
-                    };
-                })}
-            />
+                            >
+                                <div className="flex-1">
+                                    <span className="block text-[13px] font-semibold leading-tight text-foreground">
+                                        {`Ficha ${fichaId} ${humanizeAction(event.action)}`}
+                                    </span>
+                                    <span className="mt-1 block text-xs text-muted-foreground">
+                                        Responsable: <span className="font-semibold text-foreground">{event.user}</span>
+                                    </span>
+                                    <span className="text-xs text-muted-foreground">
+                                        {event.date.toLocaleString()}
+                                    </span>
+                                </div>
+                                <IconChevronDown
+                                    size={16}
+                                    className={cn('mt-0.5 shrink-0 text-muted-foreground transition-transform duration-200', isExpanded && 'rotate-180')}
+                                />
+                            </button>
+
+                            {isExpanded && (
+                                <div className="p-3">
+                                    {event.stateChange && (
+                                        <div className="mb-3 flex items-center gap-2">
+                                            <Badge variant="outline">{event.stateChange.from || 'Inicio'}</Badge>
+                                            <span className="text-xs text-muted-foreground">→</span>
+                                            <Badge variant={style.badgeVariant}>{event.stateChange.to}</Badge>
+                                        </div>
+                                    )}
+
+                                    {event.observation ? (
+                                        <div className="rounded-lg border border-border bg-muted/40 p-2.5">
+                                            <span className="whitespace-pre-wrap text-sm">{event.observation}</span>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs italic text-muted-foreground">Sin observaciones registradas.</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ),
+                };
+            })} />
         </div>
     );
 };
