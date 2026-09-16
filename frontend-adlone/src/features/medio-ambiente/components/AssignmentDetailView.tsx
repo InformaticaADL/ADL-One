@@ -7,23 +7,18 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
+
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import {
-    Button,
-    Tag,
-    Typography,
-    Divider,
-    Spin,
-    Alert,
-    Modal,
-    Radio,
-    Input,
-    Select,
-} from 'antd';
-import {
-    IconCalendarEvent,
     IconDeviceFloppy,
     IconBolt,
-    IconInfoCircle,
     IconBuilding,
     IconTarget,
     IconMapPin,
@@ -31,12 +26,20 @@ import {
     IconPencil
 } from '@tabler/icons-react';
 
-const { Text } = Typography;
-const { TextArea } = Input;
-
 interface Props {
     fichaId: number;
     onBack: () => void;
+}
+
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+
+interface ConfirmDialogState {
+    title: string;
+    content: React.ReactNode;
+    okText?: string;
+    cancelText?: string;
+    destructive?: boolean;
+    onOk: () => void;
 }
 
 export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
@@ -78,6 +81,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
     const [equipmentSelections, setEquipmentSelections] = useState<Record<string, Record<number, 'original' | 'nueva'>>>({});
     const [observacionAsignacion, setObservacionAsignacion] = useState('');
 
+    // Generic confirmation dialog — replaces antd Modal.confirm for every
+    // branch below (technician conflicts, bulk assignment overrides, partial
+    // save, resampling conflicts). Each caller supplies its own content and
+    // decides what happens on confirm.
+    const [confirmDialog, setConfirmDialog] = useState<ConfirmDialogState | null>(null);
+
     const resamplingData = useMemo(() => {
         if (rows.length === 0) return null;
         const first = rows[0];
@@ -113,25 +122,20 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
             }
         };
 
-        // Validación de conflicto (Remuestreo) - Pop up modal
+        // Validación de conflicto (Remuestreo) - confirmación previa
         if (resamplingData && resamplingData.idMuestreadorOriginal && newId !== 0 && newId !== resamplingData.idMuestreadorOriginal) {
-            Modal.confirm({
+            setConfirmDialog({
                 title: 'Confirmar Cambio de Muestreador',
-                centered: true,
                 okText: 'Confirmar Asignación',
                 cancelText: 'Cancelar',
                 content: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                        <Text style={{ fontSize: 13 }}>
-                            Atención: El muestreador seleccionado no es el que realizó el muestreo original (<b>{resamplingData.nombreOriginal}</b>).
-                        </Text>
-                        <Text type="secondary" style={{ fontSize: 13 }}>
-                            Cambiar el muestreador en un remuestreo puede generar conflictos técnicos, ya que el nuevo muestreador podría no contar con los mismos equipos o conocimientos específicos utilizados en el muestreo original.
-                        </Text>
-                        <Text strong style={{ fontSize: 13 }}>¿Desea proceder con esta asignación de todas formas?</Text>
+                    <div className="flex flex-col gap-1.5 text-sm">
+                        <p>Atención: El muestreador seleccionado no es el que realizó el muestreo original (<b>{resamplingData.nombreOriginal}</b>).</p>
+                        <p className="text-muted-foreground">Cambiar el muestreador en un remuestreo puede generar conflictos técnicos, ya que el nuevo muestreador podría no contar con los mismos equipos o conocimientos específicos utilizados en el muestreo original.</p>
+                        <p className="font-semibold">¿Desea proceder con esta asignación de todas formas?</p>
                     </div>
                 ),
-                onOk: applyChange,
+                onOk: () => { applyChange(); setConfirmDialog(null); },
             });
         } else {
             applyChange();
@@ -453,21 +457,20 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
         const openSaveConfirm = (onConfirm: () => void) => {
             if (skippedCount > 0) {
-                Modal.confirm({
+                setConfirmDialog({
                     title: 'Guardado Parcial',
-                    centered: true,
                     okText: 'Guardar de todas formas',
                     cancelText: 'Volver',
                     content: (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                            <Text style={{ fontSize: 13 }}>
+                        <div className="flex flex-col gap-2 text-sm">
+                            <p>
                                 Se guardarán <b>{completedRows.length}</b> de <b>{editableRows.length}</b> correlativos.
                                 Los <b>{skippedCount}</b> restantes quedan sin asignar.
-                            </Text>
-                            <Text style={{ fontSize: 13 }}>¿Desea continuar?</Text>
+                            </p>
+                            <p>¿Desea continuar?</p>
                         </div>
                     ),
-                    onOk: onConfirm,
+                    onOk: () => { setConfirmDialog(null); onConfirm(); },
                 });
             } else {
                 onConfirm();
@@ -475,24 +478,22 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         };
 
         if (hasConflicts) {
-            openSaveConfirm(() => Modal.confirm({
+            openSaveConfirm(() => setConfirmDialog({
                 title: 'Confirmar Guardado con Conflictos',
-                centered: true,
-                width: 480,
                 okText: 'Confirmar y Guardar',
                 cancelText: 'Volver a Revisar',
                 content: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        <Text style={{ fontSize: 13 }}>
+                    <div className="flex flex-col gap-2 text-sm">
+                        <p>
                             Se ha detectado que uno o más muestreadores asignados <b>no coinciden</b> con el muestreador original de la ficha <b>#{resamplingData?.idOriginal}</b> ({resamplingData?.nombreOriginal}).
-                        </Text>
-                        <Text style={{ fontSize: 13, color: '#e8590c', fontWeight: 500 }}>
+                        </p>
+                        <p className="font-medium text-warning">
                             Atención: Realizar un remuestreo con personal distinto puede derivar en inconsistencias técnicas, falta de equipos específicos o fallos en la metodología aplicada originalmente.
-                        </Text>
-                        <Text style={{ fontSize: 13 }}>¿Está seguro que desea proceder con el guardado de la planificación actual?</Text>
+                        </p>
+                        <p>¿Está seguro que desea proceder con el guardado de la planificación actual?</p>
                     </div>
                 ),
-                onOk: executeSave,
+                onOk: () => { setConfirmDialog(null); executeSave(); },
             }));
         } else {
             openSaveConfirm(executeSave);
@@ -504,18 +505,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
         [muestreadores]
     );
 
-    const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
-
-    const metricSep = <div style={{ width: 1, alignSelf: 'stretch', backgroundColor: 'var(--app-border)' }} />;
+    const metricSep = <div className="h-full w-px self-stretch bg-border" />;
     const Metric = ({ label, children }: { label: string; children: React.ReactNode }) => (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase' }}>{label}</Text>
+        <div className="flex flex-col items-center gap-0.5">
+            <span className="text-[11px] font-bold uppercase text-muted-foreground">{label}</span>
             {children}
         </div>
     );
 
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title={`Asignación de Recursos - Ficha ${fichaId}${resamplingData ? ` (REMUESTREO DE LA FICHA N° ${resamplingData.idOriginal})` : ''}`}
                 subtitle={resamplingData ? "Gestione la asignación para este remuestreo" : "Defina fechas y muestreadores responsables para cada servicio"}
@@ -524,86 +523,78 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 rightSection={
                     <ProtectedContent permission="FI_GEST_ASIG">
                         <Button
-                            type="primary"
-                            style={{ backgroundColor: '#9c36b5' }}
-                            size="large"
-                            icon={<IconDeviceFloppy size={20} />}
+                            size="lg"
+                            className="bg-[#9c36b5] text-white hover:bg-[#9c36b5]/90"
                             onClick={handleSaveAssignment}
-                            loading={saving}
+                            disabled={saving}
                         >
-                            Guardar Planificación
+                            {saving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            <IconDeviceFloppy size={20} /> Guardar Planificación
                         </Button>
                     </ProtectedContent>
                 }
             />
 
             {resamplingData && (
-                <Alert
-                    type="info"
-                    showIcon
-                    icon={<IconInfoCircle size={18} />}
-                    style={{ marginBottom: 16 }}
-                    message="Ficha de Remuestreo"
-                    description={
-                        <>
-                            Esta ficha corresponde a un remuestreo de la ficha <b>#{resamplingData.idOriginal}</b>.
-                            El muestreador original fue: <b>{resamplingData.nombreOriginal || 'No identificado'}</b>.
-                            Se recomienda asignar al mismo muestreador para evitar conflictos de equipamiento, o verificar la disponibilidad de equipos equivalentes.
-                        </>
-                    }
-                />
+                <div className="mb-4">
+                    <WorkflowAlert
+                        type="info"
+                        title="Ficha de Remuestreo"
+                        message={`Esta ficha corresponde a un remuestreo de la ficha #${resamplingData.idOriginal}. El muestreador original fue: ${resamplingData.nombreOriginal || 'No identificado'}. Se recomienda asignar al mismo muestreador para evitar conflictos de equipamiento, o verificar la disponibilidad de equipos equivalentes.`}
+                    />
+                </div>
             )}
 
-            <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 24, backgroundColor: 'var(--app-bg)' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="rounded-xl border border-border bg-background p-6">
+                <div className="flex flex-col gap-6">
                     {/* Unified Configuration & Metadata Header */}
-                    <div style={{ border: '1px solid var(--app-border)', borderRadius: 10, padding: 16, backgroundColor: 'var(--app-hover-bg)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+                    <div className="rounded-[10px] border border-border bg-muted/40 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-4">
+                            <div className="flex flex-wrap items-center gap-5">
                                 <Metric label="Frecuencia">
-                                    <Text strong style={{ fontSize: 13 }}>{numericFrequency} {rows[0]?.nombre_frecuencia ? `(${rows[0].nombre_frecuencia})` : ''}</Text>
+                                    <span className="text-[13px] font-semibold">{numericFrequency} {rows[0]?.nombre_frecuencia ? `(${rows[0].nombre_frecuencia})` : ''}</span>
                                 </Metric>
                                 {metricSep}
-                                <Metric label="Periodo"><Text strong style={{ fontSize: 13 }}>{dbFieldValue || '-'}</Text></Metric>
+                                <Metric label="Periodo"><span className="text-[13px] font-semibold">{dbFieldValue || '-'}</span></Metric>
                                 {metricSep}
-                                <Metric label="Factor"><Text strong style={{ fontSize: 13 }}>{frecuenciaFactor}</Text></Metric>
+                                <Metric label="Factor"><span className="text-[13px] font-semibold">{frecuenciaFactor}</span></Metric>
                                 {metricSep}
-                                <Metric label="Servicios"><Tag color="blue">{activeServicesCount}</Tag></Metric>
+                                <Metric label="Servicios"><Badge variant="default">{activeServicesCount}</Badge></Metric>
                                 {!isPuntual && (
                                     <>
                                         {metricSep}
-                                        <Metric label="Duración"><Text strong style={{ fontSize: 13 }}>{duracionMuestreo} hrs</Text></Metric>
+                                        <Metric label="Duración"><span className="text-[13px] font-semibold">{duracionMuestreo} hrs</span></Metric>
                                     </>
                                 )}
                                 {isPuntual && (
                                     <>
                                         {metricSep}
-                                        <Metric label="Tipo"><Tag color="purple">Puntual</Tag></Metric>
+                                        <Metric label="Tipo"><Badge className="bg-[#9c36b5] text-white">Puntual</Badge></Metric>
                                     </>
                                 )}
                             </div>
 
                             {rows[0] && (
-                                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <IconBuilding size={16} color="var(--app-text-secondary)" />
+                                <div className="flex flex-wrap gap-6">
+                                    <div className="flex items-center gap-2">
+                                        <IconBuilding size={16} className="text-muted-foreground" />
                                         <div>
-                                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Empresa</Text>
-                                            <Text strong style={{ fontSize: 13 }}>{rows[0].empresa_servicio}</Text>
+                                            <span className="block text-[11px] font-bold uppercase text-muted-foreground">Empresa</span>
+                                            <span className="text-[13px] font-semibold">{rows[0].empresa_servicio}</span>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <IconTarget size={16} color="var(--app-text-secondary)" />
+                                    <div className="flex items-center gap-2">
+                                        <IconTarget size={16} className="text-muted-foreground" />
                                         <div>
-                                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Objetivo</Text>
-                                            <Text strong style={{ fontSize: 13 }}>{rows[0].nombre_objetivomuestreo}</Text>
+                                            <span className="block text-[11px] font-bold uppercase text-muted-foreground">Objetivo</span>
+                                            <span className="text-[13px] font-semibold">{rows[0].nombre_objetivomuestreo}</span>
                                         </div>
                                     </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                        <IconMapPin size={16} color="var(--app-text-secondary)" />
+                                    <div className="flex items-center gap-2">
+                                        <IconMapPin size={16} className="text-muted-foreground" />
                                         <div>
-                                            <Text style={{ fontSize: 11, color: 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>Sub-Área</Text>
-                                            <Text strong style={{ fontSize: 13 }}>{rows[0].nombre_subarea}</Text>
+                                            <span className="block text-[11px] font-bold uppercase text-muted-foreground">Sub-Área</span>
+                                            <span className="text-[13px] font-semibold">{rows[0].nombre_subarea}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -613,37 +604,31 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
                     <ProtectedContent permission="FI_GEST_ASIG">
                         <div>
-                            <Text style={{ fontSize: 13, fontWeight: 500, display: 'block' }}>Observación para la notificación</Text>
-                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                            <span className="block text-[13px] font-medium">Observación para la notificación</span>
+                            <span className="mb-1.5 block text-xs text-muted-foreground">
                                 Se incluirá en el correo de asignación enviado al responsable
-                            </Text>
-                            <TextArea
+                            </span>
+                            <Textarea
                                 placeholder="Ej: Coordinar acceso con guardia antes de las 9:00 AM"
-                                autoSize={{ minRows: 2 }}
+                                rows={2}
                                 value={observacionAsignacion}
                                 onChange={(e) => setObservacionAsignacion(e.target.value)}
                             />
                         </div>
                     </ProtectedContent>
 
-                    <Divider style={{ margin: 0 }} />
+                    <div className="h-px bg-border" />
 
                     {/* Bulk Assignment Controls */}
-                    <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: 24, flexWrap: 'wrap' }}>
+                    <div className="flex flex-wrap items-end justify-center gap-6">
                         <ProtectedContent permission="FI_GEST_ASIG">
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                            <div className="flex items-end gap-2">
                                 <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Fecha Referencia (Muestreo)</Text>
-                                    <Input
-                                        type="date"
-                                        min={todayStr}
-                                        value={selectedDate}
-                                        onChange={(e) => setSelectedDate(e.target.value)}
-                                        prefix={<IconCalendarEvent size={14} />}
-                                    />
+                                    <span className="mb-1 block text-xs">Fecha Referencia (Muestreo)</span>
+                                    <DatePicker value={selectedDate} onChange={setSelectedDate} className="w-44" />
                                 </div>
-                                <Button icon={<IconBolt size={14} />} onClick={handleCalculateDates} disabled={!selectedDate}>
-                                    Auto-Calcular
+                                <Button variant="outline" onClick={handleCalculateDates} disabled={!selectedDate}>
+                                    <IconBolt size={14} /> Auto-Calcular
                                 </Button>
                             </div>
                         </ProtectedContent>
@@ -651,15 +636,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         {metricSep}
 
                         <ProtectedContent permission="FI_GEST_ASIG">
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
+                            <div className="flex items-end gap-2">
                                 <div>
-                                    <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>{isPuntual ? 'Muestreador (Todos)' : 'M. Instalación (Todos)'}</Text>
-                                    <Select
-                                        style={{ width: 180 }}
+                                    <span className="mb-1 block text-xs">{isPuntual ? 'Muestreador (Todos)' : 'M. Instalación (Todos)'}</span>
+                                    <Combobox
+                                        className="w-44"
                                         placeholder="Seleccionar..."
+                                        searchPlaceholder="Buscar muestreador..."
                                         options={muestreadorOptions}
-                                        showSearch
-                                        onChange={(val) => {
+                                        value=""
+                                        onValueChange={(val) => {
                                             if (val) {
                                                 const id = Number(val);
                                                 const applyBulk = () => {
@@ -673,11 +659,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     setMuestreadorRetiro(newRet);
                                                 };
                                                 if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
-                                                    Modal.confirm({
+                                                    setConfirmDialog({
                                                         title: 'Confirmar Asignación',
-                                                        content: <Text style={{ fontSize: 13 }}>¿Asignar a muestreador distinto al original?</Text>,
-                                                        okText: 'Sí', cancelText: 'No',
-                                                        onOk: applyBulk,
+                                                        okText: 'Sí',
+                                                        cancelText: 'No',
+                                                        content: <p className="text-sm">¿Asignar a muestreador distinto al original?</p>,
+                                                        onOk: () => { applyBulk(); setConfirmDialog(null); },
                                                     });
                                                 } else { applyBulk(); }
                                             }
@@ -686,13 +673,14 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 </div>
                                 {!isPuntual && (
                                     <div>
-                                        <Text style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>M. Retiro (Todos)</Text>
-                                        <Select
-                                            style={{ width: 180 }}
+                                        <span className="mb-1 block text-xs">M. Retiro (Todos)</span>
+                                        <Combobox
+                                            className="w-44"
                                             placeholder="Seleccionar..."
+                                            searchPlaceholder="Buscar muestreador..."
                                             options={muestreadorOptions}
-                                            showSearch
-                                            onChange={(val) => {
+                                            value=""
+                                            onValueChange={(val) => {
                                                 if (val) {
                                                     const id = Number(val);
                                                     const applyBulkRetiro = () => {
@@ -701,11 +689,12 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         setMuestreadorRetiro(newRet);
                                                     };
                                                     if (resamplingData && resamplingData.idMuestreadorOriginal && id !== resamplingData.idMuestreadorOriginal) {
-                                                        Modal.confirm({
+                                                        setConfirmDialog({
                                                             title: 'Confirmar Asignación',
-                                                            content: <Text style={{ fontSize: 13 }}>¿Asignar a retiro distinto al original?</Text>,
-                                                            okText: 'Sí', cancelText: 'No',
-                                                            onOk: applyBulkRetiro,
+                                                            okText: 'Sí',
+                                                            cancelText: 'No',
+                                                            content: <p className="text-sm">¿Asignar a retiro distinto al original?</p>,
+                                                            onOk: () => { applyBulkRetiro(); setConfirmDialog(null); },
                                                         });
                                                     } else { applyBulkRetiro(); }
                                                 }
@@ -717,21 +706,21 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                         </ProtectedContent>
                     </div>
 
-                    <Divider style={{ margin: 0 }} />
+                    <div className="h-px bg-border" />
 
-                    {/* Assignments Table — markup nativo (no antd <Table>): hay demasiadas
+                    {/* Assignments Table — markup nativo (no <Table> de shadcn): hay demasiadas
                         columnas condicionales (isPuntual) y celdas con inputs propios como
-                        para forzarlo a la API de `columns`; se mantiene la semántica de
-                        tabla real, solo con los controles de antd adentro. */}
-                    <div style={{ position: 'relative' }}>
+                        para forzarlo a un layout de tabla genérico; se mantiene la semántica de
+                        tabla real, solo con los controles shadcn adentro. */}
+                    <div className="relative">
                         {loading && (
-                            <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: 'var(--app-bg)', opacity: 0.7 }}>
-                                <Spin size="large" />
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             </div>
                         )}
-                        <div style={{ maxHeight: 500, overflow: 'auto', border: '1px solid var(--app-border)', borderRadius: 8 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                                <thead style={{ backgroundColor: 'var(--app-hover-bg)', position: 'sticky', top: 0, zIndex: 1 }}>
+                        <div className="max-h-[500px] overflow-auto rounded-lg border border-border">
+                            <table className="w-full border-collapse text-[11px]">
+                                <thead className="sticky top-0 z-[1] bg-muted/40">
                                     <tr>
                                         <Th w={50}>Ficha</Th>
                                         <Th w={160}>Correlativo</Th>
@@ -740,15 +729,15 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         {!isPuntual && <Th w={135}>F. Muestreo</Th>}
                                         <Th w={130}>Coordinador</Th>
                                         <Th w={145}>
-                                            <span style={{ display: 'flex', gap: 4, justifyContent: 'center', whiteSpace: 'nowrap' }}>
+                                            <span className="flex justify-center gap-1 whitespace-nowrap">
                                                 {isPuntual ? 'Muestreador' : 'M. Instalación'}
-                                                <span style={{ fontSize: 9, color: 'var(--app-accent-text)', fontWeight: 700 }}>(Orig.)</span>
+                                                <span className="text-[9px] font-bold text-primary">(Orig.)</span>
                                             </span>
                                         </Th>
                                         {!isPuntual && <Th w={145}>
-                                            <span style={{ display: 'flex', gap: 4, justifyContent: 'center', whiteSpace: 'nowrap' }}>
+                                            <span className="flex justify-center gap-1 whitespace-nowrap">
                                                 M. Retiro
-                                                <span style={{ fontSize: 9, color: 'var(--app-accent-text)', fontWeight: 700 }}>(Orig.)</span>
+                                                <span className="text-[9px] font-bold text-primary">(Orig.)</span>
                                             </span>
                                         </Th>}
                                         <Th w={135}>{''}</Th>
@@ -761,48 +750,41 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         const locked = !isCancelled && isLockedRow(rowId);
                                         const instName = muestreadorOptions.find(o => o.value === String(muestreadorInstalacion[rowId] || ''))?.label || '-';
                                         const retiroName = muestreadorOptions.find(o => o.value === String(muestreadorRetiro[rowId] || ''))?.label || '-';
-                                        const statusColor = isCancelled ? 'red' : (row.nombre_estadomuestreo?.includes('POR') ? 'orange' : 'green');
+                                        const statusVariant: BadgeVariant = isCancelled ? 'destructive' : (row.nombre_estadomuestreo?.includes('POR') ? 'warning' : 'success');
+                                        const instConflict = !!(resamplingData && muestreadorInstalacion[rowId] && resamplingData.idMuestreadorOriginal && muestreadorInstalacion[rowId] !== resamplingData.idMuestreadorOriginal);
+                                        const retiroConflict = !!(resamplingData && muestreadorRetiro[rowId] && resamplingData.idMuestreadorOriginal && muestreadorRetiro[rowId] !== resamplingData.idMuestreadorOriginal);
 
                                         return (
-                                            <tr key={rowId} style={{ opacity: isCancelled ? 0.5 : 1, backgroundColor: locked ? 'var(--app-hover-bg)' : undefined }}>
+                                            <tr key={rowId} className={cn(isCancelled && 'opacity-50', locked && 'bg-muted/40')}>
                                                 <Td center>{row.num_ficha}</Td>
                                                 <Td center bold>{row.frecuencia_correlativo}</Td>
                                                 <Td center>
-                                                    <Tag color={statusColor} style={{ whiteSpace: 'normal', textAlign: 'center', lineHeight: 1.2, fontSize: 10 }}>
+                                                    <Badge variant={statusVariant} className="whitespace-normal text-center text-[10px] leading-tight">
                                                         {row.nombre_estadomuestreo}
-                                                    </Tag>
+                                                    </Badge>
                                                 </Td>
                                                 <Td center>
                                                     {locked ? (
-                                                        <Text delete type="secondary" style={{ fontSize: 12 }}>{editableDates[rowId] || '-'}</Text>
+                                                        <span className="text-xs text-muted-foreground line-through">{editableDates[rowId] || '-'}</span>
                                                     ) : (
-                                                        <Input
-                                                            type="date"
-                                                            style={{ width: 125 }}
+                                                        <DatePicker
+                                                            className="w-[125px]"
                                                             disabled={isCancelled}
-                                                            min={editingRows.has(rowId) ? undefined : todayStr}
-                                                            max={editableRetiroDates[rowId] || undefined}
                                                             value={editableDates[rowId] || ''}
-                                                            onChange={(e) => {
-                                                                const val = e.currentTarget.value;
-                                                                setEditableDates(prev => ({ ...prev, [rowId]: val }));
-                                                            }}
+                                                            onChange={(val) => setEditableDates(prev => ({ ...prev, [rowId]: val }))}
                                                         />
                                                     )}
                                                 </Td>
                                                 {!isPuntual && (
                                                     <Td center>
                                                         {locked ? (
-                                                            <Text delete type="secondary" style={{ fontSize: 12 }}>{editableRetiroDates[rowId] || '-'}</Text>
+                                                            <span className="text-xs text-muted-foreground line-through">{editableRetiroDates[rowId] || '-'}</span>
                                                         ) : (
-                                                            <Input
-                                                                type="date"
-                                                                style={{ width: 125 }}
+                                                            <DatePicker
+                                                                className="w-[125px]"
                                                                 disabled={isCancelled}
-                                                                min={editableDates[rowId] || (editingRows.has(rowId) ? undefined : todayStr)}
                                                                 value={editableRetiroDates[rowId] || ''}
-                                                                onChange={(e) => {
-                                                                    const val = e.currentTarget.value;
+                                                                onChange={(val) => {
                                                                     setEditableRetiroDates(prev => ({ ...prev, [rowId]: val }));
                                                                     if (val) {
                                                                         const dayOffset = Math.floor(duracionMuestreo / 24);
@@ -815,25 +797,24 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         )}
                                                     </Td>
                                                 )}
-                                                <Td center><Text style={{ fontSize: 12, fontWeight: 500 }}>{row.nombre_coordinador}</Text></Td>
+                                                <Td center><span className="text-xs font-medium">{row.nombre_coordinador}</span></Td>
                                                 <Td>
                                                     {locked ? (
-                                                        <Text delete type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block' }}>{instName}</Text>
+                                                        <span className="block text-center text-xs text-muted-foreground line-through">{instName}</span>
                                                     ) : (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
-                                                            <Select
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <Combobox
                                                                 disabled={isCancelled}
-                                                                style={{ width: 140 }}
+                                                                className={cn('w-[140px]', instConflict && 'border-destructive text-destructive')}
                                                                 options={muestreadorOptions}
-                                                                value={muestreadorInstalacion[rowId] ? String(muestreadorInstalacion[rowId]) : undefined}
-                                                                onChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
-                                                                showSearch
+                                                                value={muestreadorInstalacion[rowId] ? String(muestreadorInstalacion[rowId]) : ''}
+                                                                onValueChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
                                                                 placeholder="Seleccionar..."
-                                                                status={resamplingData && muestreadorInstalacion[rowId] && resamplingData.idMuestreadorOriginal && muestreadorInstalacion[rowId] !== resamplingData.idMuestreadorOriginal ? 'error' : undefined}
-                                                                suffixIcon={<IconUser size={14} />}
+                                                                searchPlaceholder="Buscar muestreador..."
                                                             />
+                                                            <IconUser size={14} className="shrink-0 text-muted-foreground" />
                                                             {resamplingData && muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal && (
-                                                                <Text style={{ fontSize: 10, color: 'var(--app-accent-text)', fontWeight: 700, whiteSpace: 'nowrap' }}>H. ✓</Text>
+                                                                <span className="whitespace-nowrap text-[10px] font-bold text-primary">H. ✓</span>
                                                             )}
                                                         </div>
                                                     )}
@@ -841,22 +822,21 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 {!isPuntual && (
                                                     <Td>
                                                         {locked ? (
-                                                            <Text delete type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block' }}>{retiroName}</Text>
+                                                            <span className="block text-center text-xs text-muted-foreground line-through">{retiroName}</span>
                                                         ) : (
-                                                            <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}>
-                                                                <Select
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                <Combobox
                                                                     disabled={isCancelled}
-                                                                    style={{ width: 140 }}
+                                                                    className={cn('w-[140px]', retiroConflict && 'border-destructive text-destructive')}
                                                                     options={muestreadorOptions}
-                                                                    value={muestreadorRetiro[rowId] ? String(muestreadorRetiro[rowId]) : undefined}
-                                                                    onChange={(v) => handleTechnicianChange(rowId, Number(v), 'retiro')}
-                                                                    showSearch
+                                                                    value={muestreadorRetiro[rowId] ? String(muestreadorRetiro[rowId]) : ''}
+                                                                    onValueChange={(v) => handleTechnicianChange(rowId, Number(v), 'retiro')}
                                                                     placeholder="Seleccionar..."
-                                                                    status={resamplingData && muestreadorRetiro[rowId] && resamplingData.idMuestreadorOriginal && muestreadorRetiro[rowId] !== resamplingData.idMuestreadorOriginal ? 'error' : undefined}
-                                                                    suffixIcon={<IconUser size={14} />}
+                                                                    searchPlaceholder="Buscar muestreador..."
                                                                 />
+                                                                <IconUser size={14} className="shrink-0 text-muted-foreground" />
                                                                 {resamplingData && muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal && (
-                                                                    <Text style={{ fontSize: 10, color: 'var(--app-accent-text)', fontWeight: 700, whiteSpace: 'nowrap' }}>H. ✓</Text>
+                                                                    <span className="whitespace-nowrap text-[10px] font-bold text-primary">H. ✓</span>
                                                                 )}
                                                             </div>
                                                         )}
@@ -864,18 +844,17 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                 )}
                                                 <Td center>
                                                     {locked ? (
-                                                        <Button size="small" icon={<IconPencil size={12} />} onClick={() => unlockRow(rowId)}>
-                                                            Editar
+                                                        <Button size="sm" variant="outline" onClick={() => unlockRow(rowId)}>
+                                                            <IconPencil size={12} /> Editar
                                                         </Button>
                                                     ) : resamplingData && (muestreadorInstalacion[rowId] === resamplingData.idMuestreadorOriginal || muestreadorRetiro[rowId] === resamplingData.idMuestreadorOriginal) && (
                                                         <Button
-                                                            size="small"
-                                                            type={equipmentSelections[row.frecuencia_correlativo] ? 'primary' : 'default'}
-                                                            style={equipmentSelections[row.frecuencia_correlativo] ? { backgroundColor: '#2f9e44' } : undefined}
-                                                            icon={<IconBolt size={12} />}
+                                                            size="sm"
+                                                            variant={equipmentSelections[row.frecuencia_correlativo] ? 'default' : 'outline'}
+                                                            className={equipmentSelections[row.frecuencia_correlativo] ? 'bg-success text-success-foreground hover:bg-success/90' : undefined}
                                                             onClick={() => handleViewVersions(resamplingData.idMuestreadorOriginal, row.frecuencia_correlativo)}
                                                         >
-                                                            {equipmentSelections[row.frecuencia_correlativo] ? 'Versiones OK' : 'Config. Versiones'}
+                                                            <IconBolt size={12} /> {equipmentSelections[row.frecuencia_correlativo] ? 'Versiones OK' : 'Config. Versiones'}
                                                         </Button>
                                                     )}
                                                 </Td>
@@ -889,126 +868,148 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                 </div>
             </div>
 
+            {/* Confirmación genérica — reemplaza Modal.confirm de antd */}
+            <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{confirmDialog?.title}</DialogTitle>
+                    </DialogHeader>
+                    {confirmDialog?.content}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmDialog(null)}>{confirmDialog?.cancelText || 'Cancelar'}</Button>
+                        <Button variant={confirmDialog?.destructive ? 'destructive' : 'default'} onClick={() => confirmDialog?.onOk()}>{confirmDialog?.okText || 'Confirmar'}</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Modal de Comparación de Versiones */}
-            <Modal
-                title={`Comparación de Equipos - Correlativo ${activeRowCorrelativo}`}
-                open={versionModalOpen}
-                onCancel={() => setVersionModalOpen(false)}
-                width="70%"
-                centered
-                footer={
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-                        <Button onClick={() => setVersionModalOpen(false)}>Cerrar</Button>
-                        <Button type="primary" onClick={() => setVersionModalOpen(false)}>Aceptar</Button>
+            <Dialog open={versionModalOpen} onOpenChange={setVersionModalOpen}>
+                <DialogContent className="max-w-[70vw]">
+                    <DialogHeader>
+                        <DialogTitle>Comparación de Equipos - Correlativo {activeRowCorrelativo}</DialogTitle>
+                    </DialogHeader>
+                    <div className="relative">
+                        {comparisonLoading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center">
+                                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            </div>
+                        )}
+
+                        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                            <span className="text-[13px] text-muted-foreground">
+                                Versión al momento del muestreo original <b>(Ficha #{resamplingData?.idOriginal})</b> vs Versión vigente actual <b>(mae_equipo)</b>
+                            </span>
+                            <div className="flex gap-2">
+                                <Button size="sm" variant="outline" onClick={() => handleBulkSelection('original')}>Usar Todas Originales</Button>
+                                <Button size="sm" variant="outline" onClick={() => handleBulkSelection('nueva')}>Usar Todas Actuales</Button>
+                            </div>
+                        </div>
+
+                        {comparisonData.length === 0 && !comparisonLoading ? (
+                            <WorkflowAlert
+                                type="warning"
+                                title="Sin Datos"
+                                message={`No se encontraron registros de equipos para este correlativo en la ficha original (#${resamplingData?.idOriginal}).`}
+                            />
+                        ) : (
+                            <div className="overflow-x-auto rounded-lg border border-border">
+                                <table className="w-full border-collapse text-xs">
+                                    <thead>
+                                        <tr>
+                                            <Th rowSpan={2}>Equipo / Código</Th>
+                                            <Th colSpan={4} tint="blue">Versión Original (Ficha #{resamplingData?.idOriginal})</Th>
+                                            <Th colSpan={4} tint="green">Versión Actual (Vigente)</Th>
+                                        </tr>
+                                        <tr>
+                                            <Th w={80} tint="blue">Versión</Th>
+                                            <Th w={60} tint="blue">E 0%</Th>
+                                            <Th w={60} tint="blue">E 15%</Th>
+                                            <Th w={60} tint="blue">E 30%</Th>
+                                            <Th w={80} tint="green">Versión</Th>
+                                            <Th w={60} tint="green">E 0%</Th>
+                                            <Th w={60} tint="green">E 15%</Th>
+                                            <Th w={60} tint="green">E 30%</Th>
+                                            <Th w={140}>Selección Versión</Th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {comparisonData.map((item, idx) => {
+                                            const versionChanged = item.version_original !== item.version_nueva;
+                                            const error0Changed = Number(item.error0_original) !== Number(item.error0_nueva);
+                                            const error15Changed = Number(item.error15_original) !== Number(item.error15_nueva);
+                                            const error30Changed = Number(item.error30_original) !== Number(item.error30_nueva);
+
+                                            const hasAnomalies = versionChanged || error0Changed || error15Changed || error30Changed;
+                                            const currentSelection = (equipmentSelections[activeRowCorrelativo] || {})[item.id_equipo];
+
+                                            return (
+                                                <tr key={idx} className={hasAnomalies ? 'bg-warning/10' : undefined}>
+                                                    <Td>
+                                                        <span className="block text-[13px] font-semibold">{item.nombre}</span>
+                                                        <span className="text-[11px] text-muted-foreground">{item.codigo}</span>
+                                                    </Td>
+                                                    <Td center tint="blue"><Badge variant="outline">{item.version_original || 'v1'}</Badge></Td>
+                                                    <Td center tint="blue">{item.error0_original}%</Td>
+                                                    <Td center tint="blue">{item.error15_original}%</Td>
+                                                    <Td center tint="blue">{item.error30_original}%</Td>
+                                                    <Td center tint="green"><Badge variant={versionChanged ? 'warning' : 'success'}>{item.version_nueva}</Badge></Td>
+                                                    <Td center tint="green" bold={error0Changed}>{item.error0_nueva}%</Td>
+                                                    <Td center tint="green" bold={error15Changed}>{item.error15_nueva}%</Td>
+                                                    <Td center tint="green" bold={error30Changed}>{item.error30_nueva}%</Td>
+                                                    <Td center>
+                                                        <div className="flex items-center justify-center gap-1">
+                                                            <Button
+                                                                size="sm"
+                                                                variant={currentSelection === 'original' ? 'default' : 'outline'}
+                                                                onClick={() => setEquipmentSelections(prev => {
+                                                                    const correlSelections = { ...(prev[activeRowCorrelativo] || {}) };
+                                                                    correlSelections[item.id_equipo] = 'original';
+                                                                    return { ...prev, [activeRowCorrelativo]: correlSelections };
+                                                                })}
+                                                            >
+                                                                Ori.
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant={currentSelection === 'nueva' ? 'default' : 'outline'}
+                                                                onClick={() => setEquipmentSelections(prev => {
+                                                                    const correlSelections = { ...(prev[activeRowCorrelativo] || {}) };
+                                                                    correlSelections[item.id_equipo] = 'nueva';
+                                                                    return { ...prev, [activeRowCorrelativo]: correlSelections };
+                                                                })}
+                                                            >
+                                                                Act.
+                                                            </Button>
+                                                        </div>
+                                                    </Td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
-                }
-            >
-                <div style={{ position: 'relative' }}>
-                    {comparisonLoading && (
-                        <div style={{ position: 'absolute', inset: 0, zIndex: 5, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <Spin size="large" />
-                        </div>
-                    )}
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, gap: 12, flexWrap: 'wrap' }}>
-                        <Text type="secondary" style={{ fontSize: 13 }}>
-                            Versión al momento del muestreo original <b>(Ficha #{resamplingData?.idOriginal})</b> vs Versión vigente actual <b>(mae_equipo)</b>
-                        </Text>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Button size="small" onClick={() => handleBulkSelection('original')}>Usar Todas Originales</Button>
-                            <Button size="small" onClick={() => handleBulkSelection('nueva')}>Usar Todas Actuales</Button>
-                        </div>
-                    </div>
-
-                    {comparisonData.length === 0 && !comparisonLoading ? (
-                        <Alert type="warning" showIcon message="Sin Datos" description={
-                            <>No se encontraron registros de equipos para este correlativo en la ficha original (#<b>{resamplingData?.idOriginal}</b>).</>
-                        } />
-                    ) : (
-                        <div style={{ overflowX: 'auto', border: '1px solid var(--app-border)', borderRadius: 8 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                                <thead>
-                                    <tr>
-                                        <Th rowSpan={2}>Equipo / Código</Th>
-                                        <Th colSpan={4} tint="blue">Versión Original (Ficha #{resamplingData?.idOriginal})</Th>
-                                        <Th colSpan={4} tint="green">Versión Actual (Vigente)</Th>
-                                    </tr>
-                                    <tr>
-                                        <Th w={80} tint="blue">Versión</Th>
-                                        <Th w={60} tint="blue">E 0%</Th>
-                                        <Th w={60} tint="blue">E 15%</Th>
-                                        <Th w={60} tint="blue">E 30%</Th>
-                                        <Th w={80} tint="green">Versión</Th>
-                                        <Th w={60} tint="green">E 0%</Th>
-                                        <Th w={60} tint="green">E 15%</Th>
-                                        <Th w={60} tint="green">E 30%</Th>
-                                        <Th w={140}>Selección Versión</Th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {comparisonData.map((item, idx) => {
-                                        const versionChanged = item.version_original !== item.version_nueva;
-                                        const error0Changed = Number(item.error0_original) !== Number(item.error0_nueva);
-                                        const error15Changed = Number(item.error15_original) !== Number(item.error15_nueva);
-                                        const error30Changed = Number(item.error30_original) !== Number(item.error30_nueva);
-
-                                        const hasAnomalies = versionChanged || error0Changed || error15Changed || error30Changed;
-                                        const currentSelection = (equipmentSelections[activeRowCorrelativo] || {})[item.id_equipo];
-
-                                        return (
-                                            <tr key={idx} style={{ backgroundColor: hasAnomalies ? 'rgba(250,173,20,0.08)' : undefined }}>
-                                                <Td>
-                                                    <Text strong style={{ fontSize: 13, display: 'block' }}>{item.nombre}</Text>
-                                                    <Text type="secondary" style={{ fontSize: 11 }}>{item.codigo}</Text>
-                                                </Td>
-                                                <Td center tint="blue"><Tag>{item.version_original || 'v1'}</Tag></Td>
-                                                <Td center tint="blue">{item.error0_original}%</Td>
-                                                <Td center tint="blue">{item.error15_original}%</Td>
-                                                <Td center tint="blue">{item.error30_original}%</Td>
-                                                <Td center tint="green"><Tag color={versionChanged ? 'orange' : 'green'}>{item.version_nueva}</Tag></Td>
-                                                <Td center tint="green" bold={error0Changed}>{item.error0_nueva}%</Td>
-                                                <Td center tint="green" bold={error15Changed}>{item.error15_nueva}%</Td>
-                                                <Td center tint="green" bold={error30Changed}>{item.error30_nueva}%</Td>
-                                                <Td center>
-                                                    <Radio.Group
-                                                        size="small"
-                                                        value={currentSelection}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            setEquipmentSelections(prev => {
-                                                                const correlSelections = { ...(prev[activeRowCorrelativo] || {}) };
-                                                                correlSelections[item.id_equipo] = val;
-                                                                return { ...prev, [activeRowCorrelativo]: correlSelections };
-                                                            });
-                                                        }}
-                                                    >
-                                                        <Radio value="original">Ori.</Radio>
-                                                        <Radio value="nueva">Act.</Radio>
-                                                    </Radio.Group>
-                                                </Td>
-                                            </tr>
-                                        );
-                                    })}
-                                </tbody>
-                            </table>
-                        </div>
-                    )}
-                </div>
-            </Modal>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setVersionModalOpen(false)}>Cerrar</Button>
+                        <Button onClick={() => setVersionModalOpen(false)}>Aceptar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
 
 function Th({ children, w, colSpan, rowSpan, tint }: { children?: React.ReactNode; w?: number; colSpan?: number; rowSpan?: number; tint?: 'blue' | 'green' }) {
-    const tintBg = tint === 'blue' ? 'var(--app-accent-bg)' : tint === 'green' ? 'rgba(47,158,68,0.12)' : undefined;
     return (
         <th
             colSpan={colSpan}
             rowSpan={rowSpan}
-            style={{
-                width: w, padding: '6px 4px', textAlign: 'center', fontWeight: 700, fontSize: 11,
-                border: '1px solid var(--app-border)', backgroundColor: tintBg || 'var(--app-hover-bg)',
-            }}
+            style={{ width: w }}
+            className={cn(
+                'border border-border p-1.5 text-center text-[11px] font-bold',
+                tint === 'blue' ? 'bg-primary/10' : tint === 'green' ? 'bg-success/10' : 'bg-muted/40'
+            )}
         >
             {children}
         </th>
@@ -1016,14 +1017,14 @@ function Th({ children, w, colSpan, rowSpan, tint }: { children?: React.ReactNod
 }
 
 function Td({ children, center, bold, tint }: { children?: React.ReactNode; center?: boolean; bold?: boolean; tint?: 'blue' | 'green' }) {
-    const tintBg = tint === 'blue' ? 'rgba(0,98,168,0.05)' : tint === 'green' ? 'rgba(47,158,68,0.06)' : undefined;
     return (
         <td
-            style={{
-                padding: '4px', border: '1px solid var(--app-border)',
-                textAlign: center ? 'center' : 'left', fontWeight: bold ? 700 : 400,
-                backgroundColor: tintBg,
-            }}
+            className={cn(
+                'border border-border p-1',
+                center ? 'text-center' : 'text-left',
+                bold ? 'font-bold' : 'font-normal',
+                tint === 'blue' ? 'bg-primary/5' : tint === 'green' ? 'bg-success/5' : undefined
+            )}
         >
             {children}
         </td>

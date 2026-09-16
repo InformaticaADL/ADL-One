@@ -2,21 +2,29 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-import { Card, Input, Select, Button, Table, Tag, Tooltip, Typography } from 'antd';
+import { useToast } from '../../../contexts/ToastContext';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { DataPagination } from '@/components/ui/pagination';
+import { cn } from '@/lib/utils';
 import {
     IconSearch,
     IconEraser,
     IconCalendarStats,
     IconFilter
 } from '@tabler/icons-react';
-import { useToast } from '../../../contexts/ToastContext';
-
-const { Text } = Typography;
 
 interface Props {
     onBackToMenu: () => void;
     onViewAssignment: (id: number) => void;
 }
+
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
 
 export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssignment }) => {
     const { showToast } = useToast();
@@ -226,101 +234,23 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         });
     }, [filteredFichas, assignmentCounts]);
 
-    const getStatusColor = (status: string) => {
+    const paginatedFichas = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return sortedFichas.slice(start, start + itemsPerPage);
+    }, [sortedFichas, currentPage]);
+
+    const getStatusVariant = (status: string): BadgeVariant => {
         const s = (status || '').toUpperCase();
-        if (s.includes('COORDINACIÓN')) return 'red';
-        if (s.includes('PROGRAMACIÓN')) return 'orange';
-        if (s.includes('EN PROCESO') || s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return 'green';
-        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return 'gold';
-        if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) return 'red';
-        return 'default';
+        if (s.includes('COORDINACIÓN')) return 'destructive';
+        if (s.includes('PROGRAMACIÓN')) return 'secondary';
+        if (s.includes('EN PROCESO') || s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return 'success';
+        if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return 'warning';
+        if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) return 'destructive';
+        return 'outline';
     };
 
-    const columns = [
-        {
-            title: 'N° Ficha', width: 80,
-            render: (_: any, row: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{row.fichaingresoservicio || row.id_fichaingresoservicio}</Text>,
-        },
-        {
-            title: 'Estado', width: 120, align: 'center' as const,
-            render: (_: any, row: any) => {
-                const status = row.estado_ficha || row.nombre_estadomuestreo;
-                return <Tag color={getStatusColor(status)} style={{ whiteSpace: 'nowrap', margin: 0 }}>{status || '-'}</Tag>;
-            },
-        },
-        {
-            title: 'Cliente / E. Servicio', width: 180,
-            render: (_: any, row: any) => (
-                <div>
-                    <Text style={{ fontSize: 12, fontWeight: 600, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.empresa_facturar}>
-                        {row.empresa_facturar || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.empresa_servicio || row.nombre_empresaservicios}>
-                        {row.empresa_servicio || row.nombre_empresaservicios || '-'}
-                    </Text>
-                </div>
-            ),
-        },
-        {
-            title: 'F. Emisora', width: 180,
-            render: (_: any, row: any) => (
-                <div>
-                    <Text style={{ fontSize: 12, display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={row.centro || row.nombre_centro}>
-                        {row.centro || row.nombre_centro || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{row.nombre_frecuencia || row.frecuencia || '-'}</Text>
-                </div>
-            ),
-        },
-        {
-            title: 'Asignación', width: 130, align: 'center' as const,
-            render: (_: any, row: any) => {
-                const fichId = row.id_fichaingresoservicio || row.fichaingresoservicio;
-                const counts = assignmentCounts[fichId];
-                if (!counts) return <Text type="secondary" style={{ fontSize: 12 }}>-</Text>;
-                const pending = counts.total - counts.assigned;
-                return (
-                    <div>
-                        <Text style={{ fontSize: 12, fontWeight: 600, color: counts.assigned > 0 ? '#2f9e44' : 'var(--app-text-secondary)' }}>
-                            {counts.assigned} asignados
-                        </Text>
-                        {pending > 0 && <Text style={{ fontSize: 12, color: '#e8590c', display: 'block' }}>{pending} pendientes</Text>}
-                    </div>
-                );
-            },
-        },
-        {
-            title: 'Asignar', width: 70, align: 'center' as const,
-            render: (_: any, row: any) => (
-                <ProtectedContent permission="FI_GEST_ASIG">
-                    {(() => {
-                        const status = (row.estado_ficha || row.nombre_estadomuestreo || '').toUpperCase();
-                        const isPendingCoordinacion = status.includes('COORDINAC');
-                        return isPendingCoordinacion ? (
-                            <Tooltip title="Pendiente de aprobación por Área de Coordinación. No es posible gestionar la asignación hasta que sea aprobado.">
-                                <Button type="text" shape="circle" disabled icon={<IconCalendarStats size={18} />} />
-                            </Tooltip>
-                        ) : (
-                            <Tooltip title="Gestionar Asignación">
-                                <Button
-                                    type="primary"
-                                    shape="circle"
-                                    style={{ backgroundColor: '#9c36b5' }}
-                                    icon={<IconCalendarStats size={18} />}
-                                    onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
-                                />
-                            </Tooltip>
-                        );
-                    })()}
-                </ProtectedContent>
-            ),
-        },
-    ];
-
-    const selectProps = { showSearch: true, allowClear: true, style: { width: '100%' }, placeholder: 'Todos' } as const;
-
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title="Planificación y Asignación"
                 subtitle="Gestión de recursos y programación de muestreos"
@@ -330,48 +260,46 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                     { label: 'Asignación' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{filteredFichas.length} registros encontrados</Text>
-                        <Button icon={<IconEraser size={14} />} onClick={handleClearFilters}>
-                            Limpiar Filtros
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">{filteredFichas.length} registros encontrados</span>
+                        <Button variant="outline" onClick={handleClearFilters}>
+                            <IconEraser size={14} /> Limpiar Filtros
                         </Button>
                     </div>
                 }
             />
 
-            <Card
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--app-accent-text)' }}>
-                        <IconFilter size={18} /> Filtros de búsqueda
-                    </span>
-                }
-                styles={{ header: { border: 'none' } }}
-                style={{ marginBottom: 16 }}
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+            <Card className="mb-4 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+                    <IconFilter size={18} /> Filtros de búsqueda
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
                     <Field label="N° Ficha">
-                        <Input placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} prefix={<IconSearch size={14} />} />
+                        <div className="relative">
+                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="pl-8" placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+                        </div>
                     </Field>
                     <Field label="Estado">
-                        <Select options={uniqueEstados} value={searchEstado || undefined} onChange={(v) => setSearchEstado(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar estado..." options={uniqueEstados} value={searchEstado ?? ''} onValueChange={(v) => setSearchEstado(v || null)} />
                     </Field>
                     <Field label="Monitoreo">
-                        <Select options={uniqueMonitoreo} value={searchMonitoreo || undefined} onChange={(v) => setSearchMonitoreo(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar monitoreo..." options={uniqueMonitoreo} value={searchMonitoreo ?? ''} onValueChange={(v) => setSearchMonitoreo(v || null)} />
                     </Field>
                     <Field label="E. Facturar">
-                        <Select options={uniqueEmpFacturar} value={searchEmpresaFacturar || undefined} onChange={(v) => setSearchEmpresaFacturar(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpFacturar} value={searchEmpresaFacturar ?? ''} onValueChange={(v) => setSearchEmpresaFacturar(v || null)} />
                     </Field>
                     <Field label="E. Servicio">
-                        <Select options={uniqueEmpServicio} value={searchEmpresaServicio || undefined} onChange={(v) => setSearchEmpresaServicio(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpServicio} value={searchEmpresaServicio ?? ''} onValueChange={(v) => setSearchEmpresaServicio(v || null)} />
                     </Field>
                     <Field label="Fuente Emisora">
-                        <Select options={uniqueCentros} value={searchCentro || undefined} onChange={(v) => setSearchCentro(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar centro..." options={uniqueCentros} value={searchCentro ?? ''} onValueChange={(v) => setSearchCentro(v || null)} />
                     </Field>
                     <Field label="Obj. Muestreo">
-                        <Select options={uniqueObjetivos} value={searchObjetivo || undefined} onChange={(v) => setSearchObjetivo(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
                     </Field>
                     <Field label="Sub Área">
-                        <Select options={uniqueSubAreas} value={searchSubArea || undefined} onChange={(v) => setSearchSubArea(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar sub área..." options={uniqueSubAreas} value={searchSubArea ?? ''} onValueChange={(v) => setSearchSubArea(v || null)} />
                     </Field>
                     <Field label="Desde">
                         <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
@@ -382,22 +310,105 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 </div>
             </Card>
 
-            <Card styles={{ body: { padding: 0 } }}>
-                <Table
-                    rowKey={(row) => `${row.id_fichaingresoservicio || row.fichaingresoservicio}`}
-                    columns={columns}
-                    dataSource={sortedFichas}
-                    loading={loading}
-                    scroll={{ x: 900 }}
-                    pagination={{
-                        current: currentPage,
-                        pageSize: itemsPerPage,
-                        total: sortedFichas.length,
-                        onChange: setCurrentPage,
-                        showTotal: (total) => `Resultados (${total})`,
-                        style: { paddingInline: 16 },
-                    }}
-                />
+            <Card className="p-0">
+                <div className="relative overflow-hidden rounded-xl">
+                    {loading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                    )}
+                    <Table>
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead className="w-20">N° Ficha</TableHead>
+                                <TableHead className="text-center">Estado</TableHead>
+                                <TableHead>Cliente / E. Servicio</TableHead>
+                                <TableHead>F. Emisora</TableHead>
+                                <TableHead className="text-center">Asignación</TableHead>
+                                <TableHead className="text-center">Asignar</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {paginatedFichas.length === 0 ? (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                                        {loading ? 'Cargando...' : 'No se encontraron fichas.'}
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                paginatedFichas.map((row) => {
+                                    const idFicha = row.id_fichaingresoservicio || row.fichaingresoservicio;
+                                    const status = row.estado_ficha || row.nombre_estadomuestreo;
+                                    const counts = assignmentCounts[idFicha];
+                                    const pending = counts ? counts.total - counts.assigned : 0;
+                                    const statusUpper = (status || '').toUpperCase();
+                                    const isPendingCoordinacion = statusUpper.includes('COORDINAC');
+
+                                    return (
+                                        <TableRow key={String(idFicha)}>
+                                            <TableCell className="font-semibold text-primary">{row.fichaingresoservicio || row.id_fichaingresoservicio}</TableCell>
+                                            <TableCell className="text-center">
+                                                <Badge variant={getStatusVariant(status)}>{status || '-'}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="block truncate text-xs font-semibold" title={row.empresa_facturar}>
+                                                    {row.empresa_facturar || '-'}
+                                                </span>
+                                                <span className="block truncate text-xs text-muted-foreground" title={row.empresa_servicio || row.nombre_empresaservicios}>
+                                                    {row.empresa_servicio || row.nombre_empresaservicios || '-'}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="block truncate text-xs" title={row.centro || row.nombre_centro}>
+                                                    {row.centro || row.nombre_centro || '-'}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground">{row.nombre_frecuencia || row.frecuencia || '-'}</span>
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                {!counts ? (
+                                                    <span className="text-xs text-muted-foreground">-</span>
+                                                ) : (
+                                                    <div>
+                                                        <span className={cn('block text-xs font-semibold', counts.assigned > 0 ? 'text-success' : 'text-muted-foreground')}>
+                                                            {counts.assigned} asignados
+                                                        </span>
+                                                        {pending > 0 && <span className="block text-xs text-warning">{pending} pendientes</span>}
+                                                    </div>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="text-center">
+                                                <ProtectedContent permission="FI_GEST_ASIG">
+                                                    {isPendingCoordinacion ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            disabled
+                                                            title="Pendiente de aprobación por Área de Coordinación. No es posible gestionar la asignación hasta que sea aprobado."
+                                                        >
+                                                            <IconCalendarStats size={18} />
+                                                        </Button>
+                                                    ) : (
+                                                        <Button
+                                                            size="icon"
+                                                            className="rounded-full bg-[#9c36b5] text-white hover:bg-[#9c36b5]/90"
+                                                            title="Gestionar Asignación"
+                                                            onClick={() => onViewAssignment(row.id_fichaingresoservicio || row.fichaingresoservicio)}
+                                                        >
+                                                            <IconCalendarStats size={18} />
+                                                        </Button>
+                                                    )}
+                                                </ProtectedContent>
+                                            </TableCell>
+                                        </TableRow>
+                                    );
+                                })
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
+                <div className="px-4 py-3">
+                    <DataPagination page={currentPage} pageSize={itemsPerPage} total={sortedFichas.length} onPageChange={setCurrentPage} />
+                </div>
             </Card>
         </div>
     );
@@ -406,7 +417,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );
