@@ -1,9 +1,26 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
     IconDownload,
     IconSettings,
     IconFileSpreadsheet,
-    IconChevronRight
+    IconChevronRight,
+    IconSearch,
+    IconDna2,
+    IconFish,
+    IconMicroscope,
+    IconTestPipe,
+    IconFlask,
+    IconBug,
+    IconMailForward,
+    IconLeaf,
+    IconScale,
+    IconBulb,
+    IconActivity,
+    IconDeviceDesktop,
+    IconChartLine,
+    IconAward,
+    IconBuildingBank,
+    type Icon,
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import * as XLSX from 'xlsx';
@@ -13,25 +30,42 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
+import { Input } from '@/components/ui/input';
 
-// List of areas with specific permissions
-const AREAS: { id: string, label: string, icon: string, permission: string | string[], description?: string }[] = [
-    { id: 'gem', label: 'Ensayo Molecular', icon: '🧬', permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares' },
-    { id: 'necropsia', label: 'Necropsia', icon: '🐟', permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica' },
-    { id: 'microscopia', label: 'Microscopía', icon: '🔬', permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital' },
-    { id: 'biologia_molecular', label: 'Biología Molecular', icon: '🧪', permission: 'BM_ACCESO', description: 'Laboratorio de Genética' },
-    { id: 'cultivo_celular', label: 'Cultivo Celular', icon: '🧫', permission: 'CC_ACCESO', description: 'Mantenimiento de Líneas Celulares' },
-    { id: 'bacteriologia', label: 'Bacteriología', icon: '🦠', permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos' },
-    { id: 'screening', label: 'Screening', icon: '🔎', permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas' },
-    { id: 'derivaciones', label: 'Derivaciones', icon: '📬', permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas' },
-    { id: 'medio_ambiente', label: 'Medioambiente', icon: '🌿', permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
-    { id: 'atl', label: 'Área Técnica Local', icon: '⚖️', permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
-    { id: 'id', label: 'Investigación + D', icon: '💡', permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
-    { id: 'pve', label: 'Vigilancia Epi.', icon: '🩺', permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
-    { id: 'informatica', label: 'Informática', icon: '💻', permission: 'INF_ACCESO', description: 'Infraestructura y Sistemas' },
-    { id: 'comercial', label: 'Comercial', icon: '📈', permission: 'COM_ACCESO', description: 'Gestión de Clientes y Ventas' },
-    { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: '⭐', permission: 'GC_ACCESO', description: 'Normativas y Auditorías' },
-    { id: 'administracion', label: 'Administración', icon: '🏢', permission: 'ADM_ACCESO', description: 'Gestión General de Oficina' },
+// Grupos con sentido operativo (laboratorios/áreas técnicas vs. gestión y
+// soporte) en vez de un grid plano — deja que la lista escale a más áreas
+// sin volverse una pared de tarjetas iguales, y el ícono de marca (Tabler)
+// reemplaza el emoji, que no se ve consistente entre plataformas/SO.
+const AREA_GROUPS: {
+    title: string;
+    areas: { id: string; label: string; icon: Icon; permission: string | string[]; description?: string }[];
+}[] = [
+    {
+        title: 'Laboratorios y áreas técnicas',
+        areas: [
+            { id: 'gem', label: 'Ensayo Molecular', icon: IconDna2, permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares' },
+            { id: 'necropsia', label: 'Necropsia', icon: IconFish, permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica' },
+            { id: 'microscopia', label: 'Microscopía', icon: IconMicroscope, permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital' },
+            { id: 'biologia_molecular', label: 'Biología Molecular', icon: IconTestPipe, permission: 'BM_ACCESO', description: 'Laboratorio de Genética' },
+            { id: 'cultivo_celular', label: 'Cultivo Celular', icon: IconFlask, permission: 'CC_ACCESO', description: 'Mantenimiento de Líneas Celulares' },
+            { id: 'bacteriologia', label: 'Bacteriología', icon: IconBug, permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos' },
+            { id: 'screening', label: 'Screening', icon: IconSearch, permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas' },
+            { id: 'derivaciones', label: 'Derivaciones', icon: IconMailForward, permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas' },
+            { id: 'medio_ambiente', label: 'Medioambiente', icon: IconLeaf, permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
+            { id: 'atl', label: 'Área Técnica Local', icon: IconScale, permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
+            { id: 'id', label: 'Investigación + D', icon: IconBulb, permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
+            { id: 'pve', label: 'Vigilancia Epi.', icon: IconActivity, permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
+        ],
+    },
+    {
+        title: 'Gestión y soporte',
+        areas: [
+            { id: 'informatica', label: 'Informática', icon: IconDeviceDesktop, permission: 'INF_ACCESO', description: 'Infraestructura y Sistemas' },
+            { id: 'comercial', label: 'Comercial', icon: IconChartLine, permission: 'COM_ACCESO', description: 'Gestión de Clientes y Ventas' },
+            { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: IconAward, permission: 'GC_ACCESO', description: 'Normativas y Auditorías' },
+            { id: 'administracion', label: 'Administración', icon: IconBuildingBank, permission: 'ADM_ACCESO', description: 'Gestión General de Oficina' },
+        ],
+    },
 ];
 
 const TABLES_TO_EXPORT = [
@@ -61,17 +95,26 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
     const [selectedArea, setSelectedArea] = useState<string>(TABLES_TO_EXPORT[0].area);
     const [selectedId, setSelectedId] = useState(TABLES_TO_EXPORT[0].id);
     const [exporting, setExporting] = useState(false);
+    const [search, setSearch] = useState('');
 
     const activeExport = TABLES_TO_EXPORT.find(t => t.id === selectedId);
     const areas = Array.from(new Set(TABLES_TO_EXPORT.map(t => t.area)));
 
-    const visibleAreas = AREAS.filter(area => {
+    const canAccessArea = (area: { permission: string | string[] }) =>
         // RB-08: AI_MA_ADMIN_ACCESO eliminado
-        if (Array.isArray(area.permission)) {
-            return area.permission.some(p => hasPermission(p));
-        }
-        return hasPermission(area.permission);
-    });
+        Array.isArray(area.permission) ? area.permission.some(p => hasPermission(p)) : hasPermission(area.permission);
+
+    const q = search.trim().toLowerCase();
+    const visibleGroups = useMemo(() => AREA_GROUPS
+        .map(group => ({
+            ...group,
+            areas: group.areas.filter(area =>
+                canAccessArea(area) && (!q || area.label.toLowerCase().includes(q) || area.description?.toLowerCase().includes(q))
+            ),
+        }))
+        .filter(group => group.areas.length > 0),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [q, hasPermission]);
 
     const handleExport = async () => {
         if (exporting || !activeExport) return;
@@ -128,23 +171,51 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                 ) : null}
             />
 
-            <div className="mt-8 flex flex-col gap-6">
+            <div className="mt-6 flex flex-col gap-6">
                 {currentView === 'grid' ? (
-                    <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
-                        {visibleAreas.map((area) => (
-                            <Card
-                                key={area.id}
-                                onClick={() => onNavigate(area.id)}
-                                className="flex h-full min-h-[180px] cursor-pointer flex-col items-center justify-center p-6 text-center transition-all hover:-translate-y-1 hover:border-primary hover:bg-accent"
-                            >
-                                <div className="mb-4 text-4xl">{area.icon}</div>
-                                <p className="text-base font-semibold text-foreground">{area.label}</p>
-                                <p className="mt-1 text-xs text-muted-foreground">{area.description}</p>
-                                <div className="mt-4 flex items-center justify-center gap-1 text-primary">
-                                    <span className="text-xs font-semibold">Acceder</span>
-                                    <IconChevronRight size={12} />
-                                </div>
-                            </Card>
+                    <div className="flex flex-col gap-6">
+                        <div className="relative max-w-sm">
+                            <IconSearch size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                placeholder="Buscar área..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+
+                        {visibleGroups.length === 0 && (
+                            <p className="py-8 text-center text-sm text-muted-foreground">Sin resultados para "{search}".</p>
+                        )}
+
+                        {visibleGroups.map((group) => (
+                            <div key={group.title}>
+                                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group.title}</p>
+                                <Card className="divide-y divide-border overflow-hidden p-0">
+                                    {group.areas.map((area) => {
+                                        const Icon = area.icon;
+                                        return (
+                                            <button
+                                                key={area.id}
+                                                type="button"
+                                                onClick={() => onNavigate(area.id)}
+                                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
+                                            >
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                    <Icon size={19} stroke={1.75} />
+                                                </div>
+                                                <div className="min-w-0 flex-1">
+                                                    <p className="truncate text-sm font-semibold text-foreground">{area.label}</p>
+                                                    {area.description && (
+                                                        <p className="truncate text-xs text-muted-foreground">{area.description}</p>
+                                                    )}
+                                                </div>
+                                                <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />
+                                            </button>
+                                        );
+                                    })}
+                                </Card>
+                            </div>
                         ))}
                     </div>
                 ) : (

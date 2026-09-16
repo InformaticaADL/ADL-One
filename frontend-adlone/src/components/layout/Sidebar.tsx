@@ -319,8 +319,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
     );
 
     return (
-        <nav className="shadcn-scope flex h-full flex-col bg-card">
-            <div className={cn('h-16 shrink-0 border-b border-border px-3', isCollapsed ? 'flex flex-col items-center justify-center gap-1' : 'flex items-center justify-between gap-2')}>
+        <nav className="shadcn-scope flex h-full flex-col bg-sidebar text-sidebar-foreground">
+            <div className={cn('h-16 shrink-0 border-b border-sidebar-border px-3', isCollapsed ? 'flex flex-col items-center justify-center gap-1' : 'flex items-center justify-between gap-2')}>
                 <img
                     src={isCollapsed ? logoSmall : logoAdl}
                     alt="ADL"
@@ -361,7 +361,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 {renderFixedGroup('SOPORTE', filteredBottom)}
             </div>
 
-            <div className="border-t border-border p-2">
+            <div className="border-t border-sidebar-border p-2">
                 {userMenu}
             </div>
         </nav>

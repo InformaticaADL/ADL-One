@@ -107,6 +107,9 @@
   --color-border: var(--sc-border);
   --color-input: var(--sc-border);
   --color-ring: var(--sc-ring);
+  --color-sidebar: var(--sc-sidebar);
+  --color-sidebar-foreground: var(--sc-sidebar-foreground);
+  --color-sidebar-border: var(--sc-sidebar-border);
   --radius-sm: calc(var(--sc-radius) - 6px);
   --radius-md: calc(var(--sc-radius) - 3px);
   --radius-lg: var(--sc-radius);
@@ -142,6 +145,12 @@
   --sc-border: #e4e4e7;
   --sc-ring: #1677ff;
   --sc-radius: 0.75rem;
+  /* Rail levemente distinto del fondo/card — el detalle clásico de los
+     bloques de sidebar de shadcn/ui (sidebar-07 y similares), donde el nav
+     nunca comparte tono exacto con el contenido. */
+  --sc-sidebar: #fafafa;
+  --sc-sidebar-foreground: var(--sc-foreground);
+  --sc-sidebar-border: var(--sc-border);
 }
 
 [data-theme='dark'] {
@@ -165,6 +174,9 @@
   --sc-warning-foreground: #1a1a1a;
   --sc-border: rgba(255, 255, 255, 0.12);
   --sc-ring: #1677ff;
+  --sc-sidebar: #101012;
+  --sc-sidebar-foreground: var(--sc-foreground);
+  --sc-sidebar-border: var(--sc-border);
 }
 
 :root {
