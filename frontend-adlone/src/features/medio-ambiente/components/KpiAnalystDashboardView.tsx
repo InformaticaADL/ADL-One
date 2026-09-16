@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Tag, Tabs, Table, Modal, Spin, Typography, Alert as AntAlert } from 'antd';
 import {
     Area,
     AreaChart,
@@ -20,7 +19,6 @@ import {
     IconRefresh,
     IconSparkles,
     IconInfoCircle,
-    IconX,
 } from '@tabler/icons-react';
 import {
     kpiDashboardService,
@@ -28,7 +26,13 @@ import {
 } from '../services/kpi-dashboard.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 
-const { Text, Title } = Typography;
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogHeader } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 
 interface Props {
     onBack: () => void;
@@ -36,43 +40,37 @@ interface Props {
 
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280', '#ec4899', '#14b8a6'];
 
-const toneMap: Record<string, string> = {
-    green: 'green', teal: 'cyan', lime: 'lime', red: 'red', blue: 'blue',
-    orange: 'orange', violet: 'purple', cyan: 'cyan', indigo: 'geekblue',
-    pink: 'magenta', grape: 'purple', dark: 'default', yellow: 'gold',
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+
+const toneVariant: Record<string, BadgeVariant> = {
+    green: 'success', teal: 'success', lime: 'success', red: 'destructive', blue: 'default',
+    orange: 'warning', violet: 'secondary', cyan: 'default', indigo: 'default',
+    pink: 'secondary', grape: 'secondary', dark: 'outline', yellow: 'warning',
 };
 
-const levelColor: Record<string, string> = {
-    critical: 'red',
-    warning: 'orange',
-    normal: 'blue',
+const levelVariant: Record<string, BadgeVariant> = {
+    critical: 'destructive',
+    warning: 'warning',
+    normal: 'default',
 };
 
-function DashCard({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+function DashCard({ children, className }: { children: React.ReactNode; className?: string }) {
     return (
-        <div style={{
-            borderRadius: 20, padding: 24, backgroundColor: 'var(--app-bg)',
-            border: '1px solid var(--app-border)', boxShadow: '0 1px 2px rgba(0,0,0,0.04)',
-            boxSizing: 'border-box', ...style,
-        }}>
+        <Card className={cn('rounded-[20px] p-6', className)}>
             {children}
-        </div>
+        </Card>
     );
 }
 
-const tooltipStyle = { borderRadius: 12, border: '1px solid var(--app-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--app-bg-elevated)' };
+const tooltipStyle = { borderRadius: 12, border: '1px solid var(--sc-border)', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', backgroundColor: 'var(--sc-card)' };
 
 const WidgetHeader = ({ widget, onInfoClick }: { widget: any, onInfoClick: (title: string, what: string, why: string) => void }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-        <Title level={5} style={{ margin: 0, fontSize: 13 }}>{widget.title}</Title>
+    <div className="mb-4 flex items-start justify-between">
+        <h5 className="m-0 text-[13px] font-semibold">{widget.title}</h5>
         {widget.help ? (
             <button
                 onClick={() => onInfoClick(widget.title, widget.help.what, widget.help.why)}
-                style={{
-                    width: 28, height: 28, borderRadius: 8, backgroundColor: 'var(--app-bg)',
-                    border: '1px solid var(--app-border)', color: 'var(--app-text-secondary)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground"
                 title="Explicación detallada"
             >
                 <IconInfoCircle size={16} />
@@ -83,30 +81,39 @@ const WidgetHeader = ({ widget, onInfoClick }: { widget: any, onInfoClick: (titl
 
 const renderWidget = (widget: any) => {
     if (widget.type === 'table') {
-        const columns = (widget.columns || []).map((column: string) => ({
-            title: column, dataIndex: column,
-            render: (v: any) => <Text style={{ fontSize: 12.5, fontWeight: 500 }}>{String(v ?? '-')}</Text>,
-        }));
+        const columns = (widget.columns || []) as string[];
+        const rows = (widget.data || []).map((row: any, i: number) => ({ ...row, key: `${widget.id}-${i}` }));
         return (
-            <Table
-                size="small"
-                columns={columns}
-                dataSource={(widget.data || []).map((row: any, i: number) => ({ ...row, key: `${widget.id}-${i}` }))}
-                pagination={false}
-                style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--app-border)' }}
-            />
+            <div className="overflow-hidden rounded-xl border border-border">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            {columns.map((column) => <TableHead key={column}>{column}</TableHead>)}
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row: any) => (
+                            <TableRow key={row.key}>
+                                {columns.map((column) => (
+                                    <TableCell key={column} className="text-[12.5px] font-medium">{String(row[column] ?? '-')}</TableCell>
+                                ))}
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
         );
     }
 
     if (widget.type === 'metric-list' || widget.type === 'summary') {
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div className="flex flex-col gap-2.5">
                 {(widget.data || []).map((item: any, index: number) => (
-                    <div key={`${widget.id}-${index}`} style={{ padding: 16, borderRadius: 16, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)' }}>
-                        <Text strong style={{ fontSize: 13, display: 'block' }}>{item.title || item.label}</Text>
-                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>{item.narrative || item.value}</Text>
+                    <div key={`${widget.id}-${index}`} className="rounded-2xl border border-border bg-muted/50 p-4">
+                        <span className="block text-[13px] font-semibold">{item.title || item.label}</span>
+                        <span className="mt-1 block text-xs text-muted-foreground">{item.narrative || item.value}</span>
                         {item.recommendation ? (
-                            <Text style={{ fontSize: 12, marginTop: 8, fontWeight: 700, color: 'var(--app-accent-text)', display: 'block' }}>{item.recommendation}</Text>
+                            <span className="mt-2 block text-xs font-bold text-primary">{item.recommendation}</span>
                         ) : null}
                     </div>
                 ))}
@@ -116,7 +123,7 @@ const renderWidget = (widget: any) => {
 
     if (widget.type === 'donut') {
         return (
-            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div className="h-60 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <PieChart>
                         <Pie data={widget.data} dataKey="value" nameKey="name" innerRadius={60} outerRadius={80} paddingAngle={2} stroke="none">
@@ -138,13 +145,13 @@ const renderWidget = (widget: any) => {
 
     if (widget.type === 'bar') {
         return (
-            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div className="h-60 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <BarChart {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
                         <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{fill: 'var(--app-hover-bg)'}} contentStyle={tooltipStyle} />
+                        <Tooltip cursor={{ fill: 'var(--sc-muted)' }} contentStyle={tooltipStyle} />
                         <Bar dataKey={widget.yKeys?.[0]} radius={[6, 6, 0, 0]} fill="#0ea5e9" />
                     </BarChart>
                 </ResponsiveContainer>
@@ -154,13 +161,13 @@ const renderWidget = (widget: any) => {
 
     if (widget.type === 'multi-bar' || widget.type === 'stacked-bar') {
         return (
-            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div className="h-60 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <BarChart {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
                         <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <Tooltip cursor={{fill: 'var(--app-hover-bg)'}} contentStyle={tooltipStyle} />
+                        <Tooltip cursor={{ fill: 'var(--sc-muted)' }} contentStyle={tooltipStyle} />
                         {(widget.yKeys || []).map((key: string, index: number) => (
                             <Bar
                                 key={key}
@@ -178,10 +185,10 @@ const renderWidget = (widget: any) => {
 
     if (widget.type === 'line') {
         return (
-            <div style={{ height: 240, width: '100%', minWidth: 0 }}>
+            <div className="h-60 w-full min-w-0">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <AreaChart {...commonProps}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
                         <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                         <Tooltip contentStyle={tooltipStyle} />
@@ -193,7 +200,7 @@ const renderWidget = (widget: any) => {
     }
 
     return (
-        <div style={{ height: 240, width: '100%', minWidth: 0 }}>
+        <div className="h-60 w-full min-w-0">
             <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                 <AreaChart {...commonProps}>
                     <defs>
@@ -202,7 +209,7 @@ const renderWidget = (widget: any) => {
                             <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
                         </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--app-border)" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
                     <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
@@ -246,6 +253,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
 
     useEffect(() => {
         loadDashboard();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const activeDashboard = useMemo(
@@ -259,18 +267,20 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
 
     if (loading || !payload || !activeDashboard) {
         return (
-            <DashCard style={{ minHeight: 400, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
-                    <Spin size="large" />
-                    <Title level={3} style={{ margin: 0 }}>Procesando Data Intelligence...</Title>
-                    <Text type="secondary">Construyendo tu Dashboard en tiempo real</Text>
-                </div>
-            </DashCard>
+            <div className="shadcn-scope">
+                <DashCard className="flex min-h-[400px] items-center justify-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        <h3 className="m-0 text-lg font-semibold">Procesando Data Intelligence...</h3>
+                        <span className="text-muted-foreground">Construyendo tu Dashboard en tiempo real</span>
+                    </div>
+                </DashCard>
+            </div>
         );
     }
 
     return (
-        <div style={{ padding: 8 }}>
+        <div className="shadcn-scope p-2">
             <PageHeader
                 title="Dashboard Inteligente"
                 subtitle="Análisis automático de métricas operativas, rendimiento de laboratorios y detección de riesgos."
@@ -280,181 +290,187 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
                     { label: 'Dashboard Inteligente' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
+                    <div className="flex items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">
                             Actualizado {new Date(payload.generatedAt).toLocaleString('es-CL')}
-                        </Text>
-                        <Button icon={<IconRefresh size={16} />} loading={refreshing} onClick={() => loadDashboard(true)}>
+                        </span>
+                        <Button variant="outline" disabled={refreshing} onClick={() => loadDashboard(true)}>
+                            {refreshing ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconRefresh size={16} />}
                             Recalcular
                         </Button>
                     </div>
                 }
             />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, marginTop: 24 }}>
+            <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4">
                 <DashCard>
-                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Universo</Text>
-                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block' }}>{payload.dataProfile.totalRows}</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>registros procesados</Text>
+                    <span className="text-[11px] font-bold uppercase text-muted-foreground">Universo</span>
+                    <span className="block text-[32px] font-extrabold">{payload.dataProfile.totalRows}</span>
+                    <span className="text-[13px] text-muted-foreground">registros procesados</span>
                 </DashCard>
                 <DashCard>
-                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Clientes</Text>
-                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block' }}>{payload.dataProfile.uniqueClients}</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>cuentas activas</Text>
+                    <span className="text-[11px] font-bold uppercase text-muted-foreground">Clientes</span>
+                    <span className="block text-[32px] font-extrabold">{payload.dataProfile.uniqueClients}</span>
+                    <span className="text-[13px] text-muted-foreground">cuentas activas</span>
                 </DashCard>
                 <DashCard>
-                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Alertas</Text>
-                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block', color: '#e03131' }}>{payload.alerts.length}</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>riesgos detectados</Text>
+                    <span className="text-[11px] font-bold uppercase text-muted-foreground">Alertas</span>
+                    <span className="block text-[32px] font-extrabold text-destructive">{payload.alerts.length}</span>
+                    <span className="text-[13px] text-muted-foreground">riesgos detectados</span>
                 </DashCard>
                 <DashCard>
-                    <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Cobertura</Text>
-                    <Text style={{ fontSize: 32, fontWeight: 800, display: 'block' }}>{payload.dataProfile.coveredMonths}</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>meses analizados</Text>
+                    <span className="text-[11px] font-bold uppercase text-muted-foreground">Cobertura</span>
+                    <span className="block text-[32px] font-extrabold">{payload.dataProfile.coveredMonths}</span>
+                    <span className="text-[13px] text-muted-foreground">meses analizados</span>
                 </DashCard>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 16, marginTop: 24 }}>
+            <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4">
                 <DashCard>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                    <div className="mb-6 flex items-center gap-3">
                         <IconCircle color="#e03131"><IconAlertTriangle size={24} /></IconCircle>
-                        <Title level={5} style={{ margin: 0 }}>Alertas del Analista</Title>
+                        <h5 className="m-0 text-base font-semibold">Alertas del Analista</h5>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div className="flex flex-col gap-3">
                         {payload.alerts.length ? payload.alerts.map((alert, index) => (
-                            <AntAlert
-                                key={`${alert.title}-${index}`}
-                                type={(levelColor[alert.level] === 'red' ? 'error' : levelColor[alert.level] === 'orange' ? 'warning' : 'info')}
-                                showIcon
-                                message={alert.title}
-                                description={alert.message}
-                                style={{ borderRadius: 16 }}
-                            />
-                        )) : <Text type="secondary">No se han detectado riesgos activos en este periodo.</Text>}
+                            <InlineAlert key={`${alert.title}-${index}`} variant={levelVariant[alert.level] || 'default'} title={alert.title} message={alert.message} />
+                        )) : <span className="text-muted-foreground">No se han detectado riesgos activos en este periodo.</span>}
                     </div>
                 </DashCard>
 
                 <DashCard>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+                    <div className="mb-6 flex items-center gap-3">
                         <IconCircle color="#9c36b5"><IconSparkles size={24} /></IconCircle>
-                        <Title level={5} style={{ margin: 0 }}>Insights Estratégicos</Title>
+                        <h5 className="m-0 text-base font-semibold">Insights Estratégicos</h5>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div className="flex flex-col gap-2.5">
                         {payload.insights.slice(0, 3).map((insight, index) => (
-                            <div key={`${insight.title}-${index}`} style={{ padding: 16, borderRadius: 16, backgroundColor: 'var(--app-hover-bg)', border: '1px solid var(--app-border)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                    <Text strong style={{ fontSize: 13 }}>{insight.title}</Text>
-                                    <Tag color={levelColor[insight.level] || 'blue'}>{insight.level}</Tag>
+                            <div key={`${insight.title}-${index}`} className="rounded-2xl border border-border bg-muted/50 p-4">
+                                <div className="mb-1 flex justify-between">
+                                    <span className="text-[13px] font-semibold">{insight.title}</span>
+                                    <Badge variant={levelVariant[insight.level] || 'default'}>{insight.level}</Badge>
                                 </div>
-                                <Text type="secondary" style={{
-                                    fontSize: 12.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                                }}>{insight.narrative}</Text>
-                                <Text style={{ fontSize: 12, marginTop: 8, fontWeight: 700, color: 'var(--app-accent-text)', display: 'block' }}>{insight.recommendation}</Text>
+                                <p className="m-0 line-clamp-2 text-[12.5px] text-muted-foreground">{insight.narrative}</p>
+                                <span className="mt-2 block text-xs font-bold text-primary">{insight.recommendation}</span>
                             </div>
                         ))}
                     </div>
                 </DashCard>
             </div>
 
-            <div style={{ marginTop: 24 }}>
-                <Tabs
-                    activeKey={activeTab}
-                    onChange={setActiveTab}
-                    items={payload.dashboards.map((dashboard) => ({
-                        key: dashboard.key,
-                        label: <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}><IconChartBar size={16} />{dashboard.title}</span>,
-                        children: (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <div className="mt-6">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
+                    <TabsList className="flex-wrap">
+                        {payload.dashboards.map((dashboard) => (
+                            <TabsTrigger key={dashboard.key} value={dashboard.key}>
+                                <IconChartBar size={16} className="mr-1.5" />{dashboard.title}
+                            </TabsTrigger>
+                        ))}
+                    </TabsList>
+
+                    {payload.dashboards.map((dashboard) => (
+                        <TabsContent key={dashboard.key} value={dashboard.key}>
+                            <div className="flex flex-col gap-6">
                                 <div>
-                                    <Title level={4} style={{ margin: 0 }}>{dashboard.title}</Title>
-                                    <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>{dashboard.description}</Text>
+                                    <h4 className="m-0 text-lg font-semibold">{dashboard.title}</h4>
+                                    <p className="mt-1 text-muted-foreground">{dashboard.description}</p>
                                 </div>
 
                                 {dashboard.executiveSummary ? (
                                     <DashCard>
-                                        <Text strong style={{ fontSize: 17 }}>{dashboard.executiveSummary.headline}</Text>
-                                        <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>{dashboard.executiveSummary.body}</Text>
-                                        <Tag color={dashboard.executiveSummary.trend.changePct >= 0 ? 'cyan' : 'red'} style={{ marginTop: 12, fontSize: 13, padding: '4px 10px' }}>
+                                        <span className="text-[17px] font-semibold">{dashboard.executiveSummary.headline}</span>
+                                        <p className="mt-2 text-muted-foreground">{dashboard.executiveSummary.body}</p>
+                                        <Badge variant={dashboard.executiveSummary.trend.changePct >= 0 ? 'default' : 'destructive'} className="mt-3 px-2.5 py-1 text-[13px]">
                                             Variación {dashboard.executiveSummary.trend.changePct}% vs periodo anterior
-                                        </Tag>
+                                        </Badge>
                                     </DashCard>
                                 ) : null}
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+                                <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4">
                                     {dashboard.kpis.map((kpi) => (
                                         <DashCard key={kpi.id}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                                                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>{kpi.title}</Text>
-                                                <Tag color={toneMap[kpi.tone] || 'blue'}>Foco</Tag>
+                                            <div className="mb-2 flex items-start justify-between">
+                                                <span className="text-[11px] font-bold uppercase text-muted-foreground">{kpi.title}</span>
+                                                <Badge variant={toneVariant[kpi.tone] || 'default'}>Foco</Badge>
                                             </div>
-                                            <Text style={{ fontSize: 32, fontWeight: 800, lineHeight: 1, display: 'block', marginBottom: 6 }}>{kpi.value}</Text>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>{kpi.helper}</Text>
+                                            <span className="mb-1.5 block text-[32px] font-extrabold leading-none">{kpi.value}</span>
+                                            <span className="text-xs text-muted-foreground">{kpi.helper}</span>
                                         </DashCard>
                                     ))}
                                 </div>
 
-                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: 16 }}>
+                                <div className="grid grid-cols-[repeat(auto-fit,minmax(360px,1fr))] gap-4">
                                     {dashboard.widgets.map((widget) => (
                                         <DashCard key={widget.id}>
                                             <WidgetHeader widget={widget} onInfoClick={handleInfoClick} />
-                                            <div style={{ minHeight: 240, width: '100%' }}>
+                                            <div className="min-h-60 w-full">
                                                 {renderWidget(widget)}
                                             </div>
                                         </DashCard>
                                     ))}
                                 </div>
                             </div>
-                        ),
-                    }))}
-                />
+                        </TabsContent>
+                    ))}
+                </Tabs>
             </div>
 
-            <Modal
-                open={!!infoModal}
-                onCancel={() => setInfoModal(null)}
-                closable={false}
-                width={640}
-                footer={null}
-                styles={{ root: { borderRadius: 24 }, body: { padding: 32 } }}
-            >
-                {infoModal && (
-                    <div style={{ maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
-                        <Button type="text" shape="circle" icon={<IconX size={20} />} onClick={() => setInfoModal(null)} style={{ position: 'absolute', top: 0, right: 0 }} />
+            <Dialog open={!!infoModal} onOpenChange={(open) => !open && setInfoModal(null)}>
+                <DialogContent className="max-h-[85vh] max-w-[640px] overflow-y-auto rounded-3xl p-8">
+                    {infoModal && (
+                        <>
+                            <DialogHeader className="mb-2 flex-row items-center gap-4 space-y-0">
+                                <IconCircle color="#1677ff" size={56}><IconInfoCircle size={28} /></IconCircle>
+                                <div>
+                                    <span className="block text-[11px] font-extrabold uppercase tracking-wide text-primary">Explicación Detallada</span>
+                                    <h4 className="m-0 text-lg font-semibold">{infoModal.title}</h4>
+                                </div>
+                            </DialogHeader>
 
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
-                            <IconCircle color="#1677ff" size={56}><IconInfoCircle size={28} /></IconCircle>
-                            <div>
-                                <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block' }}>Explicación Detallada</Text>
-                                <Title level={4} style={{ margin: 0 }}>{infoModal.title}</Title>
+                            <div className="flex flex-col gap-5">
+                                <div>
+                                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">¿Qué muestra este gráfico?</span>
+                                    <p className="text-[13.5px] leading-relaxed">{infoModal.what}</p>
+                                </div>
+                                <div>
+                                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">¿Para qué sirve?</span>
+                                    <p className="text-[13.5px] leading-relaxed">{infoModal.why}</p>
+                                </div>
                             </div>
-                        </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                            <div>
-                                <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Qué muestra este gráfico?</Text>
-                                <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.what}</Text>
-                            </div>
-                            <div>
-                                <Text style={{ fontSize: 11, fontWeight: 800, color: 'var(--app-accent-text)', textTransform: 'uppercase', letterSpacing: 1, display: 'block', marginBottom: 6 }}>¿Para qué sirve?</Text>
-                                <Text style={{ fontSize: 13.5, lineHeight: 1.6 }}>{infoModal.why}</Text>
-                            </div>
-                        </div>
-
-                        <Button block size="large" style={{ marginTop: 24 }} onClick={() => setInfoModal(null)}>Entendido</Button>
-                    </div>
-                )}
-            </Modal>
+                            <Button size="lg" variant="outline" className="mt-6 w-full" onClick={() => setInfoModal(null)}>Entendido</Button>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
 
+const ALERT_STYLES: Record<BadgeVariant, string> = {
+    default: 'border-primary/30 bg-primary/10 text-primary',
+    secondary: 'border-secondary/30 bg-secondary/40 text-secondary-foreground',
+    outline: 'border-border bg-muted/50 text-foreground',
+    success: 'border-success/30 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/10 text-warning',
+    destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
+};
+
+function InlineAlert({ variant, title, message }: { variant: BadgeVariant; title: string; message: string }) {
+    return (
+        <div className={cn('rounded-2xl border px-4 py-3', ALERT_STYLES[variant])}>
+            <span className="block text-sm font-semibold">{title}</span>
+            <span className="mt-0.5 block text-xs">{message}</span>
+        </div>
+    );
+}
+
 function IconCircle({ children, color, size = 44 }: { children: React.ReactNode; color: string; size?: number }) {
     return (
-        <div style={{
-            flexShrink: 0, width: size, height: size, borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: `${color}1f`, color,
-        }}>
+        <div
+            className="flex shrink-0 items-center justify-center rounded-full"
+            style={{ width: size, height: size, backgroundColor: `${color}1f`, color }}
+        >
             {children}
         </div>
     );

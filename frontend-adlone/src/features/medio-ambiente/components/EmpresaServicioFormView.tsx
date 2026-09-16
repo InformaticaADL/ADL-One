@@ -1,19 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-    Typography,
-    Button,
-    Card,
-    Tabs,
-    Input,
-    InputNumber,
-    Select,
-    Spin,
-    Table,
-    Tag,
-    Tooltip,
-    Segmented
-} from 'antd';
-import {
     IconCheck,
     IconPlus,
     IconBuilding,
@@ -29,8 +15,15 @@ import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 
-const { Title, Text } = Typography;
-const { TextArea } = Input;
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface EmpresaServicioFormViewProps {
     onBack: () => void;
@@ -352,243 +345,22 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
         const isMandatory = MANDATORY_FIELDS.includes(col);
         return (
             <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                <Input
-                    placeholder={col}
-                    prefix={icon}
-                    value={formData[col] || ''}
-                    status={errors[col] ? 'error' : undefined}
-                    onChange={(e) => handleFieldChange(col, e.target.value)}
-                />
+                <div className="relative">
+                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2">{icon}</span>
+                    <Input
+                        placeholder={col}
+                        className={cn('pl-8', errors[col] && 'border-destructive focus-visible:ring-destructive')}
+                        value={formData[col] || ''}
+                        onChange={(e) => handleFieldChange(col, e.target.value)}
+                    />
+                </div>
             </FormField>
         );
     };
 
     if (view === 'form') {
-        const tabItems = [
-            {
-                key: 'general',
-                label: <span><IconBuilding size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Identificación y Ubicación</span>,
-                children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        <SectionHeading icon={<IconBuilding size={18} />} color="#0b7285" title="Identificación de la Empresa" subtitle="Datos legales, RUT y nombres comerciales de la prestadora." />
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-                            {sections.identificacion.map(col => {
-                                const isMandatory = MANDATORY_FIELDS.includes(col);
-                                if (col === 'resumenejecutivo') {
-                                    return (
-                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                                            <TextArea
-                                                placeholder="Resumen de servicios, alcances, etc."
-                                                autoSize={{ minRows: 4 }}
-                                                value={formData[col] || ''}
-                                                status={errors[col] ? 'error' : undefined}
-                                                onChange={(e) => handleFieldChange(col, e.target.value)}
-                                            />
-                                        </FormField>
-                                    );
-                                }
-                                return renderTextField(col, <IconBuilding size={16} style={{ color: 'var(--app-text-secondary)' }} />);
-                            })}
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
-
-                        <SectionHeading icon={<IconMapPin size={18} />} color="#1864ab" title="Ubicación y Direcciones" subtitle="Dirección casa matriz y sucursales comerciales." />
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-                            {sections.ubicacion.map(col => renderTextField(col, <IconMapPin size={16} style={{ color: 'var(--app-text-secondary)' }} />))}
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button icon={<IconArrowRight size={16} />} iconPosition="end" onClick={() => setActiveTab('contacto')}>
-                                Siguiente: Contacto
-                            </Button>
-                        </div>
-                    </div>
-                ),
-            },
-            {
-                key: 'contacto',
-                label: <span><IconMail size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Contacto y Facturación</span>,
-                children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        <SectionHeading icon={<IconMail size={18} />} color="#1864ab" title="Información de Contacto y Facturación" subtitle="Canales de comunicación directa y facturación electrónica." />
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-                            {sections.contacto.map(col => renderTextField(
-                                col,
-                                (col.includes('email') || col.includes('mail'))
-                                    ? <IconMail size={16} style={{ color: 'var(--app-text-secondary)' }} />
-                                    : <IconUser size={16} style={{ color: 'var(--app-text-secondary)' }} />
-                            ))}
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button icon={<IconArrowRight size={16} />} iconPosition="end" onClick={() => setActiveTab('legal')}>
-                                Siguiente: Legal
-                            </Button>
-                        </div>
-                    </div>
-                ),
-            },
-            {
-                key: 'legal',
-                label: <span><IconUser size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Legal y Configuración</span>,
-                children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        <SectionHeading icon={<IconUser size={18} />} color="#e8590c" title="Representante Legal" subtitle="Información del representante ante el sistema." />
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-                            {sections.legal.map(col => renderTextField(col, <IconUser size={16} style={{ color: 'var(--app-text-secondary)' }} />))}
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
-
-                        <SectionHeading icon={<IconBuilding size={18} />} color="#868e96" title="Configuración del Sistema" subtitle="Datos operativos y de login asociados." />
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-                            {sections.config.map(col => {
-                                const isMandatory = MANDATORY_FIELDS.includes(col);
-                                if (col === 'usr_login') {
-                                    return (
-                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                                            <Select
-                                                options={users}
-                                                showSearch
-                                                allowClear
-                                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                                placeholder={col}
-                                                value={formData[col] ? String(formData[col]) : undefined}
-                                                status={errors[col] ? 'error' : undefined}
-                                                onChange={(val) => handleFieldChange(col, val)}
-                                                style={{ width: '100%' }}
-                                            />
-                                        </FormField>
-                                    );
-                                }
-                                if (FLAG_FIELDS.includes(col)) {
-                                    return (
-                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                                            <Select
-                                                options={[
-                                                    { value: 'S', label: 'Sí / Activo' },
-                                                    { value: 'N', label: 'No / Inactivo' }
-                                                ]}
-                                                placeholder="Seleccione"
-                                                value={formData[col] || (col === 'habilitado' ? 'S' : 'N')}
-                                                status={errors[col] ? 'error' : undefined}
-                                                onChange={(val) => handleFieldChange(col, val)}
-                                                style={{ width: '100%' }}
-                                            />
-                                        </FormField>
-                                    );
-                                }
-                                return (
-                                    <FormField key={col} label={formatHeader(col)} error={errors[col]}>
-                                        <Input
-                                            placeholder={col}
-                                            prefix={<IconSettings size={16} style={{ color: 'var(--app-text-secondary)' }} />}
-                                            value={formData[col] || ''}
-                                            status={errors[col] ? 'error' : undefined}
-                                            onChange={(e) => handleFieldChange(col, e.target.value)}
-                                        />
-                                    </FormField>
-                                );
-                            })}
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                            <Button icon={<IconArrowRight size={16} />} iconPosition="end" onClick={() => setActiveTab('avanzado')}>
-                                Siguiente: Avanzado
-                            </Button>
-                        </div>
-                    </div>
-                ),
-            },
-            {
-                key: 'avanzado',
-                label: <span><IconSettings size={16} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Avanzado</span>,
-                children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                        <SectionHeading icon={<IconSettings size={18} />} color="#e03131" title="Configuración Avanzada e IDs" subtitle="Identificadores técnicos y parámetros de integración con otros módulos." />
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-                            {sections.avanzado.map(col => {
-                                const isMandatory = MANDATORY_FIELDS.includes(col);
-                                if (col === 'id_comuna' || col === 'id_comunaef') {
-                                    return (
-                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                                            <Select
-                                                options={comunas}
-                                                showSearch
-                                                allowClear
-                                                filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                                placeholder="Seleccione Comuna"
-                                                value={formData[col] ? String(formData[col]) : undefined}
-                                                status={errors[col] ? 'error' : undefined}
-                                                onChange={(val) => handleFieldChange(col, val ? Number(val) : null)}
-                                                style={{ width: '100%' }}
-                                            />
-                                        </FormField>
-                                    );
-                                }
-                                if (col === 'lote_facturacion') {
-                                    return (
-                                        <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                                            <Input
-                                                placeholder="Lote"
-                                                value={formData[col] || ''}
-                                                status={errors[col] ? 'error' : undefined}
-                                                onChange={(e) => handleFieldChange(col, e.target.value)}
-                                            />
-                                        </FormField>
-                                    );
-                                }
-                                return (
-                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                                        <InputNumber
-                                            placeholder="Sin asignar"
-                                            value={formData[col] === undefined || formData[col] === null ? undefined : formData[col]}
-                                            status={errors[col] ? 'error' : undefined}
-                                            onChange={(val) => handleFieldChange(col, val === null ? null : val)}
-                                            style={{ width: '100%' }}
-                                        />
-                                    </FormField>
-                                );
-                            })}
-                        </div>
-
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: '8px 0' }} />
-
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                            <Button onClick={() => setView('list')}>
-                                Cancelar
-                            </Button>
-                            <Button
-                                type="primary"
-                                style={{ backgroundColor: '#0b7285' }}
-                                onClick={handleSubmit}
-                                loading={loading}
-                                disabled={!isFormComplete()}
-                                icon={<IconCheck size={20} />}
-                            >
-                                {editingId ? 'Guardar Cambios' : 'Crear Empresa'}
-                            </Button>
-                        </div>
-                    </div>
-                ),
-            },
-        ];
-
         return (
-            <div>
+            <div className="shadcn-scope">
                 <PageHeader
                     title={editingId ? "Editar Empresa de Servicio" : "Crear Nueva Empresa"}
                     subtitle="Complete los datos de la empresa para habilitar sus servicios en el sistema."
@@ -600,52 +372,224 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                     ]}
                 />
 
-                <div style={{ padding: '24px 16px' }}>
-                    <Card style={{ borderRadius: 16 }}>
-                        <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
+                <div className="px-4 py-6">
+                    <Card className="p-5">
+                        <Tabs value={activeTab} onValueChange={setActiveTab}>
+                            <TabsList className="mb-6 flex-wrap">
+                                <TabsTrigger value="general"><IconBuilding size={16} className="mr-1.5" />Identificación y Ubicación</TabsTrigger>
+                                <TabsTrigger value="contacto"><IconMail size={16} className="mr-1.5" />Contacto y Facturación</TabsTrigger>
+                                <TabsTrigger value="legal"><IconUser size={16} className="mr-1.5" />Legal y Configuración</TabsTrigger>
+                                <TabsTrigger value="avanzado"><IconSettings size={16} className="mr-1.5" />Avanzado</TabsTrigger>
+                            </TabsList>
+
+                            <TabsContent value="general">
+                                <div className="flex flex-col gap-6">
+                                    <SectionHeading icon={<IconBuilding size={18} />} color="#0b7285" title="Identificación de la Empresa" subtitle="Datos legales, RUT y nombres comerciales de la prestadora." />
+
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
+                                        {sections.identificacion.map(col => {
+                                            const isMandatory = MANDATORY_FIELDS.includes(col);
+                                            if (col === 'resumenejecutivo') {
+                                                return (
+                                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                                        <Textarea
+                                                            placeholder="Resumen de servicios, alcances, etc."
+                                                            rows={4}
+                                                            className={cn(errors[col] && 'border-destructive focus-visible:ring-destructive')}
+                                                            value={formData[col] || ''}
+                                                            onChange={(e) => handleFieldChange(col, e.target.value)}
+                                                        />
+                                                    </FormField>
+                                                );
+                                            }
+                                            return renderTextField(col, <IconBuilding size={16} className="text-muted-foreground" />);
+                                        })}
+                                    </div>
+
+                                    <hr className="border-t border-border" />
+
+                                    <SectionHeading icon={<IconMapPin size={18} />} color="#1864ab" title="Ubicación y Direcciones" subtitle="Dirección casa matriz y sucursales comerciales." />
+
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
+                                        {sections.ubicacion.map(col => renderTextField(col, <IconMapPin size={16} className="text-muted-foreground" />))}
+                                    </div>
+
+                                    <hr className="border-t border-border" />
+
+                                    <div className="flex justify-end">
+                                        <Button onClick={() => setActiveTab('contacto')}>
+                                            Siguiente: Contacto <IconArrowRight size={16} />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="contacto">
+                                <div className="flex flex-col gap-6">
+                                    <SectionHeading icon={<IconMail size={18} />} color="#1864ab" title="Información de Contacto y Facturación" subtitle="Canales de comunicación directa y facturación electrónica." />
+
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
+                                        {sections.contacto.map(col => renderTextField(
+                                            col,
+                                            (col.includes('email') || col.includes('mail'))
+                                                ? <IconMail size={16} className="text-muted-foreground" />
+                                                : <IconUser size={16} className="text-muted-foreground" />
+                                        ))}
+                                    </div>
+
+                                    <hr className="border-t border-border" />
+
+                                    <div className="flex justify-end">
+                                        <Button onClick={() => setActiveTab('legal')}>
+                                            Siguiente: Legal <IconArrowRight size={16} />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="legal">
+                                <div className="flex flex-col gap-6">
+                                    <SectionHeading icon={<IconUser size={18} />} color="#e8590c" title="Representante Legal" subtitle="Información del representante ante el sistema." />
+
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
+                                        {sections.legal.map(col => renderTextField(col, <IconUser size={16} className="text-muted-foreground" />))}
+                                    </div>
+
+                                    <hr className="border-t border-border" />
+
+                                    <SectionHeading icon={<IconBuilding size={18} />} color="#868e96" title="Configuración del Sistema" subtitle="Datos operativos y de login asociados." />
+
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
+                                        {sections.config.map(col => {
+                                            const isMandatory = MANDATORY_FIELDS.includes(col);
+                                            if (col === 'usr_login') {
+                                                return (
+                                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                                        <Combobox
+                                                            options={users}
+                                                            placeholder={col}
+                                                            searchPlaceholder="Buscar usuario..."
+                                                            value={formData[col] ? String(formData[col]) : ''}
+                                                            onValueChange={(val) => handleFieldChange(col, val)}
+                                                        />
+                                                    </FormField>
+                                                );
+                                            }
+                                            if (FLAG_FIELDS.includes(col)) {
+                                                return (
+                                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                                        <Combobox
+                                                            options={[
+                                                                { value: 'S', label: 'Sí / Activo' },
+                                                                { value: 'N', label: 'No / Inactivo' }
+                                                            ]}
+                                                            placeholder="Seleccione"
+                                                            value={formData[col] || (col === 'habilitado' ? 'S' : 'N')}
+                                                            onValueChange={(val) => handleFieldChange(col, val)}
+                                                        />
+                                                    </FormField>
+                                                );
+                                            }
+                                            return (
+                                                <FormField key={col} label={formatHeader(col)} error={errors[col]}>
+                                                    <div className="relative">
+                                                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2">
+                                                            <IconSettings size={16} className="text-muted-foreground" />
+                                                        </span>
+                                                        <Input
+                                                            placeholder={col}
+                                                            className="pl-8"
+                                                            value={formData[col] || ''}
+                                                            onChange={(e) => handleFieldChange(col, e.target.value)}
+                                                        />
+                                                    </div>
+                                                </FormField>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <hr className="border-t border-border" />
+
+                                    <div className="flex justify-end">
+                                        <Button onClick={() => setActiveTab('avanzado')}>
+                                            Siguiente: Avanzado <IconArrowRight size={16} />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="avanzado">
+                                <div className="flex flex-col gap-6">
+                                    <SectionHeading icon={<IconSettings size={18} />} color="#e03131" title="Configuración Avanzada e IDs" subtitle="Identificadores técnicos y parámetros de integración con otros módulos." />
+
+                                    <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
+                                        {sections.avanzado.map(col => {
+                                            const isMandatory = MANDATORY_FIELDS.includes(col);
+                                            if (col === 'id_comuna' || col === 'id_comunaef') {
+                                                return (
+                                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                                        <Combobox
+                                                            options={comunas}
+                                                            placeholder="Seleccione Comuna"
+                                                            searchPlaceholder="Buscar comuna..."
+                                                            value={formData[col] ? String(formData[col]) : ''}
+                                                            onValueChange={(val) => handleFieldChange(col, val ? Number(val) : null)}
+                                                        />
+                                                    </FormField>
+                                                );
+                                            }
+                                            if (col === 'lote_facturacion') {
+                                                return (
+                                                    <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                                        <Input
+                                                            placeholder="Lote"
+                                                            className={cn(errors[col] && 'border-destructive focus-visible:ring-destructive')}
+                                                            value={formData[col] || ''}
+                                                            onChange={(e) => handleFieldChange(col, e.target.value)}
+                                                        />
+                                                    </FormField>
+                                                );
+                                            }
+                                            return (
+                                                <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
+                                                    <Input
+                                                        type="number"
+                                                        placeholder="Sin asignar"
+                                                        className={cn(errors[col] && 'border-destructive focus-visible:ring-destructive')}
+                                                        value={formData[col] === undefined || formData[col] === null ? '' : formData[col]}
+                                                        onChange={(e) => handleFieldChange(col, e.target.value === '' ? null : Number(e.target.value))}
+                                                    />
+                                                </FormField>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <hr className="border-t border-border" />
+
+                                    <div className="flex justify-end gap-3">
+                                        <Button variant="outline" onClick={() => setView('list')}>
+                                            Cancelar
+                                        </Button>
+                                        <Button
+                                            className="bg-[#0b7285] text-white hover:bg-[#0b7285]/90"
+                                            onClick={handleSubmit}
+                                            disabled={loading || !isFormComplete()}
+                                        >
+                                            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <IconCheck size={20} />}
+                                            {editingId ? 'Guardar Cambios' : 'Crear Empresa'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            </TabsContent>
+                        </Tabs>
                     </Card>
                 </div>
             </div>
         );
     }
 
-    const columns = [
-        {
-            title: 'Nombre', dataIndex: 'nombre_empresaservicios', key: 'nombre',
-            render: (v: string) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'nowrap' as const }}>
-                    <div style={{ width: 24, height: 24, borderRadius: 6, backgroundColor: 'rgba(9,143,131,0.12)', color: '#098f83', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <IconBuilding size={14} />
-                    </div>
-                    <Text strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{v}</Text>
-                </div>
-            ),
-        },
-        { title: 'Contacto', dataIndex: 'contacto_empresaservicios', key: 'contacto', render: (v: string) => <Text style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{v || '-'}</Text> },
-        {
-            title: 'Email', key: 'email',
-            render: (_: unknown, item: any) => <Text type="secondary" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{item.email_empresaservicios || item.email_contacto || '-'}</Text>,
-        },
-        {
-            title: 'Estado', key: 'estado', align: 'center' as const,
-            render: (_: unknown, item: any) => (
-                <Tag color={item.habilitado === 'S' ? 'green' : 'red'}>
-                    {item.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                </Tag>
-            ),
-        },
-        {
-            title: 'Acciones', key: 'acciones', align: 'right' as const,
-            render: (_: unknown, item: any) => (
-                <Tooltip title="Editar">
-                    <Button type="text" size="small" icon={<IconEdit size={16} />} onClick={() => handleEdit(item)} />
-                </Tooltip>
-            ),
-        },
-    ];
-
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title="Gestión de Empresas de Servicio"
                 subtitle="Administre el catálogo de proveedores de servicios de muestreo y terreno."
@@ -655,76 +599,121 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                     { label: 'Empresas de Servicio' }
                 ]}
                 rightSection={
-                    <Button
-                        icon={<IconPlus size={18} />}
-                        type="primary"
-                        style={{ backgroundColor: '#0b7285' }}
-                        onClick={handleCreate}
-                    >
-                        Nueva Empresa
+                    <Button className="bg-[#0b7285] text-white hover:bg-[#0b7285]/90" onClick={handleCreate}>
+                        <IconPlus size={18} /> Nueva Empresa
                     </Button>
                 }
             />
 
-            <div style={{ padding: '24px 16px' }}>
-                <Card style={{ borderRadius: 16 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
-                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', flex: 1 }}>
+            <div className="px-4 py-6">
+                <Card className="p-5">
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div className="flex flex-1 flex-wrap items-end gap-4">
                                 <FormField label="Búsqueda Rápida">
-                                    <Input
-                                        placeholder="Nombre, RUT, Email..."
-                                        prefix={<IconSearch size={16} style={{ color: 'var(--app-text-secondary)' }} />}
-                                        value={searchTerm}
-                                        onChange={(e) => setSearchTerm(e.target.value)}
-                                        style={{ width: 300 }}
-                                    />
+                                    <div className="relative w-[300px]">
+                                        <IconSearch size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                        <Input
+                                            className="pl-8"
+                                            placeholder="Nombre, RUT, Email..."
+                                            value={searchTerm}
+                                            onChange={(e) => setSearchTerm(e.target.value)}
+                                        />
+                                    </div>
                                 </FormField>
 
                                 <FormField label="Filtrar por Estado">
-                                    <Segmented
-                                        value={statusFilter}
-                                        onChange={(v) => setStatusFilter(v as string)}
-                                        options={[
+                                    <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
+                                        {[
                                             { label: 'Todos', value: 'ALL' },
                                             { label: 'Activos', value: 'S' },
                                             { label: 'Inactivos', value: 'N' },
-                                        ]}
-                                    />
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setStatusFilter(opt.value)}
+                                                className={cn(
+                                                    'rounded-[5px] px-3 py-1 text-sm font-medium transition-colors',
+                                                    statusFilter === opt.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                                )}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </FormField>
 
                                 <FormField label="Responsable">
-                                    <Select
-                                        options={users}
-                                        placeholder="Todos los responsables"
-                                        value={userFilter ?? undefined}
-                                        onChange={(v) => setUserFilter(v ?? null)}
-                                        allowClear
-                                        showSearch
-                                        filterOption={(input, option) => (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())}
-                                        style={{ width: 250 }}
-                                    />
+                                    <div className="w-[250px]">
+                                        <Combobox
+                                            options={users}
+                                            placeholder="Todos los responsables"
+                                            searchPlaceholder="Buscar responsable..."
+                                            value={userFilter ?? ''}
+                                            onValueChange={(v) => setUserFilter(v || null)}
+                                        />
+                                    </div>
                                 </FormField>
                             </div>
 
-                            <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px' }}>
-                                Total: {filteredData.length}
-                            </Tag>
+                            <Badge className="px-2.5 py-1 text-[13px]">Total: {filteredData.length}</Badge>
                         </div>
 
-                        <hr style={{ border: 'none', borderTop: '1px solid var(--app-border)', margin: 0 }} />
+                        <hr className="border-t border-border" />
 
-                        <Spin spinning={loading}>
-                            <Table
-                                dataSource={filteredData}
-                                columns={columns}
-                                rowKey="id_empresaservicio"
-                                pagination={false}
-                                size="middle"
-                                scroll={{ y: 620, x: 800 }}
-                                locale={{ emptyText: 'No se encontraron empresas' }}
-                            />
-                        </Spin>
+                        <div className="relative overflow-hidden rounded-lg">
+                            {loading && (
+                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                </div>
+                            )}
+                            <Table>
+                                <TableHeader>
+                                    <TableRow className="hover:bg-transparent">
+                                        <TableHead>Nombre</TableHead>
+                                        <TableHead>Contacto</TableHead>
+                                        <TableHead>Email</TableHead>
+                                        <TableHead className="text-center">Estado</TableHead>
+                                        <TableHead className="text-right">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredData.length === 0 ? (
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
+                                                No se encontraron empresas
+                                            </TableCell>
+                                        </TableRow>
+                                    ) : (
+                                        filteredData.map((item) => (
+                                            <TableRow key={item.id_empresaservicio}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2 whitespace-nowrap">
+                                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#098f83]/10 text-[#098f83]">
+                                                            <IconBuilding size={14} />
+                                                        </div>
+                                                        <span className="text-[13px] font-semibold">{item.nombre_empresaservicios}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="whitespace-nowrap text-[13px]">{item.contacto_empresaservicios || '-'}</TableCell>
+                                                <TableCell className="whitespace-nowrap text-[13px] text-muted-foreground">{item.email_empresaservicios || item.email_contacto || '-'}</TableCell>
+                                                <TableCell className="text-center">
+                                                    <Badge variant={item.habilitado === 'S' ? 'success' : 'destructive'}>
+                                                        {item.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => handleEdit(item)}>
+                                                        <IconEdit size={16} />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </div>
                 </Card>
             </div>
@@ -735,11 +724,11 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 function FormField({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: required ? '#1677ff' : 'var(--app-text-secondary)', fontWeight: required ? 600 : 400, display: 'block', marginBottom: 4 }}>
+            <span className={cn('mb-1 block text-xs', required ? 'font-semibold text-primary' : 'text-muted-foreground')}>
                 {label}{required ? ' *' : ''}
-            </Text>
+            </span>
             {children}
-            {error && <Text type="danger" style={{ fontSize: 11, display: 'block', marginTop: 2 }}>{error}</Text>}
+            {error && <span className="mt-0.5 block text-[11px] text-destructive">{error}</span>}
         </div>
     );
 }
@@ -747,13 +736,13 @@ function FormField({ label, required, error, children }: { label: string; requir
 function SectionHeading({ icon, color, title, subtitle }: { icon: React.ReactNode; color: string; title: string; subtitle: string }) {
     return (
         <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${color}1f`, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div className="mb-1 flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1f`, color }}>
                     {icon}
                 </div>
-                <Title level={4} style={{ margin: 0 }}>{title}</Title>
+                <h4 className="m-0 text-base font-semibold">{title}</h4>
             </div>
-            <Text type="secondary" style={{ fontSize: 13 }}>{subtitle}</Text>
+            <p className="text-[13px] text-muted-foreground">{subtitle}</p>
         </div>
     );
 }
