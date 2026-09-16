@@ -2,7 +2,7 @@ import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
-import { Segmented } from 'antd';
+import { cn } from '@/lib/utils';
 import { BaseTiles } from './BaseTiles';
 import { BASEMAPS, BASEMAP_STORAGE_KEY, leerBasemapGuardado } from '../utils/basemaps';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
@@ -284,22 +284,28 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
     };
 
     return (
-        <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+        <div className="shadcn-scope relative h-full w-full">
             {/* Selector de fondo de mapa. onMouseDown/onWheel stopPropagation para
                 que interactuar con el control no arrastre ni haga zoom en el mapa. */}
             <div
-                style={{ position: 'absolute', top: 8, right: 8, zIndex: 1000 }}
+                className="absolute right-2 top-2 z-[1000] flex gap-0.5 rounded-lg bg-white/95 p-0.5 shadow-md"
                 onMouseDown={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
             >
-                <Segmented
-                    size="small"
-                    value={basemapId}
-                    onChange={(v) => cambiarBasemap(v as string)}
-                    options={BASEMAPS.map((b) => ({ value: b.id, label: b.label }))}
-                    style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.25)', backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 8 }}
-                />
+                {BASEMAPS.map((b) => (
+                    <button
+                        key={b.id}
+                        type="button"
+                        onClick={() => cambiarBasemap(b.id)}
+                        className={cn(
+                            'rounded-md px-2 py-1 text-xs font-medium transition-colors',
+                            basemapId === b.id ? 'bg-primary text-primary-foreground' : 'text-gray-700 hover:bg-gray-100'
+                        )}
+                    >
+                        {b.label}
+                    </button>
+                ))}
             </div>
 
             <MapContainer center={CENTRO_DEFECTO} zoom={6} style={{ height: '100%', width: '100%' }}>

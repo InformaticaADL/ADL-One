@@ -1,11 +1,11 @@
-import { Typography, Input, Tag, Avatar } from 'antd';
 import { IconSearch } from '@tabler/icons-react';
 import { useEffect, useMemo, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { JornadaHoy } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 import { contarFichasCompletadas, siguienteFichaPendiente, distanciaKm } from '../utils/fichaHoyHelpers';
-
-const { Text } = Typography;
 
 interface FlotaPanelProps {
     jornadas: JornadaHoy[];
@@ -15,13 +15,13 @@ interface FlotaPanelProps {
 
 const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000; // 10 minutos, per diseño "Hoy en Vivo"
 
-function estadoDeJornada(jornada: JornadaHoy): { label: string; color: string } {
-    if (jornada.estado === 'pausada') return { label: 'En pausa', color: 'orange' };
-    if (jornada.estado === 'finalizada') return { label: 'Día finalizado', color: 'blue' };
-    if (!jornada.ultima_posicion) return { label: 'Sin posición', color: 'default' };
+function estadoDeJornada(jornada: JornadaHoy): { label: string; variant: 'success' | 'warning' | 'default' | 'outline' } {
+    if (jornada.estado === 'pausada') return { label: 'En pausa', variant: 'warning' };
+    if (jornada.estado === 'finalizada') return { label: 'Día finalizado', variant: 'default' };
+    if (!jornada.ultima_posicion) return { label: 'Sin posición', variant: 'outline' };
     const msDesdeUltimoPing = Date.now() - new Date(jornada.ultima_posicion.timestamp_reporte).getTime();
-    if (msDesdeUltimoPing > UMBRAL_SIN_SENAL_MS) return { label: 'Sin señal', color: 'default' };
-    return { label: 'En ruta', color: 'green' };
+    if (msDesdeUltimoPing > UMBRAL_SIN_SENAL_MS) return { label: 'Sin señal', variant: 'outline' };
+    return { label: 'En ruta', variant: 'success' };
 }
 
 function tiempoRelativo(fechaIso: string): string {
@@ -52,28 +52,30 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
     );
 
     return (
-        <div style={{ width: 280, borderRight: '1px solid var(--app-border)', display: 'flex', flexDirection: 'column', height: '100%' }}>
-            <div style={{ padding: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <Text strong style={{ fontSize: 13 }}>Hoy en vivo</Text>
-                    <Tag style={{ marginInlineEnd: 0 }}>
+        <div className="shadcn-scope flex h-full w-[280px] flex-col border-r border-border">
+            <div className="p-3">
+                <div className="mb-2 flex items-center justify-between">
+                    <span className="text-[13px] font-semibold text-foreground">Hoy en vivo</span>
+                    <Badge variant="secondary">
                         {jornadas.filter((j) => j.estado === 'en_ruta').length} en terreno
-                    </Tag>
+                    </Badge>
                 </div>
-                <Input
-                    placeholder="Buscar muestreador..."
-                    size="small"
-                    prefix={<IconSearch size={14} style={{ color: 'var(--app-text-secondary)' }} />}
-                    value={busqueda}
-                    onChange={(e) => setBusqueda(e.target.value)}
-                />
+                <div className="relative">
+                    <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar muestreador..."
+                        className="h-8 pl-8 text-sm"
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                    />
+                </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 12, paddingTop: 0 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div className="flex-1 overflow-y-auto p-3 pt-0">
+                <div className="flex flex-col gap-2">
                     {jornadasFiltradas.length === 0 && (
-                        <Text type="secondary" style={{ fontSize: 13, textAlign: 'center', marginTop: 16 }}>
+                        <p className="mt-4 text-center text-[13px] text-muted-foreground">
                             No hay muestreadores en terreno en este momento.
-                        </Text>
+                        </p>
                     )}
                     {jornadasFiltradas.map((j) => {
                         const estado = estadoDeJornada(j);
@@ -82,30 +84,28 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                             <button
                                 key={j.id_muestreador}
                                 onClick={() => onSelectMuestreador(j.id_muestreador)}
-                                style={{
-                                    padding: 8,
-                                    borderRadius: 8,
-                                    border: `1px solid ${seleccionada ? '#1677ff' : 'var(--app-border)'}`,
-                                    backgroundColor: seleccionada ? 'var(--app-accent-bg)' : 'transparent',
-                                    textAlign: 'left',
-                                    cursor: 'pointer',
-                                    width: '100%',
-                                }}
+                                className={cn(
+                                    'w-full rounded-lg border p-2 text-left',
+                                    seleccionada ? 'border-primary bg-accent' : 'border-border bg-transparent'
+                                )}
                             >
                                 {/* Sin truncate ni nowrap a propósito: un nombre largo o el
                                     label "Día finalizado" terminaban cortados en "..." al
                                     forzarlos a compartir una sola línea angosta. Se prefiere
                                     que la card crezca en alto antes que recortar texto. */}
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'nowrap', marginBottom: 4 }}>
-                                    <Avatar size={22} style={{ backgroundColor: colorPorMuestreador(j.id_muestreador), flexShrink: 0, marginTop: 1, fontSize: 10, fontWeight: 700 }}>
+                                <div className="mb-1 flex flex-nowrap items-start gap-2">
+                                    <span
+                                        className="mt-px flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white"
+                                        style={{ backgroundColor: colorPorMuestreador(j.id_muestreador) }}
+                                    >
                                         {inicialesDe(j.nombre_muestreador)}
-                                    </Avatar>
-                                    <Text strong style={{ fontSize: 13, flex: 1 }}>{j.nombre_muestreador}</Text>
+                                    </span>
+                                    <span className="flex-1 text-[13px] font-semibold text-foreground">{j.nombre_muestreador}</span>
                                 </div>
-                                <Tag color={estado.color} style={{ marginBottom: 4, marginInlineEnd: 0 }}>
+                                <Badge variant={estado.variant} className="mb-1">
                                     {estado.label}
-                                </Tag>
-                                <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                                </Badge>
+                                <span className="block text-xs text-muted-foreground">
                                     {j.estado !== 'en_ruta'
                                         ? (() => {
                                               const { completadas, total } = contarFichasCompletadas(j.fichas_hoy);
@@ -116,7 +116,7 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                         leerse como "estuvo activo/moviéndose en esos segundos"; es
                                         solo hace cuánto llegó el último ping GPS, se mueva o no. */}
                                     {j.estado === 'en_ruta' && j.ultima_posicion && ` · última señal ${tiempoRelativo(j.ultima_posicion.timestamp_reporte)}`}
-                                </Text>
+                                </span>
                                 {/* Distancia en línea recta a la próxima ficha pendiente — no
                                     es ruta real por calle (no hay motor de ruteo acá), pero le
                                     da al supervisor una idea de "qué tan cerca está" sin tener
@@ -130,9 +130,9 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                         { lat: Number(siguiente.ubicacion_lat), lon: Number(siguiente.ubicacion_lon) }
                                     );
                                     return (
-                                        <Text style={{ fontSize: 12, color: '#1677ff', display: 'block', marginTop: 2 }}>
+                                        <span className="mt-0.5 block text-xs text-primary">
                                             {dist < 1 ? `${Math.round(dist * 1000)} m` : `${dist.toFixed(1)} km`} a {siguiente.centro || 'la próxima ficha'}
-                                        </Text>
+                                        </span>
                                     );
                                 })()}
                             </button>

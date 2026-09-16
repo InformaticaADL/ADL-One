@@ -1,9 +1,7 @@
 import { useEffect } from 'react';
-import { Typography } from 'antd';
 import { IconPlayerPlay } from '@tabler/icons-react';
 import { useTrackingStore } from '../../../store/trackingStore';
 
-const { Text } = Typography;
 const DURACION_MS = 6_000;
 
 // Toast efímero propio de esta pantalla — se posiciona fijo arriba a la
@@ -24,32 +22,14 @@ export function AvisoNuevaJornada() {
     return (
         <div
             key={avisoJornadaIniciada.id}
-            style={{
-                position: 'absolute',
-                top: 16,
-                right: 16,
-                zIndex: 1000,
-                maxWidth: 320,
-                padding: 12,
-                borderRadius: 10,
-                border: '1px solid var(--app-border)',
-                backgroundColor: 'var(--app-bg-elevated)',
-                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-            }}
+            className="shadcn-scope absolute right-4 top-4 z-[1000] flex max-w-[320px] items-center gap-2 rounded-[10px] border border-border bg-card p-3 shadow-lg"
         >
-            <div style={{
-                flexShrink: 0, width: 28, height: 28, borderRadius: '50%',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: 'rgba(47,158,68,0.15)', color: '#2f9e44',
-            }}>
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
                 <IconPlayerPlay size={14} />
             </div>
-            <Text style={{ fontSize: 13 }}>
+            <span className="text-[13px] text-foreground">
                 <strong>{avisoJornadaIniciada.nombreMuestreador}</strong> ha iniciado su ruta
-            </Text>
+            </span>
         </div>
     );
 }

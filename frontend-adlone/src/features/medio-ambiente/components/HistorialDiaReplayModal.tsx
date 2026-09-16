@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
-import { Modal, Typography, Spin, Timeline, Tag } from 'antd';
 import { IconMapPin, IconClockHour4 } from '@tabler/icons-react';
 import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import { BaseTiles } from './BaseTiles';
 import L from 'leaflet';
 import dayjs from 'dayjs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+import { Timeline } from '@/components/ui/timeline';
 import { trackingService, type HistorialDiaDetalle, type FichaVisitadaDia } from '../services/tracking.service';
-
-const { Text } = Typography;
 
 interface HistorialDiaReplayModalProps {
     opened: boolean;
@@ -74,83 +74,80 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
     const puntos: [number, number][] = fichas.map((f) => [f.lat, f.lon]);
 
     return (
-        <Modal
-            open={opened}
-            onCancel={onClose}
-            footer={null}
-            width={860}
-            title={
-                <div>
-                    <Text strong style={{ display: 'block' }}>{nombreMuestreador}</Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>{dia ? dayjs(dia).format('DD/MM/YYYY') : ''}</Text>
-                </div>
-            }
-        >
-            {loading && (
-                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin />
-                </div>
-            )}
+        <Dialog open={opened} onOpenChange={(next) => { if (!next) onClose(); }}>
+            <DialogContent className="shadcn-scope max-w-[860px]">
+                <DialogHeader>
+                    <DialogTitle>{nombreMuestreador}</DialogTitle>
+                    <span className="text-xs text-muted-foreground">{dia ? dayjs(dia).format('DD/MM/YYYY') : ''}</span>
+                </DialogHeader>
 
-            {!loading && error && (
-                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text type="danger">{error}</Text>
-                </div>
-            )}
-
-            {!loading && !error && fichas.length === 0 && (
-                <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>Sin fichas con visita confirmada este día.</Text>
-                </div>
-            )}
-
-            {!loading && !error && fichas.length > 0 && (
-                <div style={{ display: 'flex', gap: 16, height: 420 }}>
-                    <div style={{ flex: 2, borderRadius: 8, overflow: 'hidden' }}>
-                        <MapContainer center={puntos[0]} zoom={13} style={{ height: '100%', width: '100%' }}>
-                            <BaseTiles />
-                            <AjustarBounds puntos={puntos} />
-                            {/* Línea recta entre visitas confirmadas — a propósito NO es
-                                el trazo GPS real, que expondría cada calle por la que pasó
-                                el muestreador entre una ficha y otra (incluyendo trayectos
-                                personales). Solo conecta los puntos de trabajo verificados. */}
-                            <Polyline positions={puntos} pathOptions={{ color: '#228be6', weight: 3, dashArray: '6 8' }} />
-                            {fichas.map((f, idx) => (
-                                <Marker key={`${f.id_agendamam}-${f.tipo}`} position={[f.lat, f.lon]} icon={crearIconoNumerado(idx + 1)}>
-                                    <Popup>
-                                        <strong>{f.nombre_centro}</strong>
-                                        <br />
-                                        {f.nombre_empresa}
-                                        <br />
-                                        {f.tipo === 'instalacion' ? 'Instalación' : 'Retiro'} · {dayjs(f.hora).format('HH:mm')}
-                                    </Popup>
-                                </Marker>
-                            ))}
-                        </MapContainer>
+                {loading && (
+                    <div className="flex h-[300px] items-center justify-center">
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                     </div>
-                    <div style={{ flex: 1, overflowY: 'auto' }}>
-                        <Timeline
-                            items={fichas.map((f, idx) => ({
-                                key: `${f.id_agendamam}-${f.tipo}`,
-                                dot: <Text strong style={{ fontSize: 12 }}>{idx + 1}</Text>,
-                                children: (
-                                    <div>
-                                        <Text strong style={{ fontSize: 13, display: 'block' }}>{f.nombre_centro}</Text>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>{f.nombre_empresa}</Text>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-                                            <IconClockHour4 size={13} />
-                                            <Text style={{ fontSize: 12 }}>{dayjs(f.hora).format('HH:mm')}</Text>
-                                            <Tag color={f.tipo === 'instalacion' ? 'blue' : 'orange'} icon={<IconMapPin size={10} style={{ verticalAlign: 'text-bottom' }} />}>
-                                                {f.tipo === 'instalacion' ? 'Instalación' : 'Retiro'}
-                                            </Tag>
+                )}
+
+                {!loading && error && (
+                    <div className="flex h-[300px] items-center justify-center">
+                        <span className="text-destructive">{error}</span>
+                    </div>
+                )}
+
+                {!loading && !error && fichas.length === 0 && (
+                    <div className="flex h-[300px] items-center justify-center">
+                        <span className="text-sm text-muted-foreground">Sin fichas con visita confirmada este día.</span>
+                    </div>
+                )}
+
+                {!loading && !error && fichas.length > 0 && (
+                    <div className="flex h-[420px] gap-4">
+                        <div className="flex-[2] overflow-hidden rounded-lg">
+                            <MapContainer center={puntos[0]} zoom={13} style={{ height: '100%', width: '100%' }}>
+                                <BaseTiles />
+                                <AjustarBounds puntos={puntos} />
+                                {/* Línea recta entre visitas confirmadas — a propósito NO es
+                                    el trazo GPS real, que expondría cada calle por la que pasó
+                                    el muestreador entre una ficha y otra (incluyendo trayectos
+                                    personales). Solo conecta los puntos de trabajo verificados. */}
+                                <Polyline positions={puntos} pathOptions={{ color: '#228be6', weight: 3, dashArray: '6 8' }} />
+                                {fichas.map((f, idx) => (
+                                    <Marker key={`${f.id_agendamam}-${f.tipo}`} position={[f.lat, f.lon]} icon={crearIconoNumerado(idx + 1)}>
+                                        <Popup>
+                                            <strong>{f.nombre_centro}</strong>
+                                            <br />
+                                            {f.nombre_empresa}
+                                            <br />
+                                            {f.tipo === 'instalacion' ? 'Instalación' : 'Retiro'} · {dayjs(f.hora).format('HH:mm')}
+                                        </Popup>
+                                    </Marker>
+                                ))}
+                            </MapContainer>
+                        </div>
+                        <div className="flex-1 overflow-y-auto">
+                            <Timeline
+                                items={fichas.map((f, idx) => ({
+                                    key: `${f.id_agendamam}-${f.tipo}`,
+                                    dot: <span className="text-xs font-semibold text-foreground">{idx + 1}</span>,
+                                    content: (
+                                        <div>
+                                            <span className="block text-[13px] font-semibold text-foreground">{f.nombre_centro}</span>
+                                            <span className="text-xs text-muted-foreground">{f.nombre_empresa}</span>
+                                            <div className="mt-1 flex items-center gap-1.5">
+                                                <IconClockHour4 size={13} />
+                                                <span className="text-xs text-foreground">{dayjs(f.hora).format('HH:mm')}</span>
+                                                <Badge variant={f.tipo === 'instalacion' ? 'default' : 'warning'} className="gap-1">
+                                                    <IconMapPin size={10} />
+                                                    {f.tipo === 'instalacion' ? 'Instalación' : 'Retiro'}
+                                                </Badge>
+                                            </div>
                                         </div>
-                                    </div>
-                                ),
-                            }))}
-                        />
+                                    ),
+                                }))}
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
-        </Modal>
+                )}
+            </DialogContent>
+        </Dialog>
     );
 }

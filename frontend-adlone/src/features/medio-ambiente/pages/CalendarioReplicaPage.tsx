@@ -1,7 +1,12 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { adminService } from '../../../services/admin.service';
 import { FichaUniversalView } from '../components/FichaUniversalView';
-import { Typography, Button, Select, Input, Tooltip, Card, Spin, Tag } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
+import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconChevronLeft,
@@ -10,8 +15,6 @@ import {
     IconFilter,
     IconInfoCircle
 } from '@tabler/icons-react';
-
-const { Title, Text } = Typography;
 
 interface Props {
     onBack: () => void;
@@ -119,7 +122,7 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
 
     if (selectedFichaId) {
         return (
-            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'var(--app-bg-elevated)', zIndex: 1000, padding: 0 }}>
+            <div className="shadcn-scope fixed inset-0 z-[1000] bg-card p-0">
                 <FichaUniversalView
                     fichaId={selectedFichaId}
                     onBack={() => setSelectedFichaId(null)}
@@ -129,95 +132,94 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
     }
 
     return (
-        <div style={{ padding: '16px 0', width: '100%' }}>
-            <Card style={{ borderRadius: 16 }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-                        <Button
-                            type="text"
-                            size={isMobile ? 'small' : 'middle'}
-                            icon={<IconArrowLeft size={isMobile ? 16 : 20} />}
-                            onClick={onBack}
-                        >
+        <div className="shadcn-scope w-full py-4">
+            <Card className="rounded-2xl">
+                <div className="flex flex-col gap-6 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        <Button variant="ghost" size={isMobile ? 'sm' : 'default'} onClick={onBack}>
+                            <IconArrowLeft size={isMobile ? 16 : 20} />
                             {isMobile ? 'Volver' : 'Volver a Medio Ambiente'}
                         </Button>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: isMobile ? '1 1 100%' : 'auto', order: isMobile ? 3 : 2 }}>
+                        <div className={cn('flex flex-col items-center', isMobile ? 'order-3 flex-[1_1_100%]' : 'order-2')}>
                             {!isMobile && (
                                 <>
-                                    <Title level={2} style={{ margin: 0, fontWeight: 800, color: '#1864ab' }}>Calendario de Terreno</Title>
-                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
-                                        <Button type="text" shape="circle" icon={<IconChevronLeft size={20} />} onClick={prevMonth} />
-                                        <Text strong style={{ fontSize: 16, width: 180, textAlign: 'center', textTransform: 'capitalize' }}>
+                                    <h2 className="m-0 text-2xl font-extrabold text-primary">Calendario de Terreno</h2>
+                                    <div className="mt-2 flex items-center gap-2">
+                                        <Button variant="ghost" size="icon" className="rounded-full" onClick={prevMonth}>
+                                            <IconChevronLeft size={20} />
+                                        </Button>
+                                        <span className="w-[180px] text-center text-base font-semibold capitalize text-foreground">
                                             {formattedMonth}
-                                        </Text>
-                                        <Button type="text" shape="circle" icon={<IconChevronRight size={20} />} onClick={nextMonth} />
+                                        </span>
+                                        <Button variant="ghost" size="icon" className="rounded-full" onClick={nextMonth}>
+                                            <IconChevronRight size={20} />
+                                        </Button>
                                     </div>
                                 </>
                             )}
-                            {isMobile && <Title level={4} style={{ margin: 0, fontWeight: 800, color: '#1864ab' }}>Calendario de Terreno</Title>}
+                            {isMobile && <h4 className="m-0 text-lg font-extrabold text-primary">Calendario de Terreno</h4>}
                         </div>
                         <Button
-                            type={showFilters ? 'primary' : 'default'}
-                            size={isMobile ? 'small' : 'middle'}
-                            icon={<IconFilter size={18} />}
+                            variant={showFilters ? 'default' : 'outline'}
+                            size={isMobile ? 'sm' : 'default'}
+                            className={isMobile ? 'order-2' : 'order-3'}
                             onClick={() => setShowFilters(!showFilters)}
-                            style={{ order: isMobile ? 2 : 3 }}
                         >
+                            <IconFilter size={18} />
                             Filtros
                         </Button>
                     </div>
 
                     {showFilters && (
-                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                        <Card className="bg-muted/40 p-4">
+                            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                                 <Field label="Buscar">
                                     <Input
                                         placeholder="Nombre, ficha..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        size="small"
+                                        className="h-8 text-sm"
                                     />
                                 </Field>
                                 <Field label="Día">
-                                    <Select
+                                    <Combobox
                                         placeholder="Todos"
+                                        searchPlaceholder="Buscar día..."
                                         options={Array.from({ length: 31 }, (_, i) => ({ value: String(i + 1), label: `Día ${i + 1}` }))}
-                                        value={searchDay ?? undefined}
-                                        onChange={setSearchDay}
-                                        size="small"
-                                        allowClear
-                                        style={{ width: '100%' }}
+                                        value={searchDay ?? ''}
+                                        onValueChange={(v) => setSearchDay(v || null)}
                                     />
                                 </Field>
                                 <Field label="Empresa">
-                                    <Select
+                                    <Combobox
                                         placeholder="Todas"
+                                        searchPlaceholder="Buscar empresa..."
                                         options={empresas.map(e => ({ value: e, label: e }))}
-                                        value={selectedEmpresa || undefined}
-                                        onChange={(v) => { setSelectedEmpresa(v || ''); setSelectedFuente(''); }}
-                                        size="small"
-                                        allowClear
-                                        style={{ width: '100%' }}
+                                        value={selectedEmpresa}
+                                        onValueChange={(v) => { setSelectedEmpresa(v || ''); setSelectedFuente(''); }}
                                     />
                                 </Field>
                                 <Field label="Fuente">
-                                    <Select
+                                    <Combobox
                                         placeholder="Todas"
+                                        searchPlaceholder="Buscar fuente..."
                                         options={fuentes.map(f => ({ value: f, label: f }))}
-                                        value={selectedFuente || undefined}
-                                        onChange={(v) => setSelectedFuente(v || '')}
-                                        size="small"
-                                        allowClear
-                                        style={{ width: '100%' }}
+                                        value={selectedFuente}
+                                        onValueChange={(v) => setSelectedFuente(v || '')}
                                     />
                                 </Field>
-                                <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                                    <Button block type="text" size="small" onClick={() => {
-                                        setSearchTerm('');
-                                        setSearchDay(null);
-                                        setSelectedEmpresa('');
-                                        setSelectedFuente('');
-                                    }}>
+                                <div className="flex items-end">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="w-full"
+                                        onClick={() => {
+                                            setSearchTerm('');
+                                            setSearchDay(null);
+                                            setSelectedEmpresa('');
+                                            setSelectedFuente('');
+                                        }}
+                                    >
                                         Limpiar Filtros
                                     </Button>
                                 </div>
@@ -225,26 +227,23 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                         </Card>
                     )}
 
-                    <div style={{ position: 'relative', minHeight: 400 }}>
+                    <div className="relative min-h-[400px]">
                         {isLoading && (
-                            <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,255,255,0.7)', zIndex: 10, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                                <Spin />
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/70">
+                                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                             </div>
                         )}
 
                         {!isMobile ? (
-                            <div style={{
-                                display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 1,
-                                backgroundColor: 'var(--app-border)', border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'hidden',
-                            }}>
+                            <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-border bg-border">
                                 {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(dayName => (
-                                    <div key={dayName} style={{ padding: 8, backgroundColor: 'var(--app-hover-bg)', display: 'flex', justifyContent: 'center' }}>
-                                        <Text strong style={{ fontSize: 13, color: 'var(--app-text-secondary)' }}>{dayName}</Text>
+                                    <div key={dayName} className="flex justify-center bg-muted/50 p-2">
+                                        <span className="text-[13px] font-semibold text-muted-foreground">{dayName}</span>
                                     </div>
                                 ))}
 
                                 {calendarCells.map((day, idx) => {
-                                    if (day === null) return <div key={`empty-${idx}`} style={{ backgroundColor: 'var(--app-hover-bg)', minHeight: 120 }} />;
+                                    if (day === null) return <div key={`empty-${idx}`} className="min-h-[120px] bg-muted/50" />;
 
                                     const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
@@ -266,49 +265,35 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                     return (
                                         <div
                                             key={day}
-                                            style={{
-                                                padding: 8,
-                                                backgroundColor: isToday ? 'var(--app-accent-bg)' : 'var(--app-bg-elevated)',
-                                                minHeight: 120,
-                                                borderTop: '1px solid var(--app-border)',
-                                                borderLeft: idx % 7 !== 0 ? '1px solid var(--app-border)' : 'none',
-                                                filter: isPastMonth ? 'grayscale(0.4) opacity(0.8)' : 'none',
-                                                transition: 'all 0.2s',
-                                                ...(isToday ? { border: '2px solid #4dabf7', zIndex: 1 } : {})
-                                            }}
+                                            className={cn(
+                                                'min-h-[120px] border-t border-border p-2',
+                                                idx % 7 !== 0 && 'border-l',
+                                                isPastMonth ? 'opacity-80 grayscale-[0.4]' : '',
+                                                isToday ? 'z-[1] border-2 border-sky-400 bg-accent' : 'bg-card'
+                                            )}
                                         >
-                                            <Text strong style={{ fontSize: 13, color: isToday ? '#1864ab' : 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>
+                                            <span className={cn('mb-1 block text-[13px] font-semibold', isToday ? 'text-primary' : 'text-muted-foreground')}>
                                                 {day}
-                                            </Text>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                            </span>
+                                            <div className="flex flex-col gap-1">
                                                 {dayEvents.map((ev, eIdx) => {
                                                     const empresa = ev.nombre_empresa || '';
                                                     const colors = companyColorMap[empresa] || { bg: '#f1f3f5', text: '#495057' };
                                                     return (
-                                                        <Tooltip
+                                                        <div
                                                             key={`${day}-${eIdx}`}
-                                                            title={<>{empresa} - {ev.nombre_fuenteemisora}<br />Obj: {ev.nombre_objetivomuestreo_ma || '-'}</>}
+                                                            title={`${empresa} - ${ev.nombre_fuenteemisora}\nObj: ${ev.nombre_objetivomuestreo_ma || '-'}`}
+                                                            className="cursor-pointer overflow-hidden rounded px-1.5 py-0.5"
+                                                            style={{ backgroundColor: colors.bg, borderLeft: `3px solid ${colors.text}` }}
+                                                            onClick={() => setSelectedFichaId(ev.id_fichaingresoservicio)}
                                                         >
-                                                            <div
-                                                                style={{
-                                                                    padding: '2px 6px',
-                                                                    backgroundColor: colors.bg,
-                                                                    cursor: 'pointer',
-                                                                    borderRadius: 4,
-                                                                    borderLeft: `3px solid ${colors.text}`,
-                                                                    overflow: 'hidden',
-                                                                }}
-                                                                onClick={() => setSelectedFichaId(ev.id_fichaingresoservicio)}
+                                                            <span
+                                                                title={ev.nombre_fuenteemisora || ''}
+                                                                className="block overflow-hidden text-ellipsis whitespace-nowrap text-[10px] font-semibold text-slate-800"
                                                             >
-                                                                <Text
-                                                                    strong
-                                                                    title={ev.nombre_fuenteemisora || ''}
-                                                                    style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }}
-                                                                >
-                                                                    {ev.nombre_fuenteemisora || 'S/F'}
-                                                                </Text>
-                                                            </div>
-                                                        </Tooltip>
+                                                                {ev.nombre_fuenteemisora || 'S/F'}
+                                                            </span>
+                                                        </div>
                                                     );
                                                 })}
                                             </div>
@@ -317,19 +302,23 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                 })}
                             </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Button type="text" shape="circle" icon={<IconChevronLeft size={20} />} onClick={prevMonth} />
-                                        <Text strong style={{ fontSize: 16, textTransform: 'capitalize', color: '#1864ab' }}>
+                            <div className="flex flex-col gap-4">
+                                <Card className="bg-accent p-3">
+                                    <div className="flex items-center justify-between">
+                                        <Button variant="ghost" size="icon" className="rounded-full" onClick={prevMonth}>
+                                            <IconChevronLeft size={20} />
+                                        </Button>
+                                        <span className="text-base font-semibold capitalize text-primary">
                                             {formattedMonth}
-                                        </Text>
-                                        <Button type="text" shape="circle" icon={<IconChevronRight size={20} />} onClick={nextMonth} />
+                                        </span>
+                                        <Button variant="ghost" size="icon" className="rounded-full" onClick={nextMonth}>
+                                            <IconChevronRight size={20} />
+                                        </Button>
                                     </div>
                                 </Card>
 
-                                <div style={{ overflowX: 'auto' }}>
-                                    <div style={{ display: 'flex', flexWrap: 'nowrap', gap: 8, paddingBottom: 8 }}>
+                                <div className="overflow-x-auto">
+                                    <div className="flex flex-nowrap gap-2 pb-2">
                                         {Array.from({ length: daysInMonth }, (_, i) => i + 1).map(day => {
                                             const hasEvents = dbData.some(ev => ev.dia === day);
                                             const isSelected = selectedDayMobile === day;
@@ -340,25 +329,17 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                                 <div
                                                     key={day}
                                                     onClick={() => setSelectedDayMobile(day)}
-                                                    style={{
-                                                        cursor: 'pointer',
-                                                        minWidth: 55,
-                                                        textAlign: 'center',
-                                                        borderRadius: 12,
-                                                        border: `1px solid ${isSelected ? '#4dabf7' : 'var(--app-border)'}`,
-                                                        backgroundColor: isSelected ? 'var(--app-accent-bg)' : isToday ? 'var(--app-hover-bg)' : 'var(--app-bg-elevated)',
-                                                        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                                        transform: isSelected ? 'scale(1.05)' : 'none',
-                                                        boxShadow: isSelected ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
-                                                        padding: 8,
-                                                    }}
+                                                    className={cn(
+                                                        'min-w-[55px] cursor-pointer rounded-xl border p-2 text-center transition-transform',
+                                                        isSelected ? 'scale-105 border-sky-400 bg-accent shadow-sm' : isToday ? 'border-border bg-muted/50' : 'border-border bg-card'
+                                                    )}
                                                 >
-                                                    <Text style={{ fontSize: 10, color: isSelected ? '#1864ab' : 'var(--app-text-secondary)', fontWeight: 700, textTransform: 'uppercase', display: 'block' }}>
+                                                    <span className={cn('block text-[10px] font-bold uppercase', isSelected ? 'text-primary' : 'text-muted-foreground')}>
                                                         {new Intl.DateTimeFormat('es-CL', { weekday: 'short' }).format(dateObj)}
-                                                    </Text>
-                                                    <Text style={{ fontWeight: 900, fontSize: 16, color: isSelected ? '#1864ab' : 'var(--app-text)', display: 'block' }}>{day}</Text>
+                                                    </span>
+                                                    <span className={cn('block text-base font-black', isSelected ? 'text-primary' : 'text-foreground')}>{day}</span>
                                                     {hasEvents && (
-                                                        <div style={{ height: 5, width: 5, backgroundColor: isSelected ? '#1864ab' : '#74c0fc', borderRadius: '50%', margin: '4px auto 0' }} />
+                                                        <span className={cn('mx-auto mt-1 block h-[5px] w-[5px] rounded-full', isSelected ? 'bg-primary' : 'bg-sky-300')} />
                                                     )}
                                                 </div>
                                             );
@@ -366,21 +347,21 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                     </div>
                                 </div>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-                                        <Text strong style={{ fontSize: 15, color: '#1864ab' }}>Servicios del Día {selectedDayMobile}</Text>
-                                        <Tag color="blue">{dbData.filter(ev => ev.dia === selectedDayMobile).length} Servicios</Tag>
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center justify-between px-1">
+                                        <span className="text-[15px] font-semibold text-primary">Servicios del Día {selectedDayMobile}</span>
+                                        <Badge variant="default">{dbData.filter(ev => ev.dia === selectedDayMobile).length} Servicios</Badge>
                                     </div>
 
                                     {dbData.filter(ev => ev.dia === selectedDayMobile).length === 0 ? (
-                                        <Card size="small" style={{ backgroundColor: 'var(--app-hover-bg)', borderStyle: 'dashed' }}>
-                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 16 }}>
-                                                <IconInfoCircle size={40} color="var(--app-text-secondary)" />
-                                                <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>No hay servicios programados para esta fecha</Text>
+                                        <Card className="border-dashed bg-muted/50 p-4">
+                                            <div className="flex flex-col items-center gap-2">
+                                                <IconInfoCircle size={40} className="text-muted-foreground" />
+                                                <span className="text-[13px] font-medium text-muted-foreground">No hay servicios programados para esta fecha</span>
                                             </div>
                                         </Card>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                        <div className="flex flex-col gap-3">
                                             {dbData.filter(ev => {
                                                 if (ev.dia !== selectedDayMobile) return false;
                                                 if (selectedEmpresa && ev.nombre_empresa !== selectedEmpresa) return false;
@@ -397,29 +378,24 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                                 return (
                                                     <Card
                                                         key={eIdx}
-                                                        size="small"
                                                         onClick={() => setSelectedFichaId(ev.id_fichaingresoservicio)}
-                                                        style={{
-                                                            borderRadius: 12,
-                                                            borderLeft: `6px solid ${colors.text}`,
-                                                            cursor: 'pointer',
-                                                            background: `linear-gradient(to right, ${colors.bg}0A, var(--app-bg-elevated))`
-                                                        }}
+                                                        className="cursor-pointer rounded-xl p-3"
+                                                        style={{ borderLeft: `6px solid ${colors.text}`, background: `linear-gradient(to right, ${colors.bg}0A, var(--sc-card))` }}
                                                     >
-                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                                                                <Text strong style={{ fontSize: 12, color: '#1864ab', letterSpacing: 0.5 }}>
+                                                        <div className="flex flex-col gap-2">
+                                                            <div className="flex flex-nowrap justify-between">
+                                                                <span className="text-xs font-semibold tracking-wide text-primary">
                                                                     FICHA #{ev.id_fichaingresoservicio}
-                                                                </Text>
-                                                                <Tag color="blue">{ev.nombre_objetivomuestreo_ma}</Tag>
+                                                                </span>
+                                                                <Badge variant="default">{ev.nombre_objetivomuestreo_ma}</Badge>
                                                             </div>
                                                             <div>
-                                                                <Text strong style={{ fontSize: 13, lineHeight: 1.2, display: 'block' }}>{ev.nombre_empresa}</Text>
-                                                                <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>{ev.nombre_fuenteemisora}</Text>
+                                                                <span className="block text-[13px] font-semibold leading-tight text-foreground">{ev.nombre_empresa}</span>
+                                                                <span className="text-xs font-medium text-muted-foreground">{ev.nombre_fuenteemisora}</span>
                                                             </div>
-                                                            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                                                                <div style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: colors.text }} />
-                                                                <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Programado</Text>
+                                                            <div className="flex items-center gap-1">
+                                                                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: colors.text }} />
+                                                                <span className="text-[11px] font-bold uppercase text-muted-foreground">Programado</span>
                                                             </div>
                                                         </div>
                                                     </Card>
@@ -440,7 +416,7 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

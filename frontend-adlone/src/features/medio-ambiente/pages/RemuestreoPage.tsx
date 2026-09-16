@@ -8,7 +8,11 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { mapToAntecedentes } from '../utils/fichaMapping';
-import { Card, Tabs, Spin, Button, Alert, Input } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconClipboardList,
@@ -21,8 +25,6 @@ import {
 } from '@tabler/icons-react';
 
 import { CatalogosProvider } from '../context/CatalogosContext';
-
-const { TextArea } = Input;
 
 const RemuestreoPageContent: React.FC = () => {
     const { selectedFichaId, setActiveSubmodule, setFichasMode } = useNavStore();
@@ -147,16 +149,16 @@ const RemuestreoPageContent: React.FC = () => {
     };
 
     if (loading) return (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
-            <Spin size="large" />
+        <div className="shadcn-scope flex min-h-[400px] items-center justify-center">
+            <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
         </div>
     );
 
-    const tabPadding = isMobile ? 16 : 32;
+    const tabPadding = isMobile ? 'px-4' : 'px-8';
 
     return (
-        <div style={{ padding: 16 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+        <div className="shadcn-scope p-4">
+            <div className="flex flex-col gap-6">
                 <PageHeader
                     title="Nuevo Remuestreo"
                     subtitle={`Basado en Ficha N° ${originalFicha?.fichaingresoservicio || '-'}`}
@@ -166,103 +168,94 @@ const RemuestreoPageContent: React.FC = () => {
                         { label: 'Nuevo remuestreo' }
                     ]}
                     rightSection={
-                        <Button
-                            icon={<IconX size={18} />}
-                            onClick={() => setActiveSubmodule('ma-ficha-detalle')}
-                        >
+                        <Button variant="outline" onClick={() => setActiveSubmodule('ma-ficha-detalle')}>
+                            <IconX size={18} />
                             Cancelar
                         </Button>
                     }
                 />
 
-                <Alert
-                    type="info"
-                    showIcon
-                    icon={<IconInfoCircle size={16} />}
-                    message="Información de Remuestreo"
-                    description="Se ha pre-llenado la información basándose en la ficha original. Por favor revise y ajuste los datos si es necesario antes de confirmar la creación de la nueva ficha."
-                />
+                <div className="flex items-start gap-2.5 rounded-lg border border-primary/30 bg-primary/5 p-3">
+                    <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-primary" />
+                    <div>
+                        <p className="m-0 text-sm font-semibold text-foreground">Información de Remuestreo</p>
+                        <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
+                            Se ha pre-llenado la información basándose en la ficha original. Por favor revise y ajuste los datos si es necesario antes de confirmar la creación de la nueva ficha.
+                        </p>
+                    </div>
+                </div>
 
-                <Card style={{ borderRadius: 16, overflow: 'hidden' }} styles={{ body: { padding: 0 } }}>
-                    <Tabs
-                        activeKey={activeTab}
-                        onChange={(v) => setActiveTab(v)}
-                        centered
-                        style={{ padding: `0 ${tabPadding}px` }}
-                        items={[
-                            {
-                                key: 'antecedentes',
-                                label: <span><IconClipboardList size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Antecedentes</span>,
-                                children: (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: `24px ${tabPadding}px` }}>
-                                        <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                            <Button
-                                                iconPosition="end"
-                                                icon={<IconArrowRight size={18} />}
-                                                onClick={() => setActiveTab('analisis')}
-                                            >
-                                                Siguiente
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ),
-                            },
-                            {
-                                key: 'analisis',
-                                label: <span><IconFlask size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Análisis</span>,
-                                children: (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: `24px ${tabPadding}px` }}>
-                                        <AnalysisForm
-                                            savedAnalysis={analysisList}
-                                            onSavedAnalysisChange={setAnalysisList}
-                                            costoOperativo={costoOperativo}
-                                            onCostoOperativoChange={setCostoOperativo}
-                                        />
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                            <Button
-                                                iconPosition="end"
-                                                icon={<IconArrowRight size={18} />}
-                                                onClick={() => setActiveTab('observaciones')}
-                                            >
-                                                Siguiente
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ),
-                            },
-                            {
-                                key: 'observaciones',
-                                label: <span><IconFileText size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Observaciones</span>,
-                                children: (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: `24px ${tabPadding}px` }}>
-                                        <div>
-                                            <label style={{ fontSize: 13, fontWeight: 600, display: 'block', marginBottom: 8 }}>Observaciones del Remuestreo *</label>
-                                            <TextArea
-                                                value={observaciones}
-                                                onChange={(e) => setObservaciones(e.target.value)}
-                                                placeholder="Especifique las observaciones de este remuestreo..."
-                                                autoSize={{ minRows: 5 }}
-                                            />
-                                        </div>
-                                        <div style={{ display: 'flex', justifyContent: 'center' }}>
-                                            <Button
-                                                size="large"
-                                                type="primary"
-                                                style={{ backgroundColor: '#9c36b5' }}
-                                                icon={<IconDeviceFloppy size={20} />}
-                                                onClick={handleCreateRemuestreo}
-                                                loading={saving}
-                                                disabled={!observaciones.trim()}
-                                            >
-                                                Crear Ficha de Remuestreo
-                                            </Button>
-                                        </div>
-                                    </div>
-                                ),
-                            },
-                        ]}
-                    />
+                <Card className="overflow-hidden rounded-2xl p-0">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
+                        <div className={cn('flex justify-center', tabPadding)}>
+                            <TabsList>
+                                <TabsTrigger value="antecedentes" className="gap-1.5">
+                                    <IconClipboardList size={18} />
+                                    Antecedentes
+                                </TabsTrigger>
+                                <TabsTrigger value="analisis" className="gap-1.5">
+                                    <IconFlask size={18} />
+                                    Análisis
+                                </TabsTrigger>
+                                <TabsTrigger value="observaciones" className="gap-1.5">
+                                    <IconFileText size={18} />
+                                    Observaciones
+                                </TabsTrigger>
+                            </TabsList>
+                        </div>
+
+                        <TabsContent value="antecedentes" className={cn('mt-0 flex flex-col gap-6 py-6', tabPadding)}>
+                            <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
+                            <div className="flex justify-end">
+                                <Button onClick={() => setActiveTab('analisis')}>
+                                    Siguiente
+                                    <IconArrowRight size={18} />
+                                </Button>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="analisis" className={cn('mt-0 flex flex-col gap-6 py-6', tabPadding)}>
+                            <AnalysisForm
+                                savedAnalysis={analysisList}
+                                onSavedAnalysisChange={setAnalysisList}
+                                costoOperativo={costoOperativo}
+                                onCostoOperativoChange={setCostoOperativo}
+                            />
+                            <div className="flex justify-end">
+                                <Button onClick={() => setActiveTab('observaciones')}>
+                                    Siguiente
+                                    <IconArrowRight size={18} />
+                                </Button>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="observaciones" className={cn('mt-0 flex flex-col gap-6 py-6', tabPadding)}>
+                            <div>
+                                <label className="mb-2 block text-[13px] font-semibold text-foreground">Observaciones del Remuestreo *</label>
+                                <Textarea
+                                    value={observaciones}
+                                    onChange={(e) => setObservaciones(e.target.value)}
+                                    placeholder="Especifique las observaciones de este remuestreo..."
+                                    rows={5}
+                                />
+                            </div>
+                            <div className="flex justify-center">
+                                <Button
+                                    size="lg"
+                                    className="bg-violet-500 text-white hover:bg-violet-600"
+                                    onClick={handleCreateRemuestreo}
+                                    disabled={saving || !observaciones.trim()}
+                                >
+                                    {saving ? (
+                                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                                    ) : (
+                                        <IconDeviceFloppy size={20} />
+                                    )}
+                                    Crear Ficha de Remuestreo
+                                </Button>
+                            </div>
+                        </TabsContent>
+                    </Tabs>
                 </Card>
             </div>
         </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Spin, Typography, Segmented } from 'antd';
+import { cn } from '@/lib/utils';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTrackingStore } from '../../../store/trackingStore';
 import { TrackingMapa } from '../components/TrackingMapa';
@@ -8,8 +8,6 @@ import { DetalleJornadaDrawer } from '../components/DetalleJornadaDrawer';
 import { HistorialJornadasTab } from '../components/HistorialJornadasTab';
 import { AlertasSinSenal } from '../components/AlertasSinSenal';
 import { AvisoNuevaJornada } from '../components/AvisoNuevaJornada';
-
-const { Text } = Typography;
 
 export function HoyEnVivoPage() {
     const { token } = useAuth();
@@ -55,39 +53,48 @@ export function HoyEnVivoPage() {
     const jornadaSeleccionada = jornadas.find((j) => j.id_muestreador === selectedMuestreadorId) ?? null;
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 500 }}>
-            <div style={{ padding: 12, borderBottom: '1px solid var(--app-border)' }}>
-                <Segmented
-                    size="small"
-                    value={vista}
-                    onChange={(v) => setVista(v as 'hoy' | 'historial')}
-                    options={[
-                        { label: 'Hoy', value: 'hoy' },
-                        { label: 'Historial', value: 'historial' },
-                    ]}
-                />
+        <div className="shadcn-scope flex h-full min-h-0 flex-col">
+            <div className="flex gap-1 border-b border-border p-3">
+                {(
+                    [
+                        { label: 'Hoy', value: 'hoy' as const },
+                        { label: 'Historial', value: 'historial' as const },
+                    ]
+                ).map((opt) => (
+                    <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setVista(opt.value)}
+                        className={cn(
+                            'rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            vista === opt.value ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
             </div>
 
             {vista === 'historial' ? (
                 <HistorialJornadasTab />
             ) : loading && jornadas.length === 0 ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Spin />
+                <div className="flex flex-1 items-center justify-center">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             ) : error ? (
-                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text type="danger">{error}</Text>
+                <div className="flex flex-1 items-center justify-center">
+                    <span className="text-destructive">{error}</span>
                 </div>
             ) : (
                 <>
                     <AlertasSinSenal jornadas={jornadas} />
-                    <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                    <div className="flex min-h-0 flex-1">
                         <FlotaPanel
                             jornadas={jornadas}
                             selectedMuestreadorId={selectedMuestreadorId}
                             onSelectMuestreador={selectMuestreador}
                         />
-                        <div style={{ flex: 1, position: 'relative' }}>
+                        <div className="relative flex-1">
                             <TrackingMapa
                                 jornadas={jornadas}
                                 selectedMuestreadorId={selectedMuestreadorId}
