@@ -1,10 +1,9 @@
 import React from 'react';
-import { Button, Typography, Space } from 'antd';
 import { IconInfoCircle, IconArrowLeft } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
-
-const { Title, Text } = Typography;
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface PageHeaderProps {
     title: string;
@@ -36,58 +35,33 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         ? breadcrumbItems[breadcrumbItems.length - 2]?.onClick
         : undefined);
 
-    const helpButton = (
-        <Button
-            type="text"
-            size="small"
-            icon={<IconInfoCircle size={14} stroke={2} />}
-            onClick={() => setHelpCenterOpen(true)}
-            style={{ fontWeight: 600, color: '#1677ff', backgroundColor: '#e6f4ff' }}
-        >
-            Información
-        </Button>
-    );
-
     return (
-        <div style={{ marginBottom: 20, marginTop: 4 }}>
+        <div className="mb-5 mt-1">
             {backAction && (
-                <Button
-                    type="link"
-                    size="small"
-                    icon={<IconArrowLeft size={14} />}
-                    onClick={backAction}
-                    style={{ padding: 0, marginBottom: 4, height: 'auto', fontWeight: 500 }}
-                >
+                <Button variant="link" size="sm" onClick={backAction} className="mb-1 h-auto p-0 font-medium">
+                    <IconArrowLeft size={14} />
                     Volver
                 </Button>
             )}
 
-            <div
-                style={{
-                    display: 'flex',
-                    flexDirection: shouldStack ? 'column' : 'row',
-                    alignItems: shouldStack ? 'stretch' : 'flex-start',
-                    justifyContent: 'space-between',
-                    gap: shouldStack ? 12 : 16,
-                    width: '100%',
-                }}
-            >
-                <div style={{ minWidth: 0 }}>
-                    <Title level={2} style={{ margin: 0, fontSize: isMobile ? 20 : 26, lineHeight: 1.2, fontWeight: 700 }}>
+            <div className={cn('flex w-full gap-4', shouldStack ? 'flex-col items-stretch' : 'flex-row items-start justify-between')}>
+                <div className="min-w-0">
+                    <h2 className={cn('m-0 font-bold leading-tight text-foreground', isMobile ? 'text-xl' : 'text-2xl')}>
                         {title}
-                    </Title>
+                    </h2>
                     {subtitle && (
-                        <Text type="secondary" style={{ fontSize: isMobile ? 12 : 13, display: 'block', marginTop: 2 }}>
+                        <p className={cn('mt-0.5 text-muted-foreground', isMobile ? 'text-xs' : 'text-[13px]')}>
                             {subtitle}
-                        </Text>
+                        </p>
                     )}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: shouldStack ? 'flex-start' : 'flex-end', flexShrink: 0 }}>
-                    <Space size={8} wrap>
-                        {rightSection}
-                        {helpButton}
-                    </Space>
+                <div className={cn('flex shrink-0 flex-wrap items-center gap-2', shouldStack ? 'justify-start' : 'justify-end')}>
+                    {rightSection}
+                    <Button variant="ghost" size="sm" className="bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary" onClick={() => setHelpCenterOpen(true)}>
+                        <IconInfoCircle size={14} stroke={2} />
+                        Información
+                    </Button>
                 </div>
             </div>
         </div>
