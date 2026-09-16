@@ -1,6 +1,7 @@
-import { Button } from 'antd';
 import { IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 import { useState, useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ScrollButtonsProps {
     viewportRef: React.RefObject<HTMLDivElement | null>;
@@ -50,32 +51,28 @@ export const ScrollButtons: React.FC<ScrollButtonsProps> = ({ viewportRef }) => 
     const showTop = scrollPos > 300;
     const showBottom = canScrollDown;
 
-    const btnStyle = (visible: boolean): React.CSSProperties => ({
-        boxShadow: '0 6px 16px rgba(0,0,0,0.15)',
-        opacity: visible ? 0.85 : 0,
-        transform: visible ? 'translateY(0)' : 'translateY(12px)',
-        pointerEvents: visible ? 'auto' : 'none',
-        transition: 'opacity 150ms ease, transform 150ms ease',
-    });
-
     return (
-        <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 900, display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div className="shadcn-scope fixed bottom-5 right-5 z-[900] flex flex-col gap-2">
             <Button
-                type="primary"
-                shape="circle"
-                size="large"
-                icon={<IconArrowUp size={20} />}
+                size="icon"
                 onClick={scrollToTop}
-                style={btnStyle(showTop)}
-            />
+                className={cn(
+                    'h-11 w-11 rounded-full shadow-lg transition-all duration-150',
+                    showTop ? 'translate-y-0 opacity-85' : 'pointer-events-none translate-y-3 opacity-0'
+                )}
+            >
+                <IconArrowUp size={20} />
+            </Button>
             <Button
-                type="primary"
-                shape="circle"
-                size="large"
-                icon={<IconArrowDown size={20} />}
+                size="icon"
                 onClick={scrollToBottom}
-                style={btnStyle(showBottom)}
-            />
+                className={cn(
+                    'h-11 w-11 rounded-full shadow-lg transition-all duration-150',
+                    showBottom ? 'translate-y-0 opacity-85' : 'pointer-events-none translate-y-3 opacity-0'
+                )}
+            >
+                <IconArrowDown size={20} />
+            </Button>
         </div>
     );
 };

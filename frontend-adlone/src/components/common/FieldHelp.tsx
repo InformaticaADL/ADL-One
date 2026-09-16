@@ -6,7 +6,6 @@
  *   <TextInput label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código del punto exacto donde se tomará la muestra." />} ... />
  */
 
-import { Tooltip } from 'antd';
 import { IconInfoCircle } from '@tabler/icons-react';
 
 interface FieldLabelProps {
@@ -17,22 +16,13 @@ interface FieldLabelProps {
 }
 
 export const FieldLabel = ({ label, help }: FieldLabelProps) => (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap' }}>
-        <span style={{ fontSize: 14, fontWeight: 500 }}>{label}</span>
-        <Tooltip
+    <span className="inline-flex flex-nowrap items-center gap-1">
+        <span className="text-sm font-medium">{label}</span>
+        <span
             title={help}
-            placement="topLeft"
-            overlayInnerStyle={{ fontSize: 12, lineHeight: 1.5, padding: '8px 12px', maxWidth: 260 }}
+            className="inline-flex h-4 w-4 min-w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-muted-foreground text-background"
         >
-            <span
-                style={{
-                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    width: 16, height: 16, minWidth: 16, borderRadius: '50%',
-                    backgroundColor: '#adb5bd', color: '#fff', cursor: 'help', flexShrink: 0,
-                }}
-            >
-                <IconInfoCircle size={11} stroke={2.5} />
-            </span>
-        </Tooltip>
+            <IconInfoCircle size={11} stroke={2.5} />
+        </span>
     </span>
 );
