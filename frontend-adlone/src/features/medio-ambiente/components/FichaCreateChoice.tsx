@@ -1,13 +1,12 @@
 import React from 'react';
-import { Card, Typography, Tag } from 'antd';
 import {
     IconFileText,
     IconUpload,
     IconArrowRight,
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
-
-const { Title, Text } = Typography;
+import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 interface Props {
     onManual: () => void;
@@ -17,13 +16,13 @@ interface Props {
 
 const OPTIONS = [
     {
-        key: 'manual', icon: IconFileText, accent: 'var(--app-accent-text)', accentBg: 'var(--app-accent-bg)',
+        key: 'manual', icon: IconFileText,
         title: 'Creación Manual',
         description: 'Formulario paso a paso para ingresar antecedentes, análisis y observaciones de una sola ficha.',
         cta: 'Iniciar formulario', badge: null,
     },
     {
-        key: 'bulk', icon: IconUpload, accent: '#9c36b5', accentBg: 'rgba(190,75,219,0.12)',
+        key: 'bulk', icon: IconUpload,
         title: 'Carga Masiva (PDF / Excel)',
         description: 'Suba hasta 1000 archivos (PDF o Excel). El sistema extraerá los datos, los validará y creará las fichas automáticamente.',
         cta: 'Cargar archivos', badge: 'MASIVO',
@@ -44,44 +43,36 @@ export const FichaCreateChoice: React.FC<Props> = ({ onManual, onBulk, onBack })
                 ]}
             />
 
-            <div style={{ textAlign: 'center', marginBottom: 28 }}>
-                <Title level={3} style={{ margin: 0 }}>¿Cómo desea crear la ficha?</Title>
-                <Text type="secondary" style={{ maxWidth: 480, display: 'block', margin: '6px auto 0' }}>
+            <div className="mb-7 text-center">
+                <h3 className="m-0 text-lg font-semibold text-foreground">¿Cómo desea crear la ficha?</h3>
+                <p className="mx-auto mt-1.5 max-w-[480px] text-sm text-muted-foreground">
                     Seleccione el método de ingreso: manual, o cargando múltiples archivos a la vez.
-                </Text>
+                </p>
             </div>
 
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-                gap: 16,
-                maxWidth: 760,
-                margin: '0 auto',
-            }}>
+            <div
+                className="mx-auto grid max-w-[760px] gap-4"
+                style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}
+            >
                 {OPTIONS.map((opt) => {
                     const Icon = opt.icon;
                     return (
                         <Card
                             key={opt.key}
-                            hoverable
                             onClick={handlers[opt.key]}
-                            styles={{ body: { padding: 28, position: 'relative', textAlign: 'center' } }}
+                            className="relative cursor-pointer p-7 text-center transition-all hover:-translate-y-1 hover:border-primary"
                         >
                             {opt.badge && (
-                                <Tag color="purple" style={{ position: 'absolute', top: 12, right: 12 }}>{opt.badge}</Tag>
+                                <Badge variant="secondary" className="absolute right-3 top-3">{opt.badge}</Badge>
                             )}
-                            <div style={{
-                                width: 64, height: 64, borderRadius: '50%', margin: '0 auto 16px',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                backgroundColor: opt.accentBg, color: opt.accent,
-                            }}>
+                            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
                                 <Icon size={32} />
                             </div>
-                            <Text strong style={{ fontSize: 16, display: 'block' }}>{opt.title}</Text>
-                            <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 6 }}>
+                            <span className="block text-base font-semibold text-foreground">{opt.title}</span>
+                            <p className="mt-1.5 text-[13px] text-muted-foreground">
                                 {opt.description}
-                            </Text>
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 16, color: opt.accent, fontWeight: 600, fontSize: 13 }}>
+                            </p>
+                            <div className="mt-4 flex items-center justify-center gap-1 text-[13px] font-semibold text-primary">
                                 {opt.cta} <IconArrowRight size={16} />
                             </div>
                         </Card>

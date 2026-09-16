@@ -11,7 +11,11 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
-import { Modal, Button, Typography, Tabs, Alert, Card, Divider } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import {
     IconCheck,
     IconChevronLeft,
@@ -20,11 +24,10 @@ import {
     IconArrowRight,
     IconTable,
     IconEdit,
-    IconEye
+    IconEye,
+    IconInfoCircle,
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
-
-const { Title, Text } = Typography;
 
 const SuccessModal = ({
     isOpen,
@@ -38,49 +41,34 @@ const SuccessModal = ({
     fichaId: number | null
 }) => {
     return (
-        <Modal
-            open={isOpen}
-            onCancel={onClose}
-            title="¡Ficha Creada Exitosamente!"
-            centered
-            width={420}
-            closable={false}
-            footer={null}
-        >
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, padding: '24px 0' }}>
-                <div style={{
-                    width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(47,158,68,0.12)', color: '#2f9e44',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                    <IconCheck size={40} />
+        <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
+            <DialogContent className="max-w-[420px]">
+                <DialogHeader>
+                    <DialogTitle>¡Ficha Creada Exitosamente!</DialogTitle>
+                </DialogHeader>
+
+                <div className="flex flex-col items-center gap-3 py-6">
+                    <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/10 text-success">
+                        <IconCheck size={40} />
+                    </div>
+
+                    <h4 className="m-0 text-center text-base font-semibold text-foreground">Registro Confirmado</h4>
+
+                    <p className="text-center text-sm text-muted-foreground">
+                        Se ha generado la Ficha N° <span className="font-semibold text-primary">{fichaId}</span> correctamente en el sistema.
+                    </p>
+
+                    <div className="mt-4 flex w-full gap-3">
+                        <Button variant="outline" size="lg" className="flex-1" onClick={onViewFicha}>
+                            <IconEye size={18} /> Ver Ficha
+                        </Button>
+                        <Button size="lg" className="flex-1" onClick={onClose}>
+                            Volver al Menú
+                        </Button>
+                    </div>
                 </div>
-
-                <Title level={4} style={{ margin: 0, textAlign: 'center' }}>Registro Confirmado</Title>
-
-                <Text type="secondary" style={{ textAlign: 'center' }}>
-                    Se ha generado la Ficha N° <Text strong style={{ color: 'var(--app-accent-text)' }}>{fichaId}</Text> correctamente en el sistema.
-                </Text>
-
-                <div style={{ display: 'flex', width: '100%', gap: 12, marginTop: 16 }}>
-                    <Button
-                        style={{ flex: 1 }}
-                        size="large"
-                        icon={<IconEye size={18} />}
-                        onClick={onViewFicha}
-                    >
-                        Ver Ficha
-                    </Button>
-                    <Button
-                        style={{ flex: 1 }}
-                        size="large"
-                        type="primary"
-                        onClick={onClose}
-                    >
-                        Volver al Menú
-                    </Button>
-                </div>
-            </div>
-        </Modal>
+            </DialogContent>
+        </Dialog>
     );
 };
 
@@ -286,7 +274,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 fichaId={createdFichaId}
             />
 
-            <div ref={topRef} style={{ height: 0, overflow: 'hidden' }} />
+            <div ref={topRef} className="h-0 overflow-hidden" />
             <PageHeader
                 title="Nueva Ficha de Ingreso"
                 onBack={onBackToMenu}
@@ -296,115 +284,113 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 ]}
             />
 
-            <Card styles={{ body: { padding: 0 } }}>
-                <Tabs
-                    activeKey={activeTab}
-                    onChange={handleTabChange}
-                    centered
-                    tabBarStyle={{ margin: 0, padding: `0 ${isMobile ? 16 : 50}px`, borderBottom: '1px solid var(--app-border)' }}
-                    items={[
-                        {
-                            key: 'antecedentes',
-                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15), fontWeight: 600 }}><IconFileText size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}</span>,
-                            children: (
-                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px`, minHeight: '70vh' }}>
-                                    {cargandoCotizacion ? (
-                                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', marginTop: 32 }}>
-                                            Cargando los datos de la cotización…
-                                        </Text>
-                                    ) : (
-                                        <>
-                                            {prefillCotizacion && (
-                                                <Alert
-                                                    type="info"
-                                                    showIcon
-                                                    style={{ marginBottom: 24 }}
-                                                    message={`Desde la cotización N° ${prefillCotizacion.numero_cotizacion}`}
-                                                    description={
-                                                        <>
-                                                            El cliente, el centro y {prefillCotizacion.analisis?.length || 0} análisis vienen cargados
-                                                            con el precio que el cliente aceptó. Falta completar objetivo, punto de muestreo y programación.
-                                                            {prefillCotizacion.avisos?.length > 0 && (
-                                                                <> <b>{prefillCotizacion.avisos.length} análisis no se pudieron traer</b> y hay que agregarlos a mano.</>
-                                                            )}
-                                                        </>
-                                                    }
-                                                />
-                                            )}
-                                            <AntecedentesForm
-                                                ref={antecedentesRef}
-                                                initialData={prefillCotizacion?.antecedentes}
-                                                onValidationChange={handleValidationChange}
-                                            />
-                                        </>
-                                    )}
-                                </div>
-                            ),
-                        },
-                        {
-                            key: 'analisis',
-                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isMobile ? 13.5 : 15, fontWeight: 600 }}><IconTable size={tabIconSize} />Análisis</span>,
-                            children: (
-                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}>
-                                    <AnalysisForm
-                                        savedAnalysis={savedAnalysis}
-                                        onSavedAnalysisChange={setSavedAnalysis}
-                                        costoOperativo={costoOperativo}
-                                        onCostoOperativoChange={setCostoOperativo}
-                                    />
-                                </div>
-                            ),
-                        },
-                        {
-                            key: 'observaciones',
-                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15), fontWeight: 600 }}><IconEdit size={tabIconSize} />{isVerySmall ? 'Obs.' : 'Observaciones'}</span>,
-                            children: (
-                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}>
-                                    <ObservacionesForm
-                                        ref={observacionesRef}
-                                        label="Instrucciones comerciales"
-                                        onValidationChange={handleObsValidationChange}
-                                    />
-                                </div>
-                            ),
-                        },
-                    ]}
-                />
+            <Card className="overflow-hidden p-0">
+                <Tabs value={activeTab} onValueChange={handleTabChange}>
+                    <div className="flex justify-center border-b border-border" style={{ padding: `0 ${panelPadding}px` }}>
+                        <TabsList>
+                            <TabsTrigger value="antecedentes" className="gap-1.5" style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}>
+                                <IconFileText size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}
+                            </TabsTrigger>
+                            <TabsTrigger value="analisis" className="gap-1.5" style={{ fontSize: isMobile ? 13.5 : 15 }}>
+                                <IconTable size={tabIconSize} />Análisis
+                            </TabsTrigger>
+                            <TabsTrigger value="observaciones" className="gap-1.5" style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}>
+                                <IconEdit size={tabIconSize} />{isVerySmall ? 'Obs.' : 'Observaciones'}
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
+
+                    <TabsContent
+                        value="antecedentes"
+                        forceMount
+                        className={cn('mt-0 min-h-[70vh]', activeTab !== 'antecedentes' && 'hidden')}
+                        style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}
+                    >
+                        {cargandoCotizacion ? (
+                            <p className="mt-8 text-center text-sm text-muted-foreground">
+                                Cargando los datos de la cotización…
+                            </p>
+                        ) : (
+                            <>
+                                {prefillCotizacion && (
+                                    <div className="mb-6 flex items-start gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-sm">
+                                        <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                                        <div className="text-muted-foreground">
+                                            <p className="m-0 font-medium text-foreground">Desde la cotización N° {prefillCotizacion.numero_cotizacion}</p>
+                                            <p className="m-0 mt-1">
+                                                El cliente, el centro y {prefillCotizacion.analisis?.length || 0} análisis vienen cargados
+                                                con el precio que el cliente aceptó. Falta completar objetivo, punto de muestreo y programación.
+                                                {prefillCotizacion.avisos?.length > 0 && (
+                                                    <> <strong className="text-foreground">{prefillCotizacion.avisos.length} análisis no se pudieron traer</strong> y hay que agregarlos a mano.</>
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                                <AntecedentesForm
+                                    ref={antecedentesRef}
+                                    initialData={prefillCotizacion?.antecedentes}
+                                    onValidationChange={handleValidationChange}
+                                />
+                            </>
+                        )}
+                    </TabsContent>
+
+                    <TabsContent
+                        value="analisis"
+                        forceMount
+                        className={cn('mt-0', activeTab !== 'analisis' && 'hidden')}
+                        style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}
+                    >
+                        <AnalysisForm
+                            savedAnalysis={savedAnalysis}
+                            onSavedAnalysisChange={setSavedAnalysis}
+                            costoOperativo={costoOperativo}
+                            onCostoOperativoChange={setCostoOperativo}
+                        />
+                    </TabsContent>
+
+                    <TabsContent
+                        value="observaciones"
+                        forceMount
+                        className={cn('mt-0', activeTab !== 'observaciones' && 'hidden')}
+                        style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}
+                    >
+                        <ObservacionesForm
+                            ref={observacionesRef}
+                            label="Instrucciones comerciales"
+                            onValidationChange={handleObsValidationChange}
+                        />
+                    </TabsContent>
+                </Tabs>
 
                 <div style={{ padding: `0 ${panelPadding}px ${panelPadding}px` }}>
-                    <Divider style={{ margin: '0 0 24px' }} />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                    <div className="flex justify-end gap-3 border-t border-border pt-6">
                         {activeTab === 'antecedentes' && (
                             <Button
-                                type="primary"
-                                size="large"
-                                iconPosition="end"
-                                icon={<IconArrowRight size={20} />}
+                                size="lg"
                                 onClick={() => { setActiveTab('analisis'); scrollToTop(); }}
                                 disabled={!isAntecedentesValid}
                             >
-                                Siguiente
+                                Siguiente <IconArrowRight size={20} />
                             </Button>
                         )}
 
                         {activeTab === 'analisis' && (
                             <>
                                 <Button
-                                    size="large"
-                                    icon={<IconChevronLeft size={20} />}
+                                    variant="outline"
+                                    size="lg"
                                     onClick={() => setActiveTab('antecedentes')}
                                 >
-                                    Anterior
+                                    <IconChevronLeft size={20} /> Anterior
                                 </Button>
                                 <Button
-                                    type="primary"
-                                    size="large"
-                                    iconPosition="end"
-                                    icon={<IconArrowRight size={20} />}
+                                    size="lg"
                                     onClick={() => { setActiveTab('observaciones'); scrollToTop(); }}
                                     disabled={savedAnalysis.length === 0}
                                 >
-                                    Siguiente
+                                    Siguiente <IconArrowRight size={20} />
                                 </Button>
                             </>
                         )}
@@ -412,21 +398,22 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                         {activeTab === 'observaciones' && (
                             <>
                                 <Button
-                                    size="large"
-                                    icon={<IconChevronLeft size={20} />}
+                                    variant="outline"
+                                    size="lg"
                                     onClick={() => setActiveTab('analisis')}
                                 >
-                                    Anterior
+                                    <IconChevronLeft size={20} /> Anterior
                                 </Button>
                                 <Button
-                                    type="primary"
-                                    size="large"
-                                    style={{ backgroundColor: '#2f9e44' }}
-                                    icon={<IconPlus size={20} />}
+                                    size="lg"
                                     onClick={handleSave}
-                                    disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid}
-                                    loading={isSaving}
+                                    disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid || isSaving}
                                 >
+                                    {isSaving ? (
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                    ) : (
+                                        <IconPlus size={20} />
+                                    )}
                                     Grabar Ficha
                                 </Button>
                             </>

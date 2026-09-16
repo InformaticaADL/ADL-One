@@ -1,8 +1,5 @@
 import React from 'react';
-import { Typography } from 'antd';
 import { IconChevronRight } from '@tabler/icons-react';
-
-const { Text } = Typography;
 
 interface SelectionCardProps {
     title: string;
@@ -19,28 +16,18 @@ export const SelectionCard: React.FC<SelectionCardProps> = ({ title, description
     return (
         <button
             onClick={onClick}
-            className="ma-selection-row"
-            style={{
-                display: 'flex', alignItems: 'center', gap: 16, width: '100%',
-                padding: '16px 18px', border: '1px solid var(--app-border)', borderRadius: 10,
-                background: 'var(--app-bg)', cursor: 'pointer', textAlign: 'left',
-                transition: 'border-color 150ms ease, background-color 150ms ease',
-            }}
+            className="flex w-full items-center gap-4 rounded-lg border border-border bg-card px-[18px] py-4 text-left transition-colors hover:border-primary/50 hover:bg-accent"
         >
-            <div style={{
-                flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                width: 40, height: 40, borderRadius: 10,
-                backgroundColor: 'var(--app-accent-bg)', color: 'var(--app-accent-text)',
-            }}>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                 {icon}
             </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <Text strong style={{ fontSize: 14, display: 'block' }}>{title}</Text>
-                <Text type="secondary" style={{ fontSize: 12.5, lineHeight: 1.5 }}>{description}</Text>
+            <div className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-foreground">{title}</span>
+                <span className="block text-[12.5px] leading-relaxed text-muted-foreground">{description}</span>
             </div>
 
-            <IconChevronRight size={18} style={{ flexShrink: 0, color: 'var(--app-text-secondary)' }} />
+            <IconChevronRight size={18} className="shrink-0 text-muted-foreground" />
         </button>
     );
 };
