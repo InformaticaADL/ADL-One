@@ -13,7 +13,13 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { mapToAntecedentes } from '../utils/fichaMapping';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
-import { Button, Typography, Card, Table, Tag, Tabs, Spin, Divider, Input, Tooltip } from 'antd';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import {
     IconDeviceFloppy,
     IconX,
@@ -27,13 +33,12 @@ import {
     IconFileDownload
 } from '@tabler/icons-react';
 
-const { Title, Text } = Typography;
-const { TextArea } = Input;
-
 interface Props {
     fichaId: number;
     onBack: () => void;
 }
+
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
 
 // F-36: Textarea con estado local — actualiza al padre via startTransition para evitar lag por re-render del componente grande.
 const DeferredTextarea = React.memo(({ value, onChange, placeholder, minRows }: {
@@ -50,45 +55,59 @@ const DeferredTextarea = React.memo(({ value, onChange, placeholder, minRows }: 
         React.startTransition(() => onChange(next));
     };
     return (
-        <TextArea
+        <Textarea
             value={local}
             onChange={handleChange}
             placeholder={placeholder}
-            autoSize={{ minRows: minRows || 3 }}
+            rows={minRows || 3}
         />
     );
 });
 
-const getStatusProps = (status: string) => {
+const getStatusProps = (status: string): { variant: BadgeVariant; label: string } => {
     const s = (status || '').toUpperCase();
-    if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { color: 'red', label: s };
-    if (s.includes('COORDINACIÓN')) return { color: 'blue', label: s };
-    if (s.includes('PROGRAMACIÓN')) return { color: 'purple', label: s };
-    if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { color: 'gold', label: 'PENDIENTE TÉCNICA' };
-    if (s.includes('ASIGNAR')) return { color: 'orange', label: s };
-    if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { color: 'green', label: s };
-    return { color: 'default', label: s || 'SIN ESTADO' };
+    if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { variant: 'destructive', label: s };
+    if (s.includes('COORDINACIÓN')) return { variant: 'default', label: s };
+    if (s.includes('PROGRAMACIÓN')) return { variant: 'secondary', label: s };
+    if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { variant: 'warning', label: 'PENDIENTE TÉCNICA' };
+    if (s.includes('ASIGNAR')) return { variant: 'warning', label: s };
+    if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { variant: 'success', label: s };
+    return { variant: 'outline', label: s || 'SIN ESTADO' };
+};
+
+const gridMinClass: Record<number, string> = {
+    200: 'grid-cols-[repeat(auto-fit,minmax(200px,1fr))]',
+    180: 'grid-cols-[repeat(auto-fit,minmax(180px,1fr))]',
+    160: 'grid-cols-[repeat(auto-fit,minmax(160px,1fr))]',
 };
 
 // Grid responsivo genérico para los bloques de campos estáticos — reemplaza
 // los SimpleGrid de Mantine con distintos cols={{base,sm,md}} por bloque.
 function FieldGrid({ min = 200, children }: { min?: number; children: React.ReactNode }) {
     return (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fit, minmax(${min}px, 1fr))`, gap: 12 }}>
+        <div className={cn('grid gap-3', gridMinClass[min] ?? gridMinClass[200])}>
             {children}
         </div>
     );
 }
 
+const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
+    <div className="my-1 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border" />
+        {children && <span className="shrink-0 text-xs text-muted-foreground">{children}</span>}
+        <div className="h-px flex-1 bg-border" />
+    </div>
+);
+
 const StaticField = ({ label, value, span }: { label: string; value: any; span?: number }) => (
-    <div style={{ gridColumn: span ? `span ${span}` : undefined }}>
-        <Text style={{ fontSize: 11, fontWeight: 700, color: 'var(--app-text-secondary)', textTransform: 'uppercase', display: 'block', whiteSpace: 'nowrap' }}>
+    <div className={span === 2 ? 'col-span-2' : undefined}>
+        <span className="block whitespace-nowrap text-[11px] font-bold uppercase text-muted-foreground">
             {label}
-        </Text>
-        <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: '6px 10px', backgroundColor: 'var(--app-hover-bg)', marginTop: 2 }}>
-            <Text style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }} title={String(value || '-')}>
+        </span>
+        <div className="mt-0.5 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
+            <span className="block truncate text-[13.5px] font-medium" title={String(value || '-')}>
                 {value || '-'}
-            </Text>
+            </span>
         </div>
     </div>
 );
@@ -325,8 +344,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     if (loading && !data) {
         return (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 400 }}>
-                <Spin size="large" />
+            <div className="flex h-[400px] items-center justify-center">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
             </div>
         );
     }
@@ -341,31 +360,16 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     const det = data?.detalles || [];
     const rejected = data?.id_validaciontecnica === 2 || data?.id_validaciontecnica === 4;
 
-    const analisisColumns = [
-        { title: 'Análisis', dataIndex: 'nombre_tecnica', render: (_: any, r: any) => <Text strong>{r.nombre_tecnica || r.nombre_determinacion || '-'}</Text> },
-        { title: 'Normativa', dataIndex: 'nombre_normativa' },
-        { title: 'Tabla / Referencia', dataIndex: 'nombre_normativareferencia', render: (_: any, r: any) => r.nombre_normativareferencia || r.nombre_referencia || '-' },
-        { title: 'Tipo Muestra', dataIndex: 'tipo_analisis', render: (_: any, r: any) => r.tipo_analisis || r.nombre_tipomuestra || '-' },
-        { title: 'Lím. Min', dataIndex: 'limitemax_d', align: 'right' as const },
-        { title: 'Lím. Max', dataIndex: 'limitemax_h', align: 'right' as const },
-        { title: 'Error', dataIndex: 'llevaerror', align: 'center' as const, render: (v: any) => (v === 'S' || v === true ? 'Sí' : 'No') },
-        { title: 'Entrega', dataIndex: 'nombre_tipoentrega' },
-        { title: 'Lab. Principal', dataIndex: 'id_laboratorioensayo', render: (v: any) => getLabName(v) || 'Interno' },
-        { title: 'Lab. Secundario', dataIndex: 'id_laboratorioensayo_2', render: (v: any) => getLabName(v) || '-' },
-        ...(hasPermission('FI_EXP_VER_UF') ? [{
-            title: 'UF', dataIndex: 'uf_individual', align: 'center' as const,
-            render: (v: any) => <Text strong style={{ color: 'var(--app-accent-text)' }}>{v > 0 ? Number(v).toFixed(2) : '—'}</Text>,
-        }] : []),
-    ];
     const analisisRows = det.filter((row: any) => row.tipo_analisis !== 'CostoOperativo');
     const coRow = det.find((r: any) => r.tipo_analisis === 'CostoOperativo');
     const coUF = Number(coRow?.uf_individual || 0);
+    const showUfColumn = hasPermission('FI_EXP_VER_UF');
 
     const tabIconSize = isVerySmall ? 16 : (isMobile ? 18 : 22);
     const panelPad = isMobile ? 16 : 50;
 
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title={`Ficha N° ${data?.fichaingresoservicio || '-'}${(data?.es_remuestreo === 'S' || data?.es_remuestreo === true || data?.es_remuestreo === 1) ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
                 subtitle={isEditing ? 'Modo Edición' : 'Visor Universal de Ficha'}
@@ -375,43 +379,43 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                     { label: isEditing ? 'Editar Ficha' : 'Ver Ficha' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <Tag color={statusObj.color} style={{ fontSize: 13, padding: '4px 10px' }}>{statusObj.label}</Tag>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <Badge variant={statusObj.variant} className="px-2.5 py-1 text-[13px]">{statusObj.label}</Badge>
                         {isEditing ? (
                             <>
-                                <Button type="primary" style={{ backgroundColor: '#2f9e44' }} icon={<IconDeviceFloppy size={18} />} onClick={handleSaveChanges} loading={isSaving}>
-                                    Guardar
+                                <Button className="bg-success text-success-foreground hover:bg-success/90" onClick={handleSaveChanges} disabled={isSaving}>
+                                    {isSaving && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                    <IconDeviceFloppy size={18} /> Guardar
                                 </Button>
-                                <Button icon={<IconX size={18} />} onClick={() => setShowCancelModal(true)}>
-                                    Cancelar
+                                <Button variant="outline" onClick={() => setShowCancelModal(true)}>
+                                    <IconX size={18} /> Cancelar
                                 </Button>
                             </>
                         ) : (
                             canEdit && (
-                                <Button type="primary" icon={<IconEdit size={18} />} onClick={handleEditStart}>
-                                    Editar Comercial
+                                <Button onClick={handleEditStart}>
+                                    <IconEdit size={18} /> Editar Comercial
                                 </Button>
                             )
                         )}
                         <ProtectedContent permission="FI_EXPORTAR_CFI">
-                            <Tooltip title={rejected ? 'Atención: esta ficha ha sido rechazada.' : 'Descargar Ficha Técnica'}>
-                                <Button
-                                    danger={rejected}
-                                    icon={<IconFileDownload size={18} />}
-                                    onClick={handleDownloadPdf}
-                                >
-                                    Exportar PDF
-                                </Button>
-                            </Tooltip>
+                            <Button
+                                variant="outline"
+                                className={rejected ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : undefined}
+                                title={rejected ? 'Atención: esta ficha ha sido rechazada.' : 'Descargar Ficha Técnica'}
+                                onClick={handleDownloadPdf}
+                            >
+                                <IconFileDownload size={18} /> Exportar PDF
+                            </Button>
                         </ProtectedContent>
                     </div>
                 }
             />
 
-            <Card styles={{ body: { padding: 0 } }}>
+            <Card className="p-0">
                 <div style={{ padding: `${isMobile ? 16 : 24}px ${panelPad}px 0` }}>
                     {(data?.es_remuestreo === 'S' || data?.es_remuestreo === true || data?.es_remuestreo === 1) && data?.id_ficha_original && (
-                        <div style={{ marginBottom: 16 }}>
+                        <div className="mb-4">
                             <WorkflowAlert
                                 type="info"
                                 title={`Ficha de Remuestreo — Original: N° ${data.id_ficha_original}`}
@@ -420,7 +424,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                         </div>
                     )}
                     {[1, 2, 3, 4, 5, 6, 7].includes(Number(data?.id_validaciontecnica)) && (
-                        <div style={{ marginBottom: 16 }}>
+                        <div className="mb-4">
                             {data.id_validaciontecnica === 3 && <WorkflowAlert type="warning" title="Pendiente Técnica" message="Esta ficha requiere revisión por el Área Técnica." />}
                             {data.id_validaciontecnica === 1 && <WorkflowAlert type="info" title="Pendiente Coordinación" message="Aprobada técnicamente. Revisión de Coordinación pendiente." />}
                             {data.id_validaciontecnica === 2 && <WorkflowAlert type="error" title="Rechazada Técnica" message="Devuelta a Comercial. Requiere correcciones." />}
@@ -433,252 +437,276 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                 </div>
 
                 <Tabs
-                    activeKey={activeTab}
-                    onChange={(v) => { setActiveTab(v); setVisitedTabs(prev => ({ ...prev, [v]: true })); }}
-                    centered
-                    tabBarStyle={{ margin: '8px 0 0', padding: `0 ${panelPad}px`, borderBottom: '1px solid var(--app-border)' }}
-                    items={[
-                        {
-                            key: 'antecedentes',
-                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15), fontWeight: 600 }}><IconClipboardList size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}</span>,
-                            children: (
-                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px`, minHeight: '70vh' }}>
-                                    {isEditing ? (
-                                        <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
-                                    ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                                            <FieldGrid>
-                                                <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
-                                                <StaticField label="Base Operaciones" value={data.id_lugaranalisis === 0 ? 'No Aplica' : data.nombre_lugaranalisis} />
-                                                <StaticField label="Cliente" value={data.nombre_empresa} />
-                                                <StaticField label="Empresa Servicio" value={data.nombre_empresaservicios} />
-                                            </FieldGrid>
+                    value={activeTab}
+                    onValueChange={(v) => { setActiveTab(v); setVisitedTabs(prev => ({ ...prev, [v]: true })); }}
+                >
+                    <div className="mt-2 flex justify-center border-b border-border" style={{ padding: `0 ${panelPad}px` }}>
+                        <TabsList className="bg-transparent p-0">
+                            <TabsTrigger value="antecedentes" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                                <IconClipboardList size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}
+                            </TabsTrigger>
+                            <TabsTrigger value="analisis" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                                <IconFlask size={tabIconSize} />Análisis
+                            </TabsTrigger>
+                            <TabsTrigger value="observaciones" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                                <IconHistory size={tabIconSize} />{isVerySmall ? 'Historial/Valid.' : 'Validación e Historial'}
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
-                                            <FieldGrid>
-                                                <StaticField label="Fuente Emisora" value={data.nombre_centro} />
-                                                <StaticField label="Comuna" value={data.nombre_comuna} />
-                                                <StaticField label="Región" value={data.nombre_region} />
-                                                <StaticField label="Código Centro" value={data.codigo_centro} />
-                                            </FieldGrid>
+                    <TabsContent value="antecedentes" className="mt-0">
+                        <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px`, minHeight: '70vh' }}>
+                            {isEditing ? (
+                                <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
+                            ) : (
+                                <div className="flex flex-col gap-5">
+                                    <FieldGrid>
+                                        <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
+                                        <StaticField label="Base Operaciones" value={data.id_lugaranalisis === 0 ? 'No Aplica' : data.nombre_lugaranalisis} />
+                                        <StaticField label="Cliente" value={data.nombre_empresa} />
+                                        <StaticField label="Empresa Servicio" value={data.nombre_empresaservicios} />
+                                    </FieldGrid>
 
-                                            <FieldGrid>
-                                                <StaticField label="Tipo Agua" value={data.nombre_tipoagua || data.tipo_agua} />
-                                                <StaticField label="Contacto" value={data.nombre_contacto} />
-                                                <StaticField label="E-mail" value={data.email_contacto} />
-                                                <StaticField label="Objetivo" value={data.nombre_objetivomuestreo_ma} />
-                                            </FieldGrid>
+                                    <FieldGrid>
+                                        <StaticField label="Fuente Emisora" value={data.nombre_centro} />
+                                        <StaticField label="Comuna" value={data.nombre_comuna} />
+                                        <StaticField label="Región" value={data.nombre_region} />
+                                        <StaticField label="Código Centro" value={data.codigo_centro} />
+                                    </FieldGrid>
 
-                                            <StaticField label="Tabla / Glosa" value={data.nombre_tabla_largo} />
+                                    <FieldGrid>
+                                        <StaticField label="Tipo Agua" value={data.nombre_tipoagua || data.tipo_agua} />
+                                        <StaticField label="Contacto" value={data.nombre_contacto} />
+                                        <StaticField label="E-mail" value={data.email_contacto} />
+                                        <StaticField label="Objetivo" value={data.nombre_objetivomuestreo_ma} />
+                                    </FieldGrid>
 
-                                            <FieldGrid>
-                                                <StaticField label="Es ETFA" value={data.etfa ? 'Sí' : 'No'} />
-                                                <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
-                                                <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} span={2} />
-                                            </FieldGrid>
+                                    <StaticField label="Tabla / Glosa" value={data.nombre_tabla_largo} />
 
-                                            <Divider titlePlacement="center" style={{ margin: '4px 0' }}>
-                                                <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)' }}>Frecuencia y Programación</Text>
-                                            </Divider>
+                                    <FieldGrid>
+                                        <StaticField label="Es ETFA" value={data.etfa ? 'Sí' : 'No'} />
+                                        <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
+                                        <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} span={2} />
+                                    </FieldGrid>
 
-                                            <FieldGrid min={160}>
-                                                <StaticField label="Frecuencia" value={data.agenda?.frecuencia} />
-                                                <StaticField label="Periodo" value={data.agenda?.nombre_frecuencia} />
-                                                <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
-                                                <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
-                                            </FieldGrid>
-                                            <Text type="secondary" italic style={{ fontSize: 13, textAlign: 'center', display: 'block' }}>
-                                                {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
-                                            </Text>
+                                    <SectionDivider>Frecuencia y Programación</SectionDivider>
 
-                                            <Divider titlePlacement="center" style={{ margin: '4px 0' }}>
-                                                <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)' }}>Detalles del Servicio</Text>
-                                            </Divider>
+                                    <FieldGrid min={160}>
+                                        <StaticField label="Frecuencia" value={data.agenda?.frecuencia} />
+                                        <StaticField label="Periodo" value={data.agenda?.nombre_frecuencia} />
+                                        <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
+                                        <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
+                                    </FieldGrid>
+                                    <p className="block text-center text-sm italic text-muted-foreground">
+                                        {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
+                                    </p>
 
-                                            <FieldGrid min={180}>
-                                                <StaticField label="Componente" value={data.nombre_tipomuestra} />
-                                                <StaticField label="Sub Área" value={data.nombre_subarea} />
-                                                <StaticField label="Instrumento" value={data.instrumento_ambiental} />
-                                            </FieldGrid>
+                                    <SectionDivider>Detalles del Servicio</SectionDivider>
 
-                                            <FieldGrid min={160}>
-                                                <StaticField label="Responsable" value={data.responsablemuestreo} />
-                                                <StaticField label="Cargo" value={data.nombre_cargo} />
-                                                <StaticField label="Tipo Muestreo" value={data.nombre_tipomuestreo} />
-                                                <StaticField label="Actividad" value={data.nombre_actividadmuestreo} />
-                                            </FieldGrid>
+                                    <FieldGrid min={180}>
+                                        <StaticField label="Componente" value={data.nombre_tipomuestra} />
+                                        <StaticField label="Sub Área" value={data.nombre_subarea} />
+                                        <StaticField label="Instrumento" value={data.instrumento_ambiental} />
+                                    </FieldGrid>
 
-                                            {/* F-24/F-25: Referencia Google Maps + mapa */}
-                                            {(data.referencia_googlemaps || (data.ubicacion_lat && data.ubicacion_lon)) && (
-                                                <>
-                                                    <Divider titlePlacement="center" style={{ margin: '4px 0' }}>
-                                                        <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)' }}>Ubicación</Text>
-                                                    </Divider>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                                        {data.referencia_googlemaps && (
-                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, padding: 8, backgroundColor: 'var(--app-hover-bg)', display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', flexWrap: 'nowrap' }}>
-                                                                <Text style={{ fontSize: 13, fontWeight: 500, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={data.referencia_googlemaps}>
-                                                                    {data.referencia_googlemaps}
-                                                                </Text>
-                                                                <Button size="small" href={data.referencia_googlemaps} target="_blank" rel="noopener noreferrer">
-                                                                    Abrir en Google Maps
-                                                                </Button>
-                                                            </div>
-                                                        )}
-                                                        {data.ubicacion_lat && data.ubicacion_lon ? (
-                                                            <div style={{ border: '1px solid var(--app-border)', borderRadius: 8, overflow: 'hidden' }}>
-                                                                <iframe
-                                                                    title="Mapa de la ficha"
-                                                                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(data.ubicacion_lon) - 0.01},${Number(data.ubicacion_lat) - 0.01},${Number(data.ubicacion_lon) + 0.01},${Number(data.ubicacion_lat) + 0.01}&layer=mapnik&marker=${data.ubicacion_lat},${data.ubicacion_lon}`}
-                                                                    width="100%"
-                                                                    height="260"
-                                                                    style={{ border: 0, display: 'block' }}
-                                                                />
-                                                                <div style={{ padding: 8, backgroundColor: 'var(--app-hover-bg)' }}>
-                                                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                                                        Coordenadas: {data.ubicacion_lat}, {data.ubicacion_lon}
-                                                                    </Text>
-                                                                </div>
-                                                            </div>
-                                                        ) : data.referencia_googlemaps ? (
-                                                            <Text type="secondary" style={{ fontSize: 12, textAlign: 'center', display: 'block' }}>
-                                                                Coordenadas no resueltas — verifique el link.
-                                                            </Text>
-                                                        ) : null}
+                                    <FieldGrid min={160}>
+                                        <StaticField label="Responsable" value={data.responsablemuestreo} />
+                                        <StaticField label="Cargo" value={data.nombre_cargo} />
+                                        <StaticField label="Tipo Muestreo" value={data.nombre_tipomuestreo} />
+                                        <StaticField label="Actividad" value={data.nombre_actividadmuestreo} />
+                                    </FieldGrid>
+
+                                    {/* F-24/F-25: Referencia Google Maps + mapa */}
+                                    {(data.referencia_googlemaps || (data.ubicacion_lat && data.ubicacion_lon)) && (
+                                        <>
+                                            <SectionDivider>Ubicación</SectionDivider>
+                                            <div className="flex flex-col gap-2">
+                                                {data.referencia_googlemaps && (
+                                                    <div className="flex flex-nowrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-2">
+                                                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium" title={data.referencia_googlemaps}>
+                                                            {data.referencia_googlemaps}
+                                                        </span>
+                                                        <Button size="sm" variant="outline" asChild>
+                                                            <a href={data.referencia_googlemaps} target="_blank" rel="noopener noreferrer">Abrir en Google Maps</a>
+                                                        </Button>
                                                     </div>
-                                                </>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            ),
-                        },
-                        {
-                            key: 'analisis',
-                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isMobile ? 13.5 : 15, fontWeight: 600 }}><IconFlask size={tabIconSize} />Análisis</span>,
-                            children: (
-                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
-                                    {isEditing ? (
-                                        <AnalysisForm
-                                            savedAnalysis={analysisList}
-                                            onSavedAnalysisChange={setAnalysisList}
-                                            costoOperativo={costoOperativo}
-                                            onCostoOperativoChange={setCostoOperativo}
-                                        />
-                                    ) : (
-                                        <div>
-                                            <Table
-                                                rowKey={(_, i) => String(i)}
-                                                columns={analisisColumns}
-                                                dataSource={analisisRows}
-                                                pagination={false}
-                                                scroll={{ x: 1000 }}
-                                                summary={() => (
-                                                    <Table.Summary.Row style={{ backgroundColor: coUF > 0 ? 'rgba(250,173,20,0.1)' : 'var(--app-hover-bg)' }}>
-                                                        <Table.Summary.Cell index={0}>
-                                                            <Text strong style={{ color: coUF > 0 ? '#d48806' : 'var(--app-text-secondary)' }}>Costo Operativo</Text>
-                                                        </Table.Summary.Cell>
-                                                        <Table.Summary.Cell index={1} colSpan={hasPermission('FI_EXP_VER_UF') ? 8 : 9}>
-                                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                                {coUF > 0 ? 'Opcional — incluido en esta ficha' : 'Opcional — no aplica para esta ficha'}
-                                                            </Text>
-                                                        </Table.Summary.Cell>
-                                                        {hasPermission('FI_EXP_VER_UF') && (
-                                                            <Table.Summary.Cell index={2} align="center">
-                                                                <Text strong style={{ color: coUF > 0 ? '#d48806' : 'var(--app-text-secondary)' }}>
-                                                                    {coUF > 0 ? Number(coUF).toFixed(2) : 'No aplica'}
-                                                                </Text>
-                                                            </Table.Summary.Cell>
-                                                        )}
-                                                    </Table.Summary.Row>
                                                 )}
-                                            />
-                                        </div>
+                                                {data.ubicacion_lat && data.ubicacion_lon ? (
+                                                    <div className="overflow-hidden rounded-lg border border-border">
+                                                        <iframe
+                                                            title="Mapa de la ficha"
+                                                            src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(data.ubicacion_lon) - 0.01},${Number(data.ubicacion_lat) - 0.01},${Number(data.ubicacion_lon) + 0.01},${Number(data.ubicacion_lat) + 0.01}&layer=mapnik&marker=${data.ubicacion_lat},${data.ubicacion_lon}`}
+                                                            width="100%"
+                                                            height="260"
+                                                            className="block border-0"
+                                                        />
+                                                        <div className="bg-muted/40 p-2">
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Coordenadas: {data.ubicacion_lat}, {data.ubicacion_lon}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                ) : data.referencia_googlemaps ? (
+                                                    <span className="block text-center text-xs text-muted-foreground">
+                                                        Coordenadas no resueltas — verifique el link.
+                                                    </span>
+                                                ) : null}
+                                            </div>
+                                        </>
                                     )}
                                 </div>
-                            ),
-                        },
-                        {
-                            key: 'observaciones',
-                            label: <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15), fontWeight: 600 }}><IconHistory size={tabIconSize} />{isVerySmall ? 'Historial/Valid.' : 'Validación e Historial'}</span>,
-                            children: (
-                                <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px`, display: 'flex', flexDirection: 'column', gap: 24 }}>
-                                    {isEditing && (
-                                        <div style={{ border: '1px solid rgba(47,158,68,0.25)', borderRadius: 10, padding: 16, backgroundColor: 'rgba(47,158,68,0.08)' }}>
-                                            <Title level={5} style={{ margin: 0, color: '#2f9e44' }}>Nueva Observación Comercial Requerida</Title>
-                                            <Text style={{ fontSize: 12, color: '#2f9e44', display: 'block', marginTop: 4, marginBottom: 8 }}>
-                                                Describa los motivos de los cambios realizados comercialmente.
-                                            </Text>
-                                            <DeferredTextarea value={newObservation} onChange={setNewObservation} placeholder="Describa aquí los cambios..." minRows={3} />
-                                        </div>
-                                    )}
+                            )}
+                        </div>
+                    </TabsContent>
 
-                                    {!isEditing && canProcessTech && (
-                                        <div style={{ border: '1px solid var(--app-accent-bg)', borderRadius: 10, padding: 16, backgroundColor: 'var(--app-accent-bg)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <IconMessageDots size={20} color="var(--app-accent-text)" />
-                                                <Title level={5} style={{ margin: 0, color: 'var(--app-accent-text)' }}>Gestión Técnica: Validación</Title>
-                                            </div>
-                                            <Text style={{ fontSize: 12, color: 'var(--app-accent-text)', display: 'block', margin: '4px 0 8px' }}>
-                                                Ingrese sus observaciones técnicas antes de aprobar o solicitar revisión.
-                                            </Text>
-                                            <DeferredTextarea placeholder="Ingrese sus observaciones técnicas aquí..." value={tecnicaObs} onChange={setTecnicaObs} minRows={3} />
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-                                                <ProtectedContent permission="FI_APROBAR_TEC">
-                                                    <Tooltip title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : ''}>
-                                                        <span>
-                                                            <Button type="primary" icon={<IconCheck size={18} />} onClick={() => handleActionClick('approve_tech')} loading={actionLoading} disabled={!allTabsVisited}>
-                                                                Aprobar Técnica
-                                                            </Button>
-                                                        </span>
-                                                    </Tooltip>
-                                                </ProtectedContent>
-                                                <ProtectedContent permission="FI_RECHAZAR_TEC">
-                                                    <Button danger icon={<IconRotate size={18} />} onClick={() => handleActionClick('reject_tech')} loading={actionLoading}>
-                                                        Pedir Corrección Comercial
-                                                    </Button>
-                                                </ProtectedContent>
-                                            </div>
-                                        </div>
-                                    )}
+                    <TabsContent value="analisis" className="mt-0">
+                        <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
+                            {isEditing ? (
+                                <AnalysisForm
+                                    savedAnalysis={analysisList}
+                                    onSavedAnalysisChange={setAnalysisList}
+                                    costoOperativo={costoOperativo}
+                                    onCostoOperativoChange={setCostoOperativo}
+                                />
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead>Análisis</TableHead>
+                                            <TableHead>Normativa</TableHead>
+                                            <TableHead>Tabla / Referencia</TableHead>
+                                            <TableHead>Tipo Muestra</TableHead>
+                                            <TableHead className="text-right">Lím. Min</TableHead>
+                                            <TableHead className="text-right">Lím. Max</TableHead>
+                                            <TableHead className="text-center">Error</TableHead>
+                                            <TableHead>Entrega</TableHead>
+                                            <TableHead>Lab. Principal</TableHead>
+                                            <TableHead>Lab. Secundario</TableHead>
+                                            {showUfColumn && <TableHead className="text-center">UF</TableHead>}
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {analisisRows.map((r: any, i: number) => (
+                                            <TableRow key={i}>
+                                                <TableCell className="font-semibold text-foreground">{r.nombre_tecnica || r.nombre_determinacion || '-'}</TableCell>
+                                                <TableCell>{r.nombre_normativa}</TableCell>
+                                                <TableCell>{r.nombre_normativareferencia || r.nombre_referencia || '-'}</TableCell>
+                                                <TableCell>{r.tipo_analisis || r.nombre_tipomuestra || '-'}</TableCell>
+                                                <TableCell className="text-right">{r.limitemax_d}</TableCell>
+                                                <TableCell className="text-right">{r.limitemax_h}</TableCell>
+                                                <TableCell className="text-center">{r.llevaerror === 'S' || r.llevaerror === true ? 'Sí' : 'No'}</TableCell>
+                                                <TableCell>{r.nombre_tipoentrega}</TableCell>
+                                                <TableCell>{getLabName(r.id_laboratorioensayo) || 'Interno'}</TableCell>
+                                                <TableCell>{getLabName(r.id_laboratorioensayo_2) || '-'}</TableCell>
+                                                {showUfColumn && (
+                                                    <TableCell className="text-center font-semibold text-primary">
+                                                        {r.uf_individual > 0 ? Number(r.uf_individual).toFixed(2) : '—'}
+                                                    </TableCell>
+                                                )}
+                                            </TableRow>
+                                        ))}
+                                        <TableRow className={cn('hover:bg-transparent', coUF > 0 ? 'bg-warning/10' : 'bg-muted/40')}>
+                                            <TableCell>
+                                                <span className={cn('font-semibold', coUF > 0 ? 'text-warning' : 'text-muted-foreground')}>Costo Operativo</span>
+                                            </TableCell>
+                                            <TableCell colSpan={showUfColumn ? 8 : 9}>
+                                                <span className="text-xs text-muted-foreground">
+                                                    {coUF > 0 ? 'Opcional — incluido en esta ficha' : 'Opcional — no aplica para esta ficha'}
+                                                </span>
+                                            </TableCell>
+                                            {showUfColumn && (
+                                                <TableCell className="text-center">
+                                                    <span className={cn('font-semibold', coUF > 0 ? 'text-warning' : 'text-muted-foreground')}>
+                                                        {coUF > 0 ? Number(coUF).toFixed(2) : 'No aplica'}
+                                                    </span>
+                                                </TableCell>
+                                            )}
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </div>
+                    </TabsContent>
 
-                                    {!isEditing && canProcessCoord && (
-                                        <div style={{ border: '1px solid rgba(156,54,181,0.2)', borderRadius: 10, padding: 16, backgroundColor: 'rgba(156,54,181,0.08)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <IconMessageDots size={20} color="#9c36b5" />
-                                                <Title level={5} style={{ margin: 0, color: '#9c36b5' }}>Gestión Coordinación: Aprobación Logística</Title>
-                                            </div>
-                                            <Text style={{ fontSize: 12, color: '#9c36b5', display: 'block', margin: '4px 0 8px' }}>
-                                                Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.
-                                            </Text>
-                                            <DeferredTextarea placeholder="Ingrese las observaciones de coordinación aquí..." value={coordinacionObs} onChange={setCoordinacionObs} minRows={3} />
-                                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
-                                                <ProtectedContent permission="FI_APROBAR_COO">
-                                                    <Tooltip title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : ''}>
-                                                        <span>
-                                                            <Button style={{ backgroundColor: '#9c36b5', color: '#fff', border: 'none' }} icon={<IconCheck size={18} />} onClick={() => handleActionClick('approve_coord')} loading={actionLoading} disabled={!allTabsVisited}>
-                                                                Aprobar Coordinación
-                                                            </Button>
-                                                        </span>
-                                                    </Tooltip>
-                                                </ProtectedContent>
-                                                <ProtectedContent permission="FI_RECHAZAR_COO">
-                                                    <Button danger icon={<IconRotate size={18} />} onClick={() => handleActionClick('reject_coord')} loading={actionLoading}>
-                                                        Devolver a Comercial
-                                                    </Button>
-                                                </ProtectedContent>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <Title level={4} style={{ marginBottom: 16 }}>Línea de Tiempo y Validación</Title>
-                                        <ObservationTimeline fichaId={fichaId} creationData={timelineCreationData} />
+                    <TabsContent value="observaciones" className="mt-0">
+                        <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
+                            <div className="flex flex-col gap-6">
+                                {isEditing && (
+                                    <div className="rounded-[10px] border border-success/25 bg-success/10 p-4">
+                                        <h5 className="m-0 text-sm font-semibold text-success">Nueva Observación Comercial Requerida</h5>
+                                        <span className="mb-2 mt-1 block text-xs text-success">
+                                            Describa los motivos de los cambios realizados comercialmente.
+                                        </span>
+                                        <DeferredTextarea value={newObservation} onChange={setNewObservation} placeholder="Describa aquí los cambios..." minRows={3} />
                                     </div>
+                                )}
+
+                                {!isEditing && canProcessTech && (
+                                    <div className="rounded-[10px] border border-primary/20 bg-primary/5 p-4">
+                                        <div className="flex items-center gap-2">
+                                            <IconMessageDots size={20} className="text-primary" />
+                                            <h5 className="m-0 text-sm font-semibold text-primary">Gestión Técnica: Validación</h5>
+                                        </div>
+                                        <span className="my-1 mb-2 block text-xs text-primary">
+                                            Ingrese sus observaciones técnicas antes de aprobar o solicitar revisión.
+                                        </span>
+                                        <DeferredTextarea placeholder="Ingrese sus observaciones técnicas aquí..." value={tecnicaObs} onChange={setTecnicaObs} minRows={3} />
+                                        <div className="mt-4 flex justify-end gap-2.5">
+                                            <ProtectedContent permission="FI_APROBAR_TEC">
+                                                <span title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : undefined}>
+                                                    <Button onClick={() => handleActionClick('approve_tech')} disabled={!allTabsVisited || actionLoading}>
+                                                        {actionLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                                        <IconCheck size={18} /> Aprobar Técnica
+                                                    </Button>
+                                                </span>
+                                            </ProtectedContent>
+                                            <ProtectedContent permission="FI_RECHAZAR_TEC">
+                                                <Button variant="destructive" onClick={() => handleActionClick('reject_tech')} disabled={actionLoading}>
+                                                    {actionLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                                    <IconRotate size={18} /> Pedir Corrección Comercial
+                                                </Button>
+                                            </ProtectedContent>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {!isEditing && canProcessCoord && (
+                                    <div className="rounded-[10px] border border-violet-500/20 bg-violet-500/5 p-4">
+                                        <div className="flex items-center gap-2">
+                                            <IconMessageDots size={20} className="text-violet-600" />
+                                            <h5 className="m-0 text-sm font-semibold text-violet-600">Gestión Coordinación: Aprobación Logística</h5>
+                                        </div>
+                                        <span className="my-1 mb-2 block text-xs text-violet-600">
+                                            Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.
+                                        </span>
+                                        <DeferredTextarea placeholder="Ingrese las observaciones de coordinación aquí..." value={coordinacionObs} onChange={setCoordinacionObs} minRows={3} />
+                                        <div className="mt-4 flex justify-end gap-2.5">
+                                            <ProtectedContent permission="FI_APROBAR_COO">
+                                                <span title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : undefined}>
+                                                    <Button className="bg-violet-500 text-white hover:bg-violet-600" onClick={() => handleActionClick('approve_coord')} disabled={!allTabsVisited || actionLoading}>
+                                                        {actionLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                                        <IconCheck size={18} /> Aprobar Coordinación
+                                                    </Button>
+                                                </span>
+                                            </ProtectedContent>
+                                            <ProtectedContent permission="FI_RECHAZAR_COO">
+                                                <Button variant="destructive" onClick={() => handleActionClick('reject_coord')} disabled={actionLoading}>
+                                                    {actionLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                                                    <IconRotate size={18} /> Devolver a Comercial
+                                                </Button>
+                                            </ProtectedContent>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <h4 className="mb-4 text-lg font-semibold">Línea de Tiempo y Validación</h4>
+                                    <ObservationTimeline fichaId={fichaId} creationData={timelineCreationData} />
                                 </div>
-                            ),
-                        },
-                    ]}
-                />
+                            </div>
+                        </div>
+                    </TabsContent>
+                </Tabs>
             </Card>
 
             <ConfirmModal
