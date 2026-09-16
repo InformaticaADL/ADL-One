@@ -1,5 +1,4 @@
 import React, { useState, useRef } from 'react';
-import { Typography, Button, Progress, Alert, Card } from 'antd';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     IconUpload,
@@ -15,7 +14,9 @@ import { fichaService } from '../services/ficha.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { BulkReviewGrid } from './BulkReviewGrid';
 
-const { Title, Text } = Typography;
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 
 interface Props {
     onBack: () => void;
@@ -134,69 +135,53 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     // --- RENDER HELPERS ---
 
     const renderStep1Upload = () => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24 }}>
+        <div className="mt-6 flex flex-col items-center gap-6">
             <input
                 type="file"
                 multiple
                 accept="application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,.xlsx"
                 ref={fileInputRef}
-                style={{ display: 'none' }}
+                className="hidden"
                 onChange={handleFileSelect}
             />
 
             <div
-                style={{
-                    padding: 40,
-                    border: `2px dashed ${hovering ? '#4dabf7' : 'var(--app-border)'}`,
-                    borderRadius: 16,
-                    width: '100%',
-                    maxWidth: 600,
-                    cursor: 'pointer',
-                    textAlign: 'center',
-                    backgroundColor: hovering ? 'var(--app-accent-bg)' : 'var(--app-hover-bg)',
-                    transition: 'all 0.2s ease'
-                }}
+                className={cn(
+                    'w-full max-w-[600px] cursor-pointer rounded-2xl border-2 border-dashed p-10 text-center transition-colors',
+                    hovering ? 'border-[#4dabf7] bg-primary/10' : 'border-border bg-muted/50'
+                )}
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={() => setHovering(true)}
                 onMouseLeave={() => setHovering(false)}
             >
-                <div style={{
-                    width: 60, height: 60, borderRadius: '50%', backgroundColor: 'var(--app-accent-bg)', color: '#1677ff',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-                }}>
+                <div className="mx-auto mb-4 flex h-[60px] w-[60px] items-center justify-center rounded-full bg-primary/10 text-primary">
                     <IconUpload size={30} />
                 </div>
-                <Text strong style={{ fontSize: 16, display: 'block' }}>Haga clic o arrastre archivos aquí</Text>
-                <Text type="secondary" style={{ fontSize: 13, display: 'block', marginTop: 8 }}>
+                <span className="block text-base font-semibold">Haga clic o arrastre archivos aquí</span>
+                <span className="mt-2 block text-[13px] text-muted-foreground">
                     Soporta archivos PDF y Planillas Excel (.xlsx).
-                </Text>
+                </span>
 
                 {files.length > 0 && (
-                    <Alert
-                        type="info"
-                        showIcon
-                        icon={files[0].name.endsWith('.xlsx') ? <IconFileSpreadsheet size={16} /> : <IconPdf size={16} />}
-                        message={`${files.length} ${files.length === 1 ? 'archivo seleccionado' : 'archivos seleccionados'}`}
-                        style={{ marginTop: 20, textAlign: 'left' }}
-                    />
+                    <InlineAlert type="info" icon={files[0].name.endsWith('.xlsx') ? <IconFileSpreadsheet size={16} /> : <IconPdf size={16} />} className="mt-5 text-left">
+                        {files.length} {files.length === 1 ? 'archivo seleccionado' : 'archivos seleccionados'}
+                    </InlineAlert>
                 )}
             </div>
 
             <Button
-                size="large"
+                size="lg"
                 disabled={files.length === 0}
                 onClick={handleUploadAndParse}
-                type="primary"
-                style={{ backgroundColor: '#9c36b5' }}
-                icon={<IconDatabaseExport size={20} />}
+                className="bg-[#9c36b5] text-white hover:bg-[#9c36b5]/90"
             >
+                <IconDatabaseExport size={20} />
                 Procesar Archivos ({files.length})
             </Button>
 
             <Button
-                type="text"
-                loading={isDownloading}
-                icon={<IconDownload size={16} />}
+                variant="ghost"
+                disabled={isDownloading}
                 onClick={async () => {
                     setIsDownloading(true);
                     try { await fichaService.downloadBulkTemplate(); }
@@ -204,6 +189,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                     finally { setIsDownloading(false); }
                 }}
             >
+                {isDownloading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconDownload size={16} />}
                 Descargar plantilla Excel (con maestros actualizados)
             </Button>
         </div>
@@ -212,10 +198,10 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const renderStep2Review = () => {
         if (isParsing) {
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24, padding: '24px 0' }}>
-                    <Text strong style={{ fontSize: 16 }}>Extrayendo y mapeando datos...</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>Esto puede tomar unos minutos dependiendo de la cantidad de archivos.</Text>
-                    <Progress percent={progress} status="active" strokeColor="#9c36b5" style={{ width: '100%' }} />
+                <div className="mt-6 flex flex-col items-center gap-6 py-6">
+                    <span className="text-base font-semibold">Extrayendo y mapeando datos...</span>
+                    <span className="text-[13px] text-muted-foreground">Esto puede tomar unos minutos dependiendo de la cantidad de archivos.</span>
+                    <ProgressBar percent={progress} colorClassName="bg-[#9c36b5]" />
                 </div>
             );
         }
@@ -225,56 +211,46 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         const errorCount = parsedItems.filter(i => i.status === 'ERROR').length;
 
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 12 }}>
+            <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <Title level={3} style={{ margin: 0, color: '#1864ab' }}>Revisión de Datos</Title>
-                        <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+                        <h3 className="m-0 text-xl font-semibold text-[#1864ab]">Revisión de Datos</h3>
+                        <span className="block text-[13px] text-muted-foreground">
                             Verifique que el sistema haya mapeado correctamente los catálogos antes de crear las fichas.
-                        </Text>
-                        <Text strong style={{ fontSize: 13, color: '#1864ab', display: 'block', marginTop: 4 }}>
+                        </span>
+                        <span className="mt-1 block text-[13px] font-semibold text-[#1864ab]">
                             {parsedItems.length} fichas detectadas en el Excel.
-                        </Text>
+                        </span>
                     </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <Button onClick={() => { setStep(1); setFiles([]); setParsedItems([]); }}>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => { setStep(1); setFiles([]); setParsedItems([]); }}>
                             Cancelar
                         </Button>
                         <Button
-                            type="primary"
-                            style={{ backgroundColor: '#2f9e44' }}
+                            className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
                             onClick={handleCommit}
-                            disabled={selectedIndices.length === 0}
-                            loading={isCommitting}
-                            icon={<IconCheck size={18} />}
+                            disabled={selectedIndices.length === 0 || isCommitting}
                         >
+                            {isCommitting ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <IconCheck size={18} />}
                             Crear Fichas ({selectedIndices.length})
                         </Button>
                     </div>
                 </div>
 
                 {parseMeta?.truncated && (
-                    <Alert
-                        type="warning"
-                        showIcon
-                        icon={<IconAlertCircle size={16} />}
-                        message="Lote truncado"
-                        description={
-                            <Text style={{ fontSize: 13 }}>
-                                El Excel contiene más de {parseMeta.maxFichas} fichas. Solo se procesaron las primeras {parseMeta.maxFichas}.
-                                Divida el archivo en lotes más pequeños para cargar el resto.
-                            </Text>
-                        }
-                    />
+                    <InlineAlert type="warning" icon={<IconAlertCircle size={16} />} title="Lote truncado">
+                        El Excel contiene más de {parseMeta.maxFichas} fichas. Solo se procesaron las primeras {parseMeta.maxFichas}.
+                        Divida el archivo en lotes más pequeños para cargar el resto.
+                    </InlineAlert>
                 )}
 
-                <div style={{ display: 'flex', gap: 12 }}>
-                    <Alert type="success" style={{ flex: 1, textAlign: 'center' }} message={<Text strong style={{ fontSize: 13 }}>{readyCount} Listas</Text>} />
-                    <Alert type="warning" style={{ flex: 1, textAlign: 'center' }} message={<Text strong style={{ fontSize: 13 }}>{warningCount} Advertencias</Text>} />
-                    <Alert type="error" style={{ flex: 1, textAlign: 'center' }} message={<Text strong style={{ fontSize: 13 }}>{errorCount} Errores</Text>} />
+                <div className="flex gap-3">
+                    <InlineAlert type="success" className="flex-1 justify-center text-center"><strong className="text-[13px]">{readyCount} Listas</strong></InlineAlert>
+                    <InlineAlert type="warning" className="flex-1 justify-center text-center"><strong className="text-[13px]">{warningCount} Advertencias</strong></InlineAlert>
+                    <InlineAlert type="error" className="flex-1 justify-center text-center"><strong className="text-[13px]">{errorCount} Errores</strong></InlineAlert>
                 </div>
 
-                <Card size="small">
+                <Card className="p-3">
                     <BulkReviewGrid
                         items={parsedItems}
                         selectedIndices={selectedIndices}
@@ -288,9 +264,9 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     const renderStep3Result = () => {
         if (isCommitting) {
             return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24, padding: '24px 0' }}>
-                    <Text strong style={{ fontSize: 16 }}>Guardando fichas en la base de datos...</Text>
-                    <Progress percent={100} status="active" strokeColor="#2f9e44" style={{ width: '100%' }} />
+                <div className="mt-6 flex flex-col items-center gap-6 py-6">
+                    <span className="text-base font-semibold">Guardando fichas en la base de datos...</span>
+                    <ProgressBar percent={100} colorClassName="bg-[#2f9e44]" />
                 </div>
             );
         }
@@ -298,32 +274,26 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         if (!commitResults) return null;
 
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 24, alignItems: 'center', marginTop: 24, padding: '24px 0' }}>
-                <div style={{
-                    width: 80, height: 80, borderRadius: '50%', backgroundColor: 'rgba(47,158,68,0.15)', color: '#2f9e44',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
+            <div className="mt-6 flex flex-col items-center gap-6 py-6">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/15 text-success">
                     <IconCheck size={40} />
                 </div>
-                <Title level={2} style={{ margin: 0 }}>¡Proceso Completado!</Title>
-                <Text style={{ fontSize: 16 }}>
-                    Se han creado exitosamente <b>{commitResults.created}</b> de {commitResults.total} fichas solicitadas.
-                </Text>
+                <h2 className="m-0 text-2xl font-semibold">¡Proceso Completado!</h2>
+                <p className="text-base">
+                    Se han creado exitosamente <strong>{commitResults.created}</strong> de {commitResults.total} fichas solicitadas.
+                </p>
 
                 {commitResults.failed > 0 && (
-                    <Alert
-                        type="warning"
-                        showIcon
-                        message="Algunas fichas fallaron"
-                        description={<Text style={{ fontSize: 13 }}>{commitResults.failed} fichas no pudieron ser creadas por errores en base de datos.</Text>}
-                    />
+                    <InlineAlert type="warning" icon={<IconAlertCircle size={16} />} title="Algunas fichas fallaron">
+                        {commitResults.failed} fichas no pudieron ser creadas por errores en base de datos.
+                    </InlineAlert>
                 )}
 
-                <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-                    <Button onClick={onBack}>
+                <div className="mt-6 flex gap-3">
+                    <Button variant="outline" onClick={onBack}>
                         Volver al inicio
                     </Button>
-                    <Button type="primary" onClick={onSuccess}>
+                    <Button onClick={onSuccess}>
                         Ver en Explorador
                     </Button>
                 </div>
@@ -332,7 +302,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24, width: '100%' }}>
+        <div className="shadcn-scope flex w-full flex-col gap-6">
             {step === 1 && (
                 <PageHeader
                     title="Carga Masiva de Fichas (PDF / Excel)"
@@ -341,16 +311,11 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                 />
             )}
 
-            <Card style={{ borderRadius: 16 }} styles={{ body: { padding: isMobile ? 16 : 32 } }}>
+            <Card className={cn('rounded-2xl', isMobile ? 'p-4' : 'p-8')}>
                 {error && (
-                    <Alert
-                        type="error"
-                        showIcon
-                        icon={<IconAlertCircle size={16} />}
-                        message="Error"
-                        description={error}
-                        style={{ marginBottom: 24 }}
-                    />
+                    <InlineAlert type="error" icon={<IconAlertCircle size={16} />} title="Error" className="mb-6">
+                        {error}
+                    </InlineAlert>
                 )}
 
                 {step === 1 && renderStep1Upload()}
@@ -360,3 +325,30 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
         </div>
     );
 };
+
+const ALERT_STYLES: Record<string, string> = {
+    success: 'border-success/30 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/10 text-warning',
+    error: 'border-destructive/30 bg-destructive/10 text-destructive',
+    info: 'border-primary/30 bg-primary/10 text-primary',
+};
+
+function InlineAlert({ type, icon, title, children, className }: { type: 'success' | 'warning' | 'error' | 'info'; icon?: React.ReactNode; title?: string; children: React.ReactNode; className?: string }) {
+    return (
+        <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', ALERT_STYLES[type], className)}>
+            {icon}
+            <div className="flex-1 text-xs">
+                {title && <span className="block font-semibold">{title}</span>}
+                <span>{children}</span>
+            </div>
+        </div>
+    );
+}
+
+function ProgressBar({ percent, colorClassName }: { percent: number; colorClassName: string }) {
+    return (
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className={cn('h-full rounded-full transition-all', colorClassName)} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
+        </div>
+    );
+}

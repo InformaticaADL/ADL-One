@@ -3,18 +3,22 @@ import dayjs from 'dayjs';
 import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import { Card, Input, Select, Button, Table, Tag, Tooltip, Typography, DatePicker, Spin } from 'antd';
+import { useNavStore } from '../../../store/navStore';
+import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import {
     IconSearch,
     IconEraser,
     IconFilter,
     IconExternalLink,
 } from '@tabler/icons-react';
-
-import { useNavStore } from '../../../store/navStore';
-import { ProtectedContent } from '../../../components/auth/ProtectedContent';
-
-const { Text } = Typography;
 
 // El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
 // como si fueran UTC. Usamos los componentes UTC para evitar que el navegador
@@ -25,6 +29,11 @@ const formatFechaHoraServidor = (value: string | Date) => {
     const pad = (n: number) => String(n).padStart(2, '0');
     return `${pad(d.getUTCDate())}-${pad(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`;
 };
+
+// value/onChange en formato 'yyyy-MM-dd' para calzar con el contrato de DatePicker,
+// pero el resto del componente sigue trabajando con Date | null.
+const toDateInputValue = (d: Date | null) => (d ? dayjs(d).format('YYYY-MM-DD') : '');
+const fromDateInputValue = (v: string) => (v ? dayjs(v).toDate() : null);
 
 interface Props {
     onBackToMenu: () => void;
@@ -219,79 +228,8 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 
     const showCaso = activeModule !== 'gem' && activeModule !== 'unidades-gem';
 
-    const columns = [
-        ...(showCaso ? [{
-            title: 'Caso ADLab', width: 90,
-            render: (_: any, m: any) => {
-                const key = m.id_agendamam?.toString();
-                return casoAdlabMap[key] ? <Tag color="blue">{casoAdlabMap[key]}</Tag> : <Text type="secondary" style={{ fontSize: 12 }}>Sin asignar</Text>;
-            },
-        }] : []),
-        {
-            title: 'Correlativo', width: 130,
-            render: (_: any, m: any) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                    <Text style={{ fontSize: 12, fontWeight: 600 }} title={m.frecuencia_correlativo}>{m.frecuencia_correlativo || '-'}</Text>
-                    {m.fecha_completado && dayjs().diff(dayjs(m.fecha_completado), 'hour') < 24 && <Tag color="green">Nuevo</Tag>}
-                </div>
-            ),
-        },
-        {
-            title: 'Fecha', width: 110,
-            render: (_: any, m: any) => <Text style={{ fontSize: 12, whiteSpace: 'nowrap' }}>{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</Text>,
-        },
-        { title: 'Cliente', dataIndex: 'cliente', width: 180, ellipsis: { showTitle: true } },
-        { title: 'F. Emisora', dataIndex: 'centro', width: 180, ellipsis: { showTitle: true } },
-        {
-            title: 'Área / Obj.', width: 160,
-            render: (_: any, m: any) => (
-                <div>
-                    <Text style={{ fontSize: 12, fontWeight: 500, display: 'block' }}>{m.nombre_subarea || '-'}</Text>
-                    <Text type="secondary" style={{ fontSize: 10 }}>{m.objetivo || '-'}</Text>
-                </div>
-            ),
-        },
-        { title: 'M. Inst.', width: 120, render: (_: any, m: any) => <Text style={{ fontSize: 12 }}>{m.muestreador || 'Sin Asignar'}</Text> },
-        { title: 'M. Ret.', width: 120, render: (_: any, m: any) => <Text style={{ fontSize: 12 }}>{m.muestreador_retiro || '-'}</Text> },
-        {
-            title: 'Realizado por GEM', width: 180,
-            render: (_: any, m: any) => {
-                const key = m.id_agendamam?.toString();
-                return realizadoStates[key]?.realizado ? (
-                    <div>
-                        <Text style={{ fontSize: 10, fontWeight: 700, color: '#0d9488', display: 'block' }}>✓ Realizado</Text>
-                        <Text type="secondary" style={{ fontSize: 10, lineHeight: 1.3 }}>
-                            <strong>Por:</strong> {realizadoStates[key]?.userName}<br />
-                            <strong>Fecha:</strong> {realizadoStates[key]?.fecha}
-                        </Text>
-                    </div>
-                ) : <Text type="secondary" style={{ fontSize: 10 }}>Pendiente</Text>;
-            },
-        },
-        {
-            title: 'Acciones', width: 80, align: 'center' as const,
-            render: (_: any, m: any) => (
-                <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO']}>
-                    <Tooltip title="Ver Detalle Ejecución">
-                        <Button
-                            type="text"
-                            shape="circle"
-                            icon={<IconExternalLink size={16} style={{ color: 'var(--app-accent-text)' }} />}
-                            onClick={() => {
-                                setSelectedFicha(m.id_fichaingresoservicio || m.correlativo_ficha, m.frecuencia_correlativo);
-                                setActiveSubmodule('ma-ficha-detalle');
-                            }}
-                        />
-                    </Tooltip>
-                </ProtectedContent>
-            ),
-        },
-    ];
-
-    const selectProps = { showSearch: true, allowClear: true, style: { width: '100%' }, placeholder: 'Todos' } as const;
-
     return (
-        <div>
+        <div className="shadcn-scope">
             <PageHeader
                 title="Muestreos Completados"
                 subtitle="Histórico de servicios ejecutados y reportes generados"
@@ -301,93 +239,153 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                     { label: 'Muestreos Completados' }
                 ]}
                 rightSection={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <Text type="secondary" style={{ fontSize: 12 }}>{filteredMuestreos.length} servicios registrados</Text>
-                        <Button icon={<IconEraser size={14} />} onClick={handleClearFilters}>Limpiar Filtros</Button>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">{filteredMuestreos.length} servicios registrados</span>
+                        <Button variant="outline" onClick={handleClearFilters}>
+                            <IconEraser size={14} /> Limpiar Filtros
+                        </Button>
                     </div>
                 }
             />
 
-            <Card
-                title={
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: 'var(--app-accent-text)' }}>
-                        <IconFilter size={18} /> Filtros de búsqueda
-                    </span>
-                }
-                styles={{ header: { border: 'none' } }}
-                style={{ marginBottom: 16 }}
-            >
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+            <Card className="mb-4 p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
+                    <IconFilter size={18} /> Filtros de búsqueda
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
                     <Field label="Correlativo / ID Caso">
-                        <Input placeholder="Ej: 99-1 o ID Caso..." value={searchCorrelativo} onChange={(e) => setSearchCorrelativo(e.target.value)} prefix={<IconSearch size={14} />} />
+                        <div className="relative">
+                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Input className="pl-8" placeholder="Ej: 99-1 o ID Caso..." value={searchCorrelativo} onChange={(e) => setSearchCorrelativo(e.target.value)} />
+                        </div>
                     </Field>
                     <Field label="Cliente">
-                        <Select options={uniqueClientes} value={searchCliente || undefined} onChange={(v) => setSearchCliente(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar cliente..." options={uniqueClientes} value={searchCliente ?? ''} onValueChange={(v) => setSearchCliente(v || null)} />
                     </Field>
                     <Field label="Muestreador">
-                        <Select options={uniqueMuestreadores} value={searchMuestreador || undefined} onChange={(v) => setSearchMuestreador(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar muestreador..." options={uniqueMuestreadores} value={searchMuestreador ?? ''} onValueChange={(v) => setSearchMuestreador(v || null)} />
                     </Field>
                     <Field label="Objetivo">
-                        <Select options={uniqueObjetivos} value={searchObjetivo || undefined} onChange={(v) => setSearchObjetivo(v || null)} {...selectProps} />
+                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
                     </Field>
                     <Field label="Desde">
-                        <DatePicker
-                            style={{ width: '100%' }}
-                            format="DD/MM/YYYY"
-                            value={fechaDesde ? dayjs(fechaDesde) : null}
-                            onChange={(d) => setFechaDesde(d ? d.toDate() : null)}
-                        />
+                        <DatePicker value={toDateInputValue(fechaDesde)} onChange={(v) => setFechaDesde(fromDateInputValue(v))} />
                     </Field>
                     <Field label="Hasta">
-                        <DatePicker
-                            style={{ width: '100%' }}
-                            format="DD/MM/YYYY"
-                            value={fechaHasta ? dayjs(fechaHasta) : null}
-                            onChange={(d) => setFechaHasta(d ? d.toDate() : null)}
-                        />
+                        <DatePicker value={toDateInputValue(fechaHasta)} onChange={(v) => setFechaHasta(fromDateInputValue(v))} />
                     </Field>
                 </div>
             </Card>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div className="flex flex-col gap-4">
                 {loading ? (
                     <Card>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: 32 }}>
-                            <Spin size="large" />
-                            <Text type="secondary" style={{ fontSize: 13 }}>Cargando registros históricos...</Text>
+                        <div className="flex flex-col items-center gap-2 p-8">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            <span className="text-[13px] text-muted-foreground">Cargando registros históricos...</span>
                         </div>
                     </Card>
                 ) : displayedGroups.length === 0 ? (
                     <Card>
-                        <Text type="secondary" style={{ display: 'block', textAlign: 'center', padding: 32 }}>No se encontraron muestreos ejecutados.</Text>
+                        <p className="p-8 text-center text-muted-foreground">No se encontraron muestreos ejecutados.</p>
                     </Card>
                 ) : (
                     displayedGroups.map((group) => (
-                        <Card key={group.fecha} styles={{ body: { padding: 0 } }}>
-                            <div style={{ padding: 16, backgroundColor: 'var(--app-accent-bg)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <Text strong style={{ fontSize: 14 }}>{group.etiqueta}</Text>
-                                <Tag color="blue">{group.items.length} servicios</Tag>
+                        <Card key={group.fecha} className="overflow-hidden p-0">
+                            <div className="flex items-center justify-between bg-accent px-4 py-3">
+                                <span className="text-sm font-semibold">{group.etiqueta}</span>
+                                <Badge>{group.items.length} servicios</Badge>
                             </div>
-                            <Table
-                                rowKey={(m, idx) => `${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}
-                                columns={columns}
-                                dataSource={group.items}
-                                pagination={false}
-                                scroll={{ x: 1100 }}
-                                rowClassName={(m) => (realizadoStates[m.id_agendamam?.toString()]?.realizado ? 'muestreo-realizado-row' : '')}
-                            />
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            {showCaso && <TableHead className="w-[90px]">Caso ADLab</TableHead>}
+                                            <TableHead className="w-[130px]">Correlativo</TableHead>
+                                            <TableHead className="w-[110px]">Fecha</TableHead>
+                                            <TableHead className="w-[180px]">Cliente</TableHead>
+                                            <TableHead className="w-[180px]">F. Emisora</TableHead>
+                                            <TableHead className="w-[160px]">Área / Obj.</TableHead>
+                                            <TableHead className="w-[120px]">M. Inst.</TableHead>
+                                            <TableHead className="w-[120px]">M. Ret.</TableHead>
+                                            <TableHead className="w-[180px]">Realizado por GEM</TableHead>
+                                            <TableHead className="w-20 text-center">Acciones</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {group.items.map((m, idx) => {
+                                            const key = m.id_agendamam?.toString();
+                                            const isRealizado = !!realizadoStates[key]?.realizado;
+                                            return (
+                                                <TableRow
+                                                    key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}
+                                                    className={isRealizado ? 'bg-success/5 hover:bg-success/10' : undefined}
+                                                >
+                                                    {showCaso && (
+                                                        <TableCell>
+                                                            {casoAdlabMap[key] ? <Badge>{casoAdlabMap[key]}</Badge> : <span className="text-xs text-muted-foreground">Sin asignar</span>}
+                                                        </TableCell>
+                                                    )}
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-1 whitespace-nowrap">
+                                                            <span className="text-xs font-semibold" title={m.frecuencia_correlativo}>{m.frecuencia_correlativo || '-'}</span>
+                                                            {m.fecha_completado && dayjs().diff(dayjs(m.fecha_completado), 'hour') < 24 && <Badge variant="success">Nuevo</Badge>}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="whitespace-nowrap text-xs">{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
+                                                    <TableCell className="max-w-[180px] truncate text-xs" title={m.cliente}>{m.cliente || '-'}</TableCell>
+                                                    <TableCell className="max-w-[180px] truncate text-xs" title={m.centro}>{m.centro || '-'}</TableCell>
+                                                    <TableCell>
+                                                        <span className="block text-xs font-medium">{m.nombre_subarea || '-'}</span>
+                                                        <span className="block text-[10px] text-muted-foreground">{m.objetivo || '-'}</span>
+                                                    </TableCell>
+                                                    <TableCell className="text-xs">{m.muestreador || 'Sin Asignar'}</TableCell>
+                                                    <TableCell className="text-xs">{m.muestreador_retiro || '-'}</TableCell>
+                                                    <TableCell>
+                                                        {isRealizado ? (
+                                                            <div>
+                                                                <span className="block text-[10px] font-bold text-success">✓ Realizado</span>
+                                                                <span className="block text-[10px] leading-tight text-muted-foreground">
+                                                                    <strong>Por:</strong> {realizadoStates[key]?.userName}<br />
+                                                                    <strong>Fecha:</strong> {realizadoStates[key]?.fecha}
+                                                                </span>
+                                                            </div>
+                                                        ) : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
+                                                    </TableCell>
+                                                    <TableCell className="text-center">
+                                                        <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO']}>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="rounded-full text-primary hover:bg-primary/10 hover:text-primary"
+                                                                title="Ver Detalle Ejecución"
+                                                                onClick={() => {
+                                                                    setSelectedFicha(m.id_fichaingresoservicio || m.correlativo_ficha, m.frecuencia_correlativo);
+                                                                    setActiveSubmodule('ma-ficha-detalle');
+                                                                }}
+                                                            >
+                                                                <IconExternalLink size={16} />
+                                                            </Button>
+                                                        </ProtectedContent>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         </Card>
                     ))
                 )}
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 4px' }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>
+                <div className="flex items-center justify-between px-1">
+                    <span className="text-[13px] text-muted-foreground">
                         Mostrando {sortedMuestreos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length} de {filteredMuestreos.length} registros
-                    </Text>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <Button size="small" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>Anterior</Button>
-                        <Text style={{ fontSize: 13, padding: '4px 8px' }}>{currentPage} / {totalPages}</Text>
-                        <Button size="small" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>Siguiente</Button>
+                    </span>
+                    <div className="flex items-center gap-1">
+                        <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>Anterior</Button>
+                        <span className="px-2 text-[13px]">{currentPage} / {totalPages}</span>
+                        <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => p + 1)}>Siguiente</Button>
                     </div>
                 </div>
             </div>
@@ -398,7 +396,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <Text style={{ fontSize: 12, color: 'var(--app-text-secondary)', display: 'block', marginBottom: 4 }}>{label}</Text>
+            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>
     );

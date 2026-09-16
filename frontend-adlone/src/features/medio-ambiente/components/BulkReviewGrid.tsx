@@ -1,21 +1,5 @@
 import React from 'react';
 import {
-    Table,
-    Tag,
-    Button,
-    Tooltip,
-    Typography,
-    Checkbox,
-    Popover,
-    Alert,
-    Modal,
-    Divider,
-    Tabs,
-    Card,
-    Spin,
-    Badge
-} from 'antd';
-import {
     IconCheck,
     IconAlertTriangle,
     IconX,
@@ -28,7 +12,15 @@ import {
 } from '@tabler/icons-react';
 import apiClient from '../../../config/axios.config';
 
-const { Text } = Typography;
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 interface Props {
     items: any[];
@@ -118,246 +110,234 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
         };
     }, [linkStatuses]);
 
-    const columns = [
-        {
-            title: <Checkbox checked={isAllSelected} indeterminate={hasIndeterminate} onChange={toggleAll} />,
-            key: 'select',
-            width: 40,
-            render: (_: unknown, item: any, idx: number) => (
-                <Checkbox
-                    checked={selectedIndices.includes(idx)}
-                    onChange={() => toggleItem(idx)}
-                    disabled={item.status !== 'READY' && item.status !== 'WARNING'}
-                />
-            ),
-        },
-        { title: 'Estado', key: 'status', width: 60, align: 'center' as const, render: (_: unknown, item: any) => getStatusIcon(item.status) },
-        {
-            title: 'ID Muestra / Archivo', key: 'idmuestra', width: 200,
-            render: (_: unknown, item: any, idx: number) => (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'nowrap' }}>
-                    <Button type="text" size="small" icon={<IconEye size={16} />} onClick={() => { setPreviewItem(item); setPreviewIndex(idx); }} title="Ver detalles extraídos" />
-                    <div>
-                        <Text strong style={{ fontSize: 13, maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={item.idMuestra || item.filename}>
-                            {item.idMuestra || item.filename}
-                        </Text>
-                        {item.excelRow && <Text type="secondary" style={{ fontSize: 10 }}>fila Excel {item.excelRow}</Text>}
-                    </div>
-                </div>
-            ),
-        },
-        {
-            title: 'Cliente', key: 'cliente', width: 160,
-            render: (_: unknown, item: any) => {
-                const ants = item.antecedentes || {};
-                return ants._clienteNombre
-                    ? <Text style={{ fontSize: 12, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={ants._clienteNombre}>{ants._clienteNombre}</Text>
-                    : <Text type="danger" style={{ fontSize: 12 }}>No encontrado</Text>;
-            },
-        },
-        {
-            title: 'Empresa Srv.', key: 'empresa', width: 160,
-            render: (_: unknown, item: any) => {
-                const ants = item.antecedentes || {};
-                return <Text type="secondary" style={{ fontSize: 12, maxWidth: 140, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={ants._empresaNombre || '-'}>{ants._empresaNombre || '-'}</Text>;
-            },
-        },
-        {
-            title: 'Fuente Emisora', key: 'fuente', width: 150,
-            render: (_: unknown, item: any) => {
-                const ants = item.antecedentes || {};
-                return ants._fuenteNombre
-                    ? <Text style={{ fontSize: 12, maxWidth: 130, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={ants._fuenteNombre}>{ants._fuenteNombre}</Text>
-                    : <Text type="danger" style={{ fontSize: 12 }}>No encontrado</Text>;
-            },
-        },
-        {
-            title: 'Objetivo', key: 'objetivo', width: 130,
-            render: (_: unknown, item: any) => {
-                const ants = item.antecedentes || {};
-                return <Text type="secondary" style={{ fontSize: 12, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={ants._objetivoNombre || '-'}>{ants._objetivoNombre || '-'}</Text>;
-            },
-        },
-        {
-            title: 'Análisis (#)', key: 'analisis',
-            render: (_: unknown, item: any) => {
-                const validAnalyses = item.analisis?.filter((a: any) => a._matched) || [];
-                const totalAnalyses = item.analisis?.length || 0;
-                return (
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <Tag color={totalAnalyses === 0 ? 'red' : (validAnalyses.length === totalAnalyses ? 'blue' : 'orange')} icon={<IconFlask size={12} style={{ verticalAlign: 'text-bottom' }} />}>
-                            {validAnalyses.length} / {totalAnalyses}
-                        </Tag>
-                        {item._normativa && (
-                            <Tooltip title={item._normativa}>
-                                <Tag style={{ maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item._normativa}</Tag>
-                            </Tooltip>
-                        )}
-                    </div>
-                );
-            },
-        },
-        {
-            title: 'UF Total', key: 'uf', width: 90,
-            render: (_: unknown, item: any) => (
-                <Text strong style={{ fontSize: 12, color: (item._ufTotal || 0) > 0 ? '#2f9e44' : 'var(--app-text-secondary)' }}>
-                    {(item._ufTotal || 0) > 0 ? `${Number(item._ufTotal).toFixed(2)} UF` : '-'}
-                </Text>
-            ),
-        },
-        {
-            title: 'Ubicación', key: 'ubicacion', width: 70, align: 'center' as const,
-            render: (_: unknown, _item: any, idx: number) => {
-                const ls = linkStatuses[idx];
-                if (!ls || ls.status === 'empty') return <Text type="secondary" style={{ fontSize: 12 }}>-</Text>;
-                if (ls.status === 'loading') return <Spin size="small" />;
-                if (ls.status === 'ok') return (
-                    <Tooltip title={`Lat: ${ls.lat?.toFixed(5)} · Lon: ${ls.lon?.toFixed(5)}`}>
-                        <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.12)" size={22}><IconCheck size={12} /></IconWrap>
-                    </Tooltip>
-                );
-                if (ls.status === 'warn') return (
-                    <Tooltip title="Link válido pero sin coordenadas extraíbles. Se guardará sin ubicación de ruta.">
-                        <IconWrap color="#f08c00" bg="rgba(240,140,0,0.12)" size={22}><IconAlertTriangle size={12} /></IconWrap>
-                    </Tooltip>
-                );
-                return (
-                    <Tooltip title="Link inválido.">
-                        <IconWrap color="#e03131" bg="rgba(224,49,49,0.12)" size={22}><IconX size={12} /></IconWrap>
-                    </Tooltip>
-                );
-            },
-        },
-        {
-            title: 'Problemas', key: 'problemas', width: 80, align: 'center' as const,
-            render: (_: unknown, item: any) => {
-                const hasErrors = item.errors?.length > 0 || item.analysisErrors?.length > 0;
-                const hasWarnings = item.warnings?.length > 0;
-                if (!hasErrors && !hasWarnings) return <Text type="secondary" style={{ fontSize: 12 }}>-</Text>;
-                const count = (item.errors?.length || 0) + (item.analysisErrors?.length || 0) + (item.warnings?.length || 0);
-                return (
-                    <Popover
-                        placement="left"
-                        content={
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 350 }}>
-                                {item.errors?.map((err: any, i: number) => (
-                                    <Alert key={`err-${i}`} type="error" showIcon icon={<IconX size={16} />} message={err.field} description={<Text style={{ fontSize: 12 }}>{err.message}</Text>} />
-                                ))}
-                                {item.analysisErrors?.map((err: any, i: number) => {
-                                    const msg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
-                                    const title = (err && typeof err === 'object' && err.field) ? err.field : 'Análisis';
-                                    return (
-                                        <Alert key={`aerr-${i}`} type="warning" showIcon icon={<IconAlertTriangle size={16} />} message={title} description={<Text style={{ fontSize: 12 }}>{msg}</Text>} />
-                                    );
-                                })}
-                                {item.warnings?.map((warn: any, i: number) => (
-                                    <Alert key={`warn-${i}`} type="warning" showIcon icon={<IconAlertTriangle size={16} />} message={warn.field} description={<Text style={{ fontSize: 12 }}>{warn.message}</Text>} />
-                                ))}
-                            </div>
-                        }
-                    >
-                        <Badge count={count} size="small" color={hasErrors ? '#e03131' : '#f08c00'}>
-                            <Button type="text" size="small" icon={<IconInfoCircle size={20} color={hasErrors ? '#e03131' : '#f08c00'} />} />
-                        </Badge>
-                    </Popover>
-                );
-            },
-        },
-    ];
-
     return (
-        <>
+        <div className="shadcn-scope">
             {linkSummary.total > 0 && (
-                <Alert
-                    type={linkSummary.warn > 0 || linkSummary.invalid > 0 ? 'warning' : 'success'}
-                    showIcon
-                    icon={<IconMapPin size={16} />}
-                    style={{ marginBottom: 8 }}
-                    message={
-                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-                            <Text strong style={{ fontSize: 12 }}>Ubicaciones Google Maps:</Text>
-                            {linkSummary.loading > 0 && <Text type="secondary" style={{ fontSize: 12 }}>Verificando {linkSummary.loading}…</Text>}
-                            {linkSummary.ok > 0 && <Text style={{ fontSize: 12, color: '#2f9e44' }}>✓ {linkSummary.ok} detectada{linkSummary.ok !== 1 ? 's' : ''}</Text>}
-                            {linkSummary.warn > 0 && <Text style={{ fontSize: 12, color: '#e8590c' }}>⚠ {linkSummary.warn} sin coordenadas</Text>}
-                            {linkSummary.invalid > 0 && <Text style={{ fontSize: 12, color: '#e03131' }}>✗ {linkSummary.invalid} inválido{linkSummary.invalid !== 1 ? 's' : ''}</Text>}
-                            {linkSummary.warn > 0 && <Text type="secondary" style={{ fontSize: 12 }}>(se guardarán sin coordenadas de ruta)</Text>}
-                        </div>
-                    }
-                />
-            )}
-            <Table
-                dataSource={items}
-                columns={columns}
-                rowKey={(_item, idx) => idx as number}
-                pagination={false}
-                size="small"
-                scroll={{ y: 500 }}
-                locale={{ emptyText: 'No hay elementos para mostrar' }}
-                onRow={(item: any) => ({
-                    style: item.status === 'ERROR' ? { backgroundColor: 'rgba(224,49,49,0.05)' } : undefined,
-                })}
-            />
-
-            <Modal
-                open={!!previewItem}
-                onCancel={() => { setPreviewItem(null); setPreviewIndex(-1); }}
-                footer={null}
-                width="75%"
-                styles={{ body: { padding: 0 } }}
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <IconEye size={20} color="#1c7ed6" />
-                        <Text strong>Vista Previa: {previewItem?.idMuestra || previewItem?.filename}</Text>
+                <InlineAlert type={linkSummary.warn > 0 || linkSummary.invalid > 0 ? 'warning' : 'success'} icon={<IconMapPin size={16} />} className="mb-2">
+                    <div className="flex flex-wrap items-center gap-4">
+                        <span className="text-xs font-semibold">Ubicaciones Google Maps:</span>
+                        {linkSummary.loading > 0 && <span className="text-xs text-muted-foreground">Verificando {linkSummary.loading}…</span>}
+                        {linkSummary.ok > 0 && <span className="text-xs text-success">✓ {linkSummary.ok} detectada{linkSummary.ok !== 1 ? 's' : ''}</span>}
+                        {linkSummary.warn > 0 && <span className="text-xs text-[#e8590c]">⚠ {linkSummary.warn} sin coordenadas</span>}
+                        {linkSummary.invalid > 0 && <span className="text-xs text-destructive">✗ {linkSummary.invalid} inválido{linkSummary.invalid !== 1 ? 's' : ''}</span>}
+                        {linkSummary.warn > 0 && <span className="text-xs text-muted-foreground">(se guardarán sin coordenadas de ruta)</span>}
                     </div>
-                }
-            >
-                {previewItem && (
-                    <Tabs
-                        defaultActiveKey="antecedentes"
-                        style={{ padding: '0 16px' }}
-                        items={[
-                            {
-                                key: 'antecedentes',
-                                label: <span><IconClipboardList size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Antecedentes</span>,
-                                children: (
-                                    <div style={{ padding: '24px 8px', backgroundColor: 'var(--app-hover-bg)' }}>
+                </InlineAlert>
+            )}
+
+            <div className="max-h-[500px] overflow-auto rounded-lg border border-border">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-10">
+                                <Checkbox
+                                    checked={hasIndeterminate ? 'indeterminate' : isAllSelected}
+                                    onCheckedChange={toggleAll}
+                                />
+                            </TableHead>
+                            <TableHead className="w-[60px] text-center">Estado</TableHead>
+                            <TableHead className="w-[200px]">ID Muestra / Archivo</TableHead>
+                            <TableHead className="w-40">Cliente</TableHead>
+                            <TableHead className="w-40">Empresa Srv.</TableHead>
+                            <TableHead className="w-[150px]">Fuente Emisora</TableHead>
+                            <TableHead className="w-[130px]">Objetivo</TableHead>
+                            <TableHead>Análisis (#)</TableHead>
+                            <TableHead className="w-[90px]">UF Total</TableHead>
+                            <TableHead className="w-[70px] text-center">Ubicación</TableHead>
+                            <TableHead className="w-20 text-center">Problemas</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {items.length === 0 ? (
+                            <TableRow className="hover:bg-transparent">
+                                <TableCell colSpan={11} className="py-10 text-center text-sm text-muted-foreground">
+                                    No hay elementos para mostrar
+                                </TableCell>
+                            </TableRow>
+                        ) : (
+                            items.map((item, idx) => {
+                                const ants = item.antecedentes || {};
+                                const validAnalyses = item.analisis?.filter((a: any) => a._matched) || [];
+                                const totalAnalyses = item.analisis?.length || 0;
+                                const ls = linkStatuses[idx];
+                                const hasErrors = item.errors?.length > 0 || item.analysisErrors?.length > 0;
+                                const hasWarnings = item.warnings?.length > 0;
+                                const problemCount = (item.errors?.length || 0) + (item.analysisErrors?.length || 0) + (item.warnings?.length || 0);
+
+                                return (
+                                    <TableRow key={idx} className={item.status === 'ERROR' ? 'bg-destructive/5 hover:bg-destructive/10' : undefined}>
+                                        <TableCell>
+                                            <Checkbox
+                                                checked={selectedIndices.includes(idx)}
+                                                onCheckedChange={() => toggleItem(idx)}
+                                                disabled={item.status !== 'READY' && item.status !== 'WARNING'}
+                                            />
+                                        </TableCell>
+                                        <TableCell className="text-center">{getStatusIcon(item.status)}</TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-nowrap items-center gap-2">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" title="Ver detalles extraídos" onClick={() => { setPreviewItem(item); setPreviewIndex(idx); }}>
+                                                    <IconEye size={16} />
+                                                </Button>
+                                                <div className="min-w-0">
+                                                    <span className="block max-w-[150px] truncate text-[13px] font-semibold" title={item.idMuestra || item.filename}>
+                                                        {item.idMuestra || item.filename}
+                                                    </span>
+                                                    {item.excelRow && <span className="text-[10px] text-muted-foreground">fila Excel {item.excelRow}</span>}
+                                                </div>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            {ants._clienteNombre
+                                                ? <span className="block max-w-[140px] truncate text-xs" title={ants._clienteNombre}>{ants._clienteNombre}</span>
+                                                : <span className="text-xs text-destructive">No encontrado</span>}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="block max-w-[140px] truncate text-xs text-muted-foreground" title={ants._empresaNombre || '-'}>{ants._empresaNombre || '-'}</span>
+                                        </TableCell>
+                                        <TableCell>
+                                            {ants._fuenteNombre
+                                                ? <span className="block max-w-[130px] truncate text-xs" title={ants._fuenteNombre}>{ants._fuenteNombre}</span>
+                                                : <span className="text-xs text-destructive">No encontrado</span>}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="block max-w-[120px] truncate text-xs text-muted-foreground" title={ants._objetivoNombre || '-'}>{ants._objetivoNombre || '-'}</span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <Badge variant={totalAnalyses === 0 ? 'destructive' : (validAnalyses.length === totalAnalyses ? 'default' : 'warning')}>
+                                                    <IconFlask size={12} className="mr-1" />{validAnalyses.length} / {totalAnalyses}
+                                                </Badge>
+                                                {item._normativa && (
+                                                    <Badge variant="outline" className="max-w-[150px] truncate" title={item._normativa}>{item._normativa}</Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={cn('text-xs font-semibold', (item._ufTotal || 0) > 0 ? 'text-success' : 'text-muted-foreground')}>
+                                                {(item._ufTotal || 0) > 0 ? `${Number(item._ufTotal).toFixed(2)} UF` : '-'}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            {!ls || ls.status === 'empty' ? <span className="text-xs text-muted-foreground">-</span> : (
+                                                ls.status === 'loading' ? (
+                                                    <div className="mx-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                                ) : ls.status === 'ok' ? (
+                                                    <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.12)" size={22} title={`Lat: ${ls.lat?.toFixed(5)} · Lon: ${ls.lon?.toFixed(5)}`}><IconCheck size={12} /></IconWrap>
+                                                ) : ls.status === 'warn' ? (
+                                                    <IconWrap color="#f08c00" bg="rgba(240,140,0,0.12)" size={22} title="Link válido pero sin coordenadas extraíbles. Se guardará sin ubicación de ruta."><IconAlertTriangle size={12} /></IconWrap>
+                                                ) : (
+                                                    <IconWrap color="#e03131" bg="rgba(224,49,49,0.12)" size={22} title="Link inválido."><IconX size={12} /></IconWrap>
+                                                )
+                                            )}
+                                        </TableCell>
+                                        <TableCell className="text-center">
+                                            {!hasErrors && !hasWarnings ? <span className="text-xs text-muted-foreground">-</span> : (
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="relative h-8 w-8">
+                                                            <IconInfoCircle size={20} color={hasErrors ? '#e03131' : '#f08c00'} />
+                                                            <span className={cn('absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white', hasErrors ? 'bg-destructive' : 'bg-[#f08c00]')}>
+                                                                {problemCount}
+                                                            </span>
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent align="end" className="w-[350px] p-3">
+                                                        <div className="flex flex-col gap-2">
+                                                            {item.errors?.map((err: any, i: number) => (
+                                                                <InlineAlert key={`err-${i}`} type="error" icon={<IconX size={16} />} title={err.field}>{err.message}</InlineAlert>
+                                                            ))}
+                                                            {item.analysisErrors?.map((err: any, i: number) => {
+                                                                const msg = typeof err === 'string' ? err : (err?.message || JSON.stringify(err));
+                                                                const title = (err && typeof err === 'object' && err.field) ? err.field : 'Análisis';
+                                                                return (
+                                                                    <InlineAlert key={`aerr-${i}`} type="warning" icon={<IconAlertTriangle size={16} />} title={title}>{msg}</InlineAlert>
+                                                                );
+                                                            })}
+                                                            {item.warnings?.map((warn: any, i: number) => (
+                                                                <InlineAlert key={`warn-${i}`} type="warning" icon={<IconAlertTriangle size={16} />} title={warn.field}>{warn.message}</InlineAlert>
+                                                            ))}
+                                                        </div>
+                                                    </PopoverContent>
+                                                </Popover>
+                                            )}
+                                        </TableCell>
+                                    </TableRow>
+                                );
+                            })
+                        )}
+                    </TableBody>
+                </Table>
+            </div>
+
+            <Dialog open={!!previewItem} onOpenChange={(open) => { if (!open) { setPreviewItem(null); setPreviewIndex(-1); } }}>
+                <DialogContent className="max-h-[85vh] w-[75vw] max-w-[1100px] overflow-y-auto p-0">
+                    {previewItem && (
+                        <>
+                            <DialogHeader className="border-b border-border px-6 py-4">
+                                <DialogTitle className="flex items-center gap-2">
+                                    <IconEye size={20} className="text-[#1c7ed6]" />
+                                    Vista Previa: {previewItem?.idMuestra || previewItem?.filename}
+                                </DialogTitle>
+                            </DialogHeader>
+
+                            <Tabs defaultValue="antecedentes" className="px-4 pb-4">
+                                <TabsList className="mt-3">
+                                    <TabsTrigger value="antecedentes"><IconClipboardList size={18} className="mr-1.5" />Antecedentes</TabsTrigger>
+                                    <TabsTrigger value="analisis"><IconFlask size={18} className="mr-1.5" />Análisis</TabsTrigger>
+                                    <TabsTrigger value="auditoria"><IconCodeDots size={18} className="mr-1.5" />Auditoría de Match</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="antecedentes">
+                                    <div className="rounded-lg bg-muted/40 p-6">
                                         <PreviewAntecedentes previewItem={previewItem} previewIndex={previewIndex} linkStatuses={linkStatuses} cleanLink={cleanLink} />
                                     </div>
-                                ),
-                            },
-                            {
-                                key: 'analisis',
-                                label: <span><IconFlask size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Análisis</span>,
-                                children: (
-                                    <div style={{ padding: '24px 8px', backgroundColor: 'var(--app-hover-bg)' }}>
+                                </TabsContent>
+                                <TabsContent value="analisis">
+                                    <div className="rounded-lg bg-muted/40 p-6">
                                         <PreviewAnalisis previewItem={previewItem} />
                                     </div>
-                                ),
-                            },
-                            {
-                                key: 'auditoria',
-                                label: <span><IconCodeDots size={18} style={{ verticalAlign: 'text-bottom', marginRight: 6 }} />Auditoría de Match</span>,
-                                children: (
-                                    <div style={{ padding: '24px 8px' }}>
+                                </TabsContent>
+                                <TabsContent value="auditoria">
+                                    <div className="p-6">
                                         <PreviewAuditoria previewItem={previewItem} />
                                     </div>
-                                ),
-                            },
-                        ]}
-                    />
-                )}
-            </Modal>
-        </>
+                                </TabsContent>
+                            </Tabs>
+                        </>
+                    )}
+                </DialogContent>
+            </Dialog>
+        </div>
     );
 };
 
-function IconWrap({ children, color, bg, size = 24 }: { children: React.ReactNode; color: string; bg: string; size?: number }) {
+function IconWrap({ children, color, bg, size = 24, title }: { children: React.ReactNode; color: string; bg: string; size?: number; title?: string }) {
     return (
-        <div style={{
-            width: size, height: size, borderRadius: '50%', backgroundColor: bg, color,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        }}>
+        <div
+            className="inline-flex items-center justify-center rounded-full"
+            style={{ width: size, height: size, backgroundColor: bg, color }}
+            title={title}
+        >
             {children}
+        </div>
+    );
+}
+
+const ALERT_STYLES: Record<string, string> = {
+    success: 'border-success/30 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/10 text-warning',
+    error: 'border-destructive/30 bg-destructive/10 text-destructive',
+    info: 'border-primary/30 bg-primary/10 text-primary',
+};
+
+function InlineAlert({ type, icon, title, children, className }: { type: 'success' | 'warning' | 'error' | 'info'; icon?: React.ReactNode; title?: string; children: React.ReactNode; className?: string }) {
+    return (
+        <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', ALERT_STYLES[type], className)}>
+            {icon}
+            <div className="flex-1 text-xs">
+                {title && <span className="block font-semibold">{title}</span>}
+                <span>{children}</span>
+            </div>
         </div>
     );
 }
@@ -365,12 +345,22 @@ function IconWrap({ children, color, bg, size = 24 }: { children: React.ReactNod
 function StaticField({ label, value }: { label: string; value: any }) {
     return (
         <div>
-            <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block' }}>{label}</Text>
-            <Card size="small" style={{ marginTop: 2 }}>
-                <Text strong style={{ fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'block' }} title={String(value || '-')}>
+            <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[11px] font-bold uppercase text-muted-foreground">{label}</span>
+            <Card className="mt-0.5 p-2.5">
+                <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-semibold" title={String(value || '-')}>
                     {value || '-'}
-                </Text>
+                </span>
             </Card>
+        </div>
+    );
+}
+
+function SectionDivider({ children }: { children: React.ReactNode }) {
+    return (
+        <div className="flex items-center gap-3">
+            <div className="h-px flex-1 bg-border" />
+            <span className="text-xs font-medium text-muted-foreground">{children}</span>
+            <div className="h-px flex-1 bg-border" />
         </div>
     );
 }
@@ -378,27 +368,27 @@ function StaticField({ label, value }: { label: string; value: any }) {
 function PreviewAntecedentes({ previewItem, previewIndex, linkStatuses, cleanLink }: { previewItem: any; previewIndex: number; linkStatuses: Record<number, LinkStatus>; cleanLink: (l?: string) => string }) {
     const ants = previewItem.antecedentes || {};
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+        <div className="flex flex-col gap-6">
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Monitoreo" value={ants.tipoMonitoreo} />
                 <StaticField label="Base Operaciones" value={ants._lugarNombre || 'No Aplica'} />
                 <StaticField label="Cliente" value={ants._clienteNombre} />
                 <StaticField label="Empresa Servicio" value={ants._empresaNombre} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Fuente Emisora" value={ants._fuenteNombre} />
                 <StaticField label="Código Centro" value={ants.codigoCentro} />
                 <StaticField label="ID Centro" value={ants.idCentro || ants.selectedFuente} />
                 <StaticField label="Tipo Agua" value={ants.tipoAgua} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Comuna" value={ants.comuna} />
                 <StaticField label="Región" value={ants.region} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Contacto" value={ants.contactoNombre} />
                 <StaticField label="E-mail" value={ants.contactoEmail} />
                 <StaticField label="Objetivo" value={ants._objetivoNombre} />
@@ -407,14 +397,14 @@ function PreviewAntecedentes({ previewItem, previewIndex, linkStatuses, cleanLin
 
             <StaticField label="Tabla / Glosa" value={ants.glosa} />
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Es ETFA" value={ants.esETFA || (ants.etfa ? 'Sí' : 'No')} />
                 <StaticField label="Inspector" value={ants._inspectorNombre} />
                 <StaticField label="Punto de Muestreo" value={ants.puntoMuestreo} />
                 <StaticField label="Responsable" value={ants.responsableMuestreo} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Instrumento" value={ants.instrumentoFull || ants.selectedInstrumento || '-'} />
                 <StaticField label="Ref. Google Maps" value={(() => {
                     const ls = linkStatuses[previewIndex];
@@ -428,24 +418,24 @@ function PreviewAntecedentes({ previewItem, previewIndex, linkStatuses, cleanLin
                 <StaticField label="Coordenadas" value={ants.utmNorte && ants.utmEste ? `N ${ants.utmNorte} / E ${ants.utmEste}` : '-'} />
             </div>
 
-            <Divider>Frecuencia y Programación</Divider>
+            <SectionDivider>Frecuencia y Programación</SectionDivider>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Frecuencia" value={ants.frecuencia} />
                 <StaticField label="Periodo" value={ants._periodoNombre} />
                 <StaticField label="Factor" value={ants.factor} />
                 <StaticField label="Total Servicios" value={ants.totalServicios} />
             </div>
 
-            <Divider>Detalles del Servicio</Divider>
+            <SectionDivider>Detalles del Servicio</SectionDivider>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Componente" value={ants._componenteNombre} />
                 <StaticField label="Sub Área" value={ants._subAreaNombre} />
                 <StaticField label="Duración (hrs)" value={ants.duracion} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+            <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
                 <StaticField label="Cargo" value={ants._cargoNombre || ants.cargoResponsable} />
                 <StaticField label="Tipo Muestreo" value={ants._tipoMuestreoNombre} />
                 <StaticField label="Medición Caudal" value={ants.medicionCaudal} />
@@ -453,7 +443,7 @@ function PreviewAntecedentes({ previewItem, previewIndex, linkStatuses, cleanLin
             </div>
 
             {ants.observaciones && (
-                <Alert type="info" showIcon icon={<IconInfoCircle size={16} />} message="Observaciones" description={<Text style={{ fontSize: 13 }}>{ants.observaciones}</Text>} />
+                <InlineAlert type="info" icon={<IconInfoCircle size={16} />} title="Observaciones">{ants.observaciones}</InlineAlert>
             )}
         </div>
     );
@@ -465,128 +455,122 @@ function PreviewAnalisis({ previewItem }: { previewItem: any }) {
     const costoUF = co.activo ? Number(co.uf || 0) : 0;
     const ufTotal = sumAnal + costoUF;
 
-    const analisisColumns = [
-        {
-            title: 'Estado Match', key: 'match',
-            render: (_: unknown, row: any) => {
-                if (row.__costoOperativo) return <Tag color={row.costoUF > 0 ? 'gold' : 'default'}>{row.costoUF > 0 ? 'Activo' : 'Inactivo'}</Tag>;
-                return (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Tag color={row._matched ? 'green' : 'red'}>{row._matched ? 'OK' : 'No Encontrado'}</Tag>
-                        {row._errors?.length > 0 && (
-                            <Tooltip title={row._errors.join(', ')}>
-                                <IconAlertTriangle size={14} color="#e03131" style={{ cursor: 'help' }} />
-                            </Tooltip>
-                        )}
-                    </div>
-                );
-            },
-        },
-        {
-            title: 'Análisis', key: 'nombre',
-            render: (_: unknown, row: any) => {
-                if (row.__costoOperativo) return <Text strong style={{ fontSize: 12, color: row.costoUF > 0 ? '#e8a600' : 'var(--app-text-secondary)' }}>Costo Operativo</Text>;
-                return row._matched
-                    ? <Text strong style={{ fontSize: 12 }} title={row.nombre_original}>{row.nombre_original}</Text>
-                    : <Text type="danger" strong style={{ fontSize: 12 }} title={row.nombre_original}>{row.nombre_original}</Text>;
-            },
-        },
-        { title: 'Normativa', key: 'normativa', render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : <Text style={{ fontSize: 12 }} title={row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-'}>{row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-'}</Text> },
-        { title: 'Tabla / Referencia', key: 'referencia', render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : <Text style={{ fontSize: 12 }} title={row.nombre_normativareferencia || row._normativaRefNombre || previewItem._normativaRef || '-'}>{row.nombre_normativareferencia || row._normativaRefNombre || previewItem._normativaRef || '-'}</Text> },
-        { title: 'Tipo Muestra', key: 'tipo', render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : row.tipo_analisis },
-        { title: 'Límite Min', key: 'limmin', align: 'right' as const, render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : row.limitemax_d },
-        { title: 'Límite Max', key: 'limmax', align: 'right' as const, render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : row.limitemax_h },
-        { title: 'Tipo Entrega', key: 'entrega', render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : row.tipo_entrega_texto },
-        { title: 'Lab. Principal', key: 'lab', render: (_: unknown, row: any) => row.__costoOperativo ? <Text type="secondary" style={{ fontSize: 12 }}>—</Text> : row.laboratorio_texto },
-        {
-            title: 'UF Individual', key: 'uf', align: 'right' as const,
-            render: (_: unknown, row: any) => {
-                if (row.__costoOperativo) return <Text strong style={{ fontSize: 12, color: row.costoUF > 0 ? '#e8a600' : 'var(--app-text-secondary)' }}>{row.costoUF > 0 ? row.costoUF.toFixed(2) : 'No aplica'}</Text>;
-                return (
-                    <Text strong style={{ fontSize: 12, color: row.uf_individual > 0 ? '#2f9e44' : 'var(--app-text-secondary)' }}>
-                        {row.uf_individual > 0 ? parseFloat(row.uf_individual).toFixed(2) : '-'}
-                    </Text>
-                );
-            },
-        },
-    ];
-
-    const costoOperativoRow = {
-        __costoOperativo: true,
-        costoUF,
-    };
+    const rows = [...(previewItem.analisis || []), { __costoOperativo: true, costoUF }];
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-            <Card size="small" style={{ backgroundColor: 'var(--app-accent-bg)' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 8 }}>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Normativa (ficha):</Text>
-                        <Text strong style={{ fontSize: 12 }}>{previewItem._normativa || '-'}</Text>
+        <div className="flex flex-col gap-6">
+            <Card className="bg-accent p-4">
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-2">
+                    <div className="flex gap-1">
+                        <span className="text-[11px] font-bold uppercase text-muted-foreground">Normativa (ficha):</span>
+                        <span className="text-xs font-semibold">{previewItem._normativa || '-'}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Referencia (ficha):</Text>
-                        <Text strong style={{ fontSize: 12 }}>{previewItem._normativaRef || '-'}</Text>
+                    <div className="flex gap-1">
+                        <span className="text-[11px] font-bold uppercase text-muted-foreground">Referencia (ficha):</span>
+                        <span className="text-xs font-semibold">{previewItem._normativaRef || '-'}</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>Costo Operativo:</Text>
-                        <Tag color={co.activo && costoUF > 0 ? 'gold' : 'default'}>{co.activo && costoUF > 0 ? `${costoUF.toFixed(2)} UF` : 'No aplica'}</Tag>
+                    <div className="flex items-center gap-1">
+                        <span className="text-[11px] font-bold uppercase text-muted-foreground">Costo Operativo:</span>
+                        <Badge variant={co.activo && costoUF > 0 ? 'warning' : 'outline'}>{co.activo && costoUF > 0 ? `${costoUF.toFixed(2)} UF` : 'No aplica'}</Badge>
                     </div>
-                    <div style={{ display: 'flex', gap: 4 }}>
-                        <Text type="secondary" style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase' }}>UF Total:</Text>
-                        <Text strong style={{ fontSize: 12, color: '#2f9e44' }}>{ufTotal.toFixed(2)} UF</Text>
+                    <div className="flex gap-1">
+                        <span className="text-[11px] font-bold uppercase text-muted-foreground">UF Total:</span>
+                        <span className="text-xs font-semibold text-success">{ufTotal.toFixed(2)} UF</span>
                     </div>
                 </div>
-                <Text type="secondary" italic style={{ fontSize: 12, display: 'block', marginTop: 8 }}>
+                <p className="mt-2 text-xs italic text-muted-foreground">
                     Cada análisis puede pertenecer a una normativa/tabla distinta. La normativa de la ficha es la dominante para la cabecera.
-                </Text>
+                </p>
             </Card>
 
-            <Table
-                dataSource={[...(previewItem.analisis || []), costoOperativoRow]}
-                rowKey={(_row, i) => i as number}
-                pagination={false}
-                size="small"
-                scroll={{ x: 'max-content' }}
-                columns={analisisColumns as any}
-                onRow={(row: any) => ({
-                    style: row.__costoOperativo
-                        ? { backgroundColor: row.costoUF > 0 ? 'rgba(240,140,0,0.06)' : 'var(--app-hover-bg)' }
-                        : (!row._matched ? { backgroundColor: 'rgba(240,140,0,0.06)' } : undefined),
-                })}
-            />
+            <div className="overflow-x-auto rounded-lg border border-border">
+                <Table>
+                    <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                            <TableHead>Estado Match</TableHead>
+                            <TableHead>Análisis</TableHead>
+                            <TableHead>Normativa</TableHead>
+                            <TableHead>Tabla / Referencia</TableHead>
+                            <TableHead>Tipo Muestra</TableHead>
+                            <TableHead className="text-right">Límite Min</TableHead>
+                            <TableHead className="text-right">Límite Max</TableHead>
+                            <TableHead>Tipo Entrega</TableHead>
+                            <TableHead>Lab. Principal</TableHead>
+                            <TableHead className="text-right">UF Individual</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {rows.map((row: any, i: number) => (
+                            <TableRow
+                                key={i}
+                                className={
+                                    row.__costoOperativo
+                                        ? (row.costoUF > 0 ? 'bg-warning/5 hover:bg-warning/10' : 'bg-muted/50 hover:bg-muted/50')
+                                        : (!row._matched ? 'bg-warning/5 hover:bg-warning/10' : undefined)
+                                }
+                            >
+                                <TableCell>
+                                    {row.__costoOperativo ? (
+                                        <Badge variant={row.costoUF > 0 ? 'warning' : 'outline'}>{row.costoUF > 0 ? 'Activo' : 'Inactivo'}</Badge>
+                                    ) : (
+                                        <div className="flex items-center gap-1">
+                                            <Badge variant={row._matched ? 'success' : 'destructive'}>{row._matched ? 'OK' : 'No Encontrado'}</Badge>
+                                            {row._errors?.length > 0 && (
+                                                <IconAlertTriangle size={14} className="cursor-help text-destructive" title={row._errors.join(', ')} />
+                                            )}
+                                        </div>
+                                    )}
+                                </TableCell>
+                                <TableCell>
+                                    {row.__costoOperativo
+                                        ? <span className={cn('text-xs font-semibold', row.costoUF > 0 ? 'text-[#e8a600]' : 'text-muted-foreground')}>Costo Operativo</span>
+                                        : <span className={cn('text-xs font-semibold', !row._matched && 'text-destructive')} title={row.nombre_original}>{row.nombre_original}</span>}
+                                </TableCell>
+                                <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : <span title={row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-'}>{row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-'}</span>}</TableCell>
+                                <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : <span title={row.nombre_normativareferencia || row._normativaRefNombre || previewItem._normativaRef || '-'}>{row.nombre_normativareferencia || row._normativaRefNombre || previewItem._normativaRef || '-'}</span>}</TableCell>
+                                <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : row.tipo_analisis}</TableCell>
+                                <TableCell className="text-right text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : row.limitemax_d}</TableCell>
+                                <TableCell className="text-right text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : row.limitemax_h}</TableCell>
+                                <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : row.tipo_entrega_texto}</TableCell>
+                                <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : row.laboratorio_texto}</TableCell>
+                                <TableCell className="text-right">
+                                    {row.__costoOperativo ? (
+                                        <span className={cn('text-xs font-semibold', row.costoUF > 0 ? 'text-[#e8a600]' : 'text-muted-foreground')}>{row.costoUF > 0 ? row.costoUF.toFixed(2) : 'No aplica'}</span>
+                                    ) : (
+                                        <span className={cn('text-xs font-semibold', row.uf_individual > 0 ? 'text-success' : 'text-muted-foreground')}>
+                                            {row.uf_individual > 0 ? parseFloat(row.uf_individual).toFixed(2) : '-'}
+                                        </span>
+                                    )}
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </div>
         </div>
     );
 }
 
 function PreviewAuditoria({ previewItem }: { previewItem: any }) {
     return (
-        <div style={{ marginTop: 16 }}>
-            <Text type="secondary" strong style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>MODO DESARROLLADOR: AUDITORÍA DE EXTRACCIÓN Y MATCH</Text>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 8 }}>
+        <div className="mt-4">
+            <span className="mb-1 block text-[11px] font-semibold text-muted-foreground">MODO DESARROLLADOR: AUDITORÍA DE EXTRACCIÓN Y MATCH</span>
+            <div className="mb-2 grid grid-cols-3 gap-2">
                 <div>
-                    <Text style={{ fontSize: 10, fontWeight: 600, display: 'block' }}>Cliente Match</Text>
-                    <Tag>{previewItem.antecedentes?._clienteMatch_method || 'fuzzy'}</Tag>
+                    <span className="block text-[10px] font-semibold">Cliente Match</span>
+                    <Badge variant="outline">{previewItem.antecedentes?._clienteMatch_method || 'fuzzy'}</Badge>
                 </div>
                 <div>
-                    <Text style={{ fontSize: 10, fontWeight: 600, display: 'block' }}>Fuente Match</Text>
-                    <Tag>{previewItem.antecedentes?._fuenteMatch_method || 'fuzzy'}</Tag>
+                    <span className="block text-[10px] font-semibold">Fuente Match</span>
+                    <Badge variant="outline">{previewItem.antecedentes?._fuenteMatch_method || 'fuzzy'}</Badge>
                 </div>
                 <div>
-                    <Text style={{ fontSize: 10, fontWeight: 600, display: 'block' }}>Sede Match</Text>
-                    <Tag>{previewItem.antecedentes?._lugarMatch_method || 'fuzzy'}</Tag>
+                    <span className="block text-[10px] font-semibold">Sede Match</span>
+                    <Badge variant="outline">{previewItem.antecedentes?._lugarMatch_method || 'fuzzy'}</Badge>
                 </div>
             </div>
-            <div style={{ maxHeight: 300, overflow: 'auto' }}>
-                <pre style={{
-                    backgroundColor: '#f8f9fa',
-                    padding: '10px',
-                    borderRadius: '4px',
-                    fontSize: '11px',
-                    border: '1px solid #e9ecef',
-                    margin: 0,
-                    color: '#1e293b',
-                }}>
+            <div className="max-h-[300px] overflow-auto">
+                <pre className="m-0 rounded border border-border bg-muted/50 p-2.5 text-[11px] text-foreground">
                     {JSON.stringify(
                         {
                             insert_payload: {
