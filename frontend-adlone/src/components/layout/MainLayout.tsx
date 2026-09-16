@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { Layout, Alert } from 'antd';
 import { IconWifiOff, IconMenu2 } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
@@ -13,8 +12,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import ContextualNotificationPanel from '../../features/notifications/components/ContextualNotificationPanel';
 import { ScrollButtons } from '../common/ScrollButtons';
 import { ursService } from '../../services/urs.service';
-
-const { Content } = Layout;
 
 interface MainLayoutProps {
     children?: React.ReactNode;
@@ -143,7 +140,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     <div onClick={close} style={{ position: 'fixed', inset: '60px 0 0 0', zIndex: 215, background: 'transparent' }} />
                 )}
 
-                <Content style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--app-bg)' }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--app-bg)' }}>
                     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
                         <RouteBreadcrumb />
                         {activeModule && (
@@ -151,14 +148,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         )}
                         {/* X-10: aviso de conexión Socket.IO perdida */}
                         {socketStatus === 'disconnected' && (
-                            <Alert
-                                type="warning"
-                                showIcon
-                                banner
-                                icon={<IconWifiOff size={16} />}
-                                message="Sin conexión en tiempo real — intentando reconectar. Las notificaciones nuevas pueden tardar en llegar."
-                                style={{ fontSize: 12 }}
-                            />
+                            <div className="shadcn-scope flex items-center gap-2 border-b border-warning/30 bg-warning/10 px-4 py-2 text-xs text-foreground">
+                                <IconWifiOff size={16} className="shrink-0 text-warning" />
+                                Sin conexión en tiempo real — intentando reconectar. Las notificaciones nuevas pueden tardar en llegar.
+                            </div>
                         )}
                         <div
                             ref={viewportRef}
@@ -178,7 +171,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
                         <HelpCenter opened={helpCenterOpen} onClose={() => setHelpCenterOpen(false)} />
                     </div>
-                </Content>
+                </div>
             </div>
         </div>
     );
