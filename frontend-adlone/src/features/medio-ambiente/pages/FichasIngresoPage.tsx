@@ -1,5 +1,4 @@
 import { lazy, Suspense, useEffect, useState } from 'react';
-import { Spin, Typography } from 'antd';
 import { SelectionCard } from '../components/SelectionCard';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -7,9 +6,8 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useNavStore } from '../../../store/navStore';
 import { CatalogosProvider } from '../context/CatalogosContext';
 
-const { Text } = Typography;
 const NoPermiso = ({ children }: { children: React.ReactNode }) => (
-    <Text type="danger" style={{ display: 'block', textAlign: 'center', marginTop: 32 }}>{children}</Text>
+    <p className="mt-8 text-center text-sm text-destructive">{children}</p>
 );
 
 // Carga estática: componentes livianos usados frecuentemente
@@ -30,8 +28,8 @@ const RutasListView = lazy(() => import('../components/RutasListView').then(m =>
 const KpiAnalystDashboardView = lazy(() => import('../components/KpiAnalystDashboardView').then(m => ({ default: m.KpiAnalystDashboardView })));
 
 const LazyFallback = () => (
-    <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" />
+    <div className="flex h-[300px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
     </div>
 );
 
@@ -250,15 +248,12 @@ export const FichasIngresoPage = () => {
                 <div>
                     <PageHeader title="Fichas de Ingreso" subtitle="Gestión unificada según su nivel de acceso" />
 
-                    <div style={{
-                        display: 'grid',
+                    <div
+                        className="mx-auto grid max-w-[880px] gap-3"
                         // maxWidth 880 con minmax 320 nunca deja entrar una tercera columna:
                         // 2 en pantallas normales, 1 sola en angostas — sin media query aparte.
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-                        gap: 12,
-                        maxWidth: 880,
-                        margin: '0 auto',
-                    }}>
+                        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
+                    >
                         {items.map((item, idx) => (
                             <div
                                 key={item.title}
@@ -275,8 +270,10 @@ export const FichasIngresoPage = () => {
     };
 
     return (
-        <CatalogosProvider>
-            {renderContent()}
-        </CatalogosProvider>
+        <div className="shadcn-scope w-full p-4 md:p-6">
+            <CatalogosProvider>
+                {renderContent()}
+            </CatalogosProvider>
+        </div>
     );
 };
