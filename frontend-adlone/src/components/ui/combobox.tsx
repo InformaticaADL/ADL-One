@@ -18,6 +18,8 @@ interface ComboboxProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
+  /** Notified on every open/close transition — useful for lazy-loading or warning the user before they open the list. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 // Select con buscador integrado — estándar del proyecto para todo select con
@@ -34,6 +36,7 @@ export function Combobox({
   emptyText = 'Sin resultados.',
   className,
   disabled,
+  onOpenChange,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
@@ -52,6 +55,7 @@ export function Combobox({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
+        onOpenChange?.(next);
         if (next) {
           setSearch('');
           requestAnimationFrame(() => inputRef.current?.focus());

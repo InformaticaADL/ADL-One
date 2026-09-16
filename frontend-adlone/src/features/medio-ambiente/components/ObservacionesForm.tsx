@@ -1,8 +1,6 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Input, Typography } from 'antd';
-
-const { TextArea } = Input;
-const { Text } = Typography;
+import { Textarea } from '../../../components/ui/textarea';
+import { cn } from '../../../lib/utils';
 
 export interface ObservacionesFormHandle {
     getData: () => string;
@@ -58,31 +56,28 @@ const ObservacionesFormComponent = forwardRef<ObservacionesFormHandle, Observaci
     const atLimit = !readOnly && text.length >= 250;
 
     return (
-        <div style={{ border: '1px solid var(--app-border)', borderRadius: 12, padding: 24, width: '100%', boxSizing: 'border-box' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div className="w-full rounded-xl border border-border p-6 box-border">
+            <div className="flex flex-col gap-3">
                 <div>
-                    <Text strong style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>{label}</Text>
-                    <TextArea
+                    <span className="mb-2 block text-[13px] font-semibold">{label}</span>
+                    <Textarea
                         placeholder={placeholder}
                         value={text}
                         onChange={handleChange}
                         readOnly={readOnly}
-                        autoSize={{ minRows: 6 }}
-                        status={atLimit ? 'error' : undefined}
+                        rows={6}
+                        className={cn(atLimit && 'border-destructive focus-visible:ring-destructive')}
                     />
                     {!readOnly && (
-                        <Text
-                            type={atLimit ? 'danger' : 'secondary'}
-                            style={{ fontSize: 11, display: 'block', textAlign: 'right', marginTop: 4 }}
-                        >
+                        <p className={cn('mt-1 text-right text-[11px]', atLimit ? 'text-destructive' : 'text-muted-foreground')}>
                             {atLimit ? 'Límite de caracteres alcanzado' : `${text.length} / 250 caracteres`}
-                        </Text>
+                        </p>
                     )}
                 </div>
 
                 {children && (
-                    <div style={{ paddingTop: 16, borderTop: '1px solid var(--app-border)' }}>
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                    <div className="border-t border-border pt-4">
+                        <div className="flex justify-end gap-3">
                             {children}
                         </div>
                     </div>
