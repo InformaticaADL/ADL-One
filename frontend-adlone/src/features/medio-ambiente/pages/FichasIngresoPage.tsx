@@ -248,19 +248,9 @@ export const FichasIngresoPage = () => {
                 <div>
                     <PageHeader title="Fichas de Ingreso" subtitle="Gestión unificada según su nivel de acceso" />
 
-                    <div
-                        className="mx-auto grid max-w-[880px] gap-3"
-                        // maxWidth 880 con minmax 320 nunca deja entrar una tercera columna:
-                        // 2 en pantallas normales, 1 sola en angostas — sin media query aparte.
-                        style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))' }}
-                    >
-                        {items.map((item, idx) => (
-                            <div
-                                key={item.title}
-                                style={idx === items.length - 1 && items.length % 2 === 1 ? { gridColumn: '1 / -1' } : undefined}
-                            >
-                                <SelectionCard {...item} />
-                            </div>
+                    <div className="mx-auto flex max-w-[640px] flex-col gap-2.5">
+                        {items.map((item) => (
+                            <SelectionCard key={item.title} {...item} />
                         ))}
                     </div>
                 </div>
