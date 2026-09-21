@@ -291,7 +291,10 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 ]}
             />
 
-            <Card className="overflow-hidden p-0">
+            {/* overflow-clip (no -hidden): recorta igual las esquinas del tab bar,
+                pero sin volverse contenedor de scroll — overflow-hidden rompía el
+                position:sticky del índice lateral de Antecedentes. */}
+            <Card className="overflow-clip p-0">
                 {/* activationMode="manual": el default ("automatic") de Radix dispara
                     onValueChange tanto en mousedown como en el focus que ese mismo click
                     produce — dos llamadas por un solo clic en un trigger sin foco previo.

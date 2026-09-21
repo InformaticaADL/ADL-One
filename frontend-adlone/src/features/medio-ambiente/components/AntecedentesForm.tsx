@@ -62,18 +62,18 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
 // N columnas fijas, cada fila es un flex-wrap y cada campo pide su propio
 // ancho, así una fila cabe con 2 campos largos o con 5 campos cortos.
 type FieldSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
-// Cada tier define basis + grow + un tope de ancho. El tope evita que un
-// campo se estire solo para llenar toda la fila (lo que pasaba con
-// "Instrumento Ambiental", único campo de su fila con grow > 0); el grow en
-// todos los tiers reparte el sobrante entre varios campos en vez de que se
-// lo lleve uno. El ancho total del formulario está acotado más abajo, que es
-// lo que evita que queden filas cortas con un vacío enorme a la derecha.
+// Cada tier define basis + grow + un tope de ancho. El grow en TODOS los
+// tiers reparte el sobrante de la fila entre sus campos en proporción a su
+// tamaño base, en vez de que se lo lleve entero el único campo con grow (lo
+// que hacía que "Instrumento Ambiental" se viera enorme). El tope es solo
+// una red de seguridad: las filas están armadas para llenar su ancho, así
+// que en la práctica casi nunca se activa.
 const FIELD_SIZE_CLASS: Record<FieldSize, string> = {
-    xs: 'flex-[0.3_1_92px] max-w-[130px]',
-    sm: 'flex-[0.6_1_120px] max-w-[200px]',
-    md: 'flex-[0.9_1_170px] max-w-[300px]',
-    lg: 'flex-[1.2_1_210px] max-w-[420px]',
-    xl: 'flex-[1.8_1_260px] max-w-[600px]',
+    xs: 'flex-[0.3_1_92px] max-w-[160px]',
+    sm: 'flex-[0.6_1_120px] max-w-[260px]',
+    md: 'flex-[0.9_1_170px] max-w-[360px]',
+    lg: 'flex-[1.2_1_210px] max-w-[520px]',
+    xl: 'flex-[1.8_1_260px] max-w-[760px]',
     full: 'flex-[1_1_100%] max-w-full',
 };
 
@@ -983,11 +983,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
     }, [frecuencia, factor]);
 
-    // max-w: un formulario de campos cortos sobre un contenedor de ~1300px deja
-    // cada fila corta y un vacío enorme a la derecha. Acotado y centrado, las
-    // filas llenan su ancho y el margen se ve intencional.
     return (
-        <div className="shadcn-scope mx-auto flex w-full max-w-[1120px] flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <div className="shadcn-scope flex w-full flex-col gap-4 md:flex-row md:items-start md:gap-6">
             <SectionNav items={sectionNavItems} active={activeSection} onNavigate={scrollToSection} isMobile={isMobile} />
 
             <div className="flex min-w-0 flex-1 flex-col" style={{ gap: isMobile ? 16 : 24 }}>
@@ -1047,7 +1044,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="md"
+                        size="lg"
                         label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
                         placeholder="Seleccione empresa primero"
                         data={fuentesData}
@@ -1062,7 +1059,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row>
                     <TextInput
-                        size="lg"
+                        size="md"
                         label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
                         value={ubicacion}
                         onChange={(e: any) => setUbicacion(e.target.value)}
@@ -1121,19 +1118,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setCargoResponsable(v || '')}
                         disabled={responsableMuestreo === 'ADL'}
                     />
-                </Row>
-
-                <Divider />
-
-                <Row>
                     <TextInput
                         size="md"
                         label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
                         value={puntoMuestreo}
                         onChange={(e: any) => setPuntoMuestreo(e.target.value)}
                     />
+                </Row>
+
+                <Divider />
+
+                <Row>
                     <Select
-                        size="xs"
+                        size="sm"
                         label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
                         data={frecuenciasData}
                         value={periodo}
@@ -1143,18 +1140,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         }}
                     />
                     <TextInput
-                        size="xs"
+                        size="sm"
                         label={<FieldLabel label="Cant. Frecuencia" help="Número de veces que se realiza el muestreo dentro del período seleccionado. Se completa automáticamente según la frecuencia, pero puede ajustarse." />}
                         value={frecuencia}
                         onChange={(e: any) => setFrecuencia(e.target.value)}
                     />
                     <TextInput
-                        size="xs"
+                        size="sm"
                         label={<FieldLabel label="Factor" help="Multiplicador que ajusta el número total de servicios. Útil cuando hay más de una ubicación o muestra por visita. Total = Cantidad × Factor." />}
                         value={factor}
                         onChange={(e: any) => setFactor(e.target.value)}
                     />
-                    <div className={cn('min-w-0', FIELD_SIZE_CLASS.xs)}>
+                    <div className={cn('min-w-0', FIELD_SIZE_CLASS.sm)}>
                         <span className="mb-1 block text-[11px] font-bold uppercase text-muted-foreground">Total Servicios</span>
                         <div className="flex h-[34px] items-center justify-center rounded-lg bg-primary text-[15px] font-bold text-primary-foreground">
                             {totalServicios || '0'}
@@ -1197,11 +1194,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(e: any) => setUtmEste(e.target.value)}
                         disabled={!zona || zona === 'No aplica'}
                     />
-                </Row>
-
-                <Divider />
-
-                <Row className="mb-4">
                     <Select
                         size="md"
                         label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
@@ -1270,6 +1262,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         maxLength={4}
                     />
                 </Row>
+
+                <Divider />
 
                 <Row className="mb-4">
                     <Select
@@ -1374,23 +1368,22 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 </Row>
 
                 <div className="mb-4 flex flex-col gap-1.5">
+                    {/* El texto de ayuda va fuera de la fila: dentro del TextInput
+                        empujaba su borde inferior y el botón —alineado con items-end—
+                        quedaba a la altura de ese texto en vez de la del input. */}
                     <div className="flex items-end gap-2">
-                        <div className="min-w-0 flex-1">
-                            <div className="relative">
-                                <TextInput
-                                    label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
-                                    description="Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas."
-                                    placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
-                                    value={refGoogle}
-                                    onChange={(e: any) => setRefGoogle(e.target.value)}
-                                    onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
-                                    error={verifyStatus === 'invalid' ? verifyError : undefined}
-                                    className="pr-8"
-                                />
-                                {verifyStatus === 'loading' && (
-                                    <div className="pointer-events-none absolute right-2.5 top-[34px] h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                )}
-                            </div>
+                        <div className="relative min-w-0 flex-1">
+                            <TextInput
+                                label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
+                                placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
+                                value={refGoogle}
+                                onChange={(e: any) => setRefGoogle(e.target.value)}
+                                onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
+                                error={verifyStatus === 'invalid' ? verifyError : undefined}
+                            />
+                            {verifyStatus === 'loading' && (
+                                <div className="pointer-events-none absolute right-2.5 top-[34px] h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                            )}
                         </div>
                         <Button
                             type="button"
@@ -1403,6 +1396,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             Verificar
                         </Button>
                     </div>
+                    <p className="m-0 text-[11px] text-muted-foreground">
+                        Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas.
+                    </p>
 
                     {verifyStatus === 'ok' && verifiedCoords && (
                         <div className="flex flex-col gap-1.5">
