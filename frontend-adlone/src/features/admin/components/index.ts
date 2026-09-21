@@ -3,7 +3,6 @@ export * from './EquipmentExportModal';
 export * from './EquipmentRequestsModal';
 export * from './EquipoCatalogoView';
 export * from './EquipoForm';
-export * from './EquipoModal';
 export * from './MuestreadorForm';
 export * from './RoleModal';
 export * from './SamplerDeactivationModal';
