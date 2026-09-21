@@ -162,7 +162,20 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     const q = search.trim();
 
-    const filteredTop = visibleTop.filter((m) => matches(m.label, q));
+    // Igual criterio que filterGroup (abajo) pero para los módulos fijos que
+    // ahora también pueden traer `links` (Facturación) — si la búsqueda solo
+    // calza con un sub-ítem, el grupo se fuerza abierto para mostrarlo.
+    const filteredTop: (FixedModule & { forceOpen: boolean })[] = (() => {
+        if (!q) return visibleTop.map((m) => ({ ...m, forceOpen: false }));
+        const result: (FixedModule & { forceOpen: boolean })[] = [];
+        for (const m of visibleTop) {
+            const selfMatches = matches(m.label, q);
+            const childMatches = (m.links || []).filter((l) => matches(l.label, q));
+            if (!selfMatches && childMatches.length === 0) continue;
+            result.push({ ...m, links: selfMatches ? m.links : childMatches, forceOpen: !!m.links?.length });
+        }
+        return result;
+    })();
 
     const filterGroup = (mods: DynamicModule[]): (DynamicModule & { forceOpen: boolean })[] => {
         if (!q) return mods.map((m) => ({ ...m, forceOpen: false }));
@@ -204,19 +217,26 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         );
     };
 
-    const renderDynamicModule = (mod: DynamicModule & { forceOpen?: boolean }) => {
-        const filteredLinks = (mod.links || []).filter((link: DynamicModuleLink) => hasAccess(link.permission, hasPermission));
-        const Icon = getIconComponent(mod.icon);
+    // Núcleo compartido por los módulos dinámicos (backend) y los fijos que
+    // declaran `links` (ej. Facturación) — ambos son "grupo desplegable con
+    // ítems", solo cambia de dónde sale el ícono ya resuelto.
+    const renderExpandableModule = (
+        id: string,
+        label: string,
+        Icon: ReturnType<typeof getIconComponent>,
+        filteredLinks: DynamicModuleLink[],
+        forceOpen: boolean
+    ) => {
         const hasSubItems = filteredLinks.length > 0;
-        const isOpen = isCollapsed ? false : (mod.forceOpen || openedModule === mod.id);
-        const isActiveParent = activeModule === mod.id;
+        const isOpen = isCollapsed ? false : (forceOpen || openedModule === id);
+        const isActiveParent = activeModule === id;
 
         return (
-            <div key={mod.id}>
+            <div key={id}>
                 <button
                     type="button"
-                    title={isCollapsed ? mod.label : undefined}
-                    onClick={() => handleToggleGroup(mod.id, hasSubItems)}
+                    title={isCollapsed ? label : undefined}
+                    onClick={() => handleToggleGroup(id, hasSubItems)}
                     className={cn(
                         'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
                         isCollapsed ? 'w-full justify-center' : 'w-full',
@@ -224,7 +244,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                     )}
                 >
                     <Icon size={18} stroke={1.75} className={cn('shrink-0', isActiveParent && !activeSubmodule ? 'text-primary' : 'text-muted-foreground')} />
-                    {!isCollapsed && <span className="flex-1 truncate text-left">{mod.label}</span>}
+                    {!isCollapsed && <span className="flex-1 truncate text-left">{label}</span>}
                     {!isCollapsed && hasSubItems && (
                         <IconChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
                     )}
@@ -251,6 +271,17 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 )}
             </div>
         );
+    };
+
+    const renderDynamicModule = (mod: DynamicModule & { forceOpen?: boolean }) => {
+        const filteredLinks = (mod.links || []).filter((link: DynamicModuleLink) => hasAccess(link.permission, hasPermission));
+        return renderExpandableModule(mod.id, mod.label, getIconComponent(mod.icon), filteredLinks, !!mod.forceOpen);
+    };
+
+    const renderFixedItem = (item: FixedModule & { forceOpen?: boolean }, badgeCount?: number) => {
+        if (!item.links || item.links.length === 0) return renderFlatItem(item, badgeCount);
+        const filteredLinks = item.links.filter((link) => hasAccess(link.permission, hasPermission));
+        return renderExpandableModule(item.id, item.label, item.icon, filteredLinks, !!item.forceOpen);
     };
 
     const renderGroup = (title: string, mods: (DynamicModule & { forceOpen?: boolean })[]) => {
@@ -354,7 +385,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
                 <div className="mb-3 flex flex-col gap-0.5">
-                    {filteredTop.map((item) => renderFlatItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined))}
+                    {filteredTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined))}
                 </div>
                 {renderGroup('UNIDADES', filteredUnidades)}
                 {renderGroup('GESTIÓN', filteredGestion)}

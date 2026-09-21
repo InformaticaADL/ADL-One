@@ -1,10 +1,6 @@
-import { useState, useMemo } from 'react';
-import {
-    IconLayoutDashboard, IconListCheck, IconFileInvoice, IconFileDollar, IconSettings,
-    IconClipboardCheck, IconReceipt2,
-} from '@tabler/icons-react';
-import { cn } from '@/lib/utils';
+import { useEffect, useMemo } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useNavStore } from '../../../store/navStore';
 import FacturacionDashboard from './FacturacionDashboard';
 import FacturacionProcesar from './FacturacionProcesar';
 import FacturacionPrefacturas from './FacturacionPrefacturas';
@@ -13,27 +9,36 @@ import FacturacionBandejaOc from './FacturacionBandejaOc';
 import FacturacionEstadoCuenta from './FacturacionEstadoCuenta';
 import FacturacionConfiguracion from './FacturacionConfiguracion';
 
-type Vista = 'dashboard' | 'procesar' | 'prefacturas' | 'cotizaciones' | 'ordenes-compra' | 'estado-cuenta' | 'configuracion';
+type Vista = 'fac-dashboard' | 'fac-procesar' | 'fac-prefacturas' | 'fac-cotizaciones' | 'fac-ordenes-compra' | 'fac-estado-cuenta' | 'fac-configuracion';
 
-// Cada pestaña declara el permiso que su backend exige. Sin esto el menú
-// ofrece páginas que después responden 403: el usuario ve la sección, entra y
-// se encuentra con una pantalla vacía o un error, sin saber que simplemente no
-// tiene el permiso.
-const ITEMS = [
-    { key: 'dashboard', icon: <IconLayoutDashboard size={17} />, label: 'Dashboard', permiso: 'FAC_DASHBOARD' },
-    { key: 'procesar', icon: <IconListCheck size={17} />, label: 'Procesar', permiso: 'FAC_PROCESAR' },
-    { key: 'prefacturas', icon: <IconFileInvoice size={17} />, label: 'Pre-Facturas', permiso: 'FAC_PREFACTURAS_VER' },
-    { key: 'cotizaciones', icon: <IconFileDollar size={17} />, label: 'Cotizaciones', permiso: 'FAC_COTIZACIONES_VER' },
-    { key: 'ordenes-compra', icon: <IconClipboardCheck size={17} />, label: 'Órdenes de Compra', permiso: 'FAC_OC_REGISTRAR' },
-    { key: 'estado-cuenta', icon: <IconReceipt2 size={17} />, label: 'Estado de cuenta', permiso: 'FAC_PREFACTURAS_VER' },
-    { key: 'configuracion', icon: <IconSettings size={17} />, label: 'Configuración', permiso: 'FAC_UF_ADMIN' },
+// Cada pestaña declara el permiso que su backend exige — debe calzar con
+// sidebarModules.ts (FIXED_TOP_MODULES 'facturacion'.links), que es quien
+// dibuja la navegación real ahora (sidebar principal, desplegable). Sin este
+// chequeo acá también, el menú podría (por un bug de otro lado) ofrecer una
+// pestaña cuyo backend igual responde 403.
+const ITEMS: { key: Vista; permiso: string }[] = [
+    { key: 'fac-dashboard', permiso: 'FAC_DASHBOARD' },
+    { key: 'fac-procesar', permiso: 'FAC_PROCESAR' },
+    { key: 'fac-prefacturas', permiso: 'FAC_PREFACTURAS_VER' },
+    { key: 'fac-cotizaciones', permiso: 'FAC_COTIZACIONES_VER' },
+    { key: 'fac-ordenes-compra', permiso: 'FAC_OC_REGISTRAR' },
+    { key: 'fac-estado-cuenta', permiso: 'FAC_PREFACTURAS_VER' },
+    { key: 'fac-configuracion', permiso: 'FAC_UF_ADMIN' },
 ];
 
 const FacturacionModule: React.FC = () => {
     const { hasPermission } = useAuth();
-    // Solo las secciones que el usuario puede realmente usar.
+    const { activeSubmodule, setActiveSubmodule } = useNavStore();
+    // Solo las pestañas que el usuario puede realmente usar.
     const items = useMemo(() => ITEMS.filter((i) => hasPermission(i.permiso)), [hasPermission]);
-    const [vista, setVista] = useState<Vista>(() => (ITEMS.find((i) => hasPermission(i.permiso))?.key || 'dashboard') as Vista);
+    const primerPermitido = items[0]?.key;
+
+    // Al entrar sin submódulo elegido (clic directo en "Facturación" en el
+    // sidebar, sin desplegar) cae en la primera pestaña permitida — mismo
+    // comportamiento que el estado inicial del `vista` local que reemplaza.
+    useEffect(() => {
+        if (!activeSubmodule && primerPermitido) setActiveSubmodule(primerPermitido);
+    }, [activeSubmodule, primerPermitido, setActiveSubmodule]);
 
     if (items.length === 0) {
         return (
@@ -43,42 +48,18 @@ const FacturacionModule: React.FC = () => {
         );
     }
 
+    const vista = (items.some((i) => i.key === activeSubmodule) ? activeSubmodule : primerPermitido) as Vista;
+
     return (
-        <div className="shadcn-scope flex h-full overflow-hidden bg-background">
-            <nav className="flex w-[230px] shrink-0 flex-col border-r border-border bg-background">
-                <div className="px-5 pb-3 pt-5">
-                    <h1 className="m-0 text-[19px] font-bold tracking-tight text-foreground">Facturación</h1>
-                    <p className="m-0 mt-0.5 text-xs text-muted-foreground">Medio Ambiente</p>
-                </div>
-                <div className="flex flex-col gap-0.5 px-2">
-                    {items.map((item) => (
-                        <button
-                            key={item.key}
-                            type="button"
-                            onClick={() => setVista(item.key as Vista)}
-                            className={cn(
-                                'flex items-center gap-2.5 rounded-md px-3 py-2 text-left text-sm font-medium transition-colors',
-                                vista === item.key
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                            )}
-                        >
-                            {item.icon}
-                            {item.label}
-                        </button>
-                    ))}
-                </div>
-            </nav>
-            <div className="min-w-0 flex-1 overflow-y-auto bg-background">
-                {vista === 'dashboard' && <FacturacionDashboard onNavigate={(v) => setVista(v as Vista)} />}
-                {vista === 'procesar' && <FacturacionProcesar />}
-                {vista === 'prefacturas' && <FacturacionPrefacturas />}
-                {vista === 'cotizaciones' && <FacturacionCotizaciones />}
-                {vista === 'ordenes-compra' && <FacturacionBandejaOc />}
-                {vista === 'estado-cuenta' && <FacturacionEstadoCuenta />}
-                {vista === 'configuracion' && <FacturacionConfiguracion />}
-            </div>
-        </div>
+        <>
+            {vista === 'fac-dashboard' && <FacturacionDashboard onNavigate={(v) => setActiveSubmodule(v)} />}
+            {vista === 'fac-procesar' && <FacturacionProcesar />}
+            {vista === 'fac-prefacturas' && <FacturacionPrefacturas />}
+            {vista === 'fac-cotizaciones' && <FacturacionCotizaciones />}
+            {vista === 'fac-ordenes-compra' && <FacturacionBandejaOc />}
+            {vista === 'fac-estado-cuenta' && <FacturacionEstadoCuenta />}
+            {vista === 'fac-configuracion' && <FacturacionConfiguracion />}
+        </>
     );
 };
 

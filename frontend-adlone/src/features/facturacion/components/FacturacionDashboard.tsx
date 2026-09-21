@@ -80,7 +80,7 @@ const FacturacionDashboard: React.FC<Props> = ({ onNavigate }) => {
     const totalAlertas = (data.alertas?.oc_demoradas?.length || 0) + (data.alertas?.proximos_a_renovar?.length || 0) + (data.alertas?.uf_desactualizada ? 1 : 0);
 
     return (
-        <div className="w-full p-6 pb-12 md:px-8">
+        <div className="shadcn-scope w-full p-6 pb-12 md:px-8">
             <div className="mb-[22px] flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h2 className="m-0 text-[22px] font-bold tracking-tight text-foreground">Dashboard de Facturación</h2>
@@ -175,7 +175,7 @@ const FacturacionDashboard: React.FC<Props> = ({ onNavigate }) => {
                                 size="icon"
                                 className="h-8 w-8"
                                 title="Ir a Pre-Facturas"
-                                onClick={() => onNavigate?.('prefacturas')}
+                                onClick={() => onNavigate?.('fac-prefacturas')}
                             >
                                 <IconArrowUpRight size={15} />
                             </Button>

@@ -167,9 +167,10 @@ function useBreadcrumbLabels() {
 
         let submoduleLabel: string | null = null;
         if (activeSubmodule) {
-            const link = dynamicModules
-                .flatMap((m) => m.links || [])
-                .find((l) => l.id === activeSubmodule);
+            const link = dynamicModules.flatMap((m) => m.links || [])
+                .find((l) => l.id === activeSubmodule)
+                // Módulos fijos con links (ej. Facturación) — mismo lookup, otra fuente.
+                ?? FIXED_TOP_MODULES.flatMap((m) => m.links || []).find((l) => l.id === activeSubmodule);
             submoduleLabel = link?.label ?? STATIC_MODULE_LABELS[activeSubmodule] ?? activeSubmodule;
         }
 

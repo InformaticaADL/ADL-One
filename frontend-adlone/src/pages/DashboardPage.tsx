@@ -127,13 +127,18 @@ const DashboardPage = () => {
             return <AdminInfoHub onNavigate={(id) => setActiveSubmodule(id)} />;
         }
 
+        // Facturación ahora vive en el sidebar principal como grupo desplegable
+        // (ver sidebarModules.ts) en vez de tener su propio sub-sidebar interno:
+        // el módulo debe renderizarse SIEMPRE, tenga o no submódulo elegido
+        // (FacturacionModule decide qué pestaña mostrar según activeSubmodule).
+        if (activeModule === 'facturacion') return <FacturacionModule />;
+
         // --- 3. Lógica de Aterrizaje (Logo de ADL One o Fallbacks) ---
         if (!activeSubmodule) {
             // Módulos que SI tienen su propia vista de aterrizaje directa (Stand-alone)
             if (activeModule === 'solicitudes') return <UniversalInbox />;
             if (activeModule === 'notificaciones') return <UserNotificationsPage />;
             if (activeModule === 'chat') return <ChatModule />;
-            if (activeModule === 'facturacion') return <FacturacionModule />;
             if (activeModule === 'perfil') return <ProfilePage />;
 
             // Para todo lo demás (Medio Ambiente, Calidad, Inicio, etc.), mostrar el WelcomePage
