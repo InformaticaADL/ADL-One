@@ -119,7 +119,7 @@ export const RequestsManager: React.FC<RequestsManagerProps> = ({ onBack, onConf
                 title="Administración de Solicitudes"
                 subtitle="Gestiona quién puede enviar y administrar los trámites URS."
                 onBack={onBack}
-                breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Solicitudes URS' }]}
+                breadcrumbItems={[{ label: 'Informática', onClick: onBack }, { label: 'Solicitudes URS' }]}
                 rightSection={
                     <div className="relative">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />

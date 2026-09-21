@@ -211,7 +211,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         estados: ['Activo', 'Inactivo']
     });
 
-    const { pendingRequestId, setPendingRequestId, hideNotification } = useNavStore();
+    const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb } = useNavStore();
+
+    // EquipoForm ya dibuja su propio título/botón "Volver" (no usa PageHeader),
+    // así que en vez de montar un segundo PageHeader visual encima publicamos
+    // el tramo de ruta directo al store — mismo mecanismo que PageHeader usa
+    // internamente, sin duplicar la barra de título en pantalla.
+    useEffect(() => {
+        if (viewMode !== 'form') return;
+        setPageBreadcrumb([
+            { label: 'Equipos', onClick: () => setViewMode('list') },
+            { label: selectedEquipo ? 'Editar Equipo' : 'Nuevo Equipo' },
+        ]);
+        return () => setPageBreadcrumb([]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [viewMode, selectedEquipo]);
 
     // --- Side Effects ---
     useEffect(() => {
@@ -986,7 +1000,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 <PageHeader
                     title="Gestión de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
-                    breadcrumbItems={[{ label: 'Equipos', onClick: onBack }, { label: 'Gestión de Equipos' }]}
+                    onBack={onBack}
+                    breadcrumbItems={[{ label: 'Equipos' }]}
                     rightSection={
                         <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
                             <Button

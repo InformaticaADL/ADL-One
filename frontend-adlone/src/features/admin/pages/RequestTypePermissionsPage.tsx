@@ -308,7 +308,7 @@ const RequestTypePermissionsPage: React.FC<Props> = ({ requestType, onBack }) =>
                 subtitle={`Define quién puede crear, ver, gestionar o derivar el trámite "${typeName}".`}
                 onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Administración', onClick: onBack },
+                    { label: 'Informática' },
                     { label: 'Solicitudes URS', onClick: onBack },
                     { label: 'Configuración de permisos' },
                 ]}

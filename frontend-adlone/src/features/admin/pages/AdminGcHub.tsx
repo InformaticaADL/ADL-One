@@ -41,7 +41,7 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                 subtitle="Gestión de inventarios, validación de equipos y control de calidad ADL."
                 onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Administración', onClick: onBack },
+                    { label: 'Admin. Info', onClick: onBack },
                     { label: 'Gestión de Calidad' }
                 ]}
             />

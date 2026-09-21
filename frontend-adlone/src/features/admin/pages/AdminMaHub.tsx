@@ -31,7 +31,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                 subtitle="Gestión de recursos, personal y equipos del área de Medio Ambiente."
                 onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Administración', onClick: onBack },
+                    { label: 'Admin. Info', onClick: onBack },
                     { label: 'Medio Ambiente' }
                 ]}
             />

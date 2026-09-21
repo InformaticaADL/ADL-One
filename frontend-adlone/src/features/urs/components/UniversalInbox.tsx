@@ -241,7 +241,6 @@ const UniversalInbox: React.FC = () => {
                 <PageHeader
                     title="Solicitudes"
                     subtitle="Bandeja de solicitudes y mensajes del sistema."
-                    breadcrumbItems={[{ label: 'Administración' }, { label: 'Solicitudes' }]}
                 />
             </div>
 

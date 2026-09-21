@@ -299,7 +299,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     title={formTitle}
                     subtitle={isEdit ? 'Actualiza los datos, la contraseña y los roles del usuario.' : 'Crea una cuenta de acceso y asígnale roles.'}
                     breadcrumbItems={[
-                        { label: 'Administración', onClick: onBack },
+                        { label: 'Informática', onClick: onBack },
                         { label: 'Usuarios', onClick: closeForm },
                         { label: formTitle },
                     ]}
@@ -505,7 +505,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             <PageHeader
                 title="Usuarios"
                 subtitle="Administra accesos y roles del personal."
-                breadcrumbItems={[{ label: 'Administración', onClick: onBack }, { label: 'Usuarios' }]}
+                breadcrumbItems={[{ label: 'Informática', onClick: onBack }, { label: 'Usuarios' }]}
                 rightSection={
                     <Button onClick={openCreate} className={cn(isMobile && 'w-full')}>
                         <IconPlus size={16} /> Nuevo usuario

@@ -73,7 +73,7 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                 subtitle="Centro de control, seguridad y configuración técnica del sistema."
                 onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Administración', onClick: onBack },
+                    { label: 'Admin. Info', onClick: onBack },
                     { label: 'Informática' }
                 ]}
             />

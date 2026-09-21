@@ -126,7 +126,6 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                 subtitle="Gestiona los perfiles de acceso y permisos."
                 onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Administración', onClick: onBack },
                     { label: 'Informática', onClick: onBack },
                     { label: 'Roles de Sistema' },
                 ]}

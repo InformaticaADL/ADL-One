@@ -221,7 +221,7 @@ export const MuestreadorForm: React.FC<Props> = ({
                 onBack={onCancel}
                 breadcrumbItems={[
                     { label: 'Muestreadores', onClick: onCancel },
-                    { label: initialData ? 'Editar muestreador' : 'Nuevo muestreador' }
+                    { label: initialData ? 'Editar Muestreador' : 'Nuevo Muestreador' }
                 ]}
             />
 
