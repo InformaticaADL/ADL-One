@@ -1,8 +1,18 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { X, Users, ShieldCheck, Mail, Save, User, Search, Zap, Bell, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+    IconUsers, IconShieldCheck, IconMail, IconDeviceFloppy, IconUser, IconSearch, IconBolt, IconBell,
+    IconCircleCheck, IconAlertCircle, IconX,
+} from '@tabler/icons-react';
 import { rbacService } from '../../services/rbac.service';
 import { notificationService } from '../../../../services/notification.service';
 import { useToast } from '../../../../contexts/ToastContext';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
 
 interface Props {
     isOpen: boolean;
@@ -20,11 +30,11 @@ interface Props {
 export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSaved }) => {
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
-    
+
     // Catalogos
     const [allRoles, setAllRoles] = useState<any[]>([]);
     const [allUsers, setAllUsers] = useState<any[]>([]);
-    
+
     // Form State
     const [selectedRoles, setSelectedRoles] = useState<number[]>([]);
     const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
@@ -32,7 +42,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
     const [ccEmails, setCcEmails] = useState('');
     const [showCc, setShowCc] = useState(false);
     const [channels, setChannels] = useState({ email: true, web: true });
-    
+
     // Autocomplete State
     const [searchTerm, setSearchTerm] = useState('');
     const [showSuggestions, setShowSuggestions] = useState(false);
@@ -44,6 +54,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
             processExistingConfig();
             setShowCc(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, event]);
 
     useEffect(() => {
@@ -144,7 +155,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
         if (!searchTerm) return [];
         const term = searchTerm.toLowerCase();
         const roleMatches = allRoles.filter(r => r.nombre_rol.toLowerCase().includes(term) && !selectedRoles.includes(r.id_rol)).map(r => ({ type: 'role', id: r.id_rol, label: r.nombre_rol, email: undefined }));
-        const userMatches = allUsers.filter(u => 
+        const userMatches = allUsers.filter(u =>
             (u.nombre_usuario?.toLowerCase().includes(term) || u.correo_electronico?.toLowerCase().includes(term)) && !selectedUsers.includes(u.id_usuario)
         ).map(u => ({ type: 'user', id: u.id_usuario, label: u.nombre_usuario, email: u.correo_electronico }));
         return [...roleMatches, ...userMatches];
@@ -175,281 +186,252 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
         else setSelectedUsers(p => p.filter(x => x !== id));
     };
 
-    if (!isOpen) return null;
+    const StepBadge = ({ n }: { n: number }) => (
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{n}</span>
+    );
 
     return (
-        <div className="drawer-overlay" onClick={onClose}>
-            <div className={`drawer-content ${isOpen ? 'open' : ''}`} onClick={e => e.stopPropagation()}>
-                {/* Header */}
-                <div className="modal-header">
+        <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
+            <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-[950px]">
+                <SheetHeader className="flex-row items-start justify-between gap-4 space-y-0 border-b border-border p-6 sm:p-8">
                     <div>
-                        <div className="event-tag">
-                            {event.codigo}
-                        </div>
-                        <h2 className="modal-title">Configurar Notificación</h2>
-                        <p className="modal-subtitle">{event.descripcion}</p>
+                        <Badge variant="secondary" className="mb-2 font-mono normal-case">{event.codigo}</Badge>
+                        <SheetTitle className="text-2xl">Configurar Notificación</SheetTitle>
+                        <p className="mt-1 text-sm text-muted-foreground">{event.descripcion}</p>
                     </div>
-                    <button onClick={onClose} className="close-btn">
-                        <X size={20} />
-                    </button>
-                </div>
+                </SheetHeader>
 
-                {/* Body - Two Columns */}
-                <div className="modal-body">
-                    
-                    {/* Left Column: Config */}
-                    <div className="config-column">
-                        
+                <div className="flex flex-1 flex-col overflow-hidden bg-muted/30 lg:flex-row">
+                    {/* Columna izquierda: configuración */}
+                    <div className="flex-1 overflow-y-auto border-b border-border p-6 lg:border-b-0 lg:border-r lg:p-8">
                         {/* 1. Canales */}
-                        <div style={{ marginBottom: '2.5rem' }}>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '50%', fontSize: '12px' }}>1</span>
-                                ¿Por qué canales enviamos?
+                        <div className="mb-8">
+                            <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-foreground">
+                                <StepBadge n={1} /> ¿Por qué canales enviamos?
                             </h3>
-                            <div className="channels-grid">
-                                {/* Channel Card: Email */}
-                                <div 
-                                    onClick={() => setChannels(p => ({...p, email: !p.email}))}
-                                    style={{ 
-                                        padding: '1.25rem', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s',
-                                        backgroundColor: channels.email ? '#eff6ff' : '#fff',
-                                        border: `2px solid ${channels.email ? '#3b82f6' : '#e2e8f0'}`,
-                                        display: 'flex', alignItems: 'center', gap: '1rem'
-                                    }}
-                                >
-                                    <div style={{ backgroundColor: channels.email ? '#bfdbfe' : '#f1f5f9', padding: '10px', borderRadius: '10px', color: channels.email ? '#1d4ed8' : '#94a3b8' }}>
-                                        <Mail size={24} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>Correo Electrónico</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>A la bandeja de entrada</div>
-                                    </div>
-                                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${channels.email ? '#3b82f6' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: channels.email ? '#3b82f6' : 'transparent' }}>
-                                        {channels.email && <CheckCircle2 size={16} color="white" />}
-                                    </div>
-                                </div>
-                                {/* Channel Card: Web */}
-                                <div 
-                                    onClick={() => setChannels(p => ({...p, web: !p.web}))}
-                                    style={{ 
-                                        padding: '1.25rem', borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s',
-                                        backgroundColor: channels.web ? '#eff6ff' : '#fff',
-                                        border: `2px solid ${channels.web ? '#3b82f6' : '#e2e8f0'}`,
-                                        display: 'flex', alignItems: 'center', gap: '1rem'
-                                    }}
-                                >
-                                    <div style={{ backgroundColor: channels.web ? '#bfdbfe' : '#f1f5f9', padding: '10px', borderRadius: '10px', color: channels.web ? '#1d4ed8' : '#94a3b8' }}>
-                                        <Bell size={24} />
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '1rem' }}>Campanita App</div>
-                                        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Notificación dentro de URS</div>
-                                    </div>
-                                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', border: `2px solid ${channels.web ? '#3b82f6' : '#cbd5e1'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: channels.web ? '#3b82f6' : 'transparent' }}>
-                                        {channels.web && <CheckCircle2 size={16} color="white" />}
-                                    </div>
-                                </div>
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                                {(['email', 'web'] as const).map((ch) => {
+                                    const active = channels[ch];
+                                    const Icon = ch === 'email' ? IconMail : IconBell;
+                                    return (
+                                        <button
+                                            key={ch}
+                                            type="button"
+                                            onClick={() => setChannels((p) => ({ ...p, [ch]: !p[ch] }))}
+                                            className={cn(
+                                                'flex items-center gap-3 rounded-xl border-2 p-4 text-left transition-colors',
+                                                active ? 'border-primary bg-primary/5' : 'border-border bg-card'
+                                            )}
+                                        >
+                                            <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-lg', active ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground')}>
+                                                <Icon size={22} />
+                                            </div>
+                                            <div className="min-w-0 flex-1">
+                                                <div className="text-sm font-bold text-foreground">{ch === 'email' ? 'Correo Electrónico' : 'Campanita App'}</div>
+                                                <div className="text-xs text-muted-foreground">{ch === 'email' ? 'A la bandeja de entrada' : 'Notificación dentro de URS'}</div>
+                                            </div>
+                                            <div className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2', active ? 'border-primary bg-primary' : 'border-border')}>
+                                                {active && <IconCircleCheck size={14} className="text-primary-foreground" />}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </div>
 
                         {/* 2. Destinatarios */}
                         <div>
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#334155', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', backgroundColor: '#3b82f6', color: 'white', borderRadius: '50%', fontSize: '12px' }}>2</span>
-                                ¿A quién le notificamos?
+                            <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-foreground">
+                                <StepBadge n={2} /> ¿A quién le notificamos?
                             </h3>
-                            
+
                             {event.es_transaccional ? (
-                                <div style={{ backgroundColor: '#fff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'flex-start', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
-                                    <div style={{ padding: '10px', backgroundColor: '#eff6ff', borderRadius: '50%' }}>
-                                        <Zap size={24} color="#3b82f6" />
+                                <div className="flex gap-4 rounded-xl border border-primary/30 bg-card p-6 shadow-sm">
+                                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                        <IconBolt size={22} />
                                     </div>
                                     <div>
-                                        <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1rem', fontWeight: 700, color: '#1e3a8a' }}>Evento Transaccional Dinámico</h3>
-                                        <p style={{ margin: 0, fontSize: '0.9rem', color: '#475569', lineHeight: 1.6 }}>
-                                            Este es un evento "Maestro". No necesitas asignar usuarios manualmente. El sistema detectará en el momento exacto a quién debe avisar (Ej: Al responsable actual o al creador). <br/><br/>
-                                            <strong>Tu configuración queda lista definiendo únicamente los Canales en el Paso 1.</strong>
+                                        <h4 className="mb-1.5 text-sm font-bold text-foreground">Evento Transaccional Dinámico</h4>
+                                        <p className="text-sm leading-relaxed text-muted-foreground">
+                                            Este es un evento "Maestro". No necesitas asignar usuarios manualmente. El sistema detectará en el momento exacto a quién debe avisar (Ej: Al responsable actual o al creador).
+                                            <br /><br />
+                                            <strong className="text-foreground">Tu configuración queda lista definiendo únicamente los Canales en el Paso 1.</strong>
                                         </p>
                                     </div>
                                 </div>
                             ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-                                    
-                                    {/* AutoComplete Block */}
-                                    <div style={{ backgroundColor: '#fff', padding: '1.5rem', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                                        <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 700, color: '#1e293b', marginBottom: '0.75rem' }}>
+                                <div className="flex flex-col gap-4">
+                                    {/* Buscador de roles/usuarios */}
+                                    <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                                        <label className="mb-2 block text-sm font-bold text-foreground">
                                             Buscar Roles o Usuarios Específicos
                                         </label>
-                                        
-                                        <div ref={wrapperRef} style={{ position: 'relative' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', border: '2px solid #e2e8f0', borderRadius: '8px', padding: '8px 12px', backgroundColor: '#fff', transition: 'border-color 0.2s' }}>
-                                                <Search size={18} color="#94a3b8" style={{ marginRight: '8px' }} />
-                                                <input 
-                                                    type="text" 
+
+                                        <div ref={wrapperRef} className="relative">
+                                            <div className="relative">
+                                                <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                                <Input
                                                     value={searchTerm}
-                                                    onChange={e => { setSearchTerm(e.target.value); setShowSuggestions(true); }}
+                                                    onChange={(e) => { setSearchTerm(e.target.value); setShowSuggestions(true); }}
                                                     onFocus={() => setShowSuggestions(true)}
                                                     placeholder="Ej: Administrador, Operador, Juan Perez..."
-                                                    style={{ flex: 1, border: 'none', outline: 'none', fontSize: '0.95rem', backgroundColor: 'transparent' }}
+                                                    className="pl-9"
                                                 />
                                             </div>
 
-                                            {/* Dropdown Suggestions */}
                                             {showSuggestions && searchTerm && (
-                                                <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', marginTop: '4px', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', zIndex: 10, maxHeight: '250px', overflowY: 'auto' }}>
+                                                <div className="absolute inset-x-0 top-full z-10 mt-1 max-h-[250px] overflow-y-auto rounded-lg border border-border bg-popover shadow-lg">
                                                     {filteredOptions.length === 0 ? (
-                                                        <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>No se encontraron coincidencias</div>
+                                                        <div className="p-4 text-center text-sm text-muted-foreground">No se encontraron coincidencias</div>
                                                     ) : (
-                                                        filteredOptions.map((opt, i) => (
-                                                            <div 
+                                                        filteredOptions.map((opt) => (
+                                                            <button
                                                                 key={`${opt.type}-${opt.id}`}
+                                                                type="button"
                                                                 onClick={() => handleSelectOption(opt)}
-                                                                style={{ padding: '10px 15px', display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', borderBottom: i === filteredOptions.length - 1 ? 'none' : '1px solid #f1f5f9' }}
+                                                                className="flex w-full items-center gap-2.5 border-b border-border px-4 py-2.5 text-left last:border-0 hover:bg-muted"
                                                             >
-                                                                {opt.type === 'role' ? <Users size={16} color="#0284c7" /> : <User size={16} color="#8b5cf6" />}
-                                                                <div>
-                                                                    <div style={{ fontSize: '0.9rem', fontWeight: 600, color: '#1e293b' }}>{opt.label}</div>
-                                                                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{opt.type === 'role' ? 'Rol General' : opt.email || 'Usuario'}</div>
+                                                                {opt.type === 'role' ? <IconUsers size={16} className="text-primary" /> : <IconUser size={16} className="text-[#7e22ce]" />}
+                                                                <div className="min-w-0">
+                                                                    <div className="truncate text-sm font-semibold text-foreground">{opt.label}</div>
+                                                                    <div className="truncate text-xs text-muted-foreground">{opt.type === 'role' ? 'Rol General' : opt.email || 'Usuario'}</div>
                                                                 </div>
-                                                            </div>
+                                                            </button>
                                                         ))
                                                     )}
                                                 </div>
                                             )}
                                         </div>
 
-                                        {/* Chips Area */}
                                         {selectedChips.length > 0 && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '1rem' }}>
-                                                {selectedChips.map(chip => (
-                                                    <div key={`${chip.type}-${chip.id}`} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '4px 10px', backgroundColor: chip.type === 'role' ? '#e0f2fe' : '#f3e8ff', border: `1px solid ${chip.type === 'role' ? '#bae6fd' : '#e9d5ff'}`, borderRadius: '100px' }}>
-                                                        {chip.type === 'role' ? <Users size={12} color="#0369a1" /> : <User size={12} color="#7e22ce" />}
-                                                        <span style={{ fontSize: '0.8rem', fontWeight: 600, color: chip.type === 'role' ? '#0369a1' : '#7e22ce' }}>{chip.label}</span>
-                                                        <button onClick={() => handleRemoveChip(chip.type, chip.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', color: chip.type === 'role' ? '#0284c7' : '#9333ea', marginLeft: '4px' }}>
-                                                            <X size={14} />
+                                            <div className="mt-3 flex flex-wrap gap-2">
+                                                {selectedChips.map((chip) => (
+                                                    <Badge
+                                                        key={`${chip.type}-${chip.id}`}
+                                                        variant="outline"
+                                                        className={cn('gap-1.5 py-1 pl-2 pr-1.5 font-normal normal-case', chip.type === 'role' ? 'border-primary/30 text-primary' : 'border-[#e9d5ff] text-[#7e22ce]')}
+                                                    >
+                                                        {chip.type === 'role' ? <IconUsers size={12} /> : <IconUser size={12} />}
+                                                        {chip.label}
+                                                        <button type="button" onClick={() => handleRemoveChip(chip.type, chip.id)} className="ml-0.5 rounded-full hover:bg-foreground/10">
+                                                            <IconX size={12} />
                                                         </button>
-                                                    </div>
+                                                    </Badge>
                                                 ))}
                                             </div>
                                         )}
                                     </div>
 
-                                    {/* Owner Switch */}
-                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem 1.5rem', backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                            <div style={{ backgroundColor: '#ecfdf5', padding: '8px', borderRadius: '8px', color: '#10b981' }}>
-                                                <ShieldCheck size={20} />
+                                    {/* Propietario */}
+                                    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-card p-5 shadow-sm">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success/10 text-success">
+                                                <IconShieldCheck size={18} />
                                             </div>
                                             <div>
-                                                <div style={{ fontWeight: 700, color: '#1e293b', fontSize: '0.95rem' }}>Propietario del Registro</div>
-                                                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>Avisar siempre a quien creó o es dueño de la data.</div>
+                                                <div className="text-sm font-bold text-foreground">Propietario del Registro</div>
+                                                <div className="text-xs text-muted-foreground">Avisar siempre a quien creó o es dueño de la data.</div>
                                             </div>
                                         </div>
-                                        <div style={{ position: 'relative', width: '44px', height: '24px', backgroundColor: notifyOwner ? '#10b981' : '#cbd5e1', borderRadius: '100px', transition: 'background-color 0.2s' }}>
-                                            <div style={{ position: 'absolute', top: '2px', left: notifyOwner ? '22px' : '2px', width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.1)' }}></div>
-                                            <input type="checkbox" checked={notifyOwner} onChange={e => setNotifyOwner(e.target.checked)} style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} />
-                                        </div>
+                                        <Switch checked={notifyOwner} onCheckedChange={setNotifyOwner} />
                                     </label>
 
-                                    {/* CC Emails Block */}
-                                    <div style={{ backgroundColor: '#fff', borderRadius: '12px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                                        <div 
+                                    {/* CC */}
+                                    <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+                                        <button
+                                            type="button"
                                             onClick={() => setShowCc(!showCc)}
-                                            style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', backgroundColor: showCc ? '#f8fafc' : '#fff' }}
+                                            className={cn('flex w-full items-center justify-between px-5 py-4', showCc && 'bg-muted/50')}
                                         >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                <Mail size={18} color="#f59e0b" />
-                                                <span style={{ fontWeight: 600, color: '#1e293b', fontSize: '0.9rem' }}>Copias Externas (CC)</span>
-                                            </div>
-                                            <div style={{ fontSize: '0.8rem', color: '#3b82f6', fontWeight: 600 }}>
-                                                {showCc ? 'Cerrar' : '+ Añadir Correos'}
-                                            </div>
-                                        </div>
+                                            <span className="flex items-center gap-2.5 text-sm font-semibold text-foreground">
+                                                <IconMail size={18} className="text-warning" /> Copias Externas (CC)
+                                            </span>
+                                            <span className="text-xs font-semibold text-primary">{showCc ? 'Cerrar' : '+ Añadir Correos'}</span>
+                                        </button>
                                         {showCc && (
-                                            <div style={{ padding: '0 1.5rem 1.5rem 1.5rem', borderTop: '1px solid #e2e8f0' }}>
-                                                <textarea 
+                                            <div className="border-t border-border p-5 pt-4">
+                                                <Textarea
                                                     placeholder="ej: gerencia@empresa.com, auditor@gmail.com"
                                                     value={ccEmails}
-                                                    onChange={e => setCcEmails(e.target.value)}
-                                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', minHeight: '80px', marginTop: '1rem', outline: 'none' }}
+                                                    onChange={(e) => setCcEmails(e.target.value)}
+                                                    className="min-h-20"
                                                 />
-                                                <p style={{ margin: '8px 0 0 0', fontSize: '0.75rem', color: '#94a3b8' }}>Separa direcciones con comas. Solo por Email.</p>
+                                                <p className="mt-2 text-xs text-muted-foreground">Separa direcciones con comas. Solo por Email.</p>
                                             </div>
                                         )}
                                     </div>
-                                    
                                 </div>
                             )}
                         </div>
                     </div>
 
-                    {/* Right Column: Visual Summary */}
-                    <div className="summary-column">
-                        <div className="summary-content">
-                            <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1e293b', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <CheckCircle2 size={20} color="#10b981" /> Resumen en Vivo
+                    {/* Columna derecha: resumen en vivo */}
+                    <div className="flex flex-col bg-card lg:w-[340px] lg:shrink-0">
+                        <div className="flex-1 overflow-y-auto p-6 lg:p-8">
+                            <h3 className="mb-4 flex items-center gap-2 text-base font-bold text-foreground">
+                                <IconCircleCheck size={18} className="text-success" /> Resumen en Vivo
                             </h3>
-                            
-                            <div style={{ backgroundColor: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '1.5rem' }}>
-                                <div style={{ marginBottom: '1.5rem' }}>
-                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, color: '#94a3b8', marginBottom: '0.5rem' }}>Se enviará por:</div>
-                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        {channels.email && <span style={{ padding: '4px 8px', backgroundColor: '#e0f2fe', color: '#0284c7', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}><Mail size={12}/> EMAIL</span>}
-                                        {channels.web && <span style={{ padding: '4px 8px', backgroundColor: '#fef3c7', color: '#d97706', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}><Bell size={12}/> APP WEB</span>}
-                                        {!channels.email && !channels.web && <span style={{ color: '#ef4444', fontSize: '0.8rem', fontWeight: 600 }}>Ningún canal activo</span>}
+
+                            <div className="rounded-xl border border-dashed border-border p-5">
+                                <div className="mb-5">
+                                    <div className="mb-1.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Se enviará por:</div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {channels.email && <Badge className="gap-1 normal-case"><IconMail size={12} /> EMAIL</Badge>}
+                                        {channels.web && <Badge variant="warning" className="gap-1 normal-case"><IconBell size={12} /> APP WEB</Badge>}
+                                        {!channels.email && !channels.web && <span className="text-xs font-semibold text-destructive">Ningún canal activo</span>}
                                     </div>
                                 </div>
 
                                 <div>
-                                    <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 700, color: '#94a3b8', marginBottom: '0.75rem' }}>Destinatarios:</div>
-                                    
+                                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Destinatarios:</div>
+
                                     {event.es_transaccional ? (
-                                        <div style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#fff', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                                            <Zap size={14} color="#3b82f6" /> Resueltos automáticamente
+                                        <div className="flex items-center gap-2 rounded-md border border-border bg-background p-2 text-sm text-foreground">
+                                            <IconBolt size={14} className="text-primary" /> Resueltos automáticamente
                                         </div>
                                     ) : (
-                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        <div className="flex flex-col gap-3">
                                             {notifyOwner && (
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                    <ShieldCheck size={14} color="#10b981" style={{ marginTop: '2px' }}/> 
-                                                    <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600 }}>Propietario del Registro</span>
+                                                <div className="flex items-start gap-2">
+                                                    <IconShieldCheck size={14} className="mt-0.5 shrink-0 text-success" />
+                                                    <span className="text-sm font-semibold text-foreground">Propietario del Registro</span>
                                                 </div>
                                             )}
-                                            
+
                                             {selectedRoles.length > 0 && (
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                    <Users size={14} color="#0284c7" style={{ marginTop: '2px' }}/> 
-                                                    <div>
-                                                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, display: 'block' }}>Roles</span>
-                                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{selectedChips.filter(c => c.type === 'role').map(c => c.label).join(', ')}</div>
+                                                <div className="flex items-start gap-2">
+                                                    <IconUsers size={14} className="mt-0.5 shrink-0 text-primary" />
+                                                    <div className="min-w-0">
+                                                        <span className="block text-sm font-semibold text-foreground">Roles</span>
+                                                        <div className="text-xs text-muted-foreground">{selectedChips.filter(c => c.type === 'role').map(c => c.label).join(', ')}</div>
                                                     </div>
                                                 </div>
                                             )}
 
                                             {selectedUsers.length > 0 && (
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                    <User size={14} color="#7e22ce" style={{ marginTop: '2px' }}/> 
-                                                    <div>
-                                                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, display: 'block' }}>Usuarios Específicos</span>
-                                                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{selectedChips.filter(c => c.type === 'user').map(c => c.label).join(', ')}</div>
+                                                <div className="flex items-start gap-2">
+                                                    <IconUser size={14} className="mt-0.5 shrink-0 text-[#7e22ce]" />
+                                                    <div className="min-w-0">
+                                                        <span className="block text-sm font-semibold text-foreground">Usuarios Específicos</span>
+                                                        <div className="text-xs text-muted-foreground">{selectedChips.filter(c => c.type === 'user').map(c => c.label).join(', ')}</div>
                                                     </div>
                                                 </div>
                                             )}
 
                                             {ccEmails && (
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                                                    <Mail size={14} color="#f59e0b" style={{ marginTop: '2px' }}/> 
-                                                    <div>
-                                                        <span style={{ fontSize: '0.85rem', color: '#334155', fontWeight: 600, display: 'block' }}>Copia (CC)</span>
-                                                        <div style={{ fontSize: '0.75rem', color: '#64748b', wordBreak: 'break-all' }}>{ccEmails.substring(0, 30)}{ccEmails.length > 30 ? '...' : ''}</div>
+                                                <div className="flex items-start gap-2">
+                                                    <IconMail size={14} className="mt-0.5 shrink-0 text-warning" />
+                                                    <div className="min-w-0">
+                                                        <span className="block text-sm font-semibold text-foreground">Copia (CC)</span>
+                                                        <div className="break-all text-xs text-muted-foreground">{ccEmails.substring(0, 30)}{ccEmails.length > 30 ? '...' : ''}</div>
                                                     </div>
                                                 </div>
                                             )}
 
                                             {!notifyOwner && selectedRoles.length === 0 && selectedUsers.length === 0 && !ccEmails && (
-                                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', color: '#ef4444' }}>
-                                                    <AlertCircle size={14} style={{ marginTop: '2px' }}/> 
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>No hay destinatarios configurados. La alerta no será enviada a nadie.</span>
+                                                <div className="flex items-start gap-2 text-destructive">
+                                                    <IconAlertCircle size={14} className="mt-0.5 shrink-0" />
+                                                    <span className="text-sm font-semibold">No hay destinatarios configurados. La alerta no será enviada a nadie.</span>
                                                 </div>
                                             )}
                                         </div>
@@ -457,192 +439,23 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                                 </div>
                             </div>
                         </div>
-                        
-                        {/* Summary Footer Actions */}
-                        <div style={{ padding: '1.5rem 2rem', backgroundColor: '#fff', borderTop: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                            <button 
-                                onClick={handleSave} 
-                                disabled={loading}
-                                style={{ width: '100%', padding: '1rem', backgroundColor: '#1d4ed8', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', boxShadow: '0 4px 6px -1px rgba(29, 78, 216, 0.3)' }}
-                            >
-                                {loading ? 'Procesando...' : <><Save size={18} /> CONFIRMAR Y GUARDAR</>}
-                            </button>
-                            <button 
-                                onClick={onClose} 
-                                disabled={loading}
-                                style={{ width: '100%', padding: '0.75rem', backgroundColor: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 600, fontSize: '0.9rem', cursor: 'pointer' }}
-                            >
+
+                        <div className="flex flex-col gap-2 border-t border-border p-6">
+                            <Button onClick={handleSave} disabled={loading} size="lg">
+                                {loading ? (
+                                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                ) : (
+                                    <IconDeviceFloppy size={18} />
+                                )}
+                                {loading ? 'Procesando...' : 'CONFIRMAR Y GUARDAR'}
+                            </Button>
+                            <Button variant="outline" onClick={onClose} disabled={loading}>
                                 Cancelar Cambios
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            <style>{`
-                .drawer-overlay {
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background-color: rgba(15, 23, 42, 0.6);
-                    backdrop-filter: blur(4px);
-                    display: flex;
-                    justify-content: flex-end;
-                    z-index: 9999;
-                    animation: fadeIn 0.3s ease forwards;
-                }
-                .drawer-content {
-                    width: 85%;
-                    max-width: 950px;
-                    height: 100vh;
-                    background: #fff;
-                    display: flex;
-                    flex-direction: column;
-                    box-shadow: -10px 0 25px rgba(0,0,0,0.1);
-                    transform: translateX(100%);
-                    animation: slideLeft 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                    overflow: hidden;
-                }
-                
-                .modal-header {
-                    padding: 2rem 2.5rem;
-                    border-bottom: 1px solid rgba(0,0,0,0.06);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    background-color: #fff;
-                }
-                
-                .event-tag {
-                    display: inline-block;
-                    padding: 4px 8px;
-                    background-color: #e0f2fe;
-                    color: #0284c7;
-                    border-radius: 4px;
-                    font-size: 0.75rem;
-                    font-weight: 700;
-                    margin-bottom: 8px;
-                }
-                
-                .modal-title {
-                    margin: 0;
-                    font-size: 1.5rem;
-                    font-weight: 800;
-                    color: #0f172a;
-                }
-                
-                .modal-subtitle {
-                    margin: 0.5rem 0 0 0;
-                    font-size: 1rem;
-                    color: #64748b;
-                }
-                
-                .close-btn {
-                    background: #f1f5f9;
-                    border: none;
-                    cursor: pointer;
-                    color: #64748b;
-                    padding: 8px;
-                    border-radius: 50%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    transition: all 0.2s;
-                }
-                
-                .close-btn:hover {
-                    background: #e2e8f0;
-                    color: #0f172a;
-                }
-                
-                .modal-body {
-                    display: flex;
-                    flex: 1;
-                    overflow: hidden;
-                    background-color: #f8fafc;
-                }
-                
-                .config-column {
-                    flex: 0 0 65%;
-                    padding: 2.5rem;
-                    overflow-y: auto;
-                    border-right: 1px solid #e2e8f0;
-                }
-                
-                .channels-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 1rem;
-                }
-                
-                .summary-column {
-                    flex: 0 0 35%;
-                    background-color: #fff;
-                    display: flex;
-                    flex-direction: column;
-                    overflow-y: auto;
-                }
-                
-                .summary-content {
-                    padding: 2.5rem 2rem;
-                    flex: 1;
-                }
-                
-                @keyframes fadeIn {
-                    from { opacity: 0; }
-                    to { opacity: 1; }
-                }
-                @keyframes slideLeft {
-                    from { transform: translateX(100%); }
-                    to { transform: translateX(0); }
-                }
-                
-                /* Compact Styles (Mobile & Tablet) */
-                @media (max-width: 1200px) {
-                    .drawer-content {
-                        width: 100%;
-                        max-width: 100%;
-                    }
-                    
-                    .modal-header {
-                        padding: 1.5rem;
-                    }
-                    
-                    .modal-title {
-                        font-size: 1.25rem;
-                    }
-                    
-                    .modal-body {
-                        flex-direction: column;
-                        overflow-y: auto;
-                    }
-                    
-                    .config-column {
-                        flex: none;
-                        width: 100%;
-                        padding: 1.5rem;
-                        border-right: none;
-                        border-bottom: 1px solid #e2e8f0;
-                        overflow-y: visible;
-                    }
-                    
-                    .channels-grid {
-                        grid-template-columns: 1fr;
-                    }
-                    
-                    .summary-column {
-                        flex: none;
-                        width: 100%;
-                        overflow-y: visible;
-                    }
-                    
-                    .summary-content {
-                        padding: 1.5rem;
-                    }
-                }
-            `}</style>
-        </div>
+            </SheetContent>
+        </Sheet>
     );
 };

@@ -63,7 +63,7 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     };
 
     return (
-        <Card className="shadcn-scope w-full rounded-2xl bg-white/95 p-6 shadow-lg backdrop-blur">
+        <Card className="shadcn-scope w-full rounded-2xl bg-card/95 p-6 shadow-lg backdrop-blur">
             <div className="flex flex-col gap-6">
                 {logoutReason && (
                     <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">

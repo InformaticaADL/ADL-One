@@ -1,4 +1,8 @@
 import React from 'react';
+import { IconAlertTriangle, IconCheck, IconInfoCircle } from '@tabler/icons-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 interface ConfirmModalProps {
     isOpen: boolean;
@@ -6,12 +10,18 @@ interface ConfirmModalProps {
     message: string;
     confirmText?: string;
     cancelText?: string;
-    confirmColor?: string;
-    iconBgColor?: string;
-    iconStrokeColor?: string;
+    /** Antes `confirmColor` (hex libre) — ahora un tono semántico, igual que
+     * Alert/Badge, en vez de que cada call site inventara su propio color. */
+    tone?: 'destructive' | 'info' | 'success';
     onConfirm: () => void;
     onCancel: () => void;
 }
+
+const TONE_STYLES = {
+    destructive: { Icon: IconAlertTriangle, badge: 'bg-destructive/10 text-destructive' },
+    info: { Icon: IconInfoCircle, badge: 'bg-primary/10 text-primary' },
+    success: { Icon: IconCheck, badge: 'bg-success/10 text-success' },
+};
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     isOpen,
@@ -19,163 +29,31 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
     message,
     confirmText = 'Confirmar',
     cancelText = 'Cancelar',
-    confirmColor = '#ef4444',
-    iconBgColor,
-    iconStrokeColor,
+    tone = 'destructive',
     onConfirm,
-    onCancel
+    onCancel,
 }) => {
-    if (!isOpen) return null;
-
-    const finalIconBg = iconBgColor || (confirmColor === '#ef4444' ? '#fee2e2' : `${confirmColor}20`);
-    const finalIconStroke = iconStrokeColor || (confirmColor === '#ef4444' ? '#dc2626' : confirmColor);
+    const { Icon, badge } = TONE_STYLES[tone];
 
     return (
-        <div
-            style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: 'rgba(0, 0, 0, 0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 9999,
-                animation: 'fadeIn 0.2s ease-out'
-            }}
-            onClick={onCancel}
-        >
-            <div
-                style={{
-                    backgroundColor: 'white',
-                    borderRadius: '12px',
-                    padding: '1.5rem',
-                    maxWidth: '550px',
-                    width: '90%',
-                    boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
-                    animation: 'slideUp 0.3s ease-out'
-                }}
-                onClick={(e) => e.stopPropagation()}
-            >
-                {/* Icon + Title */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '1rem' }}>
-                    <div
-                        style={{
-                            width: '48px',
-                            height: '48px',
-                            borderRadius: '50%',
-                            backgroundColor: finalIconBg,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                        }}
-                    >
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke={finalIconStroke}
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            {confirmColor === '#ef4444' ? (
-                                <>
-                                    <circle cx="12" cy="12" r="10"></circle>
-                                    <line x1="12" y1="8" x2="12" y2="12"></line>
-                                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
-                                </>
-                            ) : (
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            )}
-                        </svg>
+        <Dialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>
+            <DialogContent className="max-w-[480px]">
+                <DialogHeader>
+                    <div className="flex items-center gap-3">
+                        <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-full', badge)}>
+                            <Icon size={22} />
+                        </div>
+                        <DialogTitle>{title}</DialogTitle>
                     </div>
+                </DialogHeader>
 
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: 600, color: '#111827', margin: 0 }}>
-                        {title}
-                    </h3>
-                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">{message}</p>
 
-                {/* Message */}
-                <p style={{ fontSize: '0.95rem', color: '#6b7280', marginBottom: '1.5rem', lineHeight: '1.5' }}>
-                    {message}
-                </p>
-
-                {/* Buttons */}
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-                    <button
-                        onClick={onCancel}
-                        style={{
-                            padding: '10px 20px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            backgroundColor: 'white',
-                            color: '#374151',
-                            fontSize: '0.9rem',
-                            fontWeight: 500,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#f9fafb';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'white';
-                        }}
-                    >
-                        {cancelText}
-                    </button>
-                    <button
-                        onClick={onConfirm}
-                        style={{
-                            padding: '10px 20px',
-                            borderRadius: '6px',
-                            border: 'none',
-                            backgroundColor: confirmColor,
-                            color: 'white',
-                            fontSize: '0.9rem',
-                            fontWeight: 600,
-                            cursor: 'pointer',
-                            transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.opacity = '0.9';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.opacity = '1';
-                        }}
-                    >
-                        {confirmText}
-                    </button>
-                </div>
-            </div>
-
-            <style>{`
-                @keyframes fadeIn {
-                    from {
-                        opacity: 0;
-                    }
-                    to {
-                        opacity: 1;
-                    }
-                }
-
-                @keyframes slideUp {
-                    from {
-                        transform: translateY(20px);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateY(0);
-                        opacity: 1;
-                    }
-                }
-            `}</style>
-        </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={onCancel}>{cancelText}</Button>
+                    <Button variant={tone === 'destructive' ? 'destructive' : 'default'} onClick={onConfirm}>{confirmText}</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 };

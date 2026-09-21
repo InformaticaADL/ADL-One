@@ -520,7 +520,7 @@ export const RoleModal: React.FC<Props> = ({ role, isOpen, onClose, onSuccess })
                 message={`${affectedCount} usuario${affectedCount !== 1 ? 's' : ''} ${affectedCount !== 1 ? 'tienen' : 'tiene'} este rol asignado y ${affectedCount !== 1 ? 'serán desconectados' : 'será desconectado'} para aplicar los nuevos permisos. ¿Confirmas?`}
                 confirmText="Sí, guardar"
                 cancelText="Cancelar"
-                confirmColor="#1c7ed6"
+                tone="info"
                 onConfirm={doSave}
                 onCancel={() => { setConfirmSaveOpen(false); setAffectedCount(null); }}
             />

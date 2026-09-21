@@ -75,7 +75,7 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
     return (
         <div className="login-page">
             <div className="login-container">
-                <Card className="shadcn-scope w-full rounded-2xl bg-white/95 p-6 shadow-lg backdrop-blur">
+                <Card className="shadcn-scope w-full rounded-2xl bg-card/95 p-6 shadow-lg backdrop-blur">
                     <div className="flex flex-col gap-6">
                         <div className="flex flex-col items-center">
                             <img src={logoAdl} className="mb-6 w-[260px]" alt="ADL" />

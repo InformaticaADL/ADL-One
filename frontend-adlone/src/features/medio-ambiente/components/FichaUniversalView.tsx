@@ -724,7 +724,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                 isOpen={showConfirmModal}
                 title={confirmAction?.title || ''}
                 message={confirmAction?.message || ''}
-                confirmColor={confirmAction?.type.includes('approve') ? '#10b981' : '#ef4444'}
+                tone={confirmAction?.type.includes('approve') ? 'success' : 'destructive'}
                 onConfirm={processAction}
                 onCancel={() => setShowConfirmModal(false)}
             />

@@ -494,7 +494,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 title="Confirmar Habilitación"
                 message={`¿Está seguro de habilitar a ${muestreadorToEnable?.nombre_muestreador}? El muestreador podrá ser asignado a nuevas fichas.`}
                 confirmText="Habilitar"
-                confirmColor="#2f9e44"
+                tone="success"
                 onConfirm={confirmEnable}
                 onCancel={() => {
                     setIsEnableConfirmOpen(false);
