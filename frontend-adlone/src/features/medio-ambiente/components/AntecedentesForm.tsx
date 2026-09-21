@@ -57,10 +57,29 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
     });
 };
 
+// Ancho de cada campo según lo que realmente contiene (un nombre de empresa
+// necesita más espacio que "2019" o "19S") — en vez de una grilla pareja de
+// N columnas fijas, cada fila es un flex-wrap y cada campo pide su propio
+// ancho, así una fila cabe con 2 campos largos o con 5 campos cortos.
+type FieldSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+const FIELD_SIZE_CLASS: Record<FieldSize, string> = {
+    xs: 'flex-[0_1_84px]',
+    sm: 'flex-[0.6_1_130px]',
+    md: 'flex-[1_1_190px]',
+    lg: 'flex-[1.6_1_230px]',
+    xl: 'flex-[2.6_1_300px]',
+};
+
+// Fila flexible: los campos se envuelven a la siguiente línea según su
+// tamaño real, no según un conteo fijo de columnas.
+function Row({ children, className }: { children: React.ReactNode; className?: string }) {
+    return <div className={cn('flex flex-wrap items-end gap-4', className)}>{children}</div>;
+}
+
 // Extremely Fast Input Wrapper to isolate typing updates.
 // Uses startTransition for the parent callback so AntecedentesForm (30+ states)
 // only re-renders at low priority — the local input state updates immediately.
-const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, style, className, ...props }: any) => {
+const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, size, className, ...props }: any) => {
     const [localValue, setLocalValue] = useState(parentValue || '');
 
     // Sincronizar desde arriba sólo si difiere
@@ -77,7 +96,7 @@ const TextInput = React.memo(({ value: parentValue, onChange, label, description
     };
 
     return (
-        <div style={style} className={className}>
+        <div className={cn('min-w-0', size ? FIELD_SIZE_CLASS[size as FieldSize] : 'w-full', className)}>
             {label && <div className="mb-1.5">{typeof label === 'string' ? <span className="text-[13px] font-medium">{label}</span> : label}</div>}
             <Input
                 value={localValue}
@@ -94,10 +113,10 @@ const TextInput = React.memo(({ value: parentValue, onChange, label, description
 // Select con label arriba (mantiene la firma value/onChange/data de siempre) —
 // implementado sobre Combobox (buscador integrado), reemplazo obligatorio de
 // todo AntD Select según convención del proyecto.
-const Select = ({ label, data, value, onChange, disabled, placeholder, style, rightSection, onDropdownOpen, error }: any) => {
+const Select = ({ label, data, value, onChange, disabled, placeholder, size, rightSection, onDropdownOpen, error }: any) => {
     const options = (data || []).map((opt: any) => (typeof opt === 'string' ? { value: opt, label: opt } : { value: String(opt.value), label: opt.label }));
     return (
-        <div style={style}>
+        <div className={cn('min-w-0', size ? FIELD_SIZE_CLASS[size as FieldSize] : 'w-full')}>
             {label && <div className="mb-1.5 flex items-center justify-between">{typeof label === 'string' ? <span className="text-[13px] font-medium">{label}</span> : label}</div>}
             <div className="flex items-center gap-1.5">
                 <Combobox
@@ -117,8 +136,8 @@ const Select = ({ label, data, value, onChange, disabled, placeholder, style, ri
 };
 
 // Module-level memoized component (avoids recreation on every parent render)
-const StaticField = React.memo(({ label, value, icon: Icon }: { label: string, value: string, icon: any }) => (
-    <div>
+const StaticField = React.memo(({ label, value, icon: Icon, size }: { label: string, value: string, icon: any, size?: FieldSize }) => (
+    <div className={cn('min-w-0', size ? FIELD_SIZE_CLASS[size] : 'w-full')}>
         <div className="mb-0.5 flex items-center gap-1">
             <Icon size={12} className="text-muted-foreground" />
             <span className="text-[11px] font-bold uppercase text-muted-foreground">{label}</span>
@@ -173,13 +192,58 @@ function InlineAlert({ type, icon, children }: { type: 'success' | 'warning'; ic
     );
 }
 
+interface SectionNavItem {
+    id: string;
+    label: string;
+    icon: React.ElementType;
+    complete: boolean;
+}
+
+// Índice lateral de las 4 secciones — cada punto pasa a "completo" (check
+// verde) apenas se llenan sus campos obligatorios, sin forzar un orden: el
+// usuario puede saltar libremente entre secciones haciendo click.
+function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNavItem[]; active: string; onNavigate: (id: string) => void; isMobile: boolean }) {
+    return (
+        <div className={cn(
+            'rounded-xl border border-border bg-card p-2',
+            isMobile ? 'flex flex-row gap-1 overflow-x-auto' : 'sticky top-5 flex w-[200px] shrink-0 flex-col gap-1'
+        )}>
+            {items.map((item, idx) => {
+                const Icon = item.icon;
+                const isActive = active === item.id;
+                return (
+                    <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => onNavigate(item.id)}
+                        className={cn(
+                            'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold transition-colors',
+                            isActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'
+                        )}
+                    >
+                        <span className={cn(
+                            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold',
+                            item.complete
+                                ? 'border-success bg-success text-success-foreground'
+                                : isActive ? 'border-primary text-primary' : 'border-border text-muted-foreground'
+                        )}>
+                            {item.complete ? <IconCheck size={11} /> : idx + 1}
+                        </span>
+                        <Icon size={14} className="shrink-0" />
+                        {!isMobile && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
 export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean) => void }>((props, ref) => {
     const { initialData, onValidationChange } = props;
     const { hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
     const { showToast } = useToast();
     const isMobile = useMediaQuery('(max-width: 768px)');
-    const isVerySmall = useMediaQuery('(max-width: 480px)');
 
     // Catalog State
     const [lugares, setLugares] = useState<LugarAnalisis[]>([]);
@@ -269,6 +333,26 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [createEmpresaOpened, setCreateEmpresaOpened] = useState(false);
     const isHydrating = useRef(!!initialData);
     const hasHydrated = useRef(false);
+
+    // Índice lateral: qué sección está en pantalla (scrollspy) + refs para el scroll-to-section.
+    const [activeSection, setActiveSection] = useState('ident');
+    const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const scrollToSection = useCallback((id: string) => {
+        sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, []);
+
+    useEffect(() => {
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.isIntersecting) setActiveSection(entry.target.id.replace('ficha-sec-', ''));
+                });
+            },
+            { rootMargin: '-15% 0px -70% 0px', threshold: 0 }
+        );
+        Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el));
+        return () => observer.disconnect();
+    }, []);
 
     // Validation Effect (debounced to avoid per-keystroke parent re-renders)
     useEffect(() => {
@@ -807,6 +891,54 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const dispositivosData = useMemo(() => dispositivos, [dispositivos]);
     const zonasUTMData = useMemo(() => zonasUTMList, [zonasUTMList]);
 
+    // Completitud por sección para el índice lateral — mismo criterio de
+    // "campo obligatorio lleno" que la validación general de más abajo, pero
+    // desglosado por bloque en vez de un solo isValid para todo el formulario.
+    const isFieldSet = (v: unknown) => {
+        if (v === null || v === undefined) return false;
+        const s = String(v).trim();
+        return s.length > 0 && s !== 'null' && s !== 'undefined';
+    };
+
+    const block1Complete = useMemo(
+        () => [tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto].every(isFieldSet),
+        [tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto]
+    );
+
+    const block2Complete = useMemo(
+        () => [selectedObjetivo, responsableMuestreo, cargoResponsable, puntoMuestreo, periodo, frecuencia, factor, totalServicios].every(isFieldSet),
+        [selectedObjetivo, responsableMuestreo, cargoResponsable, puntoMuestreo, periodo, frecuencia, factor, totalServicios]
+    );
+
+    const block3Complete = useMemo(() => {
+        const req = [zona, utmNorte, utmEste, selectedInstrumento, selectedComponente, selectedSubArea, glosa];
+        const instLow = (selectedInstrumento || '').toLowerCase();
+        if (instLow === 'otro') req.push(nroInstrumento);
+        else if (instLow !== 'no aplica' && selectedInstrumento) req.push(nroInstrumento, anioInstrumento);
+        return req.every(isFieldSet);
+    }, [zona, utmNorte, utmEste, selectedInstrumento, selectedComponente, selectedSubArea, glosa, nroInstrumento, anioInstrumento]);
+
+    const block4Complete = useMemo(() => {
+        const req = [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, medicionCaudal];
+        if (tipoMonitoreo !== 'Puntual') req.push(duracion);
+        if (medicionCaudal && !isNoAplicaValue(medicionCaudal)) {
+            req.push(selectedModalidad);
+            if (selectedModalidad && !isNoAplicaValue(selectedModalidad, modalidades)) {
+                req.push(formaCanal, dispositivo);
+                if (formaCanal && !isNoAplicaValue(formaCanal, formasCanal)) req.push(tipoMedidaCanal, detalleCanal);
+                if (dispositivo && !isNoAplicaValue(dispositivo, dispositivos)) req.push(tipoMedidaDispositivo, detalleDispositivo);
+            }
+        }
+        return req.every(isFieldSet);
+    }, [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, medicionCaudal, tipoMonitoreo, duracion, selectedModalidad, modalidades, formaCanal, dispositivo, formasCanal, dispositivos, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo]);
+
+    const sectionNavItems: SectionNavItem[] = [
+        { id: 'ident', label: 'Identificación', icon: IconBuilding, complete: block1Complete },
+        { id: 'servicio', label: 'Datos del Servicio', icon: IconAdjustmentsHorizontal, complete: block2Complete },
+        { id: 'clasif', label: 'Clasificación Técnica', icon: IconCertificate, complete: block3Complete },
+        { id: 'operativo', label: 'Detalles Operativos', icon: IconClock, complete: block4Complete },
+    ];
+
     const handlePeriodoChange = (val: string | null) => {
         setPeriodo(val);
         const selectedFreq = frecuenciasOptions.find(f => String(f.id) === val);
@@ -843,16 +975,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
     }, [frecuencia, factor]);
 
-    const gridCols = (n: number): React.CSSProperties => ({ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : `repeat(${n}, 1fr)`, gap: 16 });
-
     return (
-        <div className="shadcn-scope flex flex-col" style={{ gap: isMobile ? 16 : 24 }}>
-            {/* Block 1: Identificación */}
+        <div className="shadcn-scope flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+            <SectionNav items={sectionNavItems} active={activeSection} onNavigate={scrollToSection} isMobile={isMobile} />
+
+            <div className="flex min-w-0 flex-1 flex-col" style={{ gap: isMobile ? 16 : 24 }}>
+            <div ref={(el) => { sectionRefs.current.ident = el; }} id="ficha-sec-ident">
             <Block>
                 <BlockTitle icon={IconBuilding} color="var(--sc-primary)">Identificación y Ubicación</BlockTitle>
 
-                <div style={{ ...gridCols(4), marginBottom: 16 }}>
+                <Row className="mb-4">
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Monitoreo agua/RIL *" help="Tipo de toma de muestra: Puntual es una sola extracción en un momento dado; Compuesta mezcla varias extracciones a lo largo del tiempo para obtener un promedio." />}
                         placeholder="Seleccione..."
                         data={['Compuesta', 'Puntual']}
@@ -860,6 +994,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={setTipoMonitoreo}
                     />
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Base de operaciones *" help="Laboratorio o sede de ADL desde la cual partirá el equipo de muestreo. Determina la logística del viaje." />}
                         placeholder="Cargando..."
                         data={lugaresData}
@@ -868,6 +1003,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         disabled={!tipoMonitoreo}
                     />
                     <Select
+                        size="lg"
                         label={<FieldLabel label="Empresa a Facturar *" help="Empresa o cliente al que se emitirá la factura por el servicio de análisis. Puede ser diferente de la empresa de servicio." />}
                         placeholder="Buscar cliente..."
                         data={clientesData}
@@ -875,6 +1011,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setSelectedCliente(v || '')}
                     />
                     <Select
+                        size="lg"
                         label={<FieldLabel label="Empresa de servicio *" help="Empresa que opera el establecimiento a muestrear (ej. salmonicultura, industria). Al seleccionarla se cargarán automáticamente sus centros, contactos y objetivos." />}
                         placeholder="Buscar empresa..."
                         data={empresasData}
@@ -895,10 +1032,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             )
                         }
                     />
-                </div>
+                </Row>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '2fr 1fr 1fr 1fr', gap: 16, marginBottom: 16 }}>
+                <Row className="mb-4">
                     <Select
+                        size="xl"
                         label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
                         placeholder="Seleccione empresa primero"
                         data={fuentesData}
@@ -906,20 +1044,22 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setSelectedFuente(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
-                    <StaticField label="Tipo agua" value={tipoAgua} icon={IconFlask} />
-                    <StaticField label="Comuna" value={comuna} icon={IconMapPin} />
-                    <StaticField label="Región" value={region} icon={IconMapPin} />
-                </div>
+                    <StaticField size="xs" label="Tipo agua" value={tipoAgua} icon={IconFlask} />
+                    <StaticField size="xs" label="Comuna" value={comuna} icon={IconMapPin} />
+                    <StaticField size="sm" label="Región" value={region} icon={IconMapPin} />
+                </Row>
 
-                <div style={gridCols(4)}>
+                <Row className="mb-4">
                     <TextInput
+                        size="lg"
                         label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
                         value={ubicacion}
                         onChange={(e: any) => setUbicacion(e.target.value)}
                     />
-                    <StaticField label="Código Centro" value={codigo} icon={IconInfoCircle} />
-                    <StaticField label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
+                    <StaticField size="xs" label="Código Centro" value={codigo} icon={IconInfoCircle} />
+                    <StaticField size="xs" label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
                     <Select
+                        size="lg"
                         label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
                         placeholder="Seleccione..."
                         data={[
@@ -930,22 +1070,26 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setSelectedContacto(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
-                </div>
-                <div style={{ marginTop: 16 }}>
+                </Row>
+                <Row>
                     <StaticField
+                        size="xl"
                         label="E-mail Contacto"
                         value={selectedContacto === 'primary' ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-') : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')}
                         icon={IconMail}
                     />
-                </div>
+                </Row>
             </Block>
+            </div>
 
-            {/* Block 2: Datos del Servicio */}
+            {/* Sección 2: Datos del Servicio */}
+            <div ref={(el) => { sectionRefs.current.servicio = el; }} id="ficha-sec-servicio">
             <Block>
                 <BlockTitle icon={IconAdjustmentsHorizontal} color="#9c36b5">Datos del Servicio y Frecuencia</BlockTitle>
 
-                <div style={{ ...gridCols(3), marginBottom: 16 }}>
+                <Row className="mb-4">
                     <Select
+                        size="lg"
                         label={<FieldLabel label="Objetivo del Muestreo *" help="Propósito regulatorio o técnico del muestreo. Ejemplos: Autocontrol (obligación legal), Patología (diagnóstico de enfermedad), Fisicoquímica (análisis de parámetros físicos)." />}
                         placeholder="Seleccione..."
                         data={objetivosData}
@@ -954,12 +1098,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
                     <Select
+                        size="xs"
                         label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
                         data={['ADL', 'Cliente']}
                         value={responsableMuestreo}
                         onChange={setResponsableMuestreo}
                     />
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Cargo *" help="Cargo profesional del responsable del muestreo. Si el responsable es ADL, se asigna automáticamente el cargo de Muestreador." />}
                         placeholder="Seleccione..."
                         data={cargosData}
@@ -967,17 +1113,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setCargoResponsable(v || '')}
                         disabled={responsableMuestreo === 'ADL'}
                     />
-                </div>
+                </Row>
 
                 <Divider />
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: 12 }}>
+                <Row>
                     <TextInput
+                        size="md"
                         label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
                         value={puntoMuestreo}
                         onChange={(e: any) => setPuntoMuestreo(e.target.value)}
                     />
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
                         data={frecuenciasData}
                         value={periodo}
@@ -987,22 +1135,24 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         }}
                     />
                     <TextInput
+                        size="xs"
                         label={<FieldLabel label="Cant. Frecuencia" help="Número de veces que se realiza el muestreo dentro del período seleccionado. Se completa automáticamente según la frecuencia, pero puede ajustarse." />}
                         value={frecuencia}
                         onChange={(e: any) => setFrecuencia(e.target.value)}
                     />
                     <TextInput
+                        size="xs"
                         label={<FieldLabel label="Factor" help="Multiplicador que ajusta el número total de servicios. Útil cuando hay más de una ubicación o muestra por visita. Total = Cantidad × Factor." />}
                         value={factor}
                         onChange={(e: any) => setFactor(e.target.value)}
                     />
-                    <div>
+                    <div className={cn('min-w-0', FIELD_SIZE_CLASS.xs)}>
                         <span className="mb-1 block text-[11px] font-bold uppercase text-muted-foreground">Total Servicios</span>
                         <div className="flex h-[34px] items-center justify-center rounded-lg bg-primary text-[15px] font-bold text-primary-foreground">
                             {totalServicios || '0'}
                         </div>
                     </div>
-                </div>
+                </Row>
 
                 {periodo && periodo !== 'No Aplica' && frecuencia && factor && totalServicios && (
                     <p className="mt-2 text-center text-xs italic text-muted-foreground">
@@ -1010,54 +1160,59 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     </p>
                 )}
             </Block>
+            </div>
 
-            {/* Block 3: Clasificación Técnica */}
+            {/* Sección 3: Clasificación Técnica */}
+            <div ref={(el) => { sectionRefs.current.clasif = el; }} id="ficha-sec-clasif">
             <Block>
                 <BlockTitle icon={IconCertificate} color="#0d9488">Clasificación Técnica y Geográfica</BlockTitle>
 
-                <div style={{ ...gridCols(3), marginBottom: 16 }}>
+                <Row className="mb-4">
                     <Select
+                        size="xs"
                         label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
                         data={zonasUTMData}
                         value={zona}
                         onChange={(v: string | null) => setZona(v || '')}
                     />
                     <TextInput
+                        size="sm"
                         label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
                         onChange={(e: any) => setUtmNorte(e.target.value)}
                         disabled={!zona || zona === 'No aplica'}
                     />
                     <TextInput
+                        size="sm"
                         label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
                         onChange={(e: any) => setUtmEste(e.target.value)}
                         disabled={!zona || zona === 'No aplica'}
                     />
-                </div>
+                </Row>
 
                 <Divider />
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : (isVerySmall ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)'), gap: 16, marginBottom: 16 }}>
-                    <div style={{ gridColumn: isVerySmall ? 'span 1' : 'span 2' }}>
-                        <Select
-                            label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
-                            data={instrumentosAmbientales}
-                            value={selectedInstrumento}
-                            onChange={(val: string | null) => {
-                                setSelectedInstrumento(val || '');
-                                // F-15: limpiar campos dependientes al elegir "No aplica"
-                                if (val === 'No aplica') {
-                                    setEsETFA('No');
-                                    setNroInstrumento('');
-                                    setAnioInstrumento('');
-                                } else {
-                                    setEsETFA('Si');
-                                }
-                            }}
-                        />
-                    </div>
+                <Row className="mb-4">
+                    <Select
+                        size="xl"
+                        label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
+                        data={instrumentosAmbientales}
+                        value={selectedInstrumento}
+                        onChange={(val: string | null) => {
+                            setSelectedInstrumento(val || '');
+                            // F-15: limpiar campos dependientes al elegir "No aplica"
+                            if (val === 'No aplica') {
+                                setEsETFA('No');
+                                setNroInstrumento('');
+                                setAnioInstrumento('');
+                            } else {
+                                setEsETFA('Si');
+                            }
+                        }}
+                    />
                     <TextInput
+                        size="xs"
                         // F-01f: con "Otro" el número/año NO son obligatorios (solo "Otro" + texto libre)
                         label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'} help="Número o código identificador del instrumento ambiental (ej: número de RCA, decreto o resolución). Solo se aceptan números salvo cuando el instrumento es 'Otro'." />}
                         placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre (ej: Resolución SISS 2122/2023)' : 'Solo número (ej: 123)'}
@@ -1084,6 +1239,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         }}
                     />
                     <TextInput
+                        size="xs"
                         // F-01f: con "Otro" el año tampoco es obligatorio
                         label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'} help="Año de emisión o vigencia del instrumento ambiental. Debe ser un año de 4 dígitos entre 1900 y el año actual." />}
                         placeholder="YYYY (ej: 2024)"
@@ -1105,58 +1261,66 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         })()}
                         maxLength={4}
                     />
-                </div>
+                </Row>
 
-                <div style={{ ...gridCols(2), marginBottom: 16 }}>
+                <Row className="mb-4">
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Ejemplos: Agua Superficial, Agua Marina, Sedimento, Atmósfera. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
                         data={componentesData}
                         value={selectedComponente}
                         onChange={handleComponenteChange}
                     />
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Sub Área *" help="Clasificación más específica dentro del componente ambiental seleccionado. Depende del Componente elegido anteriormente." />}
                         data={subAreasData}
                         value={selectedSubArea}
                         onChange={(v: string | null) => setSelectedSubArea(v || '')}
                         disabled={!selectedComponente}
                     />
-                </div>
+                </Row>
 
-                <div style={{ marginBottom: 16 }}>
+                <Row className="mb-4">
                     <TextInput
+                        size="xl"
                         label={<FieldLabel label="Nombre de la Tabla (Glosa) *" help="Nombre descriptivo que identificará la tabla de resultados en el informe final. Se autocompleta como: 'Nombre del Centro - Objetivo del Muestreo'. Puede editarse libremente. Máximo 100 caracteres." />}
                         value={glosa}
                         onChange={(e: any) => setGlosa(e.target.value)}
                         maxLength={100}
                         description={`${glosa.length}/100 caracteres`}
                     />
-                </div>
+                </Row>
 
-                <div style={gridCols(2)}>
-                    <Select label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
+                <Row>
+                    <Select size="xs" label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
                     <Select
+                        size="md"
                         label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
                         data={inspectoresData}
                         value={selectedInspector}
                         onChange={(v: string | null) => setSelectedInspector(v || '')}
                         disabled={responsableMuestreo !== 'ADL'}
                     />
-                </div>
+                </Row>
             </Block>
+            </div>
 
-            {/* Block 4: Detalles Operativos */}
+            {/* Sección 4: Detalles Operativos */}
+            <div ref={(el) => { sectionRefs.current.operativo = el; }} id="ficha-sec-operativo">
             <Block>
                 <BlockTitle icon={IconClock} color="#e8590c">Detalles Operativos y Descarga</BlockTitle>
 
-                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(5, 1fr)', gap: 12, marginBottom: 16 }}>
+                <Row className="mb-4">
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Tipo Muestreo *" help="Metodología general de recolección de la muestra. Ejemplos: Simple (grab), Integrado, Compuesto. Al seleccionarlo se cargarán los Tipos de Muestra disponibles." />}
                         data={tiposMuestreoData}
                         value={selectedTipoMuestreo}
                         onChange={handleTipoMuestreoChange}
                     />
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Tipo Muestra *" help="Material físico que se recolectará. Ejemplos: Agua Superficial, Sedimento, Biota, Efluente. Depende del Tipo de Muestreo seleccionado." />}
                         data={tiposMuestraData}
                         value={selectedTipoMuestra}
@@ -1164,6 +1328,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         disabled={!selectedTipoMuestreo}
                     />
                     <Select
+                        size="md"
                         label={<FieldLabel label="Actividad *" help="Técnica o procedimiento específico para obtener la muestra. Ejemplos: Tomada con balde, Bomba peristáltica, Red de arrastre. Depende del Tipo de Muestra." />}
                         data={actividadesData}
                         value={selectedActividad}
@@ -1173,6 +1338,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     {/* ✅ PUNTUAL: muestreo de un solo día → no se pide duración. Solo aplica en Compuesta. */}
                     {tipoMonitoreo !== 'Puntual' && (
                         <TextInput
+                            size="xs"
                             label={<FieldLabel label="Duración (Hrs) *" help="Tiempo estimado en horas enteras que tomará el muestreo completo en el centro. No incluir el tiempo de traslado. Solo se aceptan números enteros." />}
                             type="number"
                             inputMode="numeric"
@@ -1194,16 +1360,17 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         />
                     )}
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Tipo Descarga *" help="Clasificación del tipo de descarga del establecimiento según la normativa ambiental. Ejemplos: Punto de Descarga, Cuerpo Receptor. Requerido para la clasificación del informe." />}
                         data={tiposDescargaData}
                         value={selectedTipoDescarga}
                         onChange={(v: string | null) => setSelectedTipoDescarga(v || '')}
                     />
-                </div>
+                </Row>
 
                 <div className="mb-4 flex flex-col gap-1.5">
                     <div className="flex items-end gap-2">
-                        <div className="flex-1">
+                        <div className={cn('min-w-0', FIELD_SIZE_CLASS.xl)}>
                             <div className="relative">
                                 <TextInput
                                     label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
@@ -1269,21 +1436,23 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Divider label="Hidráulica y Caudal" />
 
-                <div style={gridCols(4)}>
+                <Row>
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Medición Caudal" help="Indica si se medirá el caudal de la descarga y cómo. Manual: se mide en terreno por el muestreador. Automático: existe un caudalímetro instalado. No Aplica: no se mide caudal." />}
                         data={['Manual', 'Automático', 'No Aplica']}
                         value={medicionCaudal}
                         onChange={(v: string | null) => setMedicionCaudal(v || '')}
                     />
                     <Select
+                        size="sm"
                         label={<FieldLabel label="Modalidad" help="Método hidráulico para medir el caudal. Se activa solo si la Medición de Caudal no es 'No Aplica'. Determina qué campos de canal y dispositivo se requieren." />}
                         data={modalidadesData}
                         value={selectedModalidad}
                         onChange={(v: string | null) => setSelectedModalidad(v || '')}
                         disabled={isNoAplicaValue(medicionCaudal)}
                     />
-                    <div className="flex flex-col gap-1">
+                    <div className={cn('flex min-w-0 flex-col gap-1', FIELD_SIZE_CLASS.md)}>
                         <Select
                             label={<FieldLabel label="Forma Canal" help="Geometría del canal o sección de descarga donde se medirá el caudal. Ejemplos: Rectangular, Trapezoidal, Circular. Determina la fórmula hidráulica que se aplicará." />}
                             data={formasCanalData}
@@ -1292,25 +1461,28 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
                         <div className="flex gap-1">
-                            <Select
-                                placeholder="Unidad"
-                                data={unidadesMedida}
-                                value={tipoMedidaCanal}
-                                onChange={(v: string | null) => setTipoMedidaCanal(v || '')}
-                                disabled={isNoAplicaValue(formaCanal, formasCanal)}
-                                style={{ flex: 1 }}
-                            />
-                            <TextInput
-                                placeholder="Valor"
-                                value={detalleCanal}
-                                onChange={(e: any) => setDetalleCanal(e.target.value)}
-                                disabled={!tipoMedidaCanal}
-                                style={{ flex: 1 }}
-                            />
+                            <div className="min-w-0 flex-1">
+                                <Select
+                                    placeholder="Unidad"
+                                    data={unidadesMedida}
+                                    value={tipoMedidaCanal}
+                                    onChange={(v: string | null) => setTipoMedidaCanal(v || '')}
+                                    disabled={isNoAplicaValue(formaCanal, formasCanal)}
+                                />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <TextInput
+                                    placeholder="Valor"
+                                    value={detalleCanal}
+                                    onChange={(e: any) => setDetalleCanal(e.target.value)}
+                                    disabled={!tipoMedidaCanal}
+                                />
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col gap-1">
+                    <div className={cn('flex min-w-0 flex-col gap-1', FIELD_SIZE_CLASS.md)}>
                         <Select
+                            size="xl"
                             label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
                             data={dispositivosData}
                             value={dispositivo}
@@ -1318,25 +1490,29 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
                         <div className="flex gap-1">
-                            <Select
-                                placeholder="Unidad"
-                                data={unidadesMedida}
-                                value={tipoMedidaDispositivo}
-                                onChange={(v: string | null) => setTipoMedidaDispositivo(v || '')}
-                                disabled={isNoAplicaValue(dispositivo, dispositivos)}
-                                style={{ flex: 1 }}
-                            />
-                            <TextInput
-                                placeholder="Valor"
-                                value={detalleDispositivo}
-                                onChange={(e: any) => setDetalleDispositivo(e.target.value)}
-                                disabled={!tipoMedidaDispositivo}
-                                style={{ flex: 1 }}
-                            />
+                            <div className="min-w-0 flex-1">
+                                <Select
+                                    placeholder="Unidad"
+                                    data={unidadesMedida}
+                                    value={tipoMedidaDispositivo}
+                                    onChange={(v: string | null) => setTipoMedidaDispositivo(v || '')}
+                                    disabled={isNoAplicaValue(dispositivo, dispositivos)}
+                                />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                                <TextInput
+                                    placeholder="Valor"
+                                    value={detalleDispositivo}
+                                    onChange={(e: any) => setDetalleDispositivo(e.target.value)}
+                                    disabled={!tipoMedidaDispositivo}
+                                />
+                            </div>
                         </div>
                     </div>
-                </div>
+                </Row>
             </Block>
+            </div>
+            </div>
 
             <CreateEmpresaServicioModal
                 opened={createEmpresaOpened}
