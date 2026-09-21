@@ -9,7 +9,7 @@ import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
 
 // Fix para los íconos por defecto de Leaflet, que no se resuelven bien en el
-// bundle de Vite (mismo fix ya usado en AssignmentMapView.tsx).
+// bundle de Vite.
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';

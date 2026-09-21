@@ -28,42 +28,53 @@ import { adminExportService } from '../services/admin.service';
 import { EquipoCatalogoView } from '../components/EquipoCatalogoView';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
+import { cn } from '@/lib/utils';
 
 // Grupos con sentido operativo (laboratorios/áreas técnicas vs. gestión y
 // soporte) en vez de un grid plano — deja que la lista escale a más áreas
 // sin volverse una pared de tarjetas iguales, y el ícono de marca (Tabler)
 // reemplaza el emoji, que no se ve consistente entre plataformas/SO.
-const AREA_GROUPS: {
-    title: string;
-    areas: { id: string; label: string; icon: Icon; permission: string | string[]; description?: string }[];
-}[] = [
+interface AdminArea {
+    id: string;
+    label: string;
+    icon: Icon;
+    permission: string | string[];
+    description?: string;
+    /** Sin página real todavía (DashboardPage no la enruta) — se muestra
+     * atenuada, sin acción, con badge "Próximamente" en vez de sacarla del
+     * menú. Por defecto true (toda área nueva se asume habilitada). */
+    enabled?: boolean;
+}
+
+const AREA_GROUPS: { title: string; areas: AdminArea[] }[] = [
     {
         title: 'Laboratorios y áreas técnicas',
         areas: [
-            { id: 'gem', label: 'Ensayo Molecular', icon: IconDna2, permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares' },
-            { id: 'necropsia', label: 'Necropsia', icon: IconFish, permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica' },
-            { id: 'microscopia', label: 'Microscopía', icon: IconMicroscope, permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital' },
-            { id: 'biologia_molecular', label: 'Biología Molecular', icon: IconTestPipe, permission: 'BM_ACCESO', description: 'Laboratorio de Genética' },
-            { id: 'cultivo_celular', label: 'Cultivo Celular', icon: IconFlask, permission: 'CC_ACCESO', description: 'Mantenimiento de Líneas Celulares' },
-            { id: 'bacteriologia', label: 'Bacteriología', icon: IconBug, permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos' },
-            { id: 'screening', label: 'Screening', icon: IconSearch, permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas' },
-            { id: 'derivaciones', label: 'Derivaciones', icon: IconMailForward, permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas' },
+            { id: 'gem', label: 'Ensayo Molecular', icon: IconDna2, permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares', enabled: false },
+            { id: 'necropsia', label: 'Necropsia', icon: IconFish, permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica', enabled: false },
+            { id: 'microscopia', label: 'Microscopía', icon: IconMicroscope, permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital', enabled: false },
+            { id: 'biologia_molecular', label: 'Biología Molecular', icon: IconTestPipe, permission: 'BM_ACCESO', description: 'Laboratorio de Genética', enabled: false },
+            { id: 'cultivo_celular', label: 'Cultivo Celular', icon: IconFlask, permission: 'CC_ACCESO', description: 'Mantenimiento de Líneas Celulares', enabled: false },
+            { id: 'bacteriologia', label: 'Bacteriología', icon: IconBug, permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos', enabled: false },
+            { id: 'screening', label: 'Screening', icon: IconSearch, permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas', enabled: false },
+            { id: 'derivaciones', label: 'Derivaciones', icon: IconMailForward, permission: 'DER_ACCESO', description: 'Gestión de Muestras Externas', enabled: false },
             { id: 'medio_ambiente', label: 'Medioambiente', icon: IconLeaf, permission: 'MA_ACCESO', description: 'Control Ambiental y Sanitario' },
-            { id: 'atl', label: 'Área Técnica Local', icon: IconScale, permission: 'ATL_ACCESO', description: 'Área Técnica Local' },
-            { id: 'id', label: 'Investigación + D', icon: IconBulb, permission: 'ID_ACCESO', description: 'Innovación y Desarrollo' },
-            { id: 'pve', label: 'Vigilancia Epi.', icon: IconActivity, permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica' },
+            { id: 'atl', label: 'Área Técnica Local', icon: IconScale, permission: 'ATL_ACCESO', description: 'Área Técnica Local', enabled: false },
+            { id: 'id', label: 'Investigación + D', icon: IconBulb, permission: 'ID_ACCESO', description: 'Innovación y Desarrollo', enabled: false },
+            { id: 'pve', label: 'Vigilancia Epi.', icon: IconActivity, permission: 'PVE_ACCESO', description: 'Vigilancia Epidemiológica', enabled: false },
         ],
     },
     {
         title: 'Gestión y soporte',
         areas: [
             { id: 'informatica', label: 'Informática', icon: IconDeviceDesktop, permission: 'INF_ACCESO', description: 'Infraestructura y Sistemas' },
-            { id: 'comercial', label: 'Comercial', icon: IconChartLine, permission: 'COM_ACCESO', description: 'Gestión de Clientes y Ventas' },
+            { id: 'comercial', label: 'Comercial', icon: IconChartLine, permission: 'COM_ACCESO', description: 'Gestión de Clientes y Ventas', enabled: false },
             { id: 'gestion_calidad', label: 'Gestión de Calidad', icon: IconAward, permission: 'GC_ACCESO', description: 'Normativas y Auditorías' },
-            { id: 'administracion', label: 'Administración', icon: IconBuildingBank, permission: 'ADM_ACCESO', description: 'Gestión General de Oficina' },
+            { id: 'administracion', label: 'Administración', icon: IconBuildingBank, permission: 'ADM_ACCESO', description: 'Gestión General de Oficina', enabled: false },
         ],
     },
 ];
@@ -194,23 +205,31 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                                 <Card className="divide-y divide-border overflow-hidden p-0">
                                     {group.areas.map((area) => {
                                         const Icon = area.icon;
+                                        const disabled = area.enabled === false;
                                         return (
                                             <button
                                                 key={area.id}
                                                 type="button"
+                                                disabled={disabled}
                                                 onClick={() => onNavigate(area.id)}
-                                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
+                                                className={cn(
+                                                    'flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
+                                                    disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-muted'
+                                                )}
                                             >
-                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                                                <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', disabled ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary')}>
                                                     <Icon size={19} stroke={1.75} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="truncate text-sm font-semibold text-foreground">{area.label}</p>
+                                                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+                                                        {area.label}
+                                                        {disabled && <Badge variant="outline" className="font-normal normal-case">Próximamente</Badge>}
+                                                    </p>
                                                     {area.description && (
                                                         <p className="truncate text-xs text-muted-foreground">{area.description}</p>
                                                     )}
                                                 </div>
-                                                <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />
+                                                {!disabled && <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />}
                                             </button>
                                         );
                                     })}
