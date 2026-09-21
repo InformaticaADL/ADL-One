@@ -749,7 +749,7 @@ const FacturacionCotizaciones: React.FC = () => {
                     }
                 />
 
-                <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(420px,1fr)_460px] lg:gap-8" style={{ maxWidth: 1280 }}>
+                <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-8" style={{ maxWidth: 1280 }}>
                     {/* Formulario */}
                     <div className="mb-5 rounded-xl border border-border bg-card p-6">
                         <div>
@@ -991,7 +991,11 @@ const FacturacionCotizaciones: React.FC = () => {
                     {/* Vista previa en vivo — misma estructura y colores que el PDF
                         que genera el backend (Propuesta Técnico Económica). */}
                     <div className="sticky top-5 w-full overflow-y-auto rounded-md border border-[#e3e3e3] bg-white px-7 pb-8 pt-7 shadow-[0_2px_12px_rgba(0,0,0,0.06)]" style={{ maxHeight: 'calc(100vh - 150px)' }}>
-                        <div className="text-[11.5px] leading-[1.55] text-black">
+                        {/* zoom (no transform): encoge el documento completo -incluido el alto
+                            que ocupa- para que se vea "alejado", en vez de un scale() que deja
+                            hueco vacío abajo porque el contenedor no sabe que el contenido
+                            encogió. */}
+                        <div className="text-[11.5px] leading-[1.55] text-black" style={{ zoom: 0.8 }}>
                             {/* Encabezado: logo + título + doble filete de marca */}
                             <div className="flex items-start justify-between gap-5">
                                 <img src={logoAdl} alt="ADL Diagnostic" className="w-[170px]" />
