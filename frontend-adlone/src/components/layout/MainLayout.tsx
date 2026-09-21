@@ -154,7 +154,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                             </div>
                         )}
                         <div
+                            key={`${activeModule}-${activeSubmodule}`}
                             ref={viewportRef}
+                            className="animate-in fade-in-0 duration-200"
                             style={{
                                 flex: 1,
                                 display: 'flex',

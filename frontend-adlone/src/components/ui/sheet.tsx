@@ -26,7 +26,7 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const sheetVariants = cva(
-  'fixed z-[300] flex flex-col gap-4 border-border bg-card p-6 shadow-lg transition ease-in-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
+  'fixed z-[300] flex flex-col gap-4 border-border bg-card p-6 shadow-lg ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-200 data-[state=open]:duration-300',
   {
     variants: {
       side: {

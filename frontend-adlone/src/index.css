@@ -16,6 +16,13 @@
 @layer theme, base, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
+/* tw-animate-css — define animate-in/animate-out y las utilidades
+   fade/zoom/slide-* que dialog.tsx, sheet.tsx, popover.tsx, dropdown-menu.tsx
+   y accordion.tsx ya usaban vía data-[state=...], pero que hasta ahora no
+   hacían nada (ningún paquete las declaraba, Tailwind las descartaba como
+   clase desconocida) — de ahí que los modales/paneles aparecieran sin
+   transición alguna. */
+@import "tw-animate-css";
 
 @layer base {
   /* Reset mínimo equivalente al "preflight" de Tailwind, pero SCOPEADO bajo
