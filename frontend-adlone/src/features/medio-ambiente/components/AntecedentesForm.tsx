@@ -61,17 +61,20 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
 // necesita más espacio que "2019" o "19S") — en vez de una grilla pareja de
 // N columnas fijas, cada fila es un flex-wrap y cada campo pide su propio
 // ancho, así una fila cabe con 2 campos largos o con 5 campos cortos.
-type FieldSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
-// max-w además del flex-basis: sin tope, un campo con flex-grow termina
-// estirándose para llenar todo el espacio libre de la fila (lo que pasaba
-// con "Instrumento Ambiental" — el basis bajó pero igual se veía enorme
-// porque era el único campo de la fila con grow > 0).
+type FieldSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'full';
+// Cada tier define basis + grow + un tope de ancho. El tope evita que un
+// campo se estire solo para llenar toda la fila (lo que pasaba con
+// "Instrumento Ambiental", único campo de su fila con grow > 0); el grow en
+// todos los tiers reparte el sobrante entre varios campos en vez de que se
+// lo lleve uno. El ancho total del formulario está acotado más abajo, que es
+// lo que evita que queden filas cortas con un vacío enorme a la derecha.
 const FIELD_SIZE_CLASS: Record<FieldSize, string> = {
-    xs: 'flex-[0_1_92px] max-w-[112px]',
-    sm: 'flex-[0.5_1_120px] max-w-[160px]',
-    md: 'flex-[0.8_1_170px] max-w-[260px]',
-    lg: 'flex-[1.2_1_210px] max-w-[340px]',
-    xl: 'flex-[1.8_1_260px] max-w-[460px]',
+    xs: 'flex-[0.3_1_92px] max-w-[130px]',
+    sm: 'flex-[0.6_1_120px] max-w-[200px]',
+    md: 'flex-[0.9_1_170px] max-w-[300px]',
+    lg: 'flex-[1.2_1_210px] max-w-[420px]',
+    xl: 'flex-[1.8_1_260px] max-w-[600px]',
+    full: 'flex-[1_1_100%] max-w-full',
 };
 
 // Fila flexible: los campos se envuelven a la siguiente línea según su
@@ -980,8 +983,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         else if (frecuencia && factor && !isNaN(Number(frecuencia)) && !isNaN(Number(factor))) setTotalServicios(String(Number(frecuencia) * Number(factor)));
     }, [frecuencia, factor]);
 
+    // max-w: un formulario de campos cortos sobre un contenedor de ~1300px deja
+    // cada fila corta y un vacío enorme a la derecha. Acotado y centrado, las
+    // filas llenan su ancho y el margen se ve intencional.
     return (
-        <div className="shadcn-scope flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+        <div className="shadcn-scope mx-auto flex w-full max-w-[1120px] flex-col gap-4 md:flex-row md:items-start md:gap-6">
             <SectionNav items={sectionNavItems} active={activeSection} onNavigate={scrollToSection} isMobile={isMobile} />
 
             <div className="flex min-w-0 flex-1 flex-col" style={{ gap: isMobile ? 16 : 24 }}>
@@ -1267,42 +1273,39 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="sm"
+                        size="md"
                         label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Ejemplos: Agua Superficial, Agua Marina, Sedimento, Atmósfera. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
                         data={componentesData}
                         value={selectedComponente}
                         onChange={handleComponenteChange}
                     />
                     <Select
-                        size="sm"
+                        size="md"
                         label={<FieldLabel label="Sub Área *" help="Clasificación más específica dentro del componente ambiental seleccionado. Depende del Componente elegido anteriormente." />}
                         data={subAreasData}
                         value={selectedSubArea}
                         onChange={(v: string | null) => setSelectedSubArea(v || '')}
                         disabled={!selectedComponente}
                     />
-                </Row>
-
-                <Row className="mb-4">
-                    <TextInput
-                        size="xl"
-                        label={<FieldLabel label="Nombre de la Tabla (Glosa) *" help="Nombre descriptivo que identificará la tabla de resultados en el informe final. Se autocompleta como: 'Nombre del Centro - Objetivo del Muestreo'. Puede editarse libremente. Máximo 100 caracteres." />}
-                        value={glosa}
-                        onChange={(e: any) => setGlosa(e.target.value)}
-                        maxLength={100}
-                        description={`${glosa.length}/100 caracteres`}
-                    />
-                </Row>
-
-                <Row>
                     <Select size="xs" label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
                     <Select
-                        size="xs"
+                        size="sm"
                         label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
                         data={inspectoresData}
                         value={selectedInspector}
                         onChange={(v: string | null) => setSelectedInspector(v || '')}
                         disabled={responsableMuestreo !== 'ADL'}
+                    />
+                </Row>
+
+                <Row>
+                    <TextInput
+                        size="full"
+                        label={<FieldLabel label="Nombre de la Tabla (Glosa) *" help="Nombre descriptivo que identificará la tabla de resultados en el informe final. Se autocompleta como: 'Nombre del Centro - Objetivo del Muestreo'. Puede editarse libremente. Máximo 100 caracteres." />}
+                        value={glosa}
+                        onChange={(e: any) => setGlosa(e.target.value)}
+                        maxLength={100}
+                        description={`${glosa.length}/100 caracteres`}
                     />
                 </Row>
             </Block>
@@ -1372,7 +1375,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <div className="mb-4 flex flex-col gap-1.5">
                     <div className="flex items-end gap-2">
-                        <div className={cn('min-w-0', FIELD_SIZE_CLASS.xl)}>
+                        <div className="min-w-0 flex-1">
                             <div className="relative">
                                 <TextInput
                                     label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
