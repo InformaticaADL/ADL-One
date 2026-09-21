@@ -688,7 +688,7 @@ const FacturacionCotizaciones: React.FC = () => {
                 secciones: secciones
                     .filter((s) => s.items.length > 0)
                     .map((s, i) => ({
-                        titulo: s.titulo?.trim() || glosaSel?.trim() || `Servicio ${i + 1}`,
+                        titulo: s.titulo?.trim() || `Servicio ${i + 1}`,
                         items: s.items.map((it) => ({
                             idTecnica: it.idTecnica,
                             idNormativa: it.idNormativa,
@@ -795,8 +795,8 @@ const FacturacionCotizaciones: React.FC = () => {
                                 />
                             </Field>
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                <Field label="Título / Glosa">
-                                    <Input placeholder="Ej: Monitoreo trimestral" value={glosaSel} onChange={(e) => setGlosaSel(e.target.value)} />
+                                <Field label="Título general (opcional)" hint="Encabezado de toda la propuesta, arriba de los servicios. No reemplaza el título de cada servicio.">
+                                    <Input placeholder="Ej: Monitoreo trimestral 2026" value={glosaSel} onChange={(e) => setGlosaSel(e.target.value)} />
                                 </Field>
                                 <Field label="Vigencia (días)">
                                     <Input
@@ -1035,11 +1035,21 @@ const FacturacionCotizaciones: React.FC = () => {
                                 )}
                             </dl>
 
+                            {/* Título general de la propuesta — opcional, distinto del título de
+                                cada servicio: va una sola vez arriba de todos ellos, no se usa
+                                como respaldo si un servicio se deja sin título (ver Field de
+                                arriba, "Título general"). */}
+                            {glosaSel.trim() && (
+                                <h2 className="mb-1 mt-[22px] text-[13px] font-bold uppercase tracking-wide" style={{ color: C.navy }}>
+                                    {glosaSel.trim()}
+                                </h2>
+                            )}
+
                             {/* Un bloque numerado por servicio, igual que la propuesta en Word */}
                             {items.length === 0 ? (
                                 <>
-                                    <h3 className="my-[22px] mb-2.5 text-[11.5px] font-bold tracking-wide" style={{ color: C.navy }}>
-                                        1. {(secciones[0]?.titulo || glosaSel || 'SERVICIO DE MUESTREO Y ANÁLISIS').toUpperCase()}
+                                    <h3 className={cn('mb-2.5 text-[11.5px] font-bold tracking-wide', glosaSel.trim() ? 'mt-2' : 'mt-[22px]')} style={{ color: C.navy }}>
+                                        1. {(secciones[0]?.titulo || 'SERVICIO DE MUESTREO Y ANÁLISIS').toUpperCase()}
                                     </h3>
                                     <div className="rounded-md border border-dashed border-neutral-300 py-7 text-center text-[11px] text-neutral-400">
                                         Los ítems que agregues aparecerán acá, con el precio real del convenio del cliente.
@@ -1050,8 +1060,8 @@ const FacturacionCotizaciones: React.FC = () => {
                                     const subtotalSec = sec.items.reduce((a, it) => a + (it.precioUf || 0) * it.cantidad, 0);
                                     return (
                                         <div key={sec.key}>
-                                            <h3 className="my-[22px] mb-2.5 text-[11.5px] font-bold tracking-wide" style={{ color: C.navy }}>
-                                                {idx + 1}. {(sec.titulo || glosaSel || `SERVICIO ${idx + 1}`).toUpperCase()}
+                                            <h3 className={cn('mb-2.5 text-[11.5px] font-bold tracking-wide', idx === 0 && glosaSel.trim() ? 'mt-2' : 'mt-[22px]')} style={{ color: C.navy }}>
+                                                {idx + 1}. {(sec.titulo || `SERVICIO ${idx + 1}`).toUpperCase()}
                                             </h3>
                                             <table className="w-full border-collapse text-[10.5px]">
                                                 <thead>
