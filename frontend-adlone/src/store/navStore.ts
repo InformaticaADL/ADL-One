@@ -45,6 +45,12 @@ interface NavState {
     setUrsFilters: (filters: Partial<{ searchTerm: string; status: string; area: string; type: string }>) => void;
     ursUnreadCount: number;
     setUrsUnreadCount: (count: number) => void;
+    // Tramo de ruta más allá del submódulo activo (p.ej. "Fichas de Ingreso >
+    // Carga masiva"), publicado por el PageHeader de la vista actual — así la
+    // barra de ruta persistente (RouteBreadcrumb) puede reflejar navegación
+    // interna de una página que el store de módulo/submódulo no ve.
+    pageBreadcrumb: { label: string; onClick?: () => void }[];
+    setPageBreadcrumb: (items: { label: string; onClick?: () => void }[]) => void;
 }
 
 export const useNavStore = create<NavState>()(
@@ -103,6 +109,7 @@ export const useNavStore = create<NavState>()(
                 adminSearchTerm: '',
                 maArea: null,
                 fichasMode: 'menu',
+                pageBreadcrumb: [],
             }),
             adminSearchTerm: '',
             setAdminSearchTerm: (term: string) => set({ adminSearchTerm: term }),
@@ -114,6 +121,8 @@ export const useNavStore = create<NavState>()(
             setUrsFilters: (filters) => set((state) => ({ ursFilters: { ...state.ursFilters, ...filters } })),
             ursUnreadCount: 0,
             setUrsUnreadCount: (count) => set({ ursUnreadCount: count }),
+            pageBreadcrumb: [],
+            setPageBreadcrumb: (items) => set({ pageBreadcrumb: items }),
         }),
         {
             name: 'adl-nav-storage', // nombre en localStorage

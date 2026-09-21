@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     IconBell,
@@ -11,7 +11,6 @@ import { useNotificationStore } from '../../store/notificationStore';
 import { useThemeStore } from '../../store/themeStore';
 import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { FIXED_TOP_MODULES, type DynamicModule } from '../../config/sidebarModules';
 
@@ -110,24 +109,35 @@ export function NotificationBell({ compact }: CompactProp) {
 // y en el header compacto de móvil.
 export function ThemeToggle({ compact }: CompactProp) {
     const { mode, toggleMode } = useThemeStore();
-
-    if (compact) {
-        return (
-            <button
-                onClick={toggleMode}
-                aria-label="Cambiar tema"
-                title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
-                className="flex h-[38px] w-[38px] items-center justify-center rounded-lg text-foreground hover:bg-muted"
-            >
-                {mode === 'dark' ? <IconMoon size={19} stroke={1.75} /> : <IconSun size={19} stroke={1.75} />}
-            </button>
-        );
-    }
+    const size = compact ? 19 : 17;
 
     return (
-        <div className="flex items-center" title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}>
-            <Switch checked={mode === 'dark'} onCheckedChange={toggleMode} />
-        </div>
+        <button
+            onClick={toggleMode}
+            aria-label="Cambiar tema"
+            title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
+            className={cn(
+                'relative flex items-center justify-center overflow-hidden rounded-lg text-foreground transition-colors hover:bg-muted',
+                compact ? 'h-[38px] w-[38px]' : 'h-8 w-8'
+            )}
+        >
+            <IconSun
+                size={size}
+                stroke={1.75}
+                className={cn(
+                    'absolute transition-all duration-300',
+                    mode === 'dark' ? '-rotate-90 scale-0 opacity-0' : 'rotate-0 scale-100 opacity-100'
+                )}
+            />
+            <IconMoon
+                size={size}
+                stroke={1.75}
+                className={cn(
+                    'absolute transition-all duration-300',
+                    mode === 'dark' ? 'rotate-0 scale-100 opacity-100' : 'rotate-90 scale-0 opacity-0'
+                )}
+            />
+        </button>
     );
 }
 
@@ -173,7 +183,7 @@ function useBreadcrumbLabels() {
 // necesario acá: sin él el botón "Inicio" no recibe el reset de botones
 // (bg/border/padding nativos del navegador) y se ve encuadrado.
 export function RouteBreadcrumb() {
-    const { resetNavigation } = useNavStore();
+    const { resetNavigation, pageBreadcrumb } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
 
     return (
@@ -184,13 +194,28 @@ export function RouteBreadcrumb() {
                     <span>Inicio</span>
                 </button>
                 <span className="shrink-0 text-border">/</span>
-                <span className="truncate font-medium text-foreground">{moduleLabel || 'Inicio'}</span>
-                {submoduleLabel && (
+                <span className={cn('truncate', pageBreadcrumb.length === 0 && 'font-medium text-foreground')}>{moduleLabel || 'Inicio'}</span>
+                {submoduleLabel && pageBreadcrumb.length === 0 && (
                     <>
                         <span className="shrink-0 text-border">/</span>
-                        <span className="truncate">{submoduleLabel}</span>
+                        <span className="truncate font-medium text-foreground">{submoduleLabel}</span>
                     </>
                 )}
+                {pageBreadcrumb.map((item, idx) => {
+                    const isLast = idx === pageBreadcrumb.length - 1;
+                    return (
+                        <Fragment key={`${item.label}-${idx}`}>
+                            <span className="shrink-0 text-border">/</span>
+                            {item.onClick && !isLast ? (
+                                <button type="button" onClick={item.onClick} className="truncate hover:text-foreground">
+                                    {item.label}
+                                </button>
+                            ) : (
+                                <span className={cn('truncate', isLast && 'font-medium text-foreground')}>{item.label}</span>
+                            )}
+                        </Fragment>
+                    );
+                })}
             </div>
             <div className="flex shrink-0 items-center gap-1">
                 <NotificationBell />
