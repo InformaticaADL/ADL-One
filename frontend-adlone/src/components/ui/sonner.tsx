@@ -12,7 +12,6 @@ const Toaster = ({ ...props }: ToasterProps) => {
         <Sonner
             theme={mode}
             className="toaster group"
-            richColors
             closeButton
             style={
                 {

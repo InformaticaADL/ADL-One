@@ -252,13 +252,20 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const panelPadding = isMobile ? 16 : 50;
 
     const handleTabChange = (val: string) => {
-        // F-11: bloquear salto de tabs sin haber completado las anteriores
+        // F-11: bloquear salto de tabs sin haber completado las anteriores.
+        // id fijo en el toast: Radix dispara onValueChange dos veces para un
+        // mismo clic en un trigger que no tenía el foco (una vez por el
+        // focus, otra por el click) — invisible en cualquier otro uso de
+        // Tabs de la app porque ahí el handler solo hace setState, pero acá
+        // showToast() sí deja huella visible (dos toasts apilados). Mismo id
+        // en sonner = la segunda llamada actualiza el toast existente en vez
+        // de apilar uno nuevo.
         if (val === 'analisis' && !isAntecedentesValid) {
-            showToast({ type: 'warning', message: 'Complete primero los antecedentes obligatorios' });
+            showToast({ id: 'ficha-tab-guard', type: 'warning', message: 'Complete primero los antecedentes obligatorios' });
             return;
         }
         if (val === 'observaciones' && (!isAntecedentesValid || savedAnalysis.length === 0)) {
-            showToast({ type: 'warning', message: 'Complete antecedentes y al menos un análisis primero' });
+            showToast({ id: 'ficha-tab-guard', type: 'warning', message: 'Complete antecedentes y al menos un análisis primero' });
             return;
         }
         setActiveTab(val);
@@ -285,7 +292,12 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             />
 
             <Card className="overflow-hidden p-0">
-                <Tabs value={activeTab} onValueChange={handleTabChange}>
+                {/* activationMode="manual": el default ("automatic") de Radix dispara
+                    onValueChange tanto en mousedown como en el focus que ese mismo click
+                    produce — dos llamadas por un solo clic en un trigger sin foco previo.
+                    En "manual" solo el click/mousedown navega; ↑↓←→ mueve el foco sin
+                    cambiar de tab hasta Enter/Espacio (estándar de Radix para este caso). */}
+                <Tabs value={activeTab} onValueChange={handleTabChange} activationMode="manual">
                     <div className="flex justify-center border-b border-border" style={{ padding: `0 ${panelPadding}px` }}>
                         <TabsList>
                             <TabsTrigger value="antecedentes" className="gap-1.5" style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}>
