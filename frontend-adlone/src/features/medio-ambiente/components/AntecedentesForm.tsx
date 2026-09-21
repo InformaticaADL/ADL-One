@@ -62,12 +62,16 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
 // N columnas fijas, cada fila es un flex-wrap y cada campo pide su propio
 // ancho, así una fila cabe con 2 campos largos o con 5 campos cortos.
 type FieldSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+// max-w además del flex-basis: sin tope, un campo con flex-grow termina
+// estirándose para llenar todo el espacio libre de la fila (lo que pasaba
+// con "Instrumento Ambiental" — el basis bajó pero igual se veía enorme
+// porque era el único campo de la fila con grow > 0).
 const FIELD_SIZE_CLASS: Record<FieldSize, string> = {
-    xs: 'flex-[0_1_76px]',
-    sm: 'flex-[0.5_1_108px]',
-    md: 'flex-[0.9_1_155px]',
-    lg: 'flex-[1.3_1_195px]',
-    xl: 'flex-[2_1_250px]',
+    xs: 'flex-[0_1_92px] max-w-[112px]',
+    sm: 'flex-[0.5_1_120px] max-w-[160px]',
+    md: 'flex-[0.8_1_170px] max-w-[260px]',
+    lg: 'flex-[1.2_1_210px] max-w-[340px]',
+    xl: 'flex-[1.8_1_260px] max-w-[460px]',
 };
 
 // Fila flexible: los campos se envuelven a la siguiente línea según su
@@ -1174,14 +1178,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setZona(v || '')}
                     />
                     <TextInput
-                        size="xs"
+                        size="sm"
                         label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
                         onChange={(e: any) => setUtmNorte(e.target.value)}
                         disabled={!zona || zona === 'No aplica'}
                     />
                     <TextInput
-                        size="xs"
+                        size="sm"
                         label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
                         onChange={(e: any) => setUtmEste(e.target.value)}
