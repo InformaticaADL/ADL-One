@@ -749,7 +749,7 @@ const FacturacionCotizaciones: React.FC = () => {
                     }
                 />
 
-                <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-8" style={{ maxWidth: 1280 }}>
+                <div className="grid w-full grid-cols-1 items-start gap-7 lg:grid-cols-2 lg:gap-8">
                     {/* Formulario */}
                     <div className="mb-5 rounded-xl border border-border bg-card p-6">
                         <div>
