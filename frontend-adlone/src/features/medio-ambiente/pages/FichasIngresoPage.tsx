@@ -248,7 +248,7 @@ export const FichasIngresoPage = () => {
                 <div>
                     <PageHeader title="Fichas de Ingreso" subtitle="Gestión unificada según su nivel de acceso" />
 
-                    <div className="mx-auto flex max-w-[640px] flex-col gap-2.5">
+                    <div className="flex max-w-[640px] flex-col gap-2.5">
                         {items.map((item) => (
                             <SelectionCard key={item.title} {...item} />
                         ))}

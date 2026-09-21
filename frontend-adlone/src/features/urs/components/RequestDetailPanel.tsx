@@ -182,7 +182,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const dj = request.datos_json || {};
 
     return (
-        <div className="mx-auto flex w-full max-w-[820px] flex-col gap-4">
+        <div className="mx-auto flex w-full max-w-[1040px] flex-col gap-4">
             {/* Header */}
             <Card className="p-4">
                 <div className="mb-3 flex items-center justify-between">
@@ -335,7 +335,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
                                     <div>
                                         <div className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Fecha del Suceso</div>
                                         <span className="text-sm font-semibold text-foreground">
-                                            📅 {(() => {
+                                            {(() => {
                                                 const d = dj.fecha_extravio || dj.fecha_suceso || dj.fecha_ocurrencia;
                                                 if (!d) return 'N/A';
                                                 const parts = String(d).split('T')[0].split('-');
