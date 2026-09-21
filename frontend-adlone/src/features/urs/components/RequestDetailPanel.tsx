@@ -6,6 +6,7 @@ import DeriveRequestModal from './DeriveRequestModal';
 import { useToast } from '../../../contexts/ToastContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Timeline } from '@/components/ui/timeline';
@@ -74,22 +75,17 @@ const actionBadgeVariant = (action: string): BadgeVariant => {
 
 type AlertType = 'info' | 'success' | 'warning' | 'error';
 
-const alertStyles: Record<AlertType, string> = {
-    info: 'border-primary/30 bg-primary/5 text-foreground',
-    success: 'border-success/30 bg-success/10 text-foreground',
-    warning: 'border-warning/30 bg-warning/10 text-foreground',
-    error: 'border-destructive/30 bg-destructive/10 text-foreground',
+const ALERT_VARIANT: Record<AlertType, 'info' | 'success' | 'warning' | 'destructive'> = {
+    info: 'info', success: 'success', warning: 'warning', error: 'destructive',
 };
 
 function AlertBox({ type, icon, message, description }: { type: AlertType; icon?: React.ReactNode; message: React.ReactNode; description?: React.ReactNode }) {
     return (
-        <div className={cn('flex gap-2 rounded-lg border p-3 text-sm', alertStyles[type])}>
-            {icon !== null && <span className="mt-0.5 shrink-0">{icon ?? <IconInfoCircle size={16} />}</span>}
-            <div className="min-w-0 flex-1">
-                <div className="font-medium">{message}</div>
-                {description && <div className="mt-1 text-muted-foreground">{description}</div>}
-            </div>
-        </div>
+        <Alert variant={ALERT_VARIANT[type]}>
+            {icon !== null && (icon ?? <IconInfoCircle />)}
+            <AlertTitle>{message}</AlertTitle>
+            {description && <AlertDescription>{description}</AlertDescription>}
+        </Alert>
     );
 }
 

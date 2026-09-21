@@ -1,4 +1,6 @@
 import React from 'react';
+import { IconAlertTriangle, IconAlertCircle, IconInfoCircle, IconCircleCheck } from '@tabler/icons-react';
+import { Alert, AlertTitle, AlertDescription } from './alert';
 
 interface WorkflowAlertProps {
     type?: 'warning' | 'error' | 'info' | 'success';
@@ -6,116 +8,30 @@ interface WorkflowAlertProps {
     message: string;
 }
 
-export const WorkflowAlert: React.FC<WorkflowAlertProps> = ({
-    type = 'warning',
-    title,
-    message
-}) => {
-    const styles = {
-        warning: {
-            bg: '#fffbeb',
-            border: '#fcd34d',
-            text: '#92400e',
-            iconColor: '#f59e0b'
-        },
-        error: {
-            bg: '#fef2f2',
-            border: '#fca5a5',
-            text: '#991b1b',
-            iconColor: '#ef4444'
-        },
-        info: {
-            bg: '#eff6ff',
-            border: '#93c5fd',
-            text: '#1e40af',
-            iconColor: '#3b82f6'
-        },
-        success: {
-            bg: '#f0fdf4',
-            border: '#86efac',
-            text: '#166534',
-            iconColor: '#22c55e'
-        }
-    };
+const VARIANT_BY_TYPE = {
+    warning: 'warning',
+    error: 'destructive',
+    info: 'info',
+    success: 'success',
+} as const;
 
-    const currentStyle = styles[type];
+const ICON_BY_TYPE = {
+    warning: IconAlertTriangle,
+    error: IconAlertCircle,
+    info: IconInfoCircle,
+    success: IconCircleCheck,
+};
 
+// Wrapper fino sobre el Alert de shadcn/ui — antes era una implementación
+// propia con estilos inline y SVG a mano; mismas props (type/title/message)
+// en los ~14 call sites, así que ninguno necesitó cambiar.
+export const WorkflowAlert: React.FC<WorkflowAlertProps> = ({ type = 'warning', title, message }) => {
+    const Icon = ICON_BY_TYPE[type];
     return (
-        <div style={{
-            marginBottom: '1.5rem',
-            padding: '0.875rem 1rem',
-            backgroundColor: currentStyle.bg,
-            border: `1px solid ${currentStyle.border}`,
-            borderRadius: '8px',
-            color: currentStyle.text,
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: '0.75rem',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-            maxWidth: '100%'
-        }}>
-            {/* Icon */}
-            <svg
-                xmlns="http://www.w3.org/2000/svg"
-                style={{
-                    width: '20px',
-                    height: '20px',
-                    flexShrink: 0,
-                    marginTop: '2px'
-                }}
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke={currentStyle.iconColor}
-                strokeWidth={2}
-            >
-                {type === 'warning' && (
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                    />
-                )}
-                {type === 'error' && (
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                )}
-                {type === 'info' && (
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                )}
-                {type === 'success' && (
-                    <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                )}
-            </svg>
-
-            {/* Content */}
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <strong style={{
-                    display: 'block',
-                    marginBottom: '4px',
-                    fontSize: '0.9rem',
-                    fontWeight: 600
-                }}>
-                    {title}
-                </strong>
-                <p style={{
-                    margin: 0,
-                    fontSize: '0.875rem',
-                    lineHeight: '1.4'
-                }}>
-                    {message}
-                </p>
-            </div>
-        </div>
+        <Alert variant={VARIANT_BY_TYPE[type]}>
+            <Icon />
+            <AlertTitle>{title}</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+        </Alert>
     );
 };

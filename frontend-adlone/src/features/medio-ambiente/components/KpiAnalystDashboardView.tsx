@@ -28,6 +28,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -447,21 +448,19 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
     );
 };
 
-const ALERT_STYLES: Record<BadgeVariant, string> = {
-    default: 'border-primary/30 bg-primary/10 text-primary',
-    secondary: 'border-secondary/30 bg-secondary/40 text-secondary-foreground',
-    outline: 'border-border bg-muted/50 text-foreground',
-    success: 'border-success/30 bg-success/10 text-success',
-    warning: 'border-warning/30 bg-warning/10 text-warning',
-    destructive: 'border-destructive/30 bg-destructive/10 text-destructive',
+// BadgeVariant trae secondary/outline (categorías decorativas) que el Alert
+// no necesita distinguir — se pliegan a "default" (neutro).
+const ALERT_VARIANT: Record<BadgeVariant, 'default' | 'success' | 'warning' | 'destructive'> = {
+    default: 'default', secondary: 'default', outline: 'default',
+    success: 'success', warning: 'warning', destructive: 'destructive',
 };
 
 function InlineAlert({ variant, title, message }: { variant: BadgeVariant; title: string; message: string }) {
     return (
-        <div className={cn('rounded-2xl border px-4 py-3', ALERT_STYLES[variant])}>
-            <span className="block text-sm font-semibold">{title}</span>
-            <span className="mt-0.5 block text-xs">{message}</span>
-        </div>
+        <Alert variant={ALERT_VARIANT[variant]} className="rounded-2xl">
+            <AlertTitle>{title}</AlertTitle>
+            <AlertDescription>{message}</AlertDescription>
+        </Alert>
     );
 }
 

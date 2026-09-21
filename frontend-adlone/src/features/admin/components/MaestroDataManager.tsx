@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Combobox } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -75,17 +76,10 @@ const IconBadge: React.FC<{ children: React.ReactNode; color?: string; size?: nu
 };
 
 const AlertBox: React.FC<{ variant: 'error' | 'warning'; icon?: React.ReactNode; children: React.ReactNode }> = ({ variant, icon, children }) => (
-    <div
-        className={cn(
-            'flex w-full items-start gap-2 rounded-lg border px-3 py-2.5 text-sm',
-            variant === 'error'
-                ? 'border-destructive/30 bg-destructive/10 text-destructive'
-                : 'border-warning/30 bg-warning/10 text-warning'
-        )}
-    >
+    <Alert variant={variant === 'error' ? 'destructive' : 'warning'}>
         {icon}
-        <div className="min-w-0 flex-1">{children}</div>
-    </div>
+        <AlertDescription className="text-current">{children}</AlertDescription>
+    </Alert>
 );
 
 export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {

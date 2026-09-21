@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Combobox } from '@/components/ui/combobox';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
@@ -163,18 +164,11 @@ const Field = ({ label, hint, children }: { label: string; hint?: string; childr
 );
 
 const InlineAlert = ({ tone, title, description }: { tone: 'warning' | 'info'; title: string; description: string }) => (
-    <div className={cn(
-        'mb-3 flex items-start gap-2 rounded-lg border p-3',
-        tone === 'warning' ? 'border-warning/40 bg-warning/10' : 'border-border bg-muted/50'
-    )}>
-        {tone === 'warning'
-            ? <IconAlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
-            : <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />}
-        <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-foreground">{title}</p>
-            <p className="text-xs text-muted-foreground">{description}</p>
-        </div>
-    </div>
+    <Alert variant={tone} className="mb-3">
+        {tone === 'warning' ? <IconAlertTriangle /> : <IconInfoCircle />}
+        <AlertTitle>{title}</AlertTitle>
+        <AlertDescription>{description}</AlertDescription>
+    </Alert>
 );
 
 const TIMELINE_DOT: Record<string, string> = {

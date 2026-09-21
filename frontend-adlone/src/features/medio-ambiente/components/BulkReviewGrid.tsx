@@ -14,6 +14,7 @@ import apiClient from '../../../config/axios.config';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
@@ -323,22 +324,17 @@ function IconWrap({ children, color, bg, size = 24, title }: { children: React.R
     );
 }
 
-const ALERT_STYLES: Record<string, string> = {
-    success: 'border-success/30 bg-success/10 text-success',
-    warning: 'border-warning/30 bg-warning/10 text-warning',
-    error: 'border-destructive/30 bg-destructive/10 text-destructive',
-    info: 'border-primary/30 bg-primary/10 text-primary',
+const INLINE_ALERT_TEXT_COLOR: Record<'success' | 'warning' | 'error' | 'info', string> = {
+    success: 'text-success', warning: 'text-warning', error: 'text-destructive', info: 'text-primary',
 };
 
 function InlineAlert({ type, icon, title, children, className }: { type: 'success' | 'warning' | 'error' | 'info'; icon?: React.ReactNode; title?: string; children: React.ReactNode; className?: string }) {
     return (
-        <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', ALERT_STYLES[type], className)}>
+        <Alert variant={type === 'error' ? 'destructive' : type} className={cn('py-2 text-xs', INLINE_ALERT_TEXT_COLOR[type], className)}>
             {icon}
-            <div className="flex-1 text-xs">
-                {title && <span className="block font-semibold">{title}</span>}
-                <span>{children}</span>
-            </div>
-        </div>
+            {title && <AlertTitle className="text-xs">{title}</AlertTitle>}
+            <AlertDescription className="text-xs text-current">{children}</AlertDescription>
+        </Alert>
     );
 }
 

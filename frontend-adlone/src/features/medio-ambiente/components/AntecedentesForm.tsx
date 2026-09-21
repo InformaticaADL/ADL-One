@@ -24,6 +24,7 @@ import { FieldLabel } from '../../../components/common/FieldHelp';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
 import { Combobox } from '../../../components/ui/combobox';
+import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { cn } from '../../../lib/utils';
 
 // Validates a Google Maps reference string client-side before hitting the backend.
@@ -163,17 +164,12 @@ function Divider({ label }: { label?: React.ReactNode }) {
     );
 }
 
-const ALERT_STYLES: Record<string, string> = {
-    success: 'border-success/30 bg-success/10 text-success',
-    warning: 'border-warning/30 bg-warning/10 text-warning',
-};
-
 function InlineAlert({ type, icon, children }: { type: 'success' | 'warning'; icon?: React.ReactNode; children: React.ReactNode }) {
     return (
-        <div className={cn('flex items-start gap-2 rounded-lg border px-3 py-2', ALERT_STYLES[type])}>
+        <Alert variant={type} className={cn('py-2 text-xs', type === 'success' ? 'text-success' : 'text-warning')}>
             {icon}
-            <div className="flex-1 text-xs">{children}</div>
-        </div>
+            <AlertDescription className="text-xs text-current">{children}</AlertDescription>
+        </Alert>
     );
 }
 
