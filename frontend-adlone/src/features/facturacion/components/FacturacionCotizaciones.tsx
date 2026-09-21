@@ -3,7 +3,7 @@ import {
     IconRefresh, IconPlus, IconTrash, IconSend2, IconCircleCheck, IconCircleX,
     IconArrowLeft, IconMessageCircle2, IconWorldUpload, IconPaperclip, IconFileTypePdf, IconX,
     IconClipboardPlus, IconPhoto, IconFileSpreadsheet, IconFileTypeDoc, IconFile, IconDownload,
-    IconChevronDown, IconAlertTriangle, IconInfoCircle, IconInbox,
+    IconChevronDown, IconAlertTriangle, IconInfoCircle, IconInbox, IconGripVertical,
 } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -15,7 +15,9 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '../../../components/layout/PageHeader';
 import { facturacionService } from '../services/facturacion.service';
 import { useVisorArchivo } from '../utils/useVisorArchivo';
 import { useNavStore } from '../../../store/navStore';
@@ -619,6 +621,25 @@ const FacturacionCotizaciones: React.FC = () => {
     const quitarItem = (keySeccion: number, key: number) =>
         setSecciones((prev) => prev.map((s) => (s.key === keySeccion ? { ...s, items: s.items.filter((i) => i.key !== key) } : s)));
 
+    // Reordenar arrastrando — solo dentro de la misma sección: cruzar ítems
+    // entre secciones cambiaría a qué servicio/tabla de tarifa pertenecen
+    // (afecta el precio), así que no se permite en el drag.
+    const reordenarItems = (keySeccion: number, startIndex: number, endIndex: number) => {
+        setSecciones((prev) => prev.map((s) => {
+            if (s.key !== keySeccion) return s;
+            const items = [...s.items];
+            const [moved] = items.splice(startIndex, 1);
+            items.splice(endIndex, 0, moved);
+            return { ...s, items };
+        }));
+    };
+
+    const handleDragEndItems = (result: DropResult) => {
+        const { source, destination } = result;
+        if (!destination || source.droppableId !== destination.droppableId || source.index === destination.index) return;
+        reordenarItems(Number(source.droppableId), source.index, destination.index);
+    };
+
     // Línea que no es un análisis del catálogo: "Gastos de Traslado", "Manejo
     // Muestras", "Derivación Muestras". Nace con precio 0 puesto a mano.
     const agregarLineaLibre = (keySeccion: number) => {
@@ -716,18 +737,19 @@ const FacturacionCotizaciones: React.FC = () => {
     if (creando) {
         return (
             <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
-                <div className="mb-7 flex flex-wrap items-center gap-3.5 border-b border-border pb-5">
-                    <Button variant="outline" onClick={cerrarCreacion}><IconArrowLeft size={16} /> Cancelar</Button>
-                    <div className="flex-1">
-                        <h2 className="text-lg font-semibold text-foreground">Armar cotización</h2>
-                    </div>
-                    <Button disabled={guardandoCotizacion} onClick={guardarCotizacion}>
-                        {guardandoCotizacion && <Spinner className="h-4 w-4 border-primary-foreground/40 border-t-transparent" />}
-                        Crear cotización
-                    </Button>
-                </div>
+                <PageHeader
+                    title="Armar cotización"
+                    onBack={cerrarCreacion}
+                    breadcrumbItems={[{ label: 'Cotizaciones', onClick: cerrarCreacion }, { label: 'Armar cotización' }]}
+                    rightSection={
+                        <Button disabled={guardandoCotizacion} onClick={guardarCotizacion}>
+                            {guardandoCotizacion && <Spinner className="h-4 w-4 border-primary-foreground/40 border-t-transparent" />}
+                            Crear cotización
+                        </Button>
+                    }
+                />
 
-                <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(320px,1fr)_minmax(0,740px)] lg:gap-8" style={{ maxWidth: 1500 }}>
+                <div className="grid grid-cols-1 items-start gap-7 lg:grid-cols-[minmax(420px,1fr)_460px] lg:gap-8" style={{ maxWidth: 1280 }}>
                     {/* Formulario */}
                     <div className="mb-5 rounded-xl border border-border bg-card p-6">
                         <div>
@@ -840,105 +862,125 @@ const FacturacionCotizaciones: React.FC = () => {
                             {/* Una tarjeta por servicio: el título y sus ítems.
                                 El servicio activo es al que se agregan las
                                 líneas nuevas. */}
-                            {secciones.map((sec, idx) => (
-                                <div
-                                    key={sec.key}
-                                    className={cn(
-                                        'mb-3.5 cursor-pointer rounded-lg border bg-card p-3.5 pb-2.5 transition-colors hover:border-primary',
-                                        sec.key === seccionActiva ? 'border-primary' : 'border-border'
-                                    )}
-                                    onClick={() => setSeccionActiva(sec.key)}
-                                >
-                                    <div className="mb-2.5 flex items-center gap-2">
-                                        <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11.5px] font-bold text-white" style={{ background: C.navy }}>
-                                            {idx + 1}
-                                        </span>
-                                        <Input
-                                            placeholder={`Título del servicio ${idx + 1} — ej: Muestreo y análisis aguas residuales`}
-                                            value={sec.titulo}
-                                            className="h-8"
-                                            onChange={(e) => setSecciones((prev) => prev.map((s) => s.key === sec.key ? { ...s, titulo: e.target.value } : s))}
-                                        />
-                                        {secciones.length > 1 && (
-                                            <Button
-                                                variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                                title="Quitar este servicio"
-                                                onClick={(e) => { e.stopPropagation(); quitarSeccion(sec.key); }}
-                                            >
-                                                <IconTrash size={14} />
-                                            </Button>
+                            <DragDropContext onDragEnd={handleDragEndItems}>
+                                {secciones.map((sec, idx) => (
+                                    <div
+                                        key={sec.key}
+                                        className={cn(
+                                            'mb-3.5 cursor-pointer rounded-lg border bg-card p-3.5 pb-2.5 transition-colors hover:border-primary',
+                                            sec.key === seccionActiva ? 'border-primary' : 'border-border'
                                         )}
-                                    </div>
-
-                                    {sec.items.length > 0 ? (
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="hover:bg-transparent">
-                                                    <TableHead>Ítem</TableHead>
-                                                    <TableHead className="w-[70px] text-right">Cant.</TableHead>
-                                                    <TableHead className="w-[120px] text-right">P. Unit. UF</TableHead>
-                                                    <TableHead className="w-10" />
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {sec.items.map((it) => (
-                                                    <TableRow key={it.key} className="hover:bg-transparent" onClick={(e) => e.stopPropagation()}>
-                                                        <TableCell>
-                                                            {it.idTecnica ? it.nombre_tecnica : (
-                                                                // Línea libre: el nombre lo escribe el usuario.
-                                                                <Input
-                                                                    className="h-8"
-                                                                    placeholder="Ej: Gastos de Traslado"
-                                                                    value={it.nombre_tecnica}
-                                                                    onChange={(e) => parchearItem(sec.key, it.key, { nombre_tecnica: e.target.value })}
-                                                                />
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Input
-                                                                type="number" min={1}
-                                                                className="h-8 w-[60px] text-right"
-                                                                value={it.cantidad}
-                                                                onChange={(e) => parchearItem(sec.key, it.key, { cantidad: Number(e.target.value) || 1 })}
-                                                            />
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            {it.resolviendo ? (
-                                                                <div className="flex justify-end"><Spinner className="h-4 w-4" /></div>
-                                                            ) : (
-                                                                <Input
-                                                                    type="number" min={0} step={0.01}
-                                                                    className={cn('h-8 w-[100px] text-right', it.precioUf == null && 'border-warning')}
-                                                                    placeholder="Sin tarifa"
-                                                                    value={it.precioUf ?? ''}
-                                                                    onChange={(e) => parchearItem(sec.key, it.key, { precioUf: e.target.value === '' ? null : Number(e.target.value), precioManual: true })}
-                                                                />
-                                                            )}
-                                                        </TableCell>
-                                                        <TableCell className="text-center">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => quitarItem(sec.key, it.key)}>
-                                                                <IconTrash size={14} />
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
-                                    ) : (
-                                        <p className="text-[12.5px] text-muted-foreground">
-                                            Sin ítems. {sec.key === seccionActiva ? 'Agrégalos con el buscador de arriba.' : 'Haz clic para activarlo.'}
-                                        </p>
-                                    )}
-
-                                    <Button
-                                        variant="link" size="sm"
-                                        className="mt-1.5 h-auto px-0 text-xs"
-                                        onClick={(e) => { e.stopPropagation(); agregarLineaLibre(sec.key); }}
+                                        onClick={() => setSeccionActiva(sec.key)}
                                     >
-                                        <IconPlus size={13} /> Agregar línea sin tarifa (traslado, manejo de muestras…)
-                                    </Button>
-                                </div>
-                            ))}
+                                        <div className="mb-2.5 flex items-center gap-2">
+                                            <span className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full text-[11.5px] font-bold text-white" style={{ background: C.navy }}>
+                                                {idx + 1}
+                                            </span>
+                                            <Input
+                                                placeholder={`Título del servicio ${idx + 1} — ej: Muestreo y análisis aguas residuales`}
+                                                value={sec.titulo}
+                                                className="h-8"
+                                                onChange={(e) => setSecciones((prev) => prev.map((s) => s.key === sec.key ? { ...s, titulo: e.target.value } : s))}
+                                            />
+                                            {secciones.length > 1 && (
+                                                <Button
+                                                    variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                    title="Quitar este servicio"
+                                                    onClick={(e) => { e.stopPropagation(); quitarSeccion(sec.key); }}
+                                                >
+                                                    <IconTrash size={14} />
+                                                </Button>
+                                            )}
+                                        </div>
+
+                                        {sec.items.length > 0 ? (
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow className="hover:bg-transparent">
+                                                        <TableHead className="w-6" />
+                                                        <TableHead>Ítem</TableHead>
+                                                        <TableHead className="w-[70px] text-right">Cant.</TableHead>
+                                                        <TableHead className="w-[120px] text-right">P. Unit. UF</TableHead>
+                                                        <TableHead className="w-10" />
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <Droppable droppableId={String(sec.key)}>
+                                                    {(droppableProvided) => (
+                                                        <TableBody ref={droppableProvided.innerRef} {...droppableProvided.droppableProps}>
+                                                            {sec.items.map((it, itemIdx) => (
+                                                                <Draggable key={it.key} draggableId={String(it.key)} index={itemIdx}>
+                                                                    {(draggableProvided, snapshot) => (
+                                                                        <TableRow
+                                                                            ref={draggableProvided.innerRef}
+                                                                            {...draggableProvided.draggableProps}
+                                                                            className={cn('hover:bg-transparent', snapshot.isDragging && 'bg-accent')}
+                                                                            onClick={(e) => e.stopPropagation()}
+                                                                        >
+                                                                            <TableCell {...draggableProvided.dragHandleProps} className="cursor-grab text-muted-foreground active:cursor-grabbing">
+                                                                                <IconGripVertical size={14} />
+                                                                            </TableCell>
+                                                                            <TableCell>
+                                                                                {it.idTecnica ? it.nombre_tecnica : (
+                                                                                    // Línea libre: el nombre lo escribe el usuario.
+                                                                                    <Input
+                                                                                        className="h-8"
+                                                                                        placeholder="Ej: Gastos de Traslado"
+                                                                                        value={it.nombre_tecnica}
+                                                                                        onChange={(e) => parchearItem(sec.key, it.key, { nombre_tecnica: e.target.value })}
+                                                                                    />
+                                                                                )}
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">
+                                                                                <Input
+                                                                                    type="number" min={1}
+                                                                                    className="h-8 w-[60px] text-right"
+                                                                                    value={it.cantidad}
+                                                                                    onChange={(e) => parchearItem(sec.key, it.key, { cantidad: Number(e.target.value) || 1 })}
+                                                                                />
+                                                                            </TableCell>
+                                                                            <TableCell className="text-right">
+                                                                                {it.resolviendo ? (
+                                                                                    <div className="flex justify-end"><Spinner className="h-4 w-4" /></div>
+                                                                                ) : (
+                                                                                    <Input
+                                                                                        type="number" min={0} step={0.01}
+                                                                                        className={cn('h-8 w-[100px] text-right', it.precioUf == null && 'border-warning')}
+                                                                                        placeholder="Sin tarifa"
+                                                                                        value={it.precioUf ?? ''}
+                                                                                        onChange={(e) => parchearItem(sec.key, it.key, { precioUf: e.target.value === '' ? null : Number(e.target.value), precioManual: true })}
+                                                                                    />
+                                                                                )}
+                                                                            </TableCell>
+                                                                            <TableCell className="text-center">
+                                                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => quitarItem(sec.key, it.key)}>
+                                                                                    <IconTrash size={14} />
+                                                                                </Button>
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    )}
+                                                                </Draggable>
+                                                            ))}
+                                                            {droppableProvided.placeholder}
+                                                        </TableBody>
+                                                    )}
+                                                </Droppable>
+                                            </Table>
+                                        ) : (
+                                            <p className="text-[12.5px] text-muted-foreground">
+                                                Sin ítems. {sec.key === seccionActiva ? 'Agrégalos con el buscador de arriba.' : 'Haz clic para activarlo.'}
+                                            </p>
+                                        )}
+
+                                        <Button
+                                            variant="link" size="sm"
+                                            className="mt-1.5 h-auto px-0 text-xs"
+                                            onClick={(e) => { e.stopPropagation(); agregarLineaLibre(sec.key); }}
+                                        >
+                                            <IconPlus size={13} /> Agregar línea sin tarifa (traslado, manejo de muestras…)
+                                        </Button>
+                                    </div>
+                                ))}
+                            </DragDropContext>
 
                             <Button variant="outline" className="mt-1 w-full" onClick={agregarSeccion}>
                                 <IconPlus size={14} /> Agregar otro servicio a esta propuesta
@@ -948,7 +990,7 @@ const FacturacionCotizaciones: React.FC = () => {
 
                     {/* Vista previa en vivo — misma estructura y colores que el PDF
                         que genera el backend (Propuesta Técnico Económica). */}
-                    <div className="sticky top-5 w-full overflow-y-auto rounded-md border border-[#e3e3e3] bg-white px-[46px] pb-11 pt-[38px] shadow-[0_2px_12px_rgba(0,0,0,0.06)]" style={{ maxHeight: 'calc(100vh - 150px)' }}>
+                    <div className="sticky top-5 w-full overflow-y-auto rounded-md border border-[#e3e3e3] bg-white px-7 pb-8 pt-7 shadow-[0_2px_12px_rgba(0,0,0,0.06)]" style={{ maxHeight: 'calc(100vh - 150px)' }}>
                         <div className="text-[11.5px] leading-[1.55] text-black">
                             {/* Encabezado: logo + título + doble filete de marca */}
                             <div className="flex items-start justify-between gap-5">
