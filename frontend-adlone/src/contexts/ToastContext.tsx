@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useCallback } from 'react';
+import { toast as sonnerToast } from 'sonner';
 
 export interface Toast {
     id: string;
@@ -8,55 +9,28 @@ export interface Toast {
 }
 
 interface ToastContextType {
-    toasts: Toast[];
     showToast: (toast: Omit<Toast, 'id'> & { id?: string }) => void;
-    removeToast: (id: string) => void;
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
+// Mismo showToast({ type, message, duration? }) que usan ~65 componentes en
+// toda la app — solo cambió qué hay detrás: antes un <div> + CSS a mano
+// propios (src/components/Toast, ya eliminado), ahora sonner (la librería de
+// toasts que usa shadcn/ui), renderizado por <Toaster /> en App.tsx.
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const timeouts = React.useRef<Map<string, any>>(new Map());
-
-    const removeToast = useCallback((id: string) => {
-        setToasts(prev => prev.filter(toast => toast.id !== id));
-        if (timeouts.current.has(id)) {
-            clearTimeout(timeouts.current.get(id));
-            timeouts.current.delete(id);
+    const showToast = useCallback((toast: Omit<Toast, 'id'> & { id?: string }) => {
+        const options = { id: toast.id, duration: toast.duration || 4000 };
+        switch (toast.type) {
+            case 'success': sonnerToast.success(toast.message, options); break;
+            case 'error': sonnerToast.error(toast.message, options); break;
+            case 'warning': sonnerToast.warning(toast.message, options); break;
+            default: sonnerToast.info(toast.message, options);
         }
     }, []);
 
-    const showToast = useCallback((toast: Omit<Toast, 'id'> & { id?: string }) => {
-        const id = toast.id || `toast-${Date.now()}-${Math.random()}`;
-        const duration = toast.duration || 4000;
-
-        const newToast: Toast = {
-            ...toast,
-            id,
-            duration
-        };
-
-        // Clear existing timeout for this ID if it exists
-        if (timeouts.current.has(id)) {
-            clearTimeout(timeouts.current.get(id));
-        }
-
-        setToasts(prev => {
-            const filtered = prev.filter(t => t.id !== id);
-            return [...filtered, newToast];
-        });
-
-        // Set new auto-dismiss timeout
-        const timeout = setTimeout(() => {
-            removeToast(id);
-        }, duration);
-
-        timeouts.current.set(id, timeout);
-    }, [removeToast]);
-
     return (
-        <ToastContext.Provider value={{ toasts, showToast, removeToast }}>
+        <ToastContext.Provider value={{ showToast }}>
             {children}
         </ToastContext.Provider>
     );

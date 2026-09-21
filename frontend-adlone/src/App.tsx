@@ -5,7 +5,7 @@ import ResetPasswordPage from './pages/ResetPasswordPage';
 import './App.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { ToastContainer } from './components/Toast/Toast';
+import { Toaster } from '@/components/ui/sonner';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import logoAdl from './assets/images/logo-adlone.png';
 import { useNavStore } from './store/navStore';
@@ -88,7 +88,7 @@ function App() {
       <ToastProvider>
         <AuthProvider>
           <AppContent />
-          <ToastContainer />
+          <Toaster />
         </AuthProvider>
       </ToastProvider>
     </ErrorBoundary>
