@@ -1037,7 +1037,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="lg"
+                        size="md"
                         label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
                         placeholder="Seleccione empresa primero"
                         data={fuentesData}
@@ -1045,8 +1045,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setSelectedFuente(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
-                    <StaticField size="xs" label="Tipo agua" value={tipoAgua} icon={IconFlask} />
-                    <StaticField size="xs" label="Comuna" value={comuna} icon={IconMapPin} />
+                    <StaticField size="sm" label="Tipo agua" value={tipoAgua} icon={IconFlask} />
+                    <StaticField size="sm" label="Comuna" value={comuna} icon={IconMapPin} />
                     <StaticField size="sm" label="Región" value={region} icon={IconMapPin} />
                 </Row>
 
