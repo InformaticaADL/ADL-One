@@ -1,30 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle } from '@tabler/icons-react';
 import type { JornadaHoy } from '../services/tracking.service';
-
-// Mismo umbral que ya usa FlotaPanel.tsx para el badge "Sin señal" — acá se
-// eleva a una alerta visible arriba de la lista/mapa en vez de quedar
-// enterrada en una fila, porque es la situación que más le importa detectar
-// rápido a un supervisor (¿le pasó algo, se quedó sin batería, o solo hay
-// mala señal en esa zona?).
-const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000;
-
-// Solo alerta jornadas 'en_ruta': una pausada o finalizada NO reporta
-// posición a propósito (el GPS está apagado), así que aplicar el mismo
-// umbral ahí generaría una alerta falsa cada vez que alguien pausa o
-// termina su día.
-function estaSinSenal(jornada: JornadaHoy): boolean {
-    if (jornada.estado !== 'en_ruta') return false;
-    // Sin ninguna posición todavía (recién tocó "Iniciar Ruta", el primer
-    // ping GPS puede tardar hasta ~45s, o llegar más tarde si quedó
-    // encolado offline): medir contra CUÁNDO empezó el tramo, no disparar
-    // la alerta de inmediato — antes esto era `return true` sin medir
-    // tiempo, mostrando el banner a los 30s de iniciar la ruta.
-    const referencia = jornada.ultima_posicion?.timestamp_reporte
-        ?? jornada.fecha_inicio_tramo_actual
-        ?? jornada.fecha_inicio;
-    return Date.now() - new Date(referencia).getTime() > UMBRAL_SIN_SENAL_MS;
-}
+import { estaSinSenal } from '../utils/fichaHoyHelpers';
 
 interface AlertasSinSenalProps {
     jornadas: JornadaHoy[];

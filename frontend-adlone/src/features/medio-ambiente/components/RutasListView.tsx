@@ -65,6 +65,7 @@ import { catalogosService } from '../services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { StatCard } from '../../../components/common/StatCard';
 import { NuevaEjecucionModal } from './NuevaEjecucionModal';
 
 type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
@@ -223,6 +224,18 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
             default: return 'outline';
         }
     };
+
+    // Sobre el total sin filtrar (no filteredRutas) — el resumen no debe
+    // cambiar solo porque el usuario está buscando o filtrando por grupo.
+    const rutaStats = useMemo(() => {
+        const estados = rutas.map(getEstadoDinamico);
+        return {
+            total: rutas.length,
+            activas: estados.filter(e => e === 'ACTIVA').length,
+            pendientes: estados.filter(e => e === 'PENDIENTE').length,
+            canceladas: estados.filter(e => e === 'CANCELADA').length,
+        };
+    }, [rutas]);
 
     const formatDate = (dateStr?: string) => {
         if (!dateStr) return '-';
@@ -622,6 +635,13 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                     </div>
                 }
             />
+
+            <div className="flex flex-wrap gap-2">
+                <StatCard icon={<IconRoute size={18} />} label="Total rutas" value={rutaStats.total} tone="primary" />
+                <StatCard icon={<IconPlayerPlay size={18} />} label="Activas (30 días)" value={rutaStats.activas} tone="success" />
+                <StatCard icon={<IconAlertCircle size={18} />} label="Pendientes" value={rutaStats.pendientes} tone="warning" />
+                <StatCard icon={<IconX size={18} />} label="Canceladas" value={rutaStats.canceladas} tone="destructive" />
+            </div>
 
             {/* Filtros */}
             <div className="flex items-center gap-3">

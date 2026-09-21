@@ -37,6 +37,21 @@ export function siguienteFichaPendiente(fichas: JornadaHoy['fichas_hoy']): Jorna
     return fichas.find((f) => !fichaCompletada(f) && f.ubicacion_lat != null && f.ubicacion_lon != null) ?? null;
 }
 
+// Mismo umbral usado por FlotaPanel.tsx (badge "Sin señal"), AlertasSinSenal.tsx
+// (banner) y HoyEnVivoPage.tsx (tarjeta KPI) — centralizado acá para que los
+// tres coincidan siempre, en vez de repetir la constante y el cálculo en cada
+// componente. Solo aplica a jornadas 'en_ruta': una pausada o finalizada no
+// reporta posición a propósito (GPS apagado), así que el mismo umbral ahí
+// generaría una alerta falsa cada vez que alguien pausa o termina su día.
+const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000;
+export function estaSinSenal(jornada: JornadaHoy): boolean {
+    if (jornada.estado !== 'en_ruta') return false;
+    const referencia = jornada.ultima_posicion?.timestamp_reporte
+        ?? jornada.fecha_inicio_tramo_actual
+        ?? jornada.fecha_inicio;
+    return Date.now() - new Date(referencia).getTime() > UMBRAL_SIN_SENAL_MS;
+}
+
 // Haversine — distancia en línea recta, no de ruta real por calle (no hay
 // routing engine acá, y para "cuánto le falta" a un supervisor le alcanza
 // con una aproximación directa).

@@ -1,5 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { IconActivity, IconAlertTriangle, IconFlagCheck, IconPlayerPause } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { PageHeader } from '../../../components/layout/PageHeader';
+import { StatCard } from '../../../components/common/StatCard';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTrackingStore } from '../../../store/trackingStore';
 import { TrackingMapa } from '../components/TrackingMapa';
@@ -7,6 +10,7 @@ import { FlotaPanel } from '../components/FlotaPanel';
 import { DetalleJornadaDrawer } from '../components/DetalleJornadaDrawer';
 import { HistorialJornadasTab } from '../components/HistorialJornadasTab';
 import { AlertasSinSenal } from '../components/AlertasSinSenal';
+import { estaSinSenal } from '../utils/fichaHoyHelpers';
 import { AvisoNuevaJornada } from '../components/AvisoNuevaJornada';
 
 export function HoyEnVivoPage() {
@@ -23,6 +27,13 @@ export function HoyEnVivoPage() {
         selectMuestreador,
         reset,
     } = useTrackingStore();
+
+    const stats = useMemo(() => ({
+        enRuta: jornadas.filter((j) => j.estado === 'en_ruta').length,
+        sinSenal: jornadas.filter(estaSinSenal).length,
+        pausadas: jornadas.filter((j) => j.estado === 'pausada').length,
+        finalizadas: jornadas.filter((j) => j.estado === 'finalizada').length,
+    }), [jornadas]);
 
     useEffect(() => {
         fetchSnapshot();
@@ -54,25 +65,42 @@ export function HoyEnVivoPage() {
 
     return (
         <div className="shadcn-scope flex h-full min-h-0 flex-col">
-            <div className="flex gap-1 border-b border-border p-3">
-                {(
-                    [
-                        { label: 'Hoy', value: 'hoy' as const },
-                        { label: 'Historial', value: 'historial' as const },
-                    ]
-                ).map((opt) => (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => setVista(opt.value)}
-                        className={cn(
-                            'rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            vista === opt.value ? 'bg-muted text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                        )}
-                    >
-                        {opt.label}
-                    </button>
-                ))}
+            <div className="border-b border-border px-4 pt-3">
+                <PageHeader
+                    title="Hoy en Vivo"
+                    subtitle="Seguimiento en tiempo real de muestreadores en terreno."
+                    rightSection={
+                        <div className="flex gap-1 rounded-lg bg-muted p-1">
+                            {(
+                                [
+                                    { label: 'Hoy', value: 'hoy' as const },
+                                    { label: 'Historial', value: 'historial' as const },
+                                ]
+                            ).map((opt) => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setVista(opt.value)}
+                                    className={cn(
+                                        'rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                                        vista === opt.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                    )}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
+                    }
+                />
+
+                {vista === 'hoy' && !loading && !error && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                        <StatCard icon={<IconActivity size={18} />} label="En terreno" value={stats.enRuta} tone="primary" />
+                        <StatCard icon={<IconAlertTriangle size={18} />} label="Sin señal" value={stats.sinSenal} tone="warning" />
+                        <StatCard icon={<IconPlayerPause size={18} />} label="En pausa" value={stats.pausadas} tone="muted" />
+                        <StatCard icon={<IconFlagCheck size={18} />} label="Finalizados" value={stats.finalizadas} tone="success" />
+                    </div>
+                )}
             </div>
 
             {vista === 'historial' ? (
