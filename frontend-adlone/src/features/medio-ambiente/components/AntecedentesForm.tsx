@@ -1052,13 +1052,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row>
                     <TextInput
-                        size="md"
+                        size="lg"
                         label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
                         value={ubicacion}
                         onChange={(e: any) => setUbicacion(e.target.value)}
                     />
                     <StaticField size="xs" label="Código Centro" value={codigo} icon={IconInfoCircle} />
-                    <StaticField size="xs" label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
                     <Select
                         size="md"
                         label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
@@ -1088,7 +1087,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="md"
+                        size="sm"
                         label={<FieldLabel label="Objetivo del Muestreo *" help="Propósito regulatorio o técnico del muestreo. Ejemplos: Autocontrol (obligación legal), Patología (diagnóstico de enfermedad), Fisicoquímica (análisis de parámetros físicos)." />}
                         placeholder="Seleccione..."
                         data={objetivosData}
@@ -1097,7 +1096,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
                     <Select
-                        size="xs"
+                        size="md"
                         label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
                         data={['ADL', 'Cliente']}
                         value={responsableMuestreo}
@@ -1118,13 +1117,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row>
                     <TextInput
-                        size="sm"
+                        size="md"
                         label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
                         value={puntoMuestreo}
                         onChange={(e: any) => setPuntoMuestreo(e.target.value)}
                     />
                     <Select
-                        size="sm"
+                        size="xs"
                         label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
                         data={frecuenciasData}
                         value={periodo}
@@ -1175,14 +1174,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setZona(v || '')}
                     />
                     <TextInput
-                        size="sm"
+                        size="xs"
                         label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
                         onChange={(e: any) => setUtmNorte(e.target.value)}
                         disabled={!zona || zona === 'No aplica'}
                     />
                     <TextInput
-                        size="sm"
+                        size="xs"
                         label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
                         onChange={(e: any) => setUtmEste(e.target.value)}
@@ -1194,7 +1193,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="lg"
+                        size="md"
                         label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
                         data={instrumentosAmbientales}
                         value={selectedInstrumento}
@@ -1294,7 +1293,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 <Row>
                     <Select size="xs" label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
                     <Select
-                        size="sm"
+                        size="xs"
                         label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
                         data={inspectoresData}
                         value={selectedInspector}
