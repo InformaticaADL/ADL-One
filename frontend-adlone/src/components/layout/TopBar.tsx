@@ -12,6 +12,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { NotificationPopover } from '../../features/notifications/components/NotificationPopover';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { playThemeTransition } from '@/lib/themeTransition';
 import { FIXED_TOP_MODULES, type DynamicModule } from '../../config/sidebarModules';
 
 interface CompactProp {
@@ -113,7 +114,7 @@ export function ThemeToggle({ compact }: CompactProp) {
 
     return (
         <button
-            onClick={toggleMode}
+            onClick={(e) => playThemeTransition(e.clientX, e.clientY, toggleMode)}
             aria-label="Cambiar tema"
             title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
             className={cn(
