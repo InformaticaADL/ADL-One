@@ -121,9 +121,15 @@ export const catalogosService = {
       // Direct parameterized query — avoids loading the full table into memory
       let query = `
         SELECT c.id_centro, c.codigo_centro, c.nombre_centro, c.ubicacion,
-               c.id_empresa, e.nombre_empresa
+               c.id_empresa, e.nombre_empresa,
+               c.id_comuna, com.nombre_comuna,
+               c.id_region, reg.nombre_region,
+               c.id_tipoagua, t.nombre_tipoagua
         FROM mae_centro c
         INNER JOIN mae_empresa e ON c.id_empresa = e.id_empresa
+        LEFT JOIN mae_comuna com ON c.id_comuna = com.id_comuna
+        LEFT JOIN mae_region reg ON c.id_region = reg.id_region
+        LEFT JOIN mae_tipoagua t ON c.id_tipoagua = t.id_tipoagua
         WHERE c.vigente = 'S'
       `;
 
