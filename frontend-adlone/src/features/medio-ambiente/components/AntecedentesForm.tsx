@@ -63,11 +63,11 @@ const dedupOptions = (options: { value: string; label: string }[]) => {
 // ancho, así una fila cabe con 2 campos largos o con 5 campos cortos.
 type FieldSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 const FIELD_SIZE_CLASS: Record<FieldSize, string> = {
-    xs: 'flex-[0_1_84px]',
-    sm: 'flex-[0.6_1_130px]',
-    md: 'flex-[1_1_190px]',
-    lg: 'flex-[1.6_1_230px]',
-    xl: 'flex-[2.6_1_300px]',
+    xs: 'flex-[0_1_76px]',
+    sm: 'flex-[0.5_1_108px]',
+    md: 'flex-[0.9_1_155px]',
+    lg: 'flex-[1.3_1_195px]',
+    xl: 'flex-[2_1_250px]',
 };
 
 // Fila flexible: los campos se envuelven a la siguiente línea según su
@@ -206,7 +206,7 @@ function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNav
     return (
         <div className={cn(
             'rounded-xl border border-border bg-card p-2',
-            isMobile ? 'flex flex-row gap-1 overflow-x-auto' : 'sticky top-5 flex w-[200px] shrink-0 flex-col gap-1'
+            isMobile ? 'flex flex-row gap-1 overflow-x-auto' : 'sticky top-5 flex w-[220px] shrink-0 flex-col gap-1'
         )}>
             {items.map((item, idx) => {
                 const Icon = item.icon;
@@ -217,7 +217,8 @@ function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNav
                         type="button"
                         onClick={() => onNavigate(item.id)}
                         className={cn(
-                            'flex items-center gap-2.5 whitespace-nowrap rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold transition-colors',
+                            'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold leading-snug transition-colors',
+                            isMobile ? 'whitespace-nowrap' : 'whitespace-normal',
                             isActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'
                         )}
                     >
@@ -229,8 +230,8 @@ function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNav
                         )}>
                             {item.complete ? <IconCheck size={11} /> : idx + 1}
                         </span>
-                        <Icon size={14} className="shrink-0" />
-                        {!isMobile && <span className="min-w-0 flex-1 truncate">{item.label}</span>}
+                        <Icon size={14} className="mt-0.5 shrink-0 self-start" />
+                        {!isMobile && <span className="min-w-0 flex-1">{item.label}</span>}
                     </button>
                 );
             })}
@@ -1036,7 +1037,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="xl"
+                        size="lg"
                         label={<FieldLabel label="Fuente emisora *" help="Centro de cultivo o instalación específica donde se tomará la muestra. Al seleccionarlo se autocompletan Tipo de Agua, Comuna y Región." />}
                         placeholder="Seleccione empresa primero"
                         data={fuentesData}
@@ -1049,9 +1050,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <StaticField size="sm" label="Región" value={region} icon={IconMapPin} />
                 </Row>
 
-                <Row className="mb-4">
+                <Row>
                     <TextInput
-                        size="lg"
+                        size="md"
                         label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
                         value={ubicacion}
                         onChange={(e: any) => setUbicacion(e.target.value)}
@@ -1059,7 +1060,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     <StaticField size="xs" label="Código Centro" value={codigo} icon={IconInfoCircle} />
                     <StaticField size="xs" label="ID Centro" value={selectedFuente || ''} icon={IconInfoCircle} />
                     <Select
-                        size="lg"
+                        size="md"
                         label={<FieldLabel label="Contacto empresa *" help="Persona de contacto de la empresa de servicio que coordinará el acceso al centro para el día del muestreo." />}
                         placeholder="Seleccione..."
                         data={[
@@ -1070,10 +1071,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => setSelectedContacto(v || '')}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
-                </Row>
-                <Row>
                     <StaticField
-                        size="xl"
+                        size="md"
                         label="E-mail Contacto"
                         value={selectedContacto === 'primary' ? (empresas.find(e => String(e.id) === selectedEmpresa)?.email || '-') : (contactos.find(c => String(c.id) === selectedContacto)?.email || '-')}
                         icon={IconMail}
@@ -1089,7 +1088,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="lg"
+                        size="md"
                         label={<FieldLabel label="Objetivo del Muestreo *" help="Propósito regulatorio o técnico del muestreo. Ejemplos: Autocontrol (obligación legal), Patología (diagnóstico de enfermedad), Fisicoquímica (análisis de parámetros físicos)." />}
                         placeholder="Seleccione..."
                         data={objetivosData}
@@ -1119,7 +1118,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row>
                     <TextInput
-                        size="md"
+                        size="sm"
                         label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
                         value={puntoMuestreo}
                         onChange={(e: any) => setPuntoMuestreo(e.target.value)}
@@ -1195,7 +1194,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
                 <Row className="mb-4">
                     <Select
-                        size="xl"
+                        size="lg"
                         label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
                         data={instrumentosAmbientales}
                         value={selectedInstrumento}
@@ -1295,7 +1294,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 <Row>
                     <Select size="xs" label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
                     <Select
-                        size="md"
+                        size="sm"
                         label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
                         data={inspectoresData}
                         value={selectedInspector}
@@ -1482,7 +1481,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     </div>
                     <div className={cn('flex min-w-0 flex-col gap-1', FIELD_SIZE_CLASS.md)}>
                         <Select
-                            size="xl"
                             label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
                             data={dispositivosData}
                             value={dispositivo}

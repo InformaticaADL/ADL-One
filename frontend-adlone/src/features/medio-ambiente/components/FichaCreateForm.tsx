@@ -299,14 +299,26 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                     cambiar de tab hasta Enter/Espacio (estándar de Radix para este caso). */}
                 <Tabs value={activeTab} onValueChange={handleTabChange} activationMode="manual">
                     <div className="flex justify-center border-b border-border" style={{ padding: `0 ${panelPadding}px` }}>
-                        <TabsList>
-                            <TabsTrigger value="antecedentes" className="gap-1.5" style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}>
+                        <TabsList className="h-auto gap-1 rounded-none bg-transparent p-0">
+                            <TabsTrigger
+                                value="antecedentes"
+                                className="gap-1.5 rounded-none border-b-2 border-transparent px-4 py-3 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}
+                            >
                                 <IconFileText size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}
                             </TabsTrigger>
-                            <TabsTrigger value="analisis" className="gap-1.5" style={{ fontSize: isMobile ? 13.5 : 15 }}>
+                            <TabsTrigger
+                                value="analisis"
+                                className="gap-1.5 rounded-none border-b-2 border-transparent px-4 py-3 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                style={{ fontSize: isMobile ? 13.5 : 15 }}
+                            >
                                 <IconTable size={tabIconSize} />Análisis
                             </TabsTrigger>
-                            <TabsTrigger value="observaciones" className="gap-1.5" style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}>
+                            <TabsTrigger
+                                value="observaciones"
+                                className="gap-1.5 rounded-none border-b-2 border-transparent px-4 py-3 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary data-[state=active]:shadow-none"
+                                style={{ fontSize: isVerySmall ? 12 : (isMobile ? 13.5 : 15) }}
+                            >
                                 <IconEdit size={tabIconSize} />{isVerySmall ? 'Obs.' : 'Observaciones'}
                             </TabsTrigger>
                         </TabsList>
