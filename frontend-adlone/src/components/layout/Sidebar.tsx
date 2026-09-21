@@ -3,7 +3,6 @@ import {
     IconChevronLeft,
     IconChevronRight,
     IconChevronDown,
-    IconSearch,
     IconSelector,
     IconUserCircle,
     IconExclamationMark,
@@ -14,9 +13,9 @@ import { useNavStore } from '../../store/navStore';
 import API_CONFIG from '../../config/api.config';
 import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
-import { FIXED_TOP_MODULES, type DynamicModule, type DynamicModuleLink, type FixedModule } from '../../config/sidebarModules';
+import { FIXED_TOP_MODULES, hasAccess, canAccessModule, type DynamicModule, type DynamicModuleLink, type FixedModule } from '../../config/sidebarModules';
 import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
+import { CommandMenu } from './CommandMenu';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -24,15 +23,6 @@ import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
 const FIXED_BOTTOM_MODULES: FixedModule[] = [];
-
-function matches(label: string, q: string) {
-    return !q || label.toLowerCase().includes(q.toLowerCase());
-}
-
-function hasAccess(permission: string | string[] | undefined, hasPermission: (p: string) => boolean) {
-    if (!permission || permission.length === 0) return true;
-    return Array.isArray(permission) ? permission.some(hasPermission) : hasPermission(permission);
-}
 
 interface SidebarProps {
     forceNotCollapsed?: boolean;
@@ -58,7 +48,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
-    const [search, setSearch] = useState('');
 
     // Notebooks con escalado de Windows alto (125-150%) le reportan al
     // navegador un viewport efectivo mucho más angosto que la resolución
@@ -100,19 +89,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         }
     }, [activeModule]);
 
-    const canAccessModule = (module: DynamicModule) => {
-        const hasBasePermission = hasAccess(module.permission, hasPermission);
-
-        // Si tiene submódulos (links), OBLIGATORIAMENTE debe tener acceso a al menos uno para ver el módulo padre
-        if (module.links && module.links.length > 0) {
-            const canAccessAnyLink = module.links.some((link) => hasAccess(link.permission, hasPermission));
-            // Para ver el módulo, debe cumplir el permiso base (si lo hay) Y tener acceso a un link
-            return hasBasePermission && canAccessAnyLink;
-        }
-
-        return hasBasePermission;
-    };
-
     const handleModuleClick = (moduleId: string) => {
         const mod = dynamicModules.find((m) => m.id === moduleId) || FIXED_TOP_MODULES.find((m) => m.id === moduleId);
         const hasSubItems = !!mod && 'links' in mod && Array.isArray(mod.links) && mod.links.length > 0;
@@ -148,7 +124,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
     // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
-    const visibleModules = dynamicModules.filter(canAccessModule);
+    const visibleModules = dynamicModules.filter((m) => canAccessModule(m, hasPermission));
 
     // Unidades: Filtrar módulos visibles según permisos
     const unidades = visibleModules.filter((m) => m.group === 'unidades');
@@ -159,39 +135,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
     const visibleBottom = FIXED_BOTTOM_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
 
     const visibleTop = FIXED_TOP_MODULES.filter((m) => !m.permission || hasPermission(m.permission));
-
-    const q = search.trim();
-
-    // Igual criterio que filterGroup (abajo) pero para los módulos fijos que
-    // ahora también pueden traer `links` (Facturación) — si la búsqueda solo
-    // calza con un sub-ítem, el grupo se fuerza abierto para mostrarlo.
-    const filteredTop: (FixedModule & { forceOpen: boolean })[] = (() => {
-        if (!q) return visibleTop.map((m) => ({ ...m, forceOpen: false }));
-        const result: (FixedModule & { forceOpen: boolean })[] = [];
-        for (const m of visibleTop) {
-            const selfMatches = matches(m.label, q);
-            const childMatches = (m.links || []).filter((l) => matches(l.label, q));
-            if (!selfMatches && childMatches.length === 0) continue;
-            result.push({ ...m, links: selfMatches ? m.links : childMatches, forceOpen: !!m.links?.length });
-        }
-        return result;
-    })();
-
-    const filterGroup = (mods: DynamicModule[]): (DynamicModule & { forceOpen: boolean })[] => {
-        if (!q) return mods.map((m) => ({ ...m, forceOpen: false }));
-        const result: (DynamicModule & { forceOpen: boolean })[] = [];
-        for (const m of mods) {
-            const selfMatches = matches(m.label, q);
-            const childMatches = (m.links || []).filter((l) => matches(l.label, q));
-            if (!selfMatches && childMatches.length === 0) continue;
-            result.push({ ...m, links: selfMatches ? m.links : childMatches, forceOpen: true });
-        }
-        return result;
-    };
-
-    const filteredUnidades = filterGroup(unidades);
-    const filteredGestion = filterGroup(gestionOp);
-    const filteredBottom = visibleBottom.filter((m) => matches(m.label, q));
 
     const renderFlatItem = (item: FixedModule, badgeCount?: number) => {
         const active = !activeSubmodule && activeModule === item.id;
@@ -369,27 +312,17 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 )}
             </div>
 
-            {!isCollapsed && (
-                <div className="px-3 pb-4 pt-4">
-                    <div className="relative">
-                        <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            placeholder="Buscar..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="h-8 border-transparent bg-muted pl-8 text-sm shadow-none focus-visible:border-border focus-visible:bg-background"
-                        />
-                    </div>
-                </div>
-            )}
+            <div className={cn('px-3 pb-4 pt-4', isCollapsed && 'flex justify-center px-0')}>
+                <CommandMenu isCollapsed={isCollapsed} onNavigate={onNavigate} />
+            </div>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
                 <div className="mb-3 flex flex-col gap-0.5">
-                    {filteredTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined))}
+                    {visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined))}
                 </div>
-                {renderGroup('UNIDADES', filteredUnidades)}
-                {renderGroup('GESTIÓN', filteredGestion)}
-                {renderFixedGroup('SOPORTE', filteredBottom)}
+                {renderGroup('UNIDADES', unidades)}
+                {renderGroup('GESTIÓN', gestionOp)}
+                {renderFixedGroup('SOPORTE', visibleBottom)}
             </div>
 
             <div className="border-t border-sidebar-border p-2">

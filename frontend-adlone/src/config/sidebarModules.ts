@@ -30,6 +30,24 @@ export interface FixedModule {
     links?: DynamicModuleLink[];
 }
 
+// Compartido entre Sidebar.tsx y CommandMenu.tsx — ambos necesitan el mismo
+// criterio de "¿el usuario puede ver este módulo/link?" para no divergir
+// (ej. que el buscador global muestre algo que el árbol del sidebar oculta).
+export function hasAccess(permission: string | string[] | undefined, hasPermission: (p: string) => boolean) {
+    if (!permission || permission.length === 0) return true;
+    return Array.isArray(permission) ? permission.some(hasPermission) : hasPermission(permission);
+}
+
+export function canAccessModule(module: DynamicModule, hasPermission: (p: string) => boolean) {
+    const hasBasePermission = hasAccess(module.permission, hasPermission);
+    // Si tiene submódulos (links), OBLIGATORIAMENTE debe tener acceso a al menos uno para ver el módulo padre
+    if (module.links && module.links.length > 0) {
+        const canAccessAnyLink = module.links.some((link) => hasAccess(link.permission, hasPermission));
+        return hasBasePermission && canAccessAnyLink;
+    }
+    return hasBasePermission;
+}
+
 // Módulos con iconos de Tabler, fijos (no vienen del menú dinámico del backend).
 export const FIXED_TOP_MODULES: FixedModule[] = [
     { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
