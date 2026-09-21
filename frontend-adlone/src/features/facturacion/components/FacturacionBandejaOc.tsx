@@ -7,8 +7,9 @@ import { DatePicker } from '@/components/ui/date-picker';
 import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import {
-    IconRefresh, IconUpload, IconCircleCheck, IconCircleX, IconFileTypePdf, IconSparkles,
+    IconRefresh, IconUpload, IconCircleCheck, IconCircleX, IconFileTypePdf, IconSparkles, IconX,
 } from '@tabler/icons-react';
 import { facturacionService } from '../services/facturacion.service';
 import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/services/catalogos.service';
@@ -419,9 +420,26 @@ const FacturacionBandejaOc: React.FC = () => {
                             className="hidden"
                             onChange={(e) => setArchivo(e.target.files?.[0] || null)}
                         />
-                        <Button variant="outline" onClick={() => fileRef.current?.click()}>
-                            <IconUpload size={14} /> {archivo ? archivo.name : 'Seleccionar archivo'}
-                        </Button>
+                        {archivo ? (
+                            <Attachment size="sm">
+                                <AttachmentMedia>
+                                    <IconFileTypePdf />
+                                </AttachmentMedia>
+                                <AttachmentContent>
+                                    <AttachmentTitle>{archivo.name}</AttachmentTitle>
+                                    <AttachmentDescription>{(archivo.size / 1024).toFixed(0)} KB</AttachmentDescription>
+                                </AttachmentContent>
+                                <AttachmentActions>
+                                    <AttachmentAction aria-label="Quitar archivo" onClick={() => setArchivo(null)}>
+                                        <IconX size={14} />
+                                    </AttachmentAction>
+                                </AttachmentActions>
+                            </Attachment>
+                        ) : (
+                            <Button variant="outline" onClick={() => fileRef.current?.click()}>
+                                <IconUpload size={14} /> Seleccionar archivo
+                            </Button>
+                        )}
                     </div>
                     <div className="rounded-lg border border-border bg-muted/40 p-3">
                         <p className="text-sm text-foreground">

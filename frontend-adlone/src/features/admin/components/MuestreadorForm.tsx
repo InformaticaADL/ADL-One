@@ -7,7 +7,8 @@ import {
     IconSignature,
     IconMail,
     IconUser,
-    IconBell
+    IconBell,
+    IconFile
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
+import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentActions, AttachmentAction, AttachmentTrigger } from '@/components/ui/attachment';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -391,12 +393,22 @@ export const MuestreadorForm: React.FC<Props> = ({
                                 <div className="flex flex-col gap-2">
                                     {documentos.length === 0 && <p className="text-xs text-muted-foreground">Sin documentos.</p>}
                                     {documentos.map(d => (
-                                        <div key={d.id_documento} className="flex flex-nowrap items-center justify-between">
-                                            <a href={d.ruta_archivo} target="_blank" rel="noreferrer" className="truncate text-[13px] text-primary hover:underline">{d.nombre_documento}</a>
-                                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDoc(d.id_documento)}>
-                                                <IconTrash size={16} />
-                                            </Button>
-                                        </div>
+                                        <Attachment key={d.id_documento} size="sm">
+                                            <AttachmentTrigger asChild>
+                                                <a href={d.ruta_archivo} target="_blank" rel="noreferrer" aria-label={`Abrir ${d.nombre_documento}`} />
+                                            </AttachmentTrigger>
+                                            <AttachmentMedia>
+                                                <IconFile />
+                                            </AttachmentMedia>
+                                            <AttachmentContent>
+                                                <AttachmentTitle>{d.nombre_documento}</AttachmentTitle>
+                                            </AttachmentContent>
+                                            <AttachmentActions>
+                                                <AttachmentAction aria-label={`Eliminar ${d.nombre_documento}`} className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDoc(d.id_documento)}>
+                                                    <IconTrash size={14} />
+                                                </AttachmentAction>
+                                            </AttachmentActions>
+                                        </Attachment>
                                     ))}
                                 </div>
                                 <div className="flex flex-wrap items-end gap-2">

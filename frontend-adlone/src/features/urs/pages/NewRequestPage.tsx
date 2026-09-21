@@ -4,6 +4,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Attachment, AttachmentGroup, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import { cn } from '@/lib/utils';
 import {
     IconCheck,
@@ -352,22 +353,24 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                                 </div>
 
                                 {files.length > 0 && (
-                                    <div className="mt-4 rounded-lg border border-border bg-card p-2">
-                                        <div className="flex flex-col gap-2">
-                                            {files.map((file, idx) => (
-                                                <div key={idx} className={cn('flex items-center justify-between p-2', idx < files.length - 1 && 'border-b border-border')}>
-                                                    <div className="flex items-center gap-2">
-                                                        <FileIcon filename={file.name} mimetype={file.type} />
-                                                        <span className="max-w-[300px] truncate text-[13px] font-semibold">{file.name}</span>
-                                                        <Badge variant="outline">{(file.size / 1024).toFixed(0)} KB</Badge>
-                                                    </div>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => removeFile(idx)}>
+                                    <AttachmentGroup className="mt-4">
+                                        {files.map((file, idx) => (
+                                            <Attachment key={idx} size="sm">
+                                                <AttachmentMedia>
+                                                    <FileIcon filename={file.name} mimetype={file.type} />
+                                                </AttachmentMedia>
+                                                <AttachmentContent>
+                                                    <AttachmentTitle>{file.name}</AttachmentTitle>
+                                                    <AttachmentDescription>{(file.size / 1024).toFixed(0)} KB</AttachmentDescription>
+                                                </AttachmentContent>
+                                                <AttachmentActions>
+                                                    <AttachmentAction aria-label={`Quitar ${file.name}`} onClick={() => removeFile(idx)}>
                                                         <IconX size={14} />
-                                                    </Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
+                                                    </AttachmentAction>
+                                                </AttachmentActions>
+                                            </Attachment>
+                                        ))}
+                                    </AttachmentGroup>
                                 )}
                             </div>
                         </div>

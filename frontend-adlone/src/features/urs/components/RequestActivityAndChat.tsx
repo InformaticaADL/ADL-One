@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
+import { Attachment, AttachmentGroup, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction, AttachmentTrigger } from '@/components/ui/attachment';
 import { cn } from '@/lib/utils';
 import { IconMessage, IconSend, IconPaperclip, IconX } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
@@ -100,15 +100,27 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
                                         isOwn ? 'rounded-br-sm bg-primary/10' : 'rounded-bl-sm bg-muted'
                                     )}>
                                         {msg.mensaje}
-                                        {msg.adjuntos && msg.adjuntos.length > 0 && msg.adjuntos.map((file: any) => (
-                                            <a key={file.id_adjunto}
-                                                className="mt-1.5 flex max-w-[220px] items-center gap-1.5 rounded-md border border-border bg-background px-1.5 py-1 text-primary no-underline hover:bg-muted"
-                                                target="_blank" rel="noreferrer"
-                                                href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}>
-                                                <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} size={18} />
-                                                <span className="truncate text-[11px] font-semibold">{file.nombre_archivo}</span>
-                                            </a>
-                                        ))}
+                                        {msg.adjuntos && msg.adjuntos.length > 0 && (
+                                            <div className="mt-1.5 flex flex-col gap-1.5">
+                                                {msg.adjuntos.map((file: any) => (
+                                                    <Attachment key={file.id_adjunto} size="xs" className="max-w-[220px]">
+                                                        <AttachmentTrigger asChild>
+                                                            <a
+                                                                target="_blank" rel="noreferrer"
+                                                                href={`${import.meta.env.VITE_API_URL}/api/urs/download/${file.id_adjunto}?token=${token}`}
+                                                                aria-label={`Descargar ${file.nombre_archivo}`}
+                                                            />
+                                                        </AttachmentTrigger>
+                                                        <AttachmentMedia>
+                                                            <FileIcon mimetype={file.tipo_archivo} filename={file.nombre_archivo} />
+                                                        </AttachmentMedia>
+                                                        <AttachmentContent>
+                                                            <AttachmentTitle>{file.nombre_archivo}</AttachmentTitle>
+                                                        </AttachmentContent>
+                                                    </Attachment>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </React.Fragment>
@@ -121,16 +133,24 @@ const RequestActivityAndChat: React.FC<RequestActivityAndChatProps> = ({ request
 
             <div className="flex shrink-0 flex-col gap-2 border-t border-border p-3">
                 {files.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
+                    <AttachmentGroup>
                         {files.map((f, i) => (
-                            <Badge key={i} variant="secondary" className="gap-1">
-                                {f.name}
-                                <button type="button" onClick={() => removeFile(i)} aria-label="Quitar archivo">
-                                    <IconX size={12} />
-                                </button>
-                            </Badge>
+                            <Attachment key={i} size="xs">
+                                <AttachmentMedia>
+                                    <FileIcon filename={f.name} mimetype={f.type} />
+                                </AttachmentMedia>
+                                <AttachmentContent>
+                                    <AttachmentTitle>{f.name}</AttachmentTitle>
+                                    <AttachmentDescription>{(f.size / 1024).toFixed(0)} KB</AttachmentDescription>
+                                </AttachmentContent>
+                                <AttachmentActions>
+                                    <AttachmentAction aria-label="Quitar archivo" onClick={() => removeFile(i)}>
+                                        <IconX size={12} />
+                                    </AttachmentAction>
+                                </AttachmentActions>
+                            </Attachment>
                         ))}
-                    </div>
+                    </AttachmentGroup>
                 )}
                 <div className="flex items-end gap-2">
                     <input ref={fileInputRef} type="file" multiple hidden

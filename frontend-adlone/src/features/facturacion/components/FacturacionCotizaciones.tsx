@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { Attachment, AttachmentGroup, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction, AttachmentTrigger } from '@/components/ui/attachment';
 import { DragDropContext, Droppable, Draggable, type DropResult } from '@hello-pangea/dnd';
 import { cn } from '@/lib/utils';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -1329,24 +1330,22 @@ const FacturacionCotizaciones: React.FC = () => {
                                                         {adjuntos.map((a: any) => {
                                                             const t = tipoArchivo(a.nombre_original, a.mime);
                                                             return (
-                                                                <button
-                                                                    key={a.id}
-                                                                    type="button"
-                                                                    className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-card px-2.5 py-2 text-left transition-colors hover:border-primary hover:bg-primary/5"
-                                                                    onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)}
-                                                                >
-                                                                    <span className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-md" style={{ background: t.fondo, color: t.color }}>
-                                                                        <t.Icono size={17} />
-                                                                    </span>
-                                                                    <span className="min-w-0 flex-1 text-left">
-                                                                        <span className="block truncate text-sm font-medium text-foreground">{a.nombre_original}</span>
-                                                                        <span className="block text-[11.5px] text-muted-foreground">
+                                                                <Attachment key={a.id} size="sm">
+                                                                    <AttachmentTrigger onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)} aria-label={`Descargar ${a.nombre_original}`} />
+                                                                    <AttachmentMedia style={{ background: t.fondo, color: t.color }}>
+                                                                        <t.Icono />
+                                                                    </AttachmentMedia>
+                                                                    <AttachmentContent>
+                                                                        <AttachmentTitle>{a.nombre_original}</AttachmentTitle>
+                                                                        <AttachmentDescription>
                                                                             {t.etiqueta}{a.tamano_bytes ? ` · ${fmtTamano(a.tamano_bytes)}` : ''}
                                                                             {a.origen === 'ADL_ONE' ? ' · enviado por ADL' : ''}
-                                                                        </span>
-                                                                    </span>
-                                                                    <IconDownload size={15} className="shrink-0 text-muted-foreground" />
-                                                                </button>
+                                                                        </AttachmentDescription>
+                                                                    </AttachmentContent>
+                                                                    <AttachmentActions>
+                                                                        <IconDownload size={15} className="shrink-0 text-muted-foreground" />
+                                                                    </AttachmentActions>
+                                                                </Attachment>
                                                             );
                                                         })}
                                                     </div>
@@ -1484,16 +1483,21 @@ const FacturacionCotizaciones: React.FC = () => {
                                                                 {m.usuario_nombre}{m.usuario_email ? ` · ${m.usuario_email}` : ''}
                                                             </div>
                                                             {m.mensaje}
-                                                            {adjuntosMsg.map((a: any) => (
-                                                                <button
-                                                                    key={a.id}
-                                                                    type="button"
-                                                                    onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)}
-                                                                    className={cn('mt-1.5 flex items-center gap-1.5 text-[11.5px] underline', esNuestro ? 'text-primary-foreground' : 'text-primary')}
-                                                                >
-                                                                    <IconPaperclip size={12} />{a.nombre_original}
-                                                                </button>
-                                                            ))}
+                                                            {adjuntosMsg.length > 0 && (
+                                                                <div className="mt-1.5 flex flex-col gap-1.5">
+                                                                    {adjuntosMsg.map((a: any) => (
+                                                                        <Attachment key={a.id} size="xs" className={cn(esNuestro && 'border-primary-foreground/20 bg-primary-foreground/10 text-primary-foreground')}>
+                                                                            <AttachmentTrigger onClick={() => bajarAdjunto(seleccion.id_solicitud_portal!, a)} aria-label={`Descargar ${a.nombre_original}`} />
+                                                                            <AttachmentMedia className={cn(esNuestro && 'bg-primary-foreground/15 text-primary-foreground')}>
+                                                                                <IconPaperclip />
+                                                                            </AttachmentMedia>
+                                                                            <AttachmentContent>
+                                                                                <AttachmentTitle>{a.nombre_original}</AttachmentTitle>
+                                                                            </AttachmentContent>
+                                                                        </Attachment>
+                                                                    ))}
+                                                                </div>
+                                                            )}
                                                             <div className="mt-1 text-[10px] opacity-60">{fmtFechaHora(m.fecha)}</div>
                                                         </div>
                                                     );
@@ -1504,16 +1508,27 @@ const FacturacionCotizaciones: React.FC = () => {
 
                                         <div className="shrink-0 border-t border-border p-3">
                                             {archivosAdjuntar.length > 0 && (
-                                                <div className="mb-2 flex flex-wrap gap-1.5">
-                                                    {archivosAdjuntar.map((f, i) => (
-                                                        <Badge key={i} variant="secondary" className="gap-1 pr-1">
-                                                            {f.name} ({fmtTamano(f.size)})
-                                                            <button type="button" onClick={() => setArchivosAdjuntar((p) => p.filter((_, idx) => idx !== i))} className="rounded-full p-0.5 hover:bg-black/10">
-                                                                <IconX size={11} />
-                                                            </button>
-                                                        </Badge>
-                                                    ))}
-                                                </div>
+                                                <AttachmentGroup className="mb-2">
+                                                    {archivosAdjuntar.map((f, i) => {
+                                                        const t = tipoArchivo(f.name, f.type);
+                                                        return (
+                                                            <Attachment key={i} size="xs">
+                                                                <AttachmentMedia style={{ background: t.fondo, color: t.color }}>
+                                                                    <t.Icono />
+                                                                </AttachmentMedia>
+                                                                <AttachmentContent>
+                                                                    <AttachmentTitle>{f.name}</AttachmentTitle>
+                                                                    <AttachmentDescription>{fmtTamano(f.size)}</AttachmentDescription>
+                                                                </AttachmentContent>
+                                                                <AttachmentActions>
+                                                                    <AttachmentAction aria-label={`Quitar ${f.name}`} onClick={() => setArchivosAdjuntar((p) => p.filter((_, idx) => idx !== i))}>
+                                                                        <IconX size={11} />
+                                                                    </AttachmentAction>
+                                                                </AttachmentActions>
+                                                            </Attachment>
+                                                        );
+                                                    })}
+                                                </AttachmentGroup>
                                             )}
                                             <div className="flex gap-2">
                                                 <input

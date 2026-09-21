@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentTrigger } from '@/components/ui/attachment';
 import {
     IconArrowLeft, IconDotsVertical, IconPaperclip, IconSend, IconTrash,
     IconUsers, IconUser, IconEraser, IconFile, IconBan,
@@ -149,22 +150,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 {m.tipo_mensaje_padre === 'ARCHIVO' ? `📎 ${m.archivo_nombre_padre || 'Archivo'}` : (m.mensaje_padre || '')}
                                             </div>
                                         )}
-                                        <div
-                                            className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${
-                                                mine
-                                                    ? 'rounded-tr-sm bg-primary text-primary-foreground'
-                                                    : 'rounded-tl-sm border border-border bg-card text-foreground'
-                                            }`}
-                                        >
-                                            {m.eliminado ? (
+                                        {m.eliminado ? (
+                                            <div className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${mine ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm border border-border bg-card text-foreground'}`}>
                                                 <span className="inline-flex items-center gap-1 italic opacity-70"><IconBan size={16} /> Mensaje eliminado</span>
-                                            ) : m.tipo_mensaje === 'ARCHIVO' && m.archivo_ruta ? (
-                                                <a className="inline-flex items-center gap-2 font-semibold text-inherit no-underline" href={`${baseUrl}${m.archivo_ruta}`} target="_blank" rel="noreferrer" download={m.archivo_nombre || undefined}>
-                                                    <IconFile size={20} />
-                                                    <span>{m.archivo_nombre || 'Archivo'}{m.mensaje ? <><br />{m.mensaje}</> : null}</span>
-                                                </a>
-                                            ) : m.mensaje}
-                                        </div>
+                                            </div>
+                                        ) : m.tipo_mensaje === 'ARCHIVO' && m.archivo_ruta ? (
+                                            <Attachment size="sm" className="max-w-full">
+                                                <AttachmentTrigger asChild>
+                                                    <a href={`${baseUrl}${m.archivo_ruta}`} target="_blank" rel="noreferrer" download={m.archivo_nombre || undefined} aria-label={`Descargar ${m.archivo_nombre || 'archivo'}`} />
+                                                </AttachmentTrigger>
+                                                <AttachmentMedia>
+                                                    <IconFile />
+                                                </AttachmentMedia>
+                                                <AttachmentContent>
+                                                    <AttachmentTitle>{m.archivo_nombre || 'Archivo'}</AttachmentTitle>
+                                                    {m.mensaje && <AttachmentDescription>{m.mensaje}</AttachmentDescription>}
+                                                </AttachmentContent>
+                                            </Attachment>
+                                        ) : (
+                                            <div className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${mine ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm border border-border bg-card text-foreground'}`}>
+                                                {m.mensaje}
+                                            </div>
+                                        )}
                                         <div className="mt-0.5 ml-1 mr-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                                             <span>{timeLabel(m.fecha)}</span>
                                             {m.editado && !m.eliminado && <span>· editado</span>}

@@ -391,3 +391,38 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   background-color: var(--app-hover-bg) !important;
 }
 
+/* Utilidades usadas por components/ui/attachment.tsx (shadcn "Attachment") —
+   no vienen con Tailwind v4 ni con tw-animate-css, así que se agregan acá. */
+@layer utilities {
+  /* Título en estado uploading/processing: barrido de brillo en vez de un
+     spinner aparte, mismo lenguaje visual que el resto de shadcn/ui. */
+  .shimmer {
+    background: linear-gradient(90deg, var(--sc-muted-foreground) 0%, var(--sc-foreground) 50%, var(--sc-muted-foreground) 100%);
+    background-size: 200% 100%;
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    animation: shimmer-sweep 1.6s linear infinite;
+  }
+  @keyframes shimmer-sweep {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  /* AttachmentGroup: oculta la scrollbar del carril horizontal (queda con
+     scroll funcional pero sin la barra nativa, como el resto de carruseles). */
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Difumina los bordes izq/der del carril para insinuar que hay más
+     attachments fuera de vista, sin depender de sombras ni flechas. */
+  .scroll-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 12px, black calc(100% - 12px), transparent);
+  }
+}
+
