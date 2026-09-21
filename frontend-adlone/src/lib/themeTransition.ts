@@ -1,7 +1,7 @@
 // Animación de cambio de tema con la View Transitions API nativa: revela el
-// nuevo tema con un círculo que crece desde el punto donde se hizo click.
-// Adaptado de "Skiper 26" (skiper-ui.com, variante circle) a CSS/JS puro,
-// sin framer-motion ni next-themes (no usados en este proyecto).
+// nuevo tema con un rectángulo que crece de arriba hacia abajo.
+// Adaptado de "Skiper 26" (skiper-ui.com, variante rectangle/top-down) a
+// CSS/JS puro, sin framer-motion ni next-themes (no usados en este proyecto).
 const STYLE_ID = 'theme-transition-styles';
 
 function getStyleElement() {
@@ -14,18 +14,13 @@ function getStyleElement() {
     return styleEl;
 }
 
-export function playThemeTransition(x: number, y: number, toggle: () => void) {
+export function playThemeTransition(toggle: () => void) {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
     if (!document.startViewTransition || prefersReducedMotion) {
         toggle();
         return;
     }
-
-    const endRadius = Math.hypot(
-        Math.max(x, window.innerWidth - x),
-        Math.max(y, window.innerHeight - y)
-    );
 
     getStyleElement().textContent = `
         ::view-transition-group(root) {
@@ -42,10 +37,10 @@ export function playThemeTransition(x: number, y: number, toggle: () => void) {
         }
         @keyframes theme-reveal {
             from {
-                clip-path: circle(0px at ${x}px ${y}px);
+                clip-path: polygon(0% 0%, 100% 0%, 100% 0%, 0% 0%);
             }
             to {
-                clip-path: circle(${endRadius}px at ${x}px ${y}px);
+                clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 0% 100%);
             }
         }
     `;

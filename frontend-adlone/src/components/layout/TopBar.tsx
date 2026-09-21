@@ -114,7 +114,7 @@ export function ThemeToggle({ compact }: CompactProp) {
 
     return (
         <button
-            onClick={(e) => playThemeTransition(e.clientX, e.clientY, toggleMode)}
+            onClick={() => playThemeTransition(toggleMode)}
             aria-label="Cambiar tema"
             title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
             className={cn(
