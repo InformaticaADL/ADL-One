@@ -20,6 +20,7 @@ import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { AdminGcHub } from '../features/admin/pages/AdminGcHub';
 import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
+import { RevisionDuplicadosPage } from '../features/admin/pages/RevisionDuplicadosPage';
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
 import NewRequestPage from '../features/urs/pages/NewRequestPage';
 import UniversalInbox from '../features/urs/components/UniversalInbox';
@@ -111,13 +112,14 @@ const DashboardPage = () => {
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-urs') return <AdminUrsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-maestros') return <MaestrosHub onBack={() => setActiveSubmodule('informatica')} />;
+                if (activeSubmodule === 'admin-revision-duplicados') return <RevisionDuplicadosPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;

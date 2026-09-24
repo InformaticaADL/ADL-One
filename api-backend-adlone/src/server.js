@@ -40,6 +40,7 @@ import rutasPlanificadasRoutes from './routes/rutas-planificadas.routes.js';
 import rutasEjecucionesRoutes from './routes/rutas-ejecuciones.routes.js';
 import trackingRoutes from './routes/tracking.routes.js';
 import facturacionRoutes from './routes/facturacion.routes.js';
+import revisionDuplicadosRoutes from './routes/revision-duplicados.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -238,6 +239,7 @@ app.use('/api/rutas-planificadas', rutasPlanificadasRoutes);
 app.use('/api/rutas-ejecuciones', rutasEjecucionesRoutes);
 app.use('/api/tracking', trackingRoutes);
 app.use('/api/facturacion', facturacionRoutes);
+app.use('/api/revision-duplicados', revisionDuplicadosRoutes);
 
 // Avatares predefinidos del sistema: viven en el repo (van versionados en git),
 // por lo que SIEMPRE están disponibles y viajan solos al migrar de equipo —

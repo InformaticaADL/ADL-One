@@ -5,7 +5,8 @@ import {
     IconBell,
     IconMail,
     IconLayoutSidebar,
-    IconDatabase
+    IconDatabase,
+    IconGitMerge
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -61,6 +62,13 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             icon: <IconDatabase size={19} stroke={1.75} />,
             description: 'Gestionar tablas maestras utilizadas en crear ficha.',
             permission: 'INF_ACCESO' // Using INF_ACCESO for now or INF_MAESTROS if defined
+        },
+        {
+            id: 'admin-revision-duplicados',
+            label: 'Revisión de duplicados',
+            icon: <IconGitMerge size={19} stroke={1.75} />,
+            description: 'Empresas, servicios y centros posiblemente repetidos en la base nueva.',
+            permission: 'INF_ACCESO'
         },
     ];
 
