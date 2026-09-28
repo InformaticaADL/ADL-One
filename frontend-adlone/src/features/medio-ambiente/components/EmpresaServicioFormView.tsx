@@ -690,7 +690,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                             <TableRow key={item.id_empresaservicio}>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2 whitespace-nowrap">
-                                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#098f83]/10 text-[#098f83]">
+                                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#098f83]/10 text-accent-cyan">
                                                             <IconBuilding size={14} />
                                                         </div>
                                                         <span className="text-[13px] font-semibold">{item.nombre_empresaservicios}</span>

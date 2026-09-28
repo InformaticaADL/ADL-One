@@ -6,6 +6,7 @@ import {
     IconMoon,
     IconSun,
 } from '@tabler/icons-react';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
 import { useThemeStore } from '../../store/themeStore';
@@ -25,9 +26,9 @@ const STATIC_MODULE_LABELS: Record<string, string> = {
     notificaciones: 'Notificaciones',
 };
 
-// Campana de notificaciones — vive en el header del Sidebar (desktop) y en
-// el header compacto de móvil (MainLayout), por eso está en su propio
-// componente reutilizable en vez de duplicar el JSX en los dos lugares.
+// Campana de notificaciones — vive en la barra de ruta (RouteBreadcrumb),
+// tanto en escritorio como en móvil. La variante `compact` agranda el botón
+// para dedo en pantallas chicas.
 export function NotificationBell({ compact }: CompactProp) {
     const { notifications } = useNotificationStore();
     const unreadCount = notifications.filter((n) => !n.leido).length;
@@ -106,8 +107,7 @@ export function NotificationBell({ compact }: CompactProp) {
     );
 }
 
-// Toggle de tema claro/oscuro — vive a la derecha de la ruta (RouteBreadcrumb)
-// y en el header compacto de móvil.
+// Toggle de tema claro/oscuro — vive a la derecha de la ruta (RouteBreadcrumb).
 export function ThemeToggle({ compact }: CompactProp) {
     const { mode, toggleMode } = useThemeStore();
     const size = compact ? 19 : 17;
@@ -139,17 +139,6 @@ export function ThemeToggle({ compact }: CompactProp) {
                 )}
             />
         </button>
-    );
-}
-
-// Agrupa campana + tema para el header compacto de móvil (MainLayout), que
-// no tiene una franja de ruta separada donde poner el toggle de tema.
-export function UserActionsCluster({ compact }: CompactProp) {
-    return (
-        <div className="flex items-center gap-1">
-            <NotificationBell compact={compact} />
-            <ThemeToggle compact={compact} />
-        </div>
     );
 }
 
@@ -187,9 +176,16 @@ function useBreadcrumbLabels() {
 export function RouteBreadcrumb() {
     const { resetNavigation, pageBreadcrumb } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
+    // En celular esta barra es el único lugar con campana y tema (el header
+    // del logo ya no los repite), así que van en tamaño táctil y la barra se
+    // achica un poco para no comerse el alto útil del contenido.
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     return (
-        <div className="shadcn-scope flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6">
+        <div className={cn(
+            'shadcn-scope flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6',
+            isMobile ? 'h-14' : 'h-16'
+        )}>
             <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
                 <button type="button" onClick={() => resetNavigation()} className="flex shrink-0 items-center gap-1.5 hover:text-foreground">
                     <IconHome size={15} />
@@ -220,8 +216,8 @@ export function RouteBreadcrumb() {
                 })}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-                <NotificationBell />
-                <ThemeToggle />
+                <NotificationBell compact={isMobile} />
+                <ThemeToggle compact={isMobile} />
             </div>
         </div>
     );

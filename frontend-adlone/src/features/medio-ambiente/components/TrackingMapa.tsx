@@ -284,11 +284,15 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
     };
 
     return (
-        <div className="shadcn-scope relative h-full w-full">
+        // isolate: el selector de basemap de abajo usa z-[1000] para quedar
+        // sobre el mapa; sin stacking context propio ese 1000 compite en la
+        // raíz y también tapaba los overlays de la app (popover de
+        // notificaciones, diálogos), que viven en z-300.
+        <div className="shadcn-scope relative isolate h-full w-full">
             {/* Selector de fondo de mapa. onMouseDown/onWheel stopPropagation para
                 que interactuar con el control no arrastre ni haga zoom en el mapa. */}
             <div
-                className="absolute right-2 top-2 z-[1000] flex gap-0.5 rounded-lg bg-white/95 p-0.5 shadow-md"
+                className="absolute right-2 top-2 z-[1000] flex gap-0.5 rounded-lg border border-border bg-card/95 p-0.5 shadow-md"
                 onMouseDown={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
                 onWheel={(e) => e.stopPropagation()}
@@ -300,7 +304,7 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
                         onClick={() => cambiarBasemap(b.id)}
                         className={cn(
                             'rounded-md px-2 py-1 text-xs font-medium transition-colors',
-                            basemapId === b.id ? 'bg-primary text-primary-foreground' : 'text-gray-700 hover:bg-gray-100'
+                            basemapId === b.id ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
                         )}
                     >
                         {b.label}

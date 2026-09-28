@@ -56,13 +56,13 @@ function DrawerContent({ children }: { children: ReactNode }) {
             <SheetOverlay className={DRAWER_Z_INDEX} />
             <DialogPrimitive.Content
                 className={cn(
-                    'shadcn-scope fixed inset-y-0 right-0 flex h-full w-[380px] max-w-[380px] flex-col gap-4 overflow-y-auto border-l border-border bg-card p-6 shadow-lg transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-300',
+                    'shadcn-scope fixed inset-y-0 right-0 flex h-full w-full flex-col gap-4 overflow-y-auto border-border bg-card p-4 pt-5 shadow-lg sm:w-[380px] sm:max-w-[380px] sm:border-l sm:p-6 transition ease-in-out data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=closed]:duration-200 data-[state=open]:animate-in data-[state=open]:slide-in-from-right data-[state=open]:duration-300',
                     DRAWER_Z_INDEX
                 )}
             >
                 {children}
-                <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
-                    <IconX className="h-4 w-4" />
+                <DialogPrimitive.Close className="absolute right-3 top-3 rounded-sm p-1.5 sm:right-4 sm:top-4 sm:p-0 opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
+                    <IconX className="h-5 w-5 sm:h-4 sm:w-4" />
                     <span className="sr-only">Cerrar</span>
                 </DialogPrimitive.Close>
             </DialogPrimitive.Content>

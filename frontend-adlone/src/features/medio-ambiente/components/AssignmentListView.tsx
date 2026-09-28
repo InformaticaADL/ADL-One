@@ -250,7 +250,10 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     };
 
     return (
-        <div className="shadcn-scope">
+        // Columna de alto completo: encabezado y filtros quedan fijos arriba
+        // ([&>*]:shrink-0) y la tarjeta de la tabla toma el resto con su propio
+        // scroll. La tabla igual crece porque flex-1 le deja basis 0 y grow 1.
+        <div className="shadcn-scope flex h-full min-h-0 flex-col [&>*]:shrink-0">
             <PageHeader
                 title="Planificación y Asignación"
                 subtitle="Gestión de recursos y programación de muestreos"
@@ -310,15 +313,17 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 </div>
             </Card>
 
-            <Card className="p-0">
-                <div className="relative overflow-hidden rounded-xl">
+            <Card className="flex min-h-0 flex-1 flex-col p-0">
+                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
-                    <Table>
-                        <TableHeader>
+                    <Table containerClassName="min-h-0 flex-1">
+                        {/* Sticky a nivel de <th>: las columnas siguen visibles
+                            al scrollear el listado. */}
+                        <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card">
                             <TableRow className="hover:bg-transparent">
                                 <TableHead className="w-20">N° Ficha</TableHead>
                                 <TableHead className="text-center">Estado</TableHead>
@@ -406,7 +411,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                         </TableBody>
                     </Table>
                 </div>
-                <div className="px-4 py-3">
+                <div className="shrink-0 px-4 py-3">
                     <DataPagination page={currentPage} pageSize={itemsPerPage} total={sortedFichas.length} onPageChange={setCurrentPage} />
                 </div>
             </Card>

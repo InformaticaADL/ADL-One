@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { trackingService, type HistorialDia } from '../services/tracking.service';
 import { HistorialDiaReplayModal } from './HistorialDiaReplayModal';
 
@@ -101,6 +102,9 @@ export function HistorialJornadasTab() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [diaSeleccionado, setDiaSeleccionado] = useState<HistorialDia | null>(null);
+    // En celular la tabla de 6 columnas no cabe: se reemplaza por tarjetas
+    // apiladas y el tab entero scrollea (en escritorio solo scrollea la tabla).
+    const isMobile = useMediaQuery('(max-width: 768px)');
 
     // Guard de carrera: si el usuario cambia de fecha rápido (dos requests en
     // vuelo), sin esto podía ganar la que responde último, no la que se pidió
@@ -136,8 +140,8 @@ export function HistorialJornadasTab() {
     const resumenPorMuestreador = useMemo(() => calcularResumenPorMuestreador(diasFiltrados), [diasFiltrados]);
 
     return (
-        <div className="shadcn-scope flex h-full flex-col p-4">
-            <div className="mb-4 flex flex-wrap items-end gap-3">
+        <div className={cn('shadcn-scope flex h-full min-h-0 flex-col', isMobile ? 'overflow-y-auto p-3' : 'p-4')}>
+            <div className={cn('mb-4 gap-3', isMobile ? 'grid grid-cols-2' : 'flex flex-wrap items-end')}>
                 <Field label="Desde">
                     {/* DatePicker no soporta min/maxDate (a diferencia del antd.DatePicker
                         original) — se valida el rango al cambiar en vez de deshabilitar
@@ -145,7 +149,7 @@ export function HistorialJornadasTab() {
                     <DatePicker
                         value={fechaDesde}
                         onChange={(val) => { if (!val || !fechaHasta || val <= fechaHasta) setFechaDesde(val); }}
-                        className="w-[150px]"
+                        className="w-full sm:w-[150px]"
                     />
                 </Field>
                 <Field label="Hasta">
@@ -157,21 +161,21 @@ export function HistorialJornadasTab() {
                             if (val > HOY.format('YYYY-MM-DD')) return;
                             setFechaHasta(val);
                         }}
-                        className="w-[150px]"
+                        className="w-full sm:w-[150px]"
                     />
                 </Field>
-                <Field label="Muestreador">
+                <Field label="Muestreador" className={isMobile ? 'col-span-2' : undefined}>
                     <div className="relative">
                         <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder="Buscar por nombre..."
-                            className="w-[220px] pl-8"
+                            className="w-full pl-8 sm:w-[220px]"
                             value={busqueda}
                             onChange={(e) => setBusqueda(e.target.value)}
                         />
                     </div>
                 </Field>
-                <Button variant="outline" disabled={diasFiltrados.length === 0} onClick={() => exportarHistorialCSV(diasFiltrados)}>
+                <Button variant="outline" className={isMobile ? 'col-span-2' : undefined} disabled={diasFiltrados.length === 0} onClick={() => exportarHistorialCSV(diasFiltrados)}>
                     <IconFileSpreadsheet size={14} />
                     Exportar CSV
                 </Button>
@@ -182,10 +186,10 @@ export function HistorialJornadasTab() {
                     <p className="mb-2 text-[11px] font-semibold uppercase text-muted-foreground">
                         Resumen del período por muestreador
                     </p>
-                    <div className="grid grid-cols-[repeat(auto-fit,minmax(240px,1fr))] gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(240px,1fr))]">
                         {resumenPorMuestreador.map((r) => (
-                            <div key={r.id_muestreador} className="flex flex-nowrap items-center justify-between gap-2">
-                                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-foreground">{r.nombre_muestreador}</span>
+                            <div key={r.id_muestreador} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+                                <span className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] text-foreground">{r.nombre_muestreador}</span>
                                 <div className="flex flex-nowrap gap-1.5">
                                     <Badge variant="default">{formatearMinutos(r.minutos)}</Badge>
                                     <Badge variant="secondary">{r.km.toFixed(1)} km</Badge>
@@ -217,7 +221,40 @@ export function HistorialJornadasTab() {
                 </div>
             )}
 
-            {!loading && !error && diasFiltrados.length > 0 && (
+            {!loading && !error && diasFiltrados.length > 0 && isMobile && (
+                <div className="flex flex-col gap-2 pb-3">
+                    {diasFiltrados.map((d) => {
+                        const sinNingunaCompletada = d.fichas_total > 0 && d.fichas_completadas === 0;
+                        const completa = d.fichas_total > 0 && d.fichas_completadas === d.fichas_total;
+                        return (
+                            <button
+                                key={`${d.id_muestreador}|${d.dia}`}
+                                type="button"
+                                onClick={() => setDiaSeleccionado(d)}
+                                className={cn(
+                                    'w-full rounded-lg border border-border bg-card p-3 text-left',
+                                    sinNingunaCompletada && 'bg-destructive/5'
+                                )}
+                            >
+                                <div className="mb-1.5 flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <span className="block text-sm font-semibold text-foreground">{d.nombre_muestreador}</span>
+                                        <span className="text-xs text-muted-foreground">{dayjs(d.dia).format('DD/MM/YYYY')}</span>
+                                    </div>
+                                    <Badge variant={sinNingunaCompletada ? 'destructive' : completa ? 'success' : 'default'} className="shrink-0">
+                                        {d.fichas_completadas}/{d.fichas_total} fichas
+                                    </Badge>
+                                </div>
+                                <span className="text-xs text-muted-foreground">
+                                    {formatearMinutos(d.horas_trabajadas_minutos)} · {d.km_recorridos.toFixed(1)} km · {d.num_jornadas > 1 ? `${d.num_jornadas} tramos` : '1 tramo'}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
+            {!loading && !error && diasFiltrados.length > 0 && !isMobile && (
                 <Card className="flex flex-1 flex-col overflow-hidden p-0">
                     <div className="flex-1 overflow-auto">
                         <Table>
@@ -271,9 +308,9 @@ export function HistorialJornadasTab() {
     );
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
     return (
-        <div>
+        <div className={className}>
             <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
             {children}
         </div>

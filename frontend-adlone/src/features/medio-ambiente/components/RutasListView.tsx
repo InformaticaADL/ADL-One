@@ -542,7 +542,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
             <TableCell className="text-xs text-muted-foreground">#{r.id_ruta_planificada}</TableCell>
             <TableCell>
                 <div className="flex items-center gap-1.5">
-                    <IconMapPin size={13} className="text-[#4dabf7]" />
+                    <IconMapPin size={13} className="text-accent-blue" />
                     <span className="text-[13px] font-semibold">{r.nombre_ruta}</span>
                 </div>
                 {r.descripcion && (
@@ -573,31 +573,31 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
             <TableCell className="text-right">
                 <div className="flex flex-nowrap justify-end gap-1">
                     {hasPermission('MA_RUTA_VER_DETALLE') && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-[#7048e8]" title="Ver detalle de la ruta" onClick={() => handleViewRuta(r)}>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-violet" title="Ver detalle de la ruta" onClick={() => handleViewRuta(r)}>
                             <IconEye size={15} />
                         </Button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[#0c8599]" title="Historial de ejecuciones" onClick={() => handleViewHistorial(r)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-cyan" title="Historial de ejecuciones" onClick={() => handleViewHistorial(r)}>
                         <IconHistory size={15} />
                     </Button>
                     {r.estado !== 'CANCELADA' && (
                         <Button
                             size="sm"
                             variant="ghost"
-                            className="h-7 text-[#2f9e44] hover:text-[#2f9e44]"
+                            className="h-7 text-accent-green hover:text-accent-green"
                             title="Nueva ejecución"
                             onClick={() => setEjecucionTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta })}
                         >
                             <IconCalendarEvent size={13} /> Ejecutar
                         </Button>
                     )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[#1c7ed6]" title="Editar ruta" onClick={() => onEditarRuta ? onEditarRuta(r.id_ruta_planificada) : showToast({ type: 'info', message: 'Edición próximamente' })}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-blue" title="Editar ruta" onClick={() => onEditarRuta ? onEditarRuta(r.id_ruta_planificada) : showToast({ type: 'info', message: 'Edición próximamente' })}>
                         <IconEdit size={15} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[#0c8599]" title={r.id_grupo ? 'Cambiar grupo' : 'Añadir a grupo'} onClick={() => handleOpenGrupo(r)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-cyan" title={r.id_grupo ? 'Cambiar grupo' : 'Añadir a grupo'} onClick={() => handleOpenGrupo(r)}>
                         <IconFolder size={15} />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-[#e8590c]" title="Clonar ruta" onClick={() => handleOpenClonar(r)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-orange" title="Clonar ruta" onClick={() => handleOpenClonar(r)}>
                         <IconCopy size={15} />
                     </Button>
                     {hasPermission('MA_RUTA_ELIMINAR') && (
@@ -719,7 +719,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="ml-auto h-7 text-[#2f9e44] hover:text-[#2f9e44] disabled:text-muted-foreground"
+                                            className="ml-auto h-7 text-accent-green hover:text-accent-green disabled:text-muted-foreground"
                                             disabled={group.rutas.length === 0}
                                             title={group.rutas.length === 0
                                                 ? 'Este grupo no tiene rutas asociadas'
@@ -738,7 +738,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                         <Button
                                             variant="ghost"
                                             size="sm"
-                                            className="ml-auto h-7 text-[#0c8599] hover:text-[#0c8599]"
+                                            className="ml-auto h-7 text-accent-cyan hover:text-accent-cyan"
                                             title="Asignar estas rutas a un grupo"
                                             onClick={e => {
                                                 e.stopPropagation();
@@ -797,7 +797,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 <DialogContent className="flex max-h-[90vh] w-[92vw] max-w-[1100px] flex-col gap-0 overflow-hidden p-0">
                     <DialogHeader className="border-b border-border px-4 py-3">
                         <DialogTitle className="flex items-center gap-2">
-                            <IconRoute size={20} className="text-[#7048e8]" />
+                            <IconRoute size={20} className="text-accent-violet" />
                             {viewTarget?.nombre_ruta || 'Detalle de Ruta'}
                             {viewTarget?.estado && (
                                 <Badge variant={getEstadoVariant(getEstadoDinamico(viewTarget))}>
@@ -917,7 +917,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 <DialogContent className="max-w-[420px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <IconFolder size={20} className="text-[#0c8599]" />
+                            <IconFolder size={20} className="text-accent-cyan" />
                             {grupoTarget?.id_grupo ? 'Cambiar grupo' : 'Añadir a grupo'}
                         </DialogTitle>
                     </DialogHeader>
@@ -953,7 +953,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 <DialogContent className="max-w-[460px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <IconCopy size={20} className="text-[#e8590c]" />
+                            <IconCopy size={20} className="text-accent-orange" />
                             Clonar Ruta
                         </DialogTitle>
                     </DialogHeader>
@@ -1001,7 +1001,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                             </div>
                         )}
                         {!clonarLoadingFichas && clonarFichasAgotadas.length === 0 && clonarTarget && (
-                            <div className="flex items-center gap-2 text-[#0c8599]">
+                            <div className="flex items-center gap-2 text-accent-cyan">
                                 <IconCheck size={14} />
                                 <span className="text-xs">Todas las fichas tienen correlativos disponibles.</span>
                             </div>
@@ -1074,7 +1074,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                         >
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
-                                    <IconPlayerPlay size={18} className="text-[#2f9e44]" />
+                                    <IconPlayerPlay size={18} className="text-accent-green" />
                                     Ejecutar grupo: {ejecucionGrupoTarget.nombre}
                                     <Badge variant="outline">{ejecucionGrupoTarget.rutas.length} rutas</Badge>
                                 </DialogTitle>
@@ -1236,7 +1236,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 <DialogContent className="max-h-[85vh] max-w-[640px] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <IconHistory size={20} className="text-[#0c8599]" />
+                            <IconHistory size={20} className="text-accent-cyan" />
                             Historial de Ejecuciones
                             {histTarget && <Badge variant="outline">{histTarget.nombre}</Badge>}
                         </DialogTitle>
@@ -1286,7 +1286,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 <DialogContent className="max-h-[85vh] max-w-[560px] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
-                            <IconFolderPlus size={20} className="text-[#1c7ed6]" />
+                            <IconFolderPlus size={20} className="text-accent-blue" />
                             Gestión de Grupos
                         </DialogTitle>
                     </DialogHeader>
@@ -1333,14 +1333,14 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                     <div className="flex flex-nowrap justify-between">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <IconFolder size={14} className="text-[#4dabf7]" />
+                                                <IconFolder size={14} className="text-accent-blue" />
                                                 <span className="text-[13px] font-semibold">{g.nombre_grupo}</span>
                                                 <Badge variant="outline">{g.cantidad_rutas || 0} rutas</Badge>
                                             </div>
                                             {g.descripcion && <span className="text-xs text-muted-foreground">{g.descripcion}</span>}
                                         </div>
                                         <div className="flex gap-1">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-[#1c7ed6]" onClick={() => { setEditandoGrupo(g); setNuevoGrupoNombre(g.nombre_grupo); setNuevoGrupoDesc(g.descripcion || ''); }}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-blue" onClick={() => { setEditandoGrupo(g); setNuevoGrupoNombre(g.nombre_grupo); setNuevoGrupoDesc(g.descripcion || ''); }}>
                                                 <IconEdit size={14} />
                                             </Button>
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => handleDeleteGrupo(g.id_grupo)}>

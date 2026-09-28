@@ -43,24 +43,44 @@ const STEP_LABELS = ['Seleccionar casos', 'Agrupar y configurar', 'Confirmar', '
 
 function StepHeader({ step }: { step: number }) {
     return (
-        <div className="mb-6 flex items-center">
-            {STEP_LABELS.map((label, i) => (
-                <div key={label} className="flex flex-1 items-center last:flex-none">
-                    <div className="flex items-center gap-2">
-                        <span
-                            className={cn(
-                                'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                                i < step ? 'bg-primary text-primary-foreground' : i === step ? 'border-2 border-primary text-primary' : 'border border-border text-muted-foreground'
-                            )}
-                        >
-                            {i < step ? <IconCheck size={14} /> : i + 1}
-                        </span>
-                        <span className={cn('text-sm', i === step ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{label}</span>
-                    </div>
-                    {i < STEP_LABELS.length - 1 && <div className={cn('mx-3 h-px flex-1', i < step ? 'bg-primary' : 'bg-border')} />}
+        <>
+            {/* Teléfono: los 4 rótulos más los conectores no caben en una fila
+                (se apretaban hasta salirse), así que se muestra el paso actual
+                y una barra de avance. Desde md se usa el stepper completo. */}
+            <div className="mb-6 md:hidden">
+                <div className="mb-2 flex items-baseline justify-between gap-3">
+                    <span className="text-sm font-semibold text-foreground">{STEP_LABELS[step]}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                        Paso {step + 1} de {STEP_LABELS.length}
+                    </span>
                 </div>
-            ))}
-        </div>
+                <div className="h-1 w-full overflow-hidden rounded-full bg-border">
+                    <div
+                        className="h-full rounded-full bg-primary transition-all duration-300"
+                        style={{ width: `${((step + 1) / STEP_LABELS.length) * 100}%` }}
+                    />
+                </div>
+            </div>
+
+            <div className="mb-6 hidden items-center md:flex">
+                {STEP_LABELS.map((label, i) => (
+                    <div key={label} className="flex flex-1 items-center last:flex-none">
+                        <div className="flex items-center gap-2">
+                            <span
+                                className={cn(
+                                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+                                    i < step ? 'bg-primary text-primary-foreground' : i === step ? 'border-2 border-primary text-primary' : 'border border-border text-muted-foreground'
+                                )}
+                            >
+                                {i < step ? <IconCheck size={14} /> : i + 1}
+                            </span>
+                            <span className={cn('text-sm', i === step ? 'font-semibold text-foreground' : 'text-muted-foreground')}>{label}</span>
+                        </div>
+                        {i < STEP_LABELS.length - 1 && <div className={cn('mx-3 h-px flex-1', i < step ? 'bg-primary' : 'bg-border')} />}
+                    </div>
+                ))}
+            </div>
+        </>
     );
 }
 
@@ -286,8 +306,8 @@ const FacturacionProcesar: React.FC = () => {
     };
 
     return (
-        <div className="shadcn-scope w-full p-6 pb-12">
-            <h2 className="mb-1 text-[22px] font-bold tracking-tight text-foreground">Procesar Facturación</h2>
+        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:pb-12">
+            <h2 className="mb-1 text-lg font-bold tracking-tight text-foreground md:text-[22px]">Procesar Facturación</h2>
             <p className="mb-6 text-sm text-muted-foreground">Selecciona casos con informe cerrado, agrúpalos y genera las pre-facturas.</p>
 
             <StepHeader step={step} />
@@ -300,7 +320,7 @@ const FacturacionProcesar: React.FC = () => {
                             onValueChange={onEmpresaFiltroChange}
                             placeholder="Cliente"
                             searchPlaceholder="Buscar cliente..."
-                            className="w-60"
+                            className="w-full sm:w-60"
                             options={[{ value: '', label: 'Todos los clientes' }, ...empresas.map((e) => ({ value: String(e.id), label: e.nombre }))]}
                         />
                         <Combobox
@@ -308,13 +328,13 @@ const FacturacionProcesar: React.FC = () => {
                             onValueChange={setIdCentroFiltro}
                             placeholder="Centro"
                             searchPlaceholder="Buscar centro..."
-                            className="w-52"
+                            className="w-full sm:w-52"
                             disabled={!idEmpresaServicioFiltro}
                             options={[{ value: '', label: 'Todos los centros' }, ...centros.map((c) => ({ value: String(c.id), label: c.nombre }))]}
                         />
-                        <DatePicker value={fechaDesde} onChange={setFechaDesde} placeholder="Informe desde" className="w-44" />
-                        <DatePicker value={fechaHasta} onChange={setFechaHasta} placeholder="Informe hasta" className="w-44" />
-                        <Button disabled={loading} onClick={buscarCasos}>
+                        <DatePicker value={fechaDesde} onChange={setFechaDesde} placeholder="Informe desde" className="w-full sm:w-44" />
+                        <DatePicker value={fechaHasta} onChange={setFechaHasta} placeholder="Informe hasta" className="w-full sm:w-44" />
+                        <Button disabled={loading} onClick={buscarCasos} className="w-full sm:w-auto">
                             {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconSearch size={15} />}
                             Buscar casos facturables
                         </Button>
@@ -367,11 +387,11 @@ const FacturacionProcesar: React.FC = () => {
                             <div className="mt-3">
                                 <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={casos.length} onPageChange={setPage} />
                             </div>
-                            <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
+                            <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="text-sm text-muted-foreground">
                                     <b className="tabular-nums text-foreground">{selectedIds.length}</b> caso(s) seleccionado(s) · <b className="tabular-nums text-foreground">{totalUfSeleccionado.toFixed(2)}</b> UF
                                 </div>
-                                <Button disabled={selectedIds.length === 0} onClick={irAConfigurar}>
+                                <Button disabled={selectedIds.length === 0} onClick={irAConfigurar} className="w-full sm:w-auto">
                                     Continuar <IconArrowRight size={15} />
                                 </Button>
                             </div>
@@ -409,7 +429,7 @@ const FacturacionProcesar: React.FC = () => {
 
                     <p className="mb-2.5 text-sm font-semibold text-foreground">Datos adicionales</p>
                     <div className="mb-5 flex flex-col gap-2.5">
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <Input
                                 placeholder="Forma de pago"
                                 value={formaPago}
@@ -421,12 +441,12 @@ const FacturacionProcesar: React.FC = () => {
                                 onValueChange={setFormaPago}
                                 placeholder={cargandoConfig ? 'Cargando...' : 'Elegir'}
                                 searchPlaceholder="Buscar forma de pago..."
-                                className="w-44"
+                                className="w-full sm:w-44"
                                 disabled={cargandoConfig}
                                 options={formasPago.map((f) => ({ value: f.nombre_formapago, label: f.nombre_formapago }))}
                             />
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <Input
                                 placeholder="Glosa"
                                 value={glosa}
@@ -438,7 +458,7 @@ const FacturacionProcesar: React.FC = () => {
                                 onValueChange={setGlosa}
                                 placeholder="Elegir"
                                 searchPlaceholder="Buscar glosa..."
-                                className="w-44"
+                                className="w-full sm:w-44"
                                 options={glosas.map((g) => ({ value: g.nombre_glosa, label: g.nombre_glosa }))}
                             />
                         </div>
@@ -453,7 +473,7 @@ const FacturacionProcesar: React.FC = () => {
 
                     <div className="flex items-center justify-between border-t border-border pt-4">
                         <Button variant="outline" onClick={() => setStep(0)}><IconArrowLeft size={15} /> Atrás</Button>
-                        <div className="flex gap-2">
+                        <div className="flex flex-col gap-2 sm:flex-row">
                             <Button variant="outline" disabled={previsualizando} onClick={previsualizarPdf}>
                                 {previsualizando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconEye size={15} />}
                                 Vista previa PDF
@@ -482,9 +502,9 @@ const FacturacionProcesar: React.FC = () => {
                         );
                     })}
 
-                    <div className="mt-4 flex items-center justify-between border-t border-border pt-4">
-                        <Button variant="outline" onClick={() => setStep(1)}><IconArrowLeft size={15} /> Atrás</Button>
-                        <Button disabled={creando} onClick={confirmar}>
+                    <div className="mt-4 flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <Button variant="outline" onClick={() => setStep(1)} className="w-full sm:w-auto"><IconArrowLeft size={15} /> Atrás</Button>
+                        <Button disabled={creando} onClick={confirmar} className="w-full sm:w-auto">
                             {creando ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconCircleCheck size={15} />}
                             Confirmar y crear pre-facturas
                         </Button>
@@ -508,8 +528,8 @@ const FacturacionProcesar: React.FC = () => {
                             return (
                                 <Card key={r.id_prefactura}>
                                     <CardContent className="p-4">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex flex-wrap items-center gap-2">
                                                 <IconFileInvoice size={18} className="text-primary" />
                                                 <span className="font-semibold text-foreground">PF #{r.numero_id}</span>
                                                 <Badge variant="outline">{r.agrupacion_valor || 'Sin agrupación'}</Badge>

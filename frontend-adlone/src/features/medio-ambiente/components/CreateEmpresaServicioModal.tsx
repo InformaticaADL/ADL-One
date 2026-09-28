@@ -75,10 +75,10 @@ export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProp
             <DialogContent className="sm:max-w-[600px]">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(9,143,131,0.12)] text-[#098f83]">
+                        <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[rgba(9,143,131,0.12)] text-accent-cyan">
                             <IconBuilding size={20} />
                         </span>
-                        <span className="text-lg font-extrabold text-[#0b7285]">Nueva Empresa de Servicio</span>
+                        <span className="text-lg font-extrabold text-accent-cyan">Nueva Empresa de Servicio</span>
                     </DialogTitle>
                 </DialogHeader>
 

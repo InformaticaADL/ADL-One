@@ -97,14 +97,14 @@ const FacturacionEstadoCuenta: React.FC = () => {
     };
 
     return (
-        <div className="shadcn-scope w-full p-7 pb-14">
+        <div className="shadcn-scope w-full p-4 pb-10 md:p-7 md:pb-14">
             <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="m-0 text-[21px] font-semibold tracking-tight text-foreground">Estado de cuenta</h2>
+                    <h2 className="m-0 text-lg font-semibold tracking-tight text-foreground md:text-[21px]">Estado de cuenta</h2>
                     <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">Facturas emitidas por cliente y su antigüedad desde la emisión.</p>
                 </div>
-                <div className="flex items-center gap-2">
-                    <div className="w-80">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                    <div className="w-full sm:w-80">
                         <Combobox
                             value={idEmpresaSel !== undefined ? String(idEmpresaSel) : undefined}
                             onValueChange={onEmpresaChange}

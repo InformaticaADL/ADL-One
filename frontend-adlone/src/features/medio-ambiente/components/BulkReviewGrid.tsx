@@ -119,7 +119,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                         <span className="text-xs font-semibold">Ubicaciones Google Maps:</span>
                         {linkSummary.loading > 0 && <span className="text-xs text-muted-foreground">Verificando {linkSummary.loading}…</span>}
                         {linkSummary.ok > 0 && <span className="text-xs text-success">✓ {linkSummary.ok} detectada{linkSummary.ok !== 1 ? 's' : ''}</span>}
-                        {linkSummary.warn > 0 && <span className="text-xs text-[#e8590c]">⚠ {linkSummary.warn} sin coordenadas</span>}
+                        {linkSummary.warn > 0 && <span className="text-xs text-accent-orange">⚠ {linkSummary.warn} sin coordenadas</span>}
                         {linkSummary.invalid > 0 && <span className="text-xs text-destructive">✗ {linkSummary.invalid} inválido{linkSummary.invalid !== 1 ? 's' : ''}</span>}
                         {linkSummary.warn > 0 && <span className="text-xs text-muted-foreground">(se guardarán sin coordenadas de ruta)</span>}
                     </div>
@@ -277,7 +277,7 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                         <>
                             <DialogHeader className="border-b border-border px-6 py-4">
                                 <DialogTitle className="flex items-center gap-2">
-                                    <IconEye size={20} className="text-[#1c7ed6]" />
+                                    <IconEye size={20} className="text-accent-blue" />
                                     Vista Previa: {previewItem?.idMuestra || previewItem?.filename}
                                 </DialogTitle>
                             </DialogHeader>
@@ -519,7 +519,7 @@ function PreviewAnalisis({ previewItem }: { previewItem: any }) {
                                 </TableCell>
                                 <TableCell>
                                     {row.__costoOperativo
-                                        ? <span className={cn('text-xs font-semibold', row.costoUF > 0 ? 'text-[#e8a600]' : 'text-muted-foreground')}>Costo Operativo</span>
+                                        ? <span className={cn('text-xs font-semibold', row.costoUF > 0 ? 'text-accent-orange' : 'text-muted-foreground')}>Costo Operativo</span>
                                         : <span className={cn('text-xs font-semibold', !row._matched && 'text-destructive')} title={row.nombre_original}>{row.nombre_original}</span>}
                                 </TableCell>
                                 <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : <span title={row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-'}>{row.nombre_normativa || row._normativaNombre || previewItem._normativa || '-'}</span>}</TableCell>
@@ -531,7 +531,7 @@ function PreviewAnalisis({ previewItem }: { previewItem: any }) {
                                 <TableCell className="text-xs">{row.__costoOperativo ? <span className="text-muted-foreground">—</span> : row.laboratorio_texto}</TableCell>
                                 <TableCell className="text-right">
                                     {row.__costoOperativo ? (
-                                        <span className={cn('text-xs font-semibold', row.costoUF > 0 ? 'text-[#e8a600]' : 'text-muted-foreground')}>{row.costoUF > 0 ? row.costoUF.toFixed(2) : 'No aplica'}</span>
+                                        <span className={cn('text-xs font-semibold', row.costoUF > 0 ? 'text-accent-orange' : 'text-muted-foreground')}>{row.costoUF > 0 ? row.costoUF.toFixed(2) : 'No aplica'}</span>
                                     ) : (
                                         <span className={cn('text-xs font-semibold', row.uf_individual > 0 ? 'text-success' : 'text-muted-foreground')}>
                                             {row.uf_individual > 0 ? parseFloat(row.uf_individual).toFixed(2) : '-'}

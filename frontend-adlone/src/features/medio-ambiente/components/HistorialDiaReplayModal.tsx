@@ -75,7 +75,7 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
 
     return (
         <Dialog open={opened} onOpenChange={(next) => { if (!next) onClose(); }}>
-            <DialogContent className="shadcn-scope max-w-[860px]">
+            <DialogContent className="shadcn-scope max-h-[92dvh] w-[calc(100vw-1.5rem)] max-w-[860px] overflow-y-auto p-4 sm:w-full sm:p-6">
                 <DialogHeader>
                     <DialogTitle>{nombreMuestreador}</DialogTitle>
                     <span className="text-xs text-muted-foreground">{dia ? dayjs(dia).format('DD/MM/YYYY') : ''}</span>
@@ -100,8 +100,8 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
                 )}
 
                 {!loading && !error && fichas.length > 0 && (
-                    <div className="flex h-[420px] gap-4">
-                        <div className="flex-[2] overflow-hidden rounded-lg">
+                    <div className="flex flex-col gap-4 md:h-[420px] md:flex-row">
+                        <div className="h-[260px] shrink-0 overflow-hidden rounded-lg md:h-auto md:flex-[2]">
                             <MapContainer center={puntos[0]} zoom={13} style={{ height: '100%', width: '100%' }}>
                                 <BaseTiles />
                                 <AjustarBounds puntos={puntos} />
@@ -123,7 +123,7 @@ export function HistorialDiaReplayModal({ opened, onClose, idMuestreador, nombre
                                 ))}
                             </MapContainer>
                         </div>
-                        <div className="flex-1 overflow-y-auto">
+                        <div className="md:flex-1 md:overflow-y-auto">
                             <Timeline
                                 items={fichas.map((f, idx) => ({
                                     key: `${f.id_agendamam}-${f.tipo}`,

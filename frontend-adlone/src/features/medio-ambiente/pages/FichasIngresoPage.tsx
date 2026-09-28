@@ -259,8 +259,17 @@ export const FichasIngresoPage = () => {
         }
     };
 
+    // Los listados llevan su propio scroll interno (encabezado y filtros fijos,
+    // ver isFullHeightModule en MainLayout), así que este contenedor pasa a ser
+    // una columna de alto completo. El resto de los modos scrollea como página.
+    const scrollPropio = ['list_fichas', 'list_assign'].includes(fichasMode);
+
     return (
-        <div className="shadcn-scope w-full p-4 md:p-6">
+        <div
+            className={`shadcn-scope w-full p-4 md:p-6 ${
+                scrollPropio ? 'flex h-full min-h-0 flex-col' : ''
+            }`}
+        >
             <CatalogosProvider>
                 {renderContent()}
             </CatalogosProvider>

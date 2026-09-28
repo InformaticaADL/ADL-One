@@ -215,11 +215,11 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             <div className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                        <h3 className="m-0 text-xl font-semibold text-[#1864ab]">Revisión de Datos</h3>
+                        <h3 className="m-0 text-xl font-semibold text-accent-blue">Revisión de Datos</h3>
                         <span className="block text-[13px] text-muted-foreground">
                             Verifique que el sistema haya mapeado correctamente los catálogos antes de crear las fichas.
                         </span>
-                        <span className="mt-1 block text-[13px] font-semibold text-[#1864ab]">
+                        <span className="mt-1 block text-[13px] font-semibold text-accent-blue">
                             {parsedItems.length} fichas detectadas en el Excel.
                         </span>
                     </div>

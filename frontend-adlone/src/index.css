@@ -42,6 +42,12 @@
     font-family: var(--font-sans, 'Inter', system-ui, sans-serif);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
+    /* Color base explícito, no heredado del <body>: los componentes shadcn
+       que no declaran color propio (celdas de tabla, Input, Button variant
+       outline/ghost) dependían de lo que hubiera heredado, y bastaba un
+       `body { color: … }` de CSS legacy para dejarlos en texto oscuro sobre
+       fondo oscuro. Va en @layer base, así cualquier text-* lo pisa. */
+    color: var(--sc-foreground);
   }
   .shadcn-scope button,
   .shadcn-scope input,
@@ -117,6 +123,18 @@
   --color-sidebar: var(--sc-sidebar);
   --color-sidebar-foreground: var(--sc-sidebar-foreground);
   --color-sidebar-border: var(--sc-sidebar-border);
+  /* Acentos de categoría como utilidades Tailwind: text-accent-blue,
+     bg-accent-violet/10, border-accent-green… Reemplazan a los hex sueltos
+     (text-[#1864ab], text-[#862e9c]) que no cambiaban con el tema y dejaban
+     texto oscuro sobre superficies oscuras. Ver --app-accent-* más abajo. */
+  --color-accent-blue: var(--app-accent-blue);
+  --color-accent-cyan: var(--app-accent-cyan);
+  --color-accent-teal: var(--app-accent-teal);
+  --color-accent-indigo: var(--app-accent-indigo);
+  --color-accent-violet: var(--app-accent-violet);
+  --color-accent-orange: var(--app-accent-orange);
+  --color-accent-red: var(--app-accent-red);
+  --color-accent-green: var(--app-accent-green);
   --radius-sm: calc(var(--sc-radius) - 6px);
   --radius-md: calc(var(--sc-radius) - 3px);
   --radius-lg: var(--sc-radius);
@@ -209,6 +227,11 @@
   --app-text: #1a1a1a;
   --app-text-secondary: #868e96;
   --app-hover-bg: rgba(0, 0, 0, 0.04);
+  /* Degradado de la cabecera del detalle de ficha. Estaba fijo en un style
+     inline con tonos claros, así que en modo oscuro la tarjeta quedaba blanca:
+     el texto claro encima casi no se leía y el botón "Información" desaparecía
+     al pasar el mouse (hover translúcido sobre fondo blanco). */
+  --app-header-gradient: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   --app-glass-bg: rgba(255, 255, 255, 0.6);
   --app-glass-bg-strong: rgba(255, 255, 255, 0.92);
   --app-accent-bg: #e6f4ff;
@@ -222,6 +245,30 @@
   --app-warning-bg: #fff7e6;
   --app-danger: #cf1322;
   --app-danger-bg: #fff1f0;
+
+  /* Acentos de categoría (tarjetas de evento, tiles de opción, encabezados de
+     sección). No son estado: solo distinguen ítems entre sí. Existen como
+     token porque los hex fijos que se usaban antes (#1c7ed6, #4c6ef5, #9c36b5…)
+     son tonos de 600 pensados para fondo blanco: sobre las superficies oscuras
+     del tema dark quedaban texto oscuro sobre fondo oscuro. En dark cada uno
+     salta a su variante clara (~300) y el *-bg sube de 10% a 16% de opacidad
+     para que el chip siga leyéndose sobre #1c1c1c. */
+  --app-accent-blue: #1c7ed6;
+  --app-accent-blue-bg: rgba(28, 126, 214, 0.1);
+  --app-accent-cyan: #0c8599;
+  --app-accent-cyan-bg: rgba(12, 133, 153, 0.1);
+  --app-accent-teal: #0ca678;
+  --app-accent-teal-bg: rgba(12, 166, 120, 0.1);
+  --app-accent-indigo: #4c6ef5;
+  --app-accent-indigo-bg: rgba(76, 110, 245, 0.1);
+  --app-accent-violet: #9c36b5;
+  --app-accent-violet-bg: rgba(156, 54, 181, 0.1);
+  --app-accent-orange: #e8590c;
+  --app-accent-orange-bg: rgba(232, 89, 12, 0.1);
+  --app-accent-red: #e03131;
+  --app-accent-red-bg: rgba(224, 49, 49, 0.1);
+  --app-accent-green: #2f9e44;
+  --app-accent-green-bg: rgba(47, 158, 68, 0.1);
 
   /* Fuente monoespaciada para valores numéricos (montos, correlativos,
      códigos) — mismo tratamiento que usa Facturación para sus KPIs. */
@@ -237,6 +284,7 @@
   --app-text: #e8e8e8;
   --app-text-secondary: #8c8c8c;
   --app-hover-bg: rgba(255, 255, 255, 0.06);
+  --app-header-gradient: linear-gradient(135deg, #1f1f1f 0%, #171717 100%);
   --app-glass-bg: rgba(20, 20, 20, 0.6);
   --app-glass-bg-strong: rgba(28, 28, 28, 0.92);
   --app-accent-bg: rgba(22, 119, 255, 0.25);
@@ -248,6 +296,23 @@
   --app-warning-bg: rgba(255, 169, 64, 0.16);
   --app-danger: #ff7875;
   --app-danger-bg: rgba(255, 120, 117, 0.16);
+
+  --app-accent-blue: #74c0fc;
+  --app-accent-blue-bg: rgba(116, 192, 252, 0.16);
+  --app-accent-cyan: #66d9e8;
+  --app-accent-cyan-bg: rgba(102, 217, 232, 0.16);
+  --app-accent-teal: #63e6be;
+  --app-accent-teal-bg: rgba(99, 230, 190, 0.16);
+  --app-accent-indigo: #91a7ff;
+  --app-accent-indigo-bg: rgba(145, 167, 255, 0.16);
+  --app-accent-violet: #e599f7;
+  --app-accent-violet-bg: rgba(229, 153, 247, 0.16);
+  --app-accent-orange: #ffa94d;
+  --app-accent-orange-bg: rgba(255, 169, 77, 0.16);
+  --app-accent-red: #ff8787;
+  --app-accent-red-bg: rgba(255, 135, 135, 0.16);
+  --app-accent-green: #69db7c;
+  --app-accent-green-bg: rgba(105, 219, 124, 0.16);
 }
 
 /* En @layer base (no sin capa): un "*" sin capa le gana a TODOS los
@@ -391,6 +456,17 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   background-color: var(--app-hover-bg) !important;
 }
 
+/* Leaflet reparte z-index 400–700 entre sus panes y 1000 entre sus controles.
+   El contenedor del mapa no crea stacking context propio (position:relative
+   sin z-index), así que esos valores compiten en la raíz contra los overlays
+   de la app —popover, dialog, sheet, dropdown, todos en z-300— y el mapa
+   terminaba tapándolos (ej.: el popover de notificaciones abría "debajo" del
+   mapa en Hoy en Vivo). isolation:isolate encierra toda la escala interna de
+   Leaflet dentro del mapa, sin tener que subirle el z-index a cada overlay. */
+.leaflet-container {
+  isolation: isolate;
+}
+
 /* Utilidades usadas por components/ui/attachment.tsx (shadcn "Attachment") —
    no vienen con Tailwind v4 ni con tw-animate-css, así que se agregan acá. */
 @layer utilities {
@@ -417,6 +493,42 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   }
   .scrollbar-none::-webkit-scrollbar {
     display: none;
+  }
+
+  /* Despliegue / contracción para vistas que se reemplazan en el mismo
+     espacio (listado <-> formulario). El fill 'backwards' del despliegue evita
+     dejar transform/clip-path aplicados al terminar: si quedaran, crearían un
+     containing block y romperían los encabezados sticky y el scroll interno. */
+  .adl-unfold {
+    transform-origin: top center;
+    animation: adl-unfold 0.36s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  .adl-fold {
+    transform-origin: top center;
+    animation: adl-fold 0.22s cubic-bezier(0.4, 0, 1, 1) forwards;
+    pointer-events: none;
+  }
+  .adl-fade-in {
+    animation: adl-fade-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  @keyframes adl-unfold {
+    from { opacity: 0; transform: translateY(-10px) scaleY(0.96); clip-path: inset(0 0 100% 0); }
+    to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+  }
+  @keyframes adl-fold {
+    from { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+    to { opacity: 0; transform: translateY(-10px) scaleY(0.96); clip-path: inset(0 0 100% 0); }
+  }
+  @keyframes adl-fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .adl-unfold,
+    .adl-fold,
+    .adl-fade-in {
+      animation: none !important;
+    }
   }
 
   /* Difumina los bordes izq/der del carril para insinuar que hay más

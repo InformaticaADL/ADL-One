@@ -22,7 +22,7 @@ export function AvisoNuevaJornada() {
     return (
         <div
             key={avisoJornadaIniciada.id}
-            className="shadcn-scope absolute right-4 top-4 z-[1000] flex max-w-[320px] items-center gap-2 rounded-[10px] border border-border bg-card p-3 shadow-lg"
+            className="shadcn-scope absolute left-3 right-3 top-3 z-[1000] flex items-center sm:left-auto sm:right-4 sm:top-4 sm:max-w-[320px] gap-2 rounded-[10px] border border-border bg-card p-3 shadow-lg"
         >
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-success/15 text-success">
                 <IconPlayerPlay size={14} />

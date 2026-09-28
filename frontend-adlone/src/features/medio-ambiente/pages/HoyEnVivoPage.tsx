@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconActivity, IconAlertTriangle, IconFlagCheck, IconPlayerPause } from '@tabler/icons-react';
+import { IconActivity, IconAlertTriangle, IconFlagCheck, IconList, IconMap, IconPlayerPause } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { StatCard } from '../../../components/common/StatCard';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -16,6 +17,13 @@ import { AvisoNuevaJornada } from '../components/AvisoNuevaJornada';
 export function HoyEnVivoPage() {
     const { token } = useAuth();
     const [vista, setVista] = useState<'hoy' | 'historial'>('hoy');
+    // En celular no caben lista y mapa lado a lado: se muestra uno a la vez
+    // con un alternador. El mapa se desmonta al pasar a "Lista" (en vez de
+    // ocultarlo con display:none) porque Leaflet no recalcula su tamaño al
+    // volver a ser visible y quedaría con tiles grises a medio pintar;
+    // CentradorMapa lo vuelve a encuadrar al montarse.
+    const isMobile = useMediaQuery('(max-width: 768px)');
+    const [panelMovil, setPanelMovil] = useState<'lista' | 'mapa'>('lista');
     const {
         jornadas,
         loading,
@@ -65,10 +73,11 @@ export function HoyEnVivoPage() {
 
     return (
         <div className="shadcn-scope flex h-full min-h-0 flex-col">
-            <div className="border-b border-border px-4 pt-3">
+            <div className={cn('border-b border-border pt-3', isMobile ? 'px-3' : 'px-4')}>
                 <PageHeader
                     title="Hoy en Vivo"
                     subtitle="Seguimiento en tiempo real de muestreadores en terreno."
+                    centerOnMobile
                     rightSection={
                         <div className="flex gap-1 rounded-lg bg-muted p-1">
                             {(
@@ -93,12 +102,40 @@ export function HoyEnVivoPage() {
                     }
                 />
 
+                {/* En celular los 4 KPIs van siempre en una sola fila (flex-nowrap
+                    + basis-0 en cada tarjeta): apilados se comían toda la pantalla
+                    y empujaban el mapa/lista fuera de vista. En escritorio siguen
+                    pudiendo envolverse. */}
                 {vista === 'hoy' && !loading && !error && (
-                    <div className="mb-4 flex flex-wrap gap-2">
-                        <StatCard icon={<IconActivity size={18} />} label="En terreno" value={stats.enRuta} tone="primary" />
-                        <StatCard icon={<IconAlertTriangle size={18} />} label="Sin señal" value={stats.sinSenal} tone="warning" />
-                        <StatCard icon={<IconPlayerPause size={18} />} label="En pausa" value={stats.pausadas} tone="muted" />
-                        <StatCard icon={<IconFlagCheck size={18} />} label="Finalizados" value={stats.finalizadas} tone="success" />
+                    <div className={cn(isMobile ? 'mb-3 flex flex-nowrap gap-1.5' : 'mb-4 flex flex-wrap gap-2')}>
+                        <StatCard compact={isMobile} icon={<IconActivity size={isMobile ? 15 : 18} />} label="En terreno" value={stats.enRuta} tone="primary" />
+                        <StatCard compact={isMobile} icon={<IconAlertTriangle size={isMobile ? 15 : 18} />} label="Sin señal" value={stats.sinSenal} tone="warning" />
+                        <StatCard compact={isMobile} icon={<IconPlayerPause size={isMobile ? 15 : 18} />} label="En pausa" value={stats.pausadas} tone="muted" />
+                        <StatCard compact={isMobile} icon={<IconFlagCheck size={isMobile ? 15 : 18} />} label="Finalizados" value={stats.finalizadas} tone="success" />
+                    </div>
+                )}
+
+                {vista === 'hoy' && isMobile && !loading && !error && (
+                    <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+                        {(
+                            [
+                                { label: 'Lista', value: 'lista' as const, icon: <IconList size={15} /> },
+                                { label: 'Mapa', value: 'mapa' as const, icon: <IconMap size={15} /> },
+                            ]
+                        ).map((opt) => (
+                            <button
+                                key={opt.value}
+                                type="button"
+                                onClick={() => setPanelMovil(opt.value)}
+                                className={cn(
+                                    'flex items-center justify-center gap-1.5 rounded-md py-1.5 text-sm font-medium transition-colors',
+                                    panelMovil === opt.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
+                                )}
+                            >
+                                {opt.icon}
+                                {opt.label}
+                            </button>
+                        ))}
                     </div>
                 )}
             </div>
@@ -116,20 +153,28 @@ export function HoyEnVivoPage() {
             ) : (
                 <>
                     <AlertasSinSenal jornadas={jornadas} />
-                    <div className="flex min-h-0 flex-1">
-                        <FlotaPanel
-                            jornadas={jornadas}
-                            selectedMuestreadorId={selectedMuestreadorId}
-                            onSelectMuestreador={selectMuestreador}
-                        />
-                        <div className="relative flex-1">
-                            <TrackingMapa
+                    <div className="relative flex min-h-0 flex-1">
+                        {/* En celular el aviso va a nivel del contenedor (no dentro del
+                            mapa) para que se vea también mientras se mira la lista. */}
+                        {isMobile && <AvisoNuevaJornada />}
+                        {(!isMobile || panelMovil === 'lista') && (
+                            <FlotaPanel
                                 jornadas={jornadas}
                                 selectedMuestreadorId={selectedMuestreadorId}
                                 onSelectMuestreador={selectMuestreador}
+                                fullWidth={isMobile}
                             />
-                            <AvisoNuevaJornada />
-                        </div>
+                        )}
+                        {(!isMobile || panelMovil === 'mapa') && (
+                            <div className="relative flex-1">
+                                <TrackingMapa
+                                    jornadas={jornadas}
+                                    selectedMuestreadorId={selectedMuestreadorId}
+                                    onSelectMuestreador={selectMuestreador}
+                                />
+                                {!isMobile && <AvisoNuevaJornada />}
+                            </div>
+                        )}
                         <DetalleJornadaDrawer
                             jornada={jornadaSeleccionada}
                             opened={selectedMuestreadorId !== null}

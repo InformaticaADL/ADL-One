@@ -80,10 +80,10 @@ const FacturacionDashboard: React.FC<Props> = ({ onNavigate }) => {
     const totalAlertas = (data.alertas?.oc_demoradas?.length || 0) + (data.alertas?.proximos_a_renovar?.length || 0) + (data.alertas?.uf_desactualizada ? 1 : 0);
 
     return (
-        <div className="shadcn-scope w-full p-6 pb-12 md:px-8">
+        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:px-8 md:pb-12">
             <div className="mb-[22px] flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="m-0 text-[22px] font-bold tracking-tight text-foreground">Dashboard de Facturación</h2>
+                    <h2 className="m-0 text-lg font-bold tracking-tight text-foreground md:text-[22px]">Dashboard de Facturación</h2>
                     <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">Medio Ambiente · en vivo</p>
                 </div>
                 <Button variant="outline" onClick={cargar}>

@@ -731,7 +731,7 @@ const FacturacionCotizaciones: React.FC = () => {
 
     if (creando) {
         return (
-            <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
+            <div className="shadcn-scope w-full bg-background px-4 pb-10 pt-4 md:px-8 md:pb-14 md:pt-7">
                 <PageHeader
                     title="Armar cotización"
                     onBack={cerrarCreacion}
@@ -985,7 +985,7 @@ const FacturacionCotizaciones: React.FC = () => {
 
                     {/* Vista previa en vivo — misma estructura y colores que el PDF
                         que genera el backend (Propuesta Técnico Económica). */}
-                    <div className="sticky top-5 w-full overflow-y-auto rounded-md border border-[#e3e3e3] bg-white px-7 pb-8 pt-7 shadow-[0_2px_12px_rgba(0,0,0,0.06)]" style={{ maxHeight: 'calc(100vh - 150px)' }}>
+                    <div className="static w-full overflow-y-auto rounded-md border border-[#e3e3e3] bg-white px-4 pb-6 pt-5 shadow-[0_2px_12px_rgba(0,0,0,0.06)] md:px-7 md:pb-8 md:pt-7 lg:sticky lg:top-5 lg:max-h-[calc(100vh_-_150px)]">
                         {/* zoom (no transform): encoge el documento completo -incluido el alto
                             que ocupa- para que se vea "alejado", en vez de un scale() que deja
                             hueco vacío abajo porque el contenedor no sabe que el contenido
@@ -1208,7 +1208,7 @@ const FacturacionCotizaciones: React.FC = () => {
         ];
 
         return (
-            <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
+            <div className="shadcn-scope w-full bg-background px-4 pb-10 pt-4 md:px-8 md:pb-14 md:pt-7">
                 <div className="mb-7 flex flex-wrap items-center gap-3.5 border-b border-border pb-5">
                     <Button variant="outline" onClick={volverALista}><IconArrowLeft size={16} /> Volver a la bandeja</Button>
                     <div className="min-w-0 flex-1">
@@ -1441,10 +1441,7 @@ const FacturacionCotizaciones: React.FC = () => {
                         </div>
 
                         {/* Columna derecha: comunicación y actividad (fija) */}
-                        <div
-                            className="sticky top-5 flex flex-col overflow-hidden rounded-xl border border-border bg-card"
-                            style={{ height: 'calc(100vh - 190px)', minHeight: 460 }}
-                        >
+                        <div className="static flex h-[70vh] min-h-[380px] flex-col overflow-hidden rounded-xl border border-border bg-card lg:sticky lg:top-5 lg:h-[calc(100vh_-_190px)] lg:min-h-[460px]">
                             <Tabs value={rightTab} onValueChange={setRightTab} className="flex h-full flex-col">
                                 <TabsList className="mx-3 mt-3 shrink-0 justify-center">
                                     {seleccion.origen === 'PORTAL' && (
@@ -1583,13 +1580,13 @@ const FacturacionCotizaciones: React.FC = () => {
     const bandejaPaginada = bandeja.slice((bandejaPage - 1) * BANDEJA_PAGE_SIZE, bandejaPage * BANDEJA_PAGE_SIZE);
 
     return (
-        <div className="shadcn-scope w-full bg-background px-8 pb-14 pt-7">
+        <div className="shadcn-scope w-full bg-background px-4 pb-10 pt-4 md:px-8 md:pb-14 md:pt-7">
             <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h2 className="text-xl font-semibold tracking-tight text-foreground">Cotizaciones</h2>
                     <p className="mt-1 text-sm text-muted-foreground">Solicitudes de clientes y cotizaciones armadas — todo en una sola bandeja.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
                     <Button variant="outline" onClick={cargarBandeja}><IconRefresh size={16} /> Actualizar</Button>
                     <Button onClick={() => abrirCreacion()}><IconPlus size={16} /> Nueva cotización</Button>
                 </div>
@@ -1597,7 +1594,7 @@ const FacturacionCotizaciones: React.FC = () => {
 
             <div className="mb-5 flex flex-wrap items-center gap-4">
                 <Combobox
-                    className="w-[220px]"
+                    className="w-full sm:w-[220px]"
                     placeholder="Filtrar por estado"
                     searchPlaceholder="Buscar estado..."
                     value={filtroEstado ?? ''}

@@ -11,6 +11,11 @@ interface PageHeaderProps {
     onBack?: () => void;
     breadcrumbItems?: { label: string; href?: string; onClick?: () => void }[];
     rightSection?: React.ReactNode;
+    /** En celular centra título, subtítulo y acciones (y achica el margen
+        inferior) en vez de alinearlos a la izquierda. Para páginas como "Hoy
+        en Vivo", donde debajo del header va una fila de KPIs centrados y el
+        texto pegado al borde izquierdo se veía descolgado. */
+    centerOnMobile?: boolean;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -18,7 +23,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     subtitle,
     onBack,
     breadcrumbItems,
-    rightSection
+    rightSection,
+    centerOnMobile = false
 }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const shouldStack = useMediaQuery('(max-width: 900px)');
@@ -47,8 +53,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         ? breadcrumbItems[breadcrumbItems.length - 2]?.onClick
         : undefined);
 
+    const centered = centerOnMobile && isMobile;
+
     return (
-        <div className="mb-5 mt-1">
+        <div className={cn('mt-1', centered ? 'mb-3' : 'mb-5')}>
             {backAction && (
                 <Button variant="link" size="sm" onClick={backAction} className="mb-1 h-auto p-0 font-medium">
                     <IconArrowLeft size={14} />
@@ -56,8 +64,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 </Button>
             )}
 
-            <div className={cn('flex w-full gap-4', shouldStack ? 'flex-col items-stretch' : 'flex-row items-start justify-between')}>
-                <div className="min-w-0">
+            <div className={cn(
+                'flex w-full',
+                centered ? 'gap-3' : 'gap-4',
+                shouldStack ? 'flex-col items-stretch' : 'flex-row items-start justify-between'
+            )}>
+                <div className={cn('min-w-0', centered && 'text-center')}>
                     <h2 className={cn('m-0 font-bold leading-tight text-foreground', isMobile ? 'text-xl' : 'text-2xl')}>
                         {title}
                     </h2>
@@ -68,7 +80,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     )}
                 </div>
 
-                <div className={cn('flex shrink-0 flex-wrap items-center gap-2', shouldStack ? 'justify-start' : 'justify-end')}>
+                <div className={cn(
+                    'flex shrink-0 flex-wrap items-center gap-2',
+                    centered ? 'justify-center' : shouldStack ? 'justify-start' : 'justify-end'
+                )}>
                     {rightSection}
                     <Button variant="ghost" size="sm" className="bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary" onClick={() => setHelpCenterOpen(true)}>
                         <IconInfoCircle size={14} stroke={2} />

@@ -18,7 +18,7 @@ import { cn } from '@/lib/utils';
 import { CommandMenu } from './CommandMenu';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
@@ -174,19 +174,62 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         const isOpen = isCollapsed ? false : (forceOpen || openedModule === id);
         const isActiveParent = activeModule === id;
 
+        const parentClass = cn(
+            'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
+            isCollapsed ? 'w-full justify-center' : 'w-full',
+            isActiveParent && !activeSubmodule ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
+        );
+        const parentIcon = (
+            <Icon size={18} stroke={1.75} className={cn('shrink-0', isActiveParent && !activeSubmodule ? 'text-primary' : 'text-muted-foreground')} />
+        );
+
+        // Contraído: no hay espacio para el árbol, así que las subopciones se
+        // muestran en un menú flotante a la derecha del ícono.
+        if (isCollapsed && hasSubItems) {
+            return (
+                <div key={id}>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <button type="button" title={label} className={parentClass}>
+                                {parentIcon}
+                            </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56">
+                            <DropdownMenuLabel>{label}</DropdownMenuLabel>
+                            <DropdownMenuItem onSelect={() => { setActiveModule(id); setActiveSubmodule(''); onNavigate?.(); }}>
+                                Inicio de {label}
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            {filteredLinks.map((link) => {
+                                const active = activeSubmodule === link.id;
+                                return (
+                                    <DropdownMenuItem
+                                        key={link.id}
+                                        className={active ? 'bg-primary/10 font-medium text-primary' : undefined}
+                                        onSelect={() => {
+                                            if (activeModule !== id) setActiveModule(id);
+                                            handleLeafClick(link.id);
+                                        }}
+                                    >
+                                        {link.label}
+                                    </DropdownMenuItem>
+                                );
+                            })}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+            );
+        }
+
         return (
             <div key={id}>
                 <button
                     type="button"
                     title={isCollapsed ? label : undefined}
                     onClick={() => handleToggleGroup(id, hasSubItems)}
-                    className={cn(
-                        'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-                        isCollapsed ? 'w-full justify-center' : 'w-full',
-                        isActiveParent && !activeSubmodule ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-                    )}
+                    className={parentClass}
                 >
-                    <Icon size={18} stroke={1.75} className={cn('shrink-0', isActiveParent && !activeSubmodule ? 'text-primary' : 'text-muted-foreground')} />
+                    {parentIcon}
                     {!isCollapsed && <span className="flex-1 truncate text-left">{label}</span>}
                     {!isCollapsed && hasSubItems && (
                         <IconChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />

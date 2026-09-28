@@ -311,10 +311,10 @@ const FacturacionPrefacturas: React.FC = () => {
     const seleccionables = data.filter((p) => EMITIBLES.includes(p.estado));
 
     return (
-        <div className="shadcn-scope w-full p-6 pb-12">
+        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:pb-12">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="text-[22px] font-bold tracking-tight text-foreground">Pre-Facturas</h2>
+                    <h2 className="text-lg font-bold tracking-tight text-foreground md:text-[22px]">Pre-Facturas</h2>
                     <p className="mt-0.5 text-sm text-muted-foreground">Listado, detalle, PDF, órdenes de compra y emisión.</p>
                 </div>
                 <Button variant="outline" onClick={cargar}><IconRefresh size={16} /> Actualizar</Button>
@@ -326,7 +326,7 @@ const FacturacionPrefacturas: React.FC = () => {
                     onValueChange={(v) => { setEstadoFiltro(v || undefined); setPage(1); }}
                     placeholder="Filtrar por estado"
                     searchPlaceholder="Buscar estado..."
-                    className="w-56"
+                    className="w-full sm:w-56"
                     options={[{ value: '', label: 'Todos los estados' }, ...Object.entries(ESTADO_LABEL).map(([value, label]) => ({ value, label }))]}
                 />
             </div>
@@ -496,7 +496,7 @@ const FacturacionPrefacturas: React.FC = () => {
                         </div>
                     ) : (
                         <>
-                            <div className="mb-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                            <div className="mb-4 grid grid-cols-1 gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
                                 <div className="col-span-2">
                                     <div className="text-xs text-muted-foreground">Cliente</div>
                                     <div className="text-foreground">{detalle.nombre_empresaservicios}</div>
@@ -736,7 +736,7 @@ const FacturacionPrefacturas: React.FC = () => {
                         <FieldLabel label="Facturado por">
                             <Input value={editarForm.facturado_por || ''} onChange={(e) => setEditarForm({ ...editarForm, facturado_por: e.target.value })} />
                         </FieldLabel>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <FieldLabel label="Descuento (UF)">
                                 <Input type="number" min={0} step={0.01} value={editarForm.descuento_uf ?? 0} onChange={(e) => setEditarForm({ ...editarForm, descuento_uf: Number(e.target.value) })} />
                             </FieldLabel>

@@ -84,7 +84,7 @@ const TabUf: React.FC = () => {
 
     return (
         <>
-            <div className="mb-5 flex flex-wrap items-end gap-6">
+            <div className="mb-5 flex flex-wrap [&>*]:w-full sm:[&>*]:w-auto items-end gap-6">
                 <Card className="min-w-[180px]">
                     <CardContent className="p-4">
                         <p className="mb-1 flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -103,10 +103,10 @@ const TabUf: React.FC = () => {
             </div>
 
             <p className="mb-2.5 mt-4 text-xs font-bold uppercase tracking-wide text-muted-foreground">Registrar / corregir manualmente</p>
-            <div className="mb-4 flex flex-wrap items-end gap-2.5">
+            <div className="mb-4 flex flex-wrap [&>*]:w-full sm:[&>*]:w-auto items-end gap-2.5">
                 <div className="flex flex-col gap-1.5">
                     <Label className="text-xs font-medium text-muted-foreground">Fecha</Label>
-                    <DatePicker value={fecha} onChange={(v) => v && setFecha(v)} className="w-[160px]" />
+                    <DatePicker value={fecha} onChange={(v) => v && setFecha(v)} className="w-full sm:w-[160px]" />
                 </div>
                 <div className="flex flex-col gap-1.5">
                     <Label className="text-xs font-medium text-muted-foreground">Valor UF</Label>
@@ -116,7 +116,7 @@ const TabUf: React.FC = () => {
                         step={0.01}
                         value={valor}
                         onChange={(e) => setValor(e.target.value)}
-                        className="w-40"
+                        className="w-full sm:w-40"
                     />
                 </div>
                 <Button disabled={guardando} onClick={registrarManual}>
@@ -322,7 +322,7 @@ const TabClientes: React.FC = () => {
                     <Field label="Email de facturación">
                         <Input placeholder="facturacion@cliente.cl" value={values.emailFacturacion || ''} onChange={(e) => setField('emailFacturacion', e.target.value)} />
                     </Field>
-                    <div className="flex flex-wrap items-center gap-6">
+                    <div className="flex flex-wrap [&>*]:w-full sm:[&>*]:w-auto items-center gap-6">
                         <div className="flex items-center gap-2">
                             <Switch checked={!!values.requiereOc} onCheckedChange={(v) => setField('requiereOc', v)} id="requiereOc" />
                             <Label htmlFor="requiereOc" className="text-sm font-normal">Requiere Orden de Compra</Label>
@@ -331,7 +331,7 @@ const TabClientes: React.FC = () => {
                             <Switch checked={!!values.requiereHes} onCheckedChange={(v) => setField('requiereHes', v)} id="requiereHes" />
                             <Label htmlFor="requiereHes" className="text-sm font-normal">Requiere HES</Label>
                         </div>
-                        <Field label="Alertar OC demorada (días)" className="w-40">
+                        <Field label="Alertar OC demorada (días)" className="w-full sm:w-40">
                             <Input type="number" min={1} value={values.diasAlertaOc ?? ''} onChange={(e) => setField('diasAlertaOc', e.target.value ? Number(e.target.value) : undefined)} />
                         </Field>
                     </div>
@@ -341,19 +341,19 @@ const TabClientes: React.FC = () => {
 
                     <div className="border-t border-border pt-4">
                         <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Datos SII</p>
-                        <div className="flex flex-wrap gap-3">
-                            <Field label="RUT" className="w-[150px]">
+                        <div className="flex flex-wrap gap-3 [&>*]:w-full sm:[&>*]:w-auto">
+                            <Field label="RUT" className="w-full sm:w-[150px]">
                                 <Input placeholder="76.123.456-7" value={values.rut || ''} onChange={(e) => setField('rut', e.target.value)} />
                             </Field>
-                            <Field label="Razón social" className="w-[260px]">
+                            <Field label="Razón social" className="w-full sm:w-[260px]">
                                 <Input value={values.razonSocial || ''} onChange={(e) => setField('razonSocial', e.target.value)} />
                             </Field>
                         </div>
-                        <div className="mt-3 flex flex-wrap gap-3">
-                            <Field label="Dirección" className="w-[260px]">
+                        <div className="mt-3 flex flex-wrap gap-3 [&>*]:w-full sm:[&>*]:w-auto">
+                            <Field label="Dirección" className="w-full sm:w-[260px]">
                                 <Input value={values.direccion || ''} onChange={(e) => setField('direccion', e.target.value)} />
                             </Field>
-                            <Field label="Giro" className="w-[200px]">
+                            <Field label="Giro" className="w-full sm:w-[200px]">
                                 <Input value={values.giro || ''} onChange={(e) => setField('giro', e.target.value)} />
                             </Field>
                         </div>
@@ -376,17 +376,17 @@ const TabClientes: React.FC = () => {
                                         Al emitir, el sistema busca automáticamente al cliente en el Sistema de Ventas por su RUT. Completa estos campos solo si quieres forzar un ID específico, o si la emisión te avisa que no encontró al cliente por RUT.
                                     </p>
                                 </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <Field label="ID cliente" className="w-[120px]"><Input type="number" value={values.idCliVentas ?? ''} onChange={(e) => setField('idCliVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
-                                    <Field label="ID dirección" className="w-[120px]"><Input type="number" value={values.idDirVentas ?? ''} onChange={(e) => setField('idDirVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
-                                    <Field label="ID giro" className="w-[120px]"><Input type="number" value={values.idGirVentas ?? ''} onChange={(e) => setField('idGirVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
-                                    <Field label="ID forma pago" className="w-[120px]"><Input type="number" value={values.idFormapagoVentas ?? ''} onChange={(e) => setField('idFormapagoVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                <div className="flex flex-wrap gap-3 [&>*]:w-full sm:[&>*]:w-auto">
+                                    <Field label="ID cliente" className="w-full sm:w-[120px]"><Input type="number" value={values.idCliVentas ?? ''} onChange={(e) => setField('idCliVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="ID dirección" className="w-full sm:w-[120px]"><Input type="number" value={values.idDirVentas ?? ''} onChange={(e) => setField('idDirVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="ID giro" className="w-full sm:w-[120px]"><Input type="number" value={values.idGirVentas ?? ''} onChange={(e) => setField('idGirVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="ID forma pago" className="w-full sm:w-[120px]"><Input type="number" value={values.idFormapagoVentas ?? ''} onChange={(e) => setField('idFormapagoVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
                                 </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <Field label="ID ciudad" className="w-[120px]"><Input type="number" value={values.idCiuVentas ?? ''} onChange={(e) => setField('idCiuVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
-                                    <Field label="Nombre ciudad" className="w-40"><Input value={values.nomCiuVentas || ''} onChange={(e) => setField('nomCiuVentas', e.target.value)} /></Field>
-                                    <Field label="ID comuna" className="w-[120px]"><Input type="number" value={values.idComVentas ?? ''} onChange={(e) => setField('idComVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
-                                    <Field label="Nombre comuna" className="w-40"><Input value={values.nomComVentas || ''} onChange={(e) => setField('nomComVentas', e.target.value)} /></Field>
+                                <div className="flex flex-wrap gap-3 [&>*]:w-full sm:[&>*]:w-auto">
+                                    <Field label="ID ciudad" className="w-full sm:w-[120px]"><Input type="number" value={values.idCiuVentas ?? ''} onChange={(e) => setField('idCiuVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="Nombre ciudad" className="w-full sm:w-40"><Input value={values.nomCiuVentas || ''} onChange={(e) => setField('nomCiuVentas', e.target.value)} /></Field>
+                                    <Field label="ID comuna" className="w-full sm:w-[120px]"><Input type="number" value={values.idComVentas ?? ''} onChange={(e) => setField('idComVentas', e.target.value ? Number(e.target.value) : undefined)} /></Field>
+                                    <Field label="Nombre comuna" className="w-full sm:w-40"><Input value={values.nomComVentas || ''} onChange={(e) => setField('nomComVentas', e.target.value)} /></Field>
                                 </div>
                             </div>
                         )}
@@ -409,9 +409,9 @@ const TabClientes: React.FC = () => {
                                         Estos códigos son propios de ADL WEB GO (WebClientesV2) y no se pueden resolver automáticamente desde ADL ONE — hay que coordinarlos con ese equipo antes de usar "Publicar en portal". El flujo normal de facturación (procesar, pre-factura, OC, emisión) no los necesita.
                                     </p>
                                 </div>
-                                <div className="flex flex-wrap gap-3">
-                                    <Field label="Código cliente portal" className="w-[180px]"><Input value={values.portalClienteCodigo || ''} onChange={(e) => setField('portalClienteCodigo', e.target.value)} /></Field>
-                                    <Field label="Código sede portal" className="w-[180px]"><Input value={values.portalSedeCodigo || ''} onChange={(e) => setField('portalSedeCodigo', e.target.value)} /></Field>
+                                <div className="flex flex-wrap gap-3 [&>*]:w-full sm:[&>*]:w-auto">
+                                    <Field label="Código cliente portal" className="w-full sm:w-[180px]"><Input value={values.portalClienteCodigo || ''} onChange={(e) => setField('portalClienteCodigo', e.target.value)} /></Field>
+                                    <Field label="Código sede portal" className="w-full sm:w-[180px]"><Input value={values.portalSedeCodigo || ''} onChange={(e) => setField('portalSedeCodigo', e.target.value)} /></Field>
                                 </div>
                             </div>
                         )}
@@ -438,8 +438,8 @@ function Field({ label, className, children }: { label: string; className?: stri
 
 const FacturacionConfiguracion: React.FC = () => {
     return (
-        <div className="shadcn-scope w-full p-6 pb-12">
-            <h2 className="mb-1 text-[22px] font-bold tracking-tight text-foreground">Configuración</h2>
+        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:pb-12">
+            <h2 className="mb-1 text-lg font-bold tracking-tight text-foreground md:text-[22px]">Configuración</h2>
             <p className="mb-5 text-sm text-muted-foreground">Valor UF y datos de facturación por cliente.</p>
             <Tabs defaultValue="uf">
                 <TabsList className="mb-4">

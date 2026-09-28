@@ -3,9 +3,17 @@ import { ArrowDown, ArrowUp, ChevronsUpDown } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
-  ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+interface TableProps extends React.HTMLAttributes<HTMLTableElement> {
+  /** Clases para el div que envuelve la tabla y hace de contenedor de scroll.
+      Sirve para acotarle el alto (ej. "min-h-0 flex-1" dentro de una página a
+      pantalla completa): así la tabla scrollea sola, con el encabezado sticky,
+      en vez de estirar y scrollear la página entera. */
+  containerClassName?: string;
+}
+
+const Table = React.forwardRef<HTMLTableElement, TableProps>(
+  ({ className, containerClassName, ...props }, ref) => (
+    <div className={cn('relative w-full overflow-auto', containerClassName)}>
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )

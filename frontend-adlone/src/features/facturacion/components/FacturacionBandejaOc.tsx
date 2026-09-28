@@ -193,15 +193,15 @@ const FacturacionBandejaOc: React.FC = () => {
     };
 
     return (
-        <div className="shadcn-scope w-full p-7 pb-14">
+        <div className="shadcn-scope w-full p-4 pb-10 md:p-7 md:pb-14">
             <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h2 className="m-0 text-[21px] font-semibold tracking-tight text-foreground">Bandeja de Órdenes de Compra</h2>
+                    <h2 className="m-0 text-lg font-semibold tracking-tight text-foreground md:text-[21px]">Bandeja de Órdenes de Compra</h2>
                     <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
                         OCs pendientes de confirmar. Adjunta el PDF que llegó por correo y confirma con un click.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex w-full items-center gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
                     <Button variant="outline" onClick={cargar}>
                         <IconRefresh size={16} /> Actualizar
                     </Button>

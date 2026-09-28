@@ -188,7 +188,7 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
             <DialogContent className="max-h-[85vh] max-w-[840px] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <IconCalendarEvent size={20} className="text-[#2f9e44]" />
+                        <IconCalendarEvent size={20} className="text-accent-green" />
                         Nueva Ejecución
                         <Badge variant="outline">{rutaNombre}</Badge>
                     </DialogTitle>

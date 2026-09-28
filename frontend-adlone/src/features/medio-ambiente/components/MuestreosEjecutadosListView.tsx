@@ -4,6 +4,7 @@ import { fichaService } from '../services/ficha.service';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useNavStore } from '../../../store/navStore';
+import { useAuth } from '../../../contexts/AuthContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 import { Button } from '@/components/ui/button';
@@ -13,12 +14,17 @@ import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 import {
     IconSearch,
     IconEraser,
     IconFilter,
     IconExternalLink,
 } from '@tabler/icons-react';
+
+// Permisos que habilitan abrir el detalle de ejecución: los comparten la fila
+// completa (clic en cualquier parte) y el botón de la columna Acciones.
+const PERMISOS_DETALLE = ['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO'];
 
 // El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
 // como si fueran UTC. Usamos los componentes UTC para evitar que el navegador
@@ -47,6 +53,13 @@ interface GroupedMuestreo {
 
 export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) => {
     const { setSelectedFicha, setActiveSubmodule, activeModule } = useNavStore();
+    const { hasPermission } = useAuth();
+    const puedeVerDetalle = hasPermission(PERMISOS_DETALLE);
+
+    const abrirDetalle = (m: any) => {
+        setSelectedFicha(m.id_fichaingresoservicio || m.correlativo_ficha, m.frecuencia_correlativo);
+        setActiveSubmodule('ma-ficha-detalle');
+    };
     const { showToast } = useToast();
     const [muestreos, setMuestreos] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -319,7 +332,14 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                             return (
                                                 <TableRow
                                                     key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}
-                                                    className={isRealizado ? 'bg-success/5 hover:bg-success/10' : undefined}
+                                                    // Clic en cualquier parte de la fila: mismo destino
+                                                    // que el botón "Ver Detalle Ejecución".
+                                                    onClick={puedeVerDetalle ? () => abrirDetalle(m) : undefined}
+                                                    title={puedeVerDetalle ? 'Ver detalle de ejecución' : undefined}
+                                                    className={cn(
+                                                        isRealizado && 'bg-success/5 hover:bg-success/10',
+                                                        puedeVerDetalle && 'cursor-pointer'
+                                                    )}
                                                 >
                                                     {showCaso && (
                                                         <TableCell>
@@ -353,16 +373,13 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                         ) : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
                                                     </TableCell>
                                                     <TableCell className="text-center">
-                                                        <ProtectedContent permission={['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO']}>
+                                                        <ProtectedContent permission={PERMISOS_DETALLE}>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="icon"
                                                                 className="rounded-full text-primary hover:bg-primary/10 hover:text-primary"
                                                                 title="Ver Detalle Ejecución"
-                                                                onClick={() => {
-                                                                    setSelectedFicha(m.id_fichaingresoservicio || m.correlativo_ficha, m.frecuencia_correlativo);
-                                                                    setActiveSubmodule('ma-ficha-detalle');
-                                                                }}
+                                                                onClick={(e) => { e.stopPropagation(); abrirDetalle(m); }}
                                                             >
                                                                 <IconExternalLink size={16} />
                                                             </Button>

@@ -325,7 +325,7 @@ export const FichaDetailView = () => {
         <div className="shadcn-scope w-full max-w-full overflow-x-hidden p-4">
 
             {/* Header */}
-            <Card className="mb-4 overflow-hidden" style={{ background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)' }}>
+            <Card className="mb-4 overflow-hidden" style={{ background: 'var(--app-header-gradient)' }}>
                 <div className="grid items-center gap-6 p-6" style={{ gridTemplateColumns: '3fr 7fr 2fr' }}>
                     <div className="flex items-start gap-2">
                         <Button variant="ghost" size="icon" className="mt-1" onClick={handleBack}>
@@ -398,7 +398,7 @@ export const FichaDetailView = () => {
 
                         {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
                             <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
-                                <Button variant="outline" className="w-full text-[#9c36b5] hover:text-[#9c36b5]" onClick={() => setActiveSubmodule('ma-remuestreo')}>
+                                <Button variant="outline" className="w-full text-accent-violet hover:text-accent-violet" onClick={() => setActiveSubmodule('ma-remuestreo')}>
                                     <IconRefresh size={18} /> Remuestreo
                                 </Button>
                             </ProtectedContent>
@@ -594,7 +594,7 @@ export const FichaDetailView = () => {
                                     {isPuntual ? (
                                         <div>
                                             <div className="mb-4 flex items-center gap-2">
-                                                <IconTool className="text-[#e8590c]" size={20} />
+                                                <IconTool className="text-accent-orange" size={20} />
                                                 <h5 className="m-0 text-base font-semibold">Equipos Utilizados</h5>
                                             </div>
                                             <div className="flex flex-col gap-2">
@@ -612,7 +612,7 @@ export const FichaDetailView = () => {
                                         <div className="grid gap-6" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))' }}>
                                             <div>
                                                 <div className="mb-4 flex items-center gap-2">
-                                                    <IconTool className="text-[#e8590c]" size={20} />
+                                                    <IconTool className="text-accent-orange" size={20} />
                                                     <h5 className="m-0 text-base font-semibold">Equipos Instalación</h5>
                                                 </div>
                                                 <div className="flex flex-col gap-2">
@@ -628,7 +628,7 @@ export const FichaDetailView = () => {
                                             </div>
                                             <div>
                                                 <div className="mb-4 flex items-center gap-2">
-                                                    <IconTool className="text-[#1c7ed6]" size={20} />
+                                                    <IconTool className="text-accent-blue" size={20} />
                                                     <h5 className="m-0 text-base font-semibold">Equipos Retiro</h5>
                                                 </div>
                                                 <div className="flex flex-col gap-2">
@@ -673,7 +673,7 @@ export const FichaDetailView = () => {
                                     <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
                                         {isPuntual ? (
                                             <div style={{ maxWidth: 360 }}>
-                                                <h5 className="mb-2 text-base font-semibold text-[#e8590c]">Muestreo</h5>
+                                                <h5 className="mb-2 text-base font-semibold text-accent-orange">Muestreo</h5>
                                                 <div className="rounded-lg border border-border p-4">
                                                     <div className="flex flex-col gap-2">
                                                         <KV label="Fecha Muestreo" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
@@ -689,7 +689,7 @@ export const FichaDetailView = () => {
                                         ) : (
                                             <>
                                                 <div>
-                                                    <h5 className="mb-2 text-base font-semibold text-[#e8590c]">Instalación</h5>
+                                                    <h5 className="mb-2 text-base font-semibold text-accent-orange">Instalación</h5>
                                                     <div className="rounded-lg border border-border p-4">
                                                         <div className="flex flex-col gap-2">
                                                             <KV label="Fecha Inicio" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
@@ -720,7 +720,7 @@ export const FichaDetailView = () => {
                                         {/* Datos Compuestos / VDD */}
                                         {ficha?.tipo_fichaingresoservicio !== 'Puntual' && (
                                             <div>
-                                                <h5 className="mb-2 text-base font-semibold text-[#0c8599]">Datos Compuestos / VDD</h5>
+                                                <h5 className="mb-2 text-base font-semibold text-accent-cyan">Datos Compuestos / VDD</h5>
                                                 <div className="rounded-lg border border-border p-4">
                                                     <div className="flex flex-col gap-2">
                                                         <KV label="Fecha Compuesta" value={parseFechaStr(ficha?.ma_fecha_compuesta)} />
@@ -746,7 +746,7 @@ export const FichaDetailView = () => {
                                         {/* Análisis de Terreno */}
                                         <div>
                                             <div className="mb-4 flex items-center gap-2">
-                                                <IconTool className="text-[#0c8599]" size={20} />
+                                                <IconTool className="text-accent-cyan" size={20} />
                                                 <h5 className="m-0 text-base font-semibold">Análisis de Terreno</h5>
                                             </div>
                                             <div className="overflow-auto rounded-lg border border-border">
@@ -783,7 +783,7 @@ export const FichaDetailView = () => {
                                         {/* Análisis de Laboratorio */}
                                         <div>
                                             <div className="mb-4 flex items-center gap-2">
-                                                <IconFlask className="text-[#1c7ed6]" size={20} />
+                                                <IconFlask className="text-accent-blue" size={20} />
                                                 <h5 className="m-0 text-base font-semibold">Análisis de Laboratorio</h5>
                                             </div>
                                             <div className="overflow-auto rounded-lg border border-border">
@@ -829,7 +829,7 @@ export const FichaDetailView = () => {
                                     {isPuntual ? (
                                         <div>
                                             <div className="mb-4 flex items-center gap-2">
-                                                <IconPhoto className="text-[#e8590c]" size={20} />
+                                                <IconPhoto className="text-accent-orange" size={20} />
                                                 <h5 className="m-0 text-base font-semibold">Fotos Muestreo</h5>
                                             </div>
                                             <div className="rounded-lg border border-border p-4">
@@ -844,7 +844,7 @@ export const FichaDetailView = () => {
                                         <div className="flex flex-col gap-6">
                                             <div>
                                                 <div className="mb-4 flex items-center gap-2">
-                                                    <IconPhoto className="text-[#e8590c]" size={20} />
+                                                    <IconPhoto className="text-accent-orange" size={20} />
                                                     <h5 className="m-0 text-base font-semibold">Fotos Instalación</h5>
                                                 </div>
                                                 <div className="rounded-lg border border-border p-4">
@@ -858,7 +858,7 @@ export const FichaDetailView = () => {
                                             <hr className="border-t border-border" />
                                             <div>
                                                 <div className="mb-4 flex items-center gap-2">
-                                                    <IconPhoto className="text-[#1c7ed6]" size={20} />
+                                                    <IconPhoto className="text-accent-blue" size={20} />
                                                     <h5 className="m-0 text-base font-semibold">Fotos Retiro</h5>
                                                 </div>
                                                 <div className="rounded-lg border border-border p-4">
@@ -932,7 +932,7 @@ export const FichaDetailView = () => {
                                                                 <Button
                                                                     size="sm"
                                                                     variant="outline"
-                                                                    className="text-[#2f9e44] hover:text-[#2f9e44]"
+                                                                    className="text-accent-green hover:text-accent-green"
                                                                     onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
                                                                 >
                                                                     <IconSend size={12} /> Reenviar
@@ -987,7 +987,7 @@ export const FichaDetailView = () => {
                                                                         <Button
                                                                             size="sm"
                                                                             variant="outline"
-                                                                            className="text-[#2f9e44] hover:text-[#2f9e44]"
+                                                                            className="text-accent-green hover:text-accent-green"
                                                                             onClick={(e) => { e.stopPropagation(); setSelectedDocument(doc); setResendSuccess(false); setResendTo(user?.email || ''); setResendCc(''); setResendModalOpen(true); }}
                                                                         >
                                                                             <IconSend size={12} /> Reenviar

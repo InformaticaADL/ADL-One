@@ -3,7 +3,7 @@ import { IconWifiOff, IconMenu2 } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
-import { RouteBreadcrumb, UserActionsCluster } from './TopBar';
+import { RouteBreadcrumb } from './TopBar';
 import { HelpCenter } from '../common/HelpCenter';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
@@ -21,9 +21,11 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // Mismo umbral que usaba el breakpoint 'lg' (1200px) de la versión Mantine:
     // por debajo, la navegación pasa a panel deslizante en vez de columna fija.
     const isCompact = useMediaQuery('(max-width: 1200px)');
+    const isPhone = useMediaQuery('(max-width: 768px)');
     const {
         activeModule,
         activeSubmodule,
+        fichasMode,
         sidebarCollapsed,
         resetNavigation,
         helpCenterOpen,
@@ -37,9 +39,36 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // Modules that manage their own internal scroll per column — bypass wrapper padding/overflow.
     // "Hoy en Vivo" needs this too: its map must fill the real available height, not a vh-minus-
     // magic-number guess that drifts whenever the header/alert bar height changes.
+    // Listados que fijan encabezado y filtros arriba y scrollean solo la lista.
+    // En teléfono NO se usa: esa cabecera se come casi toda la pantalla y deja
+    // la lista en una franja de dos filas, así que ahí vuelve a scrollear la
+    // página completa (las propias vistas hacen el mismo chequeo).
+    const esListadoConScrollPropio =
+        activeSubmodule === 'admin-muestreadores' ||
+        activeSubmodule === 'admin-equipos-gestion' ||
+        // Fichas de Ingreso: solo el Explorador y Asignación Terreno. El resto
+        // de los modos (menú, formularios, calendario, mapa, detalles y
+        // Muestreos Completados) siempre scrollea como página.
+        (activeSubmodule === 'ma-fichas-ingreso' &&
+            ['list_fichas', 'list_assign'].includes(fichasMode));
+
     const isFullHeightModule =
         (!activeSubmodule && (activeModule === 'solicitudes' || activeModule === 'chat')) ||
-        activeSubmodule === 'ma-hoy-en-vivo';
+        // El mapa sí necesita el alto real incluso en teléfono.
+        activeSubmodule === 'ma-hoy-en-vivo' ||
+        (esListadoConScrollPropio && !isPhone);
+
+    // Pantallas propias de "Admin. Información" (su hub y la gestión interna).
+    // Quedan tal cual: conservan el fundido corto que ya tenían. Ojo que Equipos
+    // y Muestreadores cuelgan del mismo activeModule pero NO son parte de esta
+    // gestión, por eso el filtro va por submódulo y no por módulo.
+    const ADMIN_INFO_SCREENS = [
+        '', 'informatica', 'medio_ambiente', 'gestion_calidad',
+        'admin-roles', 'admin-users', 'admin-notifications', 'admin-urs',
+        'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados',
+    ];
+    const esAdminInfo =
+        activeModule === 'admin_informacion' && ADMIN_INFO_SCREENS.includes(activeSubmodule || '');
 
     // Auto-close sidebar on compact view when navigating (only on terminal submodule
     // selection). Dispatches the same event the "external navigation" listener below
@@ -101,7 +130,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         style={{ height: 36, width: 'auto', objectFit: 'contain', cursor: 'pointer' }}
                         onClick={() => { resetNavigation(); close(); }}
                     />
-                    <UserActionsCluster compact />
+                    {/* La campana y el toggle de tema ya viven en la barra de
+                        ruta (RouteBreadcrumb), que también se muestra en móvil:
+                        tenerlos acá al lado del logo los duplicaba. Queda un
+                        espaciador del ancho del botón de menú para que el logo
+                        siga centrado. */}
+                    <div style={{ width: 34, flexShrink: 0 }} aria-hidden />
                 </div>
             ) : null}
 
@@ -156,7 +190,10 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         <div
                             key={`${activeModule}-${activeSubmodule}`}
                             ref={viewportRef}
-                            className="animate-in fade-in-0 duration-200"
+                            // El resto de las secciones —Equipos, Muestreadores, fichas,
+                            // GEM, Facturación…— entra con el mismo despliegue que usan
+                            // los formularios, en vez del fundido corto.
+                            className={esAdminInfo ? 'animate-in fade-in-0 duration-200' : 'adl-unfold'}
                             style={{
                                 flex: 1,
                                 display: 'flex',

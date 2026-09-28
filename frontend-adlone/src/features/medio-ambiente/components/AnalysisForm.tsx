@@ -495,8 +495,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                     {/* Configuración */}
                     <div className="flex flex-col gap-3">
                         <div className="flex items-center gap-2">
-                            <IconAdjustmentsHorizontal size={18} style={{ color: '#9c36b5' }} />
-                            <span className="text-[13px] font-semibold" style={{ color: '#9c36b5' }}>Configuración de Análisis</span>
+                            <IconAdjustmentsHorizontal size={18} style={{ color: 'var(--app-accent-violet)' }} />
+                            <span className="text-[13px] font-semibold" style={{ color: 'var(--app-accent-violet)' }}>Configuración de Análisis</span>
                         </div>
 
                         <Field label="Tipo de Muestra *">
@@ -670,8 +670,8 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                 <div className="flex flex-col gap-3">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                            <IconTable size={18} style={{ color: '#4f46e5' }} />
-                            <span className="text-[13px] font-semibold" style={{ color: '#4f46e5' }}>Análisis Grabados</span>
+                            <IconTable size={18} style={{ color: 'var(--app-accent-indigo)' }} />
+                            <span className="text-[13px] font-semibold" style={{ color: 'var(--app-accent-indigo)' }}>Análisis Grabados</span>
                         </div>
                         <Badge variant="secondary">{savedAnalysis.length}</Badge>
                     </div>
@@ -775,7 +775,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                             {(savedAnalysis.length > 0 || costo.enabled) && (
                                 <tfoot className="sticky bottom-0 bg-muted/50">
                                     <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={10} className="py-2 text-right font-bold text-sm" style={{ color: '#4f46e5' }}>
+                                        <TableCell colSpan={10} className="py-2 text-right font-bold text-sm" style={{ color: 'var(--app-accent-indigo)' }}>
                                             UF TOTAL DE LA FICHA:
                                         </TableCell>
                                         <TableCell className="py-1.5">

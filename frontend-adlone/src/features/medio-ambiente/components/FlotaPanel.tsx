@@ -11,6 +11,8 @@ interface FlotaPanelProps {
     jornadas: JornadaHoy[];
     selectedMuestreadorId: number | null;
     onSelectMuestreador: (id: number) => void;
+    /** Ocupa todo el ancho (vista "Lista" en celular) en vez de la columna fija de 280px junto al mapa. */
+    fullWidth?: boolean;
 }
 
 const UMBRAL_SIN_SENAL_MS = 10 * 60 * 1000; // 10 minutos, per diseño "Hoy en Vivo"
@@ -33,7 +35,7 @@ function tiempoRelativo(fechaIso: string): string {
     return `hace ${horas} h`;
 }
 
-export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreador }: FlotaPanelProps) {
+export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreador, fullWidth = false }: FlotaPanelProps) {
     const [busqueda, setBusqueda] = useState('');
 
     // Fuerza un re-render cada 15s para que estadoDeJornada/tiempoRelativo se
@@ -52,7 +54,7 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
     );
 
     return (
-        <div className="shadcn-scope flex h-full w-[280px] flex-col border-r border-border">
+        <div className={cn('shadcn-scope flex h-full flex-col', fullWidth ? 'w-full' : 'w-[280px] border-r border-border')}>
             <div className="p-3">
                 <div className="mb-2 flex items-center justify-between">
                     <span className="text-[13px] font-semibold text-foreground">Hoy en vivo</span>
@@ -64,7 +66,7 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                     <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Buscar muestreador..."
-                        className="h-8 pl-8 text-sm"
+                        className={cn('pl-8', fullWidth ? 'h-10 text-base' : 'h-8 text-sm')}
                         value={busqueda}
                         onChange={(e) => setBusqueda(e.target.value)}
                     />
@@ -85,7 +87,8 @@ export function FlotaPanel({ jornadas, selectedMuestreadorId, onSelectMuestreado
                                 key={j.id_muestreador}
                                 onClick={() => onSelectMuestreador(j.id_muestreador)}
                                 className={cn(
-                                    'w-full rounded-lg border p-2 text-left',
+                                    'w-full rounded-lg border text-left',
+                                    fullWidth ? 'p-3' : 'p-2',
                                     seleccionada ? 'border-primary bg-accent' : 'border-border bg-transparent'
                                 )}
                             >

@@ -23,7 +23,7 @@ export function AlertasSinSenal({ jornadas }: AlertasSinSenalProps) {
     const nombres = afectados.map((j) => j.nombre_muestreador).join(', ');
 
     return (
-        <div className="shadcn-scope m-3 flex items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 p-3">
+        <div className="shadcn-scope m-2 flex sm:m-3 items-start gap-2.5 rounded-lg border border-warning/30 bg-warning/10 p-3">
             <IconAlertTriangle size={16} className="mt-0.5 shrink-0 text-warning" />
             <div>
                 <p className="m-0 text-sm font-semibold text-foreground">
@@ -31,8 +31,11 @@ export function AlertasSinSenal({ jornadas }: AlertasSinSenalProps) {
                 </p>
                 <p className="m-0 mt-0.5 text-[13px] text-muted-foreground">
                     {nombres} {afectados.length === 1 ? 'lleva' : 'llevan'} más de 10 minutos en ruta sin reportar
-                    ubicación. Puede ser mala señal en la zona, batería agotada, o que cerró la app sin pausar/terminar
-                    la jornada.
+                    ubicación.
+                    {/* La explicación de causas posibles se omite en celular: el banner
+                        le quita alto al mapa/lista, que en pantalla chica es lo escaso. */}
+                    <span className="hidden sm:inline"> Puede ser mala señal en la zona, batería agotada, o que cerró la app sin pausar/terminar
+                    la jornada.</span>
                 </p>
             </div>
         </div>

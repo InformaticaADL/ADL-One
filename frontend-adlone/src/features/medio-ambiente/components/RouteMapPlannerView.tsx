@@ -768,7 +768,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                             <div className="flex flex-col gap-0.5">
                                 {reagendaConDatos.map(s => <span key={s} className="text-xs font-semibold">• {s}</span>)}
                             </div>
-                            <p className="text-[13px] text-[#e8590c]">Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</p>
+                            <p className="text-[13px] text-accent-orange">Cambiar la fecha puede afectar la consistencia de esos datos. ¿Deseas continuar?</p>
                         </div>
                     ),
                     onOk: () => { setConfirmDialog(null); executePost(); }

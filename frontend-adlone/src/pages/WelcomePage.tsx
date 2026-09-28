@@ -16,12 +16,17 @@ import { cn } from '@/lib/utils';
 
 import fondoLogin from '../assets/images/fondo-login.png';
 
+// color/colorBg son tokens --app-accent-* y no hex: el badge pinta el texto
+// con `color` sobre `colorBg`, y con un hex fijo de 600 (#1c7ed6, #e03131…)
+// ese texto quedaba oscuro sobre el fondo oscuro del tema dark. Los tokens
+// cambian a su variante clara cuando data-theme='dark'.
 interface EventItem {
     id: number;
     title: string;
     time: string;
     date: string;
     color: string;
+    colorBg: string;
     description: string;
     location: string;
     organizer: string;
@@ -33,6 +38,7 @@ interface SalaItem {
     status: string;
     time: string;
     color: string;
+    colorBg: string;
     nextBooking: string;
     details: string;
 }
@@ -54,7 +60,8 @@ export const WelcomePage: React.FC = () => {
             title: 'Reunión Semanal de Laboratorio',
             time: '14:00 - 15:30',
             date: 'Hoy',
-            color: '#1c7ed6',
+            color: 'var(--app-accent-blue)',
+            colorBg: 'var(--app-accent-blue-bg)',
             description: 'Coordinación semanal de actividades, revisión de protocolos y gestión de insumos críticos para la operación de la unidad.',
             location: 'Sala de Conferencias B',
             organizer: 'Dirección Técnica',
@@ -66,7 +73,8 @@ export const WelcomePage: React.FC = () => {
             title: 'Mantenimiento de Servidores',
             time: '22:00 - 02:00',
             date: 'Mañana',
-            color: '#e8590c',
+            color: 'var(--app-accent-orange)',
+            colorBg: 'var(--app-accent-orange-bg)',
             description: 'Actualización programada de sistemas críticos y respaldos de base de datos. Se esperan intermitencias en servicios internos.',
             location: 'Centro de Datos / Remoto',
             organizer: 'Informática ADL',
@@ -78,7 +86,8 @@ export const WelcomePage: React.FC = () => {
             title: 'Auditoría Interna ISO 9001',
             time: '09:00 - 18:00',
             date: '25 Mar',
-            color: '#e03131',
+            color: 'var(--app-accent-red)',
+            colorBg: 'var(--app-accent-red-bg)',
             description: 'Revisión anual de procesos del sistema de gestión de calidad. Todos los departamentos deben tener su documentación al día.',
             location: 'Instalaciones Centrales',
             organizer: 'Calidad',
@@ -92,7 +101,8 @@ export const WelcomePage: React.FC = () => {
             name: 'SALA DE REUNIONES',
             status: 'LIBRE',
             time: 'Disponible',
-            color: '#2f9e44',
+            color: 'var(--app-accent-green)',
+            colorBg: 'var(--app-accent-green-bg)',
             nextBooking: '15:30 - Reunión Comercial',
             details: 'La sala se encuentra actualmente desocupada y disponible para su uso hasta las 15:30 hrs.'
         },
@@ -223,7 +233,7 @@ export const WelcomePage: React.FC = () => {
                                 )}
                                 <div className="flex flex-col gap-4">
                                     <div className="flex justify-between">
-                                        <Badge style={{ backgroundColor: `${event.color}22`, color: event.color }}>{event.date}</Badge>
+                                        <Badge style={{ backgroundColor: event.colorBg, color: event.color }}>{event.date}</Badge>
                                         <IconClock size={16} className="text-muted-foreground" />
                                     </div>
                                     <div className="h-10">
@@ -279,7 +289,7 @@ export const WelcomePage: React.FC = () => {
                                             <span className="block text-[11px] font-semibold tracking-wide text-foreground">{sala.name}</span>
                                             <span className="text-[10px] text-muted-foreground">{sala.time}</span>
                                         </div>
-                                        <Badge style={{ backgroundColor: `${sala.color}22`, color: sala.color }}>{sala.status}</Badge>
+                                        <Badge style={{ backgroundColor: sala.colorBg, color: sala.color }}>{sala.status}</Badge>
                                     </div>
                                 </div>
                             ))}
@@ -315,7 +325,7 @@ export const WelcomePage: React.FC = () => {
                     {selectedEvent && (
                         <div className="flex flex-col gap-6">
                             <div>
-                                <Badge className="mb-2" style={{ backgroundColor: `${selectedEvent.color}22`, color: selectedEvent.color }}>{selectedEvent.date}</Badge>
+                                <Badge className="mb-2" style={{ backgroundColor: selectedEvent.colorBg, color: selectedEvent.color }}>{selectedEvent.date}</Badge>
                                 <h3 className="m-0 text-xl font-bold leading-tight tracking-tight text-primary">
                                     {selectedEvent.title}
                                 </h3>
@@ -410,7 +420,7 @@ export const WelcomePage: React.FC = () => {
                         <div className="flex flex-col gap-6">
                             <div className="mb-2 flex items-center justify-between">
                                 <h3 className="m-0 text-xl font-bold tracking-tight text-primary">{selectedSala.name}</h3>
-                                <Badge style={{ backgroundColor: `${selectedSala.color}22`, color: selectedSala.color }}>{selectedSala.status}</Badge>
+                                <Badge style={{ backgroundColor: selectedSala.colorBg, color: selectedSala.color }}>{selectedSala.status}</Badge>
                             </div>
 
                             <div>

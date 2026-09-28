@@ -36,9 +36,15 @@
   }
 }
 
+/* SIN background ni color acá: index.css ya define
+   body { background: var(--app-bg); color: var(--app-text) }, y este archivo
+   se carga después (main.tsx importa index.css, App.tsx importa App.css), así
+   que un `color: var(--dark)` (#1f2937) fijo lo pisaba. Eso dejaba el color
+   HEREDADO de toda la app en gris casi negro sin importar el tema: en modo
+   oscuro, cualquier texto que no declare su propio color —celdas de tabla,
+   spans sueltos— quedaba invisible sobre el fondo oscuro, mientras que los
+   que sí lo declaran (text-muted-foreground, badges, montos) se veían bien. */
 body {
-  background: #ffffff;
-  color: var(--dark);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   min-height: 100vh;
   line-height: 1.6;
