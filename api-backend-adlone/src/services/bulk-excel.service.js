@@ -86,6 +86,45 @@ class BulkExcelService {
         return bestMatch;
     }
 
+    // Coincidencia tolerante a errores de tipeo para catálogos chicos y de nombres bien distintos
+    // (p. ej. objetivos). Ignora espacios/puntuación, exige que los NÚMEROS coincidan y que la
+    // mejor opción supere claramente a la segunda (nombre distinto), para no confundir catálogos.
+    matchCatalogTypo(value, catalog, nameKey = 'nombre', idKey = 'id', minRatio = 0.88) {
+        const squash = (s) => this.normalize(s).replace(/[^A-Z0-9]/g, '');
+        const digits = (s) => (s.match(/\d+/g) || []).join('-');
+        const lev = (a, b) => {
+            const prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+            for (let i = 1; i <= a.length; i++) {
+                let last = prev[0];
+                prev[0] = i;
+                for (let j = 1; j <= b.length; j++) {
+                    const tmp = prev[j];
+                    prev[j] = Math.min(prev[j] + 1, prev[j - 1] + 1, last + (a[i - 1] === b[j - 1] ? 0 : 1));
+                    last = tmp;
+                }
+            }
+            return prev[b.length];
+        };
+        const v = squash(value);
+        if (v.length < 5) return null;
+        let best = null, bestName = '', bestRatio = 0, secondRatio = 0;
+        for (const item of catalog) {
+            const n = squash(item[nameKey]);
+            if (!n || digits(v) !== digits(n)) continue;
+            const ratio = 1 - lev(v, n) / Math.max(v.length, n.length);
+            if (ratio > bestRatio) {
+                if (n !== bestName) secondRatio = bestRatio;
+                best = item; bestName = n; bestRatio = ratio;
+            } else if (n !== bestName && ratio > secondRatio) {
+                secondRatio = ratio;
+            }
+        }
+        if (best && bestRatio >= minRatio && bestRatio - secondRatio >= 0.05) {
+            return { id: best[idKey], nombre: best[nameKey], score: Math.round(bestRatio * 100), extra: best };
+        }
+        return null;
+    }
+
     async processExcelFile(fileBuffer) {
         logger.info('[BulkExcel] Processing Excel upload...');
         const catalogs = await bulkFichaService.loadCatalogs();
@@ -148,7 +187,9 @@ class BulkExcelService {
         // Recorremos hasta la última fila con contenido y SALTAMOS las vacías
         // (tolera huecos en medio en vez de cortar en la primera fila vacía).
         const analysisRowsMap = {}; // id_muestra -> rows[]
-        const lastRowA = wsAnalisis.actualRowCount || wsAnalisis.rowCount;
+        // rowCount = número de la última fila (actualRowCount es solo la CANTIDAD de filas con
+        // contenido y queda corto si hay filas vacías arriba, dejando fuera las últimas filas).
+        const lastRowA = wsAnalisis.rowCount;
 
         for (let rowCount = 4; rowCount <= lastRowA; rowCount++) {
             const row = wsAnalisis.getRow(rowCount);
@@ -170,6 +211,8 @@ class BulkExcelService {
                 nombre: getCellA(row, 'NOMBRE ANÁLISIS'),
                 tipo_analisis: getCellA(row, 'TIPO ANÁLISIS') || 'Terreno',
                 laboratorio_texto: getCellA(row, 'LABORATORIO 1', 'LABORATORIO'),
+                // Laboratorio 2 (opcional): si viene vacío se conserva vacío (null)
+                laboratorio2_texto: getCellA(row, 'LABORATORIO 2'),
                 tipo_entrega_texto: getCellA(row, 'TIPO ENTREGA'),
                 normativa: getCellA(row, 'NORMATIVA'),
                 referencia: getCellA(row, 'REFERENCIA NORMATIVA'),
@@ -184,7 +227,8 @@ class BulkExcelService {
         const results = [];
         const MAX_FICHAS = 1000;
         let truncated = false;
-        const lastRowF = wsFichas.actualRowCount || wsFichas.rowCount;
+        // rowCount = número de la última fila (ver nota en lastRowA).
+        const lastRowF = wsFichas.rowCount;
 
         for (let rowCount = 4; rowCount <= lastRowF; rowCount++) {
             const row = wsFichas.getRow(rowCount);
@@ -221,11 +265,20 @@ class BulkExcelService {
 
             // 1. Cliente (Empresa a Facturar)
             const clienteVal = getCellF(row, 'EMPRESA A FACTURAR');
-            const clienteMatch = this.matchCatalog(clienteVal, catalogs.clientes);
+            let clienteMatch = this.matchCatalog(clienteVal, catalogs.clientes);
+            let clientePorTypo = false;
+            if (!clienteMatch) {
+                // Tolera errores de tipeo/puntuación ("Ingieneria...Biocordillera Spa." → "Ingenieria...SpA")
+                clienteMatch = this.matchCatalogTypo(clienteVal, catalogs.clientes);
+                clientePorTypo = !!clienteMatch;
+            }
             if (clienteMatch) {
                 fields.selectedCliente = String(clienteMatch.id);
                 fields._clienteNombre = clienteMatch.nombre;
                 fields._clienteMatch_method = clienteMatch.score === 100 ? 'exact' : 'fuzzy';
+                if (clientePorTypo) {
+                    warns.push({ field: 'Empresa a facturar', message: `"${clienteVal}" no existe tal cual en el catálogo; se interpretó como "${clienteMatch.nombre}".` });
+                }
             } else {
                 errs.push({ field: 'Empresa a facturar', message: `No se encontró: ${clienteVal}` });
             }
@@ -297,10 +350,20 @@ class BulkExcelService {
 
             // 5. Objetivo
             const objVal = getCellF(row, 'OBJETIVO MUESTREO');
-            const objMatch = this.matchCatalog(objVal, catalogs.objetivos);
+            let objMatch = this.matchCatalog(objVal, catalogs.objetivos);
+            let objPorTypo = false;
+            if (!objMatch) {
+                // Tolera errores de tipeo y diferencias de espacios/puntuación
+                // ("Cettificación ASC" → "Certificación ASC", "N°4866/2014" → "N° 4866/2014")
+                objMatch = this.matchCatalogTypo(objVal, catalogs.objetivos);
+                objPorTypo = !!objMatch;
+            }
             if (objMatch) {
                 fields.selectedObjetivo = String(objMatch.id);
                 fields._objetivoNombre = objMatch.nombre;
+                if (objPorTypo) {
+                    warns.push({ field: 'Objetivo Muestreo', message: `"${objVal}" no existe tal cual en el catálogo; se interpretó como "${objMatch.nombre}".` });
+                }
             } else {
                 errs.push({ field: 'Objetivo Muestreo', message: `No se encontró: ${objVal}` });
             }
@@ -312,16 +375,26 @@ class BulkExcelService {
             // 7. Frecuencia y Factor
             const freqVal = getCellF(row, 'FRECUENCIA PERÍODO', 'FRECUENCIA PERIODO');
             const freqMatch = this.matchCatalog(freqVal, catalogs.frecuencias);
+            // Solo se aceptan números > 0 (una celda con error tipo #REF! o vacía no cuenta)
+            const numOr = (v, fallback) => {
+                const n = Number(v);
+                return Number.isFinite(n) && n > 0 ? n : fallback;
+            };
+            // Cantidad: la columna se llama "FREC. CANTIDAD (auto)" en la plantilla actual y
+            // "FREC. MUESTREO" en la anterior; se acepta cualquiera de las dos.
+            const freqCantidadExcel = getCellF(row, 'FREC. CANTIDAD', 'FREC. MUESTREO');
             if (freqMatch) {
                 fields.periodo = String(freqMatch.id);
                 fields._periodoNombre = freqMatch.nombre;
-                fields.frecuencia = String(getCellF(row, 'FREC. MUESTREO') || freqMatch.extra?.cantidad || 1);
-                fields.factor = String(getCellF(row, 'FACTOR') || freqMatch.extra?.multiplicadopor || 1);
+                fields.frecuencia = String(numOr(freqCantidadExcel, numOr(freqMatch.extra?.cantidad, 1)));
+                // Factor: se calcula igual que la fórmula del Excel (VLOOKUP de la frecuencia en
+                // _MAPPINGS = multiplicadopor del catálogo), sin depender del valor de la celda.
+                fields.factor = String(numOr(freqMatch.extra?.multiplicadopor, numOr(getCellF(row, 'FACTOR'), 1)));
             } else {
                 fields.periodo = null;
                 fields._periodoNombre = freqVal || 'No Encontrado';
-                fields.frecuencia = String(getCellF(row, 'FREC. MUESTREO') || 1);
-                fields.factor = String(getCellF(row, 'FACTOR') || 1);
+                fields.frecuencia = String(numOr(freqCantidadExcel, 1));
+                fields.factor = String(numOr(getCellF(row, 'FACTOR'), 1));
             }
             fields.totalServicios = String((parseInt(fields.frecuencia) || 1) * (parseInt(fields.factor) || 1));
 
@@ -544,6 +617,16 @@ class BulkExcelService {
                     field: 'Análisis no encontrado',
                     message: `"${a.nombre_original}" no se encontró en la normativa/tabla "${tabla}". No se incluirá en la ficha.`
                 });
+            }
+
+            // Laboratorio 2 informado pero que no existe en el catálogo: se carga vacío y se avisa.
+            for (const a of (result.analisis || [])) {
+                if (a._matched && a.laboratorio2_texto && !a.id_laboratorioensayo_2 && a.tipo_analisis !== 'Terreno') {
+                    warns.push({
+                        field: 'Laboratorio 2',
+                        message: `"${a.nombre_original}": el Laboratorio 2 "${a.laboratorio2_texto}" no se encontró en el catálogo. Se cargará vacío.`
+                    });
+                }
             }
 
             // Análisis donde el nombre del Excel NO existe en su tabla y lo más

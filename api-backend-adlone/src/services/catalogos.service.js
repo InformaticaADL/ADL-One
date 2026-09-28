@@ -12,7 +12,8 @@ const ALLOWED_TABLES = new Set([
   'mae_instrumentoambiental', 'mae_umedida', 'mae_lugaranalisis', 'mae_formacanal',
   'mae_dispositivohidraulico', 'mae_solicitud_tipo', 'mae_permiso',
   'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna', 'mae_zonautm',
-  'mae_competencia', 'mae_estado_equipo', 'mae_equipo_catalogo'
+  'mae_competencia', 'mae_estado_equipo', 'mae_equipo_catalogo', 'mae_tecnica', 'mae_seccion',
+  'mae_normativa', 'mae_normativareferencia', 'App_Ma_ReferenciaAnalisis'
 ]);
 
 // Columns that must never be returned by the generic getMaestroData endpoint
@@ -29,6 +30,7 @@ function assertIdentifier(value, label) {
 function assertTable(name) {
   if (!ALLOWED_TABLES.has(name)) throw new Error(`Table not allowed: ${name}`);
 }
+export const isMaestroTableAllowed = (name) => ALLOWED_TABLES.has(name);
 
 export const catalogosService = {
   // Bloque 1: Identificación

@@ -167,7 +167,7 @@ class BulkFichaService {
         ] = await Promise.all([
             pool.request().execute('maestro_lugaranalisis'),
             pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios FROM mae_empresaservicios WHERE habilitado = 'S'"),
-            pool.request().query("SELECT id_empresa, nombre_empresa, id_empresaservicio FROM mae_empresa"),
+            pool.request().query("SELECT id_empresa, nombre_empresa, id_empresaservicio, habilitado FROM mae_empresa"),
             pool.request().execute('consulta_objetivomuestreo_ma_oservicios'),
             pool.request().execute('consulta_tipomuestra_medioambiente'),
             pool.request().execute('consulta_inspectorambiental'),
@@ -242,11 +242,15 @@ class BulkFichaService {
                 id: r.id_empresaservicio,
                 nombre: (r.nombre_empresaservicios || '').trim()
             })),
+            // Si hay empresas con el mismo nombre (duplicados en mae_empresa), el matching toma la
+            // primera que coincide: dejamos las habilitadas primero (sort estable). Las no
+            // habilitadas siguen disponibles como último recurso si no existe otra con ese nombre.
             clientes: clientesRes.recordset.map(r => ({
                 id: r.id_empresa,
                 nombre: (r.nombre_empresa || '').trim(),
-                id_empresaservicio: r.id_empresaservicio
-            })),
+                id_empresaservicio: r.id_empresaservicio,
+                habilitado: r.habilitado
+            })).sort((a, b) => (b.habilitado === 'S') - (a.habilitado === 'S')),
             centros: centrosRes.recordset.map(r => {
                 const dir = (r.direccion || '').trim();
                 const ubi = (r.ubicacion || '').trim();
@@ -1253,6 +1257,17 @@ class BulkFichaService {
                 rowErrors.push(`Laboratorio "${row.laboratorio_texto}" no encontrado`);
             }
 
+            // Match laboratorio 2 (opcional): vacío / "No aplica" / "-" se conserva vacío (null).
+            // Terreno no lleva laboratorio.
+            const lab2Raw = String(row.laboratorio2_texto ?? '').trim();
+            const lab2Texto = /^(no\s*aplica|n\/a|-)?$/i.test(lab2Raw) ? '' : lab2Raw;
+            let id_laboratorio_2 = null;
+            if (lab2Texto && row.tipo_analisis !== 'Terreno') {
+                const lab2Match = findBestMatch(lab2Texto, catalogs.laboratorios, 'nombre', 'id', 50);
+                if (lab2Match) id_laboratorio_2 = lab2Match.id;
+                else rowErrors.push(`Laboratorio 2 "${lab2Texto}" no encontrado`);
+            }
+
             // Match tipo entrega
             const entregaMatch = findBestMatch(row.tipo_entrega_texto, catalogs.tiposEntrega, 'nombre', 'id', 70);
             const id_tipoentrega = entregaMatch ? entregaMatch.id : null;
@@ -1261,6 +1276,7 @@ class BulkFichaService {
                 nombre_original: row.nombre,
                 tipo_analisis: row.tipo_analisis,
                 laboratorio_texto: row.laboratorio_texto,
+                laboratorio2_texto: lab2Texto,
                 tipo_entrega_texto: row.tipo_entrega_texto,
                 id_referenciaanalisis,
                 id_tecnica,
@@ -1270,7 +1286,7 @@ class BulkFichaService {
                 nombre_normativa: perRow.normNombre,
                 nombre_normativareferencia: perRow.normRefNombre,
                 id_laboratorioensayo: row.tipo_analisis === 'Terreno' ? 0 : id_laboratorio,
-                id_laboratorioensayo_2: null,
+                id_laboratorioensayo_2: id_laboratorio_2,
                 id_tipoentrega,
                 id_transporte: null,
                 uf_individual: 0,
@@ -1455,7 +1471,7 @@ class BulkFichaService {
                             tipo_analisis: a.tipo_analisis,
                             uf_individual: a.uf_individual || 0,
                             id_laboratorioensayo: String(a.id_laboratorioensayo) === '0' ? 0 : (a.id_laboratorioensayo || 0),
-                            id_laboratorioensayo_2: null,
+                            id_laboratorioensayo_2: a.id_laboratorioensayo_2 ?? null,
                             id_tipoentrega: a.id_tipoentrega || item.antecedentes?.selectedTipoEntrega || 0,
                             id_transporte: a.id_transporte || 0
                         })),

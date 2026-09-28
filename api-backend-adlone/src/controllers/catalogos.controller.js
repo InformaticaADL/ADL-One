@@ -1,4 +1,4 @@
-import { catalogosService } from '../services/catalogos.service.js';
+import { catalogosService, isMaestroTableAllowed } from '../services/catalogos.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
 export const catalogosController = {
@@ -225,8 +225,8 @@ export const catalogosController = {
             const { tableName } = req.params;
             if (!tableName) return errorResponse(res, 'Missing tableName', 400);
             
-            // Basic safety check: Only tables starting with 'mae_' are allowed
-            if (!tableName.startsWith('mae_')) {
+            // Only tables in the service whitelist are exposed (not every one starts with 'mae_')
+            if (!isMaestroTableAllowed(tableName)) {
                 return errorResponse(res, 'Access denied for this table', 403);
             }
 
