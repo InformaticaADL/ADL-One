@@ -264,43 +264,51 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         )
     );
 
+    // El módulo ya no scrollea a nivel de página (ver isFullHeightModule en
+    // MainLayout), así que el formulario —que sí es largo— necesita su propio
+    // contenedor con scroll.
     const content = viewMode === 'form' ? (
-        <MuestreadorForm
-            initialData={selectedMuestreador}
-            pendingRequests={selectedMuestreador ? getPendingRequestsForSampler(selectedMuestreador.id_muestreador) : []}
-            onSave={() => {
-                fetchData();
-                loadSolicitudes();
-                setViewMode('list');
-            }}
-            onCancel={() => setViewMode('list')}
-            onViewRequests={() => handleOpenRequests(selectedMuestreador!)}
-        />
-    ) : (
-        <div className="shadcn-scope w-full p-4 md:p-6">
-            <PageHeader
-                title="Gestión de Muestreadores"
-                subtitle={!isMobile ? 'Administra el personal de muestreo técnico y sus firmas digitales autorizadas.' : undefined}
-                onBack={onBack}
-                breadcrumbItems={[{ label: 'Muestreadores' }]}
-                rightSection={
-                    <div className="flex gap-2">
-                        <ProtectedContent permission="MU_EXP">
-                            <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleExportPdf} disabled={isExporting}>
-                                <IconFileDescription size={16} /> Exportar PDF
-                            </Button>
-                        </ProtectedContent>
-                        <ProtectedContent permission="AI_MA_CREAR_NUEVO_MUESTREADOR">
-                            <Button onClick={handleCreate}>
-                                <IconPlus size={16} /> Nuevo{!isMobile && ' muestreador'}
-                            </Button>
-                        </ProtectedContent>
-                    </div>
-                }
+        <div className="h-full min-h-0 overflow-y-auto">
+            <MuestreadorForm
+                initialData={selectedMuestreador}
+                pendingRequests={selectedMuestreador ? getPendingRequestsForSampler(selectedMuestreador.id_muestreador) : []}
+                onSave={() => {
+                    fetchData();
+                    loadSolicitudes();
+                    setViewMode('list');
+                }}
+                onCancel={() => setViewMode('list')}
+                onViewRequests={() => handleOpenRequests(selectedMuestreador!)}
             />
+        </div>
+    ) : (
+        // En teléfono la página scrollea completa (ver isFullHeightModule en
+        // MainLayout): fijar la cabecera dejaba la lista en una franja mínima.
+        <div className={cn('shadcn-scope w-full', !isMobile && 'flex h-full min-h-0 flex-col')}>
+            {/* Desde tablet: encabezado y filtros quedan fijos arriba. */}
+            <div className={cn('px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
+                <PageHeader
+                    title="Gestión de Muestreadores"
+                    subtitle={!isMobile ? 'Administra el personal de muestreo técnico y sus firmas digitales autorizadas.' : undefined}
+                    onBack={onBack}
+                    breadcrumbItems={[{ label: 'Muestreadores' }]}
+                    rightSection={
+                        <div className="flex w-full gap-2 sm:w-auto [&>*]:flex-1 sm:[&>*]:flex-none">
+                            <ProtectedContent permission="MU_EXP">
+                                <Button variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleExportPdf} disabled={isExporting}>
+                                    <IconFileDescription size={16} /> Exportar PDF
+                                </Button>
+                            </ProtectedContent>
+                            <ProtectedContent permission="AI_MA_CREAR_NUEVO_MUESTREADOR">
+                                <Button onClick={handleCreate}>
+                                    <IconPlus size={16} /> Nuevo{!isMobile && ' muestreador'}
+                                </Button>
+                            </ProtectedContent>
+                        </div>
+                    }
+                />
 
-            <div className="mt-6 flex flex-col gap-4">
-                <div className={cn('flex gap-4', isMobile ? 'flex-col' : 'flex-row items-center')}>
+                <div className={cn('flex gap-4 pb-4', isMobile ? 'flex-col' : 'flex-row items-center')}>
                     <div className="relative flex-1">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input placeholder="Buscar por nombre o ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-8" />
@@ -318,17 +326,25 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         ]}
                     />
                 </div>
+            </div>
 
-                <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+            {/* Único contenedor con scroll de la vista: ocupa el alto restante
+                (min-h-0 para que el flex lo pueda encoger) y deja el encabezado
+                y los filtros siempre visibles arriba. */}
+            <div className={cn('flex flex-col px-4 pb-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
+                <div className={cn('relative flex flex-col overflow-hidden rounded-xl border border-border bg-card', !isMobile && 'min-h-0 flex-1')}>
                     {loading && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
 
                     {!isMobile ? (
-                        <Table>
-                            <TableHeader>
+                        <Table containerClassName="min-h-0 flex-1">
+                            {/* Encabezado sticky a nivel de <th> (no de <thead>):
+                                así las columnas siguen visibles al scrollear la
+                                lista, y el borde inferior viaja con ellas. */}
+                            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card">
                                 <TableRow className="hover:bg-transparent">
                                     <SortableTableHead {...sortProps('nombre')}>Muestreador</SortableTableHead>
                                     <SortableTableHead {...sortProps('contacto')}>Contacto</SortableTableHead>

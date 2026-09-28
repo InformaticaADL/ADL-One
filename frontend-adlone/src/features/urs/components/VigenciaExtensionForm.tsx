@@ -86,7 +86,7 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
         <Card className="p-4 bg-[rgba(156,54,181,0.06)]">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase text-[#862e9c]">
+                    <span className="text-xs font-semibold uppercase text-accent-violet">
                         Solicitud de Extensión de Vigencia
                     </span>
                     <Badge variant="secondary">CALIDAD / MA</Badge>
@@ -105,8 +105,8 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
 
                 {selectedEquipoRaw?.vigencia && (
                     <div className="rounded-lg bg-[rgba(156,54,181,0.1)] p-2.5">
-                        <span className="block text-[11px] font-bold uppercase text-[#862e9c]">Vigencia actual</span>
-                        <span className="text-sm font-bold text-[#862e9c]">
+                        <span className="block text-[11px] font-bold uppercase text-accent-violet">Vigencia actual</span>
+                        <span className="text-sm font-bold text-accent-violet">
                             {(() => {
                                 const d = parseDate(selectedEquipoRaw.vigencia);
                                 return d ? d.toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Fecha Inválida';
@@ -121,11 +121,11 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
                     </Field>
                     {siguienteVerif && (
                         <div className="rounded-lg border border-[rgba(9,143,131,0.2)] bg-[rgba(9,143,131,0.08)] p-2">
-                            <span className="block text-[11px] font-bold uppercase text-[#087f5b]">Nueva Vigencia Autocalculada</span>
-                            <span className="block text-sm font-bold text-[#087f5b]">
+                            <span className="block text-[11px] font-bold uppercase text-accent-teal">Nueva Vigencia Autocalculada</span>
+                            <span className="block text-sm font-bold text-accent-teal">
                                 {new Date(siguienteVerif + 'T12:00:00').toLocaleDateString('es-CL', { day: '2-digit', month: 'long', year: 'numeric' })}
                             </span>
-                            <span className="text-[11px] text-[#0ca678]">(Auto: Revisión + 90 días)</span>
+                            <span className="text-[11px] text-accent-teal">(Auto: Revisión + 90 días)</span>
                         </div>
                     )}
                 </div>

@@ -36,10 +36,14 @@ import {
     IconShield,
     IconBell,
     IconBolt,
-    IconAward
+    IconAward,
+    IconTestPipe,
+    IconScale,
+    IconListDetails,
+    IconLink
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import { MaestroDataManager } from '../components';
+import { MaestroDataManager, TecnicaReferencias, ReferenciasNormativasView } from '../components';
 import { EmpresaServicioFormView } from '../../medio-ambiente/components/EmpresaServicioFormView';
 
 type MaestroArea = 'general' | 'medio-ambiente' | 'logistica' | 'tecnica' | 'sistema';
@@ -449,6 +453,62 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             summaryColumns: ['nombre', 'tipo_equipo', 'que_mide', 'unidad_medida_textual', 'unidad_medida_sigla']
         },
         {
+            id: 'tecnicas',
+            label: 'Técnicas',
+            icon: <IconTestPipe size={24} />,
+            color: 'green',
+            description: 'Técnicas de análisis con su sección, precios, metodología y plazos.',
+            tableName: 'mae_tecnica',
+            idName: 'id_tecnica',
+            area: 'tecnica',
+            displayColumn: 'nombre_tecnica',
+            summaryColumns: ['nombre_tecnica', 'grupotecnica', 'tipotecnica', 'id_seccion', 'metodologia', 'precio_lista'],
+            lookups: {
+                id_seccion: { tableName: 'mae_seccion', idColumn: 'id_seccion', displayColumn: 'nombre_seccion', noCreate: true },
+                id_umedida: { tableName: 'mae_umedida', idColumn: 'id_umedida', displayColumn: 'nombre_umedida' }
+            }
+        },
+        {
+            id: 'normativas',
+            label: 'Normativas',
+            icon: <IconScale size={24} />,
+            color: 'red',
+            description: 'Normativas de referencia (DS 90, DS 46, etc) aplicables a las técnicas.',
+            tableName: 'mae_normativa',
+            idName: 'id_normativa',
+            area: 'tecnica',
+            displayColumn: 'nombre_normativa',
+            statusColumn: 'habilitado',
+            summaryColumns: ['nombre_normativa']
+        },
+        {
+            id: 'normativas-referencia',
+            label: 'Tablas de Normativa',
+            icon: <IconListDetails size={24} />,
+            color: 'orange',
+            description: 'Tablas de referencia de cada normativa (Tabla 1, Tabla 2, etc).',
+            tableName: 'mae_normativareferencia',
+            idName: 'id_normativareferencia',
+            area: 'tecnica',
+            displayColumn: 'nombre_normativareferencia',
+            statusColumn: 'habilitado',
+            summaryColumns: ['nombre_normativareferencia', 'id_normativa'],
+            lookups: {
+                id_normativa: { tableName: 'mae_normativa', idColumn: 'id_normativa', displayColumn: 'nombre_normativa' }
+            }
+        },
+        {
+            id: 'tecnicas-normativas',
+            label: 'Técnicas por Normativa',
+            icon: <IconLink size={24} />,
+            color: 'green',
+            description: 'Vista unificada: a qué normativa y tabla pertenece cada técnica, con sus límites.',
+            tableName: 'App_Ma_ReferenciaAnalisis',
+            idName: 'id_referenciaanalisis',
+            area: 'tecnica',
+            displayColumn: 'id_tecnica'
+        },
+        {
             id: 'lugares-analisis',
             label: 'Lugares de Análisis',
             icon: <IconMicroscope size={24} />,
@@ -580,10 +640,25 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             );
         }
 
+        // ESPECIALIZADO: las técnicas se editan junto a sus normativas y tablas de referencia
+        const extraTab = config.tableName === 'mae_tecnica'
+            ? {
+                label: 'Normativas y Referencias',
+                icon: <IconScale size={16} />,
+                render: (item: any) => <TecnicaReferencias idTecnica={Number(item.id_tecnica)} />
+            }
+            : undefined;
+
+        // ESPECIALIZADO: vista unificada técnica ↔ normativa ↔ tabla de referencia
+        if (config.tableName === 'App_Ma_ReferenciaAnalisis') {
+            return <ReferenciasNormativasView onBack={() => setSelectedMaestro(null)} />;
+        }
+
         return (
             <MaestroDataManager
                 config={config}
                 onBack={() => setSelectedMaestro(null)}
+                extraTab={extraTab}
             />
         );
     }

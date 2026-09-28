@@ -56,7 +56,7 @@ const ReporteProblemaForm: React.FC<ReporteProblemaFormProps> = ({ onDataChange 
         <Card className="p-4 bg-[rgba(232,140,0,0.06)]">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase text-[#d9480f]">
+                    <span className="text-xs font-semibold uppercase text-accent-orange">
                         Reporte de Incidencia / Problema Técnico
                     </span>
                     <Badge variant="warning">SERVICIO TÉCNICO</Badge>

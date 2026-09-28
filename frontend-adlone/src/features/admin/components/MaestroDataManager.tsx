@@ -58,6 +58,12 @@ interface MaestroConfig {
 interface Props {
     config: MaestroConfig;
     onBack: () => void;
+    /** Pestaña adicional del formulario; solo aparece al editar un registro existente. */
+    extraTab?: {
+        label: string;
+        icon: React.ReactNode;
+        render: (item: any) => React.ReactNode;
+    };
 }
 
 const iconColors: Record<string, string> = {
@@ -82,7 +88,7 @@ const AlertBox: React.FC<{ variant: 'error' | 'warning'; icon?: React.ReactNode;
     </Alert>
 );
 
-export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
+export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }) => {
     const { showToast } = useToast();
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -1067,10 +1073,16 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack }) => {
                                     {advancedFields.length > 0 && (
                                         <TabsTrigger value="advanced" className="gap-1.5"><IconActivity size={16} /> Datos Detallados</TabsTrigger>
                                     )}
+                                    {extraTab && editingItem && (
+                                        <TabsTrigger value="extra" className="gap-1.5">{extraTab.icon} {extraTab.label}</TabsTrigger>
+                                    )}
                                 </TabsList>
                                 <TabsContent value="general">{generalPanel}</TabsContent>
                                 {advancedFields.length > 0 && (
                                     <TabsContent value="advanced">{advancedPanel}</TabsContent>
+                                )}
+                                {extraTab && editingItem && (
+                                    <TabsContent value="extra">{extraTab.render(editingItem)}</TabsContent>
                                 )}
                             </Tabs>
                         </CardContent>

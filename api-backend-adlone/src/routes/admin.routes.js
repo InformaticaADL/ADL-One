@@ -26,6 +26,42 @@ const docStorage = multer.diskStorage({
 });
 const uploadDoc = multer({ storage: docStorage, limits: { fileSize: 20 * 1024 * 1024 } });
 
+// Multer para documentos de equipo (informes de mantención, fotos del equipo
+// intervenido) → <UPLOAD_PATH>/equipos/ (servido en /uploads/equipos/).
+const equipoDocsDir = path.join(process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads'), 'equipos');
+const equipoDocStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        fs.mkdirSync(equipoDocsDir, { recursive: true });
+        cb(null, equipoDocsDir);
+    },
+    filename: (req, file, cb) => {
+        // Nombre aleatorio en disco: dos adjuntos llamados "informe.pdf" no se
+        // pisan entre sí. El nombre real del documento vive en la BD.
+        const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
+        cb(null, `doc-${unique}${path.extname(file.originalname)}`);
+    }
+});
+const TIPOS_DOC_EQUIPO = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/heic'];
+const uploadEquipoDoc = multer({
+    storage: equipoDocStorage,
+    limits: { fileSize: 20 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        if (TIPOS_DOC_EQUIPO.includes(file.mimetype)) return cb(null, true);
+        cb(new Error('Formato no permitido: adjunte un PDF o una imagen'));
+    }
+});
+
+// Sin este wrapper, un archivo muy grande o de formato no permitido cae en el
+// errorHandler global como 500 "File too large": el usuario merece un 400 que
+// le diga qué corregir.
+const subirDocumentoEquipo = (req, res, next) => uploadEquipoDoc.single('archivo')(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'El archivo supera el máximo de 20 MB'
+        : (err.message || 'No se pudo procesar el archivo');
+    return res.status(400).json({ success: false, message });
+});
+
 // --- MUESTREADORES ---
 router.get('/muestreadores', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
 
@@ -85,6 +121,13 @@ router.get('/equipos/:id/historial', verifyToken, verifyPermission('EQ_HISTORY')
 router.post('/equipos/:id/restore/:idHistorial', verifyToken, verifyPermission('EQ_UPDATE'), equipoController.restoreVersion);
 router.delete('/equipos/:id', verifyToken, verifyPermission('EQ_DESACTIVAR'), equipoController.deleteEquipo);
 router.post('/equipos/check-expiration', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.checkExpiration);
+
+// --- DOCUMENTO DE LA REVISIÓN / MANTENCIÓN DEL EQUIPO ---
+// El archivo se sube aparte y la ruta se guarda al grabar el equipo, junto con
+// la versión nueva (ver equipoController.subirArchivoDocumento).
+router.post('/equipos/documentos/archivo', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), subirDocumentoEquipo, equipoController.subirArchivoDocumento);
+router.get('/equipos/historial/:idHistorial/documento', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.descargarDocumentoHistorial);
+router.get('/equipos/:id/documento', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.descargarDocumentoEquipo);
 
 // --- SOLICITUDES ---
 router.get('/equipos/:id/solicitudes', verifyToken, verifyPermission('EQ_VER_SOLICITUD'), solicitudController.getSolicitudesByEquipo);

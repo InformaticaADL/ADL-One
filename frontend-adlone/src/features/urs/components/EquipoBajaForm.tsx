@@ -54,7 +54,7 @@ const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
         <Card className="p-4 bg-[rgba(224,49,49,0.05)]">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase text-[#c92a2a]">
+                    <span className="text-xs font-semibold uppercase text-accent-red">
                         Solicitud de Retiro / Baja de Equipo
                     </span>
                     <Badge variant="destructive">ALTA PRIORIDAD</Badge>

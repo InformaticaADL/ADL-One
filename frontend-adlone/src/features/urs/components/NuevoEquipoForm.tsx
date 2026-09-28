@@ -36,7 +36,7 @@ const NuevoEquipoForm: React.FC<NuevoEquipoFormProps> = ({ onDataChange }) => {
     return (
         <Card className="p-4 bg-[rgba(12,133,153,0.06)]">
             <div className="flex flex-col gap-4">
-                <span className="text-xs font-semibold uppercase text-[#0c8599]">
+                <span className="text-xs font-semibold uppercase text-accent-cyan">
                     Solicitud de Registro / Adquisición de Nuevo Equipo
                 </span>
 

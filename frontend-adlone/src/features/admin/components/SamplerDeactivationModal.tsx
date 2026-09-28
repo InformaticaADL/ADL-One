@@ -144,9 +144,12 @@ const SamplerDeactivationModal: React.FC<SamplerDeactivationModalProps> = ({
     };
 
     const opciones: { id: 'BASE' | 'MUESTREADOR' | 'MANUAL'; label: string; icon: React.ReactNode; color: string; bg: string }[] = [
-        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: '#1c7ed6', bg: 'rgba(28,126,214,0.1)' },
-        { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: '#0c8599', bg: 'rgba(12,133,153,0.1)' },
-        { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: '#4c6ef5', bg: 'rgba(76,110,245,0.1)' },
+        // Tokens --app-accent-* (no hex fijos): en modo oscuro el tile y el chip
+        // del ícono se pintan sobre superficies oscuras, y los azules/índigos de
+        // 600 quedaban prácticamente ilegibles encima.
+        { id: 'BASE', label: 'Traspaso a Base', icon: <IconBuildingCommunity size={20} />, color: 'var(--app-accent-blue)', bg: 'var(--app-accent-blue-bg)' },
+        { id: 'MUESTREADOR', label: 'A Compañero', icon: <IconUsers size={20} />, color: 'var(--app-accent-cyan)', bg: 'var(--app-accent-cyan-bg)' },
+        { id: 'MANUAL', label: 'Manual', icon: <IconEdit size={20} />, color: 'var(--app-accent-indigo)', bg: 'var(--app-accent-indigo-bg)' },
     ];
 
     const otherMuestreadores = muestreadores

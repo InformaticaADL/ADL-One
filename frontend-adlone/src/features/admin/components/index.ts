@@ -7,3 +7,5 @@ export * from './MuestreadorForm';
 export * from './RoleModal';
 export * from './SamplerDeactivationModal';
 export * from './SamplerRequestsModal';
+export * from './TecnicaReferencias';
+export * from './ReferenciasNormativasView';

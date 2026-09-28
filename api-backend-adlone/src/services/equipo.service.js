@@ -2,6 +2,30 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 import ExcelJS from 'exceljs';
+import fs from 'fs';
+import path from 'path';
+
+// Las columnas documento_* las agrega migrations/003_add_documento_to_equipo.sql.
+// Referenciar una columna inexistente no es un filtro que no matchea: rompe la
+// compilación del SELECT completo y dejaría Gestión de Equipos en blanco en
+// cualquier base donde todavía no se corrió la migración. Por eso se comprueba
+// una vez (y se cachea) antes de incluirlas.
+let docsColumnsExist = null;
+const hasDocsColumns = async (pool) => {
+    if (docsColumnsExist !== null) return docsColumnsExist;
+    try {
+        const r = await pool.request().query(`SELECT
+            COL_LENGTH('mae_equipo', 'documento_ruta')           AS equipo,
+            COL_LENGTH('mae_equipo_historial', 'documento_ruta') AS historial`);
+        const row = r.recordset[0] || {};
+        docsColumnsExist = !!row.equipo && !!row.historial;
+        if (!docsColumnsExist) logger.warn('Faltan las columnas documento_* — ejecute migrations/003_add_documento_to_equipo.sql para habilitar el documento de mantención');
+    } catch (e) {
+        logger.warn('No se pudieron verificar las columnas documento_*: ' + e.message);
+        docsColumnsExist = false;
+    }
+    return docsColumnsExist;
+};
 
 // Helper to parse dates in various formats (ISO, DD/MM/YYYY, Date objects)
 const parseSqlDate = (dateVal) => {
@@ -24,6 +48,80 @@ const parseSqlDate = (dateVal) => {
     const fallbackDate = new Date(dateVal);
     return isNaN(fallbackDate.getTime()) ? null : fallbackDate;
 };
+
+// Copia una fila de mae_equipo (con su documento) a mae_equipo_historial bajo
+// la etiqueta de versión indicada.
+// mae_equipo_historial tiene columnas más angostas que mae_equipo (tienefc,
+// visible_muestreador, informe: varchar(1); codigo: 20; nombre y tipoequipo: 50;
+// sigla: 10; equipo_asociado: 20) y mae_equipo guarda 'Si'/'No' en los flags.
+// Un valor más largo que el tipo declarado rompe el paquete TDS (error 8016).
+const flagSN = (v, def) => {
+    const t = String(v ?? '').trim().toUpperCase();
+    if (!t) return def;
+    return (t === 'S' || t === 'SI') ? 'S' : 'N';
+};
+const clip = (v, n) => (v === null || v === undefined ? v : String(v).substring(0, n));
+
+const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk) => {
+    const req = new sql.Request(transaction);
+    req.input('id_equipo', sql.Numeric(10, 0), Number(row.id_equipo));
+    req.input('usuario_cambio', sql.Numeric(10, 0), userId);
+    req.input('version', sql.VarChar(10), clip(version, 10));
+    req.input('codigo', sql.VarChar(20), clip(row.codigo, 20));
+    req.input('nombre', sql.VarChar(50), clip(row.nombre, 50));
+    req.input('tipoequipo', sql.VarChar(50), clip(row.tipoequipo, 50));
+    req.input('sede', sql.VarChar(2), clip(row.sede, 2));
+    req.input('fecha_vigencia', sql.Date, row.fecha_vigencia);
+    req.input('id_muestreador', sql.Numeric(10, 0), row.id_muestreador || 0);
+    req.input('habilitado', sql.VarChar(1), flagSN(row.habilitado, 'S'));
+    req.input('sigla', sql.VarChar(10), clip(row.sigla || '', 10));
+    req.input('correlativo', sql.Numeric(10, 0), row.correlativo || 0);
+    req.input('tienefc', sql.VarChar(1), flagSN(row.tienefc, 'N'));
+    req.input('error0', sql.Numeric(10, 1), row.error0 || 0);
+    req.input('error15', sql.Numeric(10, 1), row.error15 || 0);
+    req.input('error30', sql.Numeric(10, 1), row.error30 || 0);
+    req.input('equipo_asociado', sql.VarChar(20), clip(row.equipo_asociado || '0', 20));
+    req.input('observacion', sql.VarChar(8000), row.observacion || '');
+    req.input('visible_muestreador', sql.VarChar(1), flagSN(row.visible_muestreador, 'N'));
+    req.input('que_mide', sql.VarChar(8000), row.que_mide || '');
+    req.input('unidad_medida_textual', sql.VarChar(8000), row.unidad_medida_textual || '');
+    req.input('unidad_medida_sigla', sql.VarChar(8000), row.unidad_medida_sigla || '');
+    req.input('informe', sql.VarChar(1), flagSN(row.informe, 'N'));
+    req.input('ultima_verificacion', sql.Date, parseSqlDate(row.Ultima_verificacion) || null);
+    req.input('siguiente_verificacion', sql.Date, parseSqlDate(row.Siguiente_verificacion) || null);
+    req.input('plazo_vigencia', sql.VarChar(500), row.Plazo_Vigencia || null);
+    req.input('estado_equipo_h', sql.VarChar(100), row.Estado || null);
+    if (docsOk) {
+        req.input('doc_nombre_h', sql.NVarChar(200), row.documento_nombre || null);
+        req.input('doc_ruta_h', sql.NVarChar(500), row.documento_ruta || null);
+        req.input('doc_fecha_h', sql.DateTime, row.documento_fecha || null);
+    }
+    await req.query(`
+        INSERT INTO mae_equipo_historial (
+            id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
+            sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
+            observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
+            Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+            usuario_cambio, version, fecha_cambio${docsOk ? ', documento_nombre, documento_ruta, documento_fecha' : ''}
+        ) VALUES (
+            @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
+            @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
+            @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
+            @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_h,
+            @usuario_cambio, @version, GETDATE()${docsOk ? ', @doc_nombre_h, @doc_ruta_h, @doc_fecha_h' : ''}
+        )
+    `);
+};
+
+// Un equipo "vencido" es el que pasó su Siguiente_verificacion y sigue siendo
+// del parque: activo, o inactivado automáticamente por el vencimiento
+// (inactivateExpiredEquipos deja habilitado='N' pero Estado='Operativo').
+// Los dados de baja / fuera de servicio se retiraron a propósito y no cuentan.
+const vencidoCondition = (a) => `(
+    ${a}.Siguiente_verificacion IS NOT NULL
+    AND CAST(${a}.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
+    AND (${a}.habilitado = 'S' OR ${a}.Estado LIKE '%operativo%')
+)`;
 
 export const equipoService = {
     /**
@@ -126,7 +224,7 @@ export const equipoService = {
             const request = pool.request();
 
             if (search) {
-                request.input('search', sql.VarChar, `%${search}%`);
+                request.input('search', sql.VarChar(8000), `%${search}%`);
                 whereClause += ` AND (
                     e.codigo LIKE @search OR 
                     e.nombre LIKE @search OR 
@@ -137,18 +235,18 @@ export const equipoService = {
             }
 
             if (tipo && tipo !== 'Todos') {
-                request.input('tipo', sql.VarChar, tipo);
+                request.input('tipo', sql.VarChar(8000), tipo);
                 whereClause += ` AND e.tipoequipo = @tipo`;
             }
 
             if (sede && sede !== 'Todos') {
-                request.input('sede', sql.VarChar, sede);
+                request.input('sede', sql.VarChar(8000), sede);
                 whereClause += ` AND e.sede = @sede`;
             }
 
             if (estado && estado !== 'Todos') {
                 const habilitadoVal = estado === 'Activo' ? 'S' : 'N';
-                request.input('habilitado', sql.VarChar, habilitadoVal);
+                request.input('habilitado', sql.VarChar(8000), habilitadoVal);
                 whereClause += ` AND e.habilitado = @habilitado`;
             }
 
@@ -168,11 +266,11 @@ export const equipoService = {
             }
 
             if (expiredOnly === 'true' || expiredOnly === true) {
-                whereClause += ` AND e.habilitado = 'S' AND e.Siguiente_verificacion IS NOT NULL AND CAST(e.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)`;
+                whereClause += ` AND ${vencidoCondition('e')}`;
             }
 
             if (inactiveSamplerOnly === 'true' || inactiveSamplerOnly === true) {
-                whereClause += ` AND m.habilitado = 'N'`;
+                whereClause += ` AND e.habilitado = 'S' AND m.habilitado = 'N'`;
             }
 
             // 1. Get total for pagination
@@ -189,6 +287,13 @@ export const equipoService = {
             const offset = (Math.max(1, Number(page)) - 1) * Number(limit);
             request.input('offset', sql.Int, offset);
             request.input('limit', sql.Int, Number(limit));
+
+            // Columna "Documento" del listado: el de la revisión vigente, que es
+            // justamente lo que guarda mae_equipo.
+            const docsColumns = (await hasDocsColumns(pool)) ? `,
+                    e.documento_nombre,
+                    e.documento_ruta,
+                    e.documento_fecha` : '';
 
             const query = `
                 SELECT 
@@ -219,7 +324,7 @@ export const equipoService = {
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
                     e.Plazo_Vigencia as plazo_vigencia,
-                    e.Estado as estado_equipo
+                    e.Estado as estado_equipo${docsColumns}
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 ${whereClause}
@@ -320,16 +425,14 @@ export const equipoService = {
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
-                    FROM mae_equipo
-                    WHERE habilitado = 'S'
-                      AND Siguiente_verificacion IS NOT NULL
-                      AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
+                    FROM mae_equipo e
+                    WHERE ${vencidoCondition('e')}
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo e
                     INNER JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
-                    WHERE m.habilitado = 'N'
+                    WHERE e.habilitado = 'S' AND m.habilitado = 'N'
                 `)
             ]);
 
@@ -354,7 +457,7 @@ export const equipoService = {
         try {
             const pool = await getConnection();
             const request = pool.request();
-            request.input('tipo', sql.VarChar, tipo);
+            request.input('tipo', sql.VarChar(8000), tipo);
 
             const query = `
                 SELECT MAX(correlativo) as lastCorrelativo 
@@ -377,8 +480,8 @@ export const equipoService = {
 
             // 1. Try to find the most common sigla for this name or type
             const siglaRequest = pool.request();
-            siglaRequest.input('tipo', sql.VarChar, `%${tipo}%`);
-            siglaRequest.input('nombre', sql.VarChar, `%${nombre}%`);
+            siglaRequest.input('tipo', sql.VarChar(8000), `%${tipo}%`);
+            siglaRequest.input('nombre', sql.VarChar(8000), `%${nombre}%`);
 
             // Priority: Name match, then Type match
             const siglaQuery = `
@@ -423,7 +526,7 @@ export const equipoService = {
 
             // 2. Find the previous equipment for this sigla to get its correlativo and code
             const corrRequest = pool.request();
-            corrRequest.input('sigla', sql.VarChar, sigla);
+            corrRequest.input('sigla', sql.VarChar(8000), sigla);
             const corrQuery = `
                 SELECT TOP 1 
                     correlativo as lastCorrelativo, 
@@ -470,6 +573,14 @@ export const equipoService = {
             const request = pool.request();
             request.input('id', sql.Int, id);
 
+            // El formulario de edición hidrata desde acá, así que necesita el
+            // documento de la revisión vigente para poder mostrarlo y decidir
+            // si se reemplaza o se quita.
+            const docsColumns = (await hasDocsColumns(pool)) ? `,
+                    e.documento_nombre,
+                    e.documento_ruta,
+                    e.documento_fecha` : '';
+
             const query = `
                 SELECT 
                     e.id_equipo,
@@ -499,7 +610,7 @@ export const equipoService = {
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
                     e.Plazo_Vigencia as plazo_vigencia,
-                    e.Estado as estado_equipo
+                    e.Estado as estado_equipo${docsColumns}
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 WHERE e.id_equipo = @id
@@ -513,10 +624,15 @@ export const equipoService = {
         }
     },
 
-    findMatchingVersion: async (id_equipo, data) => {
+    // `transaction`: dentro de updateEquipo el historial ya tiene filas
+    // modificadas (sin commit) por esa misma transacción; leer con otra conexión
+    // se bloquea hasta el timeout de 15 s. `excludeVersion`: la versión vigente
+    // no cuenta como "versión anterior a reutilizar".
+    findMatchingVersion: async (id_equipo, data, transaction = null, excludeVersion = null) => {
         try {
-            const pool = await getConnection();
-            const request = pool.request();
+            const request = transaction
+                ? new sql.Request(transaction)
+                : (await getConnection()).request();
             request.input('id_equipo', sql.Numeric(10, 0), Number(id_equipo));
 
             // Fetch all history entries for this equipment
@@ -524,12 +640,18 @@ export const equipoService = {
             const history = result.recordset;
 
             for (const h of history) {
+                if (excludeVersion && h.version === excludeVersion) continue;
                 // Compare all relevant fields
                 // Note: Use fuzzy comparison for numbers and handle nulls
 
                 // Safe date comparison
                 const hDate = h.fecha_vigencia ? h.fecha_vigencia.toISOString().split('T')[0] : null;
                 const dDate = data.vigencia ? new Date(data.vigencia).toISOString().split('T')[0] : null;
+
+                // Si data tiene documento_ruta, solo coincide si el documento también es igual
+                // De lo contrario, no reutilizamos versiones cuando hay cambios de documento
+                const docMatches = !Object.prototype.hasOwnProperty.call(data, 'documento_ruta') ||
+                    ((h.documento_ruta || null) === (data.documento_ruta || null));
 
                 const matches =
                     h.codigo === data.codigo &&
@@ -551,7 +673,8 @@ export const equipoService = {
                     (h.que_mide || '') === (data.que_mide || '') &&
                     (h.unidad_medida_textual || '') === (data.unidad_medida_textual || '') &&
                     (h.unidad_medida_sigla || '') === (data.unidad_medida_sigla || '') &&
-                    h.informe === ((data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N');
+                    h.informe === ((data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N') &&
+                    docMatches;
 
                 if (matches) return h.version;
             }
@@ -589,10 +712,10 @@ export const equipoService = {
 
             // Bind all inputs
             request.input('id_equipo', sql.Numeric(10, 0), newId);
-            request.input('codigo', sql.VarChar, data.codigo);
-            request.input('nombre', sql.VarChar, data.nombre);
-            request.input('tipoequipo', sql.VarChar, data.tipo);
-            request.input('sede', sql.VarChar, data.ubicacion);
+            request.input('codigo', sql.VarChar(8000), data.codigo);
+            request.input('nombre', sql.VarChar(8000), data.nombre);
+            request.input('tipoequipo', sql.VarChar(8000), data.tipo);
+            request.input('sede', sql.VarChar(8000), data.ubicacion);
             request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
             request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
             request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
@@ -603,11 +726,11 @@ export const equipoService = {
             request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
             request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
             request.input('equipo_asociado', sql.VarChar(20), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
-            request.input('observacion', sql.VarChar, data.observacion || '');
+            request.input('observacion', sql.VarChar(8000), data.observacion || '');
             request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
-            request.input('que_mide', sql.VarChar, data.que_mide || '');
-            request.input('unidad_medida_textual', sql.VarChar, data.unidad_medida_textual || '');
-            request.input('unidad_medida_sigla', sql.VarChar, data.unidad_medida_sigla || '');
+            request.input('que_mide', sql.VarChar(8000), data.que_mide || '');
+            request.input('unidad_medida_textual', sql.VarChar(8000), data.unidad_medida_textual || '');
+            request.input('unidad_medida_sigla', sql.VarChar(8000), data.unidad_medida_sigla || '');
             request.input('informe', sql.VarChar(1), (data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N');
             request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
             request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
@@ -669,10 +792,10 @@ export const equipoService = {
 
                 // Bind all inputs
                 request.input('id_equipo', sql.Numeric(10, 0), currentId);
-                request.input('codigo', sql.VarChar, data.codigo);
-                request.input('nombre', sql.VarChar, data.nombre);
-                request.input('tipoequipo', sql.VarChar, data.tipo);
-                request.input('sede', sql.VarChar, data.ubicacion);
+                request.input('codigo', sql.VarChar(8000), data.codigo);
+                request.input('nombre', sql.VarChar(8000), data.nombre);
+                request.input('tipoequipo', sql.VarChar(8000), data.tipo);
+                request.input('sede', sql.VarChar(8000), data.ubicacion);
                 request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
                 request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
                 request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
@@ -683,11 +806,11 @@ export const equipoService = {
                 request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
                 request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
                 request.input('equipo_asociado', sql.VarChar(20), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
-                request.input('observacion', sql.VarChar, data.observacion || '');
+                request.input('observacion', sql.VarChar(8000), data.observacion || '');
                 request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
-                request.input('que_mide', sql.VarChar, data.que_mide || '');
-                request.input('unidad_medida_textual', sql.VarChar, data.unidad_medida_textual || '');
-                request.input('unidad_medida_sigla', sql.VarChar, data.unidad_medida_sigla || '');
+                request.input('que_mide', sql.VarChar(8000), data.que_mide || '');
+                request.input('unidad_medida_textual', sql.VarChar(8000), data.unidad_medida_textual || '');
+                request.input('unidad_medida_sigla', sql.VarChar(8000), data.unidad_medida_sigla || '');
                 request.input('informe', sql.VarChar(1), (data.informe === 'SI' || data.informe === 'S') ? 'S' : 'N');
                 request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
                 request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
@@ -723,6 +846,9 @@ export const equipoService = {
 
     updateEquipo: async (id, data, userId = null) => {
         const pool = await getConnection();
+        // Si la migración 003 todavía no corrió, el equipo se actualiza igual:
+        // simplemente sin la parte del documento (ver hasDocsColumns).
+        const docsColumnsOk = await hasDocsColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
@@ -794,54 +920,10 @@ export const equipoService = {
                 updHistReq.input('usuario_cambio', sql.Numeric(10, 0), userId);
                 await updHistReq.query('UPDATE mae_equipo_historial SET fecha_cambio = GETDATE(), usuario_cambio = @usuario_cambio WHERE id_historial = @id_h');
             } else {
-                // INSERT new history entry
-                const requestHist = new sql.Request(transaction);
-                requestHist.input('id_equipo', sql.Numeric(10, 0), Number(id));
-                requestHist.input('usuario_cambio', sql.Numeric(10, 0), userId);
-                requestHist.input('version', sql.VarChar(10), current.version || 'v1');
-
-                // Bind current record values for history
-                requestHist.input('codigo', sql.VarChar, current.codigo);
-                requestHist.input('nombre', sql.VarChar, current.nombre);
-                requestHist.input('tipoequipo', sql.VarChar, current.tipoequipo);
-                requestHist.input('sede', sql.VarChar, current.sede);
-                requestHist.input('fecha_vigencia', sql.Date, current.fecha_vigencia);
-                requestHist.input('id_muestreador', sql.Numeric(10, 0), current.id_muestreador || 0);
-                requestHist.input('habilitado', sql.VarChar(1), current.habilitado || 'S');
-                requestHist.input('sigla', sql.VarChar(10), current.sigla || '');
-                requestHist.input('correlativo', sql.Numeric(10, 0), current.correlativo || 0);
-                requestHist.input('tienefc', sql.VarChar(1), current.tienefc || 'N');
-                requestHist.input('error0', sql.Numeric(10, 1), current.error0 || 0);
-                requestHist.input('error15', sql.Numeric(10, 1), current.error15 || 0);
-                requestHist.input('error30', sql.Numeric(10, 1), current.error30 || 0);
-                requestHist.input('equipo_asociado', sql.VarChar(20), current.equipo_asociado || '0');
-                requestHist.input('observacion', sql.VarChar, current.observacion || '');
-                requestHist.input('visible_muestreador', sql.VarChar(1), current.visible_muestreador || 'N');
-                requestHist.input('que_mide', sql.VarChar, current.que_mide || '');
-                requestHist.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
-                requestHist.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
-                requestHist.input('informe', sql.VarChar(1), current.informe || 'N');
-                requestHist.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
-                requestHist.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
-                requestHist.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
-                requestHist.input('estado_equipo_h', sql.VarChar(100), current.Estado || null);
-
-                const queryHist = `
-                    INSERT INTO mae_equipo_historial (
-                        id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
-                        sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
-                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
-                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-                        usuario_cambio, version, fecha_cambio
-                    ) VALUES (
-                        @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
-                        @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
-                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
-                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_h,
-                        @usuario_cambio, @version, GETDATE()
-                    );
-                `;
-                await requestHist.query(queryHist);
+                // El documento viaja con la versión que se archiva: la mantención
+                // anterior conserva su informe y el nuevo queda en mae_equipo como
+                // el de la revisión vigente.
+                await insertHistorialSnapshot(transaction, current, current.version || 'v1', userId, docsColumnsOk);
             }
 
             // 4. Update Main Table with NEW data and increment version
@@ -849,17 +931,27 @@ export const equipoService = {
             requestMain.input('id', sql.Int, id);
 
             // Partial Update Support: If a field is missing in 'data', use 'current' value
-            requestMain.input('codigo', sql.VarChar, data.hasOwnProperty('codigo') ? data.codigo : current.codigo);
-            requestMain.input('nombre', sql.VarChar, data.hasOwnProperty('nombre') ? data.nombre : current.nombre);
-            requestMain.input('tipoequipo', sql.VarChar, data.hasOwnProperty('tipo') ? data.tipo : current.tipoequipo);
-            requestMain.input('sede', sql.VarChar, data.hasOwnProperty('ubicacion') ? data.ubicacion : current.sede);
+            requestMain.input('codigo', sql.VarChar(8000), data.hasOwnProperty('codigo') ? data.codigo : current.codigo);
+            requestMain.input('nombre', sql.VarChar(8000), data.hasOwnProperty('nombre') ? data.nombre : current.nombre);
+            requestMain.input('tipoequipo', sql.VarChar(8000), data.hasOwnProperty('tipo') ? data.tipo : current.tipoequipo);
+            requestMain.input('sede', sql.VarChar(8000), data.hasOwnProperty('ubicacion') ? data.ubicacion : current.sede);
 
             // Fix for EPARAM error: Ensure date is properly parsed before binding
             const vigDate = data.hasOwnProperty('vigencia') ? data.vigencia : current.fecha_vigencia;
             requestMain.input('fecha_vigencia', sql.Date, parseSqlDate(vigDate));
 
             requestMain.input('id_muestreador', sql.Numeric(10, 0), data.hasOwnProperty('id_muestreador') ? data.id_muestreador : (current.id_muestreador || 0));
-            requestMain.input('habilitado', sql.VarChar(1), data.hasOwnProperty('estado') ? (data.estado === 'Activo' ? 'S' : 'N') : current.habilitado);
+            // Si el estado_equipo se cambió explícitamente a 'baja' u 'operativo',
+            // sincronizar el flag habilitado AQUÍ (un solo .input) para no generar
+            // el error "A parameter with this name already exists" de mssql.
+            const estadoEqFinal = data.hasOwnProperty('estado_equipo') ? data.estado_equipo : current.Estado;
+            let habilitadoFinal = data.hasOwnProperty('estado') ? (data.estado === 'Activo' ? 'S' : 'N') : current.habilitado;
+            if (estadoEqFinal) {
+                const eL = estadoEqFinal.toLowerCase();
+                if (eL.includes('baja')) habilitadoFinal = 'N';
+                else if (eL.includes('operativo')) habilitadoFinal = 'S';
+            }
+            requestMain.input('habilitado', sql.VarChar(1), habilitadoFinal);
             requestMain.input('sigla', sql.VarChar(10), data.hasOwnProperty('sigla') ? (data.sigla || '') : (current.sigla || ''));
             requestMain.input('correlativo', sql.Numeric(10, 0), data.hasOwnProperty('correlativo') ? (data.correlativo || 0) : (current.correlativo || 0));
             requestMain.input('tienefc', sql.VarChar(1), data.hasOwnProperty('tiene_fc') ? ((data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N') : (current.tienefc || 'N'));
@@ -874,16 +966,16 @@ export const equipoService = {
             requestMain.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(error30)) ? 0 : parseFloat(error30));
 
             const eqAsoc = data.hasOwnProperty('equipo_asociado') ? data.equipo_asociado : current.equipo_asociado;
-            requestMain.input('equipo_asociado', sql.VarChar(20), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
+            requestMain.input('equipo_asociado', sql.VarChar(200), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
 
-            requestMain.input('observacion', sql.VarChar, data.hasOwnProperty('observacion') ? (data.observacion || '') : (current.observacion || ''));
+            requestMain.input('observacion', sql.VarChar(8000), data.hasOwnProperty('observacion') ? (data.observacion || '') : (current.observacion || ''));
 
             const visMuest = data.hasOwnProperty('visible_muestreador') ? data.visible_muestreador : current.visible_muestreador;
             requestMain.input('visible_muestreador', sql.VarChar(1), (visMuest === 'SI' || visMuest === 'S') ? 'S' : 'N');
 
-            requestMain.input('que_mide', sql.VarChar, data.hasOwnProperty('que_mide') ? (data.que_mide || '') : (current.que_mide || ''));
-            requestMain.input('unidad_medida_textual', sql.VarChar, data.hasOwnProperty('unidad_medida_textual') ? (data.unidad_medida_textual || '') : (current.unidad_medida_textual || ''));
-            requestMain.input('unidad_medida_sigla', sql.VarChar, data.hasOwnProperty('unidad_medida_sigla') ? (data.unidad_medida_sigla || '') : (current.unidad_medida_sigla || ''));
+            requestMain.input('que_mide', sql.VarChar(8000), data.hasOwnProperty('que_mide') ? (data.que_mide || '') : (current.que_mide || ''));
+            requestMain.input('unidad_medida_textual', sql.VarChar(8000), data.hasOwnProperty('unidad_medida_textual') ? (data.unidad_medida_textual || '') : (current.unidad_medida_textual || ''));
+            requestMain.input('unidad_medida_sigla', sql.VarChar(8000), data.hasOwnProperty('unidad_medida_sigla') ? (data.unidad_medida_sigla || '') : (current.unidad_medida_sigla || ''));
 
             const inf = data.hasOwnProperty('informe') ? data.informe : current.informe;
             requestMain.input('informe', sql.VarChar(1), (inf === 'SI' || inf === 'S') ? 'S' : 'N');
@@ -897,18 +989,11 @@ export const equipoService = {
 
             requestMain.input('plazo_vigencia', sql.VarChar(500), data.hasOwnProperty('plazo_vigencia') ? (data.plazo_vigencia || null) : (current.Plazo_Vigencia || null));
 
-            const estadoEq = data.hasOwnProperty('estado_equipo') ? data.estado_equipo : current.Estado;
-            requestMain.input('estado_equipo', sql.VarChar(100), estadoEq || null);
-            // Sincronizar habilitado con Estado si Estado fue modificado explícitamente
-            if (data.hasOwnProperty('estado_equipo') && estadoEq) {
-                const eL = estadoEq.toLowerCase();
-                if (eL.includes('baja')) requestMain.input('habilitado_override', sql.VarChar(1), 'N');
-                else if (eL.includes('operativo')) requestMain.input('habilitado_override', sql.VarChar(1), 'S');
-            }
+            requestMain.input('estado_equipo', sql.VarChar(100), estadoEqFinal || null);
 
             // Increment version based on current OR reuse if matches history
             let nextVersionLabel;
-            const matchingVersion = await equipoService.findMatchingVersion(id, data);
+            const matchingVersion = await equipoService.findMatchingVersion(id, data, transaction, current.version || 'v1');
 
             if (matchingVersion) {
                 nextVersionLabel = matchingVersion;
@@ -918,6 +1003,24 @@ export const equipoService = {
             }
 
             requestMain.input('version', sql.VarChar(10), nextVersionLabel);
+
+            // documento_* solo se toca si el formulario mandó el campo: un update
+            // parcial (ej. activar/desactivar desde el listado) no debe borrar el
+            // informe de la última mantención. Mandar documento_ruta en null es la
+            // forma explícita de quitarlo.
+            let docSet = '';
+            if (docsColumnsOk && Object.prototype.hasOwnProperty.call(data, 'documento_ruta')) {
+                requestMain.input('doc_nombre', sql.NVarChar(200), data.documento_ruta ? (data.documento_nombre || null) : null);
+                requestMain.input('doc_ruta', sql.NVarChar(500), data.documento_ruta || null);
+                docSet = `,
+                    documento_nombre = @doc_nombre,
+                    documento_ruta = @doc_ruta,
+                    documento_fecha = CASE
+                        WHEN @doc_ruta IS NULL THEN NULL
+                        WHEN @doc_ruta <> ISNULL(documento_ruta, '') THEN GETDATE()
+                        ELSE documento_fecha
+                    END`;
+            }
 
             const queryUpdate = `
                 UPDATE mae_equipo 
@@ -945,10 +1048,29 @@ export const equipoService = {
                     Siguiente_verificacion = @siguiente_verificacion,
                     Plazo_Vigencia = @plazo_vigencia,
                     Estado = @estado_equipo,
-                    version = @version
+                    version = @version${docSet}
                 WHERE id_equipo = @id
             `;
             await requestMain.query(queryUpdate);
+
+            // La versión nueva también queda en el historial con su documento
+            // (documento_nombre/ruta/fecha), no solo en mae_equipo: hasta ahora
+            // llegaba al historial recién en la edición siguiente. Si se reutilizó
+            // una versión anterior, esa fila ya existe y no se toca.
+            if (!matchingVersion) {
+                const freshRes = await new sql.Request(transaction)
+                    .input('id', sql.Int, id)
+                    .query('SELECT * FROM mae_equipo WHERE id_equipo = @id');
+                const fresh = freshRes.recordset[0];
+                const existeRes = await new sql.Request(transaction)
+                    .input('id_equipo', sql.Numeric(10, 0), Number(id))
+                    .input('version', sql.VarChar(10), nextVersionLabel)
+                    .query('SELECT 1 AS existe FROM mae_equipo_historial WHERE id_equipo = @id_equipo AND version = @version');
+                if (fresh && existeRes.recordset.length === 0) {
+                    await insertHistorialSnapshot(transaction, fresh, nextVersionLabel, userId, docsColumnsOk);
+                }
+            }
+
             await transaction.commit();
             return { id, ...data, version: nextVersionLabel };
         } catch (error) {
@@ -966,10 +1088,17 @@ export const equipoService = {
             const request = pool.request();
             request.input('id', sql.Numeric(10, 0), parsedId);
 
+            // Cada versión conserva el documento con que se registró esa revisión.
+            const docsColumns = (await hasDocsColumns(pool)) ? `,
+                    h.documento_nombre,
+                    h.documento_ruta,
+                    h.documento_fecha` : '';
+
             const query = `
                 SELECT TOP 7
                     h.id_historial,
                     h.id_equipo,
+                    h.codigo,
                     h.nombre,
                     h.tipoequipo as tipo,
                     h.sede as ubicacion,
@@ -995,7 +1124,7 @@ export const equipoService = {
                     h.informe,
                     h.fecha_cambio,
                     h.version,
-                    u.usuario as nombre_usuario_cambio
+                    u.usuario as nombre_usuario_cambio${docsColumns}
                 FROM mae_equipo_historial h
                 LEFT JOIN mae_usuario u ON h.usuario_cambio = u.id_usuario
                 WHERE h.id_equipo = @id
@@ -1037,10 +1166,10 @@ export const equipoService = {
             requestHist.input('usuario_cambio', sql.Numeric(10, 0), userId);
             requestHist.input('version', sql.VarChar(10), current.version || 'v1');
 
-            requestHist.input('codigo', sql.VarChar, current.codigo);
-            requestHist.input('nombre', sql.VarChar, current.nombre);
-            requestHist.input('tipoequipo', sql.VarChar, current.tipoequipo);
-            requestHist.input('sede', sql.VarChar, current.sede);
+            requestHist.input('codigo', sql.VarChar(8000), current.codigo);
+            requestHist.input('nombre', sql.VarChar(8000), current.nombre);
+            requestHist.input('tipoequipo', sql.VarChar(8000), current.tipoequipo);
+            requestHist.input('sede', sql.VarChar(8000), current.sede);
             requestHist.input('fecha_vigencia', sql.Date, current.fecha_vigencia);
             requestHist.input('id_muestreador', sql.Numeric(10, 0), current.id_muestreador);
             requestHist.input('habilitado', sql.VarChar(1), 'N');
@@ -1051,11 +1180,11 @@ export const equipoService = {
             requestHist.input('error15', sql.Numeric(10, 1), current.error15);
             requestHist.input('error30', sql.Numeric(10, 1), current.error30);
             requestHist.input('equipo_asociado', sql.VarChar(20), current.equipo_asociado);
-            requestHist.input('observacion', sql.VarChar, current.observacion);
+            requestHist.input('observacion', sql.VarChar(8000), current.observacion);
             requestHist.input('visible_muestreador', sql.VarChar(1), current.visible_muestreador);
-            requestHist.input('que_mide', sql.VarChar, current.que_mide);
-            requestHist.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual);
-            requestHist.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla);
+            requestHist.input('que_mide', sql.VarChar(8000), current.que_mide);
+            requestHist.input('unidad_medida_textual', sql.VarChar(8000), current.unidad_medida_textual);
+            requestHist.input('unidad_medida_sigla', sql.VarChar(8000), current.unidad_medida_sigla);
             requestHist.input('informe', sql.VarChar(1), current.informe);
             requestHist.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
             requestHist.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
@@ -1123,62 +1252,17 @@ export const equipoService = {
                 updHistReq.input('id_h', sql.Numeric(10, 0), checkHistRes.recordset[0].id_historial);
                 await updHistReq.query('UPDATE mae_equipo_historial SET fecha_cambio = GETDATE() WHERE id_historial = @id_h');
             } else {
-                // INSERT new history entry
-                const snapReq = new sql.Request(transaction);
-                snapReq.input('id_equipo', sql.Numeric(10, 0), Number(id));
-                snapReq.input('usuario_cambio', sql.Numeric(10, 0), userId);
-                snapReq.input('version', sql.VarChar(10), current.version || 'v1');
-
-                // Bind current values
-                snapReq.input('codigo', sql.VarChar, current.codigo);
-                snapReq.input('nombre', sql.VarChar, current.nombre);
-                snapReq.input('tipoequipo', sql.VarChar, current.tipoequipo);
-                snapReq.input('sede', sql.VarChar, current.sede);
-                snapReq.input('fecha_vigencia', sql.Date, current.fecha_vigencia);
-                snapReq.input('id_muestreador', sql.Numeric(10, 0), current.id_muestreador || 0);
-                snapReq.input('habilitado', sql.VarChar(1), current.habilitado || 'S');
-                snapReq.input('sigla', sql.VarChar(10), current.sigla || '');
-                snapReq.input('correlativo', sql.Numeric(10, 0), current.correlativo || 0);
-                snapReq.input('tienefc', sql.VarChar(1), current.tienefc || 'N');
-                snapReq.input('error0', sql.Numeric(10, 1), current.error0 || 0);
-                snapReq.input('error15', sql.Numeric(10, 1), current.error15 || 0);
-                snapReq.input('error30', sql.Numeric(10, 1), current.error30 || 0);
-                snapReq.input('equipo_asociado', sql.VarChar(20), current.equipo_asociado || '0');
-                snapReq.input('observacion', sql.VarChar, current.observacion || '');
-                snapReq.input('visible_muestreador', sql.VarChar(1), current.visible_muestreador || 'N');
-                snapReq.input('que_mide', sql.VarChar, current.que_mide || '');
-                snapReq.input('unidad_medida_textual', sql.VarChar, current.unidad_medida_textual || '');
-                snapReq.input('unidad_medida_sigla', sql.VarChar, current.unidad_medida_sigla || '');
-                snapReq.input('informe', sql.VarChar(1), current.informe || 'N');
-                snapReq.input('ultima_verificacion', sql.Date, parseSqlDate(current.Ultima_verificacion) || null);
-                snapReq.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
-                snapReq.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
-                snapReq.input('estado_equipo_snap', sql.VarChar(100), current.Estado || null);
-
-                await snapReq.query(`
-                    INSERT INTO mae_equipo_historial (
-                        id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
-                        sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
-                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
-                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-                        usuario_cambio, version, fecha_cambio
-                    ) VALUES (
-                        @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
-                        @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
-                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
-                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_snap,
-                        @usuario_cambio, @version, GETDATE()
-                    )
-                `);
+                // Sin esto, al restaurar otra versión el documento de la vigente se perdía.
+                await insertHistorialSnapshot(transaction, current, current.version || 'v1', userId, await hasDocsColumns(pool));
             }
 
             // 5. Update main table with HISTORICAL data and NEW version label
             const updReq = new sql.Request(transaction);
             updReq.input('id', sql.Int, id);
-            updReq.input('codigo', sql.VarChar, target.codigo);
-            updReq.input('nombre', sql.VarChar, target.nombre);
-            updReq.input('tipoequipo', sql.VarChar, target.tipoequipo);
-            updReq.input('sede', sql.VarChar, target.sede);
+            updReq.input('codigo', sql.VarChar(8000), target.codigo);
+            updReq.input('nombre', sql.VarChar(8000), target.nombre);
+            updReq.input('tipoequipo', sql.VarChar(8000), target.tipoequipo);
+            updReq.input('sede', sql.VarChar(8000), target.sede);
             updReq.input('fecha_vigencia', sql.Date, target.fecha_vigencia);
             updReq.input('id_muestreador', sql.Numeric(10, 0), target.id_muestreador || 0);
             updReq.input('habilitado', sql.VarChar(1), target.habilitado || 'S');
@@ -1189,17 +1273,27 @@ export const equipoService = {
             updReq.input('error15', sql.Numeric(10, 1), target.error15 || 0);
             updReq.input('error30', sql.Numeric(10, 1), target.error30 || 0);
             updReq.input('equipo_asociado', sql.VarChar(20), target.equipo_asociado || '0');
-            updReq.input('observacion', sql.VarChar, target.observacion || '');
+            updReq.input('observacion', sql.VarChar(8000), target.observacion || '');
             updReq.input('visible_muestreador', sql.VarChar(1), target.visible_muestreador || 'N');
-            updReq.input('que_mide', sql.VarChar, target.que_mide || '');
-            updReq.input('unidad_medida_textual', sql.VarChar, target.unidad_medida_textual || '');
-            updReq.input('unidad_medida_sigla', sql.VarChar, target.unidad_medida_sigla || '');
+            updReq.input('que_mide', sql.VarChar(8000), target.que_mide || '');
+            updReq.input('unidad_medida_textual', sql.VarChar(8000), target.unidad_medida_textual || '');
+            updReq.input('unidad_medida_sigla', sql.VarChar(8000), target.unidad_medida_sigla || '');
             updReq.input('informe', sql.VarChar(1), target.informe || 'N');
             updReq.input('ultima_verificacion_r', sql.Date, parseSqlDate(target.Ultima_verificacion) || null);
             updReq.input('siguiente_verificacion_r', sql.Date, parseSqlDate(target.Siguiente_verificacion) || null);
             updReq.input('plazo_vigencia_r', sql.VarChar(500), target.Plazo_Vigencia || null);
             updReq.input('estado_equipo_r', sql.VarChar(100), target.Estado || null);
             updReq.input('version', sql.VarChar(10), nextVersionLabel);
+
+            // Restaurar una versión también restaura su documento: si se vuelve a
+            // la v2, el informe vigente pasa a ser el que tenía la v2.
+            let docRestore = '';
+            if (await hasDocsColumns(pool)) {
+                updReq.input('doc_nombre_r', sql.NVarChar(200), target.documento_nombre || null);
+                updReq.input('doc_ruta_r', sql.NVarChar(500), target.documento_ruta || null);
+                updReq.input('doc_fecha_r', sql.DateTime, target.documento_fecha || null);
+                docRestore = ', documento_nombre=@doc_nombre_r, documento_ruta=@doc_ruta_r, documento_fecha=@doc_fecha_r';
+            }
 
             await updReq.query(`
                 UPDATE mae_equipo 
@@ -1212,7 +1306,7 @@ export const equipoService = {
                     unidad_medida_sigla=@unidad_medida_sigla, informe=@informe,
                     Ultima_verificacion=@ultima_verificacion_r, Siguiente_verificacion=@siguiente_verificacion_r,
                     Plazo_Vigencia=@plazo_vigencia_r, Estado=@estado_equipo_r,
-                    version=@version
+                    version=@version${docRestore}
                 WHERE id_equipo = @id
             `);
 
@@ -1291,7 +1385,7 @@ export const equipoService = {
                 histReq.input('error15', sql.Numeric(10, 1), current.error15 || 0);
                 histReq.input('error30', sql.Numeric(10, 1), current.error30 || 0);
                 histReq.input('equipo_asociado', sql.VarChar(20), String(current.equipo_asociado || '0').substring(0, 20));
-                histReq.input('observacion', sql.VarChar, `[SISTEMA] Inactivación automática por vencimiento. Obs anterior: ${current.observacion || ''}`.substring(0, 500));
+                histReq.input('observacion', sql.VarChar(8000), `[SISTEMA] Inactivación automática por vencimiento. Obs anterior: ${current.observacion || ''}`.substring(0, 500));
                 histReq.input('visible_muestreador', sql.VarChar(1), String(current.visible_muestreador || 'N').trim().substring(0, 1));
                 histReq.input('que_mide', sql.VarChar(250), current.que_mide ? String(current.que_mide).substring(0, 250) : '');
                 histReq.input('unidad_medida_textual', sql.VarChar(250), current.unidad_medida_textual ? String(current.unidad_medida_textual).substring(0, 250) : '');
@@ -1341,7 +1435,7 @@ export const equipoService = {
             // 1. Build where clause (Same as getEquipos but without pagination)
             let whereClause = ' WHERE 1=1';
             if (search) {
-                request.input('search', sql.VarChar, `%${search}%`);
+                request.input('search', sql.VarChar(8000), `%${search}%`);
                 whereClause += ` AND (
                     e.codigo LIKE @search OR 
                     e.nombre LIKE @search OR 
@@ -1351,15 +1445,15 @@ export const equipoService = {
                 )`;
             }
             if (tipo && tipo !== 'Todos') {
-                request.input('tipo', sql.VarChar, tipo);
+                request.input('tipo', sql.VarChar(8000), tipo);
                 whereClause += ` AND e.tipoequipo = @tipo`;
             }
             if (sede && sede !== 'Todos') {
-                request.input('sede', sql.VarChar, sede);
+                request.input('sede', sql.VarChar(8000), sede);
                 whereClause += ` AND e.sede = @sede`;
             }
             if (estado && estado !== 'Todos') {
-                request.input('habilitado', sql.VarChar, estado === 'Activo' ? 'S' : 'N');
+                request.input('habilitado', sql.VarChar(8000), estado === 'Activo' ? 'S' : 'N');
                 whereClause += ` AND e.habilitado = @habilitado`;
             }
             if (id_muestreador && id_muestreador !== 'Todos') {
@@ -1629,6 +1723,48 @@ export const equipoService = {
             logger.error('Error in getEquipmentComparisonForResampling service:', error);
             throw error;
         }
+    },
+
+    // --- DOCUMENTO DE LA REVISIÓN / MANTENCIÓN ---
+    // No hay tabla de adjuntos: el documento es un atributo de la versión del
+    // equipo. mae_equipo tiene el de la revisión vigente y mae_equipo_historial
+    // conserva el de cada versión anterior (ver updateEquipo, que archiva el
+    // estado actual antes de sobrescribirlo).
+
+    // Documento vigente del equipo, para descargarlo desde el listado.
+    getDocumentoEquipo: async (idEquipo) => {
+        const pool = await getConnection();
+        if (!(await hasDocsColumns(pool))) return null;
+        const r = await pool.request()
+            .input('id', sql.Int, Number(idEquipo))
+            .query(`SELECT id_equipo, codigo, documento_nombre, documento_ruta, documento_fecha
+                    FROM mae_equipo WHERE id_equipo = @id`);
+        const row = r.recordset[0];
+        return row?.documento_ruta ? row : null;
+    },
+
+    // Documento de una versión archivada, para descargarlo desde el historial.
+    getDocumentoHistorial: async (idHistorial) => {
+        const pool = await getConnection();
+        if (!(await hasDocsColumns(pool))) return null;
+        const r = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(idHistorial))
+            .query(`SELECT id_historial, id_equipo, version, documento_nombre, documento_ruta, documento_fecha
+                    FROM mae_equipo_historial WHERE id_historial = @id`);
+        const row = r.recordset[0];
+        return row?.documento_ruta ? row : null;
+    },
+
+    // Traduce la ruta relativa guardada (/uploads/equipos/doc-x.pdf) a una ruta
+    // absoluta dentro de UPLOAD_PATH, y rechaza cualquier cosa que se salga de
+    // esa carpeta (path traversal vía una fila manipulada en la BD).
+    resolveDocumentoPath: (rutaArchivo) => {
+        if (!rutaArchivo) return null;
+        const uploadRoot = process.env.UPLOAD_PATH || path.join(process.cwd(), 'uploads');
+        const equiposRoot = path.resolve(uploadRoot, 'equipos');
+        const abs = path.resolve(uploadRoot, rutaArchivo.replace(/^\/uploads\//, ''));
+        if (abs !== equiposRoot && !abs.startsWith(equiposRoot + path.sep)) return null;
+        return abs;
     }
 };
 

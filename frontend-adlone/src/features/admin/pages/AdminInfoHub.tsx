@@ -221,10 +221,10 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                                                     <Icon size={19} stroke={1.75} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+                                                    <div className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
                                                         {area.label}
                                                         {disabled && <Badge variant="outline" className="font-normal normal-case">Próximamente</Badge>}
-                                                    </p>
+                                                    </div>
                                                     {area.description && (
                                                         <p className="truncate text-xs text-muted-foreground">{area.description}</p>
                                                     )}

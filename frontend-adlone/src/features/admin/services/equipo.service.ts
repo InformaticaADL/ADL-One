@@ -36,6 +36,11 @@ export interface Equipo {
     plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
     estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
     habilitado_muestreador?: string;   // 'S' o 'N' de mae_muestreador
+    // Documento de la revisión/mantención vigente. En mae_equipo_historial las
+    // mismas columnas conservan el de cada versión anterior.
+    documento_nombre?: string | null;
+    documento_ruta?: string | null;
+    documento_fecha?: string | null;
 }
 
 export interface EquipoHistorial extends Equipo {
@@ -143,6 +148,32 @@ export const equipoService = {
             params,
             responseType: 'blob'
         });
+        return response.data;
+    },
+
+    // --- DOCUMENTO DE LA REVISIÓN / MANTENCIÓN ---
+
+    // Sube el archivo y devuelve su ruta. Todavía no queda asociado a nada: la
+    // ruta se manda en el PUT del equipo y se guarda junto con la versión nueva.
+    subirArchivoDocumento: async (archivo: File, nombreDocumento?: string): Promise<{ documento_nombre: string; documento_ruta: string; tamano_bytes: number }> => {
+        const form = new FormData();
+        form.append('archivo', archivo);
+        if (nombreDocumento) form.append('nombre_documento', nombreDocumento);
+        const response = await apiClient.post('/api/admin/equipos/documentos/archivo', form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        return response.data.data;
+    },
+
+    // Las descargas van por la API y no por el /uploads estático: así viaja el
+    // token y el archivo llega con su nombre real, no con el aleatorio del disco.
+    descargarDocumentoEquipo: async (idEquipo: number): Promise<Blob> => {
+        const response = await apiClient.get(`/api/admin/equipos/${idEquipo}/documento`, { responseType: 'blob' });
+        return response.data;
+    },
+
+    descargarDocumentoHistorial: async (idHistorial: number): Promise<Blob> => {
+        const response = await apiClient.get(`/api/admin/equipos/historial/${idHistorial}/documento`, { responseType: 'blob' });
         return response.data;
     }
 };

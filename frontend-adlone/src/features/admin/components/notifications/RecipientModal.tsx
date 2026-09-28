@@ -291,7 +291,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                                                                 onClick={() => handleSelectOption(opt)}
                                                                 className="flex w-full items-center gap-2.5 border-b border-border px-4 py-2.5 text-left last:border-0 hover:bg-muted"
                                                             >
-                                                                {opt.type === 'role' ? <IconUsers size={16} className="text-primary" /> : <IconUser size={16} className="text-[#7e22ce]" />}
+                                                                {opt.type === 'role' ? <IconUsers size={16} className="text-primary" /> : <IconUser size={16} className="text-accent-violet" />}
                                                                 <div className="min-w-0">
                                                                     <div className="truncate text-sm font-semibold text-foreground">{opt.label}</div>
                                                                     <div className="truncate text-xs text-muted-foreground">{opt.type === 'role' ? 'Rol General' : opt.email || 'Usuario'}</div>
@@ -309,7 +309,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
                                                     <Badge
                                                         key={`${chip.type}-${chip.id}`}
                                                         variant="outline"
-                                                        className={cn('gap-1.5 py-1 pl-2 pr-1.5 font-normal normal-case', chip.type === 'role' ? 'border-primary/30 text-primary' : 'border-[#e9d5ff] text-[#7e22ce]')}
+                                                        className={cn('gap-1.5 py-1 pl-2 pr-1.5 font-normal normal-case', chip.type === 'role' ? 'border-primary/30 text-primary' : 'border-[#e9d5ff] text-accent-violet')}
                                                     >
                                                         {chip.type === 'role' ? <IconUsers size={12} /> : <IconUser size={12} />}
                                                         {chip.label}
@@ -410,7 +410,7 @@ export const RecipientModal: React.FC<Props> = ({ isOpen, onClose, event, onSave
 
                                             {selectedUsers.length > 0 && (
                                                 <div className="flex items-start gap-2">
-                                                    <IconUser size={14} className="mt-0.5 shrink-0 text-[#7e22ce]" />
+                                                    <IconUser size={14} className="mt-0.5 shrink-0 text-accent-violet" />
                                                     <div className="min-w-0">
                                                         <span className="block text-sm font-semibold text-foreground">Usuarios Específicos</span>
                                                         <div className="text-xs text-muted-foreground">{selectedChips.filter(c => c.type === 'user').map(c => c.label).join(', ')}</div>

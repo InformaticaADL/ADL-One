@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useId } from 'react';
+import React, { useState, useEffect, useMemo, useId, useRef } from 'react';
 import {
     IconArrowLeft,
     IconHistory,
@@ -8,7 +8,13 @@ import {
     IconChevronRight,
     IconChevronLeft,
     IconEdit,
-    IconX
+    IconX,
+    IconFile,
+    IconTrash,
+    IconDownload,
+    IconPaperclip,
+    IconGitCompare,
+    IconArrowRight
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -22,6 +28,8 @@ import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
+import { descargarDocumentoRevision, formatearTamano } from '../utils/documentosEquipo';
+import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import { adminService } from '../../../services/admin.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -205,6 +213,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
     const [showRevisionConfirm, setShowRevisionConfirm] = useState(false);
     const [compareVersion, setCompareVersion] = useState<any | null>(null);
+    const [compareOnlyChanges, setCompareOnlyChanges] = useState(false);
     const [editingObsIdx, setEditingObsIdx] = useState<number | null>(null);
     const [editingObsText, setEditingObsText] = useState('');
     const [requestedChanges, setRequestedChanges] = useState<any>(null);
@@ -229,6 +238,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [bulkQuantity, setBulkQuantity] = useState(1);
     const [bulkItems, setBulkItems] = useState<any[]>([]);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
+    // --- Documento de la revisión/mantención ---
+    // Es un atributo de la versión del equipo, no una lista de adjuntos: se
+    // sube el archivo, la ruta queda en formData y se graba junto al equipo.
+    const [docFile, setDocFile] = useState<File | null>(null);
+    const [docNombre, setDocNombre] = useState('');
+    const [docUploading, setDocUploading] = useState(false);
+    const [docDescargando, setDocDescargando] = useState(false);
+    const [docTamano, setDocTamano] = useState<number | null>(null);
+    // Documento guardado de la versión vigente: base para saber si hay un cambio
+    // pendiente. Se actualiza al habilitar otra versión del historial.
+    const [originalDocumentoRuta, setOriginalDocumentoRuta] = useState<string | null>(initialData?.documento_ruta ?? null);
+    const docFileInputRef = useRef<HTMLInputElement>(null);
     const isMobile = useMediaQuery('(max-width: 768px)');
 
     const { showToast } = useToast();
@@ -250,6 +271,67 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             )
             .filter(part => part.length > 0)
             .join('/');
+    };
+
+    // --- Documento de la revisión/mantención ---
+    // Solo en edición: registrar una mantención es editar el equipo, y al crear
+    // todavía no hay versión a la cual asociar el informe.
+    const idEquipoActual = initialData?.id_equipo;
+
+    // El archivo se sube apenas se elige, pero solo queda en disco: su ruta
+    // viaja en formData y se guarda recién al grabar el equipo, junto con la
+    // versión nueva. Si se guardara antes, el informe nuevo quedaría archivado
+    // con la versión anterior, que en ese momento sigue siendo la vigente.
+    const handleSeleccionarDoc = async (file: File | null) => {
+        setDocFile(file);
+        if (!file) return;
+        setDocUploading(true);
+        try {
+            const subido = await equipoService.subirArchivoDocumento(file, docNombre.trim() || file.name);
+            setFormData((p: any) => ({
+                ...p,
+                documento_nombre: subido.documento_nombre,
+                documento_ruta: subido.documento_ruta
+            }));
+            setDocTamano(subido.tamano_bytes ?? file.size);
+            showToast({ type: 'info', message: 'Archivo cargado. Se guardará al grabar el equipo.' });
+        } catch (error: any) {
+            setDocFile(null);
+            if (docFileInputRef.current) docFileInputRef.current.value = '';
+            showToast({ type: 'error', message: error?.response?.data?.message || 'Error al cargar el archivo' });
+        } finally {
+            setDocUploading(false);
+        }
+    };
+
+    const handleDescargarDoc = async () => {
+        if (!idEquipoActual) return;
+        setDocDescargando(true);
+        try {
+            await descargarDocumentoRevision('equipo', idEquipoActual, formData.documento_nombre);
+        } catch {
+            showToast({ type: 'error', message: 'No se pudo descargar el documento' });
+        } finally {
+            setDocDescargando(false);
+        }
+    };
+
+    // documento_ruta en null es la señal explícita de "quitar" para el backend;
+    // el borrado real se aplica al grabar, como cualquier otro campo.
+    const handleQuitarDoc = () => {
+        setFormData((p: any) => ({ ...p, documento_nombre: null, documento_ruta: null }));
+        setDocFile(null);
+        setDocNombre('');
+        setDocTamano(null);
+        if (docFileInputRef.current) docFileInputRef.current.value = '';
+    };
+
+    const handleDescargarDocHistorial = async (h: EquipoHistorial) => {
+        try {
+            await descargarDocumentoRevision('historial', (h as any).id_historial, h.documento_nombre);
+        } catch {
+            showToast({ type: 'error', message: 'No se pudo descargar el documento de esa versión' });
+        }
     };
 
     // --- Side Effects ---
@@ -497,65 +579,66 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         };
     }, [initialData?.id_equipo, formData.vigencia, formData.estado, formData.id_muestreador, muestreadores]);
 
-    const getVersionDiff = (h: any) => {
-        const diffList: Array<{ campo: string, oldValue: string, newValue: string }> = [];
-
-        const getSamplerName = (id: any) => {
-            return muestreadores.find(m => String(m.id_muestreador) === String(id))?.nombre_muestreador || `ID ${id}`;
+    // Comparación completa entre dos versiones: `base` (la anterior) y `actual`.
+    // Ambas se llevan a la misma forma de texto para mostrarlas lado a lado y
+    // marcar cuáles campos cambiaron.
+    const buildComparison = (base: any, actual: any, actualEsFormulario: boolean) => {
+        const nombreResponsable = (id: any) =>
+            muestreadores.find(m => String(m.id_muestreador) === String(id))?.nombre_muestreador || (id ? `ID ${id}` : '—');
+        const dash = (v: any) => (v === null || v === undefined || String(v).trim() === '' ? '—' : String(v));
+        const fechaDMY = (v: any) => {
+            if (!v) return '—';
+            const partes = String(v).split('T')[0].split('-');
+            return partes.length === 3 ? `${partes[2]}/${partes[1]}/${partes[0]}` : String(v);
         };
+        const siNo = (v: any) => (['S', 'SI', 'Si'].includes(String(v ?? '').trim()) ? 'Sí' : 'No');
+        const asociado = (v: any) => (v === null || v === undefined || v === '' || v === '0' || v === 'No Aplica' ? 'No aplica' : String(v));
 
-        const formatYMDToDMY = (dateStr: string) => {
-            if (!dateStr) return '---';
-            const parts = dateStr.split('-');
-            if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-            return dateStr;
-        };
-
-        const comparisons = [
-            { campo: 'Código', oldVal: h.codigo, newVal: formData.codigo },
-            { campo: 'Nombre', oldVal: h.nombre, newVal: formData.nombre },
-            { campo: 'Tipo de Equipo', oldVal: h.tipo, newVal: formData.tipo },
-            { campo: 'Ubicación (Sede)', oldVal: h.ubicacion, newVal: formData.ubicacion },
-            { campo: 'Estado Habilitación', oldVal: h.estado, newVal: formData.estado },
-            { campo: 'Responsable', oldVal: getSamplerName(h.id_muestreador), newVal: getSamplerName(formData.id_muestreador) },
-            {
-                campo: 'Siguiente Revisión (Vigente hasta)',
-                oldVal: h.siguiente_verificacion ? formatYMDToDMY(h.siguiente_verificacion.split('T')[0]) : (h.vigencia || '---'),
-                newVal: formData.siguiente_verificacion ? formatYMDToDMY(formData.siguiente_verificacion) : '---'
-            },
-            {
-                campo: 'Fecha de Creación',
-                oldVal: h.ultima_verificacion ? formatYMDToDMY(h.ultima_verificacion.split('T')[0]) : '---',
-                newVal: formData.ultima_verificacion ? formatYMDToDMY(formData.ultima_verificacion) : '---'
-            },
-            { campo: 'Plazo Vigencia', oldVal: h.plazo_vigencia || '---', newVal: formData.plazo_vigencia || '---' },
-            { campo: 'Estado del Equipo', oldVal: h.estado_equipo || '---', newVal: formData.estado_equipo || '---' },
-            { campo: '¿Qué Mide?', oldVal: h.que_mide || '---', newVal: formData.que_mide || '---' },
-            { campo: 'Unidad de Medida', oldVal: h.unidad_medida_textual || '---', newVal: formData.unidad_medida_textual || '---' },
-            { campo: 'Sigla Unidad', oldVal: h.unidad_medida_sigla || '---', newVal: formData.unidad_medida_sigla || '---' },
-            { campo: 'Tiene Factor de Corrección', oldVal: h.tiene_fc === 'S' || h.tiene_fc === 'SI' ? 'SÍ' : 'NO', newVal: formData.tiene_fc === 'SI' ? 'SÍ' : 'NO' },
-            { campo: 'Visible para Muestreadores', oldVal: h.visible_muestreador === 'S' || h.visible_muestreador === 'SI' ? 'SÍ' : 'NO', newVal: formData.visible_muestreador === 'SI' ? 'SÍ' : 'NO' },
-            { campo: 'Incluir en Informe', oldVal: h.informe === 'S' || h.informe === 'SI' ? 'SÍ' : 'NO', newVal: formData.informe === 'SI' ? 'SÍ' : 'NO' },
-            { campo: 'Error 0', oldVal: String(h.error0 ?? 0), newVal: String(formData.error0 ?? 0) },
-            { campo: 'Error 15', oldVal: String(h.error15 ?? 0), newVal: String(formData.error15 ?? 0) },
-            { campo: 'Error 30', oldVal: String(h.error30 ?? 0), newVal: String(formData.error30 ?? 0) },
-            { campo: 'Equipo Asociado', oldVal: h.equipo_asociado === '0' ? 'No Aplica' : (h.equipo_asociado || 'No Aplica'), newVal: formData.equipo_asociado || 'No Aplica' },
-            { campo: 'Observación', oldVal: h.observacion || '---', newVal: formData.observacion || '---' }
-        ];
-
-        comparisons.forEach(c => {
-            const cleanOld = String(c.oldVal || '').trim().toLowerCase();
-            const cleanNew = String(c.newVal || '').trim().toLowerCase();
-            if (cleanOld !== cleanNew) {
-                diffList.push({
-                    campo: c.campo,
-                    oldValue: String(c.oldVal || '---'),
-                    newValue: String(c.newVal || '---')
-                });
-            }
+        const snap = (x: any, esForm: boolean) => ({
+            codigo: dash(x.codigo),
+            nombre: dash(x.nombre),
+            tipo: dash(x.tipo),
+            ubicacion: dash(x.ubicacion),
+            responsable: nombreResponsable(x.id_muestreador),
+            habilitacion: dash(x.estado),
+            estadoEquipo: dash(x.estado_equipo),
+            ultima: fechaDMY(x.ultima_verificacion),
+            siguiente: x.siguiente_verificacion ? fechaDMY(x.siguiente_verificacion) : (esForm ? '—' : dash(x.vigencia)),
+            plazo: dash(x.plazo_vigencia),
+            queMide: dash(x.que_mide),
+            unidad: dash(x.unidad_medida_textual),
+            sigla: dash(x.unidad_medida_sigla),
+            error0: String(x.error0 ?? 0),
+            error15: String(x.error15 ?? 0),
+            error30: String(x.error30 ?? 0),
+            fc: siNo(x.tiene_fc),
+            visible: siNo(x.visible_muestreador),
+            informe: siNo(x.informe),
+            asociado: asociado(x.equipo_asociado),
+            documento: x.documento_ruta ? dash(x.documento_nombre || 'Documento') : 'Sin documento',
+            observacion: dash(x.observacion)
         });
 
-        return diffList;
+        const a = snap(base, false);
+        const b = snap(actual, actualEsFormulario);
+
+        const secciones: Array<{ titulo: string; campos: Array<[string, keyof typeof a]> }> = [
+            { titulo: 'Identificación', campos: [['Código', 'codigo'], ['Nombre', 'nombre'], ['Tipo de equipo', 'tipo'], ['Sede', 'ubicacion'], ['Responsable', 'responsable']] },
+            { titulo: 'Estado y vigencia', campos: [['Habilitación', 'habilitacion'], ['Estado del equipo', 'estadoEquipo'], ['Última revisión', 'ultima'], ['Vigente hasta', 'siguiente'], ['Plazo de vigencia', 'plazo']] },
+            { titulo: 'Medición', campos: [['¿Qué mide?', 'queMide'], ['Unidad de medida', 'unidad'], ['Sigla de la unidad', 'sigla'], ['Error 0', 'error0'], ['Error 15', 'error15'], ['Error 30', 'error30']] },
+            { titulo: 'Configuración', campos: [['Factor de corrección', 'fc'], ['Visible para muestreadores', 'visible'], ['Incluir en informe', 'informe'], ['Equipo asociado', 'asociado']] },
+            { titulo: 'Documento y notas', campos: [['Documento adjunto', 'documento'], ['Observación', 'observacion']] }
+        ];
+
+        return secciones.map(sec => ({
+            titulo: sec.titulo,
+            filas: sec.campos.map(([campo, key]) => ({
+                campo,
+                anterior: a[key],
+                actual: b[key],
+                cambio: a[key].trim().toLowerCase() !== b[key].trim().toLowerCase()
+            }))
+        }));
     };
 
     // --- Handlers ---
@@ -594,6 +677,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         plazo_vigencia: b.plazo_vigencia || '',
                         estado_equipo: b.estado_equipo || ''
                     });
+                    // El documento pasa a ser el de la versión habilitada; se descarta
+                    // cualquier archivo que estuviera pendiente de guardar.
+                    setOriginalDocumentoRuta(b.documento_ruta ?? null);
+                    setDocFile(null);
+                    setDocNombre('');
+                    setDocTamano(null);
+                    if (docFileInputRef.current) docFileInputRef.current.value = '';
                 }
                 const histRes = await equipoService.getEquipoHistorial(initialData.id_equipo);
                 if (histRes.success) setHistory(histRes.data || []);
@@ -626,12 +716,53 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         }));
     };
 
+    // Crear un solo equipo no tiene nada que revisar en masa: el formulario es
+    // de un paso y el botón principal crea directamente. El segundo paso
+    // ("Revisión Masiva") solo aparece desde 2 unidades en adelante.
+    const esCreacion = !initialData?.id_equipo;
+    const esMasivo = esCreacion && bulkQuantity > 1;
+    // El botón principal lleva al paso de revisión (en vez de crear) solo cuando
+    // hay varias unidades y todavía estamos en el formulario.
+    const irARevision = esMasivo && activeStep === 0;
+
+    // Si la cantidad vuelve a 1, el paso 2 deja de existir: se regresa al
+    // formulario para no quedar en un paso que ya no se muestra.
+    useEffect(() => {
+        if (!esMasivo && activeStep !== 0) setActiveStep(0);
+    }, [esMasivo, activeStep]);
+
     const isFormValid = useMemo(() => {
         const isEdit = !!initialData?.id_equipo;
         const hasNewRevision = isEdit
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
+        // hasDocumentChange: true si hay un archivo local pendiente de guardar
+        // O si la ruta del documento cambió respecto a la versión guardada.
+        const hasDocumentChange =
+            docFile !== null ||
+            !!(formData.documento_ruta && formData.documento_ruta !== originalDocumentoRuta);
 
+        // En edición, si solo se adjuntó un documento (sin nueva revisión),
+        // los campos que_mide y observacion siguen siendo deseables pero no
+        // deben bloquear el guardado — el equipo ya fue creado con ellos.
+        const requiereRevisionODoc = hasNewRevision || (isEdit && hasDocumentChange);
+
+        if (isEdit) {
+            return !!(
+                formData.nombre &&
+                formData.tipo &&
+                formData.ubicacion &&
+                formData.estado &&
+                formData.codigo &&
+                requiereRevisionODoc &&
+                formData.id_muestreador &&
+                formData.siguiente_verificacion &&
+                !generatingCode &&
+                !docUploading
+            );
+        }
+
+        // Creación: todos los campos son obligatorios
         return !!(
             formData.nombre &&
             formData.tipo &&
@@ -643,9 +774,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             formData.que_mide &&
             formData.observacion &&
             formData.siguiente_verificacion &&
-            !generatingCode
+            !generatingCode &&
+            !docUploading
         );
-    }, [formData, generatingCode, initialData, originalUltimaVerificacion]);
+    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading]);
 
     const missingFields = useMemo(() => {
         const missing = [];
@@ -659,16 +791,33 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         const hasNewRevision = isEdit
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
-        if (!hasNewRevision) {
-            missing.push(isEdit ? "Revisión Actual (Registrar hoy)" : "Fecha Creación");
+        const hasDocumentChange =
+            docFile !== null ||
+            !!(formData.documento_ruta && formData.documento_ruta !== originalDocumentoRuta);
+        if (!hasNewRevision && !hasDocumentChange) {
+            missing.push(isEdit ? "Revisión Actual (Registrar hoy) o agregar documento" : "Fecha Creación");
         }
 
         if (!formData.id_muestreador) missing.push("Responsable (Muestreador)");
-        if (!formData.que_mide) missing.push("¿Qué Mide?");
-        if (!formData.observacion) missing.push("Observación");
+        if (!isEdit && !formData.que_mide) missing.push("¿Qué Mide?");
+        if (!isEdit && !formData.observacion) missing.push("Observación");
         if (!formData.siguiente_verificacion) missing.push("Siguiente Revisión (Vigente hasta:)");
+        if (docUploading) missing.push("Esperando que termine la carga del archivo...");
         return missing;
-    }, [formData, initialData, originalUltimaVerificacion]);
+    }, [formData, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading]);
+
+    // Botón de acción principal: el del encabezado y el del pie comparten
+    // etiqueta, estado y acción para que no puedan quedar desalineados.
+    const accionLabel = !esCreacion
+        ? 'Actualizar'
+        : irARevision ? 'Siguiente' : (activeStep === 1 ? 'Guardar Todo' : 'Crear');
+    const accionDeshabilitada = !isFormValid || !(esCreacion ? canCreateEquipo : canEditEquipo);
+    const accionTitle = !isFormValid
+        ? `Campos obligatorios faltantes: ${missingFields.join(', ')}`
+        : (esCreacion ? 'Guardar equipo' : 'Actualizar equipo');
+    // Deshabilitado se ve gris, no azul translúcido: con disabled:opacity-50 el
+    // botón seguía leyéndose como accionable aunque falten campos obligatorios.
+    const accionDisabledClass = 'disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100';
 
     const generateBulkItems = (quantity: number, baseData: any) => {
         const items = [];
@@ -692,10 +841,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             setShowSaveConfirm(true);
             return;
         }
-        // E-01: si estamos en step 0 → generar bulk y avanzar; si estamos en step 1 → guardar.
+        // E-01: en el paso 0 se generan los ítems; con más de uno se avanza a la
+        // revisión masiva y con uno solo se va directo a confirmar la creación.
         if (activeStep === 0) {
             generateBulkItems(bulkQuantity, formData);
-            setActiveStep(1);
+            if (esMasivo) setActiveStep(1);
+            else setShowSaveConfirm(true);
         } else {
             setShowSaveConfirm(true);
         }
@@ -800,20 +951,27 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <IconHistory size={18} /> {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
                             </ProtectedContent>
-                            {!initialData?.id_equipo && (
+                            {esCreacion && (
                                 <ProtectedContent permission="EQ_UPDATE">
-                                    <Button
-                                        onClick={handleSave}
-                                        disabled={loading}
-                                        className={cn(isMobile && 'flex-1')}
-                                    >
-                                        {loading ? (
-                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                        ) : (
-                                            <IconDeviceFloppy size={18} />
-                                        )}
-                                        Crear
-                                    </Button>
+                                    {/* El span lleva el title porque el botón deshabilitado
+                                        no recibe eventos del mouse. */}
+                                    <span className={cn('inline-block', isMobile && 'flex-1')} title={accionTitle}>
+                                        <Button
+                                            // Antes llamaba a handleSave directo: se saltaba la
+                                            // validación y la generación de los ítems, así que
+                                            // creaba sin datos. Ahora usa la misma acción que el
+                                            // botón del pie.
+                                            onClick={handleNext}
+                                            disabled={loading || accionDeshabilitada}
+                                            className={cn(accionDisabledClass, isMobile && 'w-full')}
+                                        >
+                                            {loading ? (
+                                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                            ) : !irARevision && <IconDeviceFloppy size={18} />}
+                                            {accionLabel}
+                                            {!loading && irARevision && <IconChevronRight size={18} />}
+                                        </Button>
+                                    </span>
                                 </ProtectedContent>
                             )}
                         </div>
@@ -889,29 +1047,77 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 <TableHead>Fecha</TableHead>
                                                 <TableHead>Usuario</TableHead>
                                                 <TableHead>Código</TableHead>
+                                                <TableHead>Documento</TableHead>
                                                 <TableHead>Acción</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {history.length === 0 ? (
                                                 <TableRow className="hover:bg-transparent">
-                                                    <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">Sin versiones previas.</TableCell>
+                                                    <TableCell colSpan={6} className="text-center text-sm text-muted-foreground">Sin versiones previas.</TableCell>
                                                 </TableRow>
                                             ) : (
-                                                history.map((h: any) => (
-                                                    <TableRow key={h.id_historial} className={cn(lastRestoredVersion?.previous === h.version && 'bg-warning/10')}>
-                                                        <TableCell className="font-semibold text-foreground">{h.version}</TableCell>
+                                                history.map((h: any) => {
+                                                    // La versión vigente ya está habilitada: no se puede "habilitar" otra vez.
+                                                    const esActiva = h.version === formData.version;
+                                                    // Para la vigente el documento de verdad es el de mae_equipo
+                                                    // (formData); el snapshot del historial puede ser anterior.
+                                                    const docRuta = esActiva ? formData.documento_ruta : h.documento_ruta;
+                                                    const docNombreVer = (esActiva ? formData.documento_nombre : h.documento_nombre)
+                                                        || (docRuta ? String(docRuta).split('/').pop() : '')
+                                                        || 'Documento';
+                                                    return (
+                                                    <TableRow
+                                                        key={h.id_historial}
+                                                        className={cn(
+                                                            esActiva && 'bg-primary/5',
+                                                            lastRestoredVersion?.previous === h.version && 'bg-warning/10'
+                                                        )}
+                                                    >
+                                                        <TableCell className="font-semibold text-foreground">
+                                                            <span className={cn(esActiva && 'underline decoration-primary decoration-2 underline-offset-4')}>{h.version}</span>
+                                                        </TableCell>
                                                         <TableCell className="text-sm text-muted-foreground">{new Date(h.fecha_cambio).toLocaleString()}</TableCell>
                                                         <TableCell className="text-sm text-muted-foreground">{h.nombre_usuario_cambio || 'Sistema'}</TableCell>
                                                         <TableCell className="text-sm text-foreground">{h.codigo}</TableCell>
+                                                        {/* Cada versión conserva el documento con que se registró
+                                                            esa revisión, aunque el equipo ya tenga uno más nuevo. */}
+                                                        <TableCell className="text-sm">
+                                                            {docRuta ? (
+                                                                <button
+                                                                    type="button"
+                                                                    title={`Descargar ${docNombreVer}`}
+                                                                    onClick={() => (esActiva ? handleDescargarDoc() : handleDescargarDocHistorial(h))}
+                                                                    className="flex min-w-0 items-center gap-1 text-xs text-primary hover:underline"
+                                                                >
+                                                                    <IconPaperclip size={13} className="shrink-0" />
+                                                                    <span className="truncate">{docNombreVer}</span>
+                                                                </button>
+                                                            ) : (
+                                                                <span className="text-xs text-muted-foreground">Sin documento</span>
+                                                            )}
+                                                        </TableCell>
                                                         <TableCell>
-                                                            <div className="flex gap-2">
-                                                                <Button variant="outline" size="sm" onClick={() => setCompareVersion(h)}>Comparar</Button>
-                                                                <Button size="sm" onClick={() => handleRestore(h)}>Habilitar</Button>
+                                                            <div className="flex items-center gap-2">
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="h-8 gap-1.5 rounded-md border border-transparent px-2.5 text-muted-foreground hover:border-border hover:bg-background hover:text-foreground"
+                                                                    onClick={() => { setCompareOnlyChanges(false); setCompareVersion(h); }}
+                                                                >
+                                                                    <IconGitCompare size={14} />
+                                                                    Comparar
+                                                                </Button>
+                                                                {esActiva ? (
+                                                                    <Badge variant="secondary">Versión actual</Badge>
+                                                                ) : (
+                                                                    <Button size="sm" onClick={() => handleRestore(h)}>Habilitar</Button>
+                                                                )}
                                                             </div>
                                                         </TableCell>
                                                     </TableRow>
-                                                ))
+                                                    );
+                                                })
                                             )}
                                         </TableBody>
                                     </Table>
@@ -921,7 +1127,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     )}
 
                     {/* Step indicator */}
-                    {!initialData?.id_equipo ? (
+                    {esMasivo ? (
                         <div className="flex items-center gap-2">
                             {[
                                 { idx: 0, title: 'Información General', desc: 'Datos del equipo' },
@@ -930,7 +1136,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <React.Fragment key={step.idx}>
                                     <button
                                         type="button"
-                                        onClick={() => setActiveStep(step.idx)}
+                                        // Avanzar al paso 2 pasa por handleNext para que valide el
+                                        // formulario y genere los ítems: saltar directo mostraba la
+                                        // revisión vacía.
+                                        onClick={() => (step.idx === 0 ? setActiveStep(0) : handleNext())}
                                         className="flex items-center gap-2 rounded-md px-1 py-1 text-left"
                                     >
                                         <span className={cn(
@@ -1308,6 +1517,112 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </div>
                             </div>
 
+                            {/* --- Documento de la mantención (solo en edición) --- */}
+                            {idEquipoActual && (
+                                <>
+                                    <SectionDivider>Documento de la Revisión</SectionDivider>
+                                    <div className="flex flex-col gap-3">
+                                        <p className="text-[13px] text-muted-foreground">
+                                            Adjunte el informe de la mantención, una foto del equipo intervenido o el certificado de calibración (PDF o imagen, hasta 20 MB). Queda asociado a esta revisión: al registrar la próxima, el informe actual pasa al historial junto con su versión.
+                                        </p>
+
+                                        {formData.documento_ruta ? (
+                                            <Attachment size="sm">
+                                                <AttachmentMedia>
+                                                    <IconFile />
+                                                </AttachmentMedia>
+                                                <AttachmentContent>
+                                                    <AttachmentTitle>{formData.documento_nombre || 'Documento'}</AttachmentTitle>
+                                                    <AttachmentDescription>
+                                                        {docFile
+                                                            ? `Pendiente de guardar${formatearTamano(docTamano) ? ` · ${formatearTamano(docTamano)}` : ''}`
+                                                            : [
+                                                                formData.documento_fecha ? new Date(formData.documento_fecha).toLocaleDateString('es-CL') : '',
+                                                                `Versión ${formData.version || 'vigente'}`
+                                                            ].filter(Boolean).join(' · ')}
+                                                    </AttachmentDescription>
+                                                </AttachmentContent>
+                                                <AttachmentActions>
+                                                    {/* Solo se puede descargar lo ya guardado: un archivo recién
+                                                        elegido todavía no está asociado al equipo. */}
+                                                    {!docFile && (
+                                                        <AttachmentAction
+                                                            aria-label="Descargar documento"
+                                                            title="Descargar"
+                                                            disabled={docDescargando}
+                                                            onClick={handleDescargarDoc}
+                                                        >
+                                                            {docDescargando
+                                                                ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                                                : <IconDownload size={14} />}
+                                                        </AttachmentAction>
+                                                    )}
+                                                    <ProtectedContent permission="AI_MA_EDITAR_EQUIPO">
+                                                        <AttachmentAction
+                                                            aria-label="Quitar documento"
+                                                            title="Quitar"
+                                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                                            onClick={handleQuitarDoc}
+                                                        >
+                                                            <IconTrash size={14} />
+                                                        </AttachmentAction>
+                                                    </ProtectedContent>
+                                                </AttachmentActions>
+                                            </Attachment>
+                                        ) : (
+                                            <p className="text-xs text-muted-foreground">Esta revisión aún no tiene documento adjunto.</p>
+                                        )}
+
+                                        <ProtectedContent permission="AI_MA_EDITAR_EQUIPO">
+                                            <div className="flex flex-wrap items-end gap-2">
+                                                <div className="min-w-[180px] flex-1">
+                                                    <input
+                                                        ref={docFileInputRef}
+                                                        type="file"
+                                                        accept="application/pdf,image/*"
+                                                        className="hidden"
+                                                        onChange={(e) => handleSeleccionarDoc(e.target.files?.[0] ?? null)}
+                                                    />
+                                                    <div className="mb-1"><FieldLabel label="Archivo" help="Informe de mantención, foto del equipo o certificado. Formatos aceptados: PDF, JPG, PNG o WEBP." /></div>
+                                                    <div className="relative">
+                                                        <Input
+                                                            readOnly
+                                                            placeholder={formData.documento_ruta ? 'Seleccionar otro archivo...' : 'Seleccionar archivo...'}
+                                                            value={docFile?.name ?? ''}
+                                                            onClick={() => docFileInputRef.current?.click()}
+                                                            className="cursor-pointer pr-8"
+                                                        />
+                                                        {docUploading
+                                                            ? <span className="absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                                            : <IconPaperclip size={14} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground" />}
+                                                    </div>
+                                                </div>
+                                                <div className="min-w-[180px] flex-1">
+                                                    <div className="mb-1"><FieldLabel label="Nombre del documento" help="Con qué nombre se verá en el listado de equipos. Si lo deja vacío, se usa el nombre del archivo." /></div>
+                                                    <Input
+                                                        placeholder="Ej: Informe mantención marzo"
+                                                        value={docNombre}
+                                                        onChange={(e) => {
+                                                            setDocNombre(e.target.value);
+                                                            // El título es parte del mismo guardado que la ruta.
+                                                            if (formData.documento_ruta) {
+                                                                setFormData((prev: any) => ({ ...prev, documento_nombre: e.target.value.trim() || docFile?.name || prev.documento_nombre }));
+                                                            }
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </ProtectedContent>
+
+                                        {docFile && (
+                                            <p className="text-xs text-warning">
+                                                El documento se guardará cuando presione {initialData?.id_equipo ? 'Actualizar' : 'Guardar'}.
+                                            </p>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
                             {!initialData?.id_equipo && (
                                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
                                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1412,7 +1727,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
                     <SectionDivider />
                     <div className="flex flex-wrap justify-between gap-3">
-                        {activeStep === 1 ? (
+                        {activeStep === 1 && esMasivo ? (
                             <Button variant="outline" onClick={() => setActiveStep(0)}>
                                 <IconChevronLeft size={18} /> Volver al Formulario
                             </Button>
@@ -1427,17 +1742,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     Rechazar Solicitud
                                 </Button>
                             )}
-                            <span
-                                className="inline-block"
-                                title={!isFormValid ? `Campos obligatorios faltantes: ${missingFields.join(', ')}` : (initialData?.id_equipo ? 'Actualizar equipo' : 'Guardar equipo')}
-                            >
+                            <span className="inline-block" title={accionTitle}>
                                 <Button
-                                    disabled={!isFormValid || !(initialData?.id_equipo ? canEditEquipo : canCreateEquipo)}
+                                    className={accionDisabledClass}
+                                    disabled={accionDeshabilitada}
                                     onClick={handleNext}
                                 >
-                                    {!(activeStep === 0 && !initialData?.id_equipo) && <IconDeviceFloppy size={18} />}
-                                    {initialData?.id_equipo ? 'Actualizar' : (activeStep === 0 ? 'Siguiente' : 'Guardar Todo')}
-                                    {activeStep === 0 && !initialData?.id_equipo && <IconChevronRight size={18} />}
+                                    {!irARevision && <IconDeviceFloppy size={18} />}
+                                    {accionLabel}
+                                    {irARevision && <IconChevronRight size={18} />}
                                 </Button>
                             </span>
                         </div>
@@ -1563,64 +1876,140 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             </Dialog>
 
             <Dialog open={compareVersion !== null} onOpenChange={(open) => { if (!open) setCompareVersion(null); }}>
-                <DialogContent className="max-h-[85vh] max-w-[800px] overflow-y-auto">
+                <DialogContent className="max-h-[88vh] max-w-[920px] overflow-y-auto">
                     <DialogHeader>
                         <div className="flex items-center gap-2">
-                            <IconHistory size={20} className="text-primary" />
-                            <DialogTitle>Comparación con Versión del Historial</DialogTitle>
+                            <IconGitCompare size={20} className="text-primary" />
+                            <DialogTitle>Comparar versiones</DialogTitle>
                         </div>
                     </DialogHeader>
                     {compareVersion && (() => {
-                        const diffs = getVersionDiff(compareVersion);
-                        return (
-                            <div className="flex flex-col gap-3">
-                                <p className="text-[13px] text-muted-foreground">
-                                    Mostrando las diferencias entre el registro histórico (<strong>{compareVersion.version}</strong>, modificado por <strong>{compareVersion.nombre_usuario_cambio || 'Sistema'}</strong> el {new Date(compareVersion.fecha_cambio).toLocaleString()}) y el estado actual del formulario.
-                                </p>
+                        // Si se compara la versión vigente, no tiene sentido contra sí
+                        // misma: se muestra contra la versión inmediatamente anterior.
+                        const esVigente = compareVersion.version === formData.version;
+                        const numVersion = (v: any) => parseInt(String(v).replace(/\D/g, ''), 10) || 0;
+                        const otras = history.filter((x: any) => x.version !== formData.version);
+                        const anterior = esVigente
+                            ? ([...otras]
+                                .filter((x: any) => numVersion(x.version) < numVersion(formData.version))
+                                .sort((x: any, y: any) => numVersion(y.version) - numVersion(x.version))[0] ?? otras[0] ?? null)
+                            : compareVersion;
+                        const filaVigente = history.find((x: any) => x.version === formData.version);
+                        const fmtFecha = (v: any) => (v ? new Date(v).toLocaleString() : '');
 
-                                {diffs.length === 0 ? (
-                                    <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
-                                        <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
-                                        <div>
-                                            <p className="text-sm font-semibold text-foreground">Sin diferencias</p>
-                                            <p className="text-sm text-muted-foreground">Los datos de la versión del historial seleccionada coinciden exactamente con los datos actuales en el formulario.</p>
-                                        </div>
+                        if (!anterior) {
+                            return (
+                                <div className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 p-3">
+                                    <IconInfoCircle size={16} className="mt-0.5 shrink-0 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-foreground">Sin versión anterior</p>
+                                        <p className="text-sm text-muted-foreground">Esta es la primera versión registrada, no hay con qué compararla.</p>
                                     </div>
-                                ) : (
-                                    <div className="overflow-x-auto">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="hover:bg-transparent">
-                                                    <TableHead>Campo</TableHead>
-                                                    <TableHead>{`Versión Histórica (${compareVersion.version})`}</TableHead>
-                                                    <TableHead>Valor en Formulario (Actual)</TableHead>
-                                                </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {diffs.map((d, index) => (
-                                                    <TableRow key={index}>
-                                                        <TableCell className="font-medium text-foreground">{d.campo}</TableCell>
-                                                        <TableCell className="bg-destructive/10 text-destructive">{d.oldValue}</TableCell>
-                                                        <TableCell className="bg-success/10 text-success">{d.newValue}</TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                </div>
+                            );
+                        }
+
+                        const secciones = buildComparison(anterior, formData, true);
+                        const totalCambios = secciones.reduce((n, sec) => n + sec.filas.filter(f => f.cambio).length, 0);
+                        const puedeHabilitar = anterior.version !== formData.version;
+
+                        return (
+                            <div className="flex flex-col gap-4">
+                                <div className="grid grid-cols-1 items-stretch gap-2 sm:grid-cols-[1fr_auto_1fr]">
+                                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                                        <p className="m-0 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Anterior</p>
+                                        <p className="m-0 mt-0.5 text-base font-semibold text-foreground">{anterior.version}</p>
+                                        <p className="m-0 text-xs text-muted-foreground">
+                                            {anterior.nombre_usuario_cambio || 'Sistema'} · {fmtFecha(anterior.fecha_cambio)}
+                                        </p>
                                     </div>
-                                )}
+                                    <div className="hidden items-center justify-center text-muted-foreground sm:flex">
+                                        <IconArrowRight size={18} />
+                                    </div>
+                                    <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                                        <p className="m-0 text-[11px] font-medium uppercase tracking-wide text-primary">Actual</p>
+                                        <p className="m-0 mt-0.5 text-base font-semibold text-foreground">{formData.version}</p>
+                                        <p className="m-0 text-xs text-muted-foreground">
+                                            {filaVigente ? `${filaVigente.nombre_usuario_cambio || 'Sistema'} · ${fmtFecha(filaVigente.fecha_cambio)}` : 'Datos actuales del equipo'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="m-0 text-sm text-muted-foreground">
+                                        {totalCambios === 0
+                                            ? 'Las dos versiones son idénticas.'
+                                            : <><strong className="font-semibold text-foreground">{totalCambios}</strong> {totalCambios === 1 ? 'campo cambió' : 'campos cambiaron'}</>}
+                                    </p>
+                                    <div className="flex gap-1 rounded-lg bg-muted p-1">
+                                        {([{ label: 'Todo', value: false }, { label: 'Solo cambios', value: true }] as const).map(opt => (
+                                            <button
+                                                key={opt.label}
+                                                type="button"
+                                                onClick={() => setCompareOnlyChanges(opt.value)}
+                                                className={cn(
+                                                    'rounded-md px-3 py-1 text-xs font-medium transition-colors',
+                                                    compareOnlyChanges === opt.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+                                                )}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-4">
+                                    {secciones.map(sec => {
+                                        const filas = compareOnlyChanges ? sec.filas.filter(f => f.cambio) : sec.filas;
+                                        if (filas.length === 0) return null;
+                                        return (
+                                            <section key={sec.titulo}>
+                                                <p className="mb-1.5 mt-0 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{sec.titulo}</p>
+                                                <div className="overflow-hidden rounded-lg border border-border">
+                                                    {filas.map((f, i) => (
+                                                        <div
+                                                            key={f.campo}
+                                                            className={cn(
+                                                                'grid grid-cols-2 gap-x-4 gap-y-1 px-3 py-2 text-sm sm:grid-cols-[180px_1fr_1fr]',
+                                                                i > 0 && 'border-t border-border',
+                                                                f.cambio && 'bg-primary/5'
+                                                            )}
+                                                        >
+                                                            <span className="col-span-2 flex items-center gap-1.5 text-xs font-medium text-muted-foreground sm:col-span-1 sm:text-sm">
+                                                                {f.cambio && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />}
+                                                                {f.campo}
+                                                            </span>
+                                                            <span className={cn('min-w-0 whitespace-pre-wrap break-words', f.cambio ? 'text-muted-foreground line-through decoration-muted-foreground/50' : 'text-foreground')}>
+                                                                {f.anterior}
+                                                            </span>
+                                                            <span className={cn('min-w-0 whitespace-pre-wrap break-words', f.cambio ? 'font-semibold text-foreground' : 'text-foreground')}>
+                                                                {f.actual}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </section>
+                                        );
+                                    })}
+                                    {compareOnlyChanges && totalCambios === 0 && (
+                                        <p className="m-0 py-4 text-center text-sm text-muted-foreground">No hay diferencias entre estas versiones.</p>
+                                    )}
+                                </div>
 
                                 <DialogFooter>
                                     <Button variant="outline" onClick={() => setCompareVersion(null)}>
                                         Cerrar
                                     </Button>
-                                    <Button
-                                        onClick={() => {
-                                            handleRestore(compareVersion);
-                                            setCompareVersion(null);
-                                        }}
-                                    >
-                                        Restaurar esta Versión
-                                    </Button>
+                                    {puedeHabilitar && (
+                                        <Button
+                                            onClick={() => {
+                                                handleRestore(anterior);
+                                                setCompareVersion(null);
+                                            }}
+                                        >
+                                            Habilitar {anterior.version}
+                                        </Button>
+                                    )}
                                 </DialogFooter>
                             </div>
                         );

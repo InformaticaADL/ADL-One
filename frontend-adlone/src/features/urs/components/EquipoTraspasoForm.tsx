@@ -130,7 +130,7 @@ const EquipoTraspasoForm: React.FC<EquipoTraspasoFormProps> = ({ onDataChange })
             <div className="flex flex-col gap-4">
                 <div>
                     <div className="mb-1.5 flex justify-between">
-                        <span className="flex items-center gap-2 text-xs font-semibold uppercase text-[#1864ab]">
+                        <span className="flex items-center gap-2 text-xs font-semibold uppercase text-accent-blue">
                             <IconArrowsExchange size={18} /> Solicitud de Traspaso de Equipo
                         </span>
                         <Badge variant="outline">URS-03</Badge>

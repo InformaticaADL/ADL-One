@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     IconPlus,
     IconSearch,
@@ -11,7 +11,8 @@ import {
     IconTrash,
     IconCheck,
     IconX,
-    IconFilter
+    IconFilter,
+    IconPaperclip
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo } from '../services/equipo.service';
+import { descargarDocumentoRevision } from '../utils/documentosEquipo';
 import { EquipmentExportModal } from '../components/EquipmentExportModal';
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
@@ -99,6 +101,24 @@ const isDateExpired = (dateStr?: string): boolean => {
 export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // --- View State ---
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+    // Transición listado <-> formulario: la vista que sale se contrae antes de
+    // desmontarse (por eso el cambio de viewMode va diferido) y la que entra se
+    // despliega sola al montar, vía las utilidades .adl-fold / .adl-unfold.
+    const [closingForm, setClosingForm] = useState(false);
+    const sinAnimacion = () => !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+    const abrirFormulario = () => {
+        setClosingForm(false);
+        setViewMode('form');
+    };
+
+    const cerrarFormulario = (despues?: () => void) => {
+        if (closingForm) return;
+        const volver = () => { setViewMode('list'); setClosingForm(false); despues?.(); };
+        if (sinAnimacion()) { volver(); return; }
+        setClosingForm(true);
+        setTimeout(volver, 220);
+    };
     const [selectedEquipo, setSelectedEquipo] = useState<Equipo | null>(null);
     const [solicitudesRealizadas, setSolicitudesRealizadas] = useState<any[]>([]);
 
@@ -125,6 +145,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
+    // El documento de la revisión vigente viene en la misma fila del listado
+    // (mae_equipo.documento_*), así que la columna no necesita pedir nada extra.
+    const [docDescargando, setDocDescargando] = useState<number | null>(null);
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -220,7 +243,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     useEffect(() => {
         if (viewMode !== 'form') return;
         setPageBreadcrumb([
-            { label: 'Equipos', onClick: () => setViewMode('list') },
+            { label: 'Equipos', onClick: () => cerrarFormulario() },
             { label: selectedEquipo ? 'Editar Equipo' : 'Nuevo Equipo' },
         ]);
         return () => setPageBreadcrumb([]);
@@ -254,6 +277,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         return () => clearTimeout(delayDebounceFn);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler]);
+
+    // Al cambiar de página el listado se redibuja arriba, pero la vista se
+    // quedaba donde estaba —en teléfono, abajo del todo junto a los botones—,
+    // así que parecía que "Anterior/Siguiente" no hacían nada. Se vuelve al
+    // inicio del listado: en escritorio scrollea la tabla, en teléfono la página.
+    const listaRef = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        const cont = listaRef.current;
+        if (!cont) return;
+        cont.querySelector('.overflow-auto, .overflow-y-auto')?.scrollTo({ top: 0 });
+        cont.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }, [page]);
 
     // Notification handling from NavStore
     useEffect(() => {
@@ -403,7 +438,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 requestId: sol.id_solicitud,
                 requestStatus: sol.estado
             } as Equipo);
-            setViewMode('form');
+            abrirFormulario();
         } else {
             setReviewSolicitud(sol);
         }
@@ -432,7 +467,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             });
         }
         setSelectedEquipo(equipo);
-        setViewMode('form');
+        abrirFormulario();
     };
 
     const handleToggleStatus = async (equipo: Equipo) => {
@@ -528,7 +563,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         requestId: reviewSolicitud.id_solicitud,
                         requestStatus: reviewSolicitud.estado
                     });
-                    setViewMode('form');
+                    abrirFormulario();
                 }
             } else if (type === 'TRASPASO') {
                 if (reviewSolicitud.datos_json?.id_equipo) {
@@ -543,7 +578,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         id_muestreador: reviewSolicitud.datos_json.nuevo_responsable_id || 0,
                         vigencia: reviewSolicitud.datos_json.vigencia
                     } as Equipo);
-                    setViewMode('form');
+                    abrirFormulario();
                 }
             } else if (type === 'VIGENCIA_PROXIMA') {
                 const idEquipo = reviewSolicitud.datos_json.id_equipo;
@@ -949,22 +984,62 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // --- Render Logic ---
     if (viewMode === 'form') {
         return (
-            <div style={{ padding: 24, width: '100%' }}>
-                <EquipoForm
-                    initialData={selectedEquipo}
-                    onCancel={() => setViewMode('list')}
-                    onSave={() => { setViewMode('list'); fetchData(); loadSolicitudes(); }}
-                    pendingRequests={selectedEquipo ? getPendingRequestsForEquipo(selectedEquipo.id_equipo) : []}
-                    onRefreshSolicitudes={() => { loadSolicitudes(); fetchData(); }}
-                />
+            // El módulo ya no scrollea a nivel de página (ver isFullHeightModule
+            // en MainLayout), así que el formulario —que sí es largo— necesita su
+            // propio contenedor con scroll.
+            <div className={cn('h-full min-h-0 overflow-y-auto', closingForm ? 'adl-fold' : 'adl-unfold')}>
+                <div style={{ padding: 24, width: '100%' }}>
+                    <EquipoForm
+                        initialData={selectedEquipo}
+                        onCancel={() => cerrarFormulario()}
+                        onSave={() => cerrarFormulario(() => { fetchData(); loadSolicitudes(); })}
+                        pendingRequests={selectedEquipo ? getPendingRequestsForEquipo(selectedEquipo.id_equipo) : []}
+                        onRefreshSolicitudes={() => { loadSolicitudes(); fetchData(); }}
+                    />
+                </div>
             </div>
         );
     }
 
     const isExpiredOrSoon = (equipo: Equipo) => isDateExpiringSoon(equipo.vigencia) || isDateExpired(equipo.vigencia);
 
+    const descargarDoc = async (equipo: Equipo) => {
+        setDocDescargando(equipo.id_equipo);
+        try {
+            await descargarDocumentoRevision('equipo', equipo.id_equipo, equipo.documento_nombre);
+        } catch {
+            showToast({ type: 'error', message: 'No se pudo descargar el documento' });
+        } finally {
+            setDocDescargando(null);
+        }
+    };
+
+    // Celda de la columna "Documento": el informe de la revisión vigente. Las
+    // versiones anteriores conservan el suyo y se descargan desde el historial,
+    // dentro de "Editar Equipo".
+    const renderDocumento = (equipo: Equipo) => {
+        if (!equipo.documento_ruta) return <span className="text-xs text-muted-foreground">—</span>;
+        const nombre = equipo.documento_nombre || 'Documento';
+        return (
+            <button
+                type="button"
+                title={`Descargar ${nombre}`}
+                disabled={docDescargando === equipo.id_equipo}
+                onClick={(e) => { e.stopPropagation(); descargarDoc(equipo); }}
+                className="flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+            >
+                {docDescargando === equipo.id_equipo
+                    ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    : <IconPaperclip size={13} className="shrink-0" />}
+                <span className="truncate">{nombre}</span>
+            </button>
+        );
+    };
+
     const rowActions = (equipo: Equipo, isInactive: boolean) => (
-        <div className="flex justify-end gap-1">
+        // shrink-0 en los botones: en la columna de ancho porcentual no deben
+        // achicarse por debajo de su tamaño táctil cuando la ventana es angosta.
+        <div className="flex justify-end gap-1 [&>*]:shrink-0">
             <ProtectedContent permission="AI_MA_EDITAR_EQUIPO">
                 <Button
                     variant="ghost"
@@ -995,8 +1070,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     );
 
     return (
-        <div className="shadcn-scope w-full p-4 md:p-6">
-            <div className="flex flex-col gap-4">
+        // En teléfono la página scrollea completa (ver isFullHeightModule en
+        // MainLayout): fijar la cabecera dejaba la lista en una franja mínima.
+        <div className={cn('shadcn-scope adl-fade-in w-full', !isMobile && 'flex h-full min-h-0 flex-col')}>
+            {/* Desde tablet: encabezado, pestañas y filtros quedan fijos arriba. */}
+            <div className={cn('flex flex-col gap-4 px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
                 <PageHeader
                     title="Gestión de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
@@ -1006,7 +1084,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
                             <Button
                                 className={cn(isMobile && 'w-full')}
-                                onClick={() => { setSelectedEquipo(null); setViewMode('form'); }}
+                                onClick={() => { setSelectedEquipo(null); abrirFormulario(); }}
                                 disabled={!canCreateEquipo}
                             >
                                 <IconPlus size={16} /> Nuevo{!isMobile && ' Equipo'}
@@ -1015,7 +1093,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     }
                 />
 
-                <div className="inline-flex h-9 w-fit items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+                {/* En teléfono los tres rótulos suman más que el ancho de pantalla:
+                    la fila se desliza en horizontal (sin barra visible) en vez de
+                    comprimir los botones. */}
+                <div className="scrollbar-none inline-flex h-9 w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground md:w-fit md:justify-center [&>button]:shrink-0">
                     <button
                         type="button"
                         onClick={() => {
@@ -1044,7 +1125,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         onClick={() => {
                             const nextVal = !filterExpired;
                             setFilterExpired(nextVal);
-                            setFilterEstado(nextVal ? 'Activo' : null);
+                            setFilterEstado(null);
                             setFilterInactiveSampler(false);
                             setFilterFechaDesde('');
                             setFilterFechaHasta('');
@@ -1062,7 +1143,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         onClick={() => {
                             const nextVal = !filterInactiveSampler;
                             setFilterInactiveSampler(nextVal);
-                            setFilterEstado(null);
+                            setFilterEstado(nextVal ? 'Activo' : null);
                             setFilterExpired(false);
                             setFilterFechaDesde('');
                             setFilterFechaHasta('');
@@ -1078,14 +1159,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="flex flex-wrap items-center gap-2">
-                    <div className="relative">
+                    <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+                    <div className="relative w-full sm:w-auto">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
                             placeholder="Nombre o código..."
                             value={localSearchTerm}
                             onChange={(e) => setLocalSearchTerm(e.target.value)}
-                            className="w-56 pl-8"
+                            className="w-full pl-8 sm:w-56"
                         />
                     </div>
 
@@ -1223,7 +1304,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </ProtectedContent>
                 </div>
 
-                <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+            </div>
+
+            {/* Única zona con scroll de la vista: ocupa el alto restante
+                (min-h-0 para que el flex la pueda encoger) y deja la paginación
+                anclada abajo, sin tener que bajar hasta el final del listado. */}
+            <div className={cn('flex flex-col gap-4 px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
+                <div ref={listaRef} className={cn('relative flex flex-col overflow-hidden rounded-xl border border-border bg-card', !isMobile && 'min-h-0 flex-1')}>
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1274,6 +1361,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                     Resp.: {equipo.nombre_asignado || '---'}
                                                     {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive" className="ml-1">Inactivo</Badge>}
                                                 </span>
+                                                <span className="flex min-w-0 items-center gap-1">
+                                                    Doc.:
+                                                    {!equipo.documento_ruta
+                                                        ? <span>---</span>
+                                                        : (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => descargarDoc(equipo)}
+                                                                className="flex min-w-0 items-center gap-1 text-primary"
+                                                            >
+                                                                <IconPaperclip size={12} className="shrink-0" />
+                                                                <span className="truncate">{equipo.documento_nombre || 'Descargar'}</span>
+                                                            </button>
+                                                        )}
+                                                </span>
                                             </div>
                                             <div className="mt-1 flex justify-end">{rowActions(equipo, isInactive)}</div>
                                         </div>
@@ -1282,24 +1384,32 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             )}
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
+                        // table-fixed + anchos en %: las 9 columnas se reparten el
+                        // ancho disponible y el texto largo se recorta con ellipsis
+                        // (el valor completo queda en el title), en vez de estirar
+                        // la tabla y obligar a scroll horizontal.
+                        <Table className="table-fixed" containerClassName="min-h-0 flex-1">
+                            {/* Sticky a nivel de <th> (no de <thead>): así las
+                                columnas siguen visibles al scrollear el listado
+                                y el borde inferior viaja con ellas. */}
+                            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card">
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-10">Alerta</TableHead>
-                                    <TableHead>Código</TableHead>
-                                    <TableHead>Nombre</TableHead>
-                                    <TableHead>Tipo</TableHead>
-                                    <TableHead>Sede</TableHead>
-                                    <TableHead>Estado</TableHead>
-                                    <TableHead>Vigencia</TableHead>
-                                    <TableHead>Responsable</TableHead>
-                                    <TableHead className="text-right">Acciones</TableHead>
+                                    <TableHead className="w-[6%] truncate px-2" title="Alerta">Alerta</TableHead>
+                                    <TableHead className="w-[10%]">Código</TableHead>
+                                    <TableHead className="w-[15%]">Nombre</TableHead>
+                                    <TableHead className="w-[10%]">Tipo</TableHead>
+                                    <TableHead className="w-[9%]">Sede</TableHead>
+                                    <TableHead className="w-[8%]">Estado</TableHead>
+                                    <TableHead className="w-[9%]">Vigencia</TableHead>
+                                    <TableHead className="w-[12%]">Responsable</TableHead>
+                                    <TableHead className="w-[12%] px-2">Documento</TableHead>
+                                    <TableHead className="w-[9%] px-2 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {sortedEquipos.length === 0 ? (
                                     <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                                             No se encontraron equipos.
                                         </TableCell>
                                     </TableRow>
@@ -1314,7 +1424,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                                         return (
                                             <TableRow key={equipo.id_equipo}>
-                                                <TableCell>
+                                                <TableCell className="px-2">
                                                     {hasAccepted && (
                                                         <Button
                                                             variant="ghost"
@@ -1331,25 +1441,26 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         </Button>
                                                     )}
                                                 </TableCell>
-                                                <TableCell className="whitespace-nowrap text-sm font-semibold text-foreground">{equipo.codigo || 'S/N'}</TableCell>
-                                                <TableCell className="font-medium text-foreground">{equipo.nombre}</TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">{equipo.tipo}</TableCell>
-                                                <TableCell className="text-sm text-muted-foreground">{equipo.ubicacion}</TableCell>
+                                                <TableCell className="truncate text-sm font-semibold text-foreground" title={equipo.codigo || 'S/N'}>{equipo.codigo || 'S/N'}</TableCell>
+                                                <TableCell className="truncate font-medium text-foreground" title={equipo.nombre}>{equipo.nombre}</TableCell>
+                                                <TableCell className="truncate text-sm text-muted-foreground" title={equipo.tipo}>{equipo.tipo}</TableCell>
+                                                <TableCell className="truncate text-sm text-muted-foreground" title={equipo.ubicacion}>{equipo.ubicacion}</TableCell>
                                                 <TableCell><Badge variant={isInactive ? 'destructive' : 'success'}>{equipo.estado}</Badge></TableCell>
-                                                <TableCell>
+                                                <TableCell className="truncate">
                                                     <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
                                                         {equipo.vigencia}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
                                                     {equipo.nombre_asignado ? (
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="text-sm text-muted-foreground">{equipo.nombre_asignado}</span>
-                                                            {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive">Inactivo</Badge>}
+                                                        <div className="flex min-w-0 items-center gap-1.5">
+                                                            <span className="truncate text-sm text-muted-foreground" title={equipo.nombre_asignado}>{equipo.nombre_asignado}</span>
+                                                            {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive" className="shrink-0">Inactivo</Badge>}
                                                         </div>
                                                     ) : '---'}
                                                 </TableCell>
-                                                <TableCell>{rowActions(equipo, isInactive)}</TableCell>
+                                                <TableCell className="px-2">{renderDocumento(equipo)}</TableCell>
+                                                <TableCell className="px-2">{rowActions(equipo, isInactive)}</TableCell>
                                             </TableRow>
                                         );
                                     })
@@ -1359,7 +1470,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     )}
                 </div>
 
-                <DataPagination page={page} pageSize={limit} total={totalItems} onPageChange={setPage} />
+                <DataPagination className="shrink-0" page={page} pageSize={limit} total={totalItems} onPageChange={setPage} />
             </div>
 
             {/* --- Modals Area --- */}
@@ -1788,6 +1899,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number).filter((s: any) => s.estado === 'ACEPTADA') : []}
                 onRefresh={() => { fetchData(true); loadSolicitudes(); }}
             />
+
         </div>
     );
 };

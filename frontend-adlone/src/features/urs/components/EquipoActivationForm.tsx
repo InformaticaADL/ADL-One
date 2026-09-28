@@ -123,7 +123,7 @@ const EquipoActivationForm: React.FC<EquipoActivationFormProps> = ({ onDataChang
         <Card className="p-4 bg-accent">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold uppercase text-[#1864ab]">
+                    <span className="text-xs font-semibold uppercase text-accent-blue">
                         Activación de Equipo
                     </span>
                     <div className="flex gap-2">

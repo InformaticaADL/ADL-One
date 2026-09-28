@@ -1,5 +1,20 @@
+import fs from 'fs';
+import path from 'path';
 import equipoService from '../services/equipo.service.js';
 import logger from '../utils/logger.js';
+
+// La descarga pasa por la API (y no por el /uploads estático) para que respete
+// el token y devuelva el nombre real del documento en vez del nombre aleatorio
+// con que se guardó en disco.
+const enviarDocumento = (res, doc) => {
+    const abs = equipoService.resolveDocumentoPath(doc.documento_ruta);
+    if (!abs || !fs.existsSync(abs)) {
+        return res.status(404).json({ success: false, message: 'El archivo ya no está disponible en el servidor' });
+    }
+    const nombre = doc.documento_nombre || path.basename(abs);
+    const nombreDescarga = path.extname(nombre) ? nombre : `${nombre}${path.extname(abs)}`;
+    return res.download(abs, nombreDescarga);
+};
 
 export const equipoController = {
     getEquipos: async (req, res) => {
@@ -195,6 +210,47 @@ export const equipoController = {
         } catch (error) {
             logger.error('Controller getEquipmentComparison error:', error);
             res.status(500).json({ success: false, message: 'Error al obtener la comparación de equipos' });
+        }
+    },
+
+    // --- DOCUMENTO DE LA REVISIÓN / MANTENCIÓN ---
+
+    // Sube el archivo y devuelve su ruta, SIN tocar la base. La ruta se guarda
+    // recién al grabar el equipo (PUT /equipos/:id), que es cuando se crea la
+    // versión nueva: así el informe queda pegado a la revisión correcta y no a
+    // la anterior, que en ese momento todavía es la vigente.
+    subirArchivoDocumento: async (req, res) => {
+        if (!req.file) return res.status(400).json({ success: false, message: 'No se recibió archivo' });
+        res.json({
+            success: true,
+            data: {
+                documento_nombre: (req.body.nombre_documento || '').trim() || req.file.originalname,
+                documento_ruta: `/uploads/equipos/${req.file.filename}`,
+                tamano_bytes: req.file.size
+            },
+            message: 'Archivo cargado'
+        });
+    },
+
+    descargarDocumentoEquipo: async (req, res) => {
+        try {
+            const doc = await equipoService.getDocumentoEquipo(req.params.id);
+            if (!doc) return res.status(404).json({ success: false, message: 'Este equipo no tiene documento adjunto' });
+            return enviarDocumento(res, doc);
+        } catch (error) {
+            logger.error('Controller descargarDocumentoEquipo error:', error);
+            res.status(500).json({ success: false, message: 'Error al descargar el documento' });
+        }
+    },
+
+    descargarDocumentoHistorial: async (req, res) => {
+        try {
+            const doc = await equipoService.getDocumentoHistorial(req.params.idHistorial);
+            if (!doc) return res.status(404).json({ success: false, message: 'Esta versión no tiene documento adjunto' });
+            return enviarDocumento(res, doc);
+        } catch (error) {
+            logger.error('Controller descargarDocumentoHistorial error:', error);
+            res.status(500).json({ success: false, message: 'Error al descargar el documento' });
         }
     }
 };
