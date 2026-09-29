@@ -225,8 +225,21 @@ class FacturacionService {
             for (const [, grupoCasos] of grupos) {
                 const first = grupoCasos[0];
 
-                const seqResult = await new sql.Request(transaction)
-                    .query('SELECT NEXT VALUE FOR dbo.fac_prefactura_seq AS numero_id');
+                // numero_id comparte el MISMO correlativo que usa LaboratorioADL para sus
+                // propias facturas (Mae_id.id_facturacion, tabla de un solo registro que
+                // guarda el "último ID usado" de cada entidad del sistema legacy — el botón
+                // "Crear Factura" de FoxPro lee y actualiza esa misma columna). Antes esto
+                // usaba una secuencia propia (dbo.fac_prefactura_seq, ahora en desuso) que
+                // eventualmente iba a cruzarse con la numeración de Laboratorio (que ya usa
+                // ese mismo campo como referencia en adl_facturacion.dbo.ventas.prefactura).
+                // El UPDATE...OUTPUT es atómico: toma el lock de escritura y lee el valor
+                // nuevo en la misma sentencia, así que sirve de "candado" real contra
+                // llamadas concurrentes desde ADL ONE o desde el propio FoxPro de Laboratorio.
+                const seqResult = await new sql.Request(transaction).query(`
+                    UPDATE LaboratorioADL.dbo.Mae_id
+                    SET id_facturacion = id_facturacion + 1
+                    OUTPUT inserted.id_facturacion AS numero_id
+                `);
                 const numeroId = seqResult.recordset[0].numero_id;
 
                 let subtotalUf = 0;

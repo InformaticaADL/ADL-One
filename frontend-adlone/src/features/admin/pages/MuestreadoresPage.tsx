@@ -10,16 +10,17 @@ import {
     IconSchool,
 } from '@tabler/icons-react';
 
+import type { ColumnDef } from '@tanstack/react-table';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
-import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { DataTable } from '@/components/ui/data-table';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { useTableSort } from '../../../hooks/useTableSort';
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
@@ -35,7 +36,12 @@ interface Props {
     onBack: () => void;
 }
 
-type SortKey = 'nombre' | 'contacto' | 'estado' | 'entrenamiento';
+const getInitials = (name: string) =>
+    (name || '?').trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
+// Mismo criterio de orden "es" (acentos, numérico) que usaba useTableSort,
+// para no perder calidad de orden al migrar a @tanstack/react-table.
+const localeSort = (a: string, b: string) => a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
 
 export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -227,15 +233,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const sortAccessors: Record<SortKey, (m: any) => string | number | null | undefined> = {
-        nombre: (m) => m.nombre_muestreador,
-        contacto: (m) => m.correo_electronico,
-        estado: (m) => (m.habilitado === 'S' ? 0 : 1),
-        entrenamiento: (m) => (m.en_entrenamiento === 'S' ? 0 : 1),
-    };
-    const { sorted, sort, toggleSort } = useTableSort(muestreadores, sortAccessors);
-    const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => toggleSort(key) });
-
     const trainingBadge = (m: any) => (
         <Badge
             variant={m.en_entrenamiento === 'S' ? 'warning' : 'success'}
@@ -263,6 +260,97 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             <span className="text-xs italic text-muted-foreground">Sin firma registrada</span>
         )
     );
+
+    const columns: ColumnDef<any>[] = [
+        {
+            id: 'nombre',
+            header: 'Muestreador',
+            accessorFn: (m) => m.nombre_muestreador || '',
+            sortingFn: (a, b) => localeSort(a.getValue('nombre'), b.getValue('nombre')),
+            cell: ({ row }) => (
+                <div className="flex items-center gap-2.5">
+                    <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarFallback className="bg-muted text-xs text-muted-foreground">
+                            {getInitials(row.original.nombre_muestreador)}
+                        </AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <p className="text-sm font-medium text-foreground">{row.original.nombre_muestreador}</p>
+                        <p className="text-xs text-muted-foreground">ID: {row.original.id_muestreador}</p>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            id: 'contacto',
+            header: 'Contacto',
+            accessorFn: (m) => m.correo_electronico || '',
+            sortingFn: (a, b) => localeSort(a.getValue('contacto'), b.getValue('contacto')),
+            cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.correo_electronico || '—'}</span>,
+        },
+        {
+            id: 'estado',
+            header: 'Estado',
+            accessorFn: (m) => (m.habilitado === 'S' ? 0 : 1),
+            cell: ({ row }) => (
+                <Badge variant={row.original.habilitado === 'S' ? 'success' : 'destructive'}>
+                    {row.original.habilitado === 'S' ? 'Activo' : 'Inactivo'}
+                </Badge>
+            ),
+        },
+        {
+            id: 'entrenamiento',
+            header: 'Entrenamiento',
+            accessorFn: (m) => (m.en_entrenamiento === 'S' ? 0 : 1),
+            cell: ({ row }) => trainingBadge(row.original),
+        },
+        {
+            id: 'competencias',
+            header: 'Competencias',
+            enableSorting: false,
+            cell: ({ row }) => renderCompetencias(row.original),
+        },
+        {
+            id: 'firma',
+            header: 'Firma digital',
+            enableSorting: false,
+            cell: ({ row }) => signature(row.original, 'sm'),
+        },
+        {
+            id: 'acciones',
+            header: () => <div className="text-center">Acciones</div>,
+            enableSorting: false,
+            cell: ({ row }) => {
+                const m = row.original;
+                const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
+                return (
+                    <div className="flex justify-center gap-1">
+                        <ProtectedContent permission="MU_SOLICITUDES">
+                            <Button variant="ghost" size="icon" title="Ver solicitudes" onClick={() => handleOpenRequests(m)}>
+                                <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />
+                            </Button>
+                        </ProtectedContent>
+                        <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
+                            <Button variant="ghost" size="icon" title="Editar información" onClick={() => handleEdit(m)}>
+                                <IconEdit size={16} />
+                            </Button>
+                        </ProtectedContent>
+                        <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
+                            {m.habilitado === 'S' ? (
+                                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" title="Deshabilitar muestreador" onClick={() => handleDisableClick(m)}>
+                                    <IconPower size={16} />
+                                </Button>
+                            ) : (
+                                <Button variant="ghost" size="icon" className="text-success hover:bg-success/10 hover:text-success" title="Habilitar muestreador" onClick={() => handleEnableClick(m)}>
+                                    <IconCheck size={16} />
+                                </Button>
+                            )}
+                        </ProtectedContent>
+                    </div>
+                );
+            },
+        },
+    ];
 
     // El módulo ya no scrollea a nivel de página (ver isFullHeightModule en
     // MainLayout), así que el formulario —que sí es largo— necesita su propio
@@ -340,71 +428,15 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                     )}
 
                     {!isMobile ? (
-                        <Table containerClassName="min-h-0 flex-1">
-                            {/* Encabezado sticky a nivel de <th> (no de <thead>):
-                                así las columnas siguen visibles al scrollear la
-                                lista, y el borde inferior viaja con ellas. */}
-                            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card">
-                                <TableRow className="hover:bg-transparent">
-                                    <SortableTableHead {...sortProps('nombre')}>Muestreador</SortableTableHead>
-                                    <SortableTableHead {...sortProps('contacto')}>Contacto</SortableTableHead>
-                                    <SortableTableHead {...sortProps('estado')}>Estado</SortableTableHead>
-                                    <SortableTableHead {...sortProps('entrenamiento')}>Entrenamiento</SortableTableHead>
-                                    <TableHead>Competencias</TableHead>
-                                    <TableHead>Firma digital</TableHead>
-                                    <TableHead className="text-center">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {sorted.length > 0 ? sorted.map((m) => {
-                                    const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
-                                    return (
-                                        <TableRow key={m.id_muestreador}>
-                                            <TableCell>
-                                                <p className="text-sm font-medium text-foreground">{m.nombre_muestreador}</p>
-                                                <p className="text-xs text-muted-foreground">ID: {m.id_muestreador}</p>
-                                            </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">{m.correo_electronico || '—'}</TableCell>
-                                            <TableCell><Badge variant={m.habilitado === 'S' ? 'success' : 'destructive'}>{m.habilitado === 'S' ? 'Activo' : 'Inactivo'}</Badge></TableCell>
-                                            <TableCell>{trainingBadge(m)}</TableCell>
-                                            <TableCell>{renderCompetencias(m)}</TableCell>
-                                            <TableCell>{signature(m, 'sm')}</TableCell>
-                                            <TableCell>
-                                                <div className="flex justify-center gap-1">
-                                                    <ProtectedContent permission="MU_SOLICITUDES">
-                                                        <Button variant="ghost" size="icon" title="Ver solicitudes" onClick={() => handleOpenRequests(m)}>
-                                                            <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />
-                                                        </Button>
-                                                    </ProtectedContent>
-                                                    <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
-                                                        <Button variant="ghost" size="icon" title="Editar información" onClick={() => handleEdit(m)}>
-                                                            <IconEdit size={16} />
-                                                        </Button>
-                                                    </ProtectedContent>
-                                                    <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
-                                                        {m.habilitado === 'S' ? (
-                                                            <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" title="Deshabilitar muestreador" onClick={() => handleDisableClick(m)}>
-                                                                <IconPower size={16} />
-                                                            </Button>
-                                                        ) : (
-                                                            <Button variant="ghost" size="icon" className="text-success hover:bg-success/10 hover:text-success" title="Habilitar muestreador" onClick={() => handleEnableClick(m)}>
-                                                                <IconCheck size={16} />
-                                                            </Button>
-                                                        )}
-                                                    </ProtectedContent>
-                                                </div>
-                                            </TableCell>
-                                        </TableRow>
-                                    );
-                                }) : (
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={7} className="py-10 text-center text-sm text-muted-foreground">
-                                            No se encontraron muestreadores con los filtros aplicados.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                        <DataTable
+                            columns={columns}
+                            data={muestreadores}
+                            stickyHeader
+                            className="min-h-0 flex-1"
+                            containerClassName="min-h-0 flex-1"
+                            emptyMessage="No se encontraron muestreadores con los filtros aplicados."
+                            pageSize={20}
+                        />
                     ) : (
                         <div className="flex flex-col gap-3 p-3">
                             {muestreadores.length === 0 && !loading ? (

@@ -21,13 +21,13 @@ import { Combobox } from '@/components/ui/combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { DataTable } from '@/components/ui/data-table';
 import { DataPagination } from '@/components/ui/pagination';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { useTableSort } from '../../../hooks/useTableSort';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -37,17 +37,9 @@ interface Props {
     onBack?: () => void;
 }
 
-type SortKey = 'nombre' | 'cargo' | 'roles' | 'estado' | 'ultimo_acceso';
-
-const SORT_ACCESSORS: Record<SortKey, (u: User) => string | number | null | undefined> = {
-    nombre: (u) => u.nombre_real || u.nombre_usuario,
-    cargo: (u) => u.nombre_cargo,
-    roles: (u) => (u.roles && u.roles.length > 0 ? u.roles.join(', ') : null),
-    estado: (u) => (u.habilitado === 'S' ? 0 : 1),
-    ultimo_acceso: (u) => u.ultimo_acceso,
-};
-
 const PAGE_SIZE = 10;
+// Mismo criterio de orden "es" (acentos, numérico) que usaba useTableSort.
+const localeSort = (a: string, b: string) => (a || '').localeCompare(b || '', 'es', { numeric: true, sensitivity: 'base' });
 
 const EMPTY_FORM: CreateUserData = {
     nombre_usuario: '',
@@ -75,7 +67,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
     const [filterRole, setFilterRole] = useState<string>('all');
-    const [page, setPage] = useState(1);
+    const [mobilePage, setMobilePage] = useState(1);
     const [confirmUser, setConfirmUser] = useState<User | null>(null);
 
     // Formulario (vista de página)
@@ -141,21 +133,14 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         });
     }, [users, searchTerm, filterStatus, filterRole]);
 
-    const { sorted, sort, toggleSort } = useTableSort(filteredUsers, SORT_ACCESSORS);
-
-    const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-    const currentPage = Math.min(page, totalPages);
-    const paginatedUsers = sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
-
-    const sortProps = (key: SortKey) => ({
-        active: sort.key === key,
-        direction: sort.direction,
-        onSort: () => { toggleSort(key); setPage(1); },
-    });
+    // Paginación de la vista móvil (tarjetas) — el desktop la maneja el propio DataTable.
+    const mobileTotalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+    const mobileCurrentPage = Math.min(mobilePage, mobileTotalPages);
+    const paginatedUsersMobile = filteredUsers.slice((mobileCurrentPage - 1) * PAGE_SIZE, mobileCurrentPage * PAGE_SIZE);
 
     const exportCsv = () => {
         const header = ['Usuario', 'Nombre', 'Email', 'Cargo', 'Roles', 'Estado', 'Ultimo acceso'];
-        const rows = sorted.map((u) => [
+        const rows = filteredUsers.map((u) => [
             u.nombre_usuario,
             u.nombre_real,
             u.correo_electronico || '',
@@ -500,6 +485,63 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         </div>
     );
 
+    const userColumns: ColumnDef<User>[] = [
+        {
+            id: 'nombre',
+            header: 'Usuario',
+            accessorFn: (u) => u.nombre_real || u.nombre_usuario || '',
+            sortingFn: (a, b) => localeSort(a.getValue('nombre'), b.getValue('nombre')),
+            cell: ({ row }) => (
+                <div className="flex items-center gap-2.5">
+                    <Avatar>
+                        <AvatarFallback>{initials(row.original.nombre_real)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">{row.original.nombre_real}</p>
+                        <p className="truncate text-xs text-muted-foreground">{row.original.correo_electronico || `@${row.original.nombre_usuario}`}</p>
+                    </div>
+                </div>
+            ),
+        },
+        {
+            id: 'cargo',
+            header: 'Cargo',
+            accessorFn: (u) => u.nombre_cargo || '',
+            sortingFn: (a, b) => localeSort(a.getValue('cargo'), b.getValue('cargo')),
+            cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.nombre_cargo || '-'}</span>,
+        },
+        {
+            id: 'roles',
+            header: 'Roles',
+            accessorFn: (u) => (u.roles && u.roles.length > 0 ? u.roles.join(', ') : ''),
+            sortingFn: (a, b) => localeSort(a.getValue('roles'), b.getValue('roles')),
+            cell: ({ row }) => (
+                <div className="flex flex-wrap gap-1">
+                    {row.original.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
+                </div>
+            ),
+        },
+        {
+            id: 'estado',
+            header: 'Estado',
+            accessorFn: (u) => (u.habilitado === 'S' ? 0 : 1),
+            cell: ({ row }) => statusBadge(row.original),
+        },
+        {
+            id: 'ultimo_acceso',
+            header: 'Último acceso',
+            accessorFn: (u) => u.ultimo_acceso || '',
+            sortingFn: (a, b) => localeSort(a.getValue('ultimo_acceso'), b.getValue('ultimo_acceso')),
+            cell: ({ row }) => <span className="whitespace-nowrap text-sm text-muted-foreground">{row.original.ultimo_acceso ?? 'Nunca'}</span>,
+        },
+        {
+            id: 'acciones',
+            header: () => <div className="text-right">Acciones</div>,
+            enableSorting: false,
+            cell: ({ row }) => rowActions(row.original),
+        },
+    ];
+
     return (
         <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
@@ -515,7 +557,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
             <div className="mt-6 flex flex-col gap-4">
                 <div className="flex flex-wrap items-center gap-3">
-                    <Tabs value={filterStatus} onValueChange={(v) => { setFilterStatus(v as typeof filterStatus); setPage(1); }}>
+                    <Tabs value={filterStatus} onValueChange={(v) => { setFilterStatus(v as typeof filterStatus); setMobilePage(1); }}>
                         <TabsList>
                             <TabsTrigger value="all">Todos</TabsTrigger>
                             <TabsTrigger value="active">Activos</TabsTrigger>
@@ -532,14 +574,14 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             <Input
                                 placeholder="Buscar usuarios..."
                                 value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
+                                onChange={(e) => { setSearchTerm(e.target.value); setMobilePage(1); }}
                                 className="pl-8 sm:w-96"
                             />
                             {searchTerm && (
                                 <button
                                     type="button"
                                     aria-label="Limpiar búsqueda"
-                                    onClick={() => { setSearchTerm(''); setPage(1); }}
+                                    onClick={() => { setSearchTerm(''); setMobilePage(1); }}
                                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                 >
                                     <IconX size={14} />
@@ -548,7 +590,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                         </div>
                         <Combobox
                             value={filterRole}
-                            onValueChange={(v) => { setFilterRole(v); setPage(1); }}
+                            onValueChange={(v) => { setFilterRole(v); setMobilePage(1); }}
                             placeholder="Rol"
                             searchPlaceholder="Buscar rol..."
                             className="sm:w-48"
@@ -578,7 +620,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
                     {isMobile ? (
                         <div className="flex flex-col divide-y divide-border">
-                            {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
+                            {paginatedUsersMobile.length > 0 ? paginatedUsersMobile.map((user) => (
                                 <div key={user.id_usuario} className="flex items-start gap-3 p-3">
                                     <Avatar>
                                         <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
@@ -603,52 +645,18 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                             )}
                         </div>
                     ) : (
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent">
-                                    <SortableTableHead {...sortProps('nombre')}>Usuario</SortableTableHead>
-                                    <SortableTableHead {...sortProps('cargo')}>Cargo</SortableTableHead>
-                                    <SortableTableHead {...sortProps('roles')}>Roles</SortableTableHead>
-                                    <SortableTableHead {...sortProps('estado')}>Estado</SortableTableHead>
-                                    <SortableTableHead {...sortProps('ultimo_acceso')}>Último acceso</SortableTableHead>
-                                    <TableHead className="w-24 text-right">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {paginatedUsers.length > 0 ? paginatedUsers.map((user) => (
-                                    <TableRow key={user.id_usuario}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2.5">
-                                                <Avatar>
-                                                    <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
-                                                </Avatar>
-                                                <div className="min-w-0">
-                                                    <p className="truncate text-sm font-medium text-foreground">{user.nombre_real}</p>
-                                                    <p className="truncate text-xs text-muted-foreground">{user.correo_electronico || `@${user.nombre_usuario}`}</p>
-                                                </div>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">{user.nombre_cargo || '-'}</TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell>{statusBadge(user)}</TableCell>
-                                        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">{user.ultimo_acceso ?? 'Nunca'}</TableCell>
-                                        <TableCell>{rowActions(user)}</TableCell>
-                                    </TableRow>
-                                )) : (
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">No se encontraron usuarios</TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
+                        <DataTable
+                            columns={userColumns}
+                            data={filteredUsers}
+                            pageSize={PAGE_SIZE}
+                            emptyMessage="No se encontraron usuarios"
+                        />
                     )}
                 </div>
 
-                <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={sorted.length} onPageChange={setPage} />
+                {isMobile && (
+                    <DataPagination page={mobileCurrentPage} pageSize={PAGE_SIZE} total={filteredUsers.length} onPageChange={setMobilePage} />
+                )}
             </div>
 
             <Dialog open={confirmUser !== null} onOpenChange={(open) => { if (!open) setConfirmUser(null); }}>
