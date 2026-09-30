@@ -1410,6 +1410,8 @@ class FichaIngresoService {
                     a.estado_caso,
                     a.motivo_cancelacion,
                     a.id_estadomuestreo,
+                    a.instalacion_completado,
+                    a.retiro_completado,
                     a.realizado_por_gem,
                     f.id_validaciontecnica,
                     f.es_remuestreo,

@@ -59,6 +59,8 @@ interface FichaEvento {
     muestreador_retiro?: string;
     motivo_cancelacion?: string;
     id_estadomuestreo?: number | null;
+    instalacion_completado?: string | null;
+    retiro_completado?: string | null;
     realizado_por_gem?: string | null;
     es_remuestreo?: string | null;
     id_ficha_original?: number | null;
@@ -337,6 +339,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const isExecutedEvent = useCallback((ev: CalendarEvent) => {
         if (ev.id_estadomuestreo === 3) return true;
         if (ev.realizado_por_gem) return true;
+        // Compuesta: cada tarjeta (INICIO/RETIRO) representa una visita distinta del
+        // muestreador, así que se marca en verde apenas SU visita quedó completada,
+        // sin esperar a que la ficha entera (instalación + retiro) esté cerrada.
+        if (ev.tipo_evento === 'INICIO' && ev.instalacion_completado === 'S') return true;
+        if (ev.tipo_evento === 'RETIRO' && ev.retiro_completado === 'S') return true;
         const s = (ev.estado_caso || '').toUpperCase();
         return s.includes('EJECUTADO') || s.includes('REALIZADO') || s.includes('COMPLETADO');
     }, []);
