@@ -394,7 +394,7 @@ function PreviewAntecedentes({ previewItem, previewIndex, linkStatuses, cleanLin
             <StaticField label="Tabla / Glosa" value={ants.glosa} />
 
             <div className="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3">
-                <StaticField label="Es ETFA" value={ants.esETFA || (ants.etfa ? 'Sí' : 'No')} />
+                <StaticField label="Es ETFA" value={ants.esETFA || (ants.etfa === 'S' ? 'Sí' : 'No')} />
                 <StaticField label="Inspector" value={ants._inspectorNombre} />
                 <StaticField label="Punto de Muestreo" value={ants.puntoMuestreo} />
                 <StaticField label="Responsable" value={ants.responsableMuestreo} />

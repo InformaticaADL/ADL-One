@@ -484,7 +484,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                     <StaticField label="Tabla / Glosa" value={data.nombre_tabla_largo} />
 
                                     <FieldGrid>
-                                        <StaticField label="Es ETFA" value={data.etfa ? 'Sí' : 'No'} />
+                                        <StaticField label="Es ETFA" value={data.etfa === 'S' ? 'Sí' : 'No'} />
                                         <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
                                         <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} span={2} />
                                     </FieldGrid>

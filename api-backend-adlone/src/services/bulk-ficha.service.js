@@ -1043,6 +1043,7 @@ class BulkFichaService {
             fields.selectedTipoDescarga = String(descMatch.id);
         } else {
             fields.selectedTipoDescarga = 'No Aplica';
+            warnings.push({ field: 'Tipo Descarga', message: 'No se encontró el tipo de descarga en el texto. Se dejará en "No Aplica".' });
         }
 
         // Modalidad
