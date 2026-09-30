@@ -4,6 +4,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FichaExportModal } from './FichaExportModal';
 import { useTableSort } from '../../../hooks/useTableSort';
+import { useFichasFiltersStore } from '../store/fichasFiltersStore';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,17 +33,28 @@ type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' 
 type SortKey = 'id' | 'estado' | 'fecha' | 'empresaFacturar' | 'empresaServicio' | 'objetivo';
 
 export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
-    const [searchId, setSearchId] = useState('');
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [searchEstado, setSearchEstado] = useState('');
-    const [searchTipo, setSearchTipo] = useState('');
-    const [searchEmpresaFacturar, setSearchEmpresaFacturar] = useState('');
-    const [searchEmpresaServicio, setSearchEmpresaServicio] = useState('');
-    const [searchCentro, setSearchCentro] = useState('');
-    const [searchObjetivo, setSearchObjetivo] = useState('');
-    const [searchSubArea, setSearchSubArea] = useState('');
-    const [searchUsuario, setSearchUsuario] = useState('');
+    // Filtros persistidos fuera del componente (ver fichasFiltersStore): esta vista se
+    // desmonta al ir a un detalle y se remonta limpia al volver, así que un useState
+    // local perdería los filtros aplicados. Los setters locales son solo adaptadores
+    // para no tener que tocar el resto del JSX de abajo.
+    const {
+        searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar,
+        searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario,
+    } = useFichasFiltersStore((s) => s.explorador);
+    const setExplorador = useFichasFiltersStore((s) => s.setExplorador);
+    const resetExplorador = useFichasFiltersStore((s) => s.resetExplorador);
+    const setSearchId = (v: string) => setExplorador({ searchId: v });
+    const setDateFrom = (v: string) => setExplorador({ dateFrom: v });
+    const setDateTo = (v: string) => setExplorador({ dateTo: v });
+    const setSearchEstado = (v: string) => setExplorador({ searchEstado: v });
+    const setSearchTipo = (v: string) => setExplorador({ searchTipo: v });
+    const setSearchEmpresaFacturar = (v: string) => setExplorador({ searchEmpresaFacturar: v });
+    const setSearchEmpresaServicio = (v: string) => setExplorador({ searchEmpresaServicio: v });
+    const setSearchCentro = (v: string) => setExplorador({ searchCentro: v });
+    const setSearchObjetivo = (v: string) => setExplorador({ searchObjetivo: v });
+    const setSearchSubArea = (v: string) => setExplorador({ searchSubArea: v });
+    const setSearchUsuario = (v: string) => setExplorador({ searchUsuario: v });
+
     const [page, setPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
@@ -339,6 +351,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                 <SortableTableHead {...sortProps('empresaFacturar')}>Facturar a</SortableTableHead>
                                 <SortableTableHead {...sortProps('empresaServicio')}>E. Servicio</SortableTableHead>
                                 <SortableTableHead {...sortProps('objetivo')}>Objetivo</SortableTableHead>
+                                <TableHead>Base Operaciones</TableHead>
                                 <TableHead className="text-center">PDF</TableHead>
                                 <TableHead className="text-center">Ver</TableHead>
                             </TableRow>
@@ -346,7 +359,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                         <TableBody>
                             {paginatedFichas.length === 0 ? (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                                    <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                                         {loading ? 'Cargando...' : 'No se encontraron fichas.'}
                                     </TableCell>
                                 </TableRow>
@@ -365,6 +378,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                             <TableCell className="max-w-[160px] truncate" title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
+                                            <TableCell className="max-w-[140px] truncate" title={ficha.nombre_baseoperaciones}>{ficha.nombre_baseoperaciones || '-'}</TableCell>
                                             <TableCell className="text-center">
                                                 <ProtectedContent permission={['FI_EXPORTAR_CFI', 'FI_EXP_AFE']}>
                                                     <Button

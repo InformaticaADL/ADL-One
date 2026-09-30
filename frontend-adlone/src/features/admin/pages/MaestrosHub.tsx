@@ -271,6 +271,19 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_tipodescarga'
         },
         {
+            id: 'base-operaciones',
+            label: 'Bases de Operación',
+            icon: <IconBuilding size={24} />,
+            color: 'cyan',
+            description: 'Sede/oficina desde la que se despacha el servicio de una ficha.',
+            tableName: 'mae_baseoperaciones',
+            idName: 'id_baseoperaciones',
+            area: 'medio-ambiente',
+            displayColumn: 'nombre_baseoperaciones',
+            statusColumn: 'habilitado',
+            summaryColumns: ['nombre_baseoperaciones', 'orden']
+        },
+        {
             id: 'inspectores',
             label: 'Inspectores Ambientales',
             icon: <IconUserCheck size={24} />,

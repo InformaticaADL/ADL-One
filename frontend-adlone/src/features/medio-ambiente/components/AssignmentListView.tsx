@@ -3,6 +3,7 @@ import { fichaService } from '../services/ficha.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useToast } from '../../../contexts/ToastContext';
+import { useFichasFiltersStore } from '../store/fichasFiltersStore';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,6 +12,8 @@ import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
 import {
     IconSearch,
@@ -28,17 +31,27 @@ type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' 
 
 export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssignment }) => {
     const { showToast } = useToast();
-    // State
-    const [searchId, setSearchId] = useState('');
-    const [searchEstado, setSearchEstado] = useState<string | null>(null);
-    const [searchMonitoreo, setSearchMonitoreo] = useState<string | null>(null);
-    const [searchEmpresaFacturar, setSearchEmpresaFacturar] = useState<string | null>(null);
-    const [searchEmpresaServicio, setSearchEmpresaServicio] = useState<string | null>(null);
-    const [searchCentro, setSearchCentro] = useState<string | null>(null);
-    const [searchObjetivo, setSearchObjetivo] = useState<string | null>(null);
-    const [searchSubArea, setSearchSubArea] = useState<string | null>(null);
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
+    // Filtros persistidos fuera del componente (ver fichasFiltersStore): esta vista se
+    // desmonta al ir a un detalle y se remonta limpia al volver, así que un useState
+    // local perdería los filtros aplicados.
+    const {
+        searchId, searchEstado, searchMonitoreo, searchEmpresaFacturar, searchEmpresaServicio,
+        searchCentro, searchObjetivo, searchSubArea, dateFrom, dateTo,
+    } = useFichasFiltersStore((s) => s.asignacion);
+    const setAsignacion = useFichasFiltersStore((s) => s.setAsignacion);
+    const resetAsignacion = useFichasFiltersStore((s) => s.resetAsignacion);
+    const setSearchId = (v: string) => setAsignacion({ searchId: v });
+    const setSearchEstado = (v: string | null) => setAsignacion({ searchEstado: v });
+    const setSearchMonitoreo = (v: string | null) => setAsignacion({ searchMonitoreo: v });
+    const setSearchEmpresaFacturar = (v: string | null) => setAsignacion({ searchEmpresaFacturar: v });
+    const setSearchEmpresaServicio = (v: string | null) => setAsignacion({ searchEmpresaServicio: v });
+    const setSearchCentro = (v: string | null) => setAsignacion({ searchCentro: v });
+    const setSearchObjetivo = (v: string | null) => setAsignacion({ searchObjetivo: v });
+    const setSearchSubArea = (v: string | null) => setAsignacion({ searchSubArea: v });
+    const setDateFrom = (v: string) => setAsignacion({ dateFrom: v });
+    const setDateTo = (v: string) => setAsignacion({ dateTo: v });
+
+    const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -150,6 +163,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         });
         return Array.from(set).sort().map(v => ({ value: v, label: v }));
     }, [fichas]);
+
+    const panelFilterCount = [searchId, searchEstado, searchMonitoreo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, dateFrom, dateTo].filter(Boolean).length;
 
     const handleClearFilters = () => {
         setSearchId('');
@@ -265,53 +280,84 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 rightSection={
                     <div className="flex flex-wrap items-center gap-2.5">
                         <span className="text-xs text-muted-foreground">{filteredFichas.length} registros encontrados</span>
-                        <Button variant="outline" onClick={handleClearFilters}>
-                            <IconEraser size={14} /> Limpiar Filtros
-                        </Button>
+
+                        <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="outline">
+                                    <IconFilter size={16} /> Filtros
+                                    {panelFilterCount > 0 && (
+                                        <Badge variant="secondary" className="ml-1 px-1.5">{panelFilterCount}</Badge>
+                                    )}
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-sm">
+                                <SheetHeader>
+                                    <SheetTitle>Filtros de búsqueda</SheetTitle>
+                                </SheetHeader>
+
+                                <div className="flex flex-1 flex-col gap-4">
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">N° Ficha</Label>
+                                        <div className="relative">
+                                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                            <Input className="pl-8" placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar estado..." options={uniqueEstados} value={searchEstado ?? ''} onValueChange={(v) => setSearchEstado(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Monitoreo</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar monitoreo..." options={uniqueMonitoreo} value={searchMonitoreo ?? ''} onValueChange={(v) => setSearchMonitoreo(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Empresa a Facturar</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpFacturar} value={searchEmpresaFacturar ?? ''} onValueChange={(v) => setSearchEmpresaFacturar(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Empresa de Servicio</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpServicio} value={searchEmpresaServicio ?? ''} onValueChange={(v) => setSearchEmpresaServicio(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fuente Emisora</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar centro..." options={uniqueCentros} value={searchCentro ?? ''} onValueChange={(v) => setSearchCentro(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Objetivo de Muestreo</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Sub Área</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar sub área..." options={uniqueSubAreas} value={searchSubArea ?? ''} onValueChange={(v) => setSearchSubArea(v || null)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Desde</Label>
+                                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Hasta</Label>
+                                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <SheetFooter>
+                                    {panelFilterCount > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={handleClearFilters}
+                                        >
+                                            <IconEraser size={16} /> Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button onClick={() => setFiltersSheetOpen(false)}>Aplicar</Button>
+                                </SheetFooter>
+                            </SheetContent>
+                        </Sheet>
                     </div>
                 }
             />
-
-            <Card className="mb-4 p-4">
-                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-                    <IconFilter size={18} /> Filtros de búsqueda
-                </div>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
-                    <Field label="N° Ficha">
-                        <div className="relative">
-                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="pl-8" placeholder="Ej: 1234" value={searchId} onChange={(e) => setSearchId(e.target.value)} />
-                        </div>
-                    </Field>
-                    <Field label="Estado">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar estado..." options={uniqueEstados} value={searchEstado ?? ''} onValueChange={(v) => setSearchEstado(v || null)} />
-                    </Field>
-                    <Field label="Monitoreo">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar monitoreo..." options={uniqueMonitoreo} value={searchMonitoreo ?? ''} onValueChange={(v) => setSearchMonitoreo(v || null)} />
-                    </Field>
-                    <Field label="E. Facturar">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpFacturar} value={searchEmpresaFacturar ?? ''} onValueChange={(v) => setSearchEmpresaFacturar(v || null)} />
-                    </Field>
-                    <Field label="E. Servicio">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpServicio} value={searchEmpresaServicio ?? ''} onValueChange={(v) => setSearchEmpresaServicio(v || null)} />
-                    </Field>
-                    <Field label="Fuente Emisora">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar centro..." options={uniqueCentros} value={searchCentro ?? ''} onValueChange={(v) => setSearchCentro(v || null)} />
-                    </Field>
-                    <Field label="Obj. Muestreo">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
-                    </Field>
-                    <Field label="Sub Área">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar sub área..." options={uniqueSubAreas} value={searchSubArea ?? ''} onValueChange={(v) => setSearchSubArea(v || null)} />
-                    </Field>
-                    <Field label="Desde">
-                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                    </Field>
-                    <Field label="Hasta">
-                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                    </Field>
-                </div>
-            </Card>
 
             <Card className="flex min-h-0 flex-1 flex-col p-0">
                 <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
@@ -329,6 +375,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                 <TableHead className="text-center">Estado</TableHead>
                                 <TableHead>Cliente / E. Servicio</TableHead>
                                 <TableHead>F. Emisora</TableHead>
+                                <TableHead>Objetivo</TableHead>
+                                <TableHead>Base Operaciones</TableHead>
                                 <TableHead className="text-center">Asignación</TableHead>
                                 <TableHead className="text-center">Asignar</TableHead>
                             </TableRow>
@@ -336,7 +384,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                         <TableBody>
                             {paginatedFichas.length === 0 ? (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={6} className="py-10 text-center text-sm text-muted-foreground">
+                                    <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                                         {loading ? 'Cargando...' : 'No se encontraron fichas.'}
                                     </TableCell>
                                 </TableRow>
@@ -368,6 +416,16 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                     {row.centro || row.nombre_centro || '-'}
                                                 </span>
                                                 <span className="text-xs text-muted-foreground">{row.nombre_frecuencia || row.frecuencia || '-'}</span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="block truncate text-xs" title={row.nombre_objetivomuestreo_ma}>
+                                                    {row.nombre_objetivomuestreo_ma || '-'}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="block truncate text-xs" title={row.nombre_baseoperaciones}>
+                                                    {row.nombre_baseoperaciones || '-'}
+                                                </span>
                                             </TableCell>
                                             <TableCell className="text-center">
                                                 {!counts ? (
@@ -418,12 +476,3 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         </div>
     );
 };
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
-            {children}
-        </div>
-    );
-}

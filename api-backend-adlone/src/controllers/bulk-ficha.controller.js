@@ -106,6 +106,7 @@ class BulkFichaController {
             logger.info(`[BulkFicha] Committing ${items.length} fichas for user ${effectiveUserId}`);
 
             const result = await bulkFichaService.commitBatch(items, effectiveUserId);
+            if (global.io) global.io.emit('calendario:actualizado');
 
             return successResponse(res, result, `Creadas ${result.created} de ${result.total} fichas`);
 

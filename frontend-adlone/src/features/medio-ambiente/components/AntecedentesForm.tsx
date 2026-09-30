@@ -317,7 +317,9 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [selectedActividad, setSelectedActividad] = useState<string | null>(null);
     const [duracion, setDuracion] = useState<string>('');
     const [tiposDescarga, setTiposDescarga] = useState<any[]>([]);
+    const [baseOperaciones, setBaseOperaciones] = useState<any[]>([]);
     const [selectedTipoDescarga, setSelectedTipoDescarga] = useState<string | null>(null);
+    const [selectedBaseOperaciones, setSelectedBaseOperaciones] = useState<string | null>(null);
     const [refGoogle, setRefGoogle] = useState<string>('');
     const [verifyStatus, setVerifyStatus] = useState<'idle' | 'loading' | 'ok' | 'warn' | 'invalid'>('idle');
     const [verifiedCoords, setVerifiedCoords] = useState<{ lat: number; lon: number } | null>(null);
@@ -377,7 +379,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedComponente, selectedSubArea, glosa,
                 // Bloque 4
                 selectedTipoMuestreo, selectedTipoMuestra, selectedActividad,
-                selectedTipoDescarga, medicionCaudal
+                selectedTipoDescarga, selectedBaseOperaciones, medicionCaudal
             ];
 
             // ✅ PUNTUAL: la duración no aplica (muestreo instantáneo de un solo día). Solo se exige en Compuesta.
@@ -435,7 +437,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         selectedInstrumento, nroInstrumento, anioInstrumento,
         selectedComponente, selectedSubArea, glosa,
         selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
-        selectedTipoDescarga, medicionCaudal,
+        selectedTipoDescarga, selectedBaseOperaciones, medicionCaudal,
         selectedModalidad, formaCanal, dispositivo, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo,
         onValidationChange
     ]);
@@ -477,6 +479,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setSelectedActividad(String(initialData.selectedActividad ?? ''));
             setDuracion(initialData.duracion || '');
             setSelectedTipoDescarga(String(initialData.selectedTipoDescarga ?? ''));
+            setSelectedBaseOperaciones(String(initialData.selectedBaseOperaciones ?? ''));
             setRefGoogle(initialData.refGoogle || '');
             setMedicionCaudal(initialData.medicionCaudal || null);
             setSelectedModalidad(String(initialData.selectedModalidad ?? ''));
@@ -609,6 +612,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedComponente: selectedComponente || '',
                 selectedSubArea: selectedSubArea || '',
                 selectedTipoDescarga: selectedTipoDescarga || '',
+                selectedBaseOperaciones: selectedBaseOperaciones || '',
                 selectedContacto: selectedContacto || '',
                 contactoNombre: finalContactoNombre,
                 selectedTipoMuestreo: selectedTipoMuestreo || '',
@@ -823,11 +827,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     const loadCatalogosComplementarios = async () => {
         try {
-            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds, cargosList, freqsList, formasCanalList, dispositivosList, zonasUTMListRes] = await Promise.all([
+            const [comps, insp, tMuestreo, tDescarga, mods, instrs, umeds, cargosList, freqsList, formasCanalList, dispositivosList, zonasUTMListRes, baseOpsList] = await Promise.all([
                 catalogos.getComponentesAmbientales(), catalogos.getInspectores(), catalogos.getTiposMuestreo(),
                 catalogos.getTiposDescarga(), catalogos.getModalidades(), catalogos.getInstrumentosAmbientales(),
                 catalogos.getUnidadesMedida(), catalogos.getCargos(), catalogos.getFrecuenciasPeriodo(),
-                catalogos.getFormasCanal(), catalogos.getDispositivosHidraulicos(), catalogos.getZonasUTM()
+                catalogos.getFormasCanal(), catalogos.getDispositivosHidraulicos(), catalogos.getZonasUTM(),
+                catalogos.getBaseOperaciones()
             ]);
 
             setUnidadesMedida((umeds || []).map((u: any) => ({ value: String(u.id_umedida || u.id || ''), label: u.nombre_umedida || u.nombre || '-' })).filter(u => u.label !== 'NA' && u.label !== 'No Aplica'));
@@ -836,6 +841,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             setInspectores((insp || []).map((i: any) => ({ value: String(i.id_inspectorambiental || i.id), label: i.nombre_inspector || i.nombre })));
             setTiposMuestreo((tMuestreo || []).map((t: any) => ({ value: String(t.id_tipomuestreo || t.id), label: t.nombre_tipomuestreo || t.nombre })));
             setTiposDescarga((tDescarga || []).map((t: any) => ({ value: String(t.id || t.id_tipodescarga), label: t.nombre || t.nombre_tipodescarga })));
+            setBaseOperaciones((baseOpsList || []).map((b: any) => ({ value: String(b.id_baseoperaciones), label: b.nombre_baseoperaciones })));
             setModalidades((mods || []).map((m: any) => ({ value: String(m.id_modalidad || m.id), label: m.nombre_modalidad || m.nombre })));
             setInstrumentosAmbientales((instrs || []).map((i: any) => ({ value: i.nombre, label: i.nombre })));
             setCargos((cargosList || []).map((c: any, index: number) => ({ id: String(c.id_cargo || c.id || `cargo-${index}`), nombre: c.nombre_cargo || 'Sin Nombre', cliente: c.cliente })));
@@ -938,7 +944,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             }
         }
         return req.every(isFieldSet);
-    }, [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, medicionCaudal, tipoMonitoreo, duracion, selectedModalidad, modalidades, formaCanal, dispositivo, formasCanal, dispositivos, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo]);
+    }, [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, selectedBaseOperaciones, medicionCaudal, tipoMonitoreo, duracion, selectedModalidad, modalidades, formaCanal, dispositivo, formasCanal, dispositivos, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo]);
 
     const sectionNavItems: SectionNavItem[] = [
         { id: 'ident', label: 'Identificación', icon: IconBuilding, complete: block1Complete },
@@ -1364,6 +1370,17 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         data={tiposDescargaData}
                         value={selectedTipoDescarga}
                         onChange={(v: string | null) => setSelectedTipoDescarga(v || '')}
+                    />
+                </Row>
+
+                <Row>
+                    <Select
+                        size="sm"
+                        label={<FieldLabel label="Base Operaciones" help="Sede/oficina desde la que se despacha este servicio." />}
+                        data={baseOperaciones}
+                        value={selectedBaseOperaciones}
+                        onChange={(v: string | null) => setSelectedBaseOperaciones(v || '')}
+                        clearable
                     />
                 </Row>
 

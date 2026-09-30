@@ -5,6 +5,8 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { catalogosService } from '../services/catalogos.service';
 import { fichaService } from '../services/ficha.service';
+import { getNotificationSocket } from '../../../store/notificationStore';
+import { useFichasFiltersStore } from '../store/fichasFiltersStore';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { FichaUniversalView } from '../components/FichaUniversalView';
 import { Button } from '@/components/ui/button';
@@ -66,6 +68,7 @@ interface FichaEvento {
     id_ficha_original?: number | null;
     cliente?: string;
     email_cliente?: string;
+    nombre_baseoperaciones?: string;
 }
 
 interface CalendarEvent extends FichaEvento {
@@ -119,10 +122,14 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const isCompact = useMediaQuery('(max-width: 1200px)');
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [fichas, setFichas] = useState<FichaEvento[]>([]);
-    const [selectedEmpresa, setSelectedEmpresa] = useState('');
-    const [selectedMuestreador, setSelectedMuestreador] = useState('');
-    const [selectedCentro, setSelectedCentro] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
+    // Filtros persistidos fuera del componente (ver fichasFiltersStore): esta vista
+    // vuelve a montarse limpia al volver desde el menú, perdiendo un useState local.
+    const { selectedEmpresa, selectedMuestreador, selectedCentro, searchTerm } = useFichasFiltersStore((s) => s.calendario);
+    const setCalendarioFiltros = useFichasFiltersStore((s) => s.setCalendario);
+    const setSelectedEmpresa = (v: string) => setCalendarioFiltros({ selectedEmpresa: v });
+    const setSelectedMuestreador = (v: string) => setCalendarioFiltros({ selectedMuestreador: v });
+    const setSelectedCentro = (v: string) => setCalendarioFiltros({ selectedCentro: v });
+    const setSearchTerm = (v: string) => setCalendarioFiltros({ searchTerm: v });
     const [viewMode, setViewMode] = useState<'month' | 'day' | 'week' | 'year'>('month');
     const [showFilters, setShowFilters] = useState(false);
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
@@ -203,12 +210,12 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
     const todayStr = useMemo(() => new Date().toISOString().split('T')[0], []);
 
-    const loadData = useCallback(async () => {
+    const loadData = useCallback(async (force = false) => {
         const month = currentMonth.getMonth() + 1;
         const year = currentMonth.getFullYear();
         const fetchKey = `${viewMode}-${month}-${year}`;
 
-        if (lastFetchRef.current === fetchKey) return;
+        if (!force && lastFetchRef.current === fetchKey) return;
 
         setIsLoading(true);
         try {
@@ -236,6 +243,18 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
     useEffect(() => {
         loadData();
+    }, [loadData]);
+
+    // Varios coordinadores editan el mismo calendario en simultáneo — sin esto,
+    // cada uno solo ve las reprogramaciones/cancelaciones de los demás al
+    // recargar la página manualmente. Reusa la conexión Socket.IO ya abierta
+    // por notificationStore en vez de crear una segunda.
+    useEffect(() => {
+        const socket = getNotificationSocket();
+        if (!socket) return;
+        const onCalendarioActualizado = () => loadData(true);
+        socket.on('calendario:actualizado', onCalendarioActualizado);
+        return () => { socket.off('calendario:actualizado', onCalendarioActualizado); };
     }, [loadData]);
 
     const changeViewDate = (offset: number) => {
@@ -869,6 +888,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                                 <StaticField label="Empresa Servicio" value={selectedEvent.empresa_servicio} />
                                 <StaticField label="Centro / Fuente" value={selectedEvent.centro} />
+                                <StaticField label="Base Operaciones" value={selectedEvent.nombre_baseoperaciones} />
                             </div>
 
                             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>

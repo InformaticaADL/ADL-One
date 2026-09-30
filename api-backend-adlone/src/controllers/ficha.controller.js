@@ -6,6 +6,14 @@ import { resolverGoogleMapsLink } from '../utils/resolverGoogleMapsLink.js';
 // In-memory cache for resolved Google short URLs (goo.gl always resolves to the same destination)
 const resolvedUrlCache = new Map();
 
+// Varios coordinadores trabajan en simultáneo sobre el mismo calendario — sin esto, cada uno solo
+// ve los cambios de los demás al recargar la página manualmente. Se emite a TODOS los clientes
+// conectados (no a una room específica) porque cualquier coordinador puede estar mirando cualquier
+// mes/vista del calendario en ese momento.
+function notificarCalendarioActualizado() {
+    if (global.io) global.io.emit('calendario:actualizado');
+}
+
 class FichaIngresoController {
     async getAll(_req, res) {
         try {
@@ -117,6 +125,7 @@ class FichaIngresoController {
             data.antecedentes = { ...data.antecedentes, ubicacion_lat, ubicacion_lon };
 
             const result = await fichaService.createFicha(data);
+            notificarCalendarioActualizado();
             return successResponse(res, { ...result, ubicacion_lat, ubicacion_lon }, 'Ficha creada exitosamente', 201);
         } catch (err) {
             logger.error('Error in create ficha controller:', err);
@@ -218,6 +227,7 @@ class FichaIngresoController {
             const userData = req.user || { id: 0 };
 
             const result = await fichaService.updateAgenda(id, { idMuestreador, fecha, observaciones }, userData);
+            notificarCalendarioActualizado();
             return successResponse(res, result, 'Agenda actualizada correctamente');
         } catch (err) {
             logger.error('Error in updateAgenda controller:', err);
@@ -263,6 +273,7 @@ class FichaIngresoController {
                 user: userData,
                 reactivating
             });
+            notificarCalendarioActualizado();
             return successResponse(res, result, 'Asignaciones actualizadas exitosamente');
         } catch (err) {
             logger.error('Error in batchUpdateAgenda controller:', err);
@@ -275,6 +286,7 @@ class FichaIngresoController {
             const { idAgenda, idFicha, motivo_cancelacion, idEstadoMuestreo } = req.body;
             const userData = req.user || { id: 0 };
             const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion, idEstadoMuestreo);
+            notificarCalendarioActualizado();
             return successResponse(res, result, 'Muestreo cancelado exitosamente');
         } catch (err) {
             logger.error('Error in cancelSampling controller:', err);
@@ -306,6 +318,7 @@ class FichaIngresoController {
             updateData.antecedentes = { ...updateData.antecedentes, ubicacion_lat, ubicacion_lon };
 
             const result = await fichaService.updateFicha(id, updateData, userData);
+            notificarCalendarioActualizado();
             return successResponse(res, result, 'Ficha actualizada exitosamente');
         } catch (err) {
             logger.error('Error in update ficha controller:', err);
@@ -393,6 +406,7 @@ class FichaIngresoController {
             }
 
             const result = await fichaService.updateRealizadoGem(idAgendamam, userData, isRealizado);
+            notificarCalendarioActualizado();
             return successResponse(res, result, 'Estado de realizado actualizado exitosamente');
         } catch (err) {
             logger.error('Error in updateRealizadoGem controller:', err);

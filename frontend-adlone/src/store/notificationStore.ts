@@ -32,6 +32,10 @@ interface NotificationState {
 
 let socket: Socket | null = null;
 
+// Expone el socket ya conectado para que otras vistas (ej. el Calendario de
+// Servicios) puedan escuchar eventos propios sin abrir una segunda conexión.
+export const getNotificationSocket = (): Socket | null => socket;
+
 export const useNotificationStore = create<NotificationState>((set) => ({
     notifications: [],
     loading: false,

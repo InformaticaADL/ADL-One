@@ -310,6 +310,22 @@ export const catalogosService = {
     }
   },
 
+  getBaseOperaciones: async () => {
+    try {
+      const pool = await getConnection();
+      const result = await pool.request().query(`
+        SELECT id_baseoperaciones, nombre_baseoperaciones
+        FROM mae_baseoperaciones
+        WHERE habilitado = 'S'
+        ORDER BY orden
+      `);
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getBaseOperaciones:', error);
+      throw error;
+    }
+  },
+
   getModalidades: async () => {
     try {
       const pool = await getConnection();
@@ -552,3 +568,23 @@ export const catalogosService = {
     }
   }
 };
+
+// ── Migración al esquema nuevo (Fase 1, piloto) ────────────────────────────────────────────────
+// CATALOGOS_DB=nuevo → los catálogos cubiertos por catalogos.nuevo.js se leen del esquema nuevo (con ids legados, misma forma).
+// Cualquier valor distinto (o ausente) deja todo como antes. Si la lectura nueva falla, se registra y se responde con el legado.
+// La comprobación de paridad está en scripts/paridad-catalogos.mjs.
+import { catalogosNuevo } from './catalogos.nuevo.js';
+// Métodos con diferencias conocidas frente al legado (ver paridad-catalogos.mjs): solo se activan con CATALOGOS_DB=nuevo-todo.
+//   getClientes (2 de 502 empresas cambian de "empresa de servicio"), getCentros (3 centros sin vínculo con servicio y placeholders "No informado"),
+//   getContactos (2 contactos sin servicio; empresa distinta en algunos).
+const CON_DIFERENCIAS = new Set(['getClientes', 'getCentros', 'getContactos']);
+if (process.env.CATALOGOS_DB === 'nuevo' || process.env.CATALOGOS_DB === 'nuevo-todo') {
+  for (const nombre of Object.keys(catalogosNuevo).filter((n) => process.env.CATALOGOS_DB === 'nuevo-todo' || !CON_DIFERENCIAS.has(n))) {
+    const legado = catalogosService[nombre];
+    catalogosService[nombre] = async (...args) => {
+      try { return await catalogosNuevo[nombre](...args); }
+      catch (error) { logger.error(`catalogos ${nombre}: falló la lectura del esquema nuevo, se usa el legado:`, error); return legado(...args); }
+    };
+  }
+  logger.info(`catalogos: lectura desde el esquema nuevo activa (modo ${process.env.CATALOGOS_DB})`);
+}
