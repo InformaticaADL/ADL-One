@@ -1371,14 +1371,19 @@ class FichaIngresoService {
             let whereClause = `WHERE f.id_validaciontecnica = 5`;
 
             // C-01 (revisado): según QA, una ficha SIEMPRE debe tener fecha de instalación y de retiro juntas.
-            // Mantener el filtro solo por fecha_muestreo (instalación). Si una ficha aparece sin instalación es bug de datos.
+            // Una compuesta puede cruzar de mes (instalación 30/09, retiro 01/10) — si solo miráramos
+            // fecha_muestreo, el retiro jamás aparecería al navegar al mes/día siguiente. Se incluye
+            // la ficha si CUALQUIERA de las dos fechas cae en el mes/año pedido.
             if (month && year) {
                 request.input('month', sql.Int, parseInt(month));
                 request.input('year', sql.Int, parseInt(year));
-                whereClause += ` AND MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year`;
+                whereClause += ` AND (
+                    (MONTH(a.fecha_muestreo) = @month AND YEAR(a.fecha_muestreo) = @year)
+                    OR (MONTH(a.fecha_retiro) = @month AND YEAR(a.fecha_retiro) = @year)
+                )`;
             } else if (year) {
                 request.input('year', sql.Int, parseInt(year));
-                whereClause += ` AND YEAR(a.fecha_muestreo) = @year`;
+                whereClause += ` AND (YEAR(a.fecha_muestreo) = @year OR YEAR(a.fecha_retiro) = @year)`;
             }
 
             const result = await request.query(`
