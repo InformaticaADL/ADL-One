@@ -12,11 +12,14 @@ import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Label } from '@/components/ui/label';
 import {
-    IconAdjustmentsHorizontal,
     IconDownload,
-    IconTrash,
     IconEye,
+    IconSearch,
+    IconEraser,
+    IconFilter,
 } from '@tabler/icons-react';
 
 interface Props {
@@ -44,6 +47,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
     const itemsPerPage = 10;
 
@@ -177,6 +181,8 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const { sorted: sortedFichas, sort, toggleSort } = useTableSort(filteredFichas, sortAccessors);
     const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => { toggleSort(key); setPage(1); } });
 
+    const panelFilterCount = [searchId, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, dateFrom, dateTo].filter(Boolean).length;
+
     const paginatedFichas = useMemo(() => {
         const start = (page - 1) * itemsPerPage;
         return sortedFichas.slice(start, start + itemsPerPage);
@@ -213,60 +219,96 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                     { label: 'Explorador' }
                 ]}
                 rightSection={
-                    <ProtectedContent permission="FI_EXP_MC">
-                        <Button className="bg-success text-success-foreground hover:bg-success/90" onClick={() => setShowExportModal(true)}>
-                            <IconDownload size={16} /> Exportar PDF
-                        </Button>
-                    </ProtectedContent>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">{sortedFichas.length} registros encontrados</span>
+
+                        <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="outline">
+                                    <IconFilter size={16} /> Filtros
+                                    {panelFilterCount > 0 && (
+                                        <Badge variant="secondary" className="ml-1 px-1.5">{panelFilterCount}</Badge>
+                                    )}
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-sm">
+                                <SheetHeader>
+                                    <SheetTitle>Filtros de búsqueda</SheetTitle>
+                                </SheetHeader>
+
+                                <div className="flex flex-1 flex-col gap-4">
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">N° Ficha</Label>
+                                        <div className="relative">
+                                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                            <Input className="pl-8" placeholder="Buscar por ID..." value={searchId} onChange={(e) => setSearchId(e.target.value)} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar estado..." options={uniqueEstados} value={searchEstado} onValueChange={setSearchEstado} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Tipo</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar tipo..." options={uniqueTipos} value={searchTipo} onValueChange={setSearchTipo} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Empresa a Facturar</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpFacturar} value={searchEmpresaFacturar} onValueChange={setSearchEmpresaFacturar} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Empresa de Servicio</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar empresa..." options={uniqueEmpServicio} value={searchEmpresaServicio} onValueChange={setSearchEmpresaServicio} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fuente Emisora</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar centro..." options={uniqueCentros} value={searchCentro} onValueChange={setSearchCentro} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Objetivo de Muestreo</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo} onValueChange={setSearchObjetivo} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Sub Área</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar sub área..." options={uniqueSubAreas} value={searchSubArea} onValueChange={setSearchSubArea} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Usuario</Label>
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar usuario..." options={uniqueUsuarios} value={searchUsuario} onValueChange={setSearchUsuario} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fecha Desde</Label>
+                                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fecha Hasta</Label>
+                                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+                                    </div>
+                                </div>
+
+                                <SheetFooter>
+                                    {panelFilterCount > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={handleClearFilters}
+                                        >
+                                            <IconEraser size={16} /> Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button onClick={() => setFiltersSheetOpen(false)}>Aplicar</Button>
+                                </SheetFooter>
+                            </SheetContent>
+                        </Sheet>
+
+                        <ProtectedContent permission="FI_EXP_MC">
+                            <Button className="bg-success text-success-foreground hover:bg-success/90" onClick={() => setShowExportModal(true)}>
+                                <IconDownload size={16} /> Exportar PDF
+                            </Button>
+                        </ProtectedContent>
+                    </div>
                 }
             />
-
-            <Card className="mb-4 p-4">
-                <div className="mb-3 flex items-center justify-between">
-                    <span className="flex items-center gap-2 text-sm font-semibold">
-                        <IconAdjustmentsHorizontal size={18} /> Filtros de búsqueda
-                    </span>
-                    <Button variant="ghost" size="sm" onClick={handleClearFilters}>
-                        <IconTrash size={14} /> Limpiar filtros
-                    </Button>
-                </div>
-
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
-                    <Field label="N° Ficha">
-                        <Input placeholder="Buscar por ID..." value={searchId} onChange={(e) => setSearchId(e.target.value)} />
-                    </Field>
-                    <Field label="Estado">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar estado..." options={uniqueEstados} value={searchEstado} onValueChange={setSearchEstado} />
-                    </Field>
-                    <Field label="Fecha Desde">
-                        <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
-                    </Field>
-                    <Field label="Fecha Hasta">
-                        <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
-                    </Field>
-                    <Field label="Tipo">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar tipo..." options={uniqueTipos} value={searchTipo} onValueChange={setSearchTipo} />
-                    </Field>
-                    <Field label="Empresa">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar empresa..." options={uniqueEmpFacturar} value={searchEmpresaFacturar} onValueChange={setSearchEmpresaFacturar} />
-                    </Field>
-                    <Field label="E. Servicio">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar empresa..." options={uniqueEmpServicio} value={searchEmpresaServicio} onValueChange={setSearchEmpresaServicio} />
-                    </Field>
-                    <Field label="Fuente Emisora">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar centro..." options={uniqueCentros} value={searchCentro} onValueChange={setSearchCentro} />
-                    </Field>
-                    <Field label="Objetivo">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo} onValueChange={setSearchObjetivo} />
-                    </Field>
-                    <Field label="Sub Área">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar sub área..." options={uniqueSubAreas} value={searchSubArea} onValueChange={setSearchSubArea} />
-                    </Field>
-                    <Field label="Usuario">
-                        <Combobox placeholder="Seleccionar..." searchPlaceholder="Buscar usuario..." options={uniqueUsuarios} value={searchUsuario} onValueChange={setSearchUsuario} />
-                    </Field>
-                </div>
-            </Card>
 
             <FichaExportModal
                 isOpen={showExportModal}
@@ -363,12 +405,3 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         </div>
     );
 };
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div>
-            <span className="mb-1 block text-xs text-muted-foreground">{label}</span>
-            {children}
-        </div>
-    );
-}

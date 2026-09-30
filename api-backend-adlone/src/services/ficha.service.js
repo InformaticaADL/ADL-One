@@ -4459,6 +4459,16 @@ class FichaIngresoService {
                 }
             }
 
+            // ✅ FIX FIRMAS-VACÍAS: firmas antiguas se guardaron sin sufijo "_instalacion"/"_retiro"
+            // (quedan con tipo:'desconocido'); sin este fallback nunca aparecen en ninguno de los
+            // dos procesos. Mismo criterio aplicado en api-app-mam (getDetalleGeneral).
+            const signaturesParaProceso = (tipo) => {
+                const propias = signaturesRaw.filter(fi => fi.tipo === tipo);
+                const rolesCubiertos = new Set(propias.map(fi => fi.rol));
+                const legado = signaturesRaw.filter(fi => fi.tipo === 'desconocido' && !rolesCubiertos.has(fi.rol));
+                return [...propias, ...legado];
+            };
+
             return {
                 ficha: f,
                 equipos: equiposResult.recordset,
@@ -4474,7 +4484,7 @@ class FichaIngresoService {
                         cargoObservador: f.cargo_observadorterreno || 'S/D',
                         observaciones: f.observaciones_muestreador || 'Sin observaciones.',
                         supervisado: f.id_supervisor ? 'S' : 'N',
-                        firmas: signaturesRaw.filter(fi => fi.tipo === 'instalacion'),
+                        firmas: signaturesParaProceso('instalacion'),
                         condiciones: {
                             flujoLaminar: f.condicionmedicion_flujolaminar,
                             velUniforme: f.condicionmedicion_velocidaduniforme,
@@ -4494,7 +4504,7 @@ class FichaIngresoService {
                             fecha: f.fechaderivado,
                             hora: f.horaderivado
                         },
-                        firmas: signaturesRaw.filter(fi => fi.tipo === 'retiro'),
+                        firmas: signaturesParaProceso('retiro'),
                         condiciones: {
                             flujoLaminar: f.condicionmedicion_flujolaminar,
                             velUniforme: f.condicionmedicion_velocidaduniforme,

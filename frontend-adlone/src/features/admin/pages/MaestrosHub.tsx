@@ -40,7 +40,8 @@ import {
     IconTestPipe,
     IconScale,
     IconListDetails,
-    IconLink
+    IconLink,
+    IconAlertOctagon
 } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { MaestroDataManager, TecnicaReferencias, ReferenciasNormativasView } from '../components';
@@ -378,6 +379,19 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             displayColumn: 'nombre_estadomuestreo',
             statusColumn: 'habilitado',
             summaryColumns: ['nombre_estadomuestreo', 'orden', 'perfil_muestreador', 'perfil_coordinador']
+        },
+        {
+            id: 'motivos-cancelacion',
+            label: 'Motivos de Cancelación',
+            icon: <IconAlertOctagon size={24} />,
+            color: 'red',
+            description: 'Motivos estructurados al cancelar un muestreo desde ADL Sampling.',
+            tableName: 'mae_motivocancelacion',
+            idName: 'id_motivocancelacion',
+            area: 'logistica',
+            displayColumn: 'nombre_motivo',
+            statusColumn: 'habilitado',
+            summaryColumns: ['nombre_motivo', 'aplica_a', 'orden']
         },
 
         // AREA: INSTRUMENTAL Y TÉCNICA
