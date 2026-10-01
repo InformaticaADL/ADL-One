@@ -262,7 +262,9 @@ export const FichasIngresoPage = () => {
     // Los listados llevan su propio scroll interno (encabezado y filtros fijos,
     // ver isFullHeightModule en MainLayout), así que este contenedor pasa a ser
     // una columna de alto completo. El resto de los modos scrollea como página.
-    const scrollPropio = ['list_fichas', 'list_assign'].includes(fichasMode);
+    // route_planner_map también: el mapa y el selector de fichas necesitan su
+    // propio scroll interno, nunca el de la página completa.
+    const scrollPropio = ['list_fichas', 'list_assign', 'route_planner_map'].includes(fichasMode);
 
     return (
         <div

@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import MarkerClusterGroup from 'react-leaflet-cluster';
 import { BaseTiles } from './BaseTiles';
 import 'leaflet/dist/leaflet.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.css';
+import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import L from 'leaflet';
 import { fichaService } from '../services/ficha.service';
 import { rutasPlanificadasService } from '../services/rutasPlanificadas.service';
@@ -806,7 +809,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
     }
 
     return (
-        <div className="shadcn-scope w-full p-4">
+        <div className="shadcn-scope flex h-full min-h-0 flex-col p-4">
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-[480px]">
                     <DialogHeader>
@@ -865,7 +868,7 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                 </DialogContent>
             </Dialog>
 
-            <div className="flex flex-col gap-6">
+            <div className="flex h-full min-h-0 flex-col gap-6">
                 <PageHeader
                     title={editRutaId ? `Editando Ruta #${editRutaId}` : 'Planificador de Rutas'}
                     subtitle={editRutaId ? 'Modifique las fichas y guarde los cambios' : 'Seleccione fichas para armar una ruta de muestreo y asignar recursos'}
@@ -887,7 +890,11 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                     }
                 />
 
-                <div className="flex gap-4" style={{ height: 'calc(100vh - 180px)', minHeight: 500 }}>
+                {/* flex-1 + min-h-0: hereda el alto real del layout (isFullHeightModule en
+                    MainLayout) en vez de calcular con un número mágico que se desalinea
+                    apenas cambia el alto del header — así el mapa y el selector quedan
+                    contenidos en sus propios paneles y la página nunca scrollea completa. */}
+                <div className="flex min-h-0 flex-1 gap-4">
                     {/* LEFT PANEL */}
                     <div className="flex w-[35%] flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
                         {/* Filters */}
@@ -1138,49 +1145,25 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
                                 {allPositions.length > 0 && <FitBounds positions={allPositions} />}
                                 <MapFocusHandler selectedFichas={selectedFichas} />
 
-                                {/* All ficha markers */}
-                                {fichasWithCoords.map(f => {
-                                    const isSelected = selectedIds.includes(f.id);
-                                    const orderNum = isSelected ? selectedIds.indexOf(f.id) + 1 : 0;
-
-                                    return (
-                                        <Marker
-                                            key={f.id}
-                                            position={[f.lat!, f.lng!]}
-                                            icon={isSelected ? createNumberedIcon(orderNum) : defaultIcon}
-                                            eventHandlers={{
-                                                click: () => toggleFicha(f.id)
-                                            }}
-                                        >
-                                            <Popup>
-                                                <div style={{ minWidth: 200 }}>
-                                                    <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
-                                                        Ficha #{f.id}
-                                                    </div>
-                                                    <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>{f.centro}</div>
-                                                    <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>{f.empresa_servicio}</div>
-                                                    <div style={{ fontSize: 11, color: '#999', marginBottom: 8 }}>{f.objetivo}</div>
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); toggleFicha(f.id); }}
-                                                        style={{
-                                                            width: '100%',
-                                                            padding: '6px 12px',
-                                                            background: isSelected ? '#fa5252' : '#228be6',
-                                                            color: 'white',
-                                                            border: 'none',
-                                                            borderRadius: 4,
-                                                            cursor: 'pointer',
-                                                            fontSize: 12,
-                                                            fontWeight: 600
-                                                        }}
-                                                    >
-                                                        {isSelected ? '✕ Quitar de Ruta' : '+ Agregar a Ruta'}
-                                                    </button>
-                                                </div>
-                                            </Popup>
-                                        </Marker>
-                                    );
-                                })}
+                                {/* Con miles de fichas, un <Marker> de Leaflet por cada una satura el DOM
+                                    y el mapa queda "pegado" al mover/zoomear. Las NO seleccionadas (la
+                                    masa) van agrupadas en clusters; las ya agregadas a la ruta quedan
+                                    siempre visibles sueltas, con su número de orden, para no perderlas
+                                    de vista mientras se arma la ruta. */}
+                                <MarkerClusterGroup chunkedLoading maxClusterRadius={60}>
+                                    {fichasWithCoords.filter(f => !selectedIds.includes(f.id)).map(f => (
+                                        <FichaMarker key={f.id} f={f} isSelected={false} orderNum={0} onToggle={toggleFicha} />
+                                    ))}
+                                </MarkerClusterGroup>
+                                {fichasWithCoords.filter(f => selectedIds.includes(f.id)).map(f => (
+                                    <FichaMarker
+                                        key={f.id}
+                                        f={f}
+                                        isSelected
+                                        orderNum={selectedIds.indexOf(f.id) + 1}
+                                        onToggle={toggleFicha}
+                                    />
+                                ))}
 
                                 {/* R-03: solo renderizar polyline cuando OSRM ya entregó la ruta real,
                                     para evitar el flash de línea recta entre puntos. */}
@@ -1218,6 +1201,46 @@ export const RouteMapPlannerView: React.FC<Props> = ({ onBack, editRutaId }) => 
         </div>
     );
 };
+
+const FichaMarker: React.FC<{
+    f: FichaWithCoords;
+    isSelected: boolean;
+    orderNum: number;
+    onToggle: (id: number) => void;
+}> = ({ f, isSelected, orderNum, onToggle }) => (
+    <Marker
+        position={[f.lat!, f.lng!]}
+        icon={isSelected ? createNumberedIcon(orderNum) : defaultIcon}
+        eventHandlers={{ click: () => onToggle(f.id) }}
+    >
+        <Popup>
+            <div style={{ minWidth: 200 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>
+                    Ficha #{f.id}
+                </div>
+                <div style={{ fontSize: 12, color: '#666', marginBottom: 2 }}>{f.centro}</div>
+                <div style={{ fontSize: 11, color: '#999', marginBottom: 4 }}>{f.empresa_servicio}</div>
+                <div style={{ fontSize: 11, color: '#999', marginBottom: 8 }}>{f.objetivo}</div>
+                <button
+                    onClick={(e) => { e.stopPropagation(); onToggle(f.id); }}
+                    style={{
+                        width: '100%',
+                        padding: '6px 12px',
+                        background: isSelected ? '#fa5252' : '#228be6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: 4,
+                        cursor: 'pointer',
+                        fontSize: 12,
+                        fontWeight: 600
+                    }}
+                >
+                    {isSelected ? '✕ Quitar de Ruta' : '+ Agregar a Ruta'}
+                </button>
+            </div>
+        </Popup>
+    </Marker>
+);
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
     return (

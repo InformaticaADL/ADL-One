@@ -46,11 +46,13 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const esListadoConScrollPropio =
         activeSubmodule === 'admin-muestreadores' ||
         activeSubmodule === 'admin-equipos-gestion' ||
-        // Fichas de Ingreso: solo el Explorador y Asignación Terreno. El resto
-        // de los modos (menú, formularios, calendario, mapa, detalles y
-        // Muestreos Completados) siempre scrollea como página.
+        // Fichas de Ingreso: Explorador, Asignación Terreno y el Planificador de
+        // Rutas (mapa + selector de fichas, antes scrolleaba la página completa
+        // en vez de quedar contenido en sus propios paneles). El resto de los
+        // modos (menú, formularios, calendario, detalles y Muestreos
+        // Completados) sigue scrolleando como página.
         (activeSubmodule === 'ma-fichas-ingreso' &&
-            ['list_fichas', 'list_assign'].includes(fichasMode));
+            ['list_fichas', 'list_assign', 'route_planner_map'].includes(fichasMode));
 
     const isFullHeightModule =
         (!activeSubmodule && (activeModule === 'solicitudes' || activeModule === 'chat')) ||
