@@ -144,7 +144,10 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     };
 
     const getDayLabel = (date: Date) => {
-        const label = date.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        // timeZone: 'UTC' — fecha_retiro llega como "YYYY-MM-DDT00:00:00.000Z" (fecha
+        // pura, sin hora real). Sin fijar UTC, en cualquier huso detrás de UTC (Chile)
+        // esa medianoche se interpreta como la tarde del día anterior.
+        const label = date.toLocaleDateString('es-CL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
         // Capitalizar primera letra para que se vea mejor
         return label.charAt(0).toUpperCase() + label.slice(1);
     };
@@ -160,21 +163,16 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             const matchMues = check(m.muestreador, searchMuestreador);
             const matchObj = check(m.objetivo, searchObjetivo);
 
-            // Filtro de fecha
+            // Filtro de fecha — comparación por string de fecha ("YYYY-MM-DD"), no por
+            // Date/horas: fecha_retiro es una medianoche UTC pura, y comparar objetos
+            // Date con setHours local corre el día en husos detrás de UTC (Chile),
+            // dejando fuera del filtro registros que sí correspondían a ese día.
             let matchFecha = false;
             if (m.fecha_retiro) {
+                const fechaStr = m.fecha_retiro.split('T')[0];
                 matchFecha = true;
-                const fecha = new Date(m.fecha_retiro);
-                if (fechaDesde) {
-                    const desde = new Date(fechaDesde);
-                    desde.setHours(0, 0, 0, 0);
-                    matchFecha = matchFecha && fecha >= desde;
-                }
-                if (fechaHasta) {
-                    const hasta = new Date(fechaHasta);
-                    hasta.setHours(23, 59, 59, 999);
-                    matchFecha = matchFecha && fecha <= hasta;
-                }
+                if (fechaDesde) matchFecha = matchFecha && fechaStr >= fechaDesde;
+                if (fechaHasta) matchFecha = matchFecha && fechaStr <= fechaHasta;
             }
 
             return matchCorr && matchCliente && matchMues && matchObj && matchFecha;
@@ -194,14 +192,16 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 
         sortedMuestreos.forEach(m => {
             if (!m.fecha_retiro) return;
-            const fecha = new Date(m.fecha_retiro);
-            fecha.setHours(0, 0, 0, 0);
-            const fechaStr = fecha.toISOString().split('T')[0];
+            // fecha_retiro es una fecha pura ("YYYY-MM-DDT00:00:00.000Z"): se toma el
+            // trozo de fecha directo del string en vez de pasar por Date+setHours, que
+            // reinterpreta esa medianoche UTC en el huso local y corre el día (bug real:
+            // un muestreo cerrado el 01/10 aparecía agrupado bajo el 30/09 en Chile).
+            const fechaStr = m.fecha_retiro.split('T')[0];
 
             if (!groups[fechaStr]) {
                 groups[fechaStr] = {
                     fecha: fechaStr,
-                    etiqueta: getDayLabel(fecha),
+                    etiqueta: getDayLabel(new Date(`${fechaStr}T00:00:00Z`)),
                     items: []
                 };
             }

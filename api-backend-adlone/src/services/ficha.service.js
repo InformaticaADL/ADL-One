@@ -4124,7 +4124,10 @@ class FichaIngresoService {
                 a.frecuencia_correlativo,
                 a.fecha_muestreo,
                 a.ma_muestreo_fechat as fecha_retiro,
-                a.fecha_completado,
+                -- fecha_completado nunca se está guardando desde la app (confirmado: 0 de 3
+                -- muestreos reales ejecutados la tienen) — se usa como respaldo la hora real
+                -- de término de trabajo, que sí se registra siempre.
+                COALESCE(a.fecha_completado, a.retiro_hora_fin_trabajo, a.instalacion_hora_fin_trabajo) as fecha_completado,
                 a.id_estadomuestreo,
                 e.nombre_estadomuestreo as estado_muestreo,
                 f.id_fichaingresoservicio,
