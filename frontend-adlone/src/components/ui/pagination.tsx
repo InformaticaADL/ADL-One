@@ -1,7 +1,10 @@
 import { ChevronLeft, ChevronRight, MoreHorizontal } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 type PageItem = number | 'ellipsis';
 
@@ -21,10 +24,13 @@ interface DataPaginationProps {
   pageSize: number;
   total: number;
   onPageChange: (page: number) => void;
+  /** Si se pasa (junto con onPageSizeChange), muestra el selector "Filas por página". */
+  onPageSizeChange?: (pageSize: number) => void;
+  pageSizeOptions?: number[];
   className?: string;
 }
 
-export function DataPagination({ page, pageSize, total, onPageChange, className }: DataPaginationProps) {
+export function DataPagination({ page, pageSize, total, onPageChange, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, className }: DataPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (total === 0) return null;
 
@@ -33,10 +39,27 @@ export function DataPagination({ page, pageSize, total, onPageChange, className 
 
   return (
     <div className={cn('flex flex-col items-center justify-between gap-3 sm:flex-row', className)}>
-      <span className="text-sm text-muted-foreground">
-        Mostrando <span className="font-medium text-foreground">{from}–{to}</span> de{' '}
-        <span className="font-medium text-foreground">{total}</span> resultados
-      </span>
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground">
+          Mostrando <span className="font-medium text-foreground">{from}–{to}</span> de{' '}
+          <span className="font-medium text-foreground">{total}</span> resultados
+        </span>
+        {onPageSizeChange && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm text-muted-foreground">Filas por página</span>
+            <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
+              <SelectTrigger className="h-8 w-[72px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {pageSizeOptions.map((size) => (
+                  <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+      </div>
 
       {totalPages > 1 && (
         <nav aria-label="Paginación" className="flex items-center gap-1">

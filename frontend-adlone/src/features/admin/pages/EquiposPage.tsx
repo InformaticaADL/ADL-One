@@ -23,6 +23,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { RowActionsMenu, type RowAction } from '@/components/ui/row-actions-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -202,7 +203,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [filterFechaHasta, setFilterFechaHasta] = useState('');
 
     const [page, setPage] = useState(1);
-    const [limit] = useState(10);
+    const [limit, setLimit] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
     const [expiringCount, setExpiringCount] = useState(0);
     const [expiredCount, setExpiredCount] = useState(0);
@@ -276,7 +277,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }, 300);
         return () => clearTimeout(delayDebounceFn);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler]);
+    }, [page, limit, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler]);
 
     // Al cambiar de página el listado se redibuja arriba, pero la vista se
     // quedaba donde estaba —en teléfono, abajo del todo junto a los botones—,
@@ -1036,38 +1037,31 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         );
     };
 
-    const rowActions = (equipo: Equipo, isInactive: boolean) => (
-        // shrink-0 en los botones: en la columna de ancho porcentual no deben
-        // achicarse por debajo de su tamaño táctil cuando la ventana es angosta.
-        <div className="flex justify-end gap-1 [&>*]:shrink-0">
-            <ProtectedContent permission="AI_MA_EDITAR_EQUIPO">
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    title="Editar"
-                    aria-label="Editar"
-                    onClick={() => handleEdit(equipo)}
-                    disabled={!canEditEquipo}
-                >
-                    <IconEdit size={16} />
-                </Button>
-            </ProtectedContent>
-            <ProtectedContent permission={isInactive ? "EQ_ACTIVAR" : "EQ_DESACTIVAR"}>
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className={cn('h-8 w-8', isInactive ? 'text-success hover:bg-success/10 hover:text-success' : 'text-destructive hover:bg-destructive/10 hover:text-destructive')}
-                    title={isInactive ? 'Activar' : 'Desactivar'}
-                    aria-label={isInactive ? 'Activar' : 'Desactivar'}
-                    onClick={() => handleToggleStatus(equipo)}
-                    disabled={!canEditEquipo}
-                >
-                    <IconPower size={16} />
-                </Button>
-            </ProtectedContent>
-        </div>
-    );
+    const rowActions = (equipo: Equipo, isInactive: boolean) => {
+        const actions: RowAction[] = [
+            {
+                label: 'Editar',
+                icon: <IconEdit size={16} />,
+                onClick: () => handleEdit(equipo),
+                disabled: !canEditEquipo,
+                hidden: !hasPermission('AI_MA_EDITAR_EQUIPO'),
+            },
+            {
+                label: isInactive ? 'Activar' : 'Desactivar',
+                icon: <IconPower size={16} />,
+                onClick: () => handleToggleStatus(equipo),
+                disabled: !canEditEquipo,
+                hidden: !hasPermission(isInactive ? 'EQ_ACTIVAR' : 'EQ_DESACTIVAR'),
+                danger: !isInactive,
+                separatorBefore: true,
+            },
+        ];
+        return (
+            <div className="flex justify-end">
+                <RowActionsMenu actions={actions} label={`Acciones para ${equipo.nombre}`} />
+            </div>
+        );
+    };
 
     return (
         // En teléfono la página scrollea completa (ver isFullHeightModule en
@@ -1310,7 +1304,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 (min-h-0 para que el flex la pueda encoger) y deja la paginación
                 anclada abajo, sin tener que bajar hasta el final del listado. */}
             <div className={cn('flex flex-col gap-4 px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
-                <div ref={listaRef} className={cn('relative flex flex-col overflow-hidden rounded-xl border border-border bg-card', !isMobile && 'min-h-0 flex-1')}>
+                {/* max-h-full (no flex-1): la tarjeta crece hasta el alto disponible y
+                    scrollea internamente si hay muchas filas, pero no se estira más
+                    allá de su contenido cuando la página trae pocos resultados — antes
+                    quedaba un espacio en blanco debajo de la última fila. */}
+                <div ref={listaRef} className={cn('relative flex flex-col overflow-hidden rounded-xl border border-border bg-card', !isMobile && 'min-h-0 max-h-full')}>
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1470,7 +1468,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     )}
                 </div>
 
-                <DataPagination className="shrink-0" page={page} pageSize={limit} total={totalItems} onPageChange={setPage} />
+                <DataPagination
+                    className="shrink-0"
+                    page={page}
+                    pageSize={limit}
+                    total={totalItems}
+                    onPageChange={setPage}
+                    onPageSizeChange={(size) => { setLimit(size); setPage(1); }}
+                />
             </div>
 
             {/* --- Modals Area --- */}

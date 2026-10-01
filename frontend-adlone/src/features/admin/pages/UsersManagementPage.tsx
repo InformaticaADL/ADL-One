@@ -13,6 +13,7 @@ import {
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
+import { RowActionsMenu, type RowAction } from '@/components/ui/row-actions-menu';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -454,36 +455,23 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         </Badge>
     );
 
-    const rowActions = (user: User) => (
-        <div className="flex justify-end gap-1">
-            <Button variant="ghost" size="icon" className="h-8 w-8" title="Editar" aria-label="Editar" onClick={() => openEdit(user)}>
-                <IconPencil size={16} />
-            </Button>
-            {user.habilitado === 'S' ? (
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
-                    title="Deshabilitar"
-                    aria-label="Deshabilitar"
-                    onClick={() => setConfirmUser(user)}
-                >
-                    <IconUserOff size={16} />
-                </Button>
-            ) : (
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-success hover:bg-success/10 hover:text-success"
-                    title="Habilitar"
-                    aria-label="Habilitar"
-                    onClick={() => setConfirmUser(user)}
-                >
-                    <IconUserCheck size={16} />
-                </Button>
-            )}
-        </div>
-    );
+    const rowActions = (user: User) => {
+        const actions: RowAction[] = [
+            { label: 'Editar', icon: <IconPencil size={16} />, onClick: () => openEdit(user) },
+            {
+                label: user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar',
+                icon: user.habilitado === 'S' ? <IconUserOff size={16} /> : <IconUserCheck size={16} />,
+                onClick: () => setConfirmUser(user),
+                danger: user.habilitado === 'S',
+                separatorBefore: true,
+            },
+        ];
+        return (
+            <div className="flex justify-end">
+                <RowActionsMenu actions={actions} label={`Acciones para ${user.nombre_real || user.nombre_usuario}`} />
+            </div>
+        );
+    };
 
     const userColumns: ColumnDef<User>[] = [
         {

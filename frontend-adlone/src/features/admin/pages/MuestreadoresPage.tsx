@@ -33,6 +33,8 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
 import { useNavStore } from '../../../store/navStore';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { useAuth } from '../../../contexts/AuthContext';
+import { RowActionsMenu, type RowAction } from '@/components/ui/row-actions-menu';
 
 interface Props {
     onBack: () => void;
@@ -67,6 +69,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [isExporting, setIsExporting] = useState(false);
 
     const { showToast } = useToast();
+    const { hasPermission } = useAuth();
     const { pendingRequestId } = useNavStore();
 
     const isMobile = useMediaQuery('(max-width: 768px)');
@@ -326,32 +329,32 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             cell: ({ row }) => {
                 const m = row.original;
                 const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
+                const actions: RowAction[] = [
+                    { label: 'Ver perfil y rendimiento', icon: <IconChartBar size={16} />, onClick: () => { setPerfilMuestreador(m); setViewMode('perfil'); } },
+                    {
+                        label: hasPending ? 'Ver solicitudes (pendientes)' : 'Ver solicitudes',
+                        icon: <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />,
+                        onClick: () => handleOpenRequests(m),
+                        hidden: !hasPermission('MU_SOLICITUDES'),
+                    },
+                    {
+                        label: 'Editar información',
+                        icon: <IconEdit size={16} />,
+                        onClick: () => handleEdit(m),
+                        hidden: !hasPermission('AI_MA_EDITAR_MUESTREADOR'),
+                    },
+                    {
+                        label: m.habilitado === 'S' ? 'Deshabilitar muestreador' : 'Habilitar muestreador',
+                        icon: m.habilitado === 'S' ? <IconPower size={16} /> : <IconCheck size={16} />,
+                        onClick: () => m.habilitado === 'S' ? handleDisableClick(m) : handleEnableClick(m),
+                        hidden: !hasPermission('AI_MA_DESHABILITAR_MUESTREADOR'),
+                        danger: m.habilitado === 'S',
+                        separatorBefore: true,
+                    },
+                ];
                 return (
-                    <div className="flex justify-center gap-1">
-                        <Button variant="ghost" size="icon" title="Ver perfil y rendimiento" onClick={() => { setPerfilMuestreador(m); setViewMode('perfil'); }}>
-                            <IconChartBar size={16} />
-                        </Button>
-                        <ProtectedContent permission="MU_SOLICITUDES">
-                            <Button variant="ghost" size="icon" title="Ver solicitudes" onClick={() => handleOpenRequests(m)}>
-                                <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />
-                            </Button>
-                        </ProtectedContent>
-                        <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
-                            <Button variant="ghost" size="icon" title="Editar información" onClick={() => handleEdit(m)}>
-                                <IconEdit size={16} />
-                            </Button>
-                        </ProtectedContent>
-                        <ProtectedContent permission="AI_MA_DESHABILITAR_MUESTREADOR">
-                            {m.habilitado === 'S' ? (
-                                <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10 hover:text-destructive" title="Deshabilitar muestreador" onClick={() => handleDisableClick(m)}>
-                                    <IconPower size={16} />
-                                </Button>
-                            ) : (
-                                <Button variant="ghost" size="icon" className="text-success hover:bg-success/10 hover:text-success" title="Habilitar muestreador" onClick={() => handleEnableClick(m)}>
-                                    <IconCheck size={16} />
-                                </Button>
-                            )}
-                        </ProtectedContent>
+                    <div className="flex justify-center">
+                        <RowActionsMenu actions={actions} label={`Acciones para ${m.nombre_muestreador}`} />
                     </div>
                 );
             },

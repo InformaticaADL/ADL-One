@@ -160,6 +160,7 @@ export function DataTable<TData, TValue>({
                     pageSize={currentPageSize}
                     total={totalRows}
                     onPageChange={(page) => table.setPageIndex(page - 1)}
+                    onPageSizeChange={(size) => table.setPageSize(size)}
                 />
             )}
         </div>

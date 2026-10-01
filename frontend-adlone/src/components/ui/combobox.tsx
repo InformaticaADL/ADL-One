@@ -71,7 +71,7 @@ export function Combobox({
             className
           )}
         >
-          <span className={cn('truncate text-left', !selected && 'text-muted-foreground')}>
+          <span className={cn('truncate text-left', !selected && 'text-muted-foreground')} title={selected?.label}>
             {selected ? selected.label : placeholder}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
@@ -106,7 +106,7 @@ export function Combobox({
                 )}
               >
                 <Check className={cn('h-4 w-4 shrink-0', option.value === value ? 'opacity-100' : 'opacity-0')} />
-                <span className="truncate">{option.label}</span>
+                <span className="truncate" title={option.label}>{option.label}</span>
               </button>
             ))
           )}
