@@ -337,6 +337,85 @@ export const adminService = {
         };
     },
 
+    // Mismo cálculo que usa la app ADL Sampling en su propia pantalla de
+    // Estadísticas (getEstadisticas en api-app-mam/services/fichaLecturasExtra.js)
+    // — se replica acá en vez de llamar a ese otro backend para que el número
+    // que ve el supervisor en ADL ONE sea exactamente el mismo que ve el
+    // muestreador en su celular, sin depender de que ambos servicios estén
+    // arriba a la vez.
+    getEstadisticasMuestreador: async (id, fechaInicio, fechaFin) => {
+        const pool = await getConnection();
+        const result = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .input('inicio', sql.Date, fechaInicio)
+            .input('fin', sql.Date, fechaFin)
+            .query(`
+                SELECT
+                    COUNT(*) as total,
+                    SUM(CASE
+                        WHEN (a.id_muestreador = @id AND a.instalacion_completado = 'S') OR
+                             (a.id_muestreador2 = @id AND a.retiro_completado = 'S')
+                        THEN 1 ELSE 0 END) as ejecutadas,
+                    SUM(CASE
+                        WHEN (a.id_muestreador = @id AND ISNULL(a.instalacion_completado,'N') <> 'S') OR
+                             (a.id_muestreador2 = @id AND ISNULL(a.retiro_completado,'N') <> 'S')
+                        THEN 1 ELSE 0 END) as pendientes,
+                    SUM(CASE
+                        WHEN ((a.id_muestreador = @id AND ISNULL(a.instalacion_completado,'N') <> 'S') OR
+                              (a.id_muestreador2 = @id AND ISNULL(a.retiro_completado,'N') <> 'S'))
+                             AND a.fecha_muestreo < CAST(GETDATE() AS DATE)
+                        THEN 1 ELSE 0 END) as atrasadas
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+                WHERE
+                    (a.id_muestreador = @id OR a.id_muestreador2 = @id)
+                    AND a.fecha_muestreo BETWEEN @inicio AND @fin
+            `);
+        const row = result.recordset[0] || { total: 0, ejecutadas: 0, pendientes: 0, atrasadas: 0 };
+        const cumplimiento = row.total > 0 ? Math.round((row.ejecutadas / row.total) * 100) : 0;
+        return { ...row, cumplimiento };
+    },
+
+    // Agenda de un muestreador en un rango de fechas — para su perfil (tab
+    // "Agenda") y exportación. A diferencia de getMuestreadorFutureAssignments
+    // (que solo mira adelante, para advertir al deshabilitar), esta trae
+    // cualquier rango con los datos legibles (empresa/centro/objetivo), no solo
+    // ids crudos.
+    getAgendaMuestreador: async (id, fechaInicio, fechaFin) => {
+        const pool = await getConnection();
+        const result = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .input('inicio', sql.Date, fechaInicio)
+            .input('fin', sql.Date, fechaFin)
+            .query(`
+                SELECT
+                    a.id_agendamam,
+                    a.frecuencia_correlativo,
+                    a.fecha_muestreo,
+                    a.ma_muestreo_fechat as fecha_retiro,
+                    a.estado_caso,
+                    a.id_estadomuestreo,
+                    a.instalacion_completado,
+                    a.retiro_completado,
+                    CASE WHEN a.id_muestreador = @id THEN 'Instalación' ELSE 'Retiro' END as rol,
+                    f.id_fichaingresoservicio,
+                    f.fichaingresoservicio as correlativo_ficha,
+                    emp.nombre_empresa as cliente,
+                    ce.nombre_centro as centro,
+                    om.nombre_objetivomuestreo_ma as objetivo
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON a.id_fichaingresoservicio = f.id_fichaingresoservicio
+                LEFT JOIN mae_empresa emp ON f.id_empresa = emp.id_empresa
+                LEFT JOIN mae_centro ce ON f.id_centro = ce.id_centro
+                LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
+                WHERE
+                    (a.id_muestreador = @id OR a.id_muestreador2 = @id)
+                    AND a.fecha_muestreo BETWEEN @inicio AND @fin
+                ORDER BY a.fecha_muestreo ASC, a.id_agendamam ASC
+            `);
+        return result.recordset;
+    },
+
     checkDuplicateMuestreador: async (nombre, correo) => {
         const n = nombre?.trim() || null;
         const c = correo?.trim() || null;

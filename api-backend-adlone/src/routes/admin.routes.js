@@ -73,6 +73,8 @@ router.put('/muestreadores/:id/enable', verifyToken, verifyPermission('AI_MA_DES
 router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkDuplicateMuestreador);
 // MS-04: contar muestreos futuros asignados al muestreador para advertir antes de deshabilitar
 router.get('/muestreadores/:id/future-assignments', verifyToken, verifyPermission(['MA_MUESTREADORES', 'AI_MA_DESHABILITAR_MUESTREADOR']), adminController.getMuestreadorFutureAssignments);
+router.get('/muestreadores/:id/estadisticas', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getEstadisticasMuestreador);
+router.get('/muestreadores/:id/agenda', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getAgendaMuestreador);
 router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadMuestreadoresPdf);
 
 // --- ENTRENAMIENTO & DOCUMENTOS ---

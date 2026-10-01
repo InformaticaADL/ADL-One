@@ -8,6 +8,7 @@ import {
     IconCheck,
     IconBell,
     IconSchool,
+    IconChartBar,
 } from '@tabler/icons-react';
 
 import type { ColumnDef } from '@tanstack/react-table';
@@ -25,6 +26,7 @@ import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { MuestreadorForm } from '../components/MuestreadorForm';
+import { MuestreadorPerfilView } from './MuestreadorPerfilView';
 import { SamplerRequestsModal } from '../components/SamplerRequestsModal';
 import SamplerDeactivationModal from '../components/SamplerDeactivationModal';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -44,7 +46,8 @@ const getInitials = (name: string) =>
 const localeSort = (a: string, b: string) => a.localeCompare(b, 'es', { numeric: true, sensitivity: 'base' });
 
 export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
-    const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
+    const [viewMode, setViewMode] = useState<'list' | 'form' | 'perfil'>('list');
+    const [perfilMuestreador, setPerfilMuestreador] = useState<any | null>(null);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
     const [solicitudesRealizadas, setSolicitudesRealizadas] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -325,6 +328,9 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
                 return (
                     <div className="flex justify-center gap-1">
+                        <Button variant="ghost" size="icon" title="Ver perfil y rendimiento" onClick={() => { setPerfilMuestreador(m); setViewMode('perfil'); }}>
+                            <IconChartBar size={16} />
+                        </Button>
                         <ProtectedContent permission="MU_SOLICITUDES">
                             <Button variant="ghost" size="icon" title="Ver solicitudes" onClick={() => handleOpenRequests(m)}>
                                 <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />
@@ -355,7 +361,9 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     // El módulo ya no scrollea a nivel de página (ver isFullHeightModule en
     // MainLayout), así que el formulario —que sí es largo— necesita su propio
     // contenedor con scroll.
-    const content = viewMode === 'form' ? (
+    const content = viewMode === 'perfil' && perfilMuestreador ? (
+        <MuestreadorPerfilView muestreador={perfilMuestreador} onBack={() => setViewMode('list')} />
+    ) : viewMode === 'form' ? (
         <div className="h-full min-h-0 overflow-y-auto">
             <MuestreadorForm
                 initialData={selectedMuestreador}

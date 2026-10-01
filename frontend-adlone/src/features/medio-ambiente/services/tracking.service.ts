@@ -84,9 +84,9 @@ export const trackingService = {
         return response.data.data.jornadas;
     },
 
-    getHistorial: async (fechaDesde: string, fechaHasta: string): Promise<HistorialDia[]> => {
+    getHistorial: async (fechaDesde: string, fechaHasta: string, idMuestreador?: number): Promise<HistorialDia[]> => {
         const response = await apiClient.get('/api/tracking/historial', {
-            params: { fecha_desde: fechaDesde, fecha_hasta: fechaHasta },
+            params: { fecha_desde: fechaDesde, fecha_hasta: fechaHasta, id_muestreador: idMuestreador },
         });
         return response.data.data.dias;
     },

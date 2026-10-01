@@ -95,6 +95,20 @@ export const adminService = {
         return response.data;
     },
 
+    // --- PERFIL / RENDIMIENTO ---
+    getEstadisticasMuestreador: async (id: number, fechaInicio: string, fechaFin: string) => {
+        const response = await apiClient.get(`/api/admin/muestreadores/${id}/estadisticas`, {
+            params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin }
+        });
+        return response.data.data;
+    },
+    getAgendaMuestreador: async (id: number, fechaInicio: string, fechaFin: string) => {
+        const response = await apiClient.get(`/api/admin/muestreadores/${id}/agenda`, {
+            params: { fecha_inicio: fechaInicio, fecha_fin: fechaFin }
+        });
+        return response.data.data;
+    },
+
     checkDuplicateMuestreador: async (nombre: string, correo: string) => {
         const response = await apiClient.get('/api/admin/muestreadores/check-duplicate', {
             params: { nombre, correo }

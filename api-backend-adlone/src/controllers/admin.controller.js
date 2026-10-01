@@ -232,6 +232,36 @@ export const adminController = {
         }
     },
 
+    getEstadisticasMuestreador: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { fecha_inicio, fecha_fin } = req.query;
+            if (!fecha_inicio || !fecha_fin) {
+                return res.status(400).json({ success: false, message: 'fecha_inicio y fecha_fin son requeridos' });
+            }
+            const result = await adminService.getEstadisticasMuestreador(id, fecha_inicio, fecha_fin);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            logger.error('Controller getEstadisticasMuestreador error:', error);
+            res.status(500).json({ success: false, message: 'Error al consultar estadísticas del muestreador' });
+        }
+    },
+
+    getAgendaMuestreador: async (req, res) => {
+        try {
+            const { id } = req.params;
+            const { fecha_inicio, fecha_fin } = req.query;
+            if (!fecha_inicio || !fecha_fin) {
+                return res.status(400).json({ success: false, message: 'fecha_inicio y fecha_fin son requeridos' });
+            }
+            const result = await adminService.getAgendaMuestreador(id, fecha_inicio, fecha_fin);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            logger.error('Controller getAgendaMuestreador error:', error);
+            res.status(500).json({ success: false, message: 'Error al consultar la agenda del muestreador' });
+        }
+    },
+
     // --- DASHBOARD ---
     getDashboardStats: async (req, res) => {
         try {
