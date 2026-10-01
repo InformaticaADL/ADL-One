@@ -68,7 +68,7 @@ interface FichaEvento {
     id_ficha_original?: number | null;
     cliente?: string;
     email_cliente?: string;
-    nombre_baseoperaciones?: string;
+    base_operaciones?: string;
 }
 
 interface CalendarEvent extends FichaEvento {
@@ -888,7 +888,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
                                 <StaticField label="Empresa Servicio" value={selectedEvent.empresa_servicio} />
                                 <StaticField label="Centro / Fuente" value={selectedEvent.centro} />
-                                <StaticField label="Base Operaciones" value={selectedEvent.nombre_baseoperaciones} />
+                                <StaticField label="Base Operaciones" value={selectedEvent.base_operaciones} />
                             </div>
 
                             <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>

@@ -126,15 +126,6 @@ export const catalogosController = {
         }
     },
 
-    getBaseOperaciones: async (req, res) => {
-        try {
-            const data = await catalogosService.getBaseOperaciones();
-            return successResponse(res, data, 'Bases de Operación retrieved successfully');
-        } catch (error) {
-            return errorResponse(res, error.message, 500);
-        }
-    },
-
     getModalidades: async (req, res) => {
         try {
             const data = await catalogosService.getModalidades();

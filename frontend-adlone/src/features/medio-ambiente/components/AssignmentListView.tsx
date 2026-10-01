@@ -423,8 +423,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                 </span>
                                             </TableCell>
                                             <TableCell>
-                                                <span className="block truncate text-xs" title={row.nombre_baseoperaciones}>
-                                                    {row.nombre_baseoperaciones || '-'}
+                                                <span className="block truncate text-xs" title={row.base_operaciones}>
+                                                    {row.base_operaciones || '-'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-center">

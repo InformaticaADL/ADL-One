@@ -223,13 +223,6 @@ export const catalogosService = {
         });
     },
 
-    getBaseOperaciones: async (): Promise<any[]> => {
-        return deduplicatedRequest('base-operaciones', async () => {
-            const response = await axiosInstance.get('/base-operaciones');
-            return response.data.data;
-        });
-    },
-
     getModalidades: async (): Promise<any[]> => {
         return deduplicatedRequest('modalidades', async () => {
             const response = await axiosInstance.get('/modalidades');

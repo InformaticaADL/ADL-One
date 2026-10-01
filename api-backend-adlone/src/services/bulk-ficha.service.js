@@ -163,7 +163,7 @@ class BulkFichaService {
             tiposDescargaRes, modalidadesRes, cargosRes,
             frecuenciasRes, formasCanalRes, dispositivosRes,
             instrumentosRes, laboratoriosRes, tiposEntregaRes,
-            normativasRes, contactosRes, subAreasRes, zonasUTMRes, baseOperacionesRes
+            normativasRes, contactosRes, subAreasRes, zonasUTMRes
         ] = await Promise.all([
             pool.request().execute('maestro_lugaranalisis'),
             pool.request().query("SELECT id_empresaservicio, nombre_empresaservicios FROM mae_empresaservicios WHERE habilitado = 'S'"),
@@ -186,8 +186,7 @@ class BulkFichaService {
             pool.request().execute('Consulta_App_Ma_Normativa').catch(() => ({ recordset: [] })),
             pool.request().query("SELECT id_contacto, nombre_contacto, email_contacto, id_empresa, id_empresaservicio FROM mae_contacto WHERE habilitado = 'S'"),
             pool.request().query("SELECT id_subarea, nombre_subarea FROM mae_subarea WHERE activo = 'S'").catch(() => ({ recordset: [] })),
-            pool.request().query("SELECT id_zonautm, nombre_zonautm FROM mae_zonautm WHERE habilitado = 'S'").catch(() => ({ recordset: [] })),
-            pool.request().query("SELECT id_baseoperaciones, nombre_baseoperaciones FROM mae_baseoperaciones WHERE habilitado = 'S'").catch(() => ({ recordset: [] }))
+            pool.request().query("SELECT id_zonautm, nombre_zonautm FROM mae_zonautm WHERE habilitado = 'S'").catch(() => ({ recordset: [] }))
         ]);
 
         // Also load centros (fuentes emisoras) - we load ALL since we need to match by name
@@ -294,10 +293,6 @@ class BulkFichaService {
             tiposDescarga: tiposDescargaRes.recordset.map(r => ({
                 id: r.id_tipodescarga || r.id,
                 nombre: (r.nombre_tipodescarga || r.nombre || '').trim()
-            })),
-            baseOperaciones: baseOperacionesRes.recordset.map(r => ({
-                id: r.id_baseoperaciones || r.id,
-                nombre: (r.nombre_baseoperaciones || r.nombre || '').trim()
             })),
             modalidades: modalidadesRes.recordset.map(r => ({
                 id: r.id_modalidad || r.id,
@@ -1049,16 +1044,6 @@ class BulkFichaService {
         } else {
             fields.selectedTipoDescarga = 'No Aplica';
             warnings.push({ field: 'Tipo Descarga', message: 'No se encontró el tipo de descarga en el texto. Se dejará en "No Aplica".' });
-        }
-
-        // Base Operaciones: se infiere por texto igual que Tipo Descarga; si no hay
-        // coincidencia queda vacía (no hay un "No Aplica" para esto) y se advierte.
-        const baseOpMatch = this.findInText(text, catalogs.baseOperaciones);
-        if (baseOpMatch) {
-            fields.selectedBaseOperaciones = String(baseOpMatch.id);
-        } else {
-            fields.selectedBaseOperaciones = '';
-            warnings.push({ field: 'Base Operaciones', message: 'No se encontró la base de operaciones en el texto. Quedará sin asignar.' });
         }
 
         // Modalidad

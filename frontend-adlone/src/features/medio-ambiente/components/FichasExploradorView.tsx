@@ -378,7 +378,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                             <TableCell className="max-w-[160px] truncate" title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
-                                            <TableCell className="max-w-[140px] truncate" title={ficha.nombre_baseoperaciones}>{ficha.nombre_baseoperaciones || '-'}</TableCell>
+                                            <TableCell className="max-w-[140px] truncate" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
                                             <TableCell className="text-center">
                                                 <ProtectedContent permission={['FI_EXPORTAR_CFI', 'FI_EXP_AFE']}>
                                                     <Button

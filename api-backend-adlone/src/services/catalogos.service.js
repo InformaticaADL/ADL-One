@@ -310,22 +310,6 @@ export const catalogosService = {
     }
   },
 
-  getBaseOperaciones: async () => {
-    try {
-      const pool = await getConnection();
-      const result = await pool.request().query(`
-        SELECT id_baseoperaciones, nombre_baseoperaciones
-        FROM mae_baseoperaciones
-        WHERE habilitado = 'S'
-        ORDER BY orden
-      `);
-      return result.recordset;
-    } catch (error) {
-      logger.error('Error in getBaseOperaciones:', error);
-      throw error;
-    }
-  },
-
   getModalidades: async () => {
     try {
       const pool = await getConnection();

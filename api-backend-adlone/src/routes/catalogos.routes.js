@@ -21,7 +21,6 @@ router.get('/tipos-muestreo', authenticate, catalogosController.getTiposMuestreo
 router.get('/tipos-muestra', authenticate, catalogosController.getTiposMuestra);
 router.get('/actividades-muestreo', authenticate, catalogosController.getActividadesMuestreo);
 router.get('/tipos-descarga', authenticate, catalogosController.getTiposDescarga);
-router.get('/base-operaciones', authenticate, catalogosController.getBaseOperaciones);
 router.get('/modalidades', authenticate, catalogosController.getModalidades);
 router.get('/cargos', authenticate, catalogosController.getCargos);
 router.get('/frecuencias-periodo', authenticate, catalogosController.getFrecuenciasPeriodo);

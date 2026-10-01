@@ -482,7 +482,6 @@ class FichaIngresoService {
             requestEnc.input('id_tipomuestra', sql.Numeric(10, 0), valNum(ant.selectedComponente));
             requestEnc.input('id_subarea', sql.Numeric(10, 0), valNum(ant.selectedSubArea));
             requestEnc.input('id_tipodescarga', sql.Numeric(10, 0), valNum(ant.selectedTipoDescarga));
-            requestEnc.input('id_baseoperaciones', sql.Numeric(10, 0), valNum(ant.selectedBaseOperaciones));
             requestEnc.input('id_contacto', sql.Numeric(10, 0), valNum(ant.selectedContacto));
             requestEnc.input('cliente_entrega', sql.VarChar(80), valStr(ant.contactoNombre || 'Cliente', 80));
 
@@ -550,7 +549,7 @@ class FichaIngresoService {
                     id_lugaranalisis, id_empresaservicio, id_empresa, id_centro, id_tipoagua,
                     instrumento_ambiental, id_objetivomuestreo_ma, nombre_tabla_largo,
                     etfa, ma_punto_muestreo, ma_coordenadas, 
-                    id_tipomuestra, id_subarea, id_tipodescarga, id_baseoperaciones, id_contacto, cliente_entrega,
+                    id_tipomuestra, id_subarea, id_tipodescarga, id_contacto, cliente_entrega,
                     id_tipomuestreo, id_tipomuestra_ma, id_actividadmuestreo, ma_duracion_muestreo,
                     ficha_habilitado, estado_ficha, sincronizado, 
                     referencia_googlemaps, medicion_caudal, id_modalidad,
@@ -569,7 +568,7 @@ class FichaIngresoService {
                     @id_lugaranalisis, @id_empresaservicio, @id_empresa, @id_centro, @id_tipoagua,
                     @instrumento, @id_objetivo, @nombre_tabla,
                     @etfa, @punto_muestreo, @coordenadas,
-                    @id_tipomuestra, @id_subarea, @id_tipodescarga, @id_baseoperaciones, @id_contacto, @cliente_entrega,
+                    @id_tipomuestra, @id_subarea, @id_tipodescarga, @id_contacto, @cliente_entrega,
                     @id_tipomuestreo, @id_tipomuestra_ma, @id_actividad, @duracion,
                     'S', @estado_ficha, 'N',
                     @ref_google, @medicion_caudal, @id_modalidad,
@@ -898,7 +897,6 @@ class FichaIngresoService {
             request.input('id_tipomuestra', sql.Numeric(10, 0), valNum(ant.selectedComponente));
             request.input('id_subarea', sql.Numeric(10, 0), valNum(ant.selectedSubArea));
             request.input('id_tipodescarga', sql.Numeric(10, 0), valNum(ant.selectedTipoDescarga));
-            request.input('id_baseoperaciones', sql.Numeric(10, 0), valNum(ant.selectedBaseOperaciones));
             request.input('id_contacto', sql.Numeric(10, 0), valNum(ant.selectedContacto));
             request.input('cliente_entrega', sql.VarChar(80), valStr(ant.contactoNombre || 'Cliente', 80));
             request.input('id_tipomuestreo', sql.Numeric(10, 0), valNum(ant.selectedTipoMuestreo));
@@ -945,7 +943,6 @@ class FichaIngresoService {
                     id_tipomuestra = @id_tipomuestra,
                     id_subarea = @id_subarea,
                     id_tipodescarga = @id_tipodescarga,
-                    id_baseoperaciones = @id_baseoperaciones,
                     id_contacto = @id_contacto,
                     cliente_entrega = @cliente_entrega,
                     id_tipomuestreo = @id_tipomuestreo,
@@ -1413,7 +1410,7 @@ class FichaIngresoService {
                     MONTH(a.fecha_muestreo) as mes,
                     YEAR(a.fecha_muestreo) as ano,
                     ce.nombre_centro as centro,
-                    bo.nombre_baseoperaciones,
+                    l.nombre_lugaranalisis as base_operaciones,
                     a.fecha_retiro,
                     f.nombre_tabla_largo as glosa,
                     a.estado_caso,
@@ -1437,7 +1434,7 @@ class FichaIngresoService {
                 LEFT JOIN mae_objetivomuestreo_ma om ON f.id_objetivomuestreo_ma = om.id_objetivomuestreo_ma
                 LEFT JOIN mae_subarea sa ON f.id_subarea = sa.id_subarea
                 LEFT JOIN mae_centro ce ON f.id_centro = ce.id_centro
-                LEFT JOIN mae_baseoperaciones bo ON f.id_baseoperaciones = bo.id_baseoperaciones
+                LEFT JOIN mae_lugaranalisis l ON f.id_lugaranalisis = l.id_lugaranalisis
                 LEFT JOIN mae_rutas_ejecuciones_detalle red ON red.id_agendamam = a.id_agendamam
                 ${whereClause}
                 ORDER BY
@@ -2330,9 +2327,9 @@ class FichaIngresoService {
                     .filter(n => Number.isInteger(n) && n > 0);
                 const encQuery = ids.length
                     ? `SELECT f.id_fichaingresoservicio, f.referencia_googlemaps, f.ma_coordenadas, f.id_objetivomuestreo_ma,
-                              f.id_validaciontecnica, f.estado_ficha, bo.nombre_baseoperaciones
+                              f.id_validaciontecnica, f.estado_ficha, l.nombre_lugaranalisis as base_operaciones
                        FROM App_Ma_FichaIngresoServicio_ENC f
-                       LEFT JOIN mae_baseoperaciones bo ON f.id_baseoperaciones = bo.id_baseoperaciones
+                       LEFT JOIN mae_lugaranalisis l ON f.id_lugaranalisis = l.id_lugaranalisis
                        WHERE f.id_fichaingresoservicio IN (${ids.join(',')})`
                     : null;
                 try {
@@ -2350,7 +2347,7 @@ class FichaIngresoService {
                             ma_coordenadas: encData?.ma_coordenadas || null,
                             id_validaciontecnica: encData?.id_validaciontecnica ?? null,
                             estado_ficha: encData?.estado_ficha || null,
-                            nombre_baseoperaciones: encData?.nombre_baseoperaciones || null
+                            base_operaciones: encData?.base_operaciones || null
                         };
                     });
 
@@ -2509,8 +2506,8 @@ class FichaIngresoService {
         const pool = await getConnection();
         try {
             const result = await pool.request().execute('MAM_FichaComercial_ConsultaComercial');
-            // La SP es de un tercero (WITH ENCRYPTION, no editable) y no conoce
-            // id_baseoperaciones (columna nueva) — se resuelve aparte y se mezcla por id.
+            // La SP es de un tercero (WITH ENCRYPTION, no editable) y no trae Base
+            // Operaciones (mae_lugaranalisis) — se resuelve aparte y se mezcla por id.
             await this._mergeBaseOperaciones(pool, result.recordset);
             return result.recordset;
         } catch (error) {
@@ -2524,14 +2521,14 @@ class FichaIngresoService {
         const ids = recordset.map((r) => r.id_fichaingresoservicio || r.id).filter(Boolean);
         if (ids.length === 0) return;
         const result = await pool.request().query(`
-            SELECT f.id_fichaingresoservicio, bo.nombre_baseoperaciones
+            SELECT f.id_fichaingresoservicio, l.nombre_lugaranalisis as base_operaciones
             FROM App_Ma_FichaIngresoServicio_ENC f
-            LEFT JOIN mae_baseoperaciones bo ON f.id_baseoperaciones = bo.id_baseoperaciones
+            LEFT JOIN mae_lugaranalisis l ON f.id_lugaranalisis = l.id_lugaranalisis
             WHERE f.id_fichaingresoservicio IN (${ids.join(',')})
         `);
-        const porId = new Map(result.recordset.map((r) => [r.id_fichaingresoservicio, r.nombre_baseoperaciones]));
+        const porId = new Map(result.recordset.map((r) => [r.id_fichaingresoservicio, r.base_operaciones]));
         recordset.forEach((r) => {
-            r.nombre_baseoperaciones = porId.get(r.id_fichaingresoservicio || r.id) || null;
+            r.base_operaciones = porId.get(r.id_fichaingresoservicio || r.id) || null;
         });
     }
 
