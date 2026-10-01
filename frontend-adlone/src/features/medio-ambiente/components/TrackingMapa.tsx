@@ -1,4 +1,4 @@
-import { MapContainer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapContainer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useEffect, useRef, useState } from 'react';
@@ -7,6 +7,8 @@ import { BaseTiles } from './BaseTiles';
 import { BASEMAPS, BASEMAP_STORAGE_KEY, leerBasemapGuardado } from '../utils/basemaps';
 import type { JornadaHoy, UltimaPosicion } from '../services/tracking.service';
 import { colorPorMuestreador, inicialesDe } from '../utils/colorMuestreador';
+import { fetchOsrmRoute, puntoEnRuta } from '../utils/osrm';
+import { siguienteFichaPendiente } from '../utils/fichaHoyHelpers';
 
 // Fix para los íconos por defecto de Leaflet, que no se resuelven bien en el
 // bundle de Vite.
@@ -23,10 +25,70 @@ L.Icon.Default.mergeOptions({
 
 const CENTRO_DEFECTO: [number, number] = [-33.4489, -70.6693]; // Santiago
 
+export interface RutaProyectadaInfo {
+    distanciaM: number;
+    duracionS: number;
+    centro: string | null;
+}
+
 interface TrackingMapaProps {
     jornadas: JornadaHoy[];
     selectedMuestreadorId: number | null;
     onSelectMuestreador: (id: number) => void;
+    /** Distancia/tiempo reales (OSRM) a la próxima ficha del seleccionado, para que
+        el drawer de detalle los muestre. null mientras no hay selección o ruta. */
+    onRutaProyectada?: (info: RutaProyectadaInfo | null) => void;
+}
+
+// Ruta real por calle desde la posición actual del muestreador SELECCIONADO
+// hasta su próxima ficha pendiente — solo se recalcula cuando llega un ping
+// real nuevo de ESE muestreador (no en cada frame de la animación), para no
+// saturar el servicio OSRM. Si no hay ficha pendiente con coordenadas, o el
+// muestreador no está en_ruta, no se dibuja nada.
+function RutaProyectada({
+    jornada,
+    posicionActual,
+    onRutaProyectada,
+}: {
+    jornada: JornadaHoy | undefined;
+    posicionActual: [number, number] | null;
+    onRutaProyectada?: (info: RutaProyectadaInfo | null) => void;
+}) {
+    const [ruta, setRuta] = useState<{ coords: [number, number][]; info: RutaProyectadaInfo } | null>(null);
+
+    const siguiente = jornada && jornada.estado === 'en_ruta' ? siguienteFichaPendiente(jornada.fichas_hoy) : null;
+    const destino: [number, number] | null = siguiente
+        ? [Number(siguiente.ubicacion_lat), Number(siguiente.ubicacion_lon)]
+        : null;
+    const timestampPing = jornada?.ultima_posicion?.timestamp_reporte ?? null;
+
+    useEffect(() => {
+        if (!posicionActual || !destino || !Number.isFinite(destino[0]) || !Number.isFinite(destino[1])) {
+            setRuta(null);
+            onRutaProyectada?.(null);
+            return;
+        }
+        const controller = new AbortController();
+        fetchOsrmRoute(posicionActual, destino, controller.signal).then((r) => {
+            if (!r || controller.signal.aborted) return;
+            const info: RutaProyectadaInfo = { distanciaM: r.distanciaM, duracionS: r.duracionS, centro: siguiente?.centro ?? null };
+            setRuta({ coords: r.coordinates, info });
+            onRutaProyectada?.(info);
+        });
+        return () => controller.abort();
+        // Clave en el timestamp del último ping real (no en posicionActual, que
+        // cambia en cada frame animado) para recalcular solo cuando hay un ping
+        // real nuevo del muestreador seleccionado.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [timestampPing, destino?.[0], destino?.[1]]);
+
+    if (!ruta) return null;
+    return (
+        <Polyline
+            positions={ruta.coords}
+            pathOptions={{ color: '#228be6', weight: 4, opacity: 0.7, dashArray: '8 8' }}
+        />
+    );
 }
 
 // Centra el mapa en la jornada seleccionada. Depende de las coordenadas de la
@@ -69,11 +131,22 @@ function CentradorMapa({ jornadas, selectedMuestreadorId }: { jornadas: JornadaH
         }
     }, [jornadas, map]);
 
+    // flyTo (no setView): un salto instantáneo al cambiar de muestreador se
+    // sentía brusco — el vuelo animado deja claro visualmente "nos estamos
+    // moviendo hacia este vehículo" en vez de un corte seco de cuadro.
+    // Depende solo de selectedMuestreadorId (no de lat/lng en cada ping del
+    // seleccionado) para no relanzar el vuelo cada vez que se mueve.
+    const selectedIdRef = useRef(selectedMuestreadorId);
     useEffect(() => {
+        if (selectedMuestreadorId === null) return;
+        const cambioDeSeleccion = selectedIdRef.current !== selectedMuestreadorId;
+        selectedIdRef.current = selectedMuestreadorId;
+        if (!cambioDeSeleccion) return;
         if (lat !== undefined && lng !== undefined) {
-            map.setView([lat, lng], 13);
+            map.flyTo([lat, lng], 15, { duration: 1.2 });
         }
-    }, [selectedMuestreadorId, lat, lng, map]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedMuestreadorId, map]);
 
     return null;
 }
@@ -167,7 +240,14 @@ interface PuntoConTiempo {
 // componente que llama a este hook está keyed por id_muestreador (ver
 // TrackingMapa más abajo), así que cada instancia siempre corresponde al
 // mismo muestreador durante toda su vida.
-function usePosicionUber(target: [number, number], timestampReporte: string, enMovimiento: boolean): [number, number] {
+// `conCalles`: solo true para el muestreador SELECCIONADO (ver TrackingMapa
+// más abajo). Pide a OSRM la ruta real por calle entre los dos últimos pings
+// reales y anima el ícono a lo largo de esa geometría en vez de una línea
+// recta — así se mueve "pegado a la calle" como Uber, no en diagonal cruzando
+// manzanas. No se activa para el resto de los marcadores a la vez: OSRM demo
+// es un servicio público gratuito, no pensado para pedir una ruta por cada
+// ping de cada muestreador en simultáneo (ver utils/osrm.ts).
+function usePosicionUber(target: [number, number], timestampReporte: string, enMovimiento: boolean, conCalles: boolean): [number, number] {
     const tInicial = new Date(timestampReporte).getTime();
     const [pos, setPos] = useState<[number, number]>(target);
     const posRef = useRef<[number, number]>(target);
@@ -176,6 +256,10 @@ function usePosicionUber(target: [number, number], timestampReporte: string, enM
     const correccionRef = useRef<{ desde: [number, number]; inicio: number } | null>(null);
     const ultimoRenderRef = useRef(0);
     const frameRef = useRef<number | undefined>(undefined);
+    // Ruta por calle del TRAMO actual (entre prevPunto y currPunto). null
+    // mientras no haya una (sin conCalles, mientras OSRM resuelve, o si falló)
+    // — el tick cae de vuelta a la extrapolación lineal en esos casos.
+    const rutaTramoRef = useRef<{ coords: [number, number][]; duracionS: number; inicioT: number } | null>(null);
 
     // Llegó un ping real distinto del actual: guarda desde dónde había que
     // corregir (la posición mostrada en este instante, sea real o
@@ -186,39 +270,63 @@ function usePosicionUber(target: [number, number], timestampReporte: string, enM
         const t = new Date(timestampReporte).getTime();
         if (!Number.isFinite(t) || t === currPuntoRef.current.t) return;
 
-        prevPuntoRef.current = currPuntoRef.current;
+        const prevAnterior = currPuntoRef.current;
+        prevPuntoRef.current = prevAnterior;
         currPuntoRef.current = { lat: target[0], lon: target[1], t };
         correccionRef.current = { desde: posRef.current, inicio: performance.now() };
+        rutaTramoRef.current = null;
+
+        if (conCalles) {
+            const controller = new AbortController();
+            fetchOsrmRoute([prevAnterior.lat, prevAnterior.lon], [target[0], target[1]], controller.signal)
+                .then((ruta) => {
+                    if (!ruta || controller.signal.aborted) return;
+                    rutaTramoRef.current = { coords: ruta.coordinates, duracionS: ruta.duracionS, inicioT: t };
+                });
+            return () => controller.abort();
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [target[0], target[1], timestampReporte]);
+    }, [target[0], target[1], timestampReporte, conCalles]);
 
     useEffect(() => {
         function tick() {
             const curr = currPuntoRef.current;
             const correccion = correccionRef.current;
-            let siguiente: [number, number];
+            let destino: [number, number];
 
-            if (correccion) {
-                const t = Math.min((performance.now() - correccion.inicio) / DURACION_CORRECCION_MS, 1);
-                const suavizado = 1 - Math.pow(1 - t, 3);
-                siguiente = [
-                    correccion.desde[0] + (curr.lat - correccion.desde[0]) * suavizado,
-                    correccion.desde[1] + (curr.lon - correccion.desde[1]) * suavizado,
-                ];
-                if (t >= 1) correccionRef.current = null;
+            const ruta = rutaTramoRef.current;
+            const dtDesdePing = Date.now() - curr.t;
+            if (enMovimiento && ruta && ruta.inicioT === curr.t && dtDesdePing < MAX_EXTRAPOLACION_MS) {
+                // Fracción del tiempo típico de ese tramo (según OSRM) ya transcurrido
+                // desde el ping — no la distancia, para no "teletransportar" si el
+                // muestreador va más lento de lo que OSRM asume.
+                const fraccion = ruta.duracionS > 0 ? (dtDesdePing / 1000) / ruta.duracionS : 1;
+                destino = puntoEnRuta(ruta.coords, fraccion);
             } else if (enMovimiento && prevPuntoRef.current) {
                 const prev = prevPuntoRef.current;
-                const dtDesdePing = Date.now() - curr.t;
                 const dtTramo = curr.t - prev.t;
                 if (dtTramo > 0 && dtDesdePing < MAX_EXTRAPOLACION_MS) {
                     const velLat = (curr.lat - prev.lat) / dtTramo;
                     const velLon = (curr.lon - prev.lon) / dtTramo;
-                    siguiente = [curr.lat + velLat * dtDesdePing, curr.lon + velLon * dtDesdePing];
+                    destino = [curr.lat + velLat * dtDesdePing, curr.lon + velLon * dtDesdePing];
                 } else {
-                    siguiente = [curr.lat, curr.lon];
+                    destino = [curr.lat, curr.lon];
                 }
             } else {
-                siguiente = [curr.lat, curr.lon];
+                destino = [curr.lat, curr.lon];
+            }
+
+            let siguiente: [number, number];
+            if (correccion) {
+                const t = Math.min((performance.now() - correccion.inicio) / DURACION_CORRECCION_MS, 1);
+                const suavizado = 1 - Math.pow(1 - t, 3);
+                siguiente = [
+                    correccion.desde[0] + (destino[0] - correccion.desde[0]) * suavizado,
+                    correccion.desde[1] + (destino[1] - correccion.desde[1]) * suavizado,
+                ];
+                if (t >= 1) correccionRef.current = null;
+            } else {
+                siguiente = destino;
             }
 
             posRef.current = siguiente;
@@ -243,14 +351,23 @@ interface MarcadorMuestreadorProps {
     jornada: JornadaHoy & { ultima_posicion: UltimaPosicion };
     seleccionado: boolean;
     onSelectMuestreador: (id: number) => void;
+    /** Solo el seleccionado reporta su posición animada hacia arriba, para que
+        TrackingMapa pueda proyectar la ruta por calle hacia su próxima ficha. */
+    onPosicionActual?: (pos: [number, number]) => void;
 }
 
-function MarcadorMuestreador({ jornada, seleccionado, onSelectMuestreador }: MarcadorMuestreadorProps) {
+function MarcadorMuestreador({ jornada, seleccionado, onSelectMuestreador, onPosicionActual }: MarcadorMuestreadorProps) {
     const posicionAnimada = usePosicionUber(
         [jornada.ultima_posicion.latitud, jornada.ultima_posicion.longitud],
         jornada.ultima_posicion.timestamp_reporte,
-        jornada.estado === 'en_ruta'
+        jornada.estado === 'en_ruta',
+        seleccionado
     );
+
+    useEffect(() => {
+        if (seleccionado) onPosicionActual?.(posicionAnimada);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [seleccionado, posicionAnimada[0], posicionAnimada[1]]);
 
     return (
         <Marker
@@ -267,7 +384,7 @@ function MarcadorMuestreador({ jornada, seleccionado, onSelectMuestreador }: Mar
     );
 }
 
-export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestreador }: TrackingMapaProps) {
+export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestreador, onRutaProyectada }: TrackingMapaProps) {
     // Predicado de tipo (no un simple boolean) para que TypeScript realmente
     // angoste ultima_posicion a no-nulo dentro del .map() de abajo — con un
     // filter(j => j.ultima_posicion !== null) normal, TS no propaga ese
@@ -277,6 +394,15 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
     );
 
     const [basemapId, setBasemapId] = useState<string>(leerBasemapGuardado);
+    const [posicionSeleccionado, setPosicionSeleccionado] = useState<[number, number] | null>(null);
+    const jornadaSeleccionada = jornadas.find((j) => j.id_muestreador === selectedMuestreadorId);
+
+    // Al cambiar de muestreador seleccionado, descarta la posición animada del
+    // anterior — sin esto, RutaProyectada podría usar un instante la posición
+    // vieja antes de que el nuevo marcador reporte la suya.
+    useEffect(() => {
+        setPosicionSeleccionado(null);
+    }, [selectedMuestreadorId]);
 
     const cambiarBasemap = (id: string) => {
         setBasemapId(id);
@@ -321,8 +447,14 @@ export function TrackingMapa({ jornadas, selectedMuestreadorId, onSelectMuestrea
                         jornada={j}
                         seleccionado={j.id_muestreador === selectedMuestreadorId}
                         onSelectMuestreador={onSelectMuestreador}
+                        onPosicionActual={j.id_muestreador === selectedMuestreadorId ? setPosicionSeleccionado : undefined}
                     />
                 ))}
+                <RutaProyectada
+                    jornada={jornadaSeleccionada}
+                    posicionActual={posicionSeleccionado}
+                    onRutaProyectada={onRutaProyectada}
+                />
             </MapContainer>
         </div>
     );

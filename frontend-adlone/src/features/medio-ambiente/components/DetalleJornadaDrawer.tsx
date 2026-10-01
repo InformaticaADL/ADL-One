@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
-import { IconCheck, IconClock, IconMapPin, IconFlagCheck, IconPlayerPause, IconBattery2, IconX } from '@tabler/icons-react';
+import { IconCheck, IconClock, IconMapPin, IconFlagCheck, IconPlayerPause, IconBattery2, IconX, IconRoute } from '@tabler/icons-react';
 import { Sheet, SheetPortal, SheetOverlay, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Timeline } from '@/components/ui/timeline';
 import { cn } from '@/lib/utils';
 import type { JornadaHoy } from '../services/tracking.service';
+import type { RutaProyectadaInfo } from './TrackingMapa';
 import { fichaCompletada, tipoVisitaHoy, contarFichasCompletadas } from '../utils/fichaHoyHelpers';
 
 // Mientras la jornada sigue activa ('en_ruta'), "Tiempo de ruta" se
@@ -38,6 +39,8 @@ interface DetalleJornadaDrawerProps {
     jornada: JornadaHoy | null;
     opened: boolean;
     onClose: () => void;
+    /** Distancia/tiempo reales por calle (OSRM) a la próxima ficha pendiente. */
+    rutaProyectada?: RutaProyectadaInfo | null;
 }
 
 // Leaflet dibuja sus propios panes internos (tiles, overlays, markers,
@@ -70,7 +73,7 @@ function DrawerContent({ children }: { children: ReactNode }) {
     );
 }
 
-export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornadaDrawerProps) {
+export function DetalleJornadaDrawer({ jornada, opened, onClose, rutaProyectada }: DetalleJornadaDrawerProps) {
     // Fuerza un re-render cada 30s para que "Tiempo de ruta" avance en vivo
     // entre un fetch del snapshot y el siguiente (mismo patrón que
     // FlotaPanel.tsx usa para su badge de estado/tiempo relativo). No hace
@@ -135,6 +138,24 @@ export function DetalleJornadaDrawer({ jornada, opened, onClose }: DetalleJornad
                     <p className="mb-4 text-sm font-semibold text-foreground">
                         {completadas}/{total} ficha{total === 1 ? '' : 's'} completada{completadas === 1 ? '' : 's'}
                     </p>
+                )}
+
+                {/* Distancia/tiempo reales por calle (OSRM) a la próxima ficha pendiente
+                    — no línea recta. El ETA es una estimación de tiempo de viaje, no
+                    considera que el muestreador se detenga a trabajar en el sitio. */}
+                {enRuta && rutaProyectada && (
+                    <div className="mb-4 flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-2.5">
+                        <IconRoute size={18} className="shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                            <span className="block truncate text-xs font-semibold text-foreground">
+                                Hacia {rutaProyectada.centro || 'la próxima ficha'}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                                {(rutaProyectada.distanciaM / 1000).toFixed(1)} km por calle · ≈{formatearMinutos(rutaProyectada.duracionS / 60)}
+                                {' '}· llegaría ≈{new Date(Date.now() + rutaProyectada.duracionS * 1000).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </div>
+                    </div>
                 )}
 
                 <div className="mb-4 grid grid-cols-2 gap-4">

@@ -6,7 +6,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { StatCard } from '../../../components/common/StatCard';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTrackingStore } from '../../../store/trackingStore';
-import { TrackingMapa } from '../components/TrackingMapa';
+import { TrackingMapa, type RutaProyectadaInfo } from '../components/TrackingMapa';
 import { FlotaPanel } from '../components/FlotaPanel';
 import { DetalleJornadaDrawer } from '../components/DetalleJornadaDrawer';
 import { HistorialJornadasTab } from '../components/HistorialJornadasTab';
@@ -24,6 +24,7 @@ export function HoyEnVivoPage() {
     // CentradorMapa lo vuelve a encuadrar al montarse.
     const isMobile = useMediaQuery('(max-width: 768px)');
     const [panelMovil, setPanelMovil] = useState<'lista' | 'mapa'>('lista');
+    const [rutaProyectada, setRutaProyectada] = useState<RutaProyectadaInfo | null>(null);
     const {
         jornadas,
         loading,
@@ -171,6 +172,7 @@ export function HoyEnVivoPage() {
                                     jornadas={jornadas}
                                     selectedMuestreadorId={selectedMuestreadorId}
                                     onSelectMuestreador={selectMuestreador}
+                                    onRutaProyectada={setRutaProyectada}
                                 />
                                 {!isMobile && <AvisoNuevaJornada />}
                             </div>
@@ -179,6 +181,7 @@ export function HoyEnVivoPage() {
                             jornada={jornadaSeleccionada}
                             opened={selectedMuestreadorId !== null}
                             onClose={() => selectMuestreador(null)}
+                            rutaProyectada={rutaProyectada}
                         />
                     </div>
                 </>
