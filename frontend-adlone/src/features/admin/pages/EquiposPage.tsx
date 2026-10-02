@@ -1300,15 +1300,17 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
             </div>
 
-            {/* Única zona con scroll de la vista: ocupa el alto restante
-                (min-h-0 para que el flex la pueda encoger) y deja la paginación
-                anclada abajo, sin tener que bajar hasta el final del listado. */}
-            <div className={cn('flex flex-col gap-4 px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
-                {/* max-h-full (no flex-1): la tarjeta crece hasta el alto disponible y
-                    scrollea internamente si hay muchas filas, pero no se estira más
-                    allá de su contenido cuando la página trae pocos resultados — antes
-                    quedaba un espacio en blanco debajo de la última fila. */}
-                <div ref={listaRef} className={cn('relative flex flex-col overflow-hidden rounded-xl border border-border bg-card', !isMobile && 'min-h-0 max-h-full')}>
+            {/* Esta franja scrollea completa cuando hace falta (overflow-y-auto):
+                antes la tarjeta de la tabla usaba flex-1, forzándola a estirarse
+                para llenar el alto disponible aunque la página trajera pocas
+                filas (quedaba un espacio en blanco debajo de la última fila, con
+                la paginación lejos del contenido real). Ahora la tarjeta y la
+                tabla miden su contenido real — como la paginación ya está
+                acotada a máx. 100 filas, esta franja casi nunca necesita
+                scrollear, pero si pasa (ventana baja + 100 filas), scrollea
+                como una unidad en vez de dejar un hueco fijo. */}
+            <div className={cn('flex flex-col gap-4 overflow-y-auto px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
+                <div ref={listaRef} className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1386,7 +1388,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         // ancho disponible y el texto largo se recorta con ellipsis
                         // (el valor completo queda en el title), en vez de estirar
                         // la tabla y obligar a scroll horizontal.
-                        <Table className="table-fixed" containerClassName="min-h-0 flex-1">
+                        <Table className="table-fixed" containerClassName="min-h-0">
                             {/* Sticky a nivel de <th> (no de <thead>): así las
                                 columnas siguen visibles al scrollear el listado
                                 y el borde inferior viaja con ellas. */}

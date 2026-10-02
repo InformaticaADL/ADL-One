@@ -84,16 +84,24 @@ export function DataTable<TData, TValue>({
     }, [data]);
 
     return (
+        // DataTable se usa casi siempre pegado dentro de una tarjeta sin padding
+        // propio (el borde es de la tarjeta, no de esta tabla) — sin estos px/pt/pb
+        // acá, el buscador y "Mostrando X–Y de Z" quedaban pegados a ese borde. La
+        // tabla en sí queda a lo ancho completo (su propio padding de celda ya
+        // separa el texto del borde) a propósito, para que el encabezado sticky
+        // alcance el borde de la tarjeta en vez de dejar un marco irregular.
         <div className={cn('flex flex-col gap-3', className)}>
             {searchPlaceholder && (
-                <div className="relative w-full max-w-sm">
-                    <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        value={globalFilter}
-                        onChange={(e) => table.setGlobalFilter(e.target.value)}
-                        placeholder={searchPlaceholder}
-                        className="pl-8"
-                    />
+                <div className="px-4 pt-4">
+                    <div className="relative w-full max-w-sm">
+                        <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                            value={globalFilter}
+                            onChange={(e) => table.setGlobalFilter(e.target.value)}
+                            placeholder={searchPlaceholder}
+                            className="pl-8"
+                        />
+                    </div>
                 </div>
             )}
 
@@ -156,6 +164,7 @@ export function DataTable<TData, TValue>({
 
             {!hidePagination && (
                 <DataPagination
+                    className="px-4 pb-4"
                     page={pageIndex + 1}
                     pageSize={currentPageSize}
                     total={totalRows}

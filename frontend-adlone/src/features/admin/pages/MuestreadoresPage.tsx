@@ -427,11 +427,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 </div>
             </div>
 
-            {/* Único contenedor con scroll de la vista: ocupa el alto restante
-                (min-h-0 para que el flex lo pueda encoger) y deja el encabezado
-                y los filtros siempre visibles arriba. */}
-            <div className={cn('flex flex-col px-4 pb-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
-                <div className={cn('relative flex flex-col overflow-hidden rounded-xl border border-border bg-card', !isMobile && 'min-h-0 flex-1')}>
+            {/* Esta franja scrollea completa cuando hace falta (overflow-y-auto) en
+                vez de forzar la tarjeta a flex-1: con pocos resultados (ej. tras
+                filtrar) la tarjeta ya no se estira dejando un hueco en blanco
+                debajo de la última fila — mide su contenido real. */}
+            <div className={cn('flex flex-col px-4 pb-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
+                <div className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -443,8 +444,6 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                             columns={columns}
                             data={muestreadores}
                             stickyHeader
-                            className="min-h-0 flex-1"
-                            containerClassName="min-h-0 flex-1"
                             emptyMessage="No se encontraron muestreadores con los filtros aplicados."
                             pageSize={20}
                         />
