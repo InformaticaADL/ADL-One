@@ -1368,7 +1368,11 @@ class FichaIngresoService {
         const pool = await getConnection();
         try {
             const request = pool.request();
-            let whereClause = `WHERE f.id_validaciontecnica = 5`;
+            // id_validaciontecnica = 8 ("CICLO FINALIZADO", ver mae_validaciontecnica) se pone cuando
+            // la ficha ya completó TODAS sus visitas agendadas — una Puntual de una sola visita pasa
+            // de 5 a 8 el mismo día que se ejecuta. Sin incluirlo acá, la ficha desaparecía del
+            // calendario justo el día que se completó, en vez de seguir mostrando esa visita.
+            let whereClause = `WHERE f.id_validaciontecnica IN (5, 8)`;
 
             // C-01 (revisado): según QA, una ficha SIEMPRE debe tener fecha de instalación y de retiro juntas.
             // Una compuesta puede cruzar de mes (instalación 30/09, retiro 01/10) — si solo miráramos
