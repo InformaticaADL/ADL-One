@@ -97,7 +97,7 @@ export const RevisionDuplicadosPage: React.FC<Props> = ({ onBack }) => {
     const [page, setPage] = useState(1);
     const [items, setItems] = useState<ParDuplicado[]>([]);
     const [total, setTotal] = useState(0);
-    const [limit, setLimit] = useState(25);
+    const [limit, setLimit] = useState(10);
     const [resumen, setResumen] = useState<ResumenFila[]>([]);
     const [cargando, setCargando] = useState(false);
     const [sel, setSel] = useState<Set<number>>(new Set());
@@ -109,7 +109,7 @@ export const RevisionDuplicadosPage: React.FC<Props> = ({ onBack }) => {
         setCargando(true);
         try {
             const [r, s] = await Promise.all([
-                api.listar({ entidad, criterio: criterio || undefined, estado, q: busqueda || undefined, soloConFichas: soloFichas, page, limit: 25 }),
+                api.listar({ entidad, criterio: criterio || undefined, estado, q: busqueda || undefined, soloConFichas: soloFichas, page, limit: 10 }),
                 api.resumen(),
             ]);
             setItems(r.items); setTotal(r.total); setLimit(r.limit); setResumen(s); setSel(new Set());

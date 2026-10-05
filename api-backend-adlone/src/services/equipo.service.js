@@ -1768,4 +1768,20 @@ export const equipoService = {
     }
 };
 
+// ── Migración al esquema nuevo (Fase 1, piloto) ───────────────────────────────────────────────
+// EQUIPOS_DB=nuevo → getEquipoCatalogo y getEquipos se leen del esquema nuevo (ids legados, misma respuesta). Sin la variable, todo como antes.
+// Si la lectura nueva falla se registra y se responde con el legado. Comprobación: scripts/paridad-equipos.mjs.
+// REQUIERE el parche 17 (eqp_catalogo.unidad_medida_sigla) y la sincronización de esa columna antes de activarlo.
+import { equipoNuevo } from './equipo.nuevo.js';
+if (process.env.EQUIPOS_DB === 'nuevo') {
+    for (const nombre of Object.keys(equipoNuevo)) {
+        const legado = equipoService[nombre];
+        equipoService[nombre] = async (...args) => {
+            try { return await equipoNuevo[nombre](...args); }
+            catch (error) { logger.error(`equipos ${nombre}: falló la lectura del esquema nuevo, se usa el legado:`, error); return legado(...args); }
+        };
+    }
+    logger.info('equipos: lectura desde el esquema nuevo activa');
+}
+
 export default equipoService;

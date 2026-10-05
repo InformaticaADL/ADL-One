@@ -85,9 +85,11 @@ export const revisionDuplicadosService = {
       const r = (await req(tx).input('k', sql.Int, queda).input('p', sql.Int, pierde).query(`SELECT (SELECT rut FROM cli_empresa WHERE id=@k) AS rk, (SELECT rut FROM cli_empresa WHERE id=@p) AS rp`)).recordset[0];
       if (r.rk?.includes('#') && r.rp && !r.rp.includes('#') && !r.rp.startsWith('SIN-RUT')) rutReal = r.rp;
     }
-    // el mapa temporal de ids: los ids legados de ambas filas ahora apuntan a la que queda
+    // el mapa temporal de ids: los ids legados de ambas filas ahora apuntan a la que queda.
+    // Las filas del legado que apuntaban a la descartada se marcan FUSIONADO_REVISION: el motor de sincronización
+    // no aplica sus cambios a la fila que quedó (los registra como aviso para que una persona decida).
     await req(tx).input('k', sql.Int, queda).input('p', sql.Int, pierde).input('t', sql.VarChar(60), tabla)
-      .query(`UPDATE mig_id_map SET id_nuevo=@k WHERE tabla_nueva=@t AND id_nuevo=@p`);
+      .query(`UPDATE mig_id_map SET id_nuevo=@k, nota=N'FUSIONADO_REVISION' WHERE tabla_nueva=@t AND id_nuevo=@p`);
     // otros pares pendientes que citaban a la fila eliminada
     await req(tx).input('k', sql.Int, queda).input('p', sql.Int, pierde).input('e', sql.VarChar(30), entidad).query(`
       UPDATE revision_duplicado SET id_registro_a=@k WHERE entidad=@e AND id_registro_a=@p AND estado='PENDIENTE';
