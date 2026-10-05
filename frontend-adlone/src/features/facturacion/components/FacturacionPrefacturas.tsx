@@ -53,7 +53,7 @@ const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFr
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL') : '—';
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 10;
 
 // Estados en los que todavía se puede corregir (mismo criterio que el
 // backend: después de emitir, ADL ONE y el Sistema de Ventas quedarían
@@ -90,6 +90,7 @@ const FacturacionPrefacturas: React.FC = () => {
     const [estadoFiltro, setEstadoFiltro] = useState<string | undefined>(undefined);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
     const [drawerId, setDrawerId] = useState<number | null>(null);
     const [detalle, setDetalle] = useState<any>(null);
@@ -305,9 +306,9 @@ const FacturacionPrefacturas: React.FC = () => {
         }
     };
 
-    const totalPages = Math.max(1, Math.ceil(data.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(data.length / pageSize));
     const currentPage = Math.min(page, totalPages);
-    const paginated = data.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const paginated = data.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const seleccionables = data.filter((p) => EMITIBLES.includes(p.estado));
 
     return (
@@ -405,9 +406,13 @@ const FacturacionPrefacturas: React.FC = () => {
                             </TableBody>
                         </Table>
                     </div>
-                    <div className="mt-3">
-                        <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={data.length} onPageChange={setPage} />
-                    </div>
+                    <DataPagination
+                        page={currentPage}
+                        pageSize={pageSize}
+                        total={data.length}
+                        onPageChange={setPage}
+                        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+                    />
                 </>
             )}
             {!loading && seleccionables.length === 0 && data.length > 0 && (

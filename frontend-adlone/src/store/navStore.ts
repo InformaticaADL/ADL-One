@@ -129,6 +129,16 @@ export const useNavStore = create<NavState>()(
             partialize: (state) => ({
                 sidebarCollapsed: state.sidebarCollapsed,
                 hiddenNotifications: state.hiddenNotifications,
+                // Sobrevive a un F5: sin esto, recargar la página siempre
+                // devolvía al dashboard general en vez de quedarse donde
+                // estaba el usuario (no hay React Router / URL que lo
+                // recuerde por su cuenta — toda la navegación vive acá).
+                activeModule: state.activeModule,
+                activeSubmodule: state.activeSubmodule,
+                fichasMode: state.fichasMode,
+                selectedFichaId: state.selectedFichaId,
+                selectedCorrelativo: state.selectedCorrelativo,
+                selectedRequestId: state.selectedRequestId,
             }),
         }
     )

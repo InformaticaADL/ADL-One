@@ -2331,7 +2331,8 @@ class FichaIngresoService {
                     .filter(n => Number.isInteger(n) && n > 0);
                 const encQuery = ids.length
                     ? `SELECT f.id_fichaingresoservicio, f.referencia_googlemaps, f.ma_coordenadas, f.id_objetivomuestreo_ma,
-                              f.id_validaciontecnica, f.estado_ficha, l.nombre_lugaranalisis as base_operaciones
+                              f.id_validaciontecnica, f.estado_ficha, l.nombre_lugaranalisis as base_operaciones,
+                              f.ma_punto_muestreo, f.tipo_fichaingresoservicio, f.ma_duracion_muestreo, f.id_centro
                        FROM App_Ma_FichaIngresoServicio_ENC f
                        LEFT JOIN mae_lugaranalisis l ON f.id_lugaranalisis = l.id_lugaranalisis
                        WHERE f.id_fichaingresoservicio IN (${ids.join(',')})`
@@ -2351,7 +2352,14 @@ class FichaIngresoService {
                             ma_coordenadas: encData?.ma_coordenadas || null,
                             id_validaciontecnica: encData?.id_validaciontecnica ?? null,
                             estado_ficha: encData?.estado_ficha || null,
-                            base_operaciones: encData?.base_operaciones || null
+                            base_operaciones: encData?.base_operaciones || null,
+                            // Punto de muestreo: es lo ÚNICO que distingue a varias fichas del mismo
+                            // centro (p.ej. "Borde Aze 1" vs "Control 1"), así que la lista agrupada
+                            // lo necesita para ser legible.
+                            ma_punto_muestreo: encData?.ma_punto_muestreo || null,
+                            tipo_fichaingresoservicio: encData?.tipo_fichaingresoservicio || null,
+                            ma_duracion_muestreo: encData?.ma_duracion_muestreo ?? null,
+                            id_centro: encData?.id_centro ?? null
                         };
                     });
 

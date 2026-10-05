@@ -47,7 +47,7 @@ const ESTADO_LABEL: Record<string, string> = {
     ACEPTADA: 'Aceptada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada por el cliente', EXPIRADA: 'Expirada',
 };
 
-const BANDEJA_PAGE_SIZE = 20;
+const BANDEJA_PAGE_SIZE = 10;
 
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -201,6 +201,7 @@ const FacturacionCotizaciones: React.FC = () => {
     const [filtroEstado, setFiltroEstado] = useState<string | undefined>(undefined);
     const [filtroNoLeidos, setFiltroNoLeidos] = useState(false);
     const [bandejaPage, setBandejaPage] = useState(1);
+    const [bandejaPageSize, setBandejaPageSize] = useState(BANDEJA_PAGE_SIZE);
 
     // --- Vista: lista | detalle | crear ---
     const [seleccion, setSeleccion] = useState<BandejaRow | null>(null);
@@ -1577,7 +1578,7 @@ const FacturacionCotizaciones: React.FC = () => {
     // Vista: LISTA (bandeja unificada)
     // ------------------------------------------------------------------
 
-    const bandejaPaginada = bandeja.slice((bandejaPage - 1) * BANDEJA_PAGE_SIZE, bandejaPage * BANDEJA_PAGE_SIZE);
+    const bandejaPaginada = bandeja.slice((bandejaPage - 1) * bandejaPageSize, bandejaPage * bandejaPageSize);
 
     return (
         <div className="shadcn-scope w-full bg-background px-4 pb-10 pt-4 md:px-8 md:pb-14 md:pt-7">
@@ -1663,9 +1664,13 @@ const FacturacionCotizaciones: React.FC = () => {
                             </TableBody>
                         </Table>
                     </div>
-                    <div className="mt-4">
-                        <DataPagination page={bandejaPage} pageSize={BANDEJA_PAGE_SIZE} total={bandeja.length} onPageChange={setBandejaPage} />
-                    </div>
+                    <DataPagination
+                        page={bandejaPage}
+                        pageSize={bandejaPageSize}
+                        total={bandeja.length}
+                        onPageChange={setBandejaPage}
+                        onPageSizeChange={(size) => { setBandejaPageSize(size); setBandejaPage(1); }}
+                    />
                 </>
             )}
         </div>

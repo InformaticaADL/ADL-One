@@ -31,7 +31,7 @@ interface Fila {
 }
 
 const ALL = 'all';
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 10;
 const trim = (v: unknown) => String(v ?? '').trim();
 const collator = new Intl.Collator('es', { sensitivity: 'base', numeric: true });
 
@@ -48,6 +48,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
     const [tablaSel, setTablaSel] = useState(ALL);
     const [estado, setEstado] = useState<'habilitadas' | 'todas'>('habilitadas');
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
     useEffect(() => {
         (async () => {
@@ -149,7 +150,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
     }, [filas, normativas, estado, search]);
 
     const totalFilas = modo === 'tecnica' ? porTecnica.length : filtradas.length;
-    const inicio = (page - 1) * PAGE_SIZE;
+    const inicio = (page - 1) * pageSize;
 
     return (
         <div className="shadcn-scope w-full p-4 md:p-6">
@@ -233,7 +234,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {porTecnica.slice(inicio, inicio + PAGE_SIZE).map(g => (
+                            {porTecnica.slice(inicio, inicio + pageSize).map(g => (
                                 <TableRow key={g.idTecnica}>
                                     <TableCell className="align-top font-medium">{g.tecnica}</TableCell>
                                     <TableCell>
@@ -262,7 +263,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filtradas.slice(inicio, inicio + PAGE_SIZE).map(f => (
+                            {filtradas.slice(inicio, inicio + pageSize).map(f => (
                                 <TableRow key={f.id} className={f.habilitada ? '' : 'opacity-60'}>
                                     <TableCell className="font-medium">{f.tecnica}</TableCell>
                                     <TableCell>{f.normativa}</TableCell>
@@ -279,7 +280,13 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
                 )}
             </Card>
 
-            <DataPagination className="mt-4" page={page} pageSize={PAGE_SIZE} total={totalFilas} onPageChange={setPage} />
+            <DataPagination
+                page={page}
+                pageSize={pageSize}
+                total={totalFilas}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+            />
             {!loading && (
                 <p className="mt-2 text-xs text-muted-foreground">
                     {porTecnica.length} técnicas · {filtradas.length} referencias. Para editar los límites, abra la técnica en Maestros → Técnica → Técnicas.

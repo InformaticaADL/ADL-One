@@ -654,7 +654,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 <Badge variant="destructive">Cancelado</Badge>
             </div>
 
-            <div className="relative min-h-[650px] rounded-[10px] border border-border p-4">
+            <div className="relative rounded-[10px] border border-border p-4">
                 {isLoading && (
                     <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/75">
                         <div className="flex flex-col items-center gap-2">
@@ -733,7 +733,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 const events = day ? filteredEvents.filter(ev => ev.event_dia === day && ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear()) : [];
                                 const todayDate = new Date();
                                 const isToday = day === todayDate.getDate() && currentMonth.getMonth() === todayDate.getMonth() && currentMonth.getFullYear() === todayDate.getFullYear();
-                                const maxBadges = isCompact ? 4 : 3;
+                                const maxBadges = isCompact ? 3 : 2;
 
                                 return (
                                     <div
@@ -745,8 +745,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                             day ? (isToday ? 'bg-accent shadow-[inset_0_0_0_1px_var(--sc-primary)]' : 'bg-card') : 'bg-transparent'
                                         )}
                                         style={{
-                                            padding: isCompact ? 2 : 5,
-                                            height: isMobile ? 65 : (isCompact ? 100 : 120),
+                                            padding: isCompact ? 2 : 4,
+                                            // 6 filas de celdas: cada píxel de alto se multiplica por 6.
+                                            // A 120px la vista de mes no entraba en pantalla.
+                                            height: isMobile ? 56 : (isCompact ? 76 : 88),
                                         }}
                                     >
                                         {day && (

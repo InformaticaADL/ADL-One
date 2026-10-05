@@ -5,6 +5,7 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FichaExportModal } from './FichaExportModal';
 import { useTableSort } from '../../../hooks/useTableSort';
 import { useFichasFiltersStore } from '../store/fichasFiltersStore';
+import { useAuth } from '../../../contexts/AuthContext';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,6 +14,7 @@ import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { RowActionsMenu } from '@/components/ui/row-actions-menu';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
 import {
@@ -33,6 +35,7 @@ type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' 
 type SortKey = 'id' | 'estado' | 'fecha' | 'empresaFacturar' | 'empresaServicio' | 'objetivo';
 
 export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDetail }) => {
+    const { hasPermission } = useAuth();
     // Filtros persistidos fuera del componente (ver fichasFiltersStore): esta vista se
     // desmonta al ir a un detalle y se remonta limpia al volver, así que un useState
     // local perdería los filtros aplicados. Los setters locales son solo adaptadores
@@ -56,12 +59,12 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const setSearchUsuario = (v: string) => setExplorador({ searchUsuario: v });
 
     const [page, setPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
     const [showExportModal, setShowExportModal] = useState(false);
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
-    const itemsPerPage = 10;
 
     useEffect(() => {
         const loadFichas = async () => {
@@ -200,8 +203,8 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         return sortedFichas.slice(start, start + itemsPerPage);
     }, [sortedFichas, page]);
 
-    const handleDownloadPdf = async (e: React.MouseEvent, ficha: any) => {
-        e.stopPropagation();
+    const handleDownloadPdf = async (e: React.MouseEvent | undefined, ficha: any) => {
+        e?.stopPropagation();
         const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
         try {
             const pdfBlob = await fichaService.downloadPdf(Number(idFicha));
@@ -219,9 +222,6 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     };
 
     return (
-        // Columna de alto completo: encabezado y filtros quedan fijos arriba
-        // ([&>*]:shrink-0) y la tarjeta de la tabla toma el resto con su propio
-        // scroll. La tabla igual crece porque flex-1 le deja basis 0 y grow 1.
         <div className="shadcn-scope flex h-full min-h-0 flex-col [&>*]:shrink-0">
             <PageHeader
                 title="Explorador de Fichas de Ingreso"
@@ -333,17 +333,23 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                 }}
             />
 
-            <Card className="flex min-h-0 flex-1 flex-col p-0">
-                <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-xl">
+            {/* La franja toma el alto disponible (flex-1) y la tarjeta de adentro no:
+                así la tabla scrollea por dentro y la paginación queda SIEMPRE en el
+                mismo lugar, sin desplazarse al subir las filas por página. Sin
+                overflow-y-auto acá, que scrollearía la página entera en vez de la
+                tabla. */}
+            <div className="flex min-h-0 flex-1 flex-col">
+            <Card className="flex min-h-0 flex-col p-0">
+                <div className="relative flex min-h-0 flex-col overflow-hidden rounded-xl">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                         </div>
                     )}
-                    <Table containerClassName="min-h-0 flex-1">
+                    <Table containerClassName="min-h-0">
                         {/* Sticky a nivel de <th>: las columnas siguen visibles
                             al scrollear el listado. */}
-                        <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card">
+                        <TableHeader>
                             <TableRow className="hover:bg-transparent">
                                 <SortableTableHead {...sortProps('id')} className="w-20">ID</SortableTableHead>
                                 <SortableTableHead {...sortProps('estado')} className="text-center">Estado</SortableTableHead>
@@ -352,14 +358,13 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                 <SortableTableHead {...sortProps('empresaServicio')}>E. Servicio</SortableTableHead>
                                 <SortableTableHead {...sortProps('objetivo')}>Objetivo</SortableTableHead>
                                 <TableHead>Base Operaciones</TableHead>
-                                <TableHead className="text-center">PDF</TableHead>
-                                <TableHead className="text-center">Ver</TableHead>
+                                <TableHead className="w-16 text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {paginatedFichas.length === 0 ? (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                                    <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
                                         {loading ? 'Cargando...' : 'No se encontraron fichas.'}
                                     </TableCell>
                                 </TableRow>
@@ -374,36 +379,31 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                             <TableCell className="text-center">
                                                 <Badge variant={status.variant}>{status.label}</Badge>
                                             </TableCell>
-                                            <TableCell className="whitespace-nowrap text-xs">{ficha.fecha || '-'}</TableCell>
+                                            <TableCell className="whitespace-nowrap">{ficha.fecha || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</TableCell>
                                             <TableCell className="max-w-[160px] truncate" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
                                             <TableCell className="max-w-[140px] truncate" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
-                                            <TableCell className="text-center">
-                                                <ProtectedContent permission={['FI_EXPORTAR_CFI', 'FI_EXP_AFE']}>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className={isRejected ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : undefined}
-                                                        title={isRejected ? 'Atención: esta ficha ha sido rechazada' : 'Descargar PDF'}
-                                                        onClick={(e) => handleDownloadPdf(e, ficha)}
-                                                    >
-                                                        <IconDownload size={18} />
-                                                    </Button>
-                                                </ProtectedContent>
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <ProtectedContent permission={['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR']}>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="text-primary hover:bg-primary/10 hover:text-primary"
-                                                        title="Ver ficha"
-                                                        onClick={() => onViewDetail(idFicha)}
-                                                    >
-                                                        <IconEye size={18} />
-                                                    </Button>
-                                                </ProtectedContent>
+                                            {/* La columna PDF se quitó: su descarga vive acá, junto a
+                                                "Ver ficha", en el menú de acciones estándar. */}
+                                            <TableCell className="text-right">
+                                                <RowActionsMenu
+                                                    actions={[
+                                                        {
+                                                            label: 'Ver ficha',
+                                                            icon: <IconEye size={16} />,
+                                                            onClick: () => onViewDetail(idFicha),
+                                                            hidden: !hasPermission('FI_CONSULTAR') && !hasPermission('FI_VER') && !hasPermission('FI_EDITAR'),
+                                                        },
+                                                        {
+                                                            label: isRejected ? 'Descargar PDF (ficha rechazada)' : 'Descargar PDF',
+                                                            icon: <IconDownload size={16} />,
+                                                            onClick: () => handleDownloadPdf(undefined, ficha),
+                                                            danger: isRejected,
+                                                            hidden: !hasPermission('FI_EXPORTAR_CFI') && !hasPermission('FI_EXP_AFE'),
+                                                        },
+                                                    ]}
+                                                />
                                             </TableCell>
                                         </TableRow>
                                     );
@@ -412,10 +412,16 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                         </TableBody>
                     </Table>
                 </div>
-                <div className="shrink-0 px-4 py-3">
-                    <DataPagination page={page} pageSize={itemsPerPage} total={sortedFichas.length} onPageChange={setPage} />
-                </div>
             </Card>
+
+            <DataPagination
+                page={page}
+                pageSize={itemsPerPage}
+                total={sortedFichas.length}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setItemsPerPage(size); setPage(1); }}
+            />
+            </div>
         </div>
     );
 };

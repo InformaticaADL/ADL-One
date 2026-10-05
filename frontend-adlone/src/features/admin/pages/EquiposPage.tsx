@@ -1015,30 +1015,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    // Celda de la columna "Documento": el informe de la revisión vigente. Las
-    // versiones anteriores conservan el suyo y se descargan desde el historial,
-    // dentro de "Editar Equipo".
-    const renderDocumento = (equipo: Equipo) => {
-        if (!equipo.documento_ruta) return <span className="text-xs text-muted-foreground">—</span>;
-        const nombre = equipo.documento_nombre || 'Documento';
-        return (
-            <button
-                type="button"
-                title={`Descargar ${nombre}`}
-                disabled={docDescargando === equipo.id_equipo}
-                onClick={(e) => { e.stopPropagation(); descargarDoc(equipo); }}
-                className="flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
-            >
-                {docDescargando === equipo.id_equipo
-                    ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                    : <IconPaperclip size={13} className="shrink-0" />}
-                <span className="truncate">{nombre}</span>
-            </button>
-        );
-    };
-
     const rowActions = (equipo: Equipo, isInactive: boolean) => {
         const actions: RowAction[] = [
+            {
+                // La columna "Documento" se quitó de la tabla, pero la descarga del
+                // informe de la revisión vigente sigue disponible desde acá. Las
+                // versiones anteriores se descargan del historial, en "Editar Equipo".
+                label: docDescargando === equipo.id_equipo ? 'Descargando...' : 'Descargar documento',
+                icon: <IconPaperclip size={16} />,
+                onClick: () => descargarDoc(equipo),
+                disabled: docDescargando === equipo.id_equipo,
+                hidden: !equipo.documento_ruta,
+            },
             {
                 label: 'Editar',
                 icon: <IconEdit size={16} />,
@@ -1300,17 +1288,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
             </div>
 
-            {/* Esta franja scrollea completa cuando hace falta (overflow-y-auto):
-                antes la tarjeta de la tabla usaba flex-1, forzándola a estirarse
-                para llenar el alto disponible aunque la página trajera pocas
-                filas (quedaba un espacio en blanco debajo de la última fila, con
-                la paginación lejos del contenido real). Ahora la tarjeta y la
-                tabla miden su contenido real — como la paginación ya está
-                acotada a máx. 100 filas, esta franja casi nunca necesita
-                scrollear, pero si pasa (ventana baja + 100 filas), scrollea
-                como una unidad en vez de dejar un hueco fijo. */}
-            <div className={cn('flex flex-col gap-4 overflow-y-auto px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
-                <div ref={listaRef} className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+            {/* La tarjeta NO lleva flex-1 (se estiraría dejando un hueco en blanco con
+                pocas filas) ni la franja lleva overflow-y-auto (scrollearía la página
+                entera, empujando la paginación fuera de vista al subir las filas por
+                página). Con `min-h-0` y shrink por defecto, la tarjeta mide su contenido
+                mientras entra y se encoge cuando no: ahí scrollea la tabla por dentro y
+                la paginación, que es shrink-0, queda fija abajo. */}
+            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
+                <div ref={listaRef} className="relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1392,24 +1377,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             {/* Sticky a nivel de <th> (no de <thead>): así las
                                 columnas siguen visibles al scrollear el listado
                                 y el borde inferior viaja con ellas. */}
-                            <TableHeader className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card">
+                            <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-[6%] truncate px-2" title="Alerta">Alerta</TableHead>
-                                    <TableHead className="w-[10%]">Código</TableHead>
-                                    <TableHead className="w-[15%]">Nombre</TableHead>
-                                    <TableHead className="w-[10%]">Tipo</TableHead>
-                                    <TableHead className="w-[9%]">Sede</TableHead>
-                                    <TableHead className="w-[8%]">Estado</TableHead>
-                                    <TableHead className="w-[9%]">Vigencia</TableHead>
+                                    <TableHead className="w-[5%] truncate px-2" title="Alerta">Alerta</TableHead>
+                                    <TableHead className="w-[11%]">Código</TableHead>
+                                    <TableHead className="w-[17%]">Nombre</TableHead>
+                                    <TableHead className="w-[20%]">Tipo</TableHead>
+                                    <TableHead className="w-[10%]">Sede</TableHead>
+                                    <TableHead className="w-[9%]">Estado</TableHead>
+                                    <TableHead className="w-[10%]">Vigencia</TableHead>
                                     <TableHead className="w-[12%]">Responsable</TableHead>
-                                    <TableHead className="w-[12%] px-2">Documento</TableHead>
-                                    <TableHead className="w-[9%] px-2 text-right">Acciones</TableHead>
+                                    <TableHead className="w-[6%] px-2 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {sortedEquipos.length === 0 ? (
                                     <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                                             No se encontraron equipos.
                                         </TableCell>
                                     </TableRow>
@@ -1459,7 +1443,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         </div>
                                                     ) : '---'}
                                                 </TableCell>
-                                                <TableCell className="px-2">{renderDocumento(equipo)}</TableCell>
                                                 <TableCell className="px-2">{rowActions(equipo, isInactive)}</TableCell>
                                             </TableRow>
                                         );
@@ -1471,7 +1454,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 <DataPagination
-                    className="shrink-0"
                     page={page}
                     pageSize={limit}
                     total={totalItems}

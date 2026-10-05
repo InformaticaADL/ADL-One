@@ -43,8 +43,10 @@ export function RowActionsMenu({ actions, label = 'Abrir menú de acciones' }: R
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" aria-label={label}>
-                    <IconDotsVertical size={16} />
+                {/* icon-xs y no icon: un botón de 36px fijaba el alto de toda la
+                    fila, por encima del padding de la celda. */}
+                <Button variant="ghost" size="icon-xs" aria-label={label}>
+                    <IconDotsVertical size={15} />
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">

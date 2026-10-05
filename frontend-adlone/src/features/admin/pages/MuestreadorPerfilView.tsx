@@ -17,6 +17,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { adminService } from '../../../services/admin.service';
 import { trackingService, type HistorialDia } from '../../medio-ambiente/services/tracking.service';
+import { AgendaCalendario } from './AgendaCalendario';
 import { colorPorMuestreador } from '../../medio-ambiente/utils/colorMuestreador';
 
 interface Props {
@@ -88,6 +89,7 @@ export const MuestreadorPerfilView: React.FC<Props> = ({ muestreador, onBack }) 
     const [loading, setLoading] = useState(true);
     const [stats, setStats] = useState<Estadisticas | null>(null);
     const [historial, setHistorial] = useState<HistorialDia[]>([]);
+    const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
     const [agenda, setAgenda] = useState<any[]>([]);
     const [documentos, setDocumentos] = useState<any[]>([]);
     const [competencias, setCompetencias] = useState<any[]>([]);
@@ -97,16 +99,25 @@ export const MuestreadorPerfilView: React.FC<Props> = ({ muestreador, onBack }) 
     useEffect(() => {
         let cancelado = false;
         setLoading(true);
-        Promise.all([
+        // allSettled y no all: las tres llamadas son independientes y pegan a permisos
+        // distintos (el historial exige AI_MA_HOY_EN_VIVO, las otras MA_MUESTREADORES).
+        // Con Promise.all, un 403 o un 400 en cualquiera descartaba las TRES respuestas
+        // y la pantalla quedaba entera en blanco sin decir por qué.
+        Promise.allSettled([
             adminService.getEstadisticasMuestreador(muestreador.id_muestreador, desde, hasta),
             trackingService.getHistorial(desde, hasta, muestreador.id_muestreador),
             adminService.getAgendaMuestreador(muestreador.id_muestreador, desde, hasta),
         ])
             .then(([statsRes, historialRes, agendaRes]) => {
                 if (cancelado) return;
-                setStats(statsRes);
-                setHistorial(historialRes);
-                setAgenda(agendaRes);
+                if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+                setHistorial(historialRes.status === 'fulfilled' ? historialRes.value : []);
+                setErrorHistorial(
+                    historialRes.status === 'rejected'
+                        ? (historialRes.reason?.response?.data?.message || 'No se pudo cargar el historial de jornadas.')
+                        : null
+                );
+                if (agendaRes.status === 'fulfilled') setAgenda(agendaRes.value);
             })
             .finally(() => { if (!cancelado) setLoading(false); });
         return () => { cancelado = true; };
@@ -298,7 +309,11 @@ export const MuestreadorPerfilView: React.FC<Props> = ({ muestreador, onBack }) 
                                     </TableHeader>
                                     <TableBody>
                                         {historial.length === 0 ? (
-                                            <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">Sin jornadas en este periodo.</TableCell></TableRow>
+                                            <TableRow><TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+                                                {errorHistorial
+                                                    ? errorHistorial
+                                                    : 'Sin jornadas registradas en este periodo. Las jornadas se generan desde la app móvil al iniciar el seguimiento GPS.'}
+                                            </TableCell></TableRow>
                                         ) : historial.map((d) => (
                                             <TableRow key={d.dia}>
                                                 <TableCell className="whitespace-nowrap text-sm">{dayjs(d.dia).format('DD/MM/YYYY')}</TableCell>
@@ -319,36 +334,7 @@ export const MuestreadorPerfilView: React.FC<Props> = ({ muestreador, onBack }) 
                                     <IconDownload size={14} /> Exportar CSV
                                 </Button>
                             </div>
-                            <div className="overflow-hidden rounded-xl border border-border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Ficha</TableHead>
-                                            <TableHead>Rol</TableHead>
-                                            <TableHead>Fecha</TableHead>
-                                            <TableHead>Cliente</TableHead>
-                                            <TableHead>Centro</TableHead>
-                                            <TableHead>Objetivo</TableHead>
-                                            <TableHead>Estado</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {agenda.length === 0 ? (
-                                            <TableRow><TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">Sin fichas agendadas en este periodo.</TableCell></TableRow>
-                                        ) : agenda.map((a) => (
-                                            <TableRow key={`${a.id_agendamam}`}>
-                                                <TableCell className="font-medium text-primary">{a.correlativo_ficha}</TableCell>
-                                                <TableCell><Badge variant="outline">{a.rol}</Badge></TableCell>
-                                                <TableCell className="whitespace-nowrap text-sm">{dayjs(a.fecha_muestreo).format('DD/MM/YYYY')}</TableCell>
-                                                <TableCell className="max-w-[160px] truncate text-sm" title={a.cliente}>{a.cliente || '-'}</TableCell>
-                                                <TableCell className="max-w-[160px] truncate text-sm" title={a.centro}>{a.centro || '-'}</TableCell>
-                                                <TableCell className="max-w-[140px] truncate text-sm" title={a.objetivo}>{a.objetivo || '-'}</TableCell>
-                                                <TableCell className="text-sm">{a.estado_caso || '-'}</TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
+                            <AgendaCalendario agenda={agenda} desde={desde} />
                         </TabsContent>
 
                         <TabsContent value="documentos">

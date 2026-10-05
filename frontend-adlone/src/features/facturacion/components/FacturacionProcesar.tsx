@@ -100,6 +100,7 @@ const FacturacionProcesar: React.FC = () => {
     const [buscado, setBuscado] = useState(false);
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
     const [agrupacionTipo, setAgrupacionTipo] = useState<AgrupacionTipo>('SIN_AGRUPACION');
     const [formaPago, setFormaPago] = useState('');
     const [glosa, setGlosa] = useState('');
@@ -181,9 +182,9 @@ const FacturacionProcesar: React.FC = () => {
         return Array.from(map.values());
     }, [seleccionados, agrupacionTipo]);
 
-    const totalPages = Math.max(1, Math.ceil(casos.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(casos.length / pageSize));
     const currentPage = Math.min(page, totalPages);
-    const paginatedCasos = casos.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const paginatedCasos = casos.slice((currentPage - 1) * pageSize, currentPage * pageSize);
     const allPageSelected = paginatedCasos.length > 0 && paginatedCasos.every((c) => selectedIds.includes(c.id_agendamam));
 
     const toggleSelected = (id: number) =>
@@ -384,9 +385,13 @@ const FacturacionProcesar: React.FC = () => {
                                     </TableBody>
                                 </Table>
                             </div>
-                            <div className="mt-3">
-                                <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={casos.length} onPageChange={setPage} />
-                            </div>
+                            <DataPagination
+                                page={currentPage}
+                                pageSize={pageSize}
+                                total={casos.length}
+                                onPageChange={setPage}
+                                onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+                            />
                             <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
                                 <div className="text-sm text-muted-foreground">
                                     <b className="tabular-nums text-foreground">{selectedIds.length}</b> caso(s) seleccionado(s) · <b className="tabular-nums text-foreground">{totalUfSeleccionado.toFixed(2)}</b> UF

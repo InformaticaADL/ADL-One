@@ -5,7 +5,6 @@ import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
-import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,16 +13,16 @@ import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
     IconSearch,
     IconEraser,
     IconFilter,
-    IconExternalLink,
 } from '@tabler/icons-react';
 
-// Permisos que habilitan abrir el detalle de ejecución: los comparten la fila
-// completa (clic en cualquier parte) y el botón de la columna Acciones.
+// Permisos que habilitan abrir el detalle de ejecución. No hay columna de
+// acciones: se entra clickeando cualquier parte de la fila.
 const PERMISOS_DETALLE = ['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO'];
 
 // El backend (mssql) devuelve los datetime guardados con GETDATE() (hora local del servidor)
@@ -76,6 +75,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const [searchObjetivo, setSearchObjetivo] = useState<string | null>(null);
     const [fechaDesde, setFechaDesde] = useState<Date | null>(null);
     const [fechaHasta, setFechaHasta] = useState<Date | null>(null);
+    const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 12;
@@ -132,6 +132,8 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const uniqueClientes = useMemo(() => getUniqueValues('cliente'), [muestreos]);
     const uniqueMuestreadores = useMemo(() => getUniqueValues('muestreador'), [muestreos]);
     const uniqueObjetivos = useMemo(() => getUniqueValues('objetivo'), [muestreos]);
+
+    const activeFilterCount = [searchCorrelativo, searchCliente, searchMuestreador, searchObjetivo, fechaDesde, fechaHasta].filter(Boolean).length;
 
     const handleClearFilters = () => {
         setSearchCorrelativo('');
@@ -254,41 +256,64 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                 rightSection={
                     <div className="flex flex-wrap items-center gap-2.5">
                         <span className="text-xs text-muted-foreground">{filteredMuestreos.length} servicios registrados</span>
-                        <Button variant="outline" onClick={handleClearFilters}>
-                            <IconEraser size={14} /> Limpiar Filtros
-                        </Button>
+                        {/* Los filtros vivían en una tarjeta siempre visible que empujaba el
+                            listado fuera de pantalla. Ahora van en el panel lateral, igual
+                            que en el resto de los listados. */}
+                        <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
+                            <SheetTrigger asChild>
+                                <Button variant="outline">
+                                    <IconFilter size={16} /> Filtros
+                                    {activeFilterCount > 0 && (
+                                        <Badge variant="secondary" className="ml-1 px-1.5">{activeFilterCount}</Badge>
+                                    )}
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-sm">
+                                <SheetHeader>
+                                    <SheetTitle>Filtros de búsqueda</SheetTitle>
+                                </SheetHeader>
+
+                                <div className="flex flex-1 flex-col gap-4">
+                                    <Field label="Correlativo / ID Caso">
+                                        <div className="relative">
+                                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                            <Input className="pl-8" placeholder="Ej: 99-1 o ID Caso..." value={searchCorrelativo} onChange={(e) => setSearchCorrelativo(e.target.value)} />
+                                        </div>
+                                    </Field>
+                                    <Field label="Cliente">
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar cliente..." options={uniqueClientes} value={searchCliente ?? ''} onValueChange={(v) => setSearchCliente(v || null)} />
+                                    </Field>
+                                    <Field label="Muestreador">
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar muestreador..." options={uniqueMuestreadores} value={searchMuestreador ?? ''} onValueChange={(v) => setSearchMuestreador(v || null)} />
+                                    </Field>
+                                    <Field label="Objetivo">
+                                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
+                                    </Field>
+                                    <Field label="Desde">
+                                        <DatePicker value={toDateInputValue(fechaDesde)} onChange={(v) => setFechaDesde(fromDateInputValue(v))} />
+                                    </Field>
+                                    <Field label="Hasta">
+                                        <DatePicker value={toDateInputValue(fechaHasta)} onChange={(v) => setFechaHasta(fromDateInputValue(v))} />
+                                    </Field>
+                                </div>
+
+                                <SheetFooter>
+                                    {activeFilterCount > 0 && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                            onClick={handleClearFilters}
+                                        >
+                                            <IconEraser size={16} /> Limpiar filtros
+                                        </Button>
+                                    )}
+                                    <Button onClick={() => setFiltersSheetOpen(false)}>Aplicar</Button>
+                                </SheetFooter>
+                            </SheetContent>
+                        </Sheet>
                     </div>
                 }
             />
-
-            <Card className="mb-4 p-4">
-                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-primary">
-                    <IconFilter size={18} /> Filtros de búsqueda
-                </div>
-                <div className="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3">
-                    <Field label="Correlativo / ID Caso">
-                        <div className="relative">
-                            <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <Input className="pl-8" placeholder="Ej: 99-1 o ID Caso..." value={searchCorrelativo} onChange={(e) => setSearchCorrelativo(e.target.value)} />
-                        </div>
-                    </Field>
-                    <Field label="Cliente">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar cliente..." options={uniqueClientes} value={searchCliente ?? ''} onValueChange={(v) => setSearchCliente(v || null)} />
-                    </Field>
-                    <Field label="Muestreador">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar muestreador..." options={uniqueMuestreadores} value={searchMuestreador ?? ''} onValueChange={(v) => setSearchMuestreador(v || null)} />
-                    </Field>
-                    <Field label="Objetivo">
-                        <Combobox placeholder="Todos" searchPlaceholder="Buscar objetivo..." options={uniqueObjetivos} value={searchObjetivo ?? ''} onValueChange={(v) => setSearchObjetivo(v || null)} />
-                    </Field>
-                    <Field label="Desde">
-                        <DatePicker value={toDateInputValue(fechaDesde)} onChange={(v) => setFechaDesde(fromDateInputValue(v))} />
-                    </Field>
-                    <Field label="Hasta">
-                        <DatePicker value={toDateInputValue(fechaHasta)} onChange={(v) => setFechaHasta(fromDateInputValue(v))} />
-                    </Field>
-                </div>
-            </Card>
 
             <div className="flex flex-col gap-4">
                 {loading ? (
@@ -322,7 +347,6 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                             <TableHead className="w-[120px]">M. Inst.</TableHead>
                                             <TableHead className="w-[120px]">M. Ret.</TableHead>
                                             <TableHead className="w-[180px]">Realizado por GEM</TableHead>
-                                            <TableHead className="w-20 text-center">Acciones</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
@@ -352,15 +376,15 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                             {m.fecha_completado && dayjs().diff(dayjs(m.fecha_completado), 'hour') < 24 && <Badge variant="success">Nuevo</Badge>}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className="whitespace-nowrap text-xs">{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
-                                                    <TableCell className="max-w-[180px] truncate text-xs" title={m.cliente}>{m.cliente || '-'}</TableCell>
-                                                    <TableCell className="max-w-[180px] truncate text-xs" title={m.centro}>{m.centro || '-'}</TableCell>
+                                                    <TableCell className="whitespace-nowrap">{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
+                                                    <TableCell className="max-w-[180px] truncate" title={m.cliente}>{m.cliente || '-'}</TableCell>
+                                                    <TableCell className="max-w-[180px] truncate" title={m.centro}>{m.centro || '-'}</TableCell>
                                                     <TableCell>
                                                         <span className="block text-xs font-medium">{m.nombre_subarea || '-'}</span>
                                                         <span className="block text-[10px] text-muted-foreground">{m.objetivo || '-'}</span>
                                                     </TableCell>
-                                                    <TableCell className="text-xs">{m.muestreador || 'Sin Asignar'}</TableCell>
-                                                    <TableCell className="text-xs">{m.muestreador_retiro || '-'}</TableCell>
+                                                    <TableCell>{m.muestreador || 'Sin Asignar'}</TableCell>
+                                                    <TableCell>{m.muestreador_retiro || '-'}</TableCell>
                                                     <TableCell>
                                                         {isRealizado ? (
                                                             <div>
@@ -371,19 +395,6 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                                                 </span>
                                                             </div>
                                                         ) : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
-                                                    </TableCell>
-                                                    <TableCell className="text-center">
-                                                        <ProtectedContent permission={PERMISOS_DETALLE}>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className="rounded-full text-primary hover:bg-primary/10 hover:text-primary"
-                                                                title="Ver Detalle Ejecución"
-                                                                onClick={(e) => { e.stopPropagation(); abrirDetalle(m); }}
-                                                            >
-                                                                <IconExternalLink size={16} />
-                                                            </Button>
-                                                        </ProtectedContent>
                                                     </TableCell>
                                                 </TableRow>
                                             );

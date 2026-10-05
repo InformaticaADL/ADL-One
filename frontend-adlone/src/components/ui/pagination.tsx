@@ -38,7 +38,12 @@ export function DataPagination({ page, pageSize, total, onPageChange, onPageSize
   const to = Math.min(page * pageSize, total);
 
   return (
-    <div className={cn('flex flex-col items-center justify-between gap-3 sm:flex-row', className)}>
+    // Estándar único (el de Gestión de Equipos): la paginación va FUERA de la tarjeta
+    // de la tabla, como fila hermana debajo, sin borde ni fondo propios. La separación
+    // (mt-4) la pone este componente, NO el contenedor de cada página — si el padre
+    // además aplicara gap, el espacio se duplicaría. Antes cada página ponía su propio
+    // mt-3/mt-4/px-4 y no había dos pies de tabla iguales.
+    <div className={cn('mt-4 flex shrink-0 flex-col items-center justify-between gap-3 sm:flex-row', className)}>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm text-muted-foreground">
           Mostrando <span className="font-medium text-foreground">{from}–{to}</span> de{' '}

@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
+import { RowActionsMenu } from '@/components/ui/row-actions-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useTableSort } from '../../../hooks/useTableSort';
@@ -136,7 +137,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
 
     // Pagination state
     const [page, setPage] = useState(1);
-    const itemsPerPage = 12;
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     // For dependency checks
     const [dependencyData, setDependencyData] = useState<any[]>([]);
@@ -1379,7 +1380,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                                     ))}
 
                                     {hasStatusColumn && <SortableTableHead className="w-28" {...sortProps('__estado')}>Estado</SortableTableHead>}
-                                    <TableHead className="w-24">Acciones</TableHead>
+                                    <TableHead className="w-16 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -1468,29 +1469,24 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                                                     </TableCell>
                                                 )}
 
-                                                <TableCell>
-                                                    <div className="flex flex-nowrap gap-1">
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            className="h-8 w-8 text-primary"
-                                                            title="Editar"
-                                                            onClick={() => handleOpenModal(item)}
-                                                        >
-                                                            <IconEdit size={14} />
-                                                        </Button>
-                                                        {hasStatusColumn && (
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                className={cn('h-8 w-8', isActive ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : 'text-success hover:bg-success/10 hover:text-success')}
-                                                                title={isActive ? 'Deshabilitar' : 'Habilitar'}
-                                                                onClick={() => handleToggleStatus(item)}
-                                                            >
-                                                                {isActive ? <IconTrash size={14} /> : <IconCheck size={14} />}
-                                                            </Button>
-                                                        )}
-                                                    </div>
+                                                <TableCell className="text-right">
+                                                    <RowActionsMenu
+                                                        actions={[
+                                                            {
+                                                                label: 'Editar',
+                                                                icon: <IconEdit size={16} />,
+                                                                onClick: () => handleOpenModal(item),
+                                                            },
+                                                            {
+                                                                label: isActive ? 'Deshabilitar' : 'Habilitar',
+                                                                icon: isActive ? <IconTrash size={16} /> : <IconCheck size={16} />,
+                                                                onClick: () => handleToggleStatus(item),
+                                                                danger: isActive,
+                                                                separatorBefore: true,
+                                                                hidden: !hasStatusColumn,
+                                                            },
+                                                        ]}
+                                                    />
                                                 </TableCell>
                                             </TableRow>
                                         );
@@ -1500,9 +1496,16 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                         </Table>
                     </div>
 
-                    <DataPagination page={page} pageSize={itemsPerPage} total={sortedData.length} onPageChange={setPage} />
                 </CardContent>
             </Card>
+
+            <DataPagination
+                page={page}
+                pageSize={itemsPerPage}
+                total={sortedData.length}
+                onPageChange={setPage}
+                onPageSizeChange={(size) => { setItemsPerPage(size); setPage(1); }}
+            />
 
             {/* ── QUICK-CREATE FK MODAL (list view) ── */}
             {quickFkModal}

@@ -33,6 +33,7 @@ const TabUf: React.FC = () => {
     const [fecha, setFecha] = useState(todayIso());
     const [valor, setValor] = useState<string>('');
     const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(PAGE_SIZE);
 
     const cargar = async () => {
         setLoading(true);
@@ -78,9 +79,9 @@ const TabUf: React.FC = () => {
     };
 
     const actual = historial[0];
-    const totalPages = Math.max(1, Math.ceil(historial.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(historial.length / pageSize));
     const currentPage = Math.min(page, totalPages);
-    const paginated = historial.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+    const paginated = historial.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     return (
         <>
@@ -160,7 +161,13 @@ const TabUf: React.FC = () => {
                             </TableBody>
                         </Table>
                     </div>
-                    <DataPagination page={currentPage} pageSize={PAGE_SIZE} total={historial.length} onPageChange={setPage} />
+                    <DataPagination
+                        page={currentPage}
+                        pageSize={pageSize}
+                        total={historial.length}
+                        onPageChange={setPage}
+                        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+                    />
                 </div>
             )}
         </>

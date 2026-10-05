@@ -69,6 +69,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
     const [filterRole, setFilterRole] = useState<string>('all');
     const [mobilePage, setMobilePage] = useState(1);
+    const [mobilePageSize, setMobilePageSize] = useState(PAGE_SIZE);
     const [confirmUser, setConfirmUser] = useState<User | null>(null);
 
     // Formulario (vista de página)
@@ -135,9 +136,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     }, [users, searchTerm, filterStatus, filterRole]);
 
     // Paginación de la vista móvil (tarjetas) — el desktop la maneja el propio DataTable.
-    const mobileTotalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+    const mobileTotalPages = Math.max(1, Math.ceil(filteredUsers.length / mobilePageSize));
     const mobileCurrentPage = Math.min(mobilePage, mobileTotalPages);
-    const paginatedUsersMobile = filteredUsers.slice((mobileCurrentPage - 1) * PAGE_SIZE, mobileCurrentPage * PAGE_SIZE);
+    const paginatedUsersMobile = filteredUsers.slice((mobileCurrentPage - 1) * mobilePageSize, mobileCurrentPage * mobilePageSize);
 
     const exportCsv = () => {
         const header = ['Usuario', 'Nombre', 'Email', 'Cargo', 'Roles', 'Estado', 'Ultimo acceso'];
@@ -599,7 +600,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     </div>
                 </div>
 
-                <div className="relative overflow-hidden rounded-xl border border-border bg-card">
+                {/* En escritorio la tarjeta la dibuja DataTable (para que su paginación
+                    quede fuera del borde); acá sólo queda el borde de la lista móvil. */}
+                <div className={cn('relative', isMobile && 'overflow-hidden rounded-xl border border-border bg-card')}>
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -643,7 +646,13 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                 </div>
 
                 {isMobile && (
-                    <DataPagination page={mobileCurrentPage} pageSize={PAGE_SIZE} total={filteredUsers.length} onPageChange={setMobilePage} />
+                    <DataPagination
+                        page={mobileCurrentPage}
+                        pageSize={mobilePageSize}
+                        total={filteredUsers.length}
+                        onPageChange={setMobilePage}
+                        onPageSizeChange={(size) => { setMobilePageSize(size); setMobilePage(1); }}
+                    />
                 )}
             </div>
 

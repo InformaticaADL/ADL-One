@@ -26,8 +26,6 @@ interface DataTableProps<TData, TValue> {
     emptyMessage?: string;
     /** Clases para el contenedor scrolleable de la tabla (ver Table.containerClassName). */
     containerClassName?: string;
-    /** Si la tabla va dentro de un panel de alto fijo con scroll propio, fija el encabezado arriba. */
-    stickyHeader?: boolean;
     /** Oculta la paginación (ej. si la lista ya viene acotada por un filtro del servidor). */
     hidePagination?: boolean;
     /** Clases para el <div> raíz del componente (ej. "min-h-0 flex-1" si va dentro de un panel flex de alto fijo). */
@@ -52,7 +50,6 @@ export function DataTable<TData, TValue>({
     pageSize = 10,
     emptyMessage = 'Sin resultados.',
     containerClassName,
-    stickyHeader,
     hidePagination,
     className,
 }: DataTableProps<TData, TValue>) {
@@ -84,29 +81,29 @@ export function DataTable<TData, TValue>({
     }, [data]);
 
     return (
-        // DataTable se usa casi siempre pegado dentro de una tarjeta sin padding
-        // propio (el borde es de la tarjeta, no de esta tabla) — sin estos px/pt/pb
-        // acá, el buscador y "Mostrando X–Y de Z" quedaban pegados a ese borde. La
-        // tabla en sí queda a lo ancho completo (su propio padding de celda ya
-        // separa el texto del borde) a propósito, para que el encabezado sticky
-        // alcance el borde de la tarjeta en vez de dejar un marco irregular.
-        <div className={cn('flex flex-col gap-3', className)}>
-            {searchPlaceholder && (
-                <div className="px-4 pt-4">
-                    <div className="relative w-full max-w-sm">
-                        <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
-                            value={globalFilter}
-                            onChange={(e) => table.setGlobalFilter(e.target.value)}
-                            placeholder={searchPlaceholder}
-                            className="pl-8"
-                        />
+        // El buscador y la tabla van DENTRO de la tarjeta; la paginación queda fuera,
+        // como fila hermana debajo (el estándar de Gestión de Equipos). Por eso la
+        // tarjeta la dibuja este componente y no quien lo usa: así el pie puede quedar
+        // afuera del borde. La tabla va a lo ancho completo —su propio padding de celda
+        // ya separa el texto— para que el encabezado sticky alcance el borde.
+        <div className={cn('flex min-h-0 flex-col', className)}>
+            <div className="flex min-h-0 flex-col gap-3 overflow-hidden rounded-xl border border-border bg-card">
+                {searchPlaceholder && (
+                    <div className="px-4 pt-4">
+                        <div className="relative w-full max-w-sm">
+                            <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={globalFilter}
+                                onChange={(e) => table.setGlobalFilter(e.target.value)}
+                                placeholder={searchPlaceholder}
+                                className="pl-8"
+                            />
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            <Table containerClassName={containerClassName}>
-                <TableHeader className={stickyHeader ? '[&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:border-b [&_th]:border-border [&_th]:bg-card' : undefined}>
+                <Table containerClassName={containerClassName}>
+                <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
                         <TableRow key={headerGroup.id} className="hover:bg-transparent">
                             {headerGroup.headers.map((header) => {
@@ -119,7 +116,7 @@ export function DataTable<TData, TValue>({
                                                 type="button"
                                                 onClick={header.column.getToggleSortingHandler()}
                                                 className={cn(
-                                                    '-ml-2 inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs font-medium uppercase tracking-wide transition-colors hover:bg-muted hover:text-foreground',
+                                                    '-ml-2 inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium uppercase tracking-wide transition-colors hover:bg-muted hover:text-foreground',
                                                     sortDir && 'text-foreground'
                                                 )}
                                             >
@@ -160,11 +157,11 @@ export function DataTable<TData, TValue>({
                         </TableRow>
                     )}
                 </TableBody>
-            </Table>
+                </Table>
+            </div>
 
             {!hidePagination && (
                 <DataPagination
-                    className="px-4 pb-4"
                     page={pageIndex + 1}
                     pageSize={currentPageSize}
                     total={totalRows}

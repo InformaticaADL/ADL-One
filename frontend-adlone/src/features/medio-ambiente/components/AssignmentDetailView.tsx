@@ -725,16 +725,16 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                         <Th w={50}>Ficha</Th>
                                         <Th w={160}>Correlativo</Th>
                                         <Th w={90}>Estado</Th>
-                                        <Th w={135}>{isPuntual ? 'Fecha Muestreo' : 'F. Instalación'}</Th>
-                                        {!isPuntual && <Th w={135}>F. Muestreo</Th>}
+                                        <Th w={155}>{isPuntual ? 'Fecha Muestreo' : 'F. Instalación'}</Th>
+                                        {!isPuntual && <Th w={155}>F. Muestreo</Th>}
                                         <Th w={130}>Coordinador</Th>
-                                        <Th w={145}>
+                                        <Th w={170}>
                                             <span className="flex justify-center gap-1 whitespace-nowrap">
                                                 {isPuntual ? 'Muestreador' : 'M. Instalación'}
                                                 <span className="text-[9px] font-bold text-primary">(Orig.)</span>
                                             </span>
                                         </Th>
-                                        {!isPuntual && <Th w={145}>
+                                        {!isPuntual && <Th w={170}>
                                             <span className="flex justify-center gap-1 whitespace-nowrap">
                                                 M. Retiro
                                                 <span className="text-[9px] font-bold text-primary">(Orig.)</span>
@@ -768,7 +768,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         <span className="text-xs text-muted-foreground line-through">{editableDates[rowId] || '-'}</span>
                                                     ) : (
                                                         <DatePicker
-                                                            className="w-[125px]"
+                                                            className="w-full"
                                                             disabled={isCancelled}
                                                             value={editableDates[rowId] || ''}
                                                             onChange={(val) => setEditableDates(prev => ({ ...prev, [rowId]: val }))}
@@ -781,7 +781,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             <span className="text-xs text-muted-foreground line-through">{editableRetiroDates[rowId] || '-'}</span>
                                                         ) : (
                                                             <DatePicker
-                                                                className="w-[125px]"
+                                                                className="w-full"
                                                                 disabled={isCancelled}
                                                                 value={editableRetiroDates[rowId] || ''}
                                                                 onChange={(val) => {
@@ -805,7 +805,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                         <div className="flex items-center justify-center gap-1">
                                                             <Combobox
                                                                 disabled={isCancelled}
-                                                                className={cn('w-[140px]', instConflict && 'border-destructive text-destructive')}
+                                                                className={cn('w-full', instConflict && 'border-destructive text-destructive')}
                                                                 options={muestreadorOptions}
                                                                 value={muestreadorInstalacion[rowId] ? String(muestreadorInstalacion[rowId]) : ''}
                                                                 onValueChange={(v) => handleTechnicianChange(rowId, Number(v), 'instalacion')}
@@ -827,7 +827,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                             <div className="flex items-center justify-center gap-1">
                                                                 <Combobox
                                                                     disabled={isCancelled}
-                                                                    className={cn('w-[140px]', retiroConflict && 'border-destructive text-destructive')}
+                                                                    className={cn('w-full', retiroConflict && 'border-destructive text-destructive')}
                                                                     options={muestreadorOptions}
                                                                     value={muestreadorRetiro[rowId] ? String(muestreadorRetiro[rowId]) : ''}
                                                                     onValueChange={(v) => handleTechnicianChange(rowId, Number(v), 'retiro')}

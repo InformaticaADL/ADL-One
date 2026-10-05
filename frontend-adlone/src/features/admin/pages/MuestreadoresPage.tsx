@@ -362,10 +362,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     ];
 
     // El módulo ya no scrollea a nivel de página (ver isFullHeightModule en
-    // MainLayout), así que el formulario —que sí es largo— necesita su propio
-    // contenedor con scroll.
+    // MainLayout), así que las vistas largas —el formulario y el perfil, con sus
+    // pestañas— necesitan su propio contenedor con scroll.
     const content = viewMode === 'perfil' && perfilMuestreador ? (
-        <MuestreadorPerfilView muestreador={perfilMuestreador} onBack={() => setViewMode('list')} />
+        <div className="h-full min-h-0 overflow-y-auto">
+            <MuestreadorPerfilView muestreador={perfilMuestreador} onBack={() => setViewMode('list')} />
+        </div>
     ) : viewMode === 'form' ? (
         <div className="h-full min-h-0 overflow-y-auto">
             <MuestreadorForm
@@ -431,8 +433,10 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 vez de forzar la tarjeta a flex-1: con pocos resultados (ej. tras
                 filtrar) la tarjeta ya no se estira dejando un hueco en blanco
                 debajo de la última fila — mide su contenido real. */}
-            <div className={cn('flex flex-col px-4 pb-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
-                <div className="relative flex flex-col overflow-hidden rounded-xl border border-border bg-card">
+            <div className={cn('flex flex-col px-4 pb-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
+                {/* En escritorio la tarjeta la dibuja DataTable (para que su paginación
+                    quede fuera del borde); acá sólo queda el borde de la lista móvil. */}
+                <div className={cn('relative flex min-h-0 flex-col', isMobile && 'overflow-hidden rounded-xl border border-border bg-card')}>
                     {loading && (
                         <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60">
                             <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -443,9 +447,10 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         <DataTable
                             columns={columns}
                             data={muestreadores}
-                            stickyHeader
+                            className="min-h-0"
+                            containerClassName="min-h-0"
                             emptyMessage="No se encontraron muestreadores con los filtros aplicados."
-                            pageSize={20}
+                            pageSize={10}
                         />
                     ) : (
                         <div className="flex flex-col gap-3 p-3">

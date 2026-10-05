@@ -55,6 +55,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { RowActionsMenu } from '@/components/ui/row-actions-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -539,7 +540,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
 
     const renderRutaRow = (r: RutaPlanificada) => (
         <TableRow key={r.id_ruta_planificada}>
-            <TableCell className="text-xs text-muted-foreground">#{r.id_ruta_planificada}</TableCell>
+            <TableCell className="text-muted-foreground">#{r.id_ruta_planificada}</TableCell>
             <TableCell>
                 <div className="flex items-center gap-1.5">
                     <IconMapPin size={13} className="text-accent-blue" />
@@ -549,7 +550,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                     <span className="block max-w-[240px] truncate text-xs text-muted-foreground">{r.descripcion}</span>
                 )}
             </TableCell>
-            <TableCell className="text-xs text-muted-foreground">{r.creador || 'Sistema'}</TableCell>
+            <TableCell className="text-muted-foreground">{r.creador || 'Sistema'}</TableCell>
             <TableCell className="text-center">
                 <Badge variant="outline">{r.cantidad_fichas}</Badge>
             </TableCell>
@@ -571,41 +572,51 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                 <Badge variant={getEstadoVariant(getEstadoDinamico(r))}>{getEstadoDinamico(r)}</Badge>
             </TableCell>
             <TableCell className="text-right">
-                <div className="flex flex-nowrap justify-end gap-1">
-                    {hasPermission('MA_RUTA_VER_DETALLE') && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-violet" title="Ver detalle de la ruta" onClick={() => handleViewRuta(r)}>
-                            <IconEye size={15} />
-                        </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-cyan" title="Historial de ejecuciones" onClick={() => handleViewHistorial(r)}>
-                        <IconHistory size={15} />
-                    </Button>
-                    {r.estado !== 'CANCELADA' && (
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 text-accent-green hover:text-accent-green"
-                            title="Nueva ejecución"
-                            onClick={() => setEjecucionTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta })}
-                        >
-                            <IconCalendarEvent size={13} /> Ejecutar
-                        </Button>
-                    )}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-blue" title="Editar ruta" onClick={() => onEditarRuta ? onEditarRuta(r.id_ruta_planificada) : showToast({ type: 'info', message: 'Edición próximamente' })}>
-                        <IconEdit size={15} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-cyan" title={r.id_grupo ? 'Cambiar grupo' : 'Añadir a grupo'} onClick={() => handleOpenGrupo(r)}>
-                        <IconFolder size={15} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent-orange" title="Clonar ruta" onClick={() => handleOpenClonar(r)}>
-                        <IconCopy size={15} />
-                    </Button>
-                    {hasPermission('MA_RUTA_ELIMINAR') && (
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title="Eliminar ruta" onClick={() => setDeleteTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta })}>
-                            <IconTrash size={15} />
-                        </Button>
-                    )}
-                </div>
+                <RowActionsMenu
+                    actions={[
+                        {
+                            label: 'Ver detalle de la ruta',
+                            icon: <IconEye size={16} />,
+                            onClick: () => handleViewRuta(r),
+                            hidden: !hasPermission('MA_RUTA_VER_DETALLE'),
+                        },
+                        {
+                            label: 'Historial de ejecuciones',
+                            icon: <IconHistory size={16} />,
+                            onClick: () => handleViewHistorial(r),
+                        },
+                        {
+                            label: 'Nueva ejecución',
+                            icon: <IconCalendarEvent size={16} />,
+                            onClick: () => setEjecucionTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta }),
+                            hidden: r.estado === 'CANCELADA',
+                            separatorBefore: true,
+                        },
+                        {
+                            label: 'Editar ruta',
+                            icon: <IconEdit size={16} />,
+                            onClick: () => onEditarRuta ? onEditarRuta(r.id_ruta_planificada) : showToast({ type: 'info', message: 'Edición próximamente' }),
+                        },
+                        {
+                            label: r.id_grupo ? 'Cambiar grupo' : 'Añadir a grupo',
+                            icon: <IconFolder size={16} />,
+                            onClick: () => handleOpenGrupo(r),
+                        },
+                        {
+                            label: 'Clonar ruta',
+                            icon: <IconCopy size={16} />,
+                            onClick: () => handleOpenClonar(r),
+                        },
+                        {
+                            label: 'Eliminar ruta',
+                            icon: <IconTrash size={16} />,
+                            onClick: () => setDeleteTarget({ id: r.id_ruta_planificada, nombre: r.nombre_ruta }),
+                            danger: true,
+                            separatorBefore: true,
+                            hidden: !hasPermission('MA_RUTA_ELIMINAR'),
+                        },
+                    ]}
+                />
             </TableCell>
         </TableRow>
     );
@@ -775,7 +786,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                                     <TableHead>Ejecuciones</TableHead>
                                                     <TableHead className="w-[110px]">Vehículo</TableHead>
                                                     <TableHead className="w-[100px]">Estado</TableHead>
-                                                    <TableHead className="text-right">Acciones</TableHead>
+                                                    <TableHead className="w-16 text-right">Acciones</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
