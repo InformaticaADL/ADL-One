@@ -57,7 +57,7 @@ const AREA_GROUPS: { title: string; areas: AdminArea[] }[] = [
             { id: 'gem', label: 'Ensayo Molecular', icon: IconDna2, permission: 'GEM_ACCESO', description: 'Gestión de Ensayos Moleculares', enabled: false },
             { id: 'necropsia', label: 'Necropsia', icon: IconFish, permission: 'NEC_ACCESO', description: 'Área de Anatomía Patológica', enabled: false },
             { id: 'microscopia', label: 'Microscopía', icon: IconMicroscope, permission: 'MIC_ACCESO', description: 'Análisis Microscópico Digital', enabled: false },
-            { id: 'biologia_molecular', label: 'Biología Molecular', icon: IconTestPipe, permission: 'BM_ACCESO', description: 'Laboratorio de Genética', enabled: false },
+            { id: 'biologia_molecular', label: 'Biología Molecular', icon: IconTestPipe, permission: 'BM_ACCESO', description: 'Laboratorio de Genética' },
             { id: 'cultivo_celular', label: 'Cultivo Celular', icon: IconFlask, permission: 'CC_ACCESO', description: 'Mantenimiento de Líneas Celulares', enabled: false },
             { id: 'bacteriologia', label: 'Bacteriología', icon: IconBug, permission: 'BAC_ACCESO', description: 'Identificación de Microorganismos', enabled: false },
             { id: 'screening', label: 'Screening', icon: IconSearch, permission: 'SCR_ACCESO', description: 'Tamizaje y Pruebas Rápidas', enabled: false },

@@ -31,6 +31,7 @@ import FacturacionModule from '../features/facturacion/components/FacturacionMod
 import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
+import { BiologiaMolecularPage } from '../features/biologia-molecular/pages/BiologiaMolecularPage';
 
 
 const DashboardPage = () => {
@@ -106,6 +107,11 @@ const DashboardPage = () => {
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
+
+        if (activeSubmodule === 'bm-consulta') {
+            if (!hasPermission('BM_ACCESO') && !hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
+            return <BiologiaMolecularPage onBack={() => setActiveSubmodule('')} />;
+        }
 
         // --- 2. Lógica Específica del Módulo de Administración ---
         if (activeModule === 'admin_informacion') {

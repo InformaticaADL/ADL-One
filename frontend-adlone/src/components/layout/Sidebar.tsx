@@ -89,22 +89,22 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         }
     }, [activeModule]);
 
-    const handleModuleClick = (moduleId: string) => {
-        const mod = dynamicModules.find((m) => m.id === moduleId) || FIXED_TOP_MODULES.find((m) => m.id === moduleId);
-        const hasSubItems = !!mod && 'links' in mod && Array.isArray(mod.links) && mod.links.length > 0;
-
-        if (hasSubItems) {
-            // Si el módulo ya es el activo, no reseteamos el submódulo
-            if (activeModule !== moduleId) {
-                setActiveModule(moduleId);
-                setActiveSubmodule('');
-            }
-        } else {
-            // Si no tiene subítems, navegamos directamente
-            setActiveModule(moduleId);
-            setActiveSubmodule('');
-            onNavigate?.();
+    const enrichedDynamicModules = dynamicModules.map((m) => {
+        if (m.id === 'biologia_molecular') {
+            return {
+                ...m,
+                links: [
+                    { id: 'bm-consulta', label: 'Consulta de Muestras', permission: 'BM_ACCESO' }
+                ]
+            };
         }
+        return m;
+    });
+
+    const handleModuleClick = (moduleId: string) => {
+        setActiveModule(moduleId);
+        setActiveSubmodule('');
+        onNavigate?.();
     };
 
     const handleLeafClick = (leafId: string) => {
@@ -119,12 +119,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         }
         const next = openedModule === moduleId ? null : moduleId;
         setOpenedModule(next);
-        if (next) handleModuleClick(next);
+        handleModuleClick(moduleId);
     };
 
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
     // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
-    const visibleModules = dynamicModules.filter((m) => canAccessModule(m, hasPermission));
+    const visibleModules = enrichedDynamicModules.filter((m) => canAccessModule(m, hasPermission));
 
     // Unidades: Filtrar módulos visibles según permisos
     const unidades = visibleModules.filter((m) => m.group === 'unidades');
