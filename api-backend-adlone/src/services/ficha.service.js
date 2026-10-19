@@ -4416,17 +4416,20 @@ class FichaIngresoService {
                 `);
 
             // Fetch Equipment
+            // No se exige e.seleccionado = 'S': ese flag (y usado_instalacion/usado_retiro, más
+            // abajo) solo los marca la app móvil de terreno en ejecución, y no siempre cubre todos
+            // los equipos realmente asignados al muestreo — exigirlo dejaba equipos reales afuera
+            // de la ficha. Se listan todos los equipos activos asociados a este muestreo.
             const equiposResult = await pool.request()
                 .input('id', sql.Int, id)
                 .input('frecuencia', sql.VarChar, frecuenciaReal)
                 .query(`
-                    SELECT 
+                    SELECT
                         eq.nombre, eq.codigo, e.usado_instalacion, e.usado_retiro
                     FROM App_Ma_Equipos_MUESTREOS e
                     INNER JOIN mae_equipo eq ON e.id_equipo = eq.id_equipo
-                    WHERE e.id_fichaingresoservicio = @id 
-                      AND e.frecuencia_correlativo = @frecuencia 
-                      AND e.seleccionado = 'S'
+                    WHERE e.id_fichaingresoservicio = @id
+                      AND e.frecuencia_correlativo = @frecuencia
                       AND ISNULL(e.estado, 'ACTIVO') = 'ACTIVO'
                 `);
 

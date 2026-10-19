@@ -372,7 +372,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedObjetivo, responsableMuestreo, cargoResponsable,
                 puntoMuestreo, periodo, frecuencia, factor, totalServicios,
                 // Bloque 3
-                zona, utmNorte, utmEste,
+                zona,
                 selectedInstrumento,
                 selectedComponente, selectedSubArea, glosa,
                 // Bloque 4
@@ -406,6 +406,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 }
                 return false;
             };
+
+            // F-XX: UTM Norte/Este no aplican cuando la Zona UTM es "No aplica" — los inputs
+            // quedan disabled en ese caso, así que exigirlos igual dejaba el formulario
+            // permanentemente inválido sin forma de completarlo.
+            if (zona && !isNA(zona, zonasUTMData)) {
+                requiredFields.push(utmNorte, utmEste);
+            }
+
             if (medicionCaudal && !isNA(medicionCaudal)) {
                 requiredFields.push(selectedModalidad);
                 if (selectedModalidad && !isNA(selectedModalidad, modalidades)) {
@@ -919,12 +927,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     );
 
     const block3Complete = useMemo(() => {
-        const req = [zona, utmNorte, utmEste, selectedInstrumento, selectedComponente, selectedSubArea, glosa];
+        const req = [zona, selectedInstrumento, selectedComponente, selectedSubArea, glosa];
+        if (zona && !isNoAplicaValue(zona, zonasUTMData)) req.push(utmNorte, utmEste);
         const instLow = (selectedInstrumento || '').toLowerCase();
         if (instLow === 'otro') req.push(nroInstrumento);
         else if (instLow !== 'no aplica' && selectedInstrumento) req.push(nroInstrumento, anioInstrumento);
         return req.every(isFieldSet);
-    }, [zona, utmNorte, utmEste, selectedInstrumento, selectedComponente, selectedSubArea, glosa, nroInstrumento, anioInstrumento]);
+    }, [zona, utmNorte, utmEste, zonasUTMData, selectedInstrumento, selectedComponente, selectedSubArea, glosa, nroInstrumento, anioInstrumento]);
 
     const block4Complete = useMemo(() => {
         const req = [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, medicionCaudal];
@@ -1185,14 +1194,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
                         onChange={(e: any) => setUtmNorte(e.target.value)}
-                        disabled={!zona || zona === 'No aplica'}
+                        disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     <TextInput
                         size="sm"
                         label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
                         onChange={(e: any) => setUtmEste(e.target.value)}
-                        disabled={!zona || zona === 'No aplica'}
+                        disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     <Select
                         size="md"

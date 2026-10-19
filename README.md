@@ -705,6 +705,33 @@ frontend-adlone/
   - **Hardening de Touch Events**: Solución a un problema crítico en dispositivos móviles (Safari/Chrome Mobile) donde el componente `ScrollArea` interceptaba los toques. Se implementó `onPointerDown={(e) => e.preventDefault()}` y `e.stopPropagation()` para asegurar que la presión sobre una notificación registre el evento "clic" inmediatamente en lugar de confundirlo con un desplazamiento (scroll).
   - **Corrección de Condición de Carrera en Enrutamiento**: Refactorización profunda de la lógica de selección en teléfonos. Ahora los cambios de estado global de navegación (`setActiveModule`, `setPendingRequestId`) ocurren de forma **100% síncrona** y sin latencia, _antes_ de despachar el evento que cierra el menú lateral (`close-mobile-sidebar`). Esto garantiza que la transición visual de pantalla sea exacta, responsiva e idéntica a la experiencia fluida de una computadora de escritorio.
 
+### 80. Importador y Analizador Excel de Equipos y Correcciones de Integridad en Fichas (Octubre 2026) 📊🛠️📋
+
+- **Módulo de Análisis y Validación de Equipos desde Excel (`EquipoExcelAnalysisModal.tsx`)**:
+  - **Servicio de Comparación en Memoria (`equipo-excel-import.service.js`)**: Lectura y parsing de plantillas Excel (`.xlsx`) mediante `ExcelJS`, con normalización de encabezados y valores (tildes, mayúsculas, formatos de fecha `DD/MM/AAAA` o ISO, booleanos `SI/NO` y números).
+  - **Cotejo contra Base de Datos**: Identificación de equipos por código o combinación correlativo/sede/sigla en `mae_equipo`, clasificándolos en tres estados visuales:
+    - `Coincide`: Datos idénticos a los almacenados en la base de datos.
+    - `Difiere`: Equipo existente pero con discrepancias en uno o más atributos comparables, generando un desglose visual campo por campo (valor Excel vs. valor BD).
+    - `No existe`: Equipos nuevos en la plantilla listos para ser incorporados al sistema.
+  - **Endpoints y Permisos Seguros**:
+    - Nuevo permiso atómico `EQ_IMPORT_EXCEL` ('Importar y Validar Equipos desde Excel') para acceso exclusivo del área administradora/informática (`add_eq_import_excel_permission.sql`).
+    - Endpoint `POST /api/admin/equipos/import-excel/analizar` con subida multipart en memoria (sin persistencia temporal en disco) y control de tamaño máximo (10 MB).
+    - Fix en `equipo.service.js`: Corrección en `createEquipo` para evitar doble declaración del parámetro `@habilitado` en mssql al procesar equipos con estado de baja.
+  - **Interfaz de Usuario Interactiva**:
+    - Componente modal en `EquiposPage.tsx` con zona dropzone de carga de archivos, tarjetas de resumen de métricas, filtrado por estado y visualizador de discrepancias detalladas.
+    - Acciones directas para editar o crear equipos de forma asistida reutilizando el formulario maestro `EquipoForm.tsx`.
+
+- **Persistencia de Pestañas y Guardado en FichaUniversalView (`FichaUniversalView.tsx`)**:
+  - **Uso de `forceMount` en Radix Tabs**: Se configuró `forceMount` junto a la clase utilitaria `data-[state=inactive]:hidden` en el tab `antecedentes`. Esto evita que Radix desmonte el componente del DOM al navegar hacia las pestañas de "Análisis" u "Observaciones", preservando activa la referencia `antecedentesRef` para que el botón "Guardar Cambios" funcione de manera confiable desde cualquier pestaña activa.
+  - **Feedback Defensivo**: Alerta de error mediante `showToast` si por alguna anomalía la referencia del formulario no estuviese disponible.
+
+- **Validación Condicional de Coordenadas UTM (`AntecedentesForm.tsx`)**:
+  - **Soporte para "No aplica" en Zona UTM**: Cuando la Zona UTM se marca como "No aplica", los campos de UTM Norte y UTM Este se deshabilitan. Se ajustaron las reglas de validación en `block3Complete` y el método `validate()` para excluir estas coordenadas de los campos obligatorios bajo esta condición, evitando bloqueos que impedían guardar el formulario.
+
+- **Visualización Integral de Equipos Asignados en Ficha (`FichaDetailView.tsx` y `ficha.service.js`)**:
+  - **Eliminación de Filtro Excluyente en Backend**: Se removió la condición restrictiva `e.seleccionado = 'S'` en la consulta de equipos asociados al muestreo en `ficha.service.js`, garantizando que se listen todos los equipos asignados incluso si la aplicación móvil de terreno no alcanzó a marcar el flag de selección.
+  - **Sección "Otros Equipos Asignados"**: Se ajustó `FichaDetailView.tsx` para no omitir equipos que carecen de las banderas explícitas `usado_instalacion` o `usado_retiro`, desplegándolos en un bloque dedicado para asegurar la visibilidad de todos los activos asignados.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -794,6 +821,10 @@ npm run dev       # Puerto 5173
 | **Soporte Fichas Tipo Puntual (FichaDetailView)** | Detección `isPuntual` + UI adaptativa en Fotos y Firmas sin romper flujo Continua | ✅ Implementado |
 | **Optimización UI Móvil de Rutas** | Mapa cuadrado fijo superior + lista dinámica inferior + botón anclado | ✅ Implementado |
 | **Estabilidad de Notificaciones en Móvil** | Prevención de Touch-Cancel (onPointerDown) + enrutamiento síncrono antes del cierre + Botón X de cerrado manual | ✅ Implementado |
+| **Importación y Análisis Excel (Equipos)** | Parseo ExcelJS + Comparador BD + Modal con Diffs + Permiso EQ_IMPORT_EXCEL | ✅ Implementado |
+| **Persistencia de Tabs en FichaUniversal** | forceMount en Radix TabsContent + preservación de antecedentesRef | ✅ Implementado |
+| **Validación Condicional UTM** | Exclusión de UTM Norte/Este cuando Zona es "No aplica" | ✅ Implementado |
+| **Visibilidad Integral de Equipos en Ficha** | Eliminación de filtro restrictivo seleccionado='S' + sección Otros Equipos | ✅ Implementado |
 
 ---
 

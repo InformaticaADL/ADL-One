@@ -6,6 +6,7 @@ import {
     IconPower,
     IconBell,
     IconDownload,
+    IconUpload,
     IconAlertTriangle,
     IconInfoCircle,
     IconTrash,
@@ -32,6 +33,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo } from '../services/equipo.service';
 import { descargarDocumentoRevision } from '../utils/documentosEquipo';
 import { EquipmentExportModal } from '../components/EquipmentExportModal';
+import { EquipoExcelAnalysisModal } from '../components/EquipoExcelAnalysisModal';
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { EquipoForm } from '../components/EquipoForm';
@@ -143,6 +145,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resolutionDate, setResolutionDate] = useState('');
     const [solicitudInResolution, setSolicitudInResolution] = useState<any | null>(null);
     const [showExportModal, setShowExportModal] = useState(false);
+    const [showExcelAnalysisModal, setShowExcelAnalysisModal] = useState(false);
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
@@ -1279,6 +1282,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     )}
                     </div>
 
+                    <ProtectedContent permission="EQ_IMPORT_EXCEL">
+                        <Button variant="outline" size="sm" onClick={() => setShowExcelAnalysisModal(true)}>
+                            <IconUpload size={15} /> Subir y Analizar Excel
+                        </Button>
+                    </ProtectedContent>
+
                     <ProtectedContent permission="EQ_EXP">
                         <Button variant="outline" size="sm" onClick={() => setShowExportModal(true)}>
                             <IconDownload size={15} /> Exportar
@@ -1877,6 +1886,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     fechaHasta: filterFechaHasta,
                     id_muestreador: filterMuestreador || ''
                 }}
+            />
+
+            <EquipoExcelAnalysisModal
+                isOpen={showExcelAnalysisModal}
+                onClose={() => setShowExcelAnalysisModal(false)}
+                onDataChanged={() => { fetchData(true); loadSolicitudes(); }}
             />
 
             <EquipmentRequestsModal

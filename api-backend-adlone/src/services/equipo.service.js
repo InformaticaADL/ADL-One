@@ -718,7 +718,6 @@ export const equipoService = {
             request.input('sede', sql.VarChar(8000), data.ubicacion);
             request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
             request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
-            request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
             request.input('sigla', sql.VarChar(10), data.sigla || '');
             request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
             request.input('tienefc', sql.VarChar(1), (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N');
@@ -735,13 +734,13 @@ export const equipoService = {
             request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
             request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
             request.input('plazo_vigencia', sql.VarChar(500), data.plazo_vigencia || null);
-            // Estado sincroniza con habilitado: Dado de Baja → 'N', Operativo → 'S'
+            // Estado sincroniza con habilitado: Dado de Baja → 'N', Operativo u otro valor → lo que vino de "estado".
+            // Un solo request.input('habilitado', ...): mssql no permite declarar el mismo parámetro dos veces.
             const estadoEquipoCreate = data.estado_equipo || null;
-            if (estadoEquipoCreate) {
-                const eL = estadoEquipoCreate.toLowerCase();
-                if (eL.includes('baja')) request.input('habilitado', sql.VarChar(1), 'N');
-                // Si es Operativo u otro valor, habilitado ya se seteo arriba — no sobreescribir
-            }
+            const habilitadoCreate = (estadoEquipoCreate && estadoEquipoCreate.toLowerCase().includes('baja'))
+                ? 'N'
+                : (data.estado === 'Activo' ? 'S' : 'N');
+            request.input('habilitado', sql.VarChar(1), habilitadoCreate);
             request.input('estado_equipo', sql.VarChar(100), estadoEquipoCreate);
 
             const queryMain = `

@@ -62,6 +62,26 @@ const subirDocumentoEquipo = (req, res, next) => uploadEquipoDoc.single('archivo
     return res.status(400).json({ success: false, message });
 });
 
+// Multer para la plantilla de importación/validación de equipos: solo se
+// analiza en memoria, no se guarda en disco (a diferencia de los documentos
+// de arriba, que sí son adjuntos permanentes del equipo).
+const uploadEquiposExcel = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const okMime = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+        if (okMime.includes(file.mimetype) || file.originalname.toLowerCase().endsWith('.xlsx')) return cb(null, true);
+        cb(new Error('Solo se permiten archivos Excel (.xlsx)'));
+    }
+});
+const subirExcelEquipos = (req, res, next) => uploadEquiposExcel.single('archivo')(req, res, (err) => {
+    if (!err) return next();
+    const message = err.code === 'LIMIT_FILE_SIZE'
+        ? 'El archivo supera el máximo de 10 MB'
+        : (err.message || 'No se pudo procesar el archivo');
+    return res.status(400).json({ success: false, message });
+});
+
 // --- MUESTREADORES ---
 router.get('/muestreadores', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
 
@@ -114,6 +134,7 @@ router.delete('/equipos/catalogo/:id', verifyToken, verifyPermission('EQ_DESACTI
 router.get('/equipos/suggest-code', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.suggestNextCode);
 router.get('/equipos/next-correlativo/:tipo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getNextCorrelativo);
 router.get('/equipos/export/excel', verifyToken, verifyPermission('EQ_EXP'), equipoController.exportExcel);
+router.post('/equipos/import-excel/analizar', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), subirExcelEquipos, equipoController.analizarExcel);
 router.get('/equipos', verifyToken, equipoController.getEquipos);
 router.get('/equipos/:id', verifyToken, equipoController.getEquipoById);
 router.post('/equipos', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquipo);

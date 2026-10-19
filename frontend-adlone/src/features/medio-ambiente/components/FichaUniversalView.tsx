@@ -227,7 +227,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     };
 
     const handleSaveChanges = async () => {
-        if (!fichaId || !antecedentesRef.current) return;
+        if (!fichaId) return;
+        if (!antecedentesRef.current) {
+            showToast({ type: 'error', message: 'No se pudo leer el formulario de antecedentes. Intente nuevamente.' });
+            return;
+        }
 
         // F-37: si el usuario no ingresó observación, se permite guardar igual con texto por defecto
         // (la auditoría queda registrada con quién y cuándo).
@@ -454,7 +458,12 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                         </TabsList>
                     </div>
 
-                    <TabsContent value="antecedentes" className="mt-0">
+                    {/* forceMount: Radix desmonta el contenido de los tabs inactivos por defecto, lo
+                        que borraba antecedentesRef (useImperativeHandle de AntecedentesForm) apenas el
+                        usuario se movía a otra pestaña — Guardar quedaba sin efecto desde Análisis u
+                        Observaciones porque el ref ya era null. Se mantiene montado y solo se oculta
+                        con CSS mientras no es la pestaña activa. */}
+                    <TabsContent value="antecedentes" className="mt-0 data-[state=inactive]:hidden" forceMount>
                         <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px`, minHeight: '70vh' }}>
                             {isEditing ? (
                                 <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />

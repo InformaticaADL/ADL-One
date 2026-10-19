@@ -70,7 +70,36 @@ export interface EquiposResponse {
     };
 }
 
+export interface AnalisisExcelItem {
+    rowNumber: number;
+    codigo: string | null;
+    nombre: string | null;
+    status: 'coincide' | 'difiere' | 'no_existe';
+    id_equipo: number | null;
+    excelData: Partial<Equipo>;
+    diffs: { campo: string; etiqueta: string; valorExcel: unknown; valorBD: unknown }[];
+    warnings: string[];
+    referencia?: { marca?: string | null; modelo?: string | null; serie?: string | null };
+}
+
+export interface AnalisisExcelResponse {
+    success: boolean;
+    resumen: { total: number; coinciden: number; difieren: number; noExisten: number };
+    items: AnalisisExcelItem[];
+    rowErrors: { rowNumber: number; message: string }[];
+}
+
 export const equipoService = {
+    analizarExcel: async (file: File): Promise<AnalisisExcelResponse> => {
+        const formData = new FormData();
+        formData.append('archivo', file);
+        const response = await apiClient.post('/api/admin/equipos/import-excel/analizar', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+
     getEquipos: async (params: any): Promise<EquiposResponse> => {
         const response = await apiClient.get('/api/admin/equipos/', { params });
         return response.data;

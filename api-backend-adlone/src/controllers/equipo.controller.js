@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import equipoService from '../services/equipo.service.js';
+import equipoExcelImportService from '../services/equipo-excel-import.service.js';
 import logger from '../utils/logger.js';
 
 // La descarga pasa por la API (y no por el /uploads estático) para que respete
@@ -85,7 +86,7 @@ export const equipoController = {
             res.json({ success: true, data: result, message: 'Equipo creado correctamente' });
         } catch (error) {
             logger.error('Controller createEquipo error:', error);
-            res.status(500).json({ success: false, message: 'Error al crear equipo' });
+            res.status(500).json({ success: false, message: error.message || 'Error al crear equipo' });
         }
     },
 
@@ -97,7 +98,7 @@ export const equipoController = {
             res.json({ success: true, data: result, message: 'Equipo actualizado correctamente' });
         } catch (error) {
             logger.error('Controller updateEquipo error:', error);
-            res.status(500).json({ success: false, message: 'Error al actualizar equipo' });
+            res.status(500).json({ success: false, message: error.message || 'Error al actualizar equipo' });
         }
     },
 
@@ -196,6 +197,22 @@ export const equipoController = {
         } catch (error) {
             logger.error('Controller deleteEquipoCatalogo error:', error);
             res.status(500).json({ success: false, message: 'Error al eliminar el equipo del catálogo' });
+        }
+    },
+
+    // --- IMPORTACIÓN / VALIDACIÓN DESDE EXCEL ---
+
+    // Solo lee y compara: no crea ni edita nada en la BD. El guardado de cada
+    // fila se hace aparte, reutilizando createEquipo/updateEquipo de siempre.
+    analizarExcel: async (req, res) => {
+        try {
+            if (!req.file) return res.status(400).json({ success: false, message: 'Debe adjuntar un archivo Excel' });
+            const { rows, rowErrors } = await equipoExcelImportService.parseEquiposExcel(req.file.buffer);
+            const resultado = await equipoExcelImportService.compararConBD(rows);
+            res.json({ success: true, ...resultado, rowErrors });
+        } catch (error) {
+            logger.error('Controller analizarExcel error:', error);
+            res.status(400).json({ success: false, message: error.message || 'No se pudo analizar el archivo' });
         }
     },
 
