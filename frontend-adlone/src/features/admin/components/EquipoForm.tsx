@@ -278,30 +278,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     // todavía no hay versión a la cual asociar el informe.
     const idEquipoActual = initialData?.id_equipo;
 
-    // El archivo se sube apenas se elige, pero solo queda en disco: su ruta
-    // viaja en formData y se guarda recién al grabar el equipo, junto con la
-    // versión nueva. Si se guardara antes, el informe nuevo quedaría archivado
-    // con la versión anterior, que en ese momento sigue siendo la vigente.
-    const handleSeleccionarDoc = async (file: File | null) => {
+    // El archivo NO se sube al elegirlo — solo queda en memoria (docFile) hasta
+    // que se graba el equipo. Antes se subía de inmediato, lo que dejaba el
+    // archivo huérfano en el servidor si el usuario cancelaba el formulario o
+    // quitaba el documento sin guardar. La subida real ocurre en handleSave,
+    // justo antes de armar el payload, junto con la versión nueva del equipo.
+    const handleSeleccionarDoc = (file: File | null) => {
         setDocFile(file);
-        if (!file) return;
-        setDocUploading(true);
-        try {
-            const subido = await equipoService.subirArchivoDocumento(file, docNombre.trim() || file.name);
-            setFormData((p: any) => ({
-                ...p,
-                documento_nombre: subido.documento_nombre,
-                documento_ruta: subido.documento_ruta
-            }));
-            setDocTamano(subido.tamano_bytes ?? file.size);
-            showToast({ type: 'info', message: 'Archivo cargado. Se guardará al grabar el equipo.' });
-        } catch (error: any) {
-            setDocFile(null);
-            if (docFileInputRef.current) docFileInputRef.current.value = '';
-            showToast({ type: 'error', message: error?.response?.data?.message || 'Error al cargar el archivo' });
-        } finally {
-            setDocUploading(false);
-        }
+        if (file) setDocTamano(file.size);
     };
 
     const handleDescargarDoc = async () => {
@@ -736,25 +720,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         const hasNewRevision = isEdit
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
-        // hasDocumentChange: true si hay un archivo local pendiente de guardar
-        // O si la ruta del documento cambió respecto a la versión guardada.
-        const hasDocumentChange =
-            docFile !== null ||
-            !!(formData.documento_ruta && formData.documento_ruta !== originalDocumentoRuta);
-
-        // En edición, si solo se adjuntó un documento (sin nueva revisión),
-        // los campos que_mide y observacion siguen siendo deseables pero no
-        // deben bloquear el guardado — el equipo ya fue creado con ellos.
-        const requiereRevisionODoc = hasNewRevision || (isEdit && hasDocumentChange);
 
         if (isEdit) {
+            // Editar un equipo ya NO exige registrar una revisión nueva ni adjuntar
+            // documento — eran alternativas obligatorias entre sí, pero bloqueaban
+            // ediciones simples (ej. corregir el Estado o la Observación) que no
+            // implican una revisión/calibración real.
             return !!(
                 formData.nombre &&
                 formData.tipo &&
                 formData.ubicacion &&
                 formData.estado &&
                 formData.codigo &&
-                requiereRevisionODoc &&
                 formData.id_muestreador &&
                 formData.siguiente_verificacion &&
                 !generatingCode &&
@@ -791,11 +768,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         const hasNewRevision = isEdit
             ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
             : !!formData.ultima_verificacion;
-        const hasDocumentChange =
-            docFile !== null ||
-            !!(formData.documento_ruta && formData.documento_ruta !== originalDocumentoRuta);
-        if (!hasNewRevision && !hasDocumentChange) {
-            missing.push(isEdit ? "Revisión Actual (Registrar hoy) o agregar documento" : "Fecha Creación");
+        // En edición ya no es obligatorio (ver isFormValid); en creación sigue exigiendo
+        // la fecha de la revisión inicial.
+        if (!isEdit && !hasNewRevision) {
+            missing.push("Fecha Creación");
         }
 
         if (!formData.id_muestreador) missing.push("Responsable (Muestreador)");
@@ -858,7 +834,26 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         try {
             const isEdit = !!initialData?.id_equipo;
             if (isEdit) {
-                const data = { ...formData, equipo_asociado: (formData.equipo_asociado === 'No Aplica' || !formData.equipo_asociado) ? '0' : String(formData.equipo_asociado) };
+                // El documento se sube recién acá, no al elegirlo — si la subida falla,
+                // el guardado se corta antes de tocar la BD y no queda nada huérfano.
+                let documentoNombre = formData.documento_nombre;
+                let documentoRuta = formData.documento_ruta;
+                if (docFile) {
+                    setDocUploading(true);
+                    try {
+                        const subido = await equipoService.subirArchivoDocumento(docFile, docNombre.trim() || docFile.name);
+                        documentoNombre = subido.documento_nombre;
+                        documentoRuta = subido.documento_ruta;
+                    } finally {
+                        setDocUploading(false);
+                    }
+                }
+                const data = {
+                    ...formData,
+                    documento_nombre: documentoNombre,
+                    documento_ruta: documentoRuta,
+                    equipo_asociado: (formData.equipo_asociado === 'No Aplica' || !formData.equipo_asociado) ? '0' : String(formData.equipo_asociado),
+                };
                 await equipoService.updateEquipo(initialData!.id_equipo, data);
                 if (initialData.requestId) {
                     const isTech = initialData.requestStatus === 'PENDIENTE_TECNICA';
@@ -1470,7 +1465,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <Input
                                         type="date"
                                         value={formData.siguiente_verificacion}
-                                        readOnly
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, siguiente_verificacion: e.target.value }))}
                                         className={cn(attemptedSubmit && !formData.siguiente_verificacion && 'border-destructive')}
                                     />
                                     {attemptedSubmit && !formData.siguiente_verificacion && <p className="text-xs text-destructive">Obligatorio</p>}
@@ -1526,13 +1521,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             Adjunte el informe de la mantención, una foto del equipo intervenido o el certificado de calibración (PDF o imagen, hasta 20 MB). Queda asociado a esta revisión: al registrar la próxima, el informe actual pasa al historial junto con su versión.
                                         </p>
 
-                                        {formData.documento_ruta ? (
+                                        {(formData.documento_ruta || docFile) ? (
                                             <Attachment size="sm">
                                                 <AttachmentMedia>
                                                     <IconFile />
                                                 </AttachmentMedia>
                                                 <AttachmentContent>
-                                                    <AttachmentTitle>{formData.documento_nombre || 'Documento'}</AttachmentTitle>
+                                                    <AttachmentTitle>{docFile ? docFile.name : (formData.documento_nombre || 'Documento')}</AttachmentTitle>
                                                     <AttachmentDescription>
                                                         {docFile
                                                             ? `Pendiente de guardar${formatearTamano(docTamano) ? ` · ${formatearTamano(docTamano)}` : ''}`

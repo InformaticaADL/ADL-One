@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import equipoService from '../services/equipo.service.js';
 import equipoExcelImportService from '../services/equipo-excel-import.service.js';
+import equipoTemperaturaImportService from '../services/equipo-temperatura-import.service.js';
 import logger from '../utils/logger.js';
 
 // La descarga pasa por la API (y no por el /uploads estático) para que respete
@@ -212,6 +213,21 @@ export const equipoController = {
             res.json({ success: true, ...resultado, rowErrors });
         } catch (error) {
             logger.error('Controller analizarExcel error:', error);
+            res.status(400).json({ success: false, message: error.message || 'No se pudo analizar el archivo' });
+        }
+    },
+
+    // Solo lee y compara el "Resumen Verificaciones Intermedias T°": no crea
+    // equipos (ese archivo no trae nombre/tipo/sede), solo ofrece actualizar
+    // los que ya existen.
+    analizarExcelTemperatura: async (req, res) => {
+        try {
+            if (!req.file) return res.status(400).json({ success: false, message: 'Debe adjuntar un archivo Excel' });
+            const { rows, rowErrors } = await equipoTemperaturaImportService.parseTemperaturaExcel(req.file.buffer);
+            const resultado = await equipoTemperaturaImportService.compararConBD(rows);
+            res.json({ success: true, ...resultado, rowErrors });
+        } catch (error) {
+            logger.error('Controller analizarExcelTemperatura error:', error);
             res.status(400).json({ success: false, message: error.message || 'No se pudo analizar el archivo' });
         }
     },

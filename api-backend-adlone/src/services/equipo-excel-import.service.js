@@ -4,8 +4,10 @@ import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
 
 // Quita tildes, pasa a mayúsculas y colapsa espacios — usado tanto para
-// encabezados de columna como para comparar valores de texto.
-const normalize = (value) => {
+// encabezados de columna como para comparar valores de texto. Exportado
+// porque equipo-temperatura-import.service.js reutiliza este mismo helper
+// (y toYYYYMMDD/parseCellValue/esSiNo más abajo) en vez de duplicarlo.
+export const normalize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value)
         .normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -15,35 +17,30 @@ const normalize = (value) => {
 };
 
 // Cada campo que nos interesa, con los fragmentos (ya normalizados) que
-// identifican su columna en la plantilla. Se usa "includes" en vez de
-// igualdad estricta para tolerar pequeños cambios de redacción del header.
+// identifican su columna en el inventario real (OI-FoGe-21). Se usa
+// "includes" en vez de igualdad estricta para tolerar pequeños cambios de
+// redacción del header entre versiones del archivo.
+//
+// Importante: "Última/Próxima Verificación Trimestral T°" NO tiene keyword
+// acá a propósito — son las columnas de temperatura que este análisis omite
+// por instrucción explícita. Esas se leen aparte, en
+// equipo-temperatura-import.service.js, desde el otro archivo.
 const HEADER_KEYWORDS = {
-    nombre: ['NOMBRE DEL EQUIPO'],
-    tipo: ['TIPO'],
-    que_mide: ['QUE MIDE'],
-    unidad_medida_textual: ['UNIDAD DE MEDIDA (TEXTO)', 'UNIDAD DE MEDIDA TEXTO'],
-    unidad_medida_sigla: ['UNIDAD DE MEDIDA (SIGLA)', 'UNIDAD DE MEDIDA SIGLA'],
-    ubicacion: ['SEDE'],
-    sigla: ['SIGLA'],
-    correlativo: ['CORRELATIVO'],
     codigo: ['CODIGO'],
-    estado: ['ESTADO (ACTIVO', 'ESTADO ACTIVO'],
-    estado_equipo: ['ESTADO OPERATIVO'],
-    responsable_nombre: ['RESPONSABLE'],
-    equipo_asociado: ['EQUIPO ASOCIADO'],
-    tiene_fc: ['FACTOR DE CORRECCION'],
-    error0: ['ERROR 0'],
-    error15: ['ERROR 15'],
-    error30: ['ERROR 30'],
-    visible_muestreador: ['VISIBLE PARA MUESTREADOR'],
-    informe: ['INCLUIR EN INFORME'],
-    ultima_verificacion: ['ULTIMA VERIFICACION'],
-    siguiente_verificacion: ['SIGUIENTE VERIFICACION'],
-    plazo_vigencia: ['PLAZO DE VIGENCIA'],
-    observacion: ['OBSERVACION'],
+    nombre: ['NOMBRE DE EQUIPO', 'NOMBRE DEL EQUIPO'],
     marca: ['MARCA'],
     modelo: ['MODELO'],
-    serie: ['N DE SERIE', 'NUMERO DE SERIE', 'SERIE'],
+    serie: ['SERIE'],
+    ubicacion: ['SEDE'],
+    estado_equipo: ['ESTADO'],
+    observacion: ['OBSERVACION'],
+    responsable_nombre: ['RESPONSABLE'],
+    // Dos ciclos de verificación distintos que sí trae el inventario (la
+    // prioridad entre ambos se resuelve en parseEquiposExcel, no acá).
+    contrastacion_ultima: ['ULTIMA CONTRASTACION'],
+    contrastacion_proxima: ['PROXIMA CONTRASTACION'],
+    mantencion_ultima: ['ULTIMA MANTENCION'],
+    mantencion_proxima: ['PROXIMA MANTENCION'],
 };
 
 // Campos que se comparan contra la BD para decidir "coincide" vs "difiere".
@@ -72,7 +69,7 @@ const CAMPOS_SI_NO = ['tiene_fc', 'visible_muestreador', 'informe'];
 const CAMPOS_NUMERICOS = ['correlativo', 'error0', 'error15', 'error30', 'id_muestreador'];
 const CAMPOS_FECHA = ['ultima_verificacion', 'siguiente_verificacion'];
 
-const toYYYYMMDD = (value) => {
+export const toYYYYMMDD = (value) => {
     if (!value) return null;
     if (value instanceof Date) {
         if (Number.isNaN(value.getTime())) return null;
@@ -91,10 +88,14 @@ const toYYYYMMDD = (value) => {
         const [, y, m, d] = iso;
         return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
     }
-    return str;
+    // Cualquier otra cosa no es una fecha real — "No Aplica", "N/I", "-", etc.
+    // (habituales en el inventario real para campos sin dato). Devolverla tal
+    // cual la haría compararse como si fuera una fecha válida y generaría
+    // diferencias falsas contra la fecha real que ya tiene el equipo en la BD.
+    return null;
 };
 
-const parseCellValue = (raw) => {
+export const parseCellValue = (raw) => {
     if (raw === null || raw === undefined) return null;
     if (raw instanceof Date) return raw;
     if (typeof raw === 'object') {
@@ -106,7 +107,7 @@ const parseCellValue = (raw) => {
     return raw;
 };
 
-const esSiNo = (value) => {
+export const esSiNo = (value) => {
     const n = normalize(value);
     return n === 'SI' || n === 'S' || n === 'TRUE' || n === '1';
 };
@@ -117,8 +118,9 @@ const filaVacia = (valores) => Object.values(valores).every((v) => v === null ||
 
 class EquipoExcelImportService {
     /**
-     * Lee el archivo subido y devuelve las filas mapeadas a los nombres de
-     * campo que usan createEquipo/updateEquipo. No toca la base de datos.
+     * Lee el inventario real (OI-FoGe-21) subido y devuelve las filas
+     * mapeadas a los nombres de campo que usan createEquipo/updateEquipo.
+     * No toca la base de datos.
      */
     async parseEquiposExcel(fileBuffer) {
         const workbook = new ExcelJS.Workbook();
@@ -128,30 +130,39 @@ class EquipoExcelImportService {
             throw new Error('El archivo no es un Excel (.xlsx) válido.');
         }
 
-        const worksheet = workbook.getWorksheet('Plantilla Equipos')
-            || workbook.worksheets[1]
-            || workbook.worksheets[0];
-
+        const worksheet = workbook.getWorksheet('EQUIPOS MUESTREO') || workbook.worksheets[0];
         if (!worksheet) {
             throw new Error('El archivo Excel no tiene ninguna hoja con datos.');
         }
 
-        // 1. Mapear encabezados (fila 1) -> campo interno
-        const headerRow = worksheet.getRow(1);
-        const columnaPorCampo = {};
-        headerRow.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-            const header = normalize(parseCellValue(cell.value));
-            if (!header) return;
-            for (const [campo, keywords] of Object.entries(HEADER_KEYWORDS)) {
-                if (columnaPorCampo[campo]) continue; // ya encontrado, no sobrescribir
-                if (keywords.some((kw) => header.includes(kw))) {
-                    columnaPorCampo[campo] = colNumber;
+        // El inventario trae un bloque de membrete (logo, código del formulario,
+        // fecha de vigencia) de alto variable antes de la tabla real — en vez de
+        // asumir una fila fija, se busca la primera fila que tenga a la vez
+        // "Código" y "Nombre de Equipo", que es la fila de encabezados real.
+        let headerRowIndex = null;
+        let columnaPorCampo = {};
+        const maxScan = Math.min(20, worksheet.rowCount);
+        for (let r = 1; r <= maxScan; r++) {
+            const candidato = {};
+            worksheet.getRow(r).eachCell({ includeEmpty: false }, (cell, colNumber) => {
+                const header = normalize(parseCellValue(cell.value));
+                if (!header) return;
+                for (const [campo, keywords] of Object.entries(HEADER_KEYWORDS)) {
+                    if (candidato[campo]) continue; // ya encontrado en esta fila, no sobrescribir
+                    if (keywords.some((kw) => header.includes(kw))) {
+                        candidato[campo] = colNumber;
+                    }
                 }
+            });
+            if (candidato.codigo && candidato.nombre) {
+                headerRowIndex = r;
+                columnaPorCampo = candidato;
+                break;
             }
-        });
+        }
 
-        if (!columnaPorCampo.codigo && !columnaPorCampo.nombre) {
-            throw new Error('No se encontraron las columnas esperadas (Código, Nombre, etc.) en la primera fila del Excel.');
+        if (!headerRowIndex) {
+            throw new Error('No se encontraron las columnas esperadas (Código, Nombre de Equipo) en el archivo. ¿Es el inventario OI-FoGe-21?');
         }
 
         const getValor = (row, campo) => {
@@ -170,9 +181,7 @@ class EquipoExcelImportService {
         const rowErrors = [];
         const lastRow = worksheet.actualRowCount || worksheet.rowCount;
 
-        // Fila 1 = encabezado, fila 2 = ejemplo de la plantilla: los datos reales
-        // empiezan en la fila 3.
-        for (let rowNumber = 3; rowNumber <= lastRow; rowNumber++) {
+        for (let rowNumber = headerRowIndex + 1; rowNumber <= lastRow; rowNumber++) {
             const row = worksheet.getRow(rowNumber);
 
             const valoresCrudos = {};
@@ -184,35 +193,47 @@ class EquipoExcelImportService {
             const codigo = valoresCrudos.codigo ? String(valoresCrudos.codigo).trim() : null;
 
             try {
+                // Prioridad entre los dos ciclos de verificación que trae el inventario:
+                // Contrastación Semestral primero (la calibración "oficial"), luego
+                // Mantención Anual. Solo se usa un ciclo si tiene AMBAS fechas (última Y
+                // próxima) — así nunca se mezcla la última de un ciclo con la próxima de
+                // otro. Si ninguno trae el par completo, se deja null a propósito: el
+                // fallback a hoy/+90 días es solo para crear equipos nuevos y se aplica
+                // en el frontend, no acá — si lo pusiéramos acá, cada equipo sin fecha
+                // real en el Excel se marcaría "difiere" contra la fecha real que ya
+                // tiene guardada en la BD.
+                const contrastacionUltima = toYYYYMMDD(valoresCrudos.contrastacion_ultima);
+                const contrastacionProxima = toYYYYMMDD(valoresCrudos.contrastacion_proxima);
+                const mantencionUltima = toYYYYMMDD(valoresCrudos.mantencion_ultima);
+                const mantencionProxima = toYYYYMMDD(valoresCrudos.mantencion_proxima);
+                let ultimaVerificacion = null;
+                let siguienteVerificacion = null;
+                if (contrastacionUltima && contrastacionProxima) {
+                    ultimaVerificacion = contrastacionUltima;
+                    siguienteVerificacion = contrastacionProxima;
+                } else if (mantencionUltima && mantencionProxima) {
+                    ultimaVerificacion = mantencionUltima;
+                    siguienteVerificacion = mantencionProxima;
+                }
+
+                // Activo/Inactivo se deriva del texto de Estado — el inventario no trae
+                // una columna separada para esto. "Fuera de Servicio" cuenta como
+                // Inactivo igual que "Dado de Baja" (mismo criterio que ahora aplica
+                // también equipo.service.js al crear/editar).
+                const estadoTexto = normalize(valoresCrudos.estado_equipo);
+                const estado = (estadoTexto.includes('BAJA') || estadoTexto.includes('FUERA DE SERVICIO')) ? 'Inactivo' : 'Activo';
+
                 const parsedRow = {
                     rowNumber,
                     codigo,
                     nombre: valoresCrudos.nombre,
-                    tipo: valoresCrudos.tipo,
-                    que_mide: valoresCrudos.que_mide,
-                    unidad_medida_textual: valoresCrudos.unidad_medida_textual,
-                    unidad_medida_sigla: valoresCrudos.unidad_medida_sigla,
                     ubicacion: valoresCrudos.ubicacion,
-                    sigla: valoresCrudos.sigla,
-                    correlativo: valoresCrudos.correlativo !== null ? Number(valoresCrudos.correlativo) : null,
-                    estado: valoresCrudos.estado,
+                    estado,
                     estado_equipo: valoresCrudos.estado_equipo,
                     responsable_nombre: valoresCrudos.responsable_nombre,
-                    equipo_asociado: valoresCrudos.equipo_asociado,
-                    // Se deja null cuando la celda viene vacía (en vez de defaultear a 0/NO) para
-                    // que la comparación contra la BD sepa distinguir "no lo llenaron" de "lo
-                    // pusieron en 0/NO" y no marque una diferencia falsa. El default de negocio
-                    // (0/NO) se aplica solo al prellenar el formulario de creación, en el frontend.
-                    tiene_fc: valoresCrudos.tiene_fc !== null ? (esSiNo(valoresCrudos.tiene_fc) ? 'SI' : 'NO') : null,
-                    error0: valoresCrudos.error0 !== null ? Number(valoresCrudos.error0) : null,
-                    error15: valoresCrudos.error15 !== null ? Number(valoresCrudos.error15) : null,
-                    error30: valoresCrudos.error30 !== null ? Number(valoresCrudos.error30) : null,
-                    visible_muestreador: valoresCrudos.visible_muestreador !== null ? (esSiNo(valoresCrudos.visible_muestreador) ? 'SI' : 'NO') : null,
-                    informe: valoresCrudos.informe !== null ? (esSiNo(valoresCrudos.informe) ? 'SI' : 'NO') : null,
-                    ultima_verificacion: toYYYYMMDD(valoresCrudos.ultima_verificacion),
-                    siguiente_verificacion: toYYYYMMDD(valoresCrudos.siguiente_verificacion),
-                    plazo_vigencia: valoresCrudos.plazo_vigencia,
                     observacion: valoresCrudos.observacion,
+                    ultima_verificacion: ultimaVerificacion,
+                    siguiente_verificacion: siguienteVerificacion,
                     referencia: {
                         marca: valoresCrudos.marca,
                         modelo: valoresCrudos.modelo,
@@ -252,6 +273,21 @@ class EquipoExcelImportService {
                 .map((m) => [normalize(m.nombre_muestreador), m])
         );
 
+        // El inventario no trae Tipo / Qué Mide / Unidad de Medida — se resuelven
+        // desde el catálogo de equipos por coincidencia de Nombre (el mismo que ya
+        // usa EquipoForm al autocompletar esos campos al elegir un nombre).
+        let catalogo = [];
+        try {
+            catalogo = await equipoService.getEquipoCatalogo();
+        } catch (err) {
+            logger.error('[EquipoExcelImport] No se pudo cargar el catálogo de equipos:', err);
+        }
+        const catalogoPorNombre = new Map(
+            (catalogo || [])
+                .filter((c) => c.nombre)
+                .map((c) => [normalize(c.nombre), c])
+        );
+
         const items = parsedRows.map((row) => {
             const warnings = [];
 
@@ -265,28 +301,23 @@ class EquipoExcelImportService {
                 }
             }
 
+            const catalogoMatch = row.nombre ? catalogoPorNombre.get(normalize(row.nombre)) : null;
+            if (row.nombre && !catalogoMatch) {
+                warnings.push(`Nombre "${row.nombre}" no está en el catálogo de equipos; complete Tipo manualmente al editar.`);
+            }
+
             const excelData = {
                 codigo: row.codigo,
                 nombre: row.nombre,
-                tipo: row.tipo,
-                que_mide: row.que_mide,
-                unidad_medida_textual: row.unidad_medida_textual,
-                unidad_medida_sigla: row.unidad_medida_sigla,
+                tipo: catalogoMatch?.tipo_equipo || null,
+                que_mide: catalogoMatch?.que_mide || null,
+                unidad_medida_textual: catalogoMatch?.unidad_medida_textual || null,
+                unidad_medida_sigla: catalogoMatch?.unidad_medida_sigla || null,
                 ubicacion: row.ubicacion,
-                sigla: row.sigla,
-                correlativo: row.correlativo,
                 estado: row.estado,
                 estado_equipo: row.estado_equipo,
-                equipo_asociado: row.equipo_asociado,
-                tiene_fc: row.tiene_fc,
-                error0: row.error0,
-                error15: row.error15,
-                error30: row.error30,
-                visible_muestreador: row.visible_muestreador,
-                informe: row.informe,
                 ultima_verificacion: row.ultima_verificacion,
                 siguiente_verificacion: row.siguiente_verificacion,
-                plazo_vigencia: row.plazo_vigencia,
                 observacion: row.observacion,
                 id_muestreador: idMuestreadorResuelto,
             };

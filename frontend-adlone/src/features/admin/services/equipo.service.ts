@@ -89,11 +89,38 @@ export interface AnalisisExcelResponse {
     rowErrors: { rowNumber: number; message: string }[];
 }
 
+export interface AnalisisTemperaturaItem {
+    rowNumber: number;
+    codigo: string | null;
+    nombre: string | null;
+    status: 'coincide' | 'difiere' | 'no_encontrado';
+    id_equipo: number | null;
+    excelData: Partial<Equipo>;
+    diffs: { campo: string; etiqueta: string; valorExcel: unknown; valorBD: unknown }[];
+    warnings: string[];
+}
+
+export interface AnalisisTemperaturaResponse {
+    success: boolean;
+    resumen: { total: number; coinciden: number; difieren: number; noEncontrados: number };
+    items: AnalisisTemperaturaItem[];
+    rowErrors: { rowNumber: number; message: string }[];
+}
+
 export const equipoService = {
     analizarExcel: async (file: File): Promise<AnalisisExcelResponse> => {
         const formData = new FormData();
         formData.append('archivo', file);
         const response = await apiClient.post('/api/admin/equipos/import-excel/analizar', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+    analizarExcelTemperatura: async (file: File): Promise<AnalisisTemperaturaResponse> => {
+        const formData = new FormData();
+        formData.append('archivo', file);
+        const response = await apiClient.post('/api/admin/equipos/import-excel/analizar-temperatura', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;

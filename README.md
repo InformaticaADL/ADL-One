@@ -732,6 +732,51 @@ frontend-adlone/
   - **Eliminación de Filtro Excluyente en Backend**: Se removió la condición restrictiva `e.seleccionado = 'S'` en la consulta de equipos asociados al muestreo en `ficha.service.js`, garantizando que se listen todos los equipos asignados incluso si la aplicación móvil de terreno no alcanzó a marcar el flag de selección.
   - **Sección "Otros Equipos Asignados"**: Se ajustó `FichaDetailView.tsx` para no omitir equipos que carecen de las banderas explícitas `usado_instalacion` o `usado_retiro`, desplegándolos en un bloque dedicado para asegurar la visibilidad de todos los activos asignados.
 
+### 81. Corrección de Bugs Críticos de Datos y Formulario de Equipos (Octubre 2026) 🐛🔧
+
+- **Fix de Protocolo TDS — Normalización de `tienefc`**:
+  - `equipo.service.js` — Se detectaron 655 equipos con el valor legado `tienefc='Si'` (2 caracteres) en `mae_equipo`, previo a la normalización a un solo carácter ('S'/'N'). Bindear ese valor crudo contra un parámetro SQL `VarChar(1)` rompía el protocolo TDS con el error *"Data type 0xA7 has an invalid data length or metadata length"*.
+  - Se aplicó el helper ya existente `flagSN()` (usado correctamente en `insertHistorialSnapshot`) en los 3 puntos que aún bindeaban el valor crudo: `updateEquipo` (fallback a `current.tienefc`), el archivado a historial dentro de `deleteEquipo`, y `restoreVersion`.
+  - Causa raíz reproducida y verificada de forma aislada antes y después del fix contra la base de datos real.
+- **Campo "Siguiente Revisión" editable (`EquipoForm.tsx`)**:
+  - El `<Input type="date">` de "Siguiente Revisión (Vigente hasta:)" tenía `readOnly` sin ningún `onChange` asociado, impidiendo modificarlo manualmente pese a que su propio texto de ayuda indicaba que era editable. Se agregó el handler correspondiente.
+- **Flexibilización de la Validación de Edición (`EquipoForm.tsx`)**:
+  - Se eliminó la exigencia de registrar una nueva "Última Verificación" o adjuntar un documento como condición obligatoria para poder guardar una edición de equipo — bloqueaba ediciones simples (ej. corregir el Estado o la Observación) que no implican una revisión real.
+
+### 82. Analizador de Equipos sobre el Inventario Real y Nuevo Analizador de Temperatura (Octubre 2026) 📊🌡️
+
+- **Migración del Parser al Inventario Real (`equipo-excel-import.service.js`)**:
+  - Reemplazo de la plantilla genérica original por el parseo directo del inventario real mantenido por el área (**OI-FoGe-21 — Inventario de Equipos Medio Ambiente**, hoja "EQUIPOS MUESTREO"), con detección dinámica de la fila de encabezados (tolerante a cambios en el bloque de membrete superior).
+  - **Resolución automática de Tipo / Qué Mide / Unidad de Medida**: el inventario no trae estas columnas — se resuelven por coincidencia exacta de "Nombre de Equipo" contra el catálogo `mae_equipo_catalogo`, con advertencia explícita cuando un nombre no tiene match.
+  - **Prioridad entre ciclos de verificación**: el inventario trae dos ciclos distintos (Contrastación Semestral, Mantención Anual); se usa el primero que tenga ambas fechas completas, dejando el campo en `null` (no comparable) si ninguno aplica, para no generar diferencias falsas contra equipos sin fecha real registrada. El fallback hoy/+90 días solo se aplica al crear un equipo nuevo, nunca en la comparación.
+  - **Estado Activo/Inactivo derivado del texto**: "Dado de Baja" y "Fuera de Servicio" marcan el equipo como inactivo (antes solo se detectaba "baja"), tanto en el parser como en la sincronización de `habilitado` dentro de `createEquipo`/`updateEquipo`.
+  - **Fix de parseo de fechas**: `toYYYYMMDD()` trataba texto no-fecha ("No Aplica", "N/I") como si fuera una fecha válida, generando cientos de diferencias falsas contra la BD — corregido para devolver `null` en esos casos.
+- **Nuevo Analizador de Temperatura (`equipo-temperatura-import.service.js`, `EquipoTemperaturaAnalysisModal.tsx`)**:
+  - Analizador independiente para el archivo **Resumen Verificaciones Intermedias T°**, que compara Error 0°/15°/30° y Factor de Corrección contra lo almacenado en `mae_equipo`.
+  - A diferencia del analizador de equipos, **no crea equipos nuevos** (el archivo no trae nombre/tipo/sede) — solo ofrece actualizar los que ya existen; los códigos no encontrados quedan marcados como advertencia.
+  - Nuevo endpoint `POST /api/admin/equipos/import-excel/analizar-temperatura`, protegido por el mismo permiso `EQ_IMPORT_EXCEL`.
+- **Acciones Directas de Guardado**:
+  - Botones "Subir" (crea el equipo directamente con los datos del Excel, sin pasar por el formulario) y "Actualizar" (update parcial solo con los campos que trae el Excel) por fila, además de "Subir Todo"/"Actualizar Todo" para procesar en lote de forma secuencial.
+
+### 83. Sistema de Filtros, Confirmación de Lotes y Diseño Unificado en Analizadores de Excel (Octubre 2026) 🔍📋🎨
+
+- **Componentes Compartidos (`excelAnalysisShared.tsx`)**: nueva librería de piezas visuales reutilizadas entre ambos analizadores (Equipos y Temperatura) para evitar duplicación.
+  - `DiffDetailView`: vista "Ver" con dos paneles lado a lado — "Actual (Base de Datos)" vs. "Nuevo (Excel)" — por cada campo con diferencia, con botón "Volver a resultados" que no reanaliza ni pierde el estado de la lista.
+  - `StatCard` clicable: los contadores (Coinciden/Difieren/No existen) funcionan como filtro rápido por estado.
+  - `BusquedaFlotante`: botón de lupa que despliega un cuadro de búsqueda (Popover) para filtrar por código o nombre en memoria.
+  - `LoteResultadoView`: pantalla de confirmación al terminar un lote ("Subir Todo"/"Actualizar Todo"), con detalle de los ítems fallidos y botón "Reintentar" por fila.
+- **Filtros Client-Side**: filtro por sede (Equipos), toggle "Solo con advertencias" y contador de resultados filtrados — todo sobre el array ya cargado en memoria, sin golpear el backend.
+- **Confirmación de Lotes con Respaldo en `localStorage`**:
+  - El modal bloquea su cierre (`DialogContent` con nuevo prop `showCloseButton`, interceptando `onInteractOutside`/`onEscapeKeyDown`) mientras un lote está en curso, con aviso nativo del navegador (`beforeunload`) ante un cierre accidental de pestaña.
+  - El progreso de cada ítem procesado se respalda en `localStorage`; si el navegador se cierra o recarga a mitad de un lote, al reabrir el modal se recupera la pantalla de confirmación con el resultado exacto donde quedó.
+- **Alineación Visual con `EquiposPage.tsx`**: badges de estado sin ícono (texto plano, igual que el resto de la app), contenedor de tabla `rounded-xl`/`bg-card`, y estilo de columnas Código/Nombre igualado al de la tabla principal de equipos.
+
+### 84. Integridad Referencial y Prevención de Huérfanos en Equipos (Octubre 2026) 🔗🧹
+
+- **Renombrado en Cascada de `equipo_asociado` (`equipo.service.js`)**: al cambiar el código de un equipo dentro de `updateEquipo`, cualquier otro equipo que lo tuviera guardado como "equipo asociado" se actualiza automáticamente al código nuevo en la misma transacción, evitando que el vínculo quede apuntando en silencio a un código inexistente. Verificado con un par real de la base de datos (renombrado y reversión).
+- **Corrección de Anchos de Columna (`sigla`, `equipo_asociado`)**: los 5 caminos de escritura de `mae_equipo` (`createEquipo`, `createEquiposBulk`, `updateEquipo`, `deleteEquipo`, `restoreVersion`) bindeaban `sigla` y `equipo_asociado` con anchos `VarChar` más angostos que las columnas reales (confirmado contra `import_all_equipos.js`), generando el mismo error de protocolo TDS que `tienefc` ante valores reales que los superaban. Corregido a los anchos reales en la tabla principal, y con `clip()` en los inserts a `mae_equipo_historial` (columnas más angostas por diseño).
+- **Carga Diferida de Documentos (`EquipoForm.tsx`)**: el documento de mantención ya no se sube al servidor al seleccionarlo, sino recién al guardar el equipo — evita que cancelar el formulario o quitar el documento antes de guardar deje archivos huérfanos en disco.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -821,10 +866,16 @@ npm run dev       # Puerto 5173
 | **Soporte Fichas Tipo Puntual (FichaDetailView)** | Detección `isPuntual` + UI adaptativa en Fotos y Firmas sin romper flujo Continua | ✅ Implementado |
 | **Optimización UI Móvil de Rutas** | Mapa cuadrado fijo superior + lista dinámica inferior + botón anclado | ✅ Implementado |
 | **Estabilidad de Notificaciones en Móvil** | Prevención de Touch-Cancel (onPointerDown) + enrutamiento síncrono antes del cierre + Botón X de cerrado manual | ✅ Implementado |
-| **Importación y Análisis Excel (Equipos)** | Parseo ExcelJS + Comparador BD + Modal con Diffs + Permiso EQ_IMPORT_EXCEL | ✅ Implementado |
+| **Importación y Análisis Excel (Equipos)** | Parseo del inventario real OI-FoGe-21 + resolución de catálogo + comparador BD + Modal con Diffs + Permiso EQ_IMPORT_EXCEL | ✅ Implementado |
 | **Persistencia de Tabs en FichaUniversal** | forceMount en Radix TabsContent + preservación de antecedentesRef | ✅ Implementado |
 | **Validación Condicional UTM** | Exclusión de UTM Norte/Este cuando Zona es "No aplica" | ✅ Implementado |
 | **Visibilidad Integral de Equipos en Ficha** | Eliminación de filtro restrictivo seleccionado='S' + sección Otros Equipos | ✅ Implementado |
+| **Normalización de Datos Legados (tienefc)** | Helper flagSN aplicado en updateEquipo/deleteEquipo/restoreVersion — fix de error TDS 0xA7 | ✅ Implementado |
+| **Analizador de Temperatura (Equipos)** | Comparador de Error 0/15/30 contra "Resumen Verificaciones Intermedias T°" + solo actualización (sin alta) | ✅ Implementado |
+| **Confirmación de Lotes con localStorage** | Bloqueo de cierre durante Subir/Actualizar Todo + pantalla de confirmación + reintento por fila + respaldo ante cierre accidental | ✅ Implementado |
+| **Filtros y Búsqueda en Analizadores Excel** | StatCards clicables, filtro por sede, toggle de advertencias, búsqueda flotante por código/nombre | ✅ Implementado |
+| **Integridad de equipo_asociado** | Renombrado en cascada al cambiar el código de un equipo dentro de la misma transacción | ✅ Implementado |
+| **Carga Diferida de Documentos de Equipo** | Subida del archivo recién al guardar (no al seleccionar) — elimina archivos huérfanos en disco | ✅ Implementado |
 
 ---
 

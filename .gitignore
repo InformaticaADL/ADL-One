@@ -75,5 +75,8 @@ Formato_Carga_Masiva_ADL_LIMPIO Agua dulce_FIX MF_CORREGIDO.xlsx
 Formato_Carga_Masiva_ADL_LIMPIO Agua dulce_FIX.xlsx
 Formato_Carga_Masiva_ADL_LIMPIO.xlsx
 RE Levantamiento sistema de facturación  (495 MB).msg
+OI-FoGe-21*.xlsx
+Resumen Verificaciones Intermedias*.xlsx
 create_clean_template.mjs
 run_facturacion_migration.mjs
+

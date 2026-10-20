@@ -718,13 +718,17 @@ export const equipoService = {
             request.input('sede', sql.VarChar(8000), data.ubicacion);
             request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
             request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
-            request.input('sigla', sql.VarChar(10), data.sigla || '');
+            // Anchos reales de mae_equipo (confirmados contra import_all_equipos.js, el script
+            // que originalmente cargó la tabla): sigla VarChar(20), equipo_asociado VarChar(200).
+            // Usar anchos más angostos acá rompe el protocolo TDS con cualquier valor real que
+            // los supere — mismo tipo de bug ya confirmado y corregido para tienefc.
+            request.input('sigla', sql.VarChar(20), data.sigla || '');
             request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
             request.input('tienefc', sql.VarChar(1), (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N');
             request.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(data.error0)) ? 0 : parseFloat(data.error0));
             request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
             request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
-            request.input('equipo_asociado', sql.VarChar(20), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
+            request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
             request.input('observacion', sql.VarChar(8000), data.observacion || '');
             request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
             request.input('que_mide', sql.VarChar(8000), data.que_mide || '');
@@ -734,10 +738,12 @@ export const equipoService = {
             request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
             request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
             request.input('plazo_vigencia', sql.VarChar(500), data.plazo_vigencia || null);
-            // Estado sincroniza con habilitado: Dado de Baja → 'N', Operativo u otro valor → lo que vino de "estado".
-            // Un solo request.input('habilitado', ...): mssql no permite declarar el mismo parámetro dos veces.
+            // Estado sincroniza con habilitado: Dado de Baja o Fuera de Servicio → 'N', Operativo
+            // u otro valor → lo que vino de "estado". Un solo request.input('habilitado', ...):
+            // mssql no permite declarar el mismo parámetro dos veces.
             const estadoEquipoCreate = data.estado_equipo || null;
-            const habilitadoCreate = (estadoEquipoCreate && estadoEquipoCreate.toLowerCase().includes('baja'))
+            const estadoEquipoCreateL = estadoEquipoCreate ? estadoEquipoCreate.toLowerCase() : '';
+            const habilitadoCreate = (estadoEquipoCreateL.includes('baja') || estadoEquipoCreateL.includes('fuera de servicio'))
                 ? 'N'
                 : (data.estado === 'Activo' ? 'S' : 'N');
             request.input('habilitado', sql.VarChar(1), habilitadoCreate);
@@ -798,13 +804,13 @@ export const equipoService = {
                 request.input('fecha_vigencia', sql.Date, parseSqlDate(data.vigencia));
                 request.input('id_muestreador', sql.Numeric(10, 0), data.id_muestreador || 0);
                 request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
-                request.input('sigla', sql.VarChar(10), data.sigla || '');
+                request.input('sigla', sql.VarChar(20), data.sigla || '');
                 request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
                 request.input('tienefc', sql.VarChar(1), (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N');
                 request.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(data.error0)) ? 0 : parseFloat(data.error0));
                 request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
                 request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
-                request.input('equipo_asociado', sql.VarChar(20), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
+                request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
                 request.input('observacion', sql.VarChar(8000), data.observacion || '');
                 request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
                 request.input('que_mide', sql.VarChar(8000), data.que_mide || '');
@@ -930,7 +936,8 @@ export const equipoService = {
             requestMain.input('id', sql.Int, id);
 
             // Partial Update Support: If a field is missing in 'data', use 'current' value
-            requestMain.input('codigo', sql.VarChar(8000), data.hasOwnProperty('codigo') ? data.codigo : current.codigo);
+            const nuevoCodigo = data.hasOwnProperty('codigo') ? data.codigo : current.codigo;
+            requestMain.input('codigo', sql.VarChar(8000), nuevoCodigo);
             requestMain.input('nombre', sql.VarChar(8000), data.hasOwnProperty('nombre') ? data.nombre : current.nombre);
             requestMain.input('tipoequipo', sql.VarChar(8000), data.hasOwnProperty('tipo') ? data.tipo : current.tipoequipo);
             requestMain.input('sede', sql.VarChar(8000), data.hasOwnProperty('ubicacion') ? data.ubicacion : current.sede);
@@ -940,20 +947,24 @@ export const equipoService = {
             requestMain.input('fecha_vigencia', sql.Date, parseSqlDate(vigDate));
 
             requestMain.input('id_muestreador', sql.Numeric(10, 0), data.hasOwnProperty('id_muestreador') ? data.id_muestreador : (current.id_muestreador || 0));
-            // Si el estado_equipo se cambió explícitamente a 'baja' u 'operativo',
-            // sincronizar el flag habilitado AQUÍ (un solo .input) para no generar
+            // Si el estado_equipo se cambió explícitamente a 'baja'/'fuera de servicio' u
+            // 'operativo', sincronizar el flag habilitado AQUÍ (un solo .input) para no generar
             // el error "A parameter with this name already exists" de mssql.
             const estadoEqFinal = data.hasOwnProperty('estado_equipo') ? data.estado_equipo : current.Estado;
             let habilitadoFinal = data.hasOwnProperty('estado') ? (data.estado === 'Activo' ? 'S' : 'N') : current.habilitado;
             if (estadoEqFinal) {
                 const eL = estadoEqFinal.toLowerCase();
-                if (eL.includes('baja')) habilitadoFinal = 'N';
+                if (eL.includes('baja') || eL.includes('fuera de servicio')) habilitadoFinal = 'N';
                 else if (eL.includes('operativo')) habilitadoFinal = 'S';
             }
             requestMain.input('habilitado', sql.VarChar(1), habilitadoFinal);
-            requestMain.input('sigla', sql.VarChar(10), data.hasOwnProperty('sigla') ? (data.sigla || '') : (current.sigla || ''));
+            // Ancho real de mae_equipo.sigla (ver nota en createEquipo) es VarChar(20), no 10.
+            requestMain.input('sigla', sql.VarChar(20), data.hasOwnProperty('sigla') ? (data.sigla || '') : (current.sigla || ''));
             requestMain.input('correlativo', sql.Numeric(10, 0), data.hasOwnProperty('correlativo') ? (data.correlativo || 0) : (current.correlativo || 0));
-            requestMain.input('tienefc', sql.VarChar(1), data.hasOwnProperty('tiene_fc') ? ((data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N') : (current.tienefc || 'N'));
+            // flagSN normaliza siempre a 1 char — hay ~655 equipos con tienefc='Si' (2
+            // chars) heredado de antes de que la app normalizara este flag; bindearlo
+            // crudo contra un parámetro VarChar(1) rompe el protocolo TDS.
+            requestMain.input('tienefc', sql.VarChar(1), data.hasOwnProperty('tiene_fc') ? flagSN(data.tiene_fc, 'N') : flagSN(current.tienefc, 'N'));
 
             const error0 = data.hasOwnProperty('error0') ? data.error0 : current.error0;
             requestMain.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(error0)) ? 0 : parseFloat(error0));
@@ -1050,6 +1061,22 @@ export const equipoService = {
                     version = @version${docSet}
                 WHERE id_equipo = @id
             `;
+            // Si el código cambió, cualquier OTRO equipo que lo tuviera guardado como
+            // "equipo asociado" (es una referencia por texto, no por FK) se actualiza acá
+            // mismo al código nuevo, dentro de la misma transacción — si no, ese vínculo
+            // quedaba apuntando en silencio a un código que ya no existe.
+            if (nuevoCodigo && current.codigo && nuevoCodigo !== current.codigo) {
+                await new sql.Request(transaction)
+                    .input('codigoViejo', sql.VarChar(200), current.codigo)
+                    .input('codigoNuevo', sql.VarChar(200), nuevoCodigo)
+                    .input('idActual', sql.Int, id)
+                    .query(`
+                        UPDATE mae_equipo
+                        SET equipo_asociado = @codigoNuevo
+                        WHERE equipo_asociado = @codigoViejo AND id_equipo != @idActual
+                    `);
+            }
+
             await requestMain.query(queryUpdate);
 
             // La versión nueva también queda en el historial con su documento
@@ -1172,13 +1199,16 @@ export const equipoService = {
             requestHist.input('fecha_vigencia', sql.Date, current.fecha_vigencia);
             requestHist.input('id_muestreador', sql.Numeric(10, 0), current.id_muestreador);
             requestHist.input('habilitado', sql.VarChar(1), 'N');
-            requestHist.input('sigla', sql.VarChar(10), current.sigla);
+            // mae_equipo_historial tiene columnas más angostas que mae_equipo (ver nota al
+            // inicio del archivo): sin clip(), un sigla/equipo_asociado que cupiera en
+            // mae_equipo pero no en el historial rompe el protocolo TDS igual que tienefc.
+            requestHist.input('sigla', sql.VarChar(10), clip(current.sigla, 10));
             requestHist.input('correlativo', sql.Numeric(10, 0), current.correlativo);
-            requestHist.input('tienefc', sql.VarChar(1), current.tienefc);
+            requestHist.input('tienefc', sql.VarChar(1), flagSN(current.tienefc, 'N'));
             requestHist.input('error0', sql.Numeric(10, 1), current.error0);
             requestHist.input('error15', sql.Numeric(10, 1), current.error15);
             requestHist.input('error30', sql.Numeric(10, 1), current.error30);
-            requestHist.input('equipo_asociado', sql.VarChar(20), current.equipo_asociado);
+            requestHist.input('equipo_asociado', sql.VarChar(20), clip(current.equipo_asociado, 20));
             requestHist.input('observacion', sql.VarChar(8000), current.observacion);
             requestHist.input('visible_muestreador', sql.VarChar(1), current.visible_muestreador);
             requestHist.input('que_mide', sql.VarChar(8000), current.que_mide);
@@ -1265,13 +1295,13 @@ export const equipoService = {
             updReq.input('fecha_vigencia', sql.Date, target.fecha_vigencia);
             updReq.input('id_muestreador', sql.Numeric(10, 0), target.id_muestreador || 0);
             updReq.input('habilitado', sql.VarChar(1), target.habilitado || 'S');
-            updReq.input('sigla', sql.VarChar(10), target.sigla || '');
+            updReq.input('sigla', sql.VarChar(20), target.sigla || '');
             updReq.input('correlativo', sql.Numeric(10, 0), target.correlativo || 0);
-            updReq.input('tienefc', sql.VarChar(1), target.tienefc || 'N');
+            updReq.input('tienefc', sql.VarChar(1), flagSN(target.tienefc, 'N'));
             updReq.input('error0', sql.Numeric(10, 1), target.error0 || 0);
             updReq.input('error15', sql.Numeric(10, 1), target.error15 || 0);
             updReq.input('error30', sql.Numeric(10, 1), target.error30 || 0);
-            updReq.input('equipo_asociado', sql.VarChar(20), target.equipo_asociado || '0');
+            updReq.input('equipo_asociado', sql.VarChar(200), target.equipo_asociado || '0');
             updReq.input('observacion', sql.VarChar(8000), target.observacion || '');
             updReq.input('visible_muestreador', sql.VarChar(1), target.visible_muestreador || 'N');
             updReq.input('que_mide', sql.VarChar(8000), target.que_mide || '');
