@@ -201,7 +201,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         ultima_verificacion: initialRevision,
         siguiente_verificacion: initialSiguiente,
         plazo_vigencia: '',
-        estado_equipo: ''
+        estado_equipo: '',
+        proveedor: '',
+        fecha_compra: '',
+        documento_compra: '',
+        n_documento_compra: '',
+        valor_unitario: '',
+        fecha_baja: ''
     });
 
     const [loading, setLoading] = useState(false);
@@ -442,7 +448,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         ultima_verificacion: origUltima,
                         siguiente_verificacion: origSiguiente,
                         plazo_vigencia: baseData.plazo_vigencia || '',
-                        estado_equipo: baseData.estado_equipo || ''
+                        estado_equipo: baseData.estado_equipo || '',
+                        proveedor: baseData.proveedor || '',
+                        fecha_compra: baseData.fecha_compra ? baseData.fecha_compra.split('T')[0] : '',
+                        documento_compra: baseData.documento_compra || '',
+                        n_documento_compra: baseData.n_documento_compra || '',
+                        valor_unitario: baseData.valor_unitario ?? '',
+                        fecha_baja: baseData.fecha_baja ? baseData.fecha_baja.split('T')[0] : ''
                     });
 
                     if (hasId) {
@@ -577,6 +589,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         };
         const siNo = (v: any) => (['S', 'SI', 'Si'].includes(String(v ?? '').trim()) ? 'Sí' : 'No');
         const asociado = (v: any) => (v === null || v === undefined || v === '' || v === '0' || v === 'No Aplica' ? 'No aplica' : String(v));
+        // Mismo patrón que fmtClp en el módulo de Facturación ("$ " + miles con punto).
+        const peso = (v: any) => {
+            if (v === null || v === undefined || v === '') return '—';
+            const n = Number(v);
+            return Number.isNaN(n) ? String(v) : `$ ${n.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`;
+        };
 
         const snap = (x: any, esForm: boolean) => ({
             codigo: dash(x.codigo),
@@ -595,12 +613,21 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             error0: String(x.error0 ?? 0),
             error15: String(x.error15 ?? 0),
             error30: String(x.error30 ?? 0),
+            fc0: dash(x.fc0),
+            fc15: dash(x.fc15),
+            fc30: dash(x.fc30),
             fc: siNo(x.tiene_fc),
             visible: siNo(x.visible_muestreador),
             informe: siNo(x.informe),
             asociado: asociado(x.equipo_asociado),
             documento: x.documento_ruta ? dash(x.documento_nombre || 'Documento') : 'Sin documento',
-            observacion: dash(x.observacion)
+            observacion: dash(x.observacion),
+            proveedor: dash(x.proveedor),
+            fechaCompra: fechaDMY(x.fecha_compra),
+            documentoCompra: dash(x.documento_compra),
+            nDocumentoCompra: dash(x.n_documento_compra),
+            valorUnitario: peso(x.valor_unitario),
+            fechaBaja: fechaDMY(x.fecha_baja)
         });
 
         const a = snap(base, false);
@@ -609,9 +636,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         const secciones: Array<{ titulo: string; campos: Array<[string, keyof typeof a]> }> = [
             { titulo: 'Identificación', campos: [['Código', 'codigo'], ['Nombre', 'nombre'], ['Tipo de equipo', 'tipo'], ['Sede', 'ubicacion'], ['Responsable', 'responsable']] },
             { titulo: 'Estado y vigencia', campos: [['Habilitación', 'habilitacion'], ['Estado del equipo', 'estadoEquipo'], ['Última revisión', 'ultima'], ['Vigente hasta', 'siguiente'], ['Plazo de vigencia', 'plazo']] },
-            { titulo: 'Medición', campos: [['¿Qué mide?', 'queMide'], ['Unidad de medida', 'unidad'], ['Sigla de la unidad', 'sigla'], ['Error 0', 'error0'], ['Error 15', 'error15'], ['Error 30', 'error30']] },
+            { titulo: 'Medición', campos: [['¿Qué mide?', 'queMide'], ['Unidad de medida', 'unidad'], ['Sigla de la unidad', 'sigla'], ['Error 0', 'error0'], ['FC 0', 'fc0'], ['Error 15', 'error15'], ['FC 15', 'fc15'], ['Error 30', 'error30'], ['FC 30', 'fc30']] },
             { titulo: 'Configuración', campos: [['Factor de corrección', 'fc'], ['Visible para muestreadores', 'visible'], ['Incluir en informe', 'informe'], ['Equipo asociado', 'asociado']] },
-            { titulo: 'Documento y notas', campos: [['Documento adjunto', 'documento'], ['Observación', 'observacion']] }
+            { titulo: 'Documento y notas', campos: [['Documento adjunto', 'documento'], ['Observación', 'observacion']] },
+            { titulo: 'Compra y Baja', campos: [['Proveedor', 'proveedor'], ['Fecha de compra', 'fechaCompra'], ['Documento', 'documentoCompra'], ['N° Documento', 'nDocumentoCompra'], ['Valor unitario', 'valorUnitario'], ['Fecha dado de baja', 'fechaBaja']] }
         ];
 
         return secciones.map(sec => ({
@@ -659,7 +687,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         ultima_verificacion: origUltima,
                         siguiente_verificacion: origSiguiente,
                         plazo_vigencia: b.plazo_vigencia || '',
-                        estado_equipo: b.estado_equipo || ''
+                        estado_equipo: b.estado_equipo || '',
+                        proveedor: b.proveedor || '',
+                        fecha_compra: b.fecha_compra ? b.fecha_compra.split('T')[0] : '',
+                        documento_compra: b.documento_compra || '',
+                        n_documento_compra: b.n_documento_compra || '',
+                        valor_unitario: b.valor_unitario ?? '',
+                        fecha_baja: b.fecha_baja ? b.fecha_baja.split('T')[0] : ''
                     });
                     // El documento pasa a ser el de la versión habilitada; se descarta
                     // cualquier archivo que estuviera pendiente de guardar.
@@ -1429,14 +1463,23 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." /></div>
                                     <Input type="number" step="0.01" value={formData.error0} onChange={(e) => setFormData((p: any) => ({ ...p, error0: e.target.value === '' ? null : Number(e.target.value) }))} />
+                                    {formData.tiene_fc === 'SI' && (
+                                        <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error0 === null || formData.error0 === '' ? '—' : (-Number(formData.error0)).toFixed(1)}</p>
+                                    )}
                                 </div>
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." /></div>
                                     <Input type="number" step="0.01" value={formData.error15} onChange={(e) => setFormData((p: any) => ({ ...p, error15: e.target.value === '' ? null : Number(e.target.value) }))} />
+                                    {formData.tiene_fc === 'SI' && (
+                                        <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error15 === null || formData.error15 === '' ? '—' : (-Number(formData.error15)).toFixed(1)}</p>
+                                    )}
                                 </div>
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." /></div>
                                     <Input type="number" step="0.01" value={formData.error30} onChange={(e) => setFormData((p: any) => ({ ...p, error30: e.target.value === '' ? null : Number(e.target.value) }))} />
+                                    {formData.tiene_fc === 'SI' && (
+                                        <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error30 === null || formData.error30 === '' ? '—' : (-Number(formData.error30)).toFixed(1)}</p>
+                                    )}
                                 </div>
                                 <div className="col-span-12">
                                     <div className="mb-1"><FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
@@ -1509,6 +1552,46 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         rows={2}
                                         className="flex min-h-[56px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                     />
+                                </div>
+                            </div>
+
+                            <SectionDivider>Compra y Baja</SectionDivider>
+                            <div className="grid grid-cols-12 gap-4">
+                                <div className={colSpanClass(6)}>
+                                    <div className="mb-1"><FieldLabel label="Proveedor" help="Empresa o distribuidor al que se le compró el equipo." /></div>
+                                    <Input value={formData.proveedor || ''} onChange={(e) => setFormData((p: any) => ({ ...p, proveedor: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(6)}>
+                                    <div className="mb-1"><FieldLabel label="Fecha de Compra" help="Fecha en que se adquirió el equipo." /></div>
+                                    <Input type="date" value={formData.fecha_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, fecha_compra: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Documento" help="Tipo de documento de la compra (ej: Factura, Boleta, Guía)." /></div>
+                                    <Input value={formData.documento_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, documento_compra: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="N° Documento" help="Número del documento de compra." /></div>
+                                    <Input value={formData.n_documento_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, n_documento_compra: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Valor Unitario" help="Precio de compra del equipo." /></div>
+                                    <div className="relative">
+                                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                                        <Input
+                                            type="text"
+                                            inputMode="numeric"
+                                            className="pl-6"
+                                            value={formData.valor_unitario === null || formData.valor_unitario === undefined || formData.valor_unitario === '' ? '' : Number(formData.valor_unitario).toLocaleString('es-CL')}
+                                            onChange={(e) => {
+                                                const raw = e.target.value.replace(/\D/g, '');
+                                                setFormData((p: any) => ({ ...p, valor_unitario: raw === '' ? null : Number(raw) }));
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                                <div className={colSpanClass(6)}>
+                                    <div className="mb-1"><FieldLabel label="Fecha Dado de Baja" help="Fecha en que el equipo dejó de estar operativo, si corresponde." /></div>
+                                    <Input type="date" value={formData.fecha_baja || ''} onChange={(e) => setFormData((p: any) => ({ ...p, fecha_baja: e.target.value }))} />
                                 </div>
                             </div>
 

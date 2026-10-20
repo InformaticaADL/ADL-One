@@ -21,7 +21,7 @@ import { cn } from '@/lib/utils';
 import { EquipoForm } from './EquipoForm';
 import {
     EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
-    guardarLote, leerLote, limpiarLote,
+    guardarLote, leerLote, limpiarLote, appendObservacion,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
 } from './excelAnalysisShared';
 
@@ -89,6 +89,12 @@ const mapExcelDataToPayload = (d: AnalisisExcelItem['excelData']) => {
         observacion: d.observacion || '',
         ultima_verificacion: ultimaVerificacion,
         siguiente_verificacion: siguienteVerificacion,
+        proveedor: d.proveedor || '',
+        fecha_compra: d.fecha_compra || undefined,
+        documento_compra: d.documento_compra || '',
+        n_documento_compra: d.n_documento_compra || '',
+        valor_unitario: d.valor_unitario ?? undefined,
+        fecha_baja: d.fecha_baja || undefined,
         plazo_vigencia: d.plazo_vigencia || '',
         estado_equipo: d.estado_equipo || '',
     };
@@ -100,7 +106,8 @@ const mapExcelDataToPayload = (d: AnalisisExcelItem['excelData']) => {
 // parcial, así que lo que no se manda simplemente no se toca en la BD. Sin
 // fallback hoy/+90: si el Excel no trae fecha, se deja la que ya tenía el
 // equipo tal cual, no se inventa una.
-const mapExcelDataToUpdatePayload = (d: AnalisisExcelItem['excelData']) => {
+const mapExcelDataToUpdatePayload = (item: AnalisisExcelItem) => {
+    const d = item.excelData;
     const payload: Record<string, unknown> = {};
     if (d.nombre) payload.nombre = d.nombre;
     if (d.tipo) payload.tipo = d.tipo;
@@ -119,8 +126,21 @@ const mapExcelDataToUpdatePayload = (d: AnalisisExcelItem['excelData']) => {
     if (d.error0 !== undefined && d.error0 !== null) payload.error0 = d.error0;
     if (d.error15 !== undefined && d.error15 !== null) payload.error15 = d.error15;
     if (d.error30 !== undefined && d.error30 !== null) payload.error30 = d.error30;
-    if (d.observacion) payload.observacion = d.observacion;
+    if (d.observacion) {
+        // Si el equipo ya tenía una observación (ej. la cargada desde el analizador
+        // de temperaturas), se conserva y la de este archivo se agrega debajo, en
+        // vez de sobreescribirla — las dos observaciones vienen de análisis distintos.
+        const diffObs = item.diffs.find((diff) => diff.campo === 'observacion');
+        const actual = diffObs && typeof diffObs.valorBD === 'string' ? diffObs.valorBD : '';
+        payload.observacion = appendObservacion(actual, d.observacion);
+    }
     if (d.ultima_verificacion) payload.ultima_verificacion = d.ultima_verificacion;
+    if (d.proveedor) payload.proveedor = d.proveedor;
+    if (d.fecha_compra) payload.fecha_compra = d.fecha_compra;
+    if (d.documento_compra) payload.documento_compra = d.documento_compra;
+    if (d.n_documento_compra) payload.n_documento_compra = d.n_documento_compra;
+    if (d.valor_unitario !== undefined && d.valor_unitario !== null) payload.valor_unitario = d.valor_unitario;
+    if (d.fecha_baja) payload.fecha_baja = d.fecha_baja;
     if (d.siguiente_verificacion) {
         // vigencia sigue a siguiente_verificacion (mismo criterio que EquipoForm).
         payload.siguiente_verificacion = d.siguiente_verificacion;
@@ -298,7 +318,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
         if (!item.id_equipo) return;
         setActualizandoFila(item.rowNumber);
         try {
-            await equipoService.updateEquipo(item.id_equipo, mapExcelDataToUpdatePayload(item.excelData));
+            await equipoService.updateEquipo(item.id_equipo, mapExcelDataToUpdatePayload(item));
             marcarComoActualizado(item.rowNumber);
             showToast({ type: 'success', message: `Equipo "${item.nombre || item.codigo}" actualizado correctamente` });
             if (volverAResultados) setVista('resultados');
@@ -398,7 +418,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
         const diferentes = resultado?.items.filter((i) => i.status === 'difiere') || [];
         if (diferentes.length === 0) return;
         await procesarLote('actualizar', 'Actualización masiva de equipos', diferentes, async (item) => {
-            await equipoService.updateEquipo(item.id_equipo!, mapExcelDataToUpdatePayload(item.excelData));
+            await equipoService.updateEquipo(item.id_equipo!, mapExcelDataToUpdatePayload(item));
             marcarComoActualizado(item.rowNumber);
         }, setActualizandoTodo);
     };
@@ -418,7 +438,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                 const idEquipo = await crearEquipoDesdeExcel(item);
                 marcarComoCreado(item.rowNumber, idEquipo);
             } else {
-                await equipoService.updateEquipo(item.id_equipo!, mapExcelDataToUpdatePayload(item.excelData));
+                await equipoService.updateEquipo(item.id_equipo!, mapExcelDataToUpdatePayload(item));
                 marcarComoActualizado(item.rowNumber);
             }
             setLoteResultado((prev) => {

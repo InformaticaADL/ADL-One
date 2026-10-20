@@ -18,7 +18,7 @@ import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, Attach
 import { cn } from '@/lib/utils';
 import {
     EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
-    guardarLote, leerLote, limpiarLote,
+    guardarLote, leerLote, limpiarLote, appendObservacion,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
 } from './excelAnalysisShared';
 
@@ -40,17 +40,27 @@ const STATUS_META: Record<AnalisisTemperaturaItem['status'], EstadoMeta> = {
 };
 
 // Solo los campos de temperatura/estado que trae este archivo — nunca
-// nombre/tipo/ubicación, que no vienen acá y no se deben tocar desde este
-// análisis. updateEquipo es un update parcial, así que basta mandar estos.
-const buildUpdatePayload = (d: AnalisisTemperaturaItem['excelData']) => {
+// nombre/tipo, que no vienen acá y no se deben tocar desde este análisis
+// ("Sede" sí viene, igual que en el analizador de Inventario). updateEquipo
+// es un update parcial, así que basta mandar estos.
+const buildUpdatePayload = (item: AnalisisTemperaturaItem) => {
+    const d = item.excelData;
     const payload: Record<string, unknown> = {};
+    if (d.ubicacion) payload.ubicacion = d.ubicacion;
     if (d.error0 !== undefined && d.error0 !== null) payload.error0 = d.error0;
     if (d.error15 !== undefined && d.error15 !== null) payload.error15 = d.error15;
     if (d.error30 !== undefined && d.error30 !== null) payload.error30 = d.error30;
     if (d.tiene_fc) payload.tiene_fc = d.tiene_fc;
     if (d.ultima_verificacion) payload.ultima_verificacion = d.ultima_verificacion;
     if (d.estado_equipo) payload.estado_equipo = d.estado_equipo;
-    if (d.observacion) payload.observacion = d.observacion;
+    if (d.observacion) {
+        // Si el equipo ya tenía una observación (ej. la cargada desde el inventario
+        // de equipos), se conserva y la de este archivo se agrega debajo, en vez de
+        // sobreescribirla — las dos observaciones vienen de análisis distintos.
+        const diffObs = item.diffs.find((diff) => diff.campo === 'observacion');
+        const actual = diffObs && typeof diffObs.valorBD === 'string' ? diffObs.valorBD : '';
+        payload.observacion = appendObservacion(actual, d.observacion);
+    }
     if (d.equipo_asociado) payload.equipo_asociado = d.equipo_asociado;
     if (d.id_muestreador) payload.id_muestreador = d.id_muestreador;
     return payload;
@@ -158,7 +168,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
 
     const actualizarEquipo = async (item: AnalisisTemperaturaItem) => {
         if (!item.id_equipo) return;
-        await equipoService.updateEquipo(item.id_equipo, buildUpdatePayload(item.excelData));
+        await equipoService.updateEquipo(item.id_equipo, buildUpdatePayload(item));
     };
 
     const actualizarFila = async (item: AnalisisTemperaturaItem, volverAResultados = false) => {

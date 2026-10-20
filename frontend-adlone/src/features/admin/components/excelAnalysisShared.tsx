@@ -11,6 +11,18 @@ import { cn } from '@/lib/utils';
 // (equipos e inventario, temperatura) para no duplicar el mismo patrón de
 // tarjetas de resumen + badge de estado en cada uno.
 
+// Al actualizar un equipo desde cualquiera de los dos analizadores, si ya
+// tenía una observación guardada (ej. desde el otro analizador), se conserva
+// y la nueva se agrega debajo con un guion y la fecha de la actualización —
+// nunca se sobreescribe la observación existente.
+export const appendObservacion = (actual: string | null | undefined, nueva: string): string => {
+    const limpia = actual && actual.trim() ? actual.trim() : '';
+    const hoy = new Date();
+    const fecha = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
+    const linea = `- [${fecha}] ${nueva}`;
+    return limpia ? `${limpia}\n${linea}` : linea;
+};
+
 export type EstadoBadgeTono = 'success' | 'warning' | 'destructive';
 
 export interface EstadoMeta {
@@ -115,8 +127,20 @@ export interface DiffRow {
     valorBD: unknown;
 }
 
-const formatearValorDiff = (v: unknown) => {
+// Campos que se guardan como número crudo en la BD pero se muestran como
+// peso chileno ($184.400) en esta vista — solo formato visual, no toca el dato.
+const CAMPOS_MONEDA = ['valor_unitario'];
+
+// Mismo patrón que fmtClp en el módulo de Facturación ("$ " + miles con punto).
+const formatPeso = (v: unknown) => {
+    const n = Number(v);
+    if (Number.isNaN(n)) return String(v);
+    return `$ ${n.toLocaleString('es-CL', { maximumFractionDigits: 0 })}`;
+};
+
+const formatearValorDiff = (v: unknown, campo?: string) => {
     if (v === null || v === undefined || v === '') return '—';
+    if (campo && CAMPOS_MONEDA.includes(campo)) return formatPeso(v);
     return String(v);
 };
 
@@ -126,7 +150,7 @@ const PanelCampos: React.FC<{
     titulo: string;
     icon: React.ReactNode;
     tono: 'neutral' | 'cambio';
-    filas: { etiqueta: string; valor: unknown }[];
+    filas: { campo: string; etiqueta: string; valor: unknown }[];
 }> = ({ titulo, icon, tono, filas }) => (
     <div className={cn(
         'flex min-w-0 flex-1 flex-col gap-3 rounded-lg border p-4',
@@ -142,7 +166,7 @@ const PanelCampos: React.FC<{
             {filas.map((f) => (
                 <div key={f.etiqueta} className="flex flex-col gap-0.5 py-2 first:pt-0 last:pb-0">
                     <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">{f.etiqueta}</dt>
-                    <dd className={cn('text-sm', tono === 'cambio' && 'font-medium text-warning')}>{formatearValorDiff(f.valor)}</dd>
+                    <dd className={cn('text-sm', tono === 'cambio' && 'font-medium text-warning')}>{formatearValorDiff(f.valor, f.campo)}</dd>
                 </div>
             ))}
             {filas.length === 0 && <p className="py-2 text-xs italic text-muted-foreground">Sin diferencias.</p>}
@@ -176,13 +200,13 @@ export const DiffDetailView: React.FC<{
                 titulo="Actual (Base de Datos)"
                 icon={<IconDatabase size={15} />}
                 tono="neutral"
-                filas={diffs.map((d) => ({ etiqueta: d.etiqueta, valor: d.valorBD }))}
+                filas={diffs.map((d) => ({ campo: d.campo, etiqueta: d.etiqueta, valor: d.valorBD }))}
             />
             <PanelCampos
                 titulo="Nuevo (Excel)"
                 icon={<IconFileSpreadsheet size={15} />}
                 tono="cambio"
-                filas={diffs.map((d) => ({ etiqueta: d.etiqueta, valor: d.valorExcel }))}
+                filas={diffs.map((d) => ({ campo: d.campo, etiqueta: d.etiqueta, valor: d.valorExcel }))}
             />
         </div>
         {children && <div className="flex justify-end gap-2">{children}</div>}

@@ -41,6 +41,18 @@ export interface Equipo {
     documento_nombre?: string | null;
     documento_ruta?: string | null;
     documento_fecha?: string | null;
+    // Factor de Corrección por punto — calculado server-side (= -error) cada
+    // vez que se guarda el Error correspondiente, no es editable a mano.
+    fc0?: number | null;
+    fc15?: number | null;
+    fc30?: number | null;
+    // Datos de compra/baja (del inventario OI-FoGe-21).
+    proveedor?: string | null;
+    fecha_compra?: string | null;
+    documento_compra?: string | null;
+    n_documento_compra?: string | null;
+    valor_unitario?: number | null;
+    fecha_baja?: string | null;
 }
 
 export interface EquipoHistorial extends Equipo {

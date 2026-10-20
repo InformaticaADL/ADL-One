@@ -16,6 +16,20 @@ export const normalize = (value) => {
         .trim();
 };
 
+// Nombres que aparecen distintos en los Excel pero corresponden al mismo
+// muestreador ya registrado en el sistema con otro nombre (ej. "Ernesto
+// Lira" en los archivos es en realidad "Javier Lira"). Se resuelven antes de
+// buscar por nombre_muestreador, tanto en el analizador de Inventario como
+// en el de Temperaturas.
+const ALIAS_MUESTREADOR = {
+    'ERNESTO LIRA': 'JAVIER LIRA',
+};
+
+export const resolveNombreMuestreador = (nombreExcel) => {
+    const n = normalize(nombreExcel);
+    return ALIAS_MUESTREADOR[n] || n;
+};
+
 // Cada campo que nos interesa, con los fragmentos (ya normalizados) que
 // identifican su columna en el inventario real (OI-FoGe-21). Se usa
 // "includes" en vez de igualdad estricta para tolerar pequeños cambios de
@@ -41,6 +55,18 @@ const HEADER_KEYWORDS = {
     contrastacion_proxima: ['PROXIMA CONTRASTACION'],
     mantencion_ultima: ['ULTIMA MANTENCION'],
     mantencion_proxima: ['PROXIMA MANTENCION'],
+    // Datos de compra/baja (columnas O-S y AA del inventario real). "Fecha"
+    // (col. 16, de compra) es un header genérico que también es substring de
+    // "Fecha dado de baja" (col. 27) — como el escaneo de encabezados es
+    // izquierda a derecha y cada campo solo toma la PRIMERA columna que
+    // matchee, fecha_compra ya queda fijado en la col. 16 antes de llegar a
+    // la 27, así que no hay colisión.
+    proveedor: ['PROVEEDOR'],
+    fecha_compra: ['FECHA'],
+    documento_compra: ['DOCUMENTO'],
+    n_documento_compra: ['DOCTO'],
+    valor_unitario: ['VALOR UNITARIO'],
+    fecha_baja: ['FECHA DADO DE BAJA'],
 };
 
 // Campos que se comparan contra la BD para decidir "coincide" vs "difiere".
@@ -51,6 +77,7 @@ const CAMPOS_COMPARABLES = [
     'visible_muestreador', 'que_mide', 'unidad_medida_textual', 'unidad_medida_sigla',
     'informe', 'ultima_verificacion', 'siguiente_verificacion', 'plazo_vigencia',
     'estado_equipo', 'observacion', 'id_muestreador',
+    'proveedor', 'fecha_compra', 'documento_compra', 'n_documento_compra', 'valor_unitario', 'fecha_baja',
 ];
 
 const ETIQUETAS_CAMPO = {
@@ -63,11 +90,13 @@ const ETIQUETAS_CAMPO = {
     ultima_verificacion: 'Última Verificación', siguiente_verificacion: 'Siguiente Verificación',
     plazo_vigencia: 'Plazo de Vigencia', estado_equipo: 'Estado Operativo',
     observacion: 'Observación', id_muestreador: 'Responsable',
+    proveedor: 'Proveedor', fecha_compra: 'Fecha de Compra', documento_compra: 'Documento',
+    n_documento_compra: 'N° Documento', valor_unitario: 'Valor Unitario', fecha_baja: 'Fecha Dado de Baja',
 };
 
 const CAMPOS_SI_NO = ['tiene_fc', 'visible_muestreador', 'informe'];
-const CAMPOS_NUMERICOS = ['correlativo', 'error0', 'error15', 'error30', 'id_muestreador'];
-const CAMPOS_FECHA = ['ultima_verificacion', 'siguiente_verificacion'];
+const CAMPOS_NUMERICOS = ['correlativo', 'error0', 'error15', 'error30', 'id_muestreador', 'valor_unitario'];
+const CAMPOS_FECHA = ['ultima_verificacion', 'siguiente_verificacion', 'fecha_compra', 'fecha_baja'];
 
 export const toYYYYMMDD = (value) => {
     if (!value) return null;
@@ -234,6 +263,13 @@ class EquipoExcelImportService {
                     observacion: valoresCrudos.observacion,
                     ultima_verificacion: ultimaVerificacion,
                     siguiente_verificacion: siguienteVerificacion,
+                    proveedor: valoresCrudos.proveedor,
+                    fecha_compra: toYYYYMMDD(valoresCrudos.fecha_compra),
+                    documento_compra: valoresCrudos.documento_compra,
+                    // El Excel mezcla número ("208691") y texto ("N/I") en esta columna.
+                    n_documento_compra: valoresCrudos.n_documento_compra !== null ? String(valoresCrudos.n_documento_compra) : null,
+                    valor_unitario: valoresCrudos.valor_unitario,
+                    fecha_baja: toYYYYMMDD(valoresCrudos.fecha_baja),
                     referencia: {
                         marca: valoresCrudos.marca,
                         modelo: valoresCrudos.modelo,
@@ -293,7 +329,7 @@ class EquipoExcelImportService {
 
             let idMuestreadorResuelto = null;
             if (row.responsable_nombre) {
-                const match = muestreadorPorNombre.get(normalize(row.responsable_nombre));
+                const match = muestreadorPorNombre.get(resolveNombreMuestreador(row.responsable_nombre));
                 if (match) {
                     idMuestreadorResuelto = match.id_muestreador;
                 } else {
@@ -320,6 +356,12 @@ class EquipoExcelImportService {
                 siguiente_verificacion: row.siguiente_verificacion,
                 observacion: row.observacion,
                 id_muestreador: idMuestreadorResuelto,
+                proveedor: row.proveedor,
+                fecha_compra: row.fecha_compra,
+                documento_compra: row.documento_compra,
+                n_documento_compra: row.n_documento_compra,
+                valor_unitario: row.valor_unitario,
+                fecha_baja: row.fecha_baja,
             };
 
             if (!row.codigo) {

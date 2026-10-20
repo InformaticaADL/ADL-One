@@ -62,6 +62,18 @@ const flagSN = (v, def) => {
 };
 const clip = (v, n) => (v === null || v === undefined ? v : String(v).substring(0, n));
 
+// Factor de Corrección = Error con el signo invertido (confirmado contra el
+// Excel real "Resumen Verificaciones Intermedias T°", donde cada punto trae
+// su columna espejo de FC). Se recalcula server-side cada vez que cambia el
+// Error correspondiente — no es un campo editable a mano. Si el equipo no
+// tiene Factor de Corrección activado (tienefc != 'S'), no corresponde
+// guardar ningún valor: queda null.
+const calcularFC = (error, tieneFc) => {
+    if (tieneFc !== 'S') return null;
+    const e = parseFloat(error);
+    return Number.isNaN(e) ? null : Number((-e).toFixed(1));
+};
+
 const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk) => {
     const req = new sql.Request(transaction);
     req.input('id_equipo', sql.Numeric(10, 0), Number(row.id_equipo));
@@ -76,7 +88,8 @@ const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk
     req.input('habilitado', sql.VarChar(1), flagSN(row.habilitado, 'S'));
     req.input('sigla', sql.VarChar(10), clip(row.sigla || '', 10));
     req.input('correlativo', sql.Numeric(10, 0), row.correlativo || 0);
-    req.input('tienefc', sql.VarChar(1), flagSN(row.tienefc, 'N'));
+    const tienefcSnapshot = flagSN(row.tienefc, 'N');
+    req.input('tienefc', sql.VarChar(1), tienefcSnapshot);
     req.input('error0', sql.Numeric(10, 1), row.error0 || 0);
     req.input('error15', sql.Numeric(10, 1), row.error15 || 0);
     req.input('error30', sql.Numeric(10, 1), row.error30 || 0);
@@ -91,6 +104,15 @@ const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk
     req.input('siguiente_verificacion', sql.Date, parseSqlDate(row.Siguiente_verificacion) || null);
     req.input('plazo_vigencia', sql.VarChar(500), row.Plazo_Vigencia || null);
     req.input('estado_equipo_h', sql.VarChar(100), row.Estado || null);
+    req.input('fc0', sql.Numeric(10, 1), calcularFC(row.error0, tienefcSnapshot));
+    req.input('fc15', sql.Numeric(10, 1), calcularFC(row.error15, tienefcSnapshot));
+    req.input('fc30', sql.Numeric(10, 1), calcularFC(row.error30, tienefcSnapshot));
+    req.input('proveedor', sql.NVarChar(200), row.proveedor || null);
+    req.input('fecha_compra', sql.Date, parseSqlDate(row.fecha_compra) || null);
+    req.input('documento_compra', sql.NVarChar(50), row.documento_compra || null);
+    req.input('n_documento_compra', sql.NVarChar(50), row.n_documento_compra || null);
+    req.input('valor_unitario', sql.Numeric(12, 2), row.valor_unitario ?? null);
+    req.input('fecha_baja', sql.Date, parseSqlDate(row.fecha_baja) || null);
     if (docsOk) {
         req.input('doc_nombre_h', sql.NVarChar(200), row.documento_nombre || null);
         req.input('doc_ruta_h', sql.NVarChar(500), row.documento_ruta || null);
@@ -102,12 +124,14 @@ const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk
             sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
             observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
             Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+            fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja,
             usuario_cambio, version, fecha_cambio${docsOk ? ', documento_nombre, documento_ruta, documento_fecha' : ''}
         ) VALUES (
             @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
             @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
             @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
             @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_h,
+            @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja,
             @usuario_cambio, @version, GETDATE()${docsOk ? ', @doc_nombre_h, @doc_ruta_h, @doc_fecha_h' : ''}
         )
     `);
@@ -320,6 +344,15 @@ export const equipoService = {
                     e.unidad_medida_textual,
                     e.unidad_medida_sigla,
                     e.informe,
+                    e.fc0,
+                    e.fc15,
+                    e.fc30,
+                    e.proveedor,
+                    e.fecha_compra,
+                    e.documento_compra,
+                    e.n_documento_compra,
+                    e.valor_unitario,
+                    e.fecha_baja,
                     e.version,
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
@@ -606,6 +639,15 @@ export const equipoService = {
                     e.unidad_medida_textual,
                     e.unidad_medida_sigla,
                     e.informe,
+                    e.fc0,
+                    e.fc15,
+                    e.fc30,
+                    e.proveedor,
+                    e.fecha_compra,
+                    e.documento_compra,
+                    e.n_documento_compra,
+                    e.valor_unitario,
+                    e.fecha_baja,
                     e.version,
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
@@ -724,10 +766,20 @@ export const equipoService = {
             // los supere — mismo tipo de bug ya confirmado y corregido para tienefc.
             request.input('sigla', sql.VarChar(20), data.sigla || '');
             request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
-            request.input('tienefc', sql.VarChar(1), (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N');
+            const tienefcCreate = (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N';
+            request.input('tienefc', sql.VarChar(1), tienefcCreate);
             request.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(data.error0)) ? 0 : parseFloat(data.error0));
             request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
             request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
+            request.input('fc0', sql.Numeric(10, 1), calcularFC(data.error0, tienefcCreate));
+            request.input('fc15', sql.Numeric(10, 1), calcularFC(data.error15, tienefcCreate));
+            request.input('fc30', sql.Numeric(10, 1), calcularFC(data.error30, tienefcCreate));
+            request.input('proveedor', sql.NVarChar(200), data.proveedor || null);
+            request.input('fecha_compra', sql.Date, parseSqlDate(data.fecha_compra) || null);
+            request.input('documento_compra', sql.NVarChar(50), data.documento_compra || null);
+            request.input('n_documento_compra', sql.NVarChar(50), data.n_documento_compra || null);
+            request.input('valor_unitario', sql.Numeric(12, 2), data.valor_unitario ?? null);
+            request.input('fecha_baja', sql.Date, parseSqlDate(data.fecha_baja) || null);
             request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
             request.input('observacion', sql.VarChar(8000), data.observacion || '');
             request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
@@ -754,12 +806,14 @@ export const equipoService = {
                     id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                     observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version,
-                    Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado
+                    Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+                    fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja
                 ) VALUES (
                     @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                     @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1',
-                    @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo
+                    @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo,
+                    @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja
                 );
             `;
 
@@ -806,10 +860,20 @@ export const equipoService = {
                 request.input('habilitado', sql.VarChar(1), data.estado === 'Activo' ? 'S' : 'N');
                 request.input('sigla', sql.VarChar(20), data.sigla || '');
                 request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
-                request.input('tienefc', sql.VarChar(1), (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N');
+                const tienefcBulk = (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N';
+                request.input('tienefc', sql.VarChar(1), tienefcBulk);
                 request.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(data.error0)) ? 0 : parseFloat(data.error0));
                 request.input('error15', sql.Numeric(10, 1), isNaN(parseFloat(data.error15)) ? 0 : parseFloat(data.error15));
                 request.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(data.error30)) ? 0 : parseFloat(data.error30));
+                request.input('fc0', sql.Numeric(10, 1), calcularFC(data.error0, tienefcBulk));
+                request.input('fc15', sql.Numeric(10, 1), calcularFC(data.error15, tienefcBulk));
+                request.input('fc30', sql.Numeric(10, 1), calcularFC(data.error30, tienefcBulk));
+                request.input('proveedor', sql.NVarChar(200), data.proveedor || null);
+                request.input('fecha_compra', sql.Date, parseSqlDate(data.fecha_compra) || null);
+                request.input('documento_compra', sql.NVarChar(50), data.documento_compra || null);
+                request.input('n_documento_compra', sql.NVarChar(50), data.n_documento_compra || null);
+                request.input('valor_unitario', sql.Numeric(12, 2), data.valor_unitario ?? null);
+                request.input('fecha_baja', sql.Date, parseSqlDate(data.fecha_baja) || null);
                 request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
                 request.input('observacion', sql.VarChar(8000), data.observacion || '');
                 request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
@@ -827,12 +891,14 @@ export const equipoService = {
                         id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                         observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version,
-                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado
+                        Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+                        fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                         @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1',
-                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo
+                        @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo,
+                        @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja
                     );
                 `;
 
@@ -964,7 +1030,8 @@ export const equipoService = {
             // flagSN normaliza siempre a 1 char — hay ~655 equipos con tienefc='Si' (2
             // chars) heredado de antes de que la app normalizara este flag; bindearlo
             // crudo contra un parámetro VarChar(1) rompe el protocolo TDS.
-            requestMain.input('tienefc', sql.VarChar(1), data.hasOwnProperty('tiene_fc') ? flagSN(data.tiene_fc, 'N') : flagSN(current.tienefc, 'N'));
+            const tienefcFinal = data.hasOwnProperty('tiene_fc') ? flagSN(data.tiene_fc, 'N') : flagSN(current.tienefc, 'N');
+            requestMain.input('tienefc', sql.VarChar(1), tienefcFinal);
 
             const error0 = data.hasOwnProperty('error0') ? data.error0 : current.error0;
             requestMain.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(error0)) ? 0 : parseFloat(error0));
@@ -974,6 +1041,21 @@ export const equipoService = {
 
             const error30 = data.hasOwnProperty('error30') ? data.error30 : current.error30;
             requestMain.input('error30', sql.Numeric(10, 1), isNaN(parseFloat(error30)) ? 0 : parseFloat(error30));
+
+            // Factor de Corrección: se recalcula siempre a partir del Error y del flag
+            // tienefc vigentes (hayan cambiado o no en este update) — así, si se
+            // desmarca "Tiene Factor de Corrección" sin tocar el Error, el FC queda
+            // en null igual, en vez de conservar un valor stale.
+            requestMain.input('fc0', sql.Numeric(10, 1), calcularFC(error0, tienefcFinal));
+            requestMain.input('fc15', sql.Numeric(10, 1), calcularFC(error15, tienefcFinal));
+            requestMain.input('fc30', sql.Numeric(10, 1), calcularFC(error30, tienefcFinal));
+
+            requestMain.input('proveedor', sql.NVarChar(200), data.hasOwnProperty('proveedor') ? (data.proveedor || null) : (current.proveedor || null));
+            requestMain.input('fecha_compra', sql.Date, parseSqlDate(data.hasOwnProperty('fecha_compra') ? data.fecha_compra : current.fecha_compra) || null);
+            requestMain.input('documento_compra', sql.NVarChar(50), data.hasOwnProperty('documento_compra') ? (data.documento_compra || null) : (current.documento_compra || null));
+            requestMain.input('n_documento_compra', sql.NVarChar(50), data.hasOwnProperty('n_documento_compra') ? (data.n_documento_compra || null) : (current.n_documento_compra || null));
+            requestMain.input('valor_unitario', sql.Numeric(12, 2), data.hasOwnProperty('valor_unitario') ? (data.valor_unitario ?? null) : (current.valor_unitario ?? null));
+            requestMain.input('fecha_baja', sql.Date, parseSqlDate(data.hasOwnProperty('fecha_baja') ? data.fecha_baja : current.fecha_baja) || null);
 
             const eqAsoc = data.hasOwnProperty('equipo_asociado') ? data.equipo_asociado : current.equipo_asociado;
             requestMain.input('equipo_asociado', sql.VarChar(200), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
@@ -1058,6 +1140,15 @@ export const equipoService = {
                     Siguiente_verificacion = @siguiente_verificacion,
                     Plazo_Vigencia = @plazo_vigencia,
                     Estado = @estado_equipo,
+                    fc0 = @fc0,
+                    fc15 = @fc15,
+                    fc30 = @fc30,
+                    proveedor = @proveedor,
+                    fecha_compra = @fecha_compra,
+                    documento_compra = @documento_compra,
+                    n_documento_compra = @n_documento_compra,
+                    valor_unitario = @valor_unitario,
+                    fecha_baja = @fecha_baja,
                     version = @version${docSet}
                 WHERE id_equipo = @id
             `;
@@ -1219,6 +1310,15 @@ export const equipoService = {
             requestHist.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
             requestHist.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia || null);
             requestHist.input('estado_equipo_del', sql.VarChar(100), current.Estado || null);
+            requestHist.input('fc0', sql.Numeric(10, 1), current.fc0);
+            requestHist.input('fc15', sql.Numeric(10, 1), current.fc15);
+            requestHist.input('fc30', sql.Numeric(10, 1), current.fc30);
+            requestHist.input('proveedor', sql.NVarChar(200), current.proveedor);
+            requestHist.input('fecha_compra', sql.Date, current.fecha_compra);
+            requestHist.input('documento_compra', sql.NVarChar(50), current.documento_compra);
+            requestHist.input('n_documento_compra', sql.NVarChar(50), current.n_documento_compra);
+            requestHist.input('valor_unitario', sql.Numeric(12, 2), current.valor_unitario);
+            requestHist.input('fecha_baja', sql.Date, current.fecha_baja);
 
             const queryHist = `
                 INSERT INTO mae_equipo_historial (
@@ -1226,12 +1326,14 @@ export const equipoService = {
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                     observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
                     Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+                    fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja,
                     usuario_cambio, version
                 ) VALUES (
                     @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                     @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
                     @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_del,
+                    @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja,
                     @usuario_cambio, @version
                 );
             `;
@@ -1297,7 +1399,8 @@ export const equipoService = {
             updReq.input('habilitado', sql.VarChar(1), target.habilitado || 'S');
             updReq.input('sigla', sql.VarChar(20), target.sigla || '');
             updReq.input('correlativo', sql.Numeric(10, 0), target.correlativo || 0);
-            updReq.input('tienefc', sql.VarChar(1), flagSN(target.tienefc, 'N'));
+            const tienefcRestore = flagSN(target.tienefc, 'N');
+            updReq.input('tienefc', sql.VarChar(1), tienefcRestore);
             updReq.input('error0', sql.Numeric(10, 1), target.error0 || 0);
             updReq.input('error15', sql.Numeric(10, 1), target.error15 || 0);
             updReq.input('error30', sql.Numeric(10, 1), target.error30 || 0);
@@ -1312,6 +1415,15 @@ export const equipoService = {
             updReq.input('siguiente_verificacion_r', sql.Date, parseSqlDate(target.Siguiente_verificacion) || null);
             updReq.input('plazo_vigencia_r', sql.VarChar(500), target.Plazo_Vigencia || null);
             updReq.input('estado_equipo_r', sql.VarChar(100), target.Estado || null);
+            updReq.input('fc0_r', sql.Numeric(10, 1), calcularFC(target.error0, tienefcRestore));
+            updReq.input('fc15_r', sql.Numeric(10, 1), calcularFC(target.error15, tienefcRestore));
+            updReq.input('fc30_r', sql.Numeric(10, 1), calcularFC(target.error30, tienefcRestore));
+            updReq.input('proveedor_r', sql.NVarChar(200), target.proveedor || null);
+            updReq.input('fecha_compra_r', sql.Date, target.fecha_compra || null);
+            updReq.input('documento_compra_r', sql.NVarChar(50), target.documento_compra || null);
+            updReq.input('n_documento_compra_r', sql.NVarChar(50), target.n_documento_compra || null);
+            updReq.input('valor_unitario_r', sql.Numeric(12, 2), target.valor_unitario ?? null);
+            updReq.input('fecha_baja_r', sql.Date, target.fecha_baja || null);
             updReq.input('version', sql.VarChar(10), nextVersionLabel);
 
             // Restaurar una versión también restaura su documento: si se vuelve a
@@ -1335,6 +1447,10 @@ export const equipoService = {
                     unidad_medida_sigla=@unidad_medida_sigla, informe=@informe,
                     Ultima_verificacion=@ultima_verificacion_r, Siguiente_verificacion=@siguiente_verificacion_r,
                     Plazo_Vigencia=@plazo_vigencia_r, Estado=@estado_equipo_r,
+                    fc0=@fc0_r, fc15=@fc15_r, fc30=@fc30_r,
+                    proveedor=@proveedor_r, fecha_compra=@fecha_compra_r,
+                    documento_compra=@documento_compra_r, n_documento_compra=@n_documento_compra_r,
+                    valor_unitario=@valor_unitario_r, fecha_baja=@fecha_baja_r,
                     version=@version${docRestore}
                 WHERE id_equipo = @id
             `);
@@ -1409,7 +1525,8 @@ export const equipoService = {
                 histReq.input('habilitado', sql.VarChar(1), 'N'); // New state
                 histReq.input('sigla', sql.VarChar(10), String(current.sigla || '').substring(0, 10));
                 histReq.input('correlativo', sql.Numeric(10, 0), current.correlativo || 0);
-                histReq.input('tienefc', sql.VarChar(1), String(current.tienefc || 'N').trim().substring(0, 1));
+                const tienefcExp = String(current.tienefc || 'N').trim().substring(0, 1);
+                histReq.input('tienefc', sql.VarChar(1), tienefcExp);
                 histReq.input('error0', sql.Numeric(10, 1), current.error0 || 0);
                 histReq.input('error15', sql.Numeric(10, 1), current.error15 || 0);
                 histReq.input('error30', sql.Numeric(10, 1), current.error30 || 0);
@@ -1424,19 +1541,30 @@ export const equipoService = {
                 histReq.input('siguiente_verificacion', sql.Date, parseSqlDate(current.Siguiente_verificacion) || null);
                 histReq.input('plazo_vigencia', sql.VarChar(500), current.Plazo_Vigencia != null ? String(current.Plazo_Vigencia).substring(0, 500) : null);
                 histReq.input('estado_equipo_exp', sql.VarChar(100), current.Estado != null ? String(current.Estado).substring(0, 100) : null);
+                histReq.input('fc0', sql.Numeric(10, 1), calcularFC(current.error0, tienefcExp));
+                histReq.input('fc15', sql.Numeric(10, 1), calcularFC(current.error15, tienefcExp));
+                histReq.input('fc30', sql.Numeric(10, 1), calcularFC(current.error30, tienefcExp));
+                histReq.input('proveedor', sql.NVarChar(200), current.proveedor || null);
+                histReq.input('fecha_compra', sql.Date, current.fecha_compra || null);
+                histReq.input('documento_compra', sql.NVarChar(50), current.documento_compra || null);
+                histReq.input('n_documento_compra', sql.NVarChar(50), current.n_documento_compra || null);
+                histReq.input('valor_unitario', sql.Numeric(12, 2), current.valor_unitario ?? null);
+                histReq.input('fecha_baja', sql.Date, current.fecha_baja || null);
 
                 await histReq.query(`
                     INSERT INTO mae_equipo_historial (
                         id_equipo, codigo, nombre, tipoequipo, sede, fecha_vigencia, id_muestreador, habilitado,
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
-                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, 
+                        observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
                         Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
+                        fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja,
                         usuario_cambio, version, fecha_cambio
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
-                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 
+                        @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
                         @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_exp,
+                        @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja,
                         @usuario_cambio, @version, GETDATE()
                     );
                 `);

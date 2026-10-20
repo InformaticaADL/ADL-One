@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
-import { normalize, toYYYYMMDD, parseCellValue, esSiNo } from './equipo-excel-import.service.js';
+import { normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador } from './equipo-excel-import.service.js';
 
 // Columnas del "Resumen Verificaciones Intermedias T°". Los puntos de Error
 // (0,0°C / 15,0°C / 30,0°C) vienen ANTES que su espejo "Factor de Corrección"
@@ -12,6 +12,7 @@ import { normalize, toYYYYMMDD, parseCellValue, esSiNo } from './equipo-excel-im
 // porque es solo el valor de Error con el signo invertido, no se guarda aparte.
 const HEADER_KEYWORDS = {
     codigo: ['CODIGO'],
+    ubicacion: ['SEDE'],
     responsable_nombre: ['RESPONSABLE'],
     fecha: ['FECHA'],
     error0: ['0,0'],
@@ -22,12 +23,16 @@ const HEADER_KEYWORDS = {
     equipo_asociado: ['ASOCIADO'],
 };
 
+// 'ubicacion' usa el mismo nombre de campo y la misma columna "Sede" que el
+// analizador de Inventario (mae_equipo.sede) — mismo criterio de comparación:
+// solo aparece como diferencia si no coincide con lo que ya tiene el equipo.
 const CAMPOS_COMPARABLES = [
-    'error0', 'error15', 'error30', 'tiene_fc', 'ultima_verificacion',
+    'ubicacion', 'error0', 'error15', 'error30', 'tiene_fc', 'ultima_verificacion',
     'estado_equipo', 'observacion', 'equipo_asociado', 'id_muestreador',
 ];
 
 const ETIQUETAS_CAMPO = {
+    ubicacion: 'Sede / Ubicación',
     error0: 'Error 0', error15: 'Error 15', error30: 'Error 30',
     tiene_fc: 'Tiene Factor de Corrección', ultima_verificacion: 'Última Verificación',
     estado_equipo: 'Estado Operativo', observacion: 'Observación',
@@ -123,6 +128,7 @@ class EquipoTemperaturaImportService {
                 rows.push({
                     rowNumber,
                     codigo,
+                    ubicacion: valoresCrudos.ubicacion,
                     responsable_nombre: valoresCrudos.responsable_nombre,
                     ultima_verificacion: toYYYYMMDD(valoresCrudos.fecha),
                     error0,
@@ -173,7 +179,7 @@ class EquipoTemperaturaImportService {
 
             let idMuestreadorResuelto = null;
             if (row.responsable_nombre) {
-                const match = muestreadorPorNombre.get(normalize(row.responsable_nombre));
+                const match = muestreadorPorNombre.get(resolveNombreMuestreador(row.responsable_nombre));
                 if (match) {
                     idMuestreadorResuelto = match.id_muestreador;
                 } else {
@@ -182,6 +188,7 @@ class EquipoTemperaturaImportService {
             }
 
             const excelData = {
+                ubicacion: row.ubicacion,
                 error0: row.error0,
                 error15: row.error15,
                 error30: row.error30,
@@ -212,6 +219,22 @@ class EquipoTemperaturaImportService {
             for (const campo of CAMPOS_COMPARABLES) {
                 const valorExcel = excelData[campo];
                 const valorBD = equipoDB[campo];
+
+                if (campo === 'equipo_asociado') {
+                    // Solo se ofrece agregar el equipo asociado cuando en la BD ese
+                    // campo está vacío para este equipo (nunca se sobreescribe uno ya
+                    // cargado) y cuando el código que trae el Excel corresponde a un
+                    // equipo real del sistema (nunca se deja un vínculo a un código
+                    // que no existe).
+                    if (!valorExcel) continue;
+                    const bdVacio = !valorBD || valorBD === '0' || normalize(String(valorBD)) === 'NO APLICA';
+                    const referenciaExiste = equiposPorCodigo.has(normalize(String(valorExcel)));
+                    if (bdVacio && referenciaExiste) {
+                        diffs.push({ campo, etiqueta: ETIQUETAS_CAMPO[campo], valorExcel, valorBD });
+                    }
+                    continue;
+                }
+
                 if (!sonEquivalentes(campo, valorExcel, valorBD)) {
                     diffs.push({
                         campo,
