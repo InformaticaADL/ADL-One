@@ -5,6 +5,7 @@ import PDFDocument from 'pdfkit-table';
 import fs from 'fs';
 import path from 'path';
 import logger from '../utils/logger.js';
+import ursService from './urs.service.js';
 
 // Helper to execute Stored Procedures
 const callSP = async (spName, params = {}) => {
@@ -88,6 +89,50 @@ export const adminService = {
             throw new Error('El SP no devolvió un id_muestreador válido');
         }
         return result[0];
+    },
+
+    // Crea una solicitud real en el sistema URS (mae_solicitud, tipo "Nuevo
+    // Muestreador" — ver migrations/add_solicitud_tipo_nuevo_muestreador.sql),
+    // así aparece en la bandeja de Solicitudes (panel lateral) de quien tenga
+    // el rol "Área Gestión de Calidad" — igual que cualquier otra solicitud
+    // de equipos. ursService.createRequest ya dispara la notificación (UNS
+    // evento SOLICITUD_NUEVA) a quienes tienen permiso GESTION sobre el tipo,
+    // resuelto automáticamente desde rel_solicitud_tipo_permiso — no hace
+    // falta notificar aparte.
+    solicitarNuevoMuestreador: async (nombrePropuesto, origen, idUsuarioSolicitante) => {
+        const pool = await getConnection();
+
+        const tipoRes = await pool.request()
+            .query(`SELECT id_tipo FROM mae_solicitud_tipo WHERE nombre = 'Nuevo Muestreador'`);
+        const idTipo = tipoRes.recordset[0]?.id_tipo;
+        if (!idTipo) {
+            throw new Error('El tipo de solicitud "Nuevo Muestreador" no está configurado. Ejecute migrations/add_solicitud_tipo_nuevo_muestreador.sql.');
+        }
+
+        const observaciones = `Se solicita agregar el muestreador "${nombrePropuesto}" al sistema (detectado al analizar un Excel de ${origen}).`;
+        const solicitud = await ursService.createRequest(
+            idTipo,
+            idUsuarioSolicitante,
+            { nombre_propuesto: nombrePropuesto, origen_deteccion: origen },
+            'NORMAL',
+            'Gestión de Calidad',
+            observaciones,
+            []
+        );
+
+        // createRequest agrega fecha_suceso/fecha_extravio a CUALQUIER tipo de
+        // solicitud que no los traiga (pensado para reportes de incidente/
+        // extravío) — no aplican a un alta de muestreador, se limpian acá sin
+        // tocar esa lógica compartida por otros tipos de solicitud.
+        const datosLimpios = { ...solicitud.datos_json };
+        delete datosLimpios.fecha_suceso;
+        delete datosLimpios.fecha_extravio;
+        await pool.request()
+            .input('id', sql.Numeric(10, 0), solicitud.id_solicitud)
+            .input('datos', sql.NVarChar(sql.MAX), JSON.stringify(datosLimpios))
+            .query('UPDATE mae_solicitud SET datos_json = @datos WHERE id_solicitud = @id');
+
+        return { id_solicitud: solicitud.id_solicitud };
     },
 
     updateMuestreador: async (id, data) => {

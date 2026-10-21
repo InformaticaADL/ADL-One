@@ -31,6 +31,24 @@ export const adminController = {
         }
     },
 
+    solicitarNuevoMuestreador: async (req, res) => {
+        try {
+            const { nombre, origen } = req.body;
+            if (!nombre || !nombre.trim()) {
+                return res.status(400).json({ success: false, message: 'Falta el nombre del muestreador a solicitar' });
+            }
+            const result = await adminService.solicitarNuevoMuestreador(
+                nombre.trim(),
+                origen || 'un análisis de Excel',
+                req.user?.id
+            );
+            res.json({ success: true, data: result, message: 'Solicitud enviada correctamente' });
+        } catch (error) {
+            logger.error('Controller solicitarNuevoMuestreador error:', error);
+            res.status(500).json({ success: false, message: 'Error al enviar la solicitud' });
+        }
+    },
+
     updateMuestreador: async (req, res) => {
         try {
             const { id } = req.params;

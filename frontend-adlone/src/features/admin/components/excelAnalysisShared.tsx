@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { IconCheck, IconArrowLeft, IconDatabase, IconFileSpreadsheet, IconSearch, IconRefresh } from '@tabler/icons-react';
+import { IconCheck, IconArrowLeft, IconDatabase, IconFileSpreadsheet, IconSearch, IconRefresh, IconSend } from '@tabler/icons-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { adminService } from '../../../services/admin.service';
+import { useToast } from '../../../contexts/ToastContext';
 
 // Piezas visuales compartidas entre los modales de análisis de Excel
 // (equipos e inventario, temperatura) para no duplicar el mismo patrón de
@@ -21,6 +23,82 @@ export const appendObservacion = (actual: string | null | undefined, nueva: stri
     const fecha = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
     const linea = `- [${fecha}] ${nueva}`;
     return limpia ? `${limpia}\n${linea}` : linea;
+};
+
+// Detecta la advertencia fija que generan ambos analizadores backend cuando
+// el Responsable del Excel no matchea ningún muestreador del sistema (ver
+// equipo-excel-import.service.js / equipo-temperatura-import.service.js:
+// `Responsable "X" no fue encontrado en el sistema; selecciónelo manualmente
+// al editar.`) y extrae el nombre para prellenar el alta rápida.
+export const extraerResponsableFaltante = (warnings: string[]): string | null => {
+    for (const w of warnings) {
+        const m = w.match(/^Responsable "(.+)" no fue encontrado en el sistema/);
+        if (m) return m[1];
+    }
+    return null;
+};
+
+// Botón "Solicitar" junto a la advertencia de responsable no encontrado: abre
+// un popover liviano (no cierra ni cambia de pantalla el análisis en curso)
+// que solo notifica a quienes tienen permiso de crear muestreadores — no crea
+// nada en la base de datos, queda a criterio de quien reciba la notificación.
+export const SolicitarMuestreadorPopover: React.FC<{ nombreSugerido: string; origen: string }> = ({ nombreSugerido, origen }) => {
+    const [open, setOpen] = useState(false);
+    const [nombre, setNombre] = useState(nombreSugerido);
+    const [enviando, setEnviando] = useState(false);
+    const [enviado, setEnviado] = useState(false);
+    const { showToast } = useToast();
+
+    const handleSolicitar = async () => {
+        if (!nombre.trim()) return;
+        setEnviando(true);
+        try {
+            await adminService.solicitarNuevoMuestreador(nombre.trim(), origen);
+            setEnviado(true);
+            showToast({ type: 'success', message: 'Solicitud enviada a quienes pueden crear muestreadores' });
+        } catch (err: any) {
+            showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo enviar la solicitud' });
+        } finally {
+            setEnviando(false);
+        }
+    };
+
+    return (
+        <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setNombre(nombreSugerido); setEnviado(false); } }}>
+            <PopoverTrigger asChild>
+                <Button size="sm" variant="link" className="mt-0.5 h-auto p-0 text-xs">
+                    Solicitar
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-72 p-3">
+                {enviado ? (
+                    <div className="flex items-center gap-2 text-sm text-success">
+                        <IconCheck size={16} /> Solicitud enviada.
+                    </div>
+                ) : (
+                    <div className="flex flex-col gap-2">
+                        <p className="text-xs text-muted-foreground">
+                            Pide que se agregue este muestreador al sistema. No se crea ahora — se avisa a quien tiene permiso para hacerlo.
+                        </p>
+                        <Input
+                            autoFocus
+                            value={nombre}
+                            onChange={(e) => setNombre(e.target.value)}
+                            placeholder="Nombre del muestreador"
+                        />
+                        <Button size="sm" onClick={handleSolicitar} disabled={enviando || !nombre.trim()}>
+                            {enviando ? (
+                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            ) : (
+                                <IconSend size={14} />
+                            )}
+                            Solicitar
+                        </Button>
+                    </div>
+                )}
+            </PopoverContent>
+        </Popover>
+    );
 };
 
 export type EstadoBadgeTono = 'success' | 'warning' | 'destructive';

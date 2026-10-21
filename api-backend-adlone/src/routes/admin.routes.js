@@ -86,6 +86,9 @@ const subirExcelEquipos = (req, res, next) => uploadEquiposExcel.single('archivo
 router.get('/muestreadores', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), validateRequest(adminValidationSchemas.getMuestreadores), adminController.getMuestreadores);
 
 router.post('/muestreadores', verifyToken, verifyPermission('AI_MA_CREAR_NUEVO_MUESTREADOR'), validateRequest(adminValidationSchemas.createMuestreador), adminController.createMuestreador);
+// Quien analiza un Excel y no tiene permiso para crear muestreadores puede
+// igual pedirlo: notifica a quienes sí lo tienen, sin crear nada en la BD.
+router.post('/muestreadores/solicitar', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), adminController.solicitarNuevoMuestreador);
 router.put('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.updateMuestreador), adminController.updateMuestreador);
 router.delete('/muestreadores/:id', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.disableMuestreador), adminController.disableMuestreador);
 router.post('/muestreadores/:id/disable-with-reassignment', verifyToken, verifyPermission('AI_MA_DESHABILITAR_MUESTREADOR'), validateRequest(adminValidationSchemas.disableMuestreadorWithReassignment), adminController.disableMuestreadorWithReassignment);

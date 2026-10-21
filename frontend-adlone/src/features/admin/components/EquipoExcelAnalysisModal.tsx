@@ -21,7 +21,8 @@ import { cn } from '@/lib/utils';
 import { EquipoForm } from './EquipoForm';
 import {
     EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
-    guardarLote, leerLote, limpiarLote, appendObservacion,
+    guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante,
+    SolicitarMuestreadorPopover,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
 } from './excelAnalysisShared';
 
@@ -702,6 +703,12 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                                 <div className="mt-1 flex items-start gap-1 text-warning">
                                                     <IconAlertTriangle size={12} className="mt-0.5 shrink-0" /> <span>{item.warnings[0]}</span>
                                                 </div>
+                                            )}
+                                            {extraerResponsableFaltante(item.warnings) && (
+                                                <SolicitarMuestreadorPopover
+                                                    nombreSugerido={extraerResponsableFaltante(item.warnings)!}
+                                                    origen="Inventario de Equipos"
+                                                />
                                             )}
                                         </TableCell>
                                         <TableCell className="text-right">

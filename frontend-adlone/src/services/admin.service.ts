@@ -13,6 +13,12 @@ export const adminService = {
         return response.data;
     },
 
+    // Notifica a quienes sí tienen permiso de crear muestreadores — no crea nada.
+    solicitarNuevoMuestreador: async (nombre: string, origen: string) => {
+        const response = await apiClient.post('/api/admin/muestreadores/solicitar', { nombre, origen });
+        return response.data;
+    },
+
     getUsuarios: async () => {
         // Points to rbac users endpoint, returns all internal users
         const response = await apiClient.get('/api/rbac/users');
