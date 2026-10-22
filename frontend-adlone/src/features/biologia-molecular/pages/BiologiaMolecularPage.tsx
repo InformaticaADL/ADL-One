@@ -1,26 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-    IconDna,
-    IconSearch,
-    IconDownload,
-    IconCalendar,
-    IconRefresh,
-    IconFilter,
-    IconBuildingHospital,
-    IconCheck,
-    IconAlertTriangle,
-    IconFlask,
-    IconChevronLeft,
-    IconChevronRight,
-    IconTrendingDown
-} from '@tabler/icons-react';
+import dayjs from 'dayjs';
+import { IconDna, IconDownload, IconFilter, IconRefresh } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
+import { DataPagination } from '@/components/ui/pagination';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 import { useToast } from '../../../contexts/ToastContext';
 import {
     biologiaMolecularApiClient,
@@ -29,7 +21,9 @@ import {
     type BiologiaMolecularMuestra
 } from '../services/biologiaMolecular.service';
 
-// Helper para formatear cifras con punto (.) como separador de miles
+const FORMATO_ISO = 'YYYY-MM-DD';
+
+// Cifras con punto (.) como separador de miles.
 const formatThousands = (val: number | string | undefined | null): string => {
     if (val === undefined || val === null || val === '') return '0';
     const num = Number(val);
@@ -37,7 +31,7 @@ const formatThousands = (val: number | string | undefined | null): string => {
     return Math.trunc(num).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 };
 
-// Helper para formatear fechas a formato DD/MM/YYYY
+// Fechas a DD/MM/YYYY.
 const formatDateOnly = (val?: string | Date | null): string => {
     if (!val) return '-';
     if (typeof val === 'string') {
@@ -46,25 +40,91 @@ const formatDateOnly = (val?: string | Date | null): string => {
             const [y, m, d] = trimmed.slice(0, 10).split('-');
             return `${d}/${m}/${y}`;
         }
-        if (/^\d{2}\/\d{2}\/\d{4}/.test(trimmed)) {
-            return trimmed.slice(0, 10);
-        }
+        if (/^\d{2}\/\d{2}\/\d{4}/.test(trimmed)) return trimmed.slice(0, 10);
         const parsed = new Date(trimmed);
-        if (!isNaN(parsed.getTime())) {
-            const d = String(parsed.getDate()).padStart(2, '0');
-            const m = String(parsed.getMonth() + 1).padStart(2, '0');
-            const y = parsed.getFullYear();
-            return `${d}/${m}/${y}`;
-        }
-        return trimmed;
+        return isNaN(parsed.getTime()) ? trimmed : dayjs(parsed).format('DD/MM/YYYY');
     }
-    if (val instanceof Date && !isNaN(val.getTime())) {
-        const d = String(val.getDate()).padStart(2, '0');
-        const m = String(val.getMonth() + 1).padStart(2, '0');
-        const y = val.getFullYear();
-        return `${d}/${m}/${y}`;
+    return val instanceof Date && !isNaN(val.getTime()) ? dayjs(val).format('DD/MM/YYYY') : String(val);
+};
+
+// Una sola definición de qué es cada resultado. Antes esta misma condición
+// (r === 'p' || r.includes('pos'), etc.) estaba copiada en los KPIs, en el filtro y en
+// el badge: bastaba corregir una para que las otras tres quedaran desalineadas.
+type ClaseResultado = 'POSITIVO' | 'NEGATIVO' | 'EN_PROCESO' | 'INDETERMINADO' | 'OTRO';
+const clasificarResultado = (resultado?: string | null): ClaseResultado => {
+    const r = String(resultado ?? '').toLowerCase().trim();
+    if (r === 'p' || r.includes('pos')) return 'POSITIVO';
+    if (r === 'n' || r.includes('neg')) return 'NEGATIVO';
+    if (r === 'ep' || r.includes('proc') || r.includes('pend')) return 'EN_PROCESO';
+    if (r.includes('indet') || r.includes('sos')) return 'INDETERMINADO';
+    return 'OTRO';
+};
+
+type Categoria = 'ALL' | 'POSITIVO' | 'NEGATIVO' | 'OTROS';
+// "Otros" es todo lo que no es ni positivo ni negativo (en proceso, indeterminado…).
+const categoriaDe = (resultado?: string | null): Exclude<Categoria, 'ALL'> => {
+    const c = clasificarResultado(resultado);
+    return c === 'POSITIVO' || c === 'NEGATIVO' ? c : 'OTROS';
+};
+
+const OPCIONES_RESULTADO = [
+    { value: 'ALL', label: 'Todos' },
+    { value: 'POSITIVO', label: 'Positivo' },
+    { value: 'NEGATIVO', label: 'Negativo' },
+    { value: 'OTROS', label: 'En proceso / otros' },
+];
+
+const ResultadoBadge: React.FC<{ resultado?: string | null }> = ({ resultado }) => {
+    if (!resultado) return <span className="text-muted-foreground">-</span>;
+    switch (clasificarResultado(resultado)) {
+        case 'POSITIVO':
+            return <Badge variant="destructive">{resultado === 'P' ? 'Positivo (P)' : resultado}</Badge>;
+        case 'NEGATIVO':
+            return <Badge variant="success">{resultado === 'N' ? 'Negativo (N)' : resultado}</Badge>;
+        case 'EN_PROCESO':
+            return <Badge variant="secondary">{resultado === 'EP' ? 'En Proceso (EP)' : resultado}</Badge>;
+        case 'INDETERMINADO':
+            return <Badge variant="warning">{resultado}</Badge>;
+        default:
+            return <Badge variant="outline">{resultado}</Badge>;
     }
-    return String(val);
+};
+
+interface KpiProps {
+    etiqueta: string;
+    valor: number;
+    detalle: string;
+    acento?: string;
+    activo?: boolean;
+    onClick?: () => void;
+}
+
+// Tarjeta plana: el color vive solo en un punto de acento, no en fondos ni gradientes.
+// Las que filtran son un Button de Shadcn, no un div con onClick (no se llega con teclado).
+const Kpi: React.FC<KpiProps> = ({ etiqueta, valor, detalle, acento, activo, onClick }) => {
+    const contenido = (
+        <>
+            <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                {acento && <span className={cn('h-1.5 w-1.5 rounded-full', acento)} />}
+                {etiqueta}
+            </span>
+            <span className="text-2xl font-semibold tabular-nums text-foreground">{formatThousands(valor)}</span>
+            <span className="text-xs font-normal text-muted-foreground">{detalle}</span>
+        </>
+    );
+    if (!onClick) {
+        return <Card className="flex flex-col items-start gap-1 px-4 py-3">{contenido}</Card>;
+    }
+    return (
+        <Button
+            variant="outline"
+            onClick={onClick}
+            aria-pressed={activo}
+            className={cn('h-auto flex-col items-start gap-1 rounded-xl px-4 py-3 text-left', activo && 'border-primary ring-1 ring-primary')}
+        >
+            {contenido}
+        </Button>
+    );
 };
 
 interface Props {
@@ -74,39 +134,27 @@ interface Props {
 export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
 
-    // Filtros de Fecha (2 inputs)
-    const todayStr = useMemo(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    }, []);
+    // El rango arranca el 1 de enero del año en curso. Estaba escrito a mano como
+    // '2026-01-01', así que en 2027 la consulta inicial habría traído el año anterior.
+    const [fechaDesde, setFechaDesde] = useState<string>(() => dayjs().startOf('year').format(FORMATO_ISO));
+    const [fechaHasta, setFechaHasta] = useState<string>(() => dayjs().format(FORMATO_ISO));
 
-    const [fechaDesde, setFechaDesde] = useState<string>('2026-01-01');
-    const [fechaHasta, setFechaHasta] = useState<string>(() => {
-        const d = new Date();
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    });
-
-    const [loading, setLoading] = useState<boolean>(false);
+    const [loading, setLoading] = useState(false);
     const [data, setData] = useState<BiologiaMolecularMuestra[]>([]);
-    const [soloMenorCT, setSoloMenorCT] = useState<boolean>(false);
-    const [selectedCategory, setSelectedCategory] = useState<'ALL' | 'POSITIVO' | 'NEGATIVO' | 'OTROS'>('ALL');
-    const [selectedCentro, setSelectedCentro] = useState<string>('ALL');
-    const [currentPage, setCurrentPage] = useState<number>(1);
-    const [pageSize, setPageSize] = useState<number>(25);
+    const [soloMenorCT, setSoloMenorCT] = useState(false);
+    const [categoria, setCategoria] = useState<Categoria>('ALL');
+    const [centro, setCentro] = useState('ALL');
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
-    // Cargar datos al montar o al presionar Consultar
-    const handleFetch = async () => {
+    const consultar = async () => {
         if (!fechaDesde || !fechaHasta) {
-            showToast({
-                message: 'Debe ingresar un rango de fechas válido.',
-                type: 'warning'
-            });
+            showToast({ message: 'Debe ingresar un rango de fechas válido.', type: 'warning' });
+            return;
+        }
+        if (fechaDesde > fechaHasta) {
+            showToast({ message: 'La fecha desde no puede ser posterior a la fecha hasta.', type: 'warning' });
             return;
         }
 
@@ -118,16 +166,17 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
                 id_lugaranalisis: 1
             });
             setData(result);
-            setCurrentPage(1);
-
+            setPage(1);
+            setFiltrosAbiertos(false);
             showToast({
                 message: `Se encontraron ${formatThousands(result.length)} registros de Biología Molecular.`,
                 type: result.length > 0 ? 'success' : 'info'
             });
-        } catch (error: any) {
+        } catch (error) {
             console.error('Error al consultar Biología Molecular:', error);
+            const respuesta = (error as { response?: { data?: { message?: string } }; message?: string });
             showToast({
-                message: error?.response?.data?.message || error.message || 'Error al consultar datos en LaboratorioADL',
+                message: respuesta?.response?.data?.message || respuesta?.message || 'Error al consultar datos en LaboratorioADL',
                 type: 'error'
             });
         } finally {
@@ -136,566 +185,278 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
     };
 
     useEffect(() => {
-        handleFetch();
+        void consultar();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Datos base: todos los pools o filtrados al menor CT por cada (caso, matriz, agente)
-    const processedData = useMemo(() => {
-        if (!soloMenorCT) return data;
-        return filterLowestCTByCasoMatrizAgente(data);
-    }, [data, soloMenorCT]);
+    // Todos los pools, o solo el de menor CT por (caso, matriz, agente).
+    const base = useMemo(() => (soloMenorCT ? filterLowestCTByCasoMatrizAgente(data) : data), [data, soloMenorCT]);
 
-    // Métricas para los KPIs
+    // Un único recorrido para los KPIs.
     const stats = useMemo(() => {
-        const totalRegistros = processedData.length;
-        const casosUnicos = new Set(processedData.map(d => d.caso_adlab)).size;
-        const centrosUnicos = new Set(processedData.map(d => d.nombre_centro)).size;
-        const positivos = processedData.filter(d => {
-            const r = String(d.resultado || '').toLowerCase().trim();
-            return r === 'p' || r.includes('pos');
-        }).length;
-        const negativos = processedData.filter(d => {
-            const r = String(d.resultado || '').toLowerCase().trim();
-            return r === 'n' || r.includes('neg');
-        }).length;
-        const otros = totalRegistros - (positivos + negativos);
-        return { totalRegistros, casosUnicos, centrosUnicos, positivos, negativos, otros };
-    }, [processedData]);
+        const casos = new Set<string | number>();
+        const centros = new Set<string>();
+        let positivos = 0;
+        let negativos = 0;
+        for (const d of base) {
+            casos.add(d.caso_adlab);
+            centros.add(d.nombre_centro);
+            const cat = categoriaDe(d.resultado);
+            if (cat === 'POSITIVO') positivos++;
+            else if (cat === 'NEGATIVO') negativos++;
+        }
+        return { total: base.length, casos: casos.size, centros: centros.size, positivos, negativos, otros: base.length - positivos - negativos };
+    }, [base]);
 
-    // Datos filtrados según la categoría (Todos / Positivo / Negativo / Otros)
-    const categoryData = useMemo(() => {
-        if (selectedCategory === 'POSITIVO') {
-            return processedData.filter((item) => {
-                const r = String(item.resultado || '').toLowerCase().trim();
-                return r === 'p' || r.includes('pos');
-            });
-        }
-        if (selectedCategory === 'NEGATIVO') {
-            return processedData.filter((item) => {
-                const r = String(item.resultado || '').toLowerCase().trim();
-                return r === 'n' || r.includes('neg');
-            });
-        }
-        if (selectedCategory === 'OTROS') {
-            return processedData.filter((item) => {
-                const r = String(item.resultado || '').toLowerCase().trim();
-                return r !== 'p' && !r.includes('pos') && r !== 'n' && !r.includes('neg');
-            });
-        }
-        return processedData;
-    }, [processedData, selectedCategory]);
+    const porCategoria = useMemo(
+        () => (categoria === 'ALL' ? base : base.filter((d) => categoriaDe(d.resultado) === categoria)),
+        [base, categoria]
+    );
 
-    // Lista dinámica de centros disponibles en la categoría seleccionada con su cantidad de muestras
-    const availableCentros = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const item of categoryData) {
-            const c = (item.nombre_centro || '').trim();
-            if (c) {
-                counts.set(c, (counts.get(c) || 0) + 1);
-            }
+    // Centros presentes en la categoría elegida, con su cantidad de muestras.
+    const centrosDisponibles = useMemo(() => {
+        const cuentas = new Map<string, number>();
+        for (const d of porCategoria) {
+            const c = (d.nombre_centro || '').trim();
+            if (c) cuentas.set(c, (cuentas.get(c) || 0) + 1);
         }
-        return Array.from(counts.entries())
-            .map(([nombre, count]) => ({ nombre, count }))
+        return Array.from(cuentas.entries())
+            .map(([nombre, n]) => ({ nombre, n }))
             .sort((a, b) => a.nombre.localeCompare(b.nombre));
-    }, [categoryData]);
+    }, [porCategoria]);
 
-    // Si cambia la categoría y el centro previamente seleccionado no existe en ella, resetear a 'ALL'
-    useEffect(() => {
-        if (selectedCentro !== 'ALL') {
-            const exists = availableCentros.some((c) => c.nombre === selectedCentro);
-            if (!exists) {
-                setSelectedCentro('ALL');
-                setCurrentPage(1);
-            }
-        }
-    }, [availableCentros, selectedCentro]);
+    // Si el centro elegido ya no existe en la categoría, se trata como "todos". Se deriva
+    // en vez de corregir el estado con un efecto, que dispararía un render extra.
+    const centroActivo = centrosDisponibles.some((c) => c.nombre === centro) ? centro : 'ALL';
 
-    // Datos finales filtrados por categoría y centro
-    const filteredData = useMemo(() => {
-        if (selectedCentro === 'ALL' || !selectedCentro) {
-            return categoryData;
-        }
-        return categoryData.filter((item) => (item.nombre_centro || '').trim() === selectedCentro);
-    }, [categoryData, selectedCentro]);
+    const filtrados = useMemo(
+        () => (centroActivo === 'ALL' ? porCategoria : porCategoria.filter((d) => (d.nombre_centro || '').trim() === centroActivo)),
+        [porCategoria, centroActivo]
+    );
 
-    // Exportar a Excel (exporta la vista filtrada o todo el conjunto procesado)
-    const handleExportExcel = () => {
-        const toExport = filteredData.length > 0 ? filteredData : processedData;
-        if (toExport.length === 0) {
-            showToast({
-                message: 'No hay datos para exportar.',
-                type: 'warning'
-            });
+    const opcionesCentro = useMemo(
+        () => [
+            { value: 'ALL', label: `Todos los centros (${formatThousands(centrosDisponibles.length)})` },
+            ...centrosDisponibles.map(({ nombre, n }) => ({ value: nombre, label: `${nombre} (${formatThousands(n)})` })),
+        ],
+        [centrosDisponibles]
+    );
+
+    const filtrosActivos = [soloMenorCT, categoria !== 'ALL', centroActivo !== 'ALL'].filter(Boolean).length;
+
+    const elegirCategoria = (c: Categoria) => { setCategoria(c); setPage(1); };
+
+    const limpiarFiltros = () => {
+        setSoloMenorCT(false);
+        setCategoria('ALL');
+        setCentro('ALL');
+        setPage(1);
+    };
+
+    const paginaActual = Math.min(page, Math.max(1, Math.ceil(filtrados.length / pageSize)));
+    const visibles = useMemo(
+        () => filtrados.slice((paginaActual - 1) * pageSize, paginaActual * pageSize),
+        [filtrados, paginaActual, pageSize]
+    );
+
+    const exportar = () => {
+        const aExportar = filtrados.length > 0 ? filtrados : base;
+        if (aExportar.length === 0) {
+            showToast({ message: 'No hay datos para exportar.', type: 'warning' });
             return;
         }
         try {
-            const suffixCT = soloMenorCT ? '_menor_ct_max28' : '';
-            const suffixCat = selectedCategory !== 'ALL' ? `_${selectedCategory.toLowerCase()}` : '';
-            const suffixCentro = selectedCentro !== 'ALL' ? `_${selectedCentro.replace(/\s+/g, '_')}` : '';
-            exportBiologiaMolecularExcel(toExport, `biologia_molecular_${fechaDesde}_al_${fechaHasta}${suffixCT}${suffixCat}${suffixCentro}`);
+            const sufijoCT = soloMenorCT ? '_menor_ct_max28' : '';
+            const sufijoCat = categoria !== 'ALL' ? `_${categoria.toLowerCase()}` : '';
+            const sufijoCentro = centroActivo !== 'ALL' ? `_${centroActivo.replace(/\s+/g, '_')}` : '';
+            exportBiologiaMolecularExcel(aExportar, `biologia_molecular_${fechaDesde}_al_${fechaHasta}${sufijoCT}${sufijoCat}${sufijoCentro}`);
             showToast({
-                message: `Archivo Excel generado con éxito (${formatThousands(toExport.length)} registros${soloMenorCT ? ' - Menor CT ≤ 28' : ''}).`,
+                message: `Archivo Excel generado con éxito (${formatThousands(aExportar.length)} registros${soloMenorCT ? ' - Menor CT ≤ 28' : ''}).`,
                 type: 'success'
             });
-        } catch (error: any) {
-            showToast({
-                message: 'Error al generar el archivo Excel: ' + error.message,
-                type: 'error'
-            });
+        } catch (error) {
+            showToast({ message: 'Error al generar el archivo Excel: ' + (error as Error).message, type: 'error' });
         }
-    };
-
-    // Paginación
-    const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
-    const paginatedData = useMemo(() => {
-        const start = (currentPage - 1) * pageSize;
-        return filteredData.slice(start, start + pageSize);
-    }, [filteredData, currentPage, pageSize]);
-
-    // Render de Badge para Resultados
-    const renderResultadoBadge = (resultado?: string) => {
-        if (!resultado) return <span className="text-muted-foreground text-xs italic">-</span>;
-        const resLower = resultado.toLowerCase().trim();
-
-        if (resLower === 'p' || resLower.includes('pos')) {
-            return (
-                <Badge variant="destructive" className="font-semibold text-xs px-2 py-0.5">
-                    {resultado === 'P' ? 'Positivo (P)' : resultado}
-                </Badge>
-            );
-        }
-        if (resLower === 'n' || resLower.includes('neg')) {
-            return (
-                <Badge variant="outline" className="border-emerald-500/50 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 font-semibold text-xs px-2 py-0.5">
-                    {resultado === 'N' ? 'Negativo (N)' : resultado}
-                </Badge>
-            );
-        }
-        if (resLower === 'ep' || resLower.includes('proc') || resLower.includes('pend')) {
-            return (
-                <Badge variant="secondary" className="border-blue-500/40 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300 font-semibold text-xs px-2 py-0.5">
-                    {resultado === 'EP' ? 'En Proceso (EP)' : resultado}
-                </Badge>
-            );
-        }
-        if (resLower.includes('indet') || resLower.includes('sos')) {
-            return (
-                <Badge variant="secondary" className="border-amber-500/40 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 font-medium text-xs px-2 py-0.5">
-                    {resultado}
-                </Badge>
-            );
-        }
-        return (
-            <Badge variant="secondary" className="font-medium text-xs px-2 py-0.5">
-                {resultado}
-            </Badge>
-        );
     };
 
     return (
-        <div className="shadcn-scope w-full max-w-[98%] xl:max-w-[1700px] mx-auto p-4 md:p-6 space-y-6">
+        <div className="shadcn-scope flex h-full min-h-0 flex-col [&>*]:shrink-0">
             <PageHeader
                 title="Biología Molecular"
                 subtitle="Consulta detallada de muestras y resultados por rango de fecha"
                 onBack={onBack}
                 rightSection={
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleFetch}
-                            disabled={loading}
-                            className="gap-1.5"
-                        >
-                            <IconRefresh size={15} className={loading ? 'animate-spin' : ''} />
-                            Recargar
+                    <div className="flex flex-wrap items-center gap-2.5">
+                        <span className="text-xs text-muted-foreground">
+                            {formatThousands(filtrados.length)} registros · {formatDateOnly(fechaDesde)} – {formatDateOnly(fechaHasta)}
+                        </span>
+
+                        <Sheet open={filtrosAbiertos} onOpenChange={setFiltrosAbiertos}>
+                            <SheetTrigger asChild>
+                                <Button variant="outline">
+                                    <IconFilter size={16} /> Filtros
+                                    {filtrosActivos > 0 && <Badge variant="secondary" className="ml-1 px-1.5">{filtrosActivos}</Badge>}
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-sm">
+                                <SheetHeader>
+                                    <SheetTitle>Filtros de búsqueda</SheetTitle>
+                                    <SheetDescription>El rango de fechas consulta LaboratorioADL; el resto filtra lo ya cargado.</SheetDescription>
+                                </SheetHeader>
+
+                                <div className="flex flex-1 flex-col gap-4">
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fecha desde (muestreo)</Label>
+                                        <DatePicker value={fechaDesde} onChange={setFechaDesde} placeholder="Seleccionar fecha" />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Fecha hasta (muestreo)</Label>
+                                        <DatePicker value={fechaHasta} onChange={setFechaHasta} placeholder="Seleccionar fecha" />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Lugar de análisis</Label>
+                                        <p className="text-sm">Puerto Montt</p>
+                                    </div>
+
+                                    <div className="h-px bg-border" />
+
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Resultado</Label>
+                                        <Combobox
+                                            options={OPCIONES_RESULTADO}
+                                            value={categoria}
+                                            onValueChange={(v) => elegirCategoria((v || 'ALL') as Categoria)}
+                                            placeholder="Todos"
+                                            searchPlaceholder="Buscar resultado..."
+                                        />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Centro</Label>
+                                        <Combobox
+                                            options={opcionesCentro}
+                                            value={centroActivo}
+                                            onValueChange={(v) => { setCentro(v || 'ALL'); setPage(1); }}
+                                            placeholder="Todos los centros"
+                                            searchPlaceholder="Buscar centro..."
+                                        />
+                                    </div>
+                                    <div className="flex items-start justify-between gap-3 rounded-lg border border-border p-3">
+                                        <div>
+                                            <Label htmlFor="toggle-menor-ct" className="text-sm font-medium">Solo menor CT</Label>
+                                            <p className="mt-0.5 text-xs text-muted-foreground">Conserva el menor CT (≤ 28) de cada caso, matriz y agente.</p>
+                                        </div>
+                                        <Switch
+                                            id="toggle-menor-ct"
+                                            checked={soloMenorCT}
+                                            onCheckedChange={(v) => { setSoloMenorCT(v); setPage(1); }}
+                                        />
+                                    </div>
+                                </div>
+
+                                <SheetFooter>
+                                    {filtrosActivos > 0 && (
+                                        <Button variant="outline" onClick={limpiarFiltros}>Limpiar filtros</Button>
+                                    )}
+                                    <Button onClick={() => void consultar()} disabled={loading}>
+                                        {loading ? 'Consultando...' : 'Consultar'}
+                                    </Button>
+                                </SheetFooter>
+                            </SheetContent>
+                        </Sheet>
+
+                        <Button variant="outline" onClick={() => void consultar()} disabled={loading} title="Volver a consultar">
+                            <IconRefresh size={16} className={loading ? 'animate-spin' : ''} /> Recargar
                         </Button>
-                        <Button
-                            variant="default"
-                            size="sm"
-                            onClick={handleExportExcel}
-                            disabled={loading || filteredData.length === 0}
-                            className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                            <IconDownload size={15} />
-                            Exportar Excel ({formatThousands(filteredData.length)})
+                        <Button variant="outline" onClick={exportar} disabled={loading || filtrados.length === 0}>
+                            <IconDownload size={16} /> Exportar Excel
                         </Button>
                     </div>
                 }
             />
 
-            {/* Formulario de Filtro por Rango de Fecha */}
-            <Card className="border-border shadow-sm">
-                <CardContent className="p-4 md:p-6">
-                    <form
-                        onSubmit={(e) => {
-                            e.preventDefault();
-                            handleFetch();
-                        }}
-                        className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 items-end"
-                    >
-                        <div>
-                            <Label htmlFor="fecha_desde" className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                                <IconCalendar size={14} className="text-primary" />
-                                Fecha Desde (Muestreo)
-                            </Label>
-                            <Input
-                                id="fecha_desde"
-                                type="date"
-                                min="2012-01-01"
-                                max={fechaHasta || todayStr}
-                                value={fechaDesde}
-                                onChange={(e) => setFechaDesde(e.target.value)}
-                                className="h-10 text-sm font-medium"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="fecha_hasta" className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                                <IconCalendar size={14} className="text-primary" />
-                                Fecha Hasta (Muestreo)
-                            </Label>
-                            <Input
-                                id="fecha_hasta"
-                                type="date"
-                                min="2012-01-01"
-                                max={todayStr}
-                                value={fechaHasta}
-                                onChange={(e) => setFechaHasta(e.target.value)}
-                                className="h-10 text-sm font-medium"
-                                required
-                            />
-                        </div>
-
-                        <div>
-                            <Label className="text-xs font-semibold text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                                <IconBuildingHospital size={14} className="text-primary" />
-                                Lugar de Análisis
-                            </Label>
-                            <div className="h-10 px-3 flex items-center bg-muted/50 rounded-md border border-input text-xs font-medium text-foreground">
-                                Puerto Montt
-                            </div>
-                        </div>
-
-                        <div className="flex gap-2">
-                            <Button
-                                type="submit"
-                                disabled={loading}
-                                className="h-10 flex-1 gap-2 font-medium"
-                            >
-                                <IconSearch size={16} className={loading ? 'animate-spin' : ''} />
-                                {loading ? 'Consultando...' : 'Consultar'}
-                            </Button>
-                        </div>
-                    </form>
-                </CardContent>
-            </Card>
-
-            {/* Tarjetas de Métricas Rápidas (Interactivas para filtrar con un clic) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                <Card 
-                    onClick={() => { setSelectedCategory('ALL'); setCurrentPage(1); }}
-                    className={`p-3.5 cursor-pointer transition-all hover:shadow-md ${selectedCategory === 'ALL' ? 'ring-2 ring-primary bg-primary/5' : 'bg-gradient-to-br from-background to-muted/30'}`}
-                >
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Total Registros</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{formatThousands(stats.totalRegistros)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {soloMenorCT ? 'Muestras con CT ≤ 28' : 'Análisis totales'}
-                    </p>
-                </Card>
-                <Card className="p-3.5 bg-gradient-to-br from-background to-muted/30">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Casos Únicos</p>
-                    <p className="text-2xl font-bold text-primary mt-1">{formatThousands(stats.casosUnicos)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Casos registrados</p>
-                </Card>
-                <Card className="p-3.5 bg-gradient-to-br from-background to-muted/30">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Centros</p>
-                    <p className="text-2xl font-bold text-foreground mt-1">{formatThousands(stats.centrosUnicos)}</p>
-                    <p className="text-[10px] text-muted-foreground mt-0.5">Centros productivos</p>
-                </Card>
-                <Card 
-                    onClick={() => { setSelectedCategory('POSITIVO'); setCurrentPage(1); }}
-                    className={`p-3.5 cursor-pointer transition-all hover:shadow-md ${selectedCategory === 'POSITIVO' ? 'ring-2 ring-red-500 bg-red-100/40 dark:bg-red-950/40' : 'bg-gradient-to-br from-red-50/30 to-red-100/20 dark:from-red-950/20 dark:to-background border-red-200/40 dark:border-red-900/40'}`}
-                >
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wider">Positivos</p>
-                        {selectedCategory === 'POSITIVO' && <span className="text-[10px] bg-red-600 text-white rounded px-1 font-bold">Activo</span>}
-                    </div>
-                    <p className="text-2xl font-bold text-red-600 dark:text-red-400 mt-1">{formatThousands(stats.positivos)}</p>
-                    <p className="text-[10px] text-red-600/70 dark:text-red-400/70 mt-0.5 font-medium">Análisis positivos</p>
-                </Card>
-                <Card 
-                    onClick={() => { setSelectedCategory('NEGATIVO'); setCurrentPage(1); }}
-                    className={`p-3.5 cursor-pointer transition-all hover:shadow-md ${selectedCategory === 'NEGATIVO' ? 'ring-2 ring-emerald-500 bg-emerald-100/40 dark:bg-emerald-950/40' : 'bg-gradient-to-br from-emerald-50/30 to-emerald-100/20 dark:from-emerald-950/20 dark:to-background border-emerald-200/40 dark:border-emerald-900/40'}`}
-                >
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Negativos</p>
-                        {selectedCategory === 'NEGATIVO' && <span className="text-[10px] bg-emerald-600 text-white rounded px-1 font-bold">Activo</span>}
-                    </div>
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1">{formatThousands(stats.negativos)}</p>
-                    <p className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 mt-0.5 font-medium">Análisis negativos</p>
-                </Card>
-                <Card 
-                    onClick={() => { setSelectedCategory('OTROS'); setCurrentPage(1); }}
-                    className={`p-3.5 cursor-pointer transition-all hover:shadow-md ${selectedCategory === 'OTROS' ? 'ring-2 ring-blue-500 bg-blue-100/40 dark:bg-blue-950/40' : 'bg-gradient-to-br from-blue-50/30 to-blue-100/20 dark:from-blue-950/20 dark:to-background border-blue-200/40 dark:border-blue-900/40'}`}
-                >
-                    <div className="flex items-center justify-between">
-                        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wider">En Proceso (EP)</p>
-                        {selectedCategory === 'OTROS' && <span className="text-[10px] bg-blue-600 text-white rounded px-1 font-bold">Activo</span>}
-                    </div>
-                    <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">{formatThousands(stats.otros)}</p>
-                    <p className="text-[10px] text-blue-600/70 dark:text-blue-400/70 mt-0.5 font-medium">Análisis pendientes de resultado</p>
-                </Card>
-            </div>
-
-            {/* Tabla de Resultados y Filtros */}
-            <Card className="border-border shadow-sm overflow-hidden">
-                <div className="p-3 md:p-4 border-b border-border flex flex-wrap items-center justify-between gap-3 bg-muted/20">
-                    {/* Switch Menor CT por Caso y Matriz */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border transition-all shadow-sm ${
-                        soloMenorCT 
-                            ? 'border-amber-500/50 bg-amber-50/70 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200 ring-1 ring-amber-500/20' 
-                            : 'border-border bg-background text-foreground hover:border-primary/40'
-                    }`}>
-                        <Switch
-                            id="toggle-menor-ct"
-                            checked={soloMenorCT}
-                            onCheckedChange={(checked) => {
-                                setSoloMenorCT(checked);
-                                setCurrentPage(1);
-                            }}
-                        />
-                        <Label
-                            htmlFor="toggle-menor-ct"
-                            className="text-xs font-semibold cursor-pointer select-none flex items-center gap-1.5"
-                        >
-                            <IconTrendingDown size={14} className={soloMenorCT ? 'text-amber-600 dark:text-amber-400' : 'text-muted-foreground'} />
-                            <span>Menor CT (≤ 28) por Caso/Matriz</span>
-                        </Label>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2.5">
-                        {/* Filtro Rápido por Categoría (Resultado) */}
-                        <div className="flex items-center rounded-lg border border-border bg-background p-0.5 shadow-sm text-xs">
-                            <button
-                                type="button"
-                                onClick={() => { setSelectedCategory('ALL'); setCurrentPage(1); }}
-                                className={`px-2.5 py-1.5 rounded-md font-medium transition-all ${
-                                    selectedCategory === 'ALL'
-                                        ? 'bg-primary text-primary-foreground shadow-sm'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
-                                }`}
-                            >
-                                Todos ({formatThousands(stats.totalRegistros)})
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setSelectedCategory('POSITIVO'); setCurrentPage(1); }}
-                                className={`px-2.5 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
-                                    selectedCategory === 'POSITIVO'
-                                        ? 'bg-red-600 text-white shadow-sm font-semibold'
-                                        : 'text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'
-                                }`}
-                            >
-                                <span className={`h-1.5 w-1.5 rounded-full ${selectedCategory === 'POSITIVO' ? 'bg-white' : 'bg-red-500'}`} />
-                                Positivo ({formatThousands(stats.positivos)})
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => { setSelectedCategory('NEGATIVO'); setCurrentPage(1); }}
-                                className={`px-2.5 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
-                                    selectedCategory === 'NEGATIVO'
-                                        ? 'bg-emerald-600 text-white shadow-sm font-semibold'
-                                        : 'text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
-                                }`}
-                            >
-                                <span className={`h-1.5 w-1.5 rounded-full ${selectedCategory === 'NEGATIVO' ? 'bg-white' : 'bg-emerald-500'}`} />
-                                Negativo ({formatThousands(stats.negativos)})
-                            </button>
-                            {stats.otros > 0 && (
-                                <button
-                                    type="button"
-                                    onClick={() => { setSelectedCategory('OTROS'); setCurrentPage(1); }}
-                                    className={`px-2.5 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
-                                        selectedCategory === 'OTROS'
-                                            ? 'bg-blue-600 text-white shadow-sm font-semibold'
-                                            : 'text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30'
-                                    }`}
-                                >
-                                    <span className={`h-1.5 w-1.5 rounded-full ${selectedCategory === 'OTROS' ? 'bg-white' : 'bg-blue-500'}`} />
-                                    En Proceso ({formatThousands(stats.otros)})
-                                </button>
-                            )}
-                        </div>
-
-                        {/* Selector Dinámico de Centro */}
-                        <select
-                            value={selectedCentro}
-                            onChange={(e) => {
-                                setSelectedCentro(e.target.value);
-                                setCurrentPage(1);
-                            }}
-                            className="h-8 text-xs border border-input rounded-md px-2.5 bg-background text-foreground shadow-sm max-w-[210px] truncate"
-                            title="Filtrar por centro"
-                        >
-                            <option value="ALL">
-                                Todos los centros ({formatThousands(availableCentros.length)})
-                            </option>
-                            {availableCentros.map(({ nombre, count }) => (
-                                <option key={nombre} value={nombre}>
-                                    {nombre} ({formatThousands(count)})
-                                </option>
-                            ))}
-                        </select>
-
-                        {/* Tamaño de página */}
-                        <select
-                            value={pageSize}
-                            onChange={(e) => {
-                                setPageSize(Number(e.target.value));
-                                setCurrentPage(1);
-                            }}
-                            className="h-8 text-xs border border-input rounded-md px-2 bg-background text-foreground shadow-sm"
-                        >
-                            <option value={15}>15 por pág.</option>
-                            <option value={25}>25 por pág.</option>
-                            <option value={50}>50 por pág.</option>
-                            <option value={100}>100 por pág.</option>
-                        </select>
-                    </div>
+            <div className="flex min-h-0 flex-1 flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6">
+                <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+                    <Kpi etiqueta="Total registros" valor={stats.total} detalle={soloMenorCT ? 'Muestras con CT ≤ 28' : 'Análisis totales'}
+                        activo={categoria === 'ALL'} onClick={() => elegirCategoria('ALL')} />
+                    <Kpi etiqueta="Casos únicos" valor={stats.casos} detalle="Casos registrados" />
+                    <Kpi etiqueta="Centros" valor={stats.centros} detalle="Centros productivos" />
+                    <Kpi etiqueta="Positivos" valor={stats.positivos} detalle="Análisis positivos" acento="bg-destructive"
+                        activo={categoria === 'POSITIVO'} onClick={() => elegirCategoria('POSITIVO')} />
+                    <Kpi etiqueta="Negativos" valor={stats.negativos} detalle="Análisis negativos" acento="bg-success"
+                        activo={categoria === 'NEGATIVO'} onClick={() => elegirCategoria('NEGATIVO')} />
+                    <Kpi etiqueta="En proceso" valor={stats.otros} detalle="Pendientes de resultado" acento="bg-primary"
+                        activo={categoria === 'OTROS'} onClick={() => elegirCategoria('OTROS')} />
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs border-collapse">
-                        <thead>
-                            <tr className="bg-muted/60 text-muted-foreground font-semibold border-b border-border">
-                                <th className="p-2.5 pl-4 whitespace-nowrap">Caso ADLab</th>
-                                <th className="p-2.5 whitespace-nowrap">Fecha Recep.</th>
-                                <th className="p-2.5 whitespace-nowrap">Centro</th>
-                                <th className="p-2.5 whitespace-nowrap">Programa</th>
-                                <th className="p-2.5 whitespace-nowrap">Matriz</th>
-                                <th className="p-2.5 whitespace-nowrap">Agente / Técnica</th>
-                                <th className="p-2.5 text-center whitespace-nowrap">Pool</th>
-                                <th className="p-2.5 text-center whitespace-nowrap">CT</th>
-                                <th className="p-2.5 whitespace-nowrap">Resultado</th>
-                                <th className="p-2.5 text-center whitespace-nowrap">CT 2</th>
-                                <th className="p-2.5 whitespace-nowrap">Resultado 2</th>
-                                <th className="p-2.5 text-center pr-4 whitespace-nowrap">Positivos</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border">
-                            {loading ? (
-                                <tr>
-                                    <td colSpan={12} className="text-center py-12 text-muted-foreground">
-                                        <div className="flex flex-col items-center justify-center gap-2">
-                                            <IconRefresh size={28} className="animate-spin text-primary" />
-                                            <p className="text-sm font-medium">Consultando registros en LaboratorioADL...</p>
+                {/* La tarjeta se encoge y la tabla scrollea por dentro: la paginación queda
+                    siempre en el mismo lugar (mismo patrón que Equipos y el Explorador). */}
+                <div className="relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
+                    {loading && (
+                        <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/60">
+                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                        </div>
+                    )}
+                    <Table containerClassName="min-h-0">
+                        <TableHeader>
+                            <TableRow className="hover:bg-transparent">
+                                <TableHead>Caso ADLab</TableHead>
+                                <TableHead>Fecha recep.</TableHead>
+                                <TableHead>Centro</TableHead>
+                                <TableHead>Programa</TableHead>
+                                <TableHead>Matriz</TableHead>
+                                <TableHead>Agente / Técnica</TableHead>
+                                <TableHead className="text-center">Pool</TableHead>
+                                <TableHead className="text-center">CT</TableHead>
+                                <TableHead>Resultado</TableHead>
+                                <TableHead className="text-center">CT 2</TableHead>
+                                <TableHead>Resultado 2</TableHead>
+                                <TableHead className="text-center">Positivos</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {visibles.length === 0 ? (
+                                <TableRow className="hover:bg-transparent">
+                                    <TableCell colSpan={12} className="py-12 text-center text-muted-foreground">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <IconDna size={28} className="opacity-40" />
+                                            <span>{loading ? 'Consultando registros en LaboratorioADL...' : 'No se encontraron registros para el rango y filtros seleccionados'}</span>
                                         </div>
-                                    </td>
-                                </tr>
-                            ) : paginatedData.length === 0 ? (
-                                <tr>
-                                    <td colSpan={12} className="text-center py-12 text-muted-foreground">
-                                        <div className="flex flex-col items-center justify-center gap-2">
-                                            <IconDna size={32} className="opacity-40 text-muted-foreground" />
-                                            <p className="text-sm font-medium">No se encontraron registros para el rango y filtros seleccionados</p>
-                                        </div>
-                                    </td>
-                                </tr>
+                                    </TableCell>
+                                </TableRow>
                             ) : (
-                                paginatedData.map((row, idx) => (
-                                    <tr
-                                        key={`${row.caso_adlab}-${row.agente}-${row.pool}-${idx}`}
-                                        className="hover:bg-muted/40 transition-colors"
-                                    >
-                                        <td className="p-2.5 pl-4 font-mono font-bold text-foreground whitespace-nowrap">
-                                            {row.caso_adlab}
-                                        </td>
-                                        <td className="p-2.5 font-mono text-muted-foreground whitespace-nowrap">
-                                            {formatDateOnly(row.fecha_recepcion)}
-                                        </td>
-                                        <td className="p-2.5 font-medium text-foreground max-w-[180px] truncate" title={row.nombre_centro}>
-                                            {row.nombre_centro || '-'}
-                                        </td>
-                                        <td className="p-2.5 text-muted-foreground max-w-[140px] truncate" title={row.programa}>
-                                            {row.programa || '-'}
-                                        </td>
-                                        <td className="p-2.5 text-muted-foreground max-w-[120px] truncate" title={row.matriz}>
-                                            {row.matriz || '-'}
-                                        </td>
-                                        <td className="p-2.5 font-medium text-primary max-w-[200px] truncate" title={row.agente}>
-                                            {row.agente || '-'}
-                                        </td>
-                                        <td className="p-2.5 text-center font-mono">
-                                            {row.pool ?? '-'}
-                                        </td>
-                                        <td className="p-2.5 text-center font-mono font-semibold text-foreground">
-                                            {row.ct !== null && row.ct !== undefined && row.ct !== '' ? (
-                                                soloMenorCT ? (
-                                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/20">
-                                                        {row.ct}
-                                                    </span>
-                                                ) : (
-                                                    row.ct
-                                                )
-                                            ) : (
-                                                <span className="text-muted-foreground font-normal italic">-</span>
-                                            )}
-                                        </td>
-                                        <td className="p-2.5 whitespace-nowrap">
-                                            {renderResultadoBadge(row.resultado)}
-                                        </td>
-                                        <td className="p-2.5 text-center font-mono text-muted-foreground">
-                                            {row.ct2 ?? '-'}
-                                        </td>
-                                        <td className="p-2.5 whitespace-nowrap">
-                                            {row.resultado2 ? renderResultadoBadge(row.resultado2) : <span className="text-muted-foreground italic">-</span>}
-                                        </td>
-                                        <td className="p-2.5 text-center pr-4 font-mono font-semibold">
-                                            {row.positivos ?? '-'}
-                                        </td>
-                                    </tr>
+                                visibles.map((row, idx) => (
+                                    <TableRow key={`${row.caso_adlab}-${row.agente}-${row.pool}-${idx}`}>
+                                        <TableCell className="whitespace-nowrap font-medium tabular-nums">{row.caso_adlab}</TableCell>
+                                        <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatDateOnly(row.fecha_recepcion)}</TableCell>
+                                        <TableCell className="max-w-[200px] truncate" title={row.nombre_centro}>{row.nombre_centro || '-'}</TableCell>
+                                        <TableCell className="max-w-[160px] truncate text-muted-foreground" title={row.programa}>{row.programa || '-'}</TableCell>
+                                        <TableCell className="max-w-[140px] truncate text-muted-foreground" title={row.matriz}>{row.matriz || '-'}</TableCell>
+                                        <TableCell className="max-w-[220px] truncate font-medium text-primary" title={row.agente}>{row.agente || '-'}</TableCell>
+                                        <TableCell className="text-center tabular-nums">{row.pool ?? '-'}</TableCell>
+                                        <TableCell className="text-center tabular-nums">
+                                            {row.ct !== null && row.ct !== undefined && row.ct !== ''
+                                                ? (soloMenorCT ? <Badge variant="warning">{row.ct}</Badge> : row.ct)
+                                                : <span className="text-muted-foreground">-</span>}
+                                        </TableCell>
+                                        <TableCell className="whitespace-nowrap"><ResultadoBadge resultado={row.resultado} /></TableCell>
+                                        <TableCell className="text-center tabular-nums text-muted-foreground">{row.ct2 ?? '-'}</TableCell>
+                                        <TableCell className="whitespace-nowrap"><ResultadoBadge resultado={row.resultado2} /></TableCell>
+                                        <TableCell className="text-center tabular-nums">{row.positivos ?? '-'}</TableCell>
+                                    </TableRow>
                                 ))
                             )}
-                        </tbody>
-                    </table>
+                        </TableBody>
+                    </Table>
                 </div>
 
-                {/* Controles de Paginación */}
-                {filteredData.length > 0 && (
-                    <div className="p-3 border-t border-border flex items-center justify-between text-xs text-muted-foreground bg-muted/10">
-                        <span>
-                            Mostrando {formatThousands(((currentPage - 1) * pageSize) + 1)} a {formatThousands(Math.min(currentPage * pageSize, filteredData.length))} de {formatThousands(filteredData.length)} filas
-                        </span>
-
-                        <div className="flex items-center gap-1.5">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="h-7 w-7 p-0"
-                            >
-                                <IconChevronLeft size={14} />
-                            </Button>
-                            <span className="font-medium text-foreground px-1.5">
-                                {formatThousands(currentPage)} / {formatThousands(totalPages)}
-                            </span>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="h-7 w-7 p-0"
-                            >
-                                <IconChevronRight size={14} />
-                            </Button>
-                        </div>
-                    </div>
-                )}
-            </Card>
+                <DataPagination
+                    page={paginaActual}
+                    pageSize={pageSize}
+                    total={filtrados.length}
+                    onPageChange={setPage}
+                    onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+                />
+            </div>
         </div>
     );
 };

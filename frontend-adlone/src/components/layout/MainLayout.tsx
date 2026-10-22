@@ -46,6 +46,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const esListadoConScrollPropio =
         activeSubmodule === 'admin-muestreadores' ||
         activeSubmodule === 'admin-equipos-gestion' ||
+        activeSubmodule === 'bm-consulta' ||
         // Fichas de Ingreso: Explorador, Asignación Terreno y el Planificador de
         // Rutas (mapa + selector de fichas, antes scrolleaba la página completa
         // en vez de quedar contenido en sus propios paneles). El resto de los

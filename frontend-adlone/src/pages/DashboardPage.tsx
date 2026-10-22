@@ -15,6 +15,8 @@ import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
+import { EmpresasAsignadasPage } from '../features/admin/pages/EmpresasAsignadasPage';
+import { SolicitudesClientesPage } from '../features/solicitudes-clientes/pages/SolicitudesClientesPage';
 import { AdminMenuWebPage } from '../features/admin/pages/AdminMenuWebPage';
 import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
@@ -57,7 +59,7 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'informatica'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-solicitudes-clientes', 'informatica'];
     // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
     // y NO dependen de los permisos de Admin. Información
 
@@ -119,13 +121,18 @@ const DashboardPage = () => {
             if (!hasPermission('BM_ACCESO') && !hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
             return <BiologiaMolecularPage onBack={() => setActiveSubmodule('')} />;
         }
+        // Cualquier usuario autenticado puede entrar: lo que ve queda acotado por sus propias
+        // empresas asignadas (o por ser del grupo de respaldo) — ver rel_usuario_empresa_asignada.
+        if (activeSubmodule === 'solicitudes-clientes') {
+            return <SolicitudesClientesPage onBack={() => setActiveSubmodule('')} />;
+        }
 
         // --- 2. Lógica Específica del Módulo de Administración ---
         if (activeModule === 'admin_informacion') {
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'admin-solicitudes-clientes'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
@@ -133,6 +140,7 @@ const DashboardPage = () => {
                 if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-maestros') return <MaestrosHub onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-revision-duplicados') return <RevisionDuplicadosPage onBack={() => setActiveSubmodule('informatica')} />;
+                if (activeSubmodule === 'admin-solicitudes-clientes') return <EmpresasAsignadasPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
