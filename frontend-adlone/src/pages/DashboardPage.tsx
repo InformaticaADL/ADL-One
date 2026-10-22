@@ -20,6 +20,7 @@ import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { AdminGcHub } from '../features/admin/pages/AdminGcHub';
 import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
+import { GemUsuariosPage } from '../features/admin/pages/GemUsuariosPage';
 import { RevisionDuplicadosPage } from '../features/admin/pages/RevisionDuplicadosPage';
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
 import NewRequestPage from '../features/urs/pages/NewRequestPage';
@@ -80,6 +81,11 @@ const DashboardPage = () => {
             !hasPermission(['MA_MUESTREADORES', 'GC_ACCESO'])) {
             resetNavigation();
         }
+
+        // Guard independiente para Usuarios GEM (gestión acotada del Jefe Técnico)
+        if (activeSubmodule === 'admin-usuarios-gem' && !hasPermission('GEM_USUARIOS')) {
+            resetNavigation();
+        }
     }, [activeModule, activeSubmodule, user, resetNavigation]);
 
 
@@ -106,6 +112,7 @@ const DashboardPage = () => {
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
+        if (activeSubmodule === 'admin-usuarios-gem') return <GemUsuariosPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
 
         if (activeSubmodule === 'bm-consulta') {

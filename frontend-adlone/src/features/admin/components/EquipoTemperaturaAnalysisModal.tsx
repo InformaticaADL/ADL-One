@@ -27,6 +27,11 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     onDataChanged: () => void;
+    // Cuando el botón unificado "Subir y Analizar Excel" ya detectó y analizó
+    // el archivo (ver EquiposPage), se pasan acá para saltar directo a
+    // resultados en vez de mostrar la pantalla de subida de nuevo.
+    resultadoInicial?: AnalisisTemperaturaResponse | null;
+    archivoInicial?: File | null;
 }
 
 type Vista = 'upload' | 'resultados' | 'detalle' | 'confirmacion_lote';
@@ -67,7 +72,7 @@ const buildUpdatePayload = (item: AnalisisTemperaturaItem) => {
     return payload;
 };
 
-export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged }) => {
+export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, resultadoInicial, archivoInicial }) => {
     const [file, setFile] = useState<File | null>(null);
     const [dragOver, setDragOver] = useState(false);
     const [analizando, setAnalizando] = useState(false);
@@ -98,9 +103,14 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
         if (pendiente && pendiente.items.length > 0) {
             setLoteResultado(pendiente);
             setVista('confirmacion_lote');
+        } else if (resultadoInicial) {
+            // Viene del botón unificado: ya se analizó, se salta la pantalla de subida.
+            setResultado(resultadoInicial);
+            setFile(archivoInicial ?? null);
+            setVista('resultados');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen]);
+    }, [isOpen, resultadoInicial]);
 
     // Aviso nativo del navegador si intenta cerrar/recargar la pestaña a mitad
     // de un lote — no se puede evitar del todo, pero sí advertir.
@@ -286,7 +296,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
             onOpenChange={(open) => { if (!open) { if (actualizandoTodo) return; handleClose(); } }}
         >
             <DialogContent
-                className="flex max-h-[88vh] max-w-5xl flex-col gap-4 overflow-hidden"
+                className="flex max-h-[90vh] max-w-7xl flex-col gap-4 overflow-hidden"
                 showCloseButton={!actualizandoTodo}
                 onInteractOutside={(e) => { if (actualizandoTodo) e.preventDefault(); }}
                 onEscapeKeyDown={(e) => { if (actualizandoTodo) e.preventDefault(); }}
@@ -443,20 +453,21 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                                     <IconAlertTriangle size={12} className="mt-0.5 shrink-0" /> <span>{item.warnings[0]}</span>
                                                 </div>
                                             )}
-                                            {extraerResponsableFaltante(item.warnings) && (
-                                                <SolicitarMuestreadorPopover
-                                                    nombreSugerido={extraerResponsableFaltante(item.warnings)!}
-                                                    origen="Resumen Verificaciones Intermedias T°"
-                                                />
-                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-1.5">
-                                                {item.status === 'difiere' && (
-                                                    <>
+                                            {/* Grilla de ancho fijo por botón (Ver, Actualizar, Solicitar) — así
+                                                cada uno cae siempre en la misma posición horizontal entre filas,
+                                                tenga o no esa fila ese botón en particular. */}
+                                            <div className="grid grid-cols-[64px_108px_88px] items-center justify-items-end gap-1.5">
+                                                <div>
+                                                    {item.status === 'difiere' && (
                                                         <Button size="sm" variant="outline" onClick={() => abrirDetalle(item)} disabled={actualizandoTodo}>
                                                             Ver
                                                         </Button>
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    {item.status === 'difiere' && (
                                                         <Button
                                                             size="sm"
                                                             onClick={() => actualizarFila(item)}
@@ -469,8 +480,16 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                                             )}
                                                             Actualizar
                                                         </Button>
-                                                    </>
-                                                )}
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    {extraerResponsableFaltante(item.warnings) && (
+                                                        <SolicitarMuestreadorPopover
+                                                            nombreSugerido={extraerResponsableFaltante(item.warnings)!}
+                                                            origen="Resumen Verificaciones Intermedias T°"
+                                                        />
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                     </TableRow>

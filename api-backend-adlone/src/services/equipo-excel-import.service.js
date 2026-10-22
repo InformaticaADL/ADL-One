@@ -451,6 +451,15 @@ function sonEquivalentes(campo, valorExcel, valorBD) {
         if (Number.isNaN(a) || Number.isNaN(b)) return normalize(valorExcel) === normalize(valorBD);
         return a === b;
     }
+    if (campo === 'observacion') {
+        // La observación se AGREGA (nunca se sobreescribe — ver appendObservacion
+        // en el frontend), así que después de actualizarla una vez el valor en
+        // BD nunca vuelve a ser idéntico al del Excel. Si ya quedó incluida como
+        // substring, no es una diferencia real — compararla por igualdad exacta
+        // la marcaría como "distinta" para siempre y la agregaría de nuevo en
+        // cada reanálisis.
+        return normalize(valorBD).includes(normalize(valorExcel));
+    }
     return normalize(valorExcel) === normalize(valorBD);
 }
 

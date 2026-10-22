@@ -30,6 +30,11 @@ interface Props {
     isOpen: boolean;
     onClose: () => void;
     onDataChanged: () => void;
+    // Cuando el botón unificado "Subir y Analizar Excel" ya detectó y analizó
+    // el archivo (ver EquiposPage), se pasan acá para saltar directo a
+    // resultados en vez de mostrar la pantalla de subida de nuevo.
+    resultadoInicial?: AnalisisExcelResponse | null;
+    archivoInicial?: File | null;
 }
 
 type Vista = 'upload' | 'resultados' | 'form' | 'detalle' | 'confirmacion_lote';
@@ -170,7 +175,7 @@ const STATUS_META: Record<AnalisisExcelItem['status'], EstadoMeta> = {
     no_existe: { label: 'No existe', badge: 'destructive' },
 };
 
-export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged }) => {
+export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onDataChanged, resultadoInicial, archivoInicial }) => {
     const [file, setFile] = useState<File | null>(null);
     const [dragOver, setDragOver] = useState(false);
     const [analizando, setAnalizando] = useState(false);
@@ -207,9 +212,14 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
         if (pendiente && pendiente.items.length > 0) {
             setLoteResultado(pendiente);
             setVista('confirmacion_lote');
+        } else if (resultadoInicial) {
+            // Viene del botón unificado: ya se analizó, se salta la pantalla de subida.
+            setResultado(resultadoInicial);
+            setFile(archivoInicial ?? null);
+            setVista('resultados');
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isOpen]);
+    }, [isOpen, resultadoInicial]);
 
     // Aviso nativo del navegador si intenta cerrar/recargar la pestaña a mitad
     // de un lote — no se puede evitar del todo, pero sí advertir.
@@ -503,7 +513,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
             onOpenChange={(open) => { if (!open) { if (procesandoLote) return; handleClose(); } }}
         >
             <DialogContent
-                className="flex max-h-[88vh] max-w-5xl flex-col gap-4 overflow-hidden"
+                className="flex max-h-[90vh] max-w-7xl flex-col gap-4 overflow-hidden"
                 showCloseButton={!procesandoLote}
                 onInteractOutside={(e) => { if (procesandoLote) e.preventDefault(); }}
                 onEscapeKeyDown={(e) => { if (procesandoLote) e.preventDefault(); }}
@@ -704,34 +714,35 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                                     <IconAlertTriangle size={12} className="mt-0.5 shrink-0" /> <span>{item.warnings[0]}</span>
                                                 </div>
                                             )}
-                                            {extraerResponsableFaltante(item.warnings) && (
-                                                <SolicitarMuestreadorPopover
-                                                    nombreSugerido={extraerResponsableFaltante(item.warnings)!}
-                                                    origen="Inventario de Equipos"
-                                                />
-                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
-                                            <div className="flex justify-end gap-1.5">
-                                                {item.status === 'no_existe' && (
-                                                    <Button
-                                                        size="sm"
-                                                        onClick={() => subirFila(item)}
-                                                        disabled={subiendoFila === item.rowNumber || procesandoLote}
-                                                    >
-                                                        {subiendoFila === item.rowNumber ? (
-                                                            <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                                                        ) : (
-                                                            <IconUpload size={14} />
-                                                        )}
-                                                        Subir
-                                                    </Button>
-                                                )}
-                                                {item.status === 'difiere' && (
-                                                    <>
+                                            {/* Grilla de ancho fijo por botón (Ver/Subir, Actualizar, Solicitar,
+                                                Editar) — así cada uno cae siempre en la misma posición horizontal
+                                                entre filas, tenga o no esa fila ese botón en particular. */}
+                                            <div className="grid grid-cols-[64px_108px_88px_72px] items-center justify-items-end gap-1.5">
+                                                <div>
+                                                    {item.status === 'difiere' && (
                                                         <Button size="sm" variant="outline" onClick={() => abrirDetalle(item)} disabled={procesandoLote}>
                                                             Ver
                                                         </Button>
+                                                    )}
+                                                </div>
+                                                <div className="justify-self-center">
+                                                    {item.status === 'no_existe' && (
+                                                        <Button
+                                                            size="sm"
+                                                            onClick={() => subirFila(item)}
+                                                            disabled={subiendoFila === item.rowNumber || procesandoLote}
+                                                        >
+                                                            {subiendoFila === item.rowNumber ? (
+                                                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                                            ) : (
+                                                                <IconUpload size={14} />
+                                                            )}
+                                                            Subir
+                                                        </Button>
+                                                    )}
+                                                    {item.status === 'difiere' && (
                                                         <Button
                                                             size="sm"
                                                             onClick={() => actualizarFila(item)}
@@ -744,13 +755,23 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                                             )}
                                                             Actualizar
                                                         </Button>
-                                                    </>
-                                                )}
-                                                {item.status !== 'coincide' && (
-                                                    <Button size="sm" variant="outline" onClick={() => abrirForm(item)} disabled={procesandoLote}>
-                                                        {item.status === 'no_existe' ? 'Revisar' : 'Editar'}
-                                                    </Button>
-                                                )}
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    {extraerResponsableFaltante(item.warnings) && (
+                                                        <SolicitarMuestreadorPopover
+                                                            nombreSugerido={extraerResponsableFaltante(item.warnings)!}
+                                                            origen="Inventario de Equipos"
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div>
+                                                    {item.status !== 'coincide' && (
+                                                        <Button size="sm" variant="outline" onClick={() => abrirForm(item)} disabled={procesandoLote}>
+                                                            {item.status === 'no_existe' ? 'Revisar' : 'Editar'}
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                     </TableRow>

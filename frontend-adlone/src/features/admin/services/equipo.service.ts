@@ -72,6 +72,7 @@ export interface EquiposResponse {
     expiringCount?: number;
     expiredCount?: number;
     inactiveSamplerCount?: number;
+    activeCount?: number;
     catalogs?: {
         tipos: string[];
         estados: string[];
@@ -119,6 +120,13 @@ export interface AnalisisTemperaturaResponse {
     rowErrors: { rowNumber: number; message: string }[];
 }
 
+// Respuesta del endpoint unificado: "tipo" dice qué analizador corresponde —
+// el resto de los campos son exactamente los de AnalisisExcelResponse o
+// AnalisisTemperaturaResponse según ese valor.
+export type AnalisisAutoResponse =
+    | ({ tipo: 'equipos' } & AnalisisExcelResponse)
+    | ({ tipo: 'temperatura' } & AnalisisTemperaturaResponse);
+
 export const equipoService = {
     analizarExcel: async (file: File): Promise<AnalisisExcelResponse> => {
         const formData = new FormData();
@@ -133,6 +141,16 @@ export const equipoService = {
         const formData = new FormData();
         formData.append('archivo', file);
         const response = await apiClient.post('/api/admin/equipos/import-excel/analizar-temperatura', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        return response.data;
+    },
+
+    // Un solo botón: detecta si el Excel es de Inventario o de Temperaturas.
+    analizarExcelAuto: async (file: File): Promise<AnalisisAutoResponse> => {
+        const formData = new FormData();
+        formData.append('archivo', file);
+        const response = await apiClient.post('/api/admin/equipos/import-excel/analizar-auto', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
         });
         return response.data;
