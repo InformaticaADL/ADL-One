@@ -6,7 +6,8 @@ import {
     IconMail,
     IconLayoutSidebar,
     IconDatabase,
-    IconGitMerge
+    IconGitMerge,
+    IconBuilding
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -69,6 +70,13 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             icon: <IconGitMerge size={19} stroke={1.75} />,
             description: 'Empresas, servicios y centros posiblemente repetidos en la base nueva.',
             permission: 'INF_ACCESO'
+        },
+        {
+            id: 'admin-solicitudes-clientes',
+            label: 'Solicitudes de clientes',
+            icon: <IconBuilding size={19} stroke={1.75} />,
+            description: 'Asignar qué persona atiende las solicitudes de cada empresa, por área.',
+            permission: 'AI_SOLICITUDES_CLIENTES_CONFIG'
         },
     ];
 
