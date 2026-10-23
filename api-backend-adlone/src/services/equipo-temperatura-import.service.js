@@ -283,6 +283,12 @@ function sonEquivalentes(campo, valorExcel, valorBD) {
         if (Number.isNaN(a) || Number.isNaN(b)) return normalize(valorExcel) === normalize(valorBD);
         return a === b;
     }
+    if (campo === 'observacion') {
+        // Igual que en el analizador de Inventario: la observación se AGREGA,
+        // nunca se sobreescribe, así que comparar por igualdad exacta la
+        // marcaría como "distinta" para siempre tras la primera actualización.
+        return normalize(valorBD).includes(normalize(valorExcel));
+    }
     return normalize(valorExcel) === normalize(valorBD);
 }
 

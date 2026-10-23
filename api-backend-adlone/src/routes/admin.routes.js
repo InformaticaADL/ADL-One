@@ -2,6 +2,7 @@ import express from 'express';
 import { adminController } from '../controllers/admin.controller.js';
 import { equipoController } from '../controllers/equipo.controller.js';
 import solicitudController from '../controllers/solicitud.controller.js';
+import gemUsuariosController from '../controllers/gemUsuarios.controller.js';
 import { authenticate as verifyToken } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 import { validateRequest, adminValidationSchemas } from '../middlewares/validate.middleware.js';
@@ -96,26 +97,44 @@ router.put('/muestreadores/:id/enable', verifyToken, verifyPermission('AI_MA_DES
 router.get('/muestreadores/check-duplicate', verifyToken, adminController.checkDuplicateMuestreador);
 // MS-04: contar muestreos futuros asignados al muestreador para advertir antes de deshabilitar
 router.get('/muestreadores/:id/future-assignments', verifyToken, verifyPermission(['MA_MUESTREADORES', 'AI_MA_DESHABILITAR_MUESTREADOR']), adminController.getMuestreadorFutureAssignments);
-router.get('/muestreadores/:id/estadisticas', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getEstadisticasMuestreador);
-router.get('/muestreadores/:id/agenda', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getAgendaMuestreador);
+// El perfil/rendimiento tiene su propio permiso (MU_PERFIL), separado de
+// MA_MUESTREADORES (que solo gatea ver la lista) — así se puede prender/apagar
+// el acceso al detalle de forma independiente desde el editor de roles.
+router.get('/muestreadores/:id/estadisticas', verifyToken, verifyPermission('MU_PERFIL'), adminController.getEstadisticasMuestreador);
+router.get('/muestreadores/:id/agenda', verifyToken, verifyPermission('MU_PERFIL'), adminController.getAgendaMuestreador);
 router.get('/muestreadores/export-pdf', verifyToken, verifyPermission('MU_EXP'), adminController.downloadMuestreadoresPdf);
 
 // --- ENTRENAMIENTO & DOCUMENTOS ---
 router.patch('/muestreadores/:id/entrenamiento', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.setEntrenamiento);
-router.get('/muestreadores/:id/documentos', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getDocumentosMuestreador);
-router.post('/muestreadores/:id/documentos', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), uploadDoc.single('archivo'), adminController.addDocumentoMuestreador);
-router.delete('/muestreadores/documentos/:idDoc', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.deleteDocumentoMuestreador);
+// Documentos de muestreador: compartido entre Jefe Técnico (AI_MA_EDITAR_MUESTREADOR,
+// desde el formulario completo) y Calidad (MU_COMPETENCIAS, desde el modal de
+// competencias) — mismo listado para ambos, sin importar quién subió qué.
+router.get('/muestreadores/:id/documentos', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO', 'MU_COMPETENCIAS']), adminController.getDocumentosMuestreador);
+router.post('/muestreadores/:id/documentos', verifyToken, verifyPermission(['AI_MA_EDITAR_MUESTREADOR', 'MU_COMPETENCIAS']), uploadDoc.single('archivo'), adminController.addDocumentoMuestreador);
+router.delete('/muestreadores/documentos/:idDoc', verifyToken, verifyPermission(['AI_MA_EDITAR_MUESTREADOR', 'MU_COMPETENCIAS']), adminController.deleteDocumentoMuestreador);
 
-// --- COMPETENCIAS (maestro) ---
-router.get('/competencias', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getCompetencias);
-router.post('/competencias', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.createCompetencia);
-router.put('/competencias/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.updateCompetencia);
-router.delete('/competencias/:id', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.deleteCompetencia);
-router.put('/competencias/:id/reactivar', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.reactivateCompetencia);
+// --- COMPETENCIAS (maestro) --- exclusivo de Calidad (MU_COMPETENCIAS), ver y editar.
+router.get('/competencias', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.getCompetencias);
+router.post('/competencias', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.createCompetencia);
+router.put('/competencias/:id', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.updateCompetencia);
+router.delete('/competencias/:id', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.deleteCompetencia);
+router.put('/competencias/:id/reactivar', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.reactivateCompetencia);
 
-// --- COMPETENCIAS por muestreador ---
-router.get('/muestreadores/:id/competencias', verifyToken, verifyPermission(['MA_MUESTREADORES', 'MA_A_GEST_EQUIPO']), adminController.getCompetenciasMuestreador);
-router.put('/muestreadores/:id/competencias', verifyToken, verifyPermission('AI_MA_EDITAR_MUESTREADOR'), adminController.setCompetenciasMuestreador);
+// --- COMPETENCIAS por muestreador --- editar es exclusivo de Calidad
+// (MU_COMPETENCIAS); ver también se le permite a Jefe Técnico (MA_MUESTREADORES),
+// para que vea un listado de solo lectura en el formulario de edición.
+router.get('/muestreadores/:id/competencias', verifyToken, verifyPermission(['MU_COMPETENCIAS', 'MA_MUESTREADORES']), adminController.getCompetenciasMuestreador);
+router.put('/muestreadores/:id/competencias', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.setCompetenciasMuestreador);
+
+// --- USUARIOS GEM --- gestión acotada para el Jefe Técnico: solo usuarios
+// del rol "Área GEM MaM" (id 20), nunca el resto del sistema.
+router.get('/gem-usuarios', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.getUsuarios);
+router.post('/gem-usuarios', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.createUsuario);
+router.put('/gem-usuarios/:id', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.updateUsuario);
+router.put('/gem-usuarios/:id/password', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.updatePassword);
+router.put('/gem-usuarios/:id/status', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.toggleStatus);
+router.get('/gem-usuarios/:id/empresas', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.getEmpresas);
+router.put('/gem-usuarios/:id/empresas', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.setEmpresas);
 
 // --- DASHBOARD ---
 router.get('/dashboard/stats', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), adminController.getDashboardStats);
@@ -139,6 +158,7 @@ router.get('/equipos/next-correlativo/:tipo', verifyToken, verifyPermission('MA_
 router.get('/equipos/export/excel', verifyToken, verifyPermission('EQ_EXP'), equipoController.exportExcel);
 router.post('/equipos/import-excel/analizar', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), subirExcelEquipos, equipoController.analizarExcel);
 router.post('/equipos/import-excel/analizar-temperatura', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), subirExcelEquipos, equipoController.analizarExcelTemperatura);
+router.post('/equipos/import-excel/analizar-auto', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), subirExcelEquipos, equipoController.analizarExcelAuto);
 router.get('/equipos', verifyToken, equipoController.getEquipos);
 router.get('/equipos/:id', verifyToken, equipoController.getEquipoById);
 router.post('/equipos', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquipo);

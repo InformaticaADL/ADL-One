@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { IconCheck, IconArrowLeft, IconDatabase, IconFileSpreadsheet, IconSearch, IconRefresh, IconSend } from '@tabler/icons-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -38,10 +38,11 @@ export const extraerResponsableFaltante = (warnings: string[]): string | null =>
     return null;
 };
 
-// Botón "Solicitar" junto a la advertencia de responsable no encontrado: abre
-// un popover liviano (no cierra ni cambia de pantalla el análisis en curso)
-// que solo notifica a quienes tienen permiso de crear muestreadores — no crea
-// nada en la base de datos, queda a criterio de quien reciba la notificación.
+// Botón "Solicitar" en la columna de Acción, junto a Ver/Actualizar/Editar,
+// para filas con un responsable sin match: abre un popover liviano (no cierra
+// ni cambia de pantalla el análisis en curso) que crea una solicitud real en
+// el sistema de Solicitudes (tipo "Nuevo Muestreador", a Gestión de Calidad)
+// — no crea el muestreador directamente, queda a criterio de quien la revise.
 export const SolicitarMuestreadorPopover: React.FC<{ nombreSugerido: string; origen: string }> = ({ nombreSugerido, origen }) => {
     const [open, setOpen] = useState(false);
     const [nombre, setNombre] = useState(nombreSugerido);
@@ -55,7 +56,7 @@ export const SolicitarMuestreadorPopover: React.FC<{ nombreSugerido: string; ori
         try {
             await adminService.solicitarNuevoMuestreador(nombre.trim(), origen);
             setEnviado(true);
-            showToast({ type: 'success', message: 'Solicitud enviada a quienes pueden crear muestreadores' });
+            showToast({ type: 'success', message: 'Solicitud enviada a Gestión de Calidad' });
         } catch (err: any) {
             showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo enviar la solicitud' });
         } finally {
@@ -66,11 +67,11 @@ export const SolicitarMuestreadorPopover: React.FC<{ nombreSugerido: string; ori
     return (
         <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) { setNombre(nombreSugerido); setEnviado(false); } }}>
             <PopoverTrigger asChild>
-                <Button size="sm" variant="link" className="mt-0.5 h-auto p-0 text-xs">
+                <Button size="sm" variant="outline">
                     Solicitar
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="w-72 p-3">
+            <PopoverContent align="end" className="w-72 p-3">
                 {enviado ? (
                     <div className="flex items-center gap-2 text-sm text-success">
                         <IconCheck size={16} /> Solicitud enviada.
@@ -78,7 +79,7 @@ export const SolicitarMuestreadorPopover: React.FC<{ nombreSugerido: string; ori
                 ) : (
                     <div className="flex flex-col gap-2">
                         <p className="text-xs text-muted-foreground">
-                            Pide que se agregue este muestreador al sistema. No se crea ahora — se avisa a quien tiene permiso para hacerlo.
+                            Pide que se agregue este muestreador al sistema. Queda como solicitud pendiente para Gestión de Calidad, no se crea ahora.
                         </p>
                         <Input
                             autoFocus
@@ -162,39 +163,74 @@ export const StatCard: React.FC<{
     </div>
 );
 
-// Botón de lupa que despliega un cuadro de búsqueda flotante (Popover) — filtra
-// en vivo sobre el array ya cargado en memoria, sin pegarle al backend.
+// Campo + lupa compartiendo un solo borde (una "píldora"), no dos cuadros
+// separados. 1er clic en la lupa despliega el campo; 2do clic (ya desplegado)
+// confirma la búsqueda y mantiene el foco; un clic afuera lo comprime —
+// el filtro ya corre en vivo sobre el array en memoria, sin pegarle al
+// backend, así que "confirmar" no hace nada más que afirmar la intención.
 export const BusquedaFlotante: React.FC<{
     valor: string;
     onChange: (v: string) => void;
     placeholder?: string;
 }> = ({ valor, onChange, placeholder }) => {
     const [open, setOpen] = useState(false);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (!open) return;
+        const handleClickFuera = (e: MouseEvent) => {
+            if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickFuera);
+        return () => document.removeEventListener('mousedown', handleClickFuera);
+    }, [open]);
+
+    const handleClickLupa = () => {
+        if (!open) {
+            setOpen(true);
+            requestAnimationFrame(() => inputRef.current?.focus());
+        } else {
+            inputRef.current?.focus();
+        }
+    };
+
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button
-                    variant="outline"
-                    size="icon"
-                    aria-label="Buscar"
-                    className={cn(valor && 'border-primary text-primary')}
-                >
-                    <IconSearch size={15} />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent align="end" className="p-3">
-                <div className="relative">
-                    <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                        autoFocus
-                        placeholder={placeholder || 'Buscar por código o nombre...'}
-                        value={valor}
-                        onChange={(e) => onChange(e.target.value)}
-                        className="pl-8"
-                    />
-                </div>
-            </PopoverContent>
-        </Popover>
+        <div
+            ref={rootRef}
+            className={cn(
+                'flex items-center rounded-md border border-border bg-background shadow-sm transition-colors',
+                open && 'ring-1 ring-ring',
+                !open && valor && 'border-primary'
+            )}
+        >
+            <div className={cn('overflow-hidden transition-all duration-200 ease-out', open ? 'w-56 opacity-100' : 'w-0 opacity-0')}>
+                <input
+                    ref={inputRef}
+                    placeholder={placeholder || 'Buscar por código o nombre...'}
+                    value={valor}
+                    onChange={(e) => onChange(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') setOpen(false);
+                        if (e.key === 'Escape') { onChange(''); setOpen(false); }
+                    }}
+                    className="h-9 w-56 border-0 bg-transparent pl-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none"
+                />
+            </div>
+            <button
+                type="button"
+                aria-label="Buscar"
+                onClick={handleClickLupa}
+                className={cn(
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground',
+                    valor && 'text-primary'
+                )}
+            >
+                <IconSearch size={15} />
+            </button>
+        </div>
     );
 };
 

@@ -1442,7 +1442,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 checked={formData.tiene_fc === 'SI'}
                                                 onCheckedChange={(checked) => setFormData((p: any) => ({ ...p, tiene_fc: checked ? 'SI' : 'NO' }))}
                                             />
-                                            <FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo." />
+                                            <FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo. Si está activo, el FC de cada punto (Error con signo invertido) aparece debajo de Error 0/15/30 y se calcula solo — no es editable directamente." />
                                         </label>
                                         <label className="flex items-center gap-2">
                                             <Checkbox
@@ -1461,21 +1461,21 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </div>
                                 </div>
                                 <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero." /></div>
+                                    <div className="mb-1"><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero. Si 'Tiene Factor de Corrección' está activo, el FC (valor con signo invertido) se calcula y guarda automáticamente al guardar el equipo." /></div>
                                     <Input type="number" step="0.01" value={formData.error0} onChange={(e) => setFormData((p: any) => ({ ...p, error0: e.target.value === '' ? null : Number(e.target.value) }))} />
                                     {formData.tiene_fc === 'SI' && (
                                         <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error0 === null || formData.error0 === '' ? '—' : (-Number(formData.error0)).toFixed(1)}</p>
                                     )}
                                 </div>
                                 <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio)." /></div>
+                                    <div className="mb-1"><FieldLabel label="Error 15" help="Desviación o error detectado en la medición del punto de calibración intermedio (ej: 15°C o patrón intermedio). El FC correspondiente se calcula solo automáticamente al guardar." /></div>
                                     <Input type="number" step="0.01" value={formData.error15} onChange={(e) => setFormData((p: any) => ({ ...p, error15: e.target.value === '' ? null : Number(e.target.value) }))} />
                                     {formData.tiene_fc === 'SI' && (
                                         <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error15 === null || formData.error15 === '' ? '—' : (-Number(formData.error15)).toFixed(1)}</p>
                                     )}
                                 </div>
                                 <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto)." /></div>
+                                    <div className="mb-1"><FieldLabel label="Error 30" help="Desviación o error detectado en la medición del punto de calibración alto (ej: 30°C o patrón alto). El FC correspondiente se calcula solo automáticamente al guardar." /></div>
                                     <Input type="number" step="0.01" value={formData.error30} onChange={(e) => setFormData((p: any) => ({ ...p, error30: e.target.value === '' ? null : Number(e.target.value) }))} />
                                     {formData.tiene_fc === 'SI' && (
                                         <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error30 === null || formData.error30 === '' ? '—' : (-Number(formData.error30)).toFixed(1)}</p>

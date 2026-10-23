@@ -25,6 +25,9 @@ import { adminService } from '../../../services/admin.service';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
+import { useAuth } from '../../../contexts/AuthContext';
+import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
+import API_CONFIG from '../../../config/api.config';
 
 interface Muestreador {
     id_muestreador?: number;
@@ -61,6 +64,7 @@ export const MuestreadorForm: React.FC<Props> = ({
     const [error, setError] = useState<string | null>(null);
     const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
     const { showToast } = useToast();
+    const { hasPermission } = useAuth();
     const isMobile = useMediaQuery('(max-width: 768px)');
 
     // --- Documentos ---
@@ -69,6 +73,7 @@ export const MuestreadorForm: React.FC<Props> = ({
     const [docNombre, setDocNombre] = useState('');
     const [docUploading, setDocUploading] = useState(false);
     const docFileInputRef = useRef<HTMLInputElement>(null);
+    const [previewDoc, setPreviewDoc] = useState<{ url: string; nombre: string } | null>(null);
     const firmaFileInputRef = useRef<HTMLInputElement>(null);
 
     // --- Competencias ---
@@ -169,7 +174,12 @@ export const MuestreadorForm: React.FC<Props> = ({
                     payload.clave = formData.clave_usuario;
                 }
                 await adminService.updateMuestreador(initialData.id_muestreador, payload);
-                await adminService.setCompetenciasMuestreador(initialData.id_muestreador, compSeleccionadas);
+                // Si no tiene MU_COMPETENCIAS, la tarjeta de Competencias ni siquiera se
+                // carga (ver ProtectedContent arriba) — compSeleccionadas quedaría vacío
+                // y mandarlo igual borraría las competencias ya asignadas por Calidad.
+                if (hasPermission('MU_COMPETENCIAS')) {
+                    await adminService.setCompetenciasMuestreador(initialData.id_muestreador, compSeleccionadas);
+                }
                 showToast({ type: 'success', message: 'Muestreador actualizado correctamente' });
             } else {
                 // Check for duplicates
@@ -195,7 +205,7 @@ export const MuestreadorForm: React.FC<Props> = ({
                     firma: formData.firma_muestreador
                 });
                 const newId = created?.data?.id_muestreador;
-                if (newId && compSeleccionadas.length > 0) {
+                if (newId && compSeleccionadas.length > 0 && hasPermission('MU_COMPETENCIAS')) {
                     try { await adminService.setCompetenciasMuestreador(newId, compSeleccionadas); } catch { /* no bloquear creación */ }
                 }
                 showToast({ type: 'success', message: 'Muestreador creado correctamente' });
@@ -352,37 +362,58 @@ export const MuestreadorForm: React.FC<Props> = ({
                         </div>
                     </Card>
 
-                    {/* --- Competencias --- */}
-                    <Card className="p-5">
-                        <div className="flex flex-col gap-4">
-                            <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Competencias</p>
-                            <p className="text-[13px] text-muted-foreground">Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</p>
-                            <div className={cn('grid gap-1', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
-                                {allCompetencias.map(c => (
-                                    <label key={c.id_competencia} className="flex items-center gap-2 py-1">
-                                        <Checkbox
-                                            checked={compSeleccionadas.includes(c.id_competencia)}
-                                            onCheckedChange={(checked) => {
-                                                const on = checked === true;
-                                                setCompSeleccionadas(prev => on ? [...prev, c.id_competencia] : prev.filter(x => x !== c.id_competencia));
-                                            }}
-                                        />
-                                        <span className="text-sm text-foreground">{c.nombre_competencia}</span>
-                                    </label>
-                                ))}
-                            </div>
-                            {compAsignadas.filter(c => c.activo !== 'S').length > 0 && (
-                                <div>
-                                    <p className="mt-2 text-xs font-semibold text-muted-foreground">Competencias inactivas (conservadas):</p>
-                                    <div className="mt-1 flex flex-wrap gap-1">
-                                        {compAsignadas.filter(c => c.activo !== 'S').map(c => (
-                                            <Badge key={c.id_competencia} variant="outline">{c.nombre_competencia}</Badge>
-                                        ))}
-                                    </div>
+                    {/* --- Competencias (exclusivo de Gestión de Calidad) --- */}
+                    <ProtectedContent permission="MU_COMPETENCIAS">
+                        <Card className="p-5">
+                            <div className="flex flex-col gap-4">
+                                <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Competencias</p>
+                                <p className="text-[13px] text-muted-foreground">Marque las competencias del muestreador. Se pueden agregar y quitar libremente.</p>
+                                <div className={cn('grid gap-1', isMobile ? 'grid-cols-1' : 'grid-cols-2')}>
+                                    {allCompetencias.map(c => (
+                                        <label key={c.id_competencia} className="flex items-center gap-2 py-1">
+                                            <Checkbox
+                                                checked={compSeleccionadas.includes(c.id_competencia)}
+                                                onCheckedChange={(checked) => {
+                                                    const on = checked === true;
+                                                    setCompSeleccionadas(prev => on ? [...prev, c.id_competencia] : prev.filter(x => x !== c.id_competencia));
+                                                }}
+                                            />
+                                            <span className="text-sm text-foreground">{c.nombre_competencia}</span>
+                                        </label>
+                                    ))}
                                 </div>
-                            )}
-                        </div>
-                    </Card>
+                                {compAsignadas.filter(c => c.activo !== 'S').length > 0 && (
+                                    <div>
+                                        <p className="mt-2 text-xs font-semibold text-muted-foreground">Competencias inactivas (conservadas):</p>
+                                        <div className="mt-1 flex flex-wrap gap-1">
+                                            {compAsignadas.filter(c => c.activo !== 'S').map(c => (
+                                                <Badge key={c.id_competencia} variant="outline">{c.nombre_competencia}</Badge>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </Card>
+                    </ProtectedContent>
+
+                    {/* --- Competencias, solo lectura (Jefe Técnico sin MU_COMPETENCIAS) --- */}
+                    {!hasPermission('MU_COMPETENCIAS') && initialData?.id_muestreador && (
+                        <Card className="p-5">
+                            <div className="flex flex-col gap-3">
+                                <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Competencias</p>
+                                <p className="text-[13px] text-muted-foreground">Competencias habilitadas (asignadas por Gestión de Calidad).</p>
+                                <div className="flex flex-wrap gap-1">
+                                    {compAsignadas.filter(c => c.activo === 'S').length === 0 ? (
+                                        <p className="text-xs text-muted-foreground">Sin competencias asignadas.</p>
+                                    ) : (
+                                        compAsignadas.filter(c => c.activo === 'S').map(c => (
+                                            <Badge key={c.id_competencia}>{c.nombre_competencia}</Badge>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                        </Card>
+                    )}
 
                     {/* --- Documentos / Certificados (solo en edición) --- */}
                     {initialData?.id_muestreador && (
@@ -390,27 +421,6 @@ export const MuestreadorForm: React.FC<Props> = ({
                             <div className="flex flex-col gap-4">
                                 <p className={cn('text-base font-semibold text-primary', isMobile ? 'text-center' : 'text-left')}>Documentos / Certificados</p>
                                 <p className="text-[13px] text-muted-foreground">Adjunte respaldos de cursos o capacitaciones (disponible para cualquier muestreador).</p>
-                                <div className="flex flex-col gap-2">
-                                    {documentos.length === 0 && <p className="text-xs text-muted-foreground">Sin documentos.</p>}
-                                    {documentos.map(d => (
-                                        <Attachment key={d.id_documento} size="sm">
-                                            <AttachmentTrigger asChild>
-                                                <a href={d.ruta_archivo} target="_blank" rel="noreferrer" aria-label={`Abrir ${d.nombre_documento}`} />
-                                            </AttachmentTrigger>
-                                            <AttachmentMedia>
-                                                <IconFile />
-                                            </AttachmentMedia>
-                                            <AttachmentContent>
-                                                <AttachmentTitle>{d.nombre_documento}</AttachmentTitle>
-                                            </AttachmentContent>
-                                            <AttachmentActions>
-                                                <AttachmentAction aria-label={`Eliminar ${d.nombre_documento}`} className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDoc(d.id_documento)}>
-                                                    <IconTrash size={14} />
-                                                </AttachmentAction>
-                                            </AttachmentActions>
-                                        </Attachment>
-                                    ))}
-                                </div>
                                 <div className="flex flex-wrap items-end gap-2">
                                     <div className="min-w-[160px] flex-1">
                                         <input
@@ -443,6 +453,25 @@ export const MuestreadorForm: React.FC<Props> = ({
                                         Subir
                                     </Button>
                                 </div>
+                                <div className="flex max-h-72 flex-col gap-2 overflow-y-auto pr-1">
+                                    {documentos.length === 0 && <p className="text-xs text-muted-foreground">Sin documentos.</p>}
+                                    {documentos.map(d => (
+                                        <Attachment key={d.id_documento} size="sm">
+                                            <AttachmentTrigger aria-label={`Abrir ${d.nombre_documento}`} onClick={() => setPreviewDoc({ url: `${API_CONFIG.getBaseURL()}${d.ruta_archivo}`, nombre: d.nombre_documento })} />
+                                            <AttachmentMedia>
+                                                <IconFile />
+                                            </AttachmentMedia>
+                                            <AttachmentContent>
+                                                <AttachmentTitle>{d.nombre_documento}</AttachmentTitle>
+                                            </AttachmentContent>
+                                            <AttachmentActions>
+                                                <AttachmentAction aria-label={`Eliminar ${d.nombre_documento}`} className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteDoc(d.id_documento)}>
+                                                    <IconTrash size={14} />
+                                                </AttachmentAction>
+                                            </AttachmentActions>
+                                        </Attachment>
+                                    ))}
+                                </div>
                             </div>
                         </Card>
                     )}
@@ -474,6 +503,8 @@ export const MuestreadorForm: React.FC<Props> = ({
                     </Button>
                 </div>
             )}
+
+            <PdfViewerModal open={!!previewDoc} onClose={() => setPreviewDoc(null)} url={previewDoc?.url ?? null} title={previewDoc?.nombre} />
         </div>
     );
 };

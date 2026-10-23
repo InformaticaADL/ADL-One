@@ -7,14 +7,16 @@ import {
     IconBell,
     IconDownload,
     IconUpload,
-    IconTemperature,
     IconAlertTriangle,
     IconInfoCircle,
     IconTrash,
     IconCheck,
     IconX,
     IconFilter,
-    IconPaperclip
+    IconPaperclip,
+    IconFileSpreadsheet,
+    IconChevronUp,
+    IconChevronDown
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,11 +30,12 @@ import { DataPagination } from '@/components/ui/pagination';
 import { RowActionsMenu, type RowAction } from '@/components/ui/row-actions-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
+import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
-import { equipoService, type Equipo } from '../services/equipo.service';
-import { descargarDocumentoRevision } from '../utils/documentosEquipo';
+import { equipoService, type Equipo, type AnalisisExcelResponse, type AnalisisTemperaturaResponse } from '../services/equipo.service';
+import { descargarDocumentoRevision, formatearTamano } from '../utils/documentosEquipo';
 import { EquipmentExportModal } from '../components/EquipmentExportModal';
 import { EquipoExcelAnalysisModal } from '../components/EquipoExcelAnalysisModal';
 import { EquipoTemperaturaAnalysisModal } from '../components/EquipoTemperaturaAnalysisModal';
@@ -149,12 +152,30 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [showExportModal, setShowExportModal] = useState(false);
     const [showExcelAnalysisModal, setShowExcelAnalysisModal] = useState(false);
     const [showTemperaturaAnalysisModal, setShowTemperaturaAnalysisModal] = useState(false);
+    // Botón unificado: sube un Excel, el backend detecta si es Inventario de
+    // Equipos o Resumen de Temperaturas, y se abre el modal que corresponda
+    // ya con el resultado cargado (sin pasar por su pantalla de subida).
+    const [showUploadAutoModal, setShowUploadAutoModal] = useState(false);
+    const [archivoSeleccionadoAuto, setArchivoSeleccionadoAuto] = useState<File | null>(null);
+    const [dragOverAuto, setDragOverAuto] = useState(false);
+    const [analizandoAuto, setAnalizandoAuto] = useState(false);
+    const [archivoAnalizado, setArchivoAnalizado] = useState<File | null>(null);
+    const [resultadoAutoEquipos, setResultadoAutoEquipos] = useState<AnalisisExcelResponse | null>(null);
+    const [resultadoAutoTemperatura, setResultadoAutoTemperatura] = useState<AnalisisTemperaturaResponse | null>(null);
+    const fileInputAutoRef = useRef<HTMLInputElement>(null);
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
     // El documento de la revisión vigente viene en la misma fila del listado
     // (mae_equipo.documento_*), así que la columna no necesita pedir nada extra.
     const [docDescargando, setDocDescargando] = useState<number | null>(null);
+    // Document preview modal
+    const [docPreview, setDocPreview] = useState<{
+        equipo: Equipo;
+        blobUrl: string;
+        mimeType: string;
+        nombre: string;
+    } | null>(null);
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -214,9 +235,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [expiringCount, setExpiringCount] = useState(0);
     const [expiredCount, setExpiredCount] = useState(0);
     const [inactiveSamplerCount, setInactiveSamplerCount] = useState(0);
+    const [activeCount, setActiveCount] = useState(0);
     const [filterExpired, setFilterExpired] = useState(false);
     const [filterInactiveSampler, setFilterInactiveSampler] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
+    const [sortBy, setSortBy] = useState<'vigencia' | 'nombre' | 'activos_primero'>('vigencia');
+    const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
     const formatLocalDate = (date: Date): string => {
         const offset = date.getTimezoneOffset();
@@ -234,6 +258,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const isPorVencerActive = useMemo(() => {
         return filterFechaDesde === todayStr && filterFechaHasta === in30Str && !filterExpired && !filterInactiveSampler;
     }, [filterFechaDesde, filterFechaHasta, todayStr, in30Str, filterExpired, filterInactiveSampler]);
+
+    // "Activos": a diferencia de "Por vencer" (que también filtra por estado
+    // Activo pero acotado a un rango de fechas), este pill no trae ninguna
+    // fecha ni otro filtro — solo habilitado = 'S'.
+    const isActivosActive = useMemo(() => {
+        return filterEstado === 'Activo' && filterFechaDesde === '' && filterFechaHasta === '' && !filterExpired && !filterInactiveSampler;
+    }, [filterEstado, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
 
     const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
         sedes: ['PM', 'AY', 'VI', 'PA', 'PV', 'CH', 'Terreno'],
@@ -275,7 +306,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
+    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler, sortBy, sortOrder]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -283,7 +314,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }, 300);
         return () => clearTimeout(delayDebounceFn);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, limit, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler]);
+    }, [page, limit, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler, sortBy, sortOrder]);
 
     // Al cambiar de página el listado se redibuja arriba, pero la vista se
     // quedaba donde estaba —en teléfono, abajo del todo junto a los botones—,
@@ -361,7 +392,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 id_muestreador: filterMuestreador || '',
                 expiredOnly: filterExpired,
                 inactiveSamplerOnly: filterInactiveSampler,
-                sortBy: 'vigencia'
+                sortBy,
+                sortOrder
             };
             const response = await equipoService.getEquipos(params);
             if (response) {
@@ -377,6 +409,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setExpiringCount(response.expiringCount ?? 0);
                 setExpiredCount(response.expiredCount ?? 0);
                 setInactiveSamplerCount(response.inactiveSamplerCount ?? 0);
+                setActiveCount(response.activeCount ?? 0);
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
                 }
@@ -919,6 +952,74 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setPage(1);
     };
 
+    // Clic en el encabezado "Nombre": alterna A-Z / Z-A.
+    const handleClickNombre = () => {
+        if (sortBy === 'nombre') {
+            setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'));
+        } else {
+            setSortBy('nombre');
+            setSortOrder('asc');
+        }
+    };
+
+    // Clic en "Sede"/"Estado": recorre los valores disponibles uno a uno
+    // (como un filtro rápido) y al llegar al final vuelve a "todos".
+    const ciclarValor = (valores: string[], actual: string | null): string | null => {
+        if (!actual) return valores[0] ?? null;
+        const idx = valores.indexOf(actual);
+        return valores[idx + 1] ?? null;
+    };
+
+    const handleClickSede = () => {
+        setFilterSede(ciclarValor(catalogs.sedes, filterSede));
+    };
+
+    const handleClickEstado = () => {
+        const next = ciclarValor(catalogs.estados, filterEstado);
+        setFilterEstado(next);
+        if (next !== 'Activo') {
+            setFilterExpired(false);
+            setFilterInactiveSampler(false);
+        }
+    };
+
+    // Botón unificado "Subir y Analizar Excel": igual que antes, muestra la
+    // zona de arrastrar/seleccionar antes de analizar — solo que el backend
+    // detecta el tipo (ver analizarExcelAuto en equipo.controller.js), así el
+    // usuario no tiene que saber de antemano si es el Inventario o el Resumen
+    // de Temperaturas.
+    const seleccionarArchivoAuto = (file: File | null) => {
+        if (file && !file.name.toLowerCase().endsWith('.xlsx')) {
+            showToast({ type: 'error', message: 'El archivo debe ser un Excel (.xlsx)' });
+            return;
+        }
+        setArchivoSeleccionadoAuto(file);
+    };
+
+    const handleAnalizarAuto = async () => {
+        const file = archivoSeleccionadoAuto;
+        if (!file) return;
+        setAnalizandoAuto(true);
+        try {
+            const res = await equipoService.analizarExcelAuto(file);
+            setArchivoAnalizado(file);
+            if (res.tipo === 'equipos') {
+                setResultadoAutoEquipos(res);
+                setShowExcelAnalysisModal(true);
+            } else {
+                setResultadoAutoTemperatura(res);
+                setShowTemperaturaAnalysisModal(true);
+            }
+            setShowUploadAutoModal(false);
+            setArchivoSeleccionadoAuto(null);
+        } catch (err: any) {
+            showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo analizar el archivo' });
+        } finally {
+            setAnalizandoAuto(false);
+            if (fileInputAutoRef.current) fileInputAutoRef.current.value = '';
+        }
+    };
+
     // --- Helper Logic ---
     const getTipoLabelDisplay = (sol: any) => {
         const type = (sol.tipo_solicitud || sol.nombre_tipo || '');
@@ -971,8 +1072,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         [filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta].filter(Boolean).length,
     [filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
 
-    // Equipos con solicitudes pendientes aparecen primero; luego los que vencen pronto (más cercano primero)
+    // Vista por defecto (sortBy === 'vigencia'): solicitudes pendientes
+    // primero, luego los que vencen pronto (más cercano primero). Si el
+    // usuario eligió otro orden (Nombre o Activos primero, vía el combobox o
+    // haciendo clic en el encabezado "Nombre"), el backend ya devolvió las
+    // filas en ese orden — no se reordenan acá, o se perdería justo el orden
+    // que pidió.
     const sortedEquipos = useMemo(() => {
+        if (sortBy !== 'vigencia') return equipos;
         return [...equipos].sort((a, b) => {
             const aAlert = getPendingRequestsForEquipo(a.id_equipo).length > 0 ? 2 : 0;
             const bAlert = getPendingRequestsForEquipo(b.id_equipo).length > 0 ? 2 : 0;
@@ -986,7 +1093,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             return aDate - bDate;
         });
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [equipos, solicitudesRealizadas]);
+    }, [equipos, solicitudesRealizadas, sortBy]);
 
     // --- Render Logic ---
     if (viewMode === 'form') {
@@ -1021,15 +1128,73 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    // Opens a preview popup instead of directly downloading.
+    // Falls back to a download trigger for unsupported MIME types.
+    const abrirDoc = async (equipo: Equipo) => {
+        if (docDescargando === equipo.id_equipo) return;
+        setDocDescargando(equipo.id_equipo);
+        try {
+            const blob = await equipoService.descargarDocumentoEquipo(equipo.id_equipo);
+            const mimeType = blob.type || 'application/octet-stream';
+            const blobUrl = window.URL.createObjectURL(blob);
+            const nombre = equipo.documento_nombre || `documento-${equipo.id_equipo}`;
+            // Inline-previewable types: PDF and images
+            const previewable = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+            if (previewable) {
+                setDocPreview({ equipo, blobUrl, mimeType, nombre });
+            } else {
+                // Unsupported: trigger download directly
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.setAttribute('download', nombre);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+            }
+        } catch {
+            showToast({ type: 'error', message: 'No se pudo abrir el documento' });
+        } finally {
+            setDocDescargando(null);
+        }
+    };
+
+    const cerrarDocPreview = () => {
+        if (docPreview) window.URL.revokeObjectURL(docPreview.blobUrl);
+        setDocPreview(null);
+    };
+
+    // Celda de la columna "Documento": el informe de la revisión vigente (el
+    // documento sigue siendo opcional al crear/editar un equipo — ver
+    // EquipoForm). Las versiones anteriores conservan el suyo y se descargan
+    // desde el historial, dentro de "Editar Equipo".
+    const renderDocumento = (equipo: Equipo) => {
+        if (!equipo.documento_ruta) return <span className="text-xs text-muted-foreground">—</span>;
+        const nombre = equipo.documento_nombre || 'Documento';
+        return (
+            <button
+                type="button"
+                title={`Ver documento: ${nombre}`}
+                disabled={docDescargando === equipo.id_equipo}
+                onClick={(e) => { e.stopPropagation(); abrirDoc(equipo); }}
+                className="flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
+            >
+                {docDescargando === equipo.id_equipo
+                    ? <span className="h-3 w-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                    : <IconPaperclip size={13} className="shrink-0" />}
+                <span className="truncate">{nombre}</span>
+            </button>
+        );
+    };
+
     const rowActions = (equipo: Equipo, isInactive: boolean) => {
         const actions: RowAction[] = [
             {
-                // La columna "Documento" se quitó de la tabla, pero la descarga del
-                // informe de la revisión vigente sigue disponible desde acá. Las
-                // versiones anteriores se descargan del historial, en "Editar Equipo".
-                label: docDescargando === equipo.id_equipo ? 'Descargando...' : 'Descargar documento',
+                // También disponible en la columna "Documento" de la tabla; se deja
+                // acá también para el menú de la vista móvil (tarjetas).
+                label: docDescargando === equipo.id_equipo ? 'Cargando...' : 'Ver documento',
                 icon: <IconPaperclip size={16} />,
-                onClick: () => descargarDoc(equipo),
+                onClick: () => abrirDoc(equipo),
                 disabled: docDescargando === equipo.id_equipo,
                 hidden: !equipo.documento_ruta,
             },
@@ -1144,6 +1309,27 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     >
                         Muestreador inactivo{inactiveSamplerCount > 0 && ` (${inactiveSamplerCount})`}
                     </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            if (isActivosActive) {
+                                setFilterEstado(null);
+                            } else {
+                                setFilterEstado('Activo');
+                                setFilterExpired(false);
+                                setFilterInactiveSampler(false);
+                                setFilterFechaDesde('');
+                                setFilterFechaHasta('');
+                            }
+                            setPage(1);
+                        }}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            isActivosActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
+                    >
+                        Activos{activeCount > 0 && ` (${activeCount})`}
+                    </button>
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1157,6 +1343,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             className="w-full pl-8 sm:w-56"
                         />
                     </div>
+
+                    <Combobox
+                        value={sortBy}
+                        onValueChange={(v) => { setSortBy((v || 'vigencia') as 'vigencia' | 'nombre' | 'activos_primero'); setSortOrder('asc'); }}
+                        placeholder="Ordenar por"
+                        className="w-full sm:w-48"
+                        options={[
+                            { value: 'vigencia', label: 'Vencimiento (próximo primero)' },
+                            { value: 'nombre', label: 'Nombre (A-Z)' },
+                            { value: 'activos_primero', label: 'Activos primero' },
+                        ]}
+                    />
 
                     <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
                         <SheetTrigger asChild>
@@ -1286,14 +1484,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </div>
 
                     <ProtectedContent permission="EQ_IMPORT_EXCEL">
-                        <Button variant="outline" size="sm" onClick={() => setShowExcelAnalysisModal(true)}>
+                        <Button variant="outline" size="sm" onClick={() => setShowUploadAutoModal(true)}>
                             <IconUpload size={15} /> Subir y Analizar Excel
-                        </Button>
-                    </ProtectedContent>
-
-                    <ProtectedContent permission="EQ_IMPORT_EXCEL">
-                        <Button variant="outline" size="sm" onClick={() => setShowTemperaturaAnalysisModal(true)}>
-                            <IconTemperature size={15} /> Analizar Temperaturas
                         </Button>
                     </ProtectedContent>
 
@@ -1371,11 +1563,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         : (
                                                             <button
                                                                 type="button"
-                                                                onClick={() => descargarDoc(equipo)}
+                                                                onClick={() => abrirDoc(equipo)}
                                                                 className="flex min-w-0 items-center gap-1 text-primary"
                                                             >
                                                                 <IconPaperclip size={12} className="shrink-0" />
-                                                                <span className="truncate">{equipo.documento_nombre || 'Descargar'}</span>
+                                                                <span className="truncate">{equipo.documento_nombre || 'Ver'}</span>
                                                             </button>
                                                         )}
                                                 </span>
@@ -1398,20 +1590,48 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="w-[5%] truncate px-2" title="Alerta">Alerta</TableHead>
-                                    <TableHead className="w-[11%]">Código</TableHead>
-                                    <TableHead className="w-[17%]">Nombre</TableHead>
-                                    <TableHead className="w-[20%]">Tipo</TableHead>
-                                    <TableHead className="w-[10%]">Sede</TableHead>
-                                    <TableHead className="w-[9%]">Estado</TableHead>
-                                    <TableHead className="w-[10%]">Vigencia</TableHead>
-                                    <TableHead className="w-[12%]">Responsable</TableHead>
-                                    <TableHead className="w-[6%] px-2 text-right">Acciones</TableHead>
+                                    <TableHead className="w-[10%]">Código</TableHead>
+                                    <TableHead
+                                        className="w-[15%] cursor-pointer select-none hover:text-foreground"
+                                        onClick={handleClickNombre}
+                                        title="Ordenar por nombre"
+                                    >
+                                        <span className="inline-flex items-center gap-1">
+                                            Nombre
+                                            {sortBy === 'nombre' && (sortOrder === 'asc' ? <IconChevronUp size={13} /> : <IconChevronDown size={13} />)}
+                                        </span>
+                                    </TableHead>
+                                    <TableHead className="w-[12%]">Tipo</TableHead>
+                                    <TableHead
+                                        className="w-[8%] cursor-pointer select-none hover:text-foreground"
+                                        onClick={handleClickSede}
+                                        title="Filtrar por sede (clic para cambiar)"
+                                    >
+                                        <span className="inline-flex items-center gap-1">
+                                            Sede
+                                            {filterSede && <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">{filterSede}</Badge>}
+                                        </span>
+                                    </TableHead>
+                                    <TableHead
+                                        className="w-[8%] cursor-pointer select-none hover:text-foreground"
+                                        onClick={handleClickEstado}
+                                        title="Filtrar por estado (clic para cambiar)"
+                                    >
+                                        <span className="inline-flex items-center gap-1">
+                                            Estado
+                                            {filterEstado && <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">{filterEstado}</Badge>}
+                                        </span>
+                                    </TableHead>
+                                    <TableHead className="w-[9%]">Vigencia</TableHead>
+                                    <TableHead className="w-[14%]">Responsable</TableHead>
+                                    <TableHead className="w-[12%] px-2">Documento</TableHead>
+                                    <TableHead className="w-[7%] px-2 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {sortedEquipos.length === 0 ? (
                                     <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                                        <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                                             No se encontraron equipos.
                                         </TableCell>
                                     </TableRow>
@@ -1455,12 +1675,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 </TableCell>
                                                 <TableCell>
                                                     {equipo.nombre_asignado ? (
-                                                        <div className="flex min-w-0 items-center gap-1.5">
-                                                            <span className="truncate text-sm text-muted-foreground" title={equipo.nombre_asignado}>{equipo.nombre_asignado}</span>
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="whitespace-nowrap text-sm text-muted-foreground">{equipo.nombre_asignado}</span>
                                                             {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive" className="shrink-0">Inactivo</Badge>}
                                                         </div>
                                                     ) : '---'}
                                                 </TableCell>
+                                                <TableCell className="px-2">{renderDocumento(equipo)}</TableCell>
                                                 <TableCell className="px-2">{rowActions(equipo, isInactive)}</TableCell>
                                             </TableRow>
                                         );
@@ -1897,16 +2118,90 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 }}
             />
 
+            <Dialog open={showUploadAutoModal} onOpenChange={(open) => { if (!open && !analizandoAuto) { setShowUploadAutoModal(false); setArchivoSeleccionadoAuto(null); } }}>
+                <DialogContent className="max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <IconUpload size={18} className="text-primary" />
+                            Subir y Analizar Excel
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4 py-2">
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => fileInputAutoRef.current?.click()}
+                            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputAutoRef.current?.click(); }}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverAuto(true); }}
+                            onDragLeave={() => setDragOverAuto(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setDragOverAuto(false);
+                                seleccionarArchivoAuto(e.dataTransfer.files?.[0] ?? null);
+                            }}
+                            className={cn(
+                                'flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-10 text-center transition-colors',
+                                dragOverAuto ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40 hover:bg-muted/40'
+                            )}
+                        >
+                            <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <IconFileSpreadsheet size={24} />
+                            </div>
+                            <p className="text-sm font-medium">Arrastre el Excel o haga clic para seleccionarlo</p>
+                            <p className="text-xs text-muted-foreground">Inventario de Equipos o Resumen de Temperaturas (.xlsx, hasta 10 MB) — se detecta solo</p>
+                            <input
+                                ref={fileInputAutoRef}
+                                type="file"
+                                accept=".xlsx"
+                                className="hidden"
+                                onChange={(e) => seleccionarArchivoAuto(e.target.files?.[0] ?? null)}
+                            />
+                        </div>
+
+                        {archivoSeleccionadoAuto && (
+                            <Attachment size="sm" className="w-full">
+                                <AttachmentMedia>
+                                    <IconFileSpreadsheet />
+                                </AttachmentMedia>
+                                <AttachmentContent>
+                                    <AttachmentTitle>{archivoSeleccionadoAuto.name}</AttachmentTitle>
+                                    <AttachmentDescription>{formatearTamano(archivoSeleccionadoAuto.size) || 'Listo para analizar'}</AttachmentDescription>
+                                </AttachmentContent>
+                                <AttachmentActions>
+                                    <AttachmentAction aria-label="Quitar archivo" title="Quitar" onClick={() => setArchivoSeleccionadoAuto(null)}>
+                                        <IconX size={14} />
+                                    </AttachmentAction>
+                                </AttachmentActions>
+                            </Attachment>
+                        )}
+
+                        <Button
+                            className="self-center px-8"
+                            onClick={handleAnalizarAuto}
+                            disabled={!archivoSeleccionadoAuto || analizandoAuto}
+                        >
+                            {analizandoAuto
+                                ? (<><span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> Analizando...</>)
+                                : (<><IconUpload size={16} /> Analizar</>)}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             <EquipoExcelAnalysisModal
                 isOpen={showExcelAnalysisModal}
-                onClose={() => setShowExcelAnalysisModal(false)}
+                onClose={() => { setShowExcelAnalysisModal(false); setResultadoAutoEquipos(null); setArchivoAnalizado(null); }}
                 onDataChanged={() => { fetchData(true); loadSolicitudes(); }}
+                resultadoInicial={resultadoAutoEquipos}
+                archivoInicial={archivoAnalizado}
             />
 
             <EquipoTemperaturaAnalysisModal
                 isOpen={showTemperaturaAnalysisModal}
-                onClose={() => setShowTemperaturaAnalysisModal(false)}
+                onClose={() => { setShowTemperaturaAnalysisModal(false); setResultadoAutoTemperatura(null); setArchivoAnalizado(null); }}
                 onDataChanged={() => { fetchData(true); loadSolicitudes(); }}
+                resultadoInicial={resultadoAutoTemperatura}
+                archivoInicial={archivoAnalizado}
             />
 
             <EquipmentRequestsModal
@@ -1918,6 +2213,52 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number).filter((s: any) => s.estado === 'ACEPTADA') : []}
                 onRefresh={() => { fetchData(true); loadSolicitudes(); }}
             />
+
+            {/* ── Document Preview Modal ── */}
+            <Dialog open={!!docPreview} onOpenChange={(open) => { if (!open) cerrarDocPreview(); }}>
+                <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0">
+                    <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3">
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                            <IconPaperclip size={16} className="shrink-0 text-primary" />
+                            <span className="truncate">{docPreview?.nombre}</span>
+                        </DialogTitle>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-4 shrink-0 gap-1.5 text-xs"
+                            onClick={async () => {
+                                if (!docPreview) return;
+                                const link = document.createElement('a');
+                                link.href = docPreview.blobUrl;
+                                link.setAttribute('download', docPreview.nombre);
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                            }}
+                        >
+                            <IconDownload size={14} />
+                            Descargar
+                        </Button>
+                    </DialogHeader>
+
+                    <div className="flex min-h-0 flex-1 items-center justify-center bg-muted/30 p-2">
+                        {docPreview?.mimeType === 'application/pdf' && (
+                            <iframe
+                                src={docPreview.blobUrl}
+                                title={docPreview.nombre}
+                                className="h-[75vh] w-full rounded border-0"
+                            />
+                        )}
+                        {docPreview?.mimeType.startsWith('image/') && (
+                            <img
+                                src={docPreview.blobUrl}
+                                alt={docPreview.nombre}
+                                className="max-h-[75vh] max-w-full rounded object-contain shadow"
+                            />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
         </div>
     );

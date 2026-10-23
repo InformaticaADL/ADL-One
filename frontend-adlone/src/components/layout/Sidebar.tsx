@@ -117,9 +117,11 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
             handleModuleClick(moduleId);
             return;
         }
+        // Solo expande/contrae el árbol — solo navega si el módulo ya está activo
+        // o si el usuario hace clic en un sub-ítem (handleLeafClick se encarga de eso)
         const next = openedModule === moduleId ? null : moduleId;
         setOpenedModule(next);
-        handleModuleClick(moduleId);
+        // No llamar handleModuleClick: evita navegar al hacer clic en el chevron
     };
 
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
@@ -238,12 +240,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 {!isCollapsed && hasSubItems && isOpen && (
                     <div className="ml-[13px] flex flex-col gap-0.5 border-l border-border py-1 pl-4">
                         {filteredLinks.map((link) => {
-                            const active = activeSubmodule === link.id;
+                            const active = activeSubmodule === link.id && activeModule === id;
                             return (
                                 <button
                                     key={link.id}
                                     type="button"
-                                    onClick={() => handleLeafClick(link.id)}
+                                    onClick={() => { setActiveModule(id); handleLeafClick(link.id); }}
                                     className={cn(
                                         'truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
                                         active ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -337,18 +339,25 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     return (
         <nav className="shadcn-scope flex h-full flex-col bg-sidebar text-sidebar-foreground">
-            <div className={cn('h-16 shrink-0 border-b border-sidebar-border px-3', isCollapsed ? 'flex flex-col items-center justify-center gap-1' : 'flex items-center justify-between gap-2')}>
-                <img
-                    src={isCollapsed ? logoSmall : logoAdl}
-                    alt="ADL"
-                    className={cn('w-auto object-contain', isCollapsed ? 'h-7' : 'h-9')}
-                />
+            <div className="relative flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border px-3">
+                <button
+                    type="button"
+                    title="Ir al inicio"
+                    onClick={() => { setActiveModule('inicio'); setActiveSubmodule(''); onNavigate?.(); }}
+                    className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-75"
+                >
+                    <img
+                        src={isCollapsed ? logoSmall : logoAdl}
+                        alt="ADL"
+                        className={cn('w-auto object-contain', isCollapsed ? 'h-7' : 'h-9')}
+                    />
+                </button>
                 {!forceNotCollapsed && (
                     <button
                         onClick={toggleSidebar}
                         aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
                         title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                        className="absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
                     >
                         {isCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
                     </button>

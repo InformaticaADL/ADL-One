@@ -9,6 +9,7 @@ import {
     IconBell,
     IconSchool,
     IconChartBar,
+    IconAward,
 } from '@tabler/icons-react';
 
 import type { ColumnDef } from '@tanstack/react-table';
@@ -26,6 +27,7 @@ import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
 import { MuestreadorForm } from '../components/MuestreadorForm';
+import { CompetenciasMuestreadorModal } from '../components/CompetenciasMuestreadorModal';
 import { MuestreadorPerfilView } from './MuestreadorPerfilView';
 import { SamplerRequestsModal } from '../components/SamplerRequestsModal';
 import SamplerDeactivationModal from '../components/SamplerDeactivationModal';
@@ -64,6 +66,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     const [muestreadorToEnable, setMuestreadorToEnable] = useState<any | null>(null);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsSamplerInfo, setRequestsSamplerInfo] = useState<{ id: string | number; nombre: string } | null>(null);
+    const [showCompetenciasModal, setShowCompetenciasModal] = useState(false);
+    const [competenciasMuestreador, setCompetenciasMuestreador] = useState<{ id_muestreador: number; nombre_muestreador: string } | null>(null);
 
     const [zoomedImage, setZoomedImage] = useState<string | null>(null);
     const [isExporting, setIsExporting] = useState(false);
@@ -310,12 +314,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             accessorFn: (m) => (m.en_entrenamiento === 'S' ? 0 : 1),
             cell: ({ row }) => trainingBadge(row.original),
         },
-        {
+        ...(hasPermission('MU_COMPETENCIAS') ? [{
             id: 'competencias',
             header: 'Competencias',
             enableSorting: false,
-            cell: ({ row }) => renderCompetencias(row.original),
-        },
+            cell: ({ row }: any) => renderCompetencias(row.original),
+        }] : []),
         {
             id: 'firma',
             header: 'Firma digital',
@@ -330,12 +334,23 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                 const m = row.original;
                 const hasPending = getPendingRequestsForSampler(m.id_muestreador).length > 0;
                 const actions: RowAction[] = [
-                    { label: 'Ver perfil y rendimiento', icon: <IconChartBar size={16} />, onClick: () => { setPerfilMuestreador(m); setViewMode('perfil'); } },
+                    {
+                        label: 'Ver perfil y rendimiento',
+                        icon: <IconChartBar size={16} />,
+                        onClick: () => { setPerfilMuestreador(m); setViewMode('perfil'); },
+                        hidden: !hasPermission('MU_PERFIL'),
+                    },
                     {
                         label: hasPending ? 'Ver solicitudes (pendientes)' : 'Ver solicitudes',
                         icon: <IconBell size={16} className={hasPending ? 'text-warning' : undefined} />,
                         onClick: () => handleOpenRequests(m),
                         hidden: !hasPermission('MU_SOLICITUDES'),
+                    },
+                    {
+                        label: 'Gestionar Competencias',
+                        icon: <IconAward size={16} />,
+                        onClick: () => { setCompetenciasMuestreador(m); setShowCompetenciasModal(true); },
+                        hidden: !hasPermission('MU_COMPETENCIAS'),
                     },
                     {
                         label: 'Editar información',
@@ -352,9 +367,24 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                         separatorBefore: true,
                     },
                 ];
+                const visibles = actions.filter((a) => !a.hidden);
                 return (
                     <div className="flex justify-center">
-                        <RowActionsMenu actions={actions} label={`Acciones para ${m.nombre_muestreador}`} />
+                        {visibles.length === 1 ? (
+                            <Button
+                                variant="ghost"
+                                size="icon-xs"
+                                aria-label={visibles[0].label}
+                                title={visibles[0].label}
+                                className={visibles[0].danger ? 'text-destructive hover:bg-destructive/10 hover:text-destructive' : undefined}
+                                onClick={visibles[0].onClick}
+                                disabled={visibles[0].disabled}
+                            >
+                                {visibles[0].icon}
+                            </Button>
+                        ) : (
+                            <RowActionsMenu actions={actions} label={`Acciones para ${m.nombre_muestreador}`} />
+                        )}
                     </div>
                 );
             },
@@ -481,16 +511,23 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                     <p className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">Firma digital</p>
                                                     {signature(m, 'lg')}
                                                 </div>
-                                                <div>
-                                                    <p className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">Competencias</p>
-                                                    {renderCompetencias(m)}
-                                                </div>
+                                                {hasPermission('MU_COMPETENCIAS') && (
+                                                    <div>
+                                                        <p className="mb-1 text-[10px] font-bold uppercase text-muted-foreground">Competencias</p>
+                                                        {renderCompetencias(m)}
+                                                    </div>
+                                                )}
                                             </div>
 
                                             <div className="mt-3 flex gap-2 border-t border-dashed border-border pt-3">
                                                 <ProtectedContent permission="MU_SOLICITUDES">
                                                     <Button variant="outline" size="sm" className={cn('flex-1', hasPending && 'text-warning')} onClick={() => handleOpenRequests(m)}>
                                                         <IconBell size={16} /> Solicitudes
+                                                    </Button>
+                                                </ProtectedContent>
+                                                <ProtectedContent permission="MU_COMPETENCIAS">
+                                                    <Button variant="outline" size="sm" className="flex-1" onClick={() => { setCompetenciasMuestreador(m); setShowCompetenciasModal(true); }}>
+                                                        <IconAward size={16} /> Competencias
                                                     </Button>
                                                 </ProtectedContent>
                                                 <ProtectedContent permission="AI_MA_EDITAR_MUESTREADOR">
@@ -534,6 +571,12 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                     fetchData();
                 }}
                 requests={getPendingRequestsForSampler(Number(requestsSamplerInfo?.id))}
+            />
+
+            <CompetenciasMuestreadorModal
+                isOpen={showCompetenciasModal}
+                onClose={() => { setShowCompetenciasModal(false); setCompetenciasMuestreador(null); }}
+                muestreador={competenciasMuestreador}
             />
 
             <SamplerDeactivationModal

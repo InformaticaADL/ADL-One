@@ -232,6 +232,31 @@ export const equipoController = {
         }
     },
 
+    // Un solo botón para ambos analizadores: intenta leerlo como Inventario de
+    // Equipos primero; si el archivo no trae esas columnas (parseEquiposExcel
+    // tira un error descriptivo), lo intenta como Resumen de Temperaturas. El
+    // campo "tipo" en la respuesta le dice al frontend qué modal mostrar.
+    analizarExcelAuto: async (req, res) => {
+        if (!req.file) return res.status(400).json({ success: false, message: 'Debe adjuntar un archivo Excel' });
+        try {
+            const { rows, rowErrors } = await equipoExcelImportService.parseEquiposExcel(req.file.buffer);
+            const resultado = await equipoExcelImportService.compararConBD(rows);
+            return res.json({ success: true, tipo: 'equipos', ...resultado, rowErrors });
+        } catch (errorEquipos) {
+            try {
+                const { rows, rowErrors } = await equipoTemperaturaImportService.parseTemperaturaExcel(req.file.buffer);
+                const resultado = await equipoTemperaturaImportService.compararConBD(rows);
+                return res.json({ success: true, tipo: 'temperatura', ...resultado, rowErrors });
+            } catch (errorTemperatura) {
+                logger.error('Controller analizarExcelAuto error:', { errorEquipos: errorEquipos.message, errorTemperatura: errorTemperatura.message });
+                return res.status(400).json({
+                    success: false,
+                    message: 'El archivo no corresponde al Inventario de Equipos ni al Resumen de Verificaciones de Temperatura. Verifique que sea el archivo correcto.'
+                });
+            }
+        }
+    },
+
     getEquipmentComparison: async (req, res) => {
         try {
             const { idOriginal, idNueva, idMuestreador } = req.query;

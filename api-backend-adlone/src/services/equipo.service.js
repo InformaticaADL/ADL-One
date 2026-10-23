@@ -239,7 +239,8 @@ export const equipoService = {
      */
     getEquipos: async (params = {}) => {
         try {
-            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, expiredOnly, inactiveSamplerOnly, sortBy, page = 1, limit = 10 } = params;
+            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, expiredOnly, inactiveSamplerOnly, sortBy, sortOrder, page = 1, limit = 10 } = params;
+            const direccionOrden = sortOrder === 'desc' ? 'DESC' : 'ASC';
             logger.info('getEquipos params: ' + JSON.stringify(params));
             const pool = await getConnection();
 
@@ -370,7 +371,11 @@ export const equipoService = {
                           AND JSON_VALUE(s.datos_json, '$.id_equipo') = CAST(e.id_equipo AS NVARCHAR(20))
                     ) THEN 0 ELSE 1 END) ASC,
                     ${sortBy === 'vigencia'
-                        ? 'CASE WHEN e.Siguiente_verificacion IS NULL THEN 1 ELSE 0 END ASC, e.Siguiente_verificacion ASC,'
+                        ? `CASE WHEN e.Siguiente_verificacion IS NULL THEN 1 ELSE 0 END ASC, e.Siguiente_verificacion ${direccionOrden},`
+                        : sortBy === 'nombre'
+                        ? `e.nombre ${direccionOrden},`
+                        : sortBy === 'activos_primero'
+                        ? "CASE WHEN e.habilitado = 'S' THEN 0 ELSE 1 END ASC,"
                         : ''}
                     e.id_equipo ASC
                 OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -446,7 +451,7 @@ export const equipoService = {
 
             };
 
-            const [catalogs, expiringResult, expiredResult, inactiveSamplerResult] = await Promise.all([
+            const [catalogs, expiringResult, expiredResult, inactiveSamplerResult, activeResult] = await Promise.all([
                 getCatalogs(sede),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
@@ -466,6 +471,11 @@ export const equipoService = {
                     FROM mae_equipo e
                     INNER JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                     WHERE e.habilitado = 'S' AND m.habilitado = 'N'
+                `),
+                pool.request().query(`
+                    SELECT COUNT(*) as cnt
+                    FROM mae_equipo
+                    WHERE habilitado = 'S'
                 `)
             ]);
 
@@ -478,6 +488,7 @@ export const equipoService = {
                 expiringCount: expiringResult.recordset[0].cnt,
                 expiredCount: expiredResult.recordset[0].cnt,
                 inactiveSamplerCount: inactiveSamplerResult.recordset[0].cnt,
+                activeCount: activeResult.recordset[0].cnt,
                 catalogs
             };
         } catch (error) {
