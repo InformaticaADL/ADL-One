@@ -204,6 +204,7 @@ interface SectionNavItem {
     label: string;
     icon: React.ElementType;
     complete: boolean;
+    fields: { label: string; filled: boolean }[];
 }
 
 // Índice lateral de las 4 secciones — cada punto pasa a "completo" (check
@@ -219,34 +220,58 @@ function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNav
                 const Icon = item.icon;
                 const isActive = active === item.id;
                 return (
-                    <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => onNavigate(item.id)}
-                        className={cn(
-                            'flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold leading-snug transition-colors',
-                            isMobile ? 'whitespace-nowrap' : 'whitespace-normal',
-                            isActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'
+                    <div key={item.id}>
+                        <button
+                            type="button"
+                            onClick={() => onNavigate(item.id)}
+                            className={cn(
+                                'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[12.5px] font-semibold leading-snug transition-colors',
+                                isMobile ? 'whitespace-nowrap' : 'whitespace-normal',
+                                isActive ? 'bg-muted text-foreground' : 'text-muted-foreground hover:bg-muted/60'
+                            )}
+                        >
+                            <span className={cn(
+                                'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold',
+                                item.complete
+                                    ? 'border-success bg-success text-success-foreground'
+                                    : isActive ? 'border-primary text-primary' : 'border-border text-muted-foreground'
+                            )}>
+                                {item.complete ? <IconCheck size={11} /> : idx + 1}
+                            </span>
+                            <Icon size={14} className="mt-0.5 shrink-0 self-start" />
+                            {!isMobile && <span className="min-w-0 flex-1">{item.label}</span>}
+                        </button>
+
+                        {/* Campo-a-campo: solo visible en desktop cuando la sección está activa */}
+                        {!isMobile && isActive && item.fields.length > 0 && (
+                            <div className="mb-1 ml-3 mt-0.5 flex flex-col gap-0.5 border-l border-border pl-3">
+                                {item.fields.map((f) => (
+                                    <div key={f.label} className="flex items-center gap-1.5 py-0.5">
+                                        {f.filled ? (
+                                            <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-success">
+                                                <IconCheck size={8} className="text-success-foreground" />
+                                            </span>
+                                        ) : (
+                                            <span className="h-3.5 w-3.5 shrink-0 rounded-full border border-muted-foreground/40" />
+                                        )}
+                                        <span className={cn(
+                                            'truncate text-[11px]',
+                                            f.filled ? 'text-muted-foreground line-through' : 'text-foreground'
+                                        )}>
+                                            {f.label}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
                         )}
-                    >
-                        <span className={cn(
-                            'flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold',
-                            item.complete
-                                ? 'border-success bg-success text-success-foreground'
-                                : isActive ? 'border-primary text-primary' : 'border-border text-muted-foreground'
-                        )}>
-                            {item.complete ? <IconCheck size={11} /> : idx + 1}
-                        </span>
-                        <Icon size={14} className="mt-0.5 shrink-0 self-start" />
-                        {!isMobile && <span className="min-w-0 flex-1">{item.label}</span>}
-                    </button>
+                    </div>
                 );
             })}
         </div>
     );
 }
 
-export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean) => void }>((props, ref) => {
+export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean, missing?: string[]) => void }>((props, ref) => {
     const { initialData, onValidationChange } = props;
     const { hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
@@ -341,22 +366,81 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [createEmpresaOpened, setCreateEmpresaOpened] = useState(false);
     const isHydrating = useRef(!!initialData);
     const hasHydrated = useRef(false);
+    // Campos que el usuario tocó explícitamente (o que vienen de initialData)
+    const dirtyFields = useRef<Set<string>>(new Set(initialData ? Object.keys(initialData) : []));
+    const markDirty = (field: string) => { dirtyFields.current.add(field); };
 
     // Índice lateral: qué sección está en pantalla (scrollspy) + refs para el scroll-to-section.
     const [activeSection, setActiveSection] = useState('ident');
     const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const isScrollingRef = useRef(false);
+
     const scrollToSection = useCallback((id: string) => {
-        sectionRefs.current[id]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const el = sectionRefs.current[id];
+        if (!el) return;
+
+        // Buscar el contenedor scrollable más cercano (o window)
+        const getScrollParent = (node: HTMLElement | null): HTMLElement | Window => {
+            if (!node || node === document.body) return window;
+            const { overflowY } = getComputedStyle(node);
+            if (overflowY === 'auto' || overflowY === 'scroll') return node;
+            return getScrollParent(node.parentElement);
+        };
+
+        const container = getScrollParent(el.parentElement);
+        const isWindow = container === window;
+
+        const containerScrollTop = isWindow ? window.scrollY : (container as HTMLElement).scrollTop;
+        const containerTop = isWindow ? 0 : (container as HTMLElement).getBoundingClientRect().top;
+        const targetTop = el.getBoundingClientRect().top - containerTop + containerScrollTop - 16;
+
+        const start = containerScrollTop;
+        const distance = targetTop - start;
+        const duration = Math.min(600, Math.max(250, Math.abs(distance) * 0.4));
+        let startTime: number | null = null;
+
+        const easeInOutCubic = (t: number) =>
+            t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        isScrollingRef.current = true;
+
+        const step = (timestamp: number) => {
+            if (startTime === null) startTime = timestamp;
+            const elapsed = timestamp - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const ease = easeInOutCubic(progress);
+
+            if (isWindow) {
+                window.scrollTo(0, start + distance * ease);
+            } else {
+                (container as HTMLElement).scrollTop = start + distance * ease;
+            }
+
+            if (progress < 1) {
+                requestAnimationFrame(step);
+            } else {
+                isScrollingRef.current = false;
+                setActiveSection(id);
+            }
+        };
+
+        requestAnimationFrame(step);
     }, []);
 
     useEffect(() => {
         const observer = new IntersectionObserver(
             (entries) => {
-                entries.forEach((entry) => {
-                    if (entry.isIntersecting) setActiveSection(entry.target.id.replace('ficha-sec-', ''));
-                });
+                // Ignorar eventos del observer mientras el scroll programático está activo
+                if (isScrollingRef.current) return;
+                // Tomar la sección más visible (mayor intersectionRatio)
+                const visible = entries
+                    .filter((e) => e.isIntersecting)
+                    .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+                if (visible.length > 0) {
+                    setActiveSection(visible[0].target.id.replace('ficha-sec-', ''));
+                }
             },
-            { rootMargin: '-15% 0px -70% 0px', threshold: 0 }
+            { rootMargin: '-10% 0px -60% 0px', threshold: [0, 0.25, 0.5, 0.75, 1] }
         );
         Object.values(sectionRefs.current).forEach((el) => el && observer.observe(el));
         return () => observer.disconnect();
@@ -365,72 +449,93 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     // Validation Effect (debounced to avoid per-keystroke parent re-renders)
     useEffect(() => {
         const timer = setTimeout(() => {
-            const requiredFields = [
-                // Bloque 1
-                tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
-                // Bloque 2
-                selectedObjetivo, responsableMuestreo, cargoResponsable,
-                puntoMuestreo, periodo, frecuencia, factor, totalServicios,
-                // Bloque 3
-                zona,
-                selectedInstrumento,
-                selectedComponente, selectedSubArea, glosa,
-                // Bloque 4
-                selectedTipoMuestreo, selectedTipoMuestra, selectedActividad,
-                selectedTipoDescarga, medicionCaudal
-            ];
-
-            // ✅ PUNTUAL: la duración no aplica (muestreo instantáneo de un solo día). Solo se exige en Compuesta.
-            if (tipoMonitoreo !== 'Puntual') {
-                requiredFields.push(duracion);
-            }
-
-            // F-01f: Número/Año de instrumento solo son obligatorios cuando el instrumento NO es "Otro" ni "No aplica"
-            const instLow = (selectedInstrumento || '').toLowerCase();
-            if (instLow !== 'otro' && instLow !== 'no aplica' && selectedInstrumento) {
-                requiredFields.push(nroInstrumento, anioInstrumento);
-            } else if (instLow === 'otro') {
-                // Con "Otro" exigimos al menos el texto en Número
-                requiredFields.push(nroInstrumento);
-            }
-
-            // Campos condicionales de Hidráulica (Bloque 5)
-            // F-01a (regresión): detectar "No Aplica" case-insensitive y también vía label cuando el value es id de BD
-            const isNA = (val: string | null, list?: any[]) => {
+            // Detectar "No Aplica" por string o por ID de BD (buscando el label en la lista)
+            const isNA = (val: string | null | undefined, list?: any[]) => {
                 if (!val) return true;
                 const s = String(val).trim().toLowerCase();
-                if (s === '' || s === 'no aplica' || s === 'noaplica' || s === 'n/a' || s === 'na') return true;
-                if (list) {
-                    const item = list.find(x => String(x.value) === String(val));
-                    if (item && /no\s*aplica/i.test(String(item.label || ''))) return true;
+                if (s === '' || s === 'no aplica' || s === 'noaplica' || s === 'n/a' || s === 'na' || s === 'null' || s === 'undefined') return true;
+                if (list && list.length) {
+                    const item = list.find((x: any) => String(x.value ?? x.id) === String(val));
+                    if (item && /no\s*aplica/i.test(String(item.label || item.nombre || ''))) return true;
                 }
                 return false;
             };
 
-            // F-XX: UTM Norte/Este no aplican cuando la Zona UTM es "No aplica" — los inputs
-            // quedan disabled en ese caso, así que exigirlos igual dejaba el formulario
-            // permanentemente inválido sin forma de completarlo.
-            if (zona && !isNA(zona, zonasUTMData)) {
-                requiredFields.push(utmNorte, utmEste);
+            const isFilled = (val: string | null | undefined) => {
+                if (val === null || val === undefined) return false;
+                const s = String(val).trim();
+                return s.length > 0 && s !== 'null' && s !== 'undefined';
+            };
+
+            const required: { label: string; value: string | null | undefined }[] = [
+                // Bloque 1
+                { label: 'Tipo de Monitoreo',     value: tipoMonitoreo },
+                { label: 'Lugar de Análisis',      value: selectedLugar },
+                { label: 'Cliente',                value: selectedCliente },
+                { label: 'Empresa de Servicio',    value: selectedEmpresa },
+                { label: 'Fuente Emisora',         value: selectedFuente },
+                { label: 'Contacto Empresa',       value: selectedContacto },
+                // Bloque 2
+                { label: 'Objetivo del Muestreo',  value: selectedObjetivo },
+                { label: 'Responsable Muestreo',   value: responsableMuestreo },
+                { label: 'Cargo',                  value: cargoResponsable },
+                { label: 'Punto de Muestreo',      value: puntoMuestreo },
+                { label: 'Frecuencia Periodo',     value: periodo },
+                { label: 'Cant. Frecuencia',       value: frecuencia },
+                { label: 'Factor',                 value: factor },
+                { label: 'Total Servicios',        value: totalServicios },
+                // Bloque 3
+                { label: 'Zona UTM',               value: zona },
+                { label: 'Instrumento Legal',      value: selectedInstrumento },
+                { label: 'Componente Ambiental',   value: selectedComponente },
+                { label: 'Sub-Área',               value: selectedSubArea },
+                { label: 'Glosa',                  value: glosa },
+                // Bloque 4
+                { label: 'Tipo de Muestreo',       value: selectedTipoMuestreo },
+                { label: 'Tipo de Muestra',        value: selectedTipoMuestra },
+                { label: 'Actividad',              value: selectedActividad },
+                { label: 'Tipo de Descarga',       value: selectedTipoDescarga },
+                { label: 'Medición de Caudal',     value: medicionCaudal },
+            ];
+
+            if (tipoMonitoreo !== 'Puntual') {
+                required.push({ label: 'Duración', value: duracion });
             }
 
-            if (medicionCaudal && !isNA(medicionCaudal)) {
-                requiredFields.push(selectedModalidad);
+            const instLow = (selectedInstrumento || '').toLowerCase();
+            if (instLow !== 'otro' && instLow !== 'no aplica' && selectedInstrumento) {
+                required.push({ label: 'N° Instrumento', value: nroInstrumento });
+                required.push({ label: 'Año Instrumento', value: anioInstrumento });
+            } else if (instLow === 'otro') {
+                required.push({ label: 'N° Instrumento', value: nroInstrumento });
+            }
+
+            if (zona && !isNA(zona, zonasUTMList)) {
+                required.push({ label: 'UTM Norte', value: utmNorte });
+                required.push({ label: 'UTM Este',  value: utmEste });
+            }
+
+            if (medicionCaudal && !isNA(medicionCaudal, modalidades)) {
+                required.push({ label: 'Modalidad de Medición', value: selectedModalidad });
                 if (selectedModalidad && !isNA(selectedModalidad, modalidades)) {
-                    requiredFields.push(formaCanal, dispositivo);
-                    if (formaCanal && !isNA(formaCanal, formasCanal)) requiredFields.push(tipoMedidaCanal, detalleCanal);
-                    if (dispositivo && !isNA(dispositivo, dispositivos)) requiredFields.push(tipoMedidaDispositivo, detalleDispositivo);
+                    required.push({ label: 'Forma de Canal', value: formaCanal });
+                    required.push({ label: 'Dispositivo Hidráulico', value: dispositivo });
+                    if (formaCanal && !isNA(formaCanal, formasCanal)) {
+                        required.push({ label: 'Tipo Medida Canal', value: tipoMedidaCanal });
+                        required.push({ label: 'Detalle Canal', value: detalleCanal });
+                    }
+                    if (dispositivo && !isNA(dispositivo, dispositivos)) {
+                        required.push({ label: 'Tipo Medida Dispositivo', value: tipoMedidaDispositivo });
+                        required.push({ label: 'Detalle Dispositivo',     value: detalleDispositivo });
+                    }
                 }
             }
 
-            const isValid = requiredFields.every(field => {
-                if (field === null || field === undefined) return false;
-                const s = String(field).trim();
-                return s.length > 0 && s !== 'null' && s !== 'undefined';
-            });
+            const missing = required.filter(f => !isFilled(f.value)).map(f => f.label);
+            const isValid = missing.length === 0;
 
             if (onValidationChange) {
-                onValidationChange(isValid);
+                onValidationChange(isValid, missing);
             }
         }, 150);
 
@@ -445,7 +550,10 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
         selectedTipoDescarga, medicionCaudal,
         selectedModalidad, formaCanal, dispositivo, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo,
-        onValidationChange
+        onValidationChange,
+        // Listas de catálogos usadas por isNA para detectar "No Aplica" por ID de BD —
+        // deben estar aquí para que el efecto se re-ejecute cuando los catálogos cargan.
+        zonasUTMList, modalidades, formasCanal, dispositivos
     ]);
 
     // Initial Data Hydration
@@ -670,6 +778,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     // 2. EMPRESA CASCADE
     const handleEmpresaChange = (v: string | null) => {
         setSelectedEmpresa(v || '');
+        markDirty('selectedEmpresa');
         if (isHydrating.current) return;
 
         // Reset dependents
@@ -690,6 +799,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     const handleComponenteChange = (val: string | null) => {
         setSelectedComponente(val || '');
+        markDirty('selectedComponente');
         if (isHydrating.current) return;
         setSubAreas([]);
         setSelectedSubArea(null);
@@ -698,6 +808,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     const handleTipoMuestreoChange = (val: string | null) => {
         setSelectedTipoMuestreo(val || '');
+        markDirty('selectedTipoMuestreo');
         if (isHydrating.current) return;
         setTiposMuestra([]);
         setSelectedTipoMuestra(null);
@@ -706,6 +817,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     const handleTipoMuestraChange = (val: string | null) => {
         setSelectedTipoMuestra(val || '');
+        markDirty('selectedTipoMuestra');
         if (isHydrating.current) return;
         setActividades([]);
         setSelectedActividad(null);
@@ -949,11 +1061,73 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         return req.every(isFieldSet);
     }, [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, medicionCaudal, tipoMonitoreo, duracion, selectedModalidad, modalidades, formaCanal, dispositivo, formasCanal, dispositivos, tipoMedidaCanal, detalleCanal, tipoMedidaDispositivo, detalleDispositivo]);
 
+    const fs = isFieldSet; // alias corto
+    const d = (key: string) => dirtyFields.current.has(key); // campo marcado como tocado
+    // Campo visual: filled solo si tiene valor Y fue tocado por el usuario (o viene de initialData)
+    const fv = (key: string, value: string | null | undefined) => fs(value) && d(key);
+    const instLowNav = (selectedInstrumento || '').toLowerCase();
+
     const sectionNavItems: SectionNavItem[] = [
-        { id: 'ident', label: 'Identificación', icon: IconBuilding, complete: block1Complete },
-        { id: 'servicio', label: 'Datos del Servicio', icon: IconAdjustmentsHorizontal, complete: block2Complete },
-        { id: 'clasif', label: 'Clasificación Técnica', icon: IconCertificate, complete: block3Complete },
-        { id: 'operativo', label: 'Detalles Operativos', icon: IconClock, complete: block4Complete },
+        {
+            id: 'ident', label: 'Identificación', icon: IconBuilding, complete: block1Complete,
+            fields: [
+                { label: 'Tipo de Monitoreo',   filled: fv('tipoMonitoreo', tipoMonitoreo) },
+                { label: 'Lugar de Análisis',   filled: fv('selectedLugar', selectedLugar) },
+                { label: 'Cliente / Facturar',  filled: fv('selectedCliente', selectedCliente) },
+                { label: 'Empresa de Servicio', filled: fv('selectedEmpresa', selectedEmpresa) },
+                { label: 'Fuente Emisora',      filled: fv('selectedFuente', selectedFuente) },
+                { label: 'Contacto Empresa',    filled: fv('selectedContacto', selectedContacto) },
+            ],
+        },
+        {
+            id: 'servicio', label: 'Datos del Servicio', icon: IconAdjustmentsHorizontal, complete: block2Complete,
+            fields: [
+                { label: 'Objetivo del Muestreo', filled: fv('selectedObjetivo', selectedObjetivo) },
+                { label: 'Responsable Muestreo',  filled: fv('responsableMuestreo', responsableMuestreo) },
+                { label: 'Cargo',                 filled: fv('cargoResponsable', cargoResponsable) },
+                { label: 'Punto de Muestreo',     filled: fv('puntoMuestreo', puntoMuestreo) },
+                { label: 'Frecuencia Periodo',    filled: fv('periodo', periodo) },
+                { label: 'Cant. Frecuencia',      filled: fv('frecuencia', frecuencia) },
+                { label: 'Factor',                filled: fv('factor', factor) },
+                { label: 'Total Servicios',       filled: fv('totalServicios', totalServicios) },
+            ],
+        },
+        {
+            id: 'clasif', label: 'Clasificación Técnica', icon: IconCertificate, complete: block3Complete,
+            fields: [
+                { label: 'Zona UTM',             filled: fv('zona', zona) },
+                ...(!isNoAplicaValue(zona, zonasUTMData) ? [
+                    { label: 'UTM Norte', filled: fv('utmNorte', utmNorte) },
+                    { label: 'UTM Este',  filled: fv('utmEste', utmEste) },
+                ] : []),
+                { label: 'Instrumento Legal',    filled: fv('selectedInstrumento', selectedInstrumento) },
+                ...(instLowNav !== 'no aplica' && instLowNav !== '' ? [
+                    { label: 'N° Instrumento',   filled: fv('nroInstrumento', nroInstrumento) },
+                    ...(instLowNav !== 'otro' ? [{ label: 'Año Instrumento', filled: fv('anioInstrumento', anioInstrumento) }] : []),
+                ] : []),
+                { label: 'Componente Ambiental', filled: fv('selectedComponente', selectedComponente) },
+                { label: 'Sub-Área',             filled: fv('selectedSubArea', selectedSubArea) },
+                { label: 'Glosa',                filled: fv('glosa', glosa) },
+            ],
+        },
+        {
+            id: 'operativo', label: 'Detalles Operativos', icon: IconClock, complete: block4Complete,
+            fields: [
+                { label: 'Tipo de Muestreo',   filled: fv('selectedTipoMuestreo', selectedTipoMuestreo) },
+                { label: 'Tipo de Muestra',    filled: fv('selectedTipoMuestra', selectedTipoMuestra) },
+                { label: 'Actividad',          filled: fv('selectedActividad', selectedActividad) },
+                ...(tipoMonitoreo !== 'Puntual' ? [{ label: 'Duración', filled: fv('duracion', duracion) }] : []),
+                { label: 'Tipo de Descarga',   filled: fv('selectedTipoDescarga', selectedTipoDescarga) },
+                { label: 'Medición de Caudal', filled: fv('medicionCaudal', medicionCaudal) },
+                ...(!isNoAplicaValue(medicionCaudal) ? [
+                    { label: 'Modalidad',      filled: fv('selectedModalidad', selectedModalidad) },
+                    ...(!isNoAplicaValue(selectedModalidad, modalidades) ? [
+                        { label: 'Forma de Canal',         filled: fv('formaCanal', formaCanal) },
+                        { label: 'Dispositivo Hidráulico', filled: fv('dispositivo', dispositivo) },
+                    ] : []),
+                ] : []),
+            ],
+        },
     ];
 
     const handlePeriodoChange = (val: string | null) => {
@@ -981,7 +1155,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         if (isHydrating.current) return;
         if (responsableMuestreo === 'ADL' && cargos.length > 0) {
             const match = cargos.find(c => c.nombre?.toUpperCase().includes('MUESTREADOR'));
-            if (match) setCargoResponsable(String(match.id));
+            if (match) { setCargoResponsable(String(match.id)); markDirty('cargoResponsable'); }
         } else if (responsableMuestreo !== 'ADL') {
             setCargoResponsable(null);
         }
@@ -1008,7 +1182,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         placeholder="Seleccione..."
                         data={['Compuesta', 'Puntual']}
                         value={tipoMonitoreo}
-                        onChange={setTipoMonitoreo}
+                        onChange={(v: string | null) => { setTipoMonitoreo(v); markDirty('tipoMonitoreo'); }}
                     />
                     <Select
                         size="sm"
@@ -1016,7 +1190,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         placeholder="Cargando..."
                         data={lugaresData}
                         value={selectedLugar}
-                        onChange={setSelectedLugar}
+                        onChange={(v: string | null) => { setSelectedLugar(v); markDirty('selectedLugar'); }}
                         disabled={!tipoMonitoreo}
                     />
                     <Select
@@ -1025,7 +1199,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         placeholder="Buscar cliente..."
                         data={clientesData}
                         value={selectedCliente}
-                        onChange={(v: string | null) => setSelectedCliente(v || '')}
+                        onChange={(v: string | null) => { setSelectedCliente(v || ''); markDirty('selectedCliente'); }}
                     />
                     <Select
                         size="lg"
@@ -1058,7 +1232,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         placeholder="Seleccione empresa primero"
                         data={fuentesData}
                         value={selectedFuente}
-                        onChange={(v: string | null) => setSelectedFuente(v || '')}
+                        onChange={(v: string | null) => { setSelectedFuente(v || ''); markDirty('selectedFuente'); }}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
                     <StaticField size="sm" label="Tipo agua" value={tipoAgua} icon={IconFlask} />
@@ -1071,7 +1245,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         size="md"
                         label={<FieldLabel label="Ubicación / Dirección" help="Dirección física del centro de cultivo o fuente emisora. Se completa automáticamente al seleccionar la fuente emisora, pero puede editarse." />}
                         value={ubicacion}
-                        onChange={(e: any) => setUbicacion(e.target.value)}
+                        onChange={(e: any) => { setUbicacion(e.target.value); markDirty('ubicacion'); }}
                     />
                     <StaticField size="xs" label="Código Centro" value={codigo} icon={IconInfoCircle} />
                     <Select
@@ -1083,7 +1257,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             ...contactos.map(c => ({ value: String(c.id), label: c.nombre }))
                         ]}
                         value={selectedContacto}
-                        onChange={(v: string | null) => setSelectedContacto(v || '')}
+                        onChange={(v: string | null) => { setSelectedContacto(v || ''); markDirty('selectedContacto'); }}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
                     <StaticField
@@ -1108,7 +1282,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         placeholder="Seleccione..."
                         data={objetivosData}
                         value={selectedObjetivo}
-                        onChange={(v: string | null) => setSelectedObjetivo(v || '')}
+                        onChange={(v: string | null) => { setSelectedObjetivo(v || ''); markDirty('selectedObjetivo'); }}
                         disabled={!selectedEmpresa || selectedEmpresa === 'No Aplica'}
                     />
                     <Select
@@ -1116,7 +1290,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Responsable Muestreo *" help="Quién tomará físicamente las muestras en terreno. ADL: el muestreador es personal de ADL. Cliente: el propio cliente toma la muestra y la envía al laboratorio." />}
                         data={['ADL', 'Cliente']}
                         value={responsableMuestreo}
-                        onChange={setResponsableMuestreo}
+                        onChange={(v: string | null) => { setResponsableMuestreo(v); markDirty('responsableMuestreo'); }}
                     />
                     <Select
                         size="sm"
@@ -1124,14 +1298,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         placeholder="Seleccione..."
                         data={cargosData}
                         value={cargoResponsable}
-                        onChange={(v: string | null) => setCargoResponsable(v || '')}
+                        onChange={(v: string | null) => { setCargoResponsable(v || ''); markDirty('cargoResponsable'); }}
                         disabled={responsableMuestreo === 'ADL'}
                     />
                     <TextInput
                         size="md"
                         label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
                         value={puntoMuestreo}
-                        onChange={(e: any) => setPuntoMuestreo(e.target.value)}
+                        onChange={(e: any) => { setPuntoMuestreo(e.target.value); markDirty('puntoMuestreo'); }}
                     />
                 </Row>
 
@@ -1143,7 +1317,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Frecuencia Periodo *" help="Período de tiempo con que se repite el muestreo. Ejemplos: Mensual, Trimestral, Semestral. Al seleccionarlo se autocompletan los campos de Cantidad y Factor." />}
                         data={frecuenciasData}
                         value={periodo}
-                        onChange={handlePeriodoChange}
+                        onChange={(v: string | null) => { handlePeriodoChange(v); markDirty('periodo'); markDirty('frecuencia'); markDirty('factor'); markDirty('totalServicios'); }}
                         onDropdownOpen={() => {
                             if (!puntoMuestreo.trim()) showToast({ type: 'warning', message: 'Debe ingresar el Punto de Muestreo' });
                         }}
@@ -1152,13 +1326,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         size="sm"
                         label={<FieldLabel label="Cant. Frecuencia" help="Número de veces que se realiza el muestreo dentro del período seleccionado. Se completa automáticamente según la frecuencia, pero puede ajustarse." />}
                         value={frecuencia}
-                        onChange={(e: any) => setFrecuencia(e.target.value)}
+                        onChange={(e: any) => { setFrecuencia(e.target.value); markDirty('frecuencia'); }}
                     />
                     <TextInput
                         size="sm"
                         label={<FieldLabel label="Factor" help="Multiplicador que ajusta el número total de servicios. Útil cuando hay más de una ubicación o muestra por visita. Total = Cantidad × Factor." />}
                         value={factor}
-                        onChange={(e: any) => setFactor(e.target.value)}
+                        onChange={(e: any) => { setFactor(e.target.value); markDirty('factor'); }}
                     />
                     <div className={cn('min-w-0', FIELD_SIZE_CLASS.sm)}>
                         <span className="mb-1 block text-[11px] font-bold uppercase text-muted-foreground">Total Servicios</span>
@@ -1187,20 +1361,20 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
                         data={zonasUTMData}
                         value={zona}
-                        onChange={(v: string | null) => setZona(v || '')}
+                        onChange={(v: string | null) => { setZona(v || ''); markDirty('zona'); }}
                     />
                     <TextInput
                         size="sm"
                         label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
-                        onChange={(e: any) => setUtmNorte(e.target.value)}
+                        onChange={(e: any) => { setUtmNorte(e.target.value); markDirty('utmNorte'); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     <TextInput
                         size="sm"
                         label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
-                        onChange={(e: any) => setUtmEste(e.target.value)}
+                        onChange={(e: any) => { setUtmEste(e.target.value); markDirty('utmEste'); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     <Select
@@ -1210,6 +1384,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={selectedInstrumento}
                         onChange={(val: string | null) => {
                             setSelectedInstrumento(val || '');
+                            markDirty('selectedInstrumento');
                             // F-15: limpiar campos dependientes al elegir "No aplica"
                             if (val === 'No aplica') {
                                 setEsETFA('No');
@@ -1236,6 +1411,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             } else {
                                 setNroInstrumento(val.replace(/[^0-9]/g, ''));
                             }
+                            markDirty('nroInstrumento');
                         }}
                         onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                             // F-01c: bloquear teclas no numéricas si NO es "Otro"
@@ -1258,6 +1434,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             // F-01d: solo dígitos, máx 4
                             const cleaned = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
                             setAnioInstrumento(cleaned);
+                            markDirty('anioInstrumento');
                         }}
                         error={(() => {
                             if (!anioInstrumento) return null;
@@ -1287,16 +1464,16 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Sub Área *" help="Clasificación más específica dentro del componente ambiental seleccionado. Depende del Componente elegido anteriormente." />}
                         data={subAreasData}
                         value={selectedSubArea}
-                        onChange={(v: string | null) => setSelectedSubArea(v || '')}
+                        onChange={(v: string | null) => { setSelectedSubArea(v || ''); markDirty('selectedSubArea'); }}
                         disabled={!selectedComponente}
                     />
-                    <Select size="xs" label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => setEsETFA(v || 'No')} />
+                    <Select size="xs" label={<FieldLabel label="¿Es ETFA?" help="Indica si el establecimiento es una Empresa de Tratamiento de Fangs y Aguas (ETFA). Se activa automáticamente al seleccionar un instrumento ambiental válido. Puede modificarse manualmente." />} data={['Si', 'No']} value={esETFA} onChange={(v: string | null) => { setEsETFA(v || 'No'); markDirty('esETFA'); }} />
                     <Select
                         size="sm"
                         label={<FieldLabel label="Inspector Ambiental" help="Profesional inspector de ADL designado para supervisar este muestreo. Campo opcional disponible solo cuando el responsable es ADL." />}
                         data={inspectoresData}
                         value={selectedInspector}
-                        onChange={(v: string | null) => setSelectedInspector(v || '')}
+                        onChange={(v: string | null) => { setSelectedInspector(v || ''); markDirty('selectedInspector'); }}
                         disabled={responsableMuestreo !== 'ADL'}
                     />
                 </Row>
@@ -1306,7 +1483,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         size="full"
                         label={<FieldLabel label="Nombre de la Tabla (Glosa) *" help="Nombre descriptivo que identificará la tabla de resultados en el informe final. Se autocompleta como: 'Nombre del Centro - Objetivo del Muestreo'. Puede editarse libremente. Máximo 100 caracteres." />}
                         value={glosa}
-                        onChange={(e: any) => setGlosa(e.target.value)}
+                        onChange={(e: any) => { setGlosa(e.target.value); markDirty('glosa'); }}
                         maxLength={100}
                         description={`${glosa.length}/100 caracteres`}
                     />
@@ -1340,7 +1517,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Actividad *" help="Técnica o procedimiento específico para obtener la muestra. Ejemplos: Tomada con balde, Bomba peristáltica, Red de arrastre. Depende del Tipo de Muestra." />}
                         data={actividadesData}
                         value={selectedActividad}
-                        onChange={(v: string | null) => setSelectedActividad(v || '')}
+                        onChange={(v: string | null) => { setSelectedActividad(v || ''); markDirty('selectedActividad'); }}
                         disabled={!selectedTipoMuestra}
                     />
                     {/* ✅ PUNTUAL: muestreo de un solo día → no se pide duración. Solo aplica en Compuesta. */}
@@ -1358,6 +1535,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 // F-16: solo enteros, sin decimal ni letras
                                 const cleaned = String(e.target.value).replace(/[^0-9]/g, '');
                                 setDuracion(cleaned);
+                                markDirty('duracion');
                             }}
                             onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                                 // Bloquear punto, coma, e, +, -
@@ -1372,7 +1550,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Tipo Descarga *" help="Clasificación del tipo de descarga del establecimiento según la normativa ambiental. Ejemplos: Punto de Descarga, Cuerpo Receptor. Requerido para la clasificación del informe." />}
                         data={tiposDescargaData}
                         value={selectedTipoDescarga}
-                        onChange={(v: string | null) => setSelectedTipoDescarga(v || '')}
+                        onChange={(v: string | null) => { setSelectedTipoDescarga(v || ''); markDirty('selectedTipoDescarga'); }}
                     />
                 </Row>
 
@@ -1386,7 +1564,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 label={<FieldLabel label="Referencia Google Maps" help="Enlace de Google Maps o coordenadas geográficas (latitud,longitud) del punto de muestreo. Permite geolocalizar el centro en el planificador de rutas. Ejemplo: https://maps.app.goo.gl/XYZ o -41.45,-72.92" />}
                                 placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
                                 value={refGoogle}
-                                onChange={(e: any) => setRefGoogle(e.target.value)}
+                                onChange={(e: any) => { setRefGoogle(e.target.value); markDirty('refGoogle'); }}
                                 onBlur={() => { if (refGoogle.trim() && verifyStatus === 'idle') handleVerifyLink(); }}
                                 error={verifyStatus === 'invalid' ? verifyError : undefined}
                             />
@@ -1452,14 +1630,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         label={<FieldLabel label="Medición Caudal" help="Indica si se medirá el caudal de la descarga y cómo. Manual: se mide en terreno por el muestreador. Automático: existe un caudalímetro instalado. No Aplica: no se mide caudal." />}
                         data={['Manual', 'Automático', 'No Aplica']}
                         value={medicionCaudal}
-                        onChange={(v: string | null) => setMedicionCaudal(v || '')}
+                        onChange={(v: string | null) => { setMedicionCaudal(v || ''); markDirty('medicionCaudal'); }}
                     />
                     <Select
                         size="sm"
                         label={<FieldLabel label="Modalidad" help="Método hidráulico para medir el caudal. Se activa solo si la Medición de Caudal no es 'No Aplica'. Determina qué campos de canal y dispositivo se requieren." />}
                         data={modalidadesData}
                         value={selectedModalidad}
-                        onChange={(v: string | null) => setSelectedModalidad(v || '')}
+                        onChange={(v: string | null) => { setSelectedModalidad(v || ''); markDirty('selectedModalidad'); }}
                         disabled={isNoAplicaValue(medicionCaudal)}
                     />
                     <div className={cn('flex min-w-0 flex-col gap-1', FIELD_SIZE_CLASS.md)}>
@@ -1467,7 +1645,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             label={<FieldLabel label="Forma Canal" help="Geometría del canal o sección de descarga donde se medirá el caudal. Ejemplos: Rectangular, Trapezoidal, Circular. Determina la fórmula hidráulica que se aplicará." />}
                             data={formasCanalData}
                             value={formaCanal}
-                            onChange={(v: string | null) => setFormaCanal(v || '')}
+                            onChange={(v: string | null) => { setFormaCanal(v || ''); markDirty('formaCanal'); }}
                             disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
                         <div className="flex gap-1">
@@ -1476,7 +1654,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                     placeholder="Unidad"
                                     data={unidadesMedida}
                                     value={tipoMedidaCanal}
-                                    onChange={(v: string | null) => setTipoMedidaCanal(v || '')}
+                                    onChange={(v: string | null) => { setTipoMedidaCanal(v || ''); markDirty('tipoMedidaCanal'); }}
                                     disabled={isNoAplicaValue(formaCanal, formasCanal)}
                                 />
                             </div>
@@ -1484,7 +1662,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 <TextInput
                                     placeholder="Valor"
                                     value={detalleCanal}
-                                    onChange={(e: any) => setDetalleCanal(e.target.value)}
+                                    onChange={(e: any) => { setDetalleCanal(e.target.value); markDirty('detalleCanal'); }}
                                     disabled={!tipoMedidaCanal}
                                 />
                             </div>
@@ -1495,7 +1673,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                             label={<FieldLabel label="Dispositivo Hidr." help="Instrumento o equipo utilizado para medir el caudal del dispositivo de descarga. Ejemplos: Caudalímetro electromagnético, Aforador Parshall, Vertedero. Seleccione 'No Aplica' si no existe dispositivo." />}
                             data={dispositivosData}
                             value={dispositivo}
-                            onChange={(v: string | null) => setDispositivo(v || '')}
+                            onChange={(v: string | null) => { setDispositivo(v || ''); markDirty('dispositivo'); }}
                             disabled={isNoAplicaValue(selectedModalidad, modalidades)}
                         />
                         <div className="flex gap-1">
@@ -1504,7 +1682,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                     placeholder="Unidad"
                                     data={unidadesMedida}
                                     value={tipoMedidaDispositivo}
-                                    onChange={(v: string | null) => setTipoMedidaDispositivo(v || '')}
+                                    onChange={(v: string | null) => { setTipoMedidaDispositivo(v || ''); markDirty('tipoMedidaDispositivo'); }}
                                     disabled={isNoAplicaValue(dispositivo, dispositivos)}
                                 />
                             </div>
@@ -1512,7 +1690,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                                 <TextInput
                                     placeholder="Valor"
                                     value={detalleDispositivo}
-                                    onChange={(e: any) => setDetalleDispositivo(e.target.value)}
+                                    onChange={(e: any) => { setDetalleDispositivo(e.target.value); markDirty('detalleDispositivo'); }}
                                     disabled={!tipoMedidaDispositivo}
                                 />
                             </div>

@@ -392,8 +392,8 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 </Tabs>
 
                 <div style={{ padding: `0 ${panelPadding}px ${panelPadding}px` }}>
-                    <div className="flex justify-end gap-3 border-t border-border pt-6">
-                        {activeTab === 'antecedentes' && (
+                    <div className="flex items-start justify-end gap-3 border-t border-border pt-6">
+{activeTab === 'antecedentes' && (
                             <Button
                                 size="lg"
                                 onClick={() => { setActiveTab('analisis'); scrollToTop(); }}
