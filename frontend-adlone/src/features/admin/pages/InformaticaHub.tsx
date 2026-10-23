@@ -7,7 +7,8 @@ import {
     IconLayoutSidebar,
     IconDatabase,
     IconGitMerge,
-    IconBuilding
+    IconBuilding,
+    IconUserCheck
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -77,6 +78,13 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             icon: <IconBuilding size={19} stroke={1.75} />,
             description: 'Asignar qué persona atiende las solicitudes de cada empresa, por área.',
             permission: 'AI_SOLICITUDES_CLIENTES_CONFIG'
+        },
+        {
+            id: 'admin-verificadores-solicitudes',
+            label: 'Verificadores de Solicitudes',
+            icon: <IconUserCheck size={19} stroke={1.75} />,
+            description: 'Usuarios que reciben copia informativa de todas las solicitudes de clientes.',
+            permission: 'AI_SOLICITUDES_VERIFICADORES_CONFIG'
         },
     ];
 

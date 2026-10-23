@@ -43,6 +43,7 @@ import facturacionRoutes from './routes/facturacion.routes.js';
 import revisionDuplicadosRoutes from './routes/revision-duplicados.routes.js';
 import biologiaMolecularRoutes from './routes/biologia-molecular.routes.js';
 import empresaAsignadaRoutes from './routes/empresaAsignada.routes.js';
+import verificadorSolicitudesRoutes from './routes/verificadorSolicitudes.routes.js';
 import solicitudesClientesRoutes from './routes/solicitudesClientes.routes.js';
 
 const app = express();
@@ -245,6 +246,7 @@ app.use('/api/facturacion', facturacionRoutes);
 app.use('/api/revision-duplicados', revisionDuplicadosRoutes);
 app.use('/api/biologia-molecular', biologiaMolecularRoutes);
 app.use('/api/empresas-asignadas', empresaAsignadaRoutes);
+app.use('/api/verificadores-solicitudes', verificadorSolicitudesRoutes);
 app.use('/api/solicitudes-clientes', solicitudesClientesRoutes);
 
 // Avatares predefinidos del sistema: viven en el repo (van versionados en git),
