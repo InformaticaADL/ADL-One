@@ -11,6 +11,10 @@ router.get('/', authenticate, verifyPermission('AI_SOLICITUDES_CLIENTES_CONFIG')
 // GET /api/empresas-asignadas/mias — empresas asignadas al usuario logueado (?area=LAB|MAM)
 router.get('/mias', authenticate, ctrl.misEmpresas);
 
+// GET /api/empresas-asignadas/catalogo-portal — empresas con cliente activo en WebClientesV2
+// (para el selector de "Nueva asignación", acotado a las que sí usan el portal).
+router.get('/catalogo-portal', authenticate, verifyPermission('AI_SOLICITUDES_CLIENTES_CONFIG'), ctrl.catalogoPortal);
+
 // POST /api/empresas-asignadas — crea una asignación (solo admins de solicitudes)
 router.post('/', authenticate, verifyPermission('AI_SOLICITUDES_CLIENTES_CONFIG'), ctrl.crear);
 

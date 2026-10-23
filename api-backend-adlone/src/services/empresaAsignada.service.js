@@ -2,6 +2,7 @@
 // PruebasInformatica.dbo.rel_usuario_empresa_asignada.
 import sql from 'mssql';
 import { getConnection } from '../config/database.js';
+import { wcFetch } from './solicitudesProxy.service.js';
 
 // Rol de respaldo: a quién le llegan los avisos de una empresa que no tiene a nadie asignado
 // (ver avisarAdlOne() en WebClientesV2, app/backend/src/solicitudes/solicitudesRoutes.js) — el
@@ -83,6 +84,27 @@ class EmpresaAsignadaService {
         await pool.request()
             .input('id', sql.Int, id)
             .query('DELETE FROM dbo.rel_usuario_empresa_asignada WHERE id = @id');
+    }
+
+    /**
+     * Catálogo de empresas para el selector de "Nueva asignación", acotado a las que
+     * tienen al menos un cliente ACTIVO en WebClientesV2 -- sin esto el selector mezcla
+     * las ~17 empresas que de verdad usan el portal con el resto del catálogo del LIMS
+     * (miles de empresas que nunca van a generar una solicitud).
+     */
+    async empresasPortal() {
+        const { status, body } = await wcFetch('/v1/solicitudes/empresas-portal');
+        if (status !== 200) throw new Error(body?.error || 'Error al obtener empresas del portal.');
+        const ids = Array.isArray(body) ? body.map(Number) : [];
+        if (!ids.length) return [];
+        const pool = await getConnection();
+        const req = pool.request();
+        ids.forEach((id, i) => req.input('e' + i, sql.Int, id));
+        const r = await req.query(
+            `SELECT id_empresa, nombre_empresa FROM dbo.mae_empresa
+             WHERE habilitado = 'S' AND id_empresa IN (${ids.map((_, i) => '@e' + i).join(',')})
+             ORDER BY nombre_empresa`);
+        return r.recordset;
     }
 }
 

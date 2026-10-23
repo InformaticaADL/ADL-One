@@ -85,3 +85,6 @@ const SolicitudesProxyService = {
 };
 
 export default SolicitudesProxyService;
+// Reusado por empresaAsignada.service.js para pedirle a WebClientesV2 qué empresas son
+// clientes reales del portal (misma API key, mismo helper de fetch).
+export { wcFetch };

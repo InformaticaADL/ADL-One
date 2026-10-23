@@ -29,8 +29,9 @@ export const empresaAsignadaService = {
         await apiClient.delete(`/api/empresas-asignadas/${id}`);
     },
 
+    // Acotado a empresas con cliente activo en WebClientesV2 (no el catálogo completo del LIMS).
     async empresas(): Promise<EmpresaCatalogo[]> {
-        const response = await apiClient.get('/api/catalogos/clientes');
+        const response = await apiClient.get('/api/empresas-asignadas/catalogo-portal');
         return response.data.data;
     },
 };

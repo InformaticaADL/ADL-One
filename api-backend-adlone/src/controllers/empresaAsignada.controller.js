@@ -10,6 +10,15 @@ export async function listar(req, res) {
     }
 }
 
+export async function catalogoPortal(req, res) {
+    try {
+        const rows = await empresaAsignadaService.empresasPortal();
+        successResponse(res, rows);
+    } catch (e) {
+        errorResponse(res, e.message, 500);
+    }
+}
+
 export async function misEmpresas(req, res) {
     try {
         // req.user.id es el campo que deja el JWT de ADL ONE (ver auth.middleware.js).
