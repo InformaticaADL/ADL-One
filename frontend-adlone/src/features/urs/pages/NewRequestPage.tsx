@@ -118,6 +118,34 @@ const NewRequestPage: React.FC<NewRequestPageProps> = ({ onBack }) => {
                 if (!d.nueva_vigencia) return 'Indica la nueva fecha de vigencia.';
                 if (!d.justificacion?.trim()) return 'Ingresa la justificación de la extensión.';
                 break;
+            case 'CAMBIO_DATOS':
+                if (!d.entidad_afectada) return 'Selecciona la entidad afectada.';
+                if (!d.campo_a_modificar?.trim()) return 'Indica el campo o dato a modificar.';
+                if (!d.valor_nuevo?.trim()) return 'Indica el valor nuevo.';
+                if (!d.justificacion?.trim()) return 'Ingresa la justificación del cambio.';
+                break;
+            case 'BAJA_USUARIO':
+                if (!d.nombre_usuario?.trim()) return 'Ingresa el nombre del usuario a dar de baja.';
+                if (!d.motivo_baja) return 'Selecciona el motivo de la baja.';
+                break;
+            case 'CAMBIO_FIRMA':
+                if (!d.nombre_titular?.trim()) return 'Ingresa el nombre del titular de la firma.';
+                if (!d.tipo_firma) return 'Selecciona el tipo de firma.';
+                if (!d.motivo_cambio) return 'Selecciona el motivo del cambio.';
+                break;
+            case 'PROBLEMA_APP':
+                if (!d.modulo_afectado) return 'Selecciona el módulo afectado.';
+                if (!d.descripcion_problema?.trim()) return 'Ingresa la descripción del problema.';
+                break;
+            case 'ENMIENDA':
+                if (!d.tipo_documento) return 'Selecciona el tipo de documento.';
+                if (!d.descripcion_enmienda?.trim()) return 'Describe la enmienda requerida.';
+                if (!d.justificacion_enmienda?.trim()) return 'Ingresa la justificación de la enmienda.';
+                break;
+            case 'CAMBIO_GENERAL':
+                if (!d.titulo_cambio?.trim()) return 'Ingresa el título del cambio.';
+                if (!d.descripcion_cambio?.trim()) return 'Describe el cambio requerido.';
+                break;
         }
         return null;
     };

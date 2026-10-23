@@ -50,14 +50,7 @@ export function canAccessModule(module: DynamicModule, hasPermission: (p: string
 
 // Módulos con iconos de Tabler, fijos (no vienen del menú dinámico del backend).
 export const FIXED_TOP_MODULES: FixedModule[] = [
-    {
-        label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes',
-        // El ítem padre sigue abriendo la bandeja interna de ADL ONE (ver DashboardPage.tsx,
-        // activeModule === 'solicitudes' sin activeSubmodule) — este link es solo el agregado.
-        links: [
-            { id: 'solicitudes-clientes', label: 'Solicitudes de clientes' },
-        ],
-    },
+    { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
     { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
     {
         label: 'Facturación', icon: IconFileInvoice, id: 'facturacion', permission: 'FAC_ACCESO',

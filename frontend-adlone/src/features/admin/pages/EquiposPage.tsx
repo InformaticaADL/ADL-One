@@ -169,6 +169,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // El documento de la revisión vigente viene en la misma fila del listado
     // (mae_equipo.documento_*), así que la columna no necesita pedir nada extra.
     const [docDescargando, setDocDescargando] = useState<number | null>(null);
+    // Document preview modal
+    const [docPreview, setDocPreview] = useState<{
+        equipo: Equipo;
+        blobUrl: string;
+        mimeType: string;
+        nombre: string;
+    } | null>(null);
 
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
@@ -1121,6 +1128,42 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
+    // Opens a preview popup instead of directly downloading.
+    // Falls back to a download trigger for unsupported MIME types.
+    const abrirDoc = async (equipo: Equipo) => {
+        if (docDescargando === equipo.id_equipo) return;
+        setDocDescargando(equipo.id_equipo);
+        try {
+            const blob = await equipoService.descargarDocumentoEquipo(equipo.id_equipo);
+            const mimeType = blob.type || 'application/octet-stream';
+            const blobUrl = window.URL.createObjectURL(blob);
+            const nombre = equipo.documento_nombre || `documento-${equipo.id_equipo}`;
+            // Inline-previewable types: PDF and images
+            const previewable = mimeType.startsWith('image/') || mimeType === 'application/pdf';
+            if (previewable) {
+                setDocPreview({ equipo, blobUrl, mimeType, nombre });
+            } else {
+                // Unsupported: trigger download directly
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.setAttribute('download', nombre);
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+                setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+            }
+        } catch {
+            showToast({ type: 'error', message: 'No se pudo abrir el documento' });
+        } finally {
+            setDocDescargando(null);
+        }
+    };
+
+    const cerrarDocPreview = () => {
+        if (docPreview) window.URL.revokeObjectURL(docPreview.blobUrl);
+        setDocPreview(null);
+    };
+
     // Celda de la columna "Documento": el informe de la revisión vigente (el
     // documento sigue siendo opcional al crear/editar un equipo — ver
     // EquipoForm). Las versiones anteriores conservan el suyo y se descargan
@@ -1131,9 +1174,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         return (
             <button
                 type="button"
-                title={`Descargar ${nombre}`}
+                title={`Ver documento: ${nombre}`}
                 disabled={docDescargando === equipo.id_equipo}
-                onClick={(e) => { e.stopPropagation(); descargarDoc(equipo); }}
+                onClick={(e) => { e.stopPropagation(); abrirDoc(equipo); }}
                 className="flex w-full min-w-0 items-center gap-1 rounded-md px-1 py-0.5 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-60"
             >
                 {docDescargando === equipo.id_equipo
@@ -1149,9 +1192,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             {
                 // También disponible en la columna "Documento" de la tabla; se deja
                 // acá también para el menú de la vista móvil (tarjetas).
-                label: docDescargando === equipo.id_equipo ? 'Descargando...' : 'Descargar documento',
+                label: docDescargando === equipo.id_equipo ? 'Cargando...' : 'Ver documento',
                 icon: <IconPaperclip size={16} />,
-                onClick: () => descargarDoc(equipo),
+                onClick: () => abrirDoc(equipo),
                 disabled: docDescargando === equipo.id_equipo,
                 hidden: !equipo.documento_ruta,
             },
@@ -1520,11 +1563,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         : (
                                                             <button
                                                                 type="button"
-                                                                onClick={() => descargarDoc(equipo)}
+                                                                onClick={() => abrirDoc(equipo)}
                                                                 className="flex min-w-0 items-center gap-1 text-primary"
                                                             >
                                                                 <IconPaperclip size={12} className="shrink-0" />
-                                                                <span className="truncate">{equipo.documento_nombre || 'Descargar'}</span>
+                                                                <span className="truncate">{equipo.documento_nombre || 'Ver'}</span>
                                                             </button>
                                                         )}
                                                 </span>
@@ -2170,6 +2213,52 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 requests={requestsEquipoInfo ? getPendingRequestsForEquipo(requestsEquipoInfo.id as number).filter((s: any) => s.estado === 'ACEPTADA') : []}
                 onRefresh={() => { fetchData(true); loadSolicitudes(); }}
             />
+
+            {/* ── Document Preview Modal ── */}
+            <Dialog open={!!docPreview} onOpenChange={(open) => { if (!open) cerrarDocPreview(); }}>
+                <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0">
+                    <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3">
+                        <DialogTitle className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                            <IconPaperclip size={16} className="shrink-0 text-primary" />
+                            <span className="truncate">{docPreview?.nombre}</span>
+                        </DialogTitle>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="ml-4 shrink-0 gap-1.5 text-xs"
+                            onClick={async () => {
+                                if (!docPreview) return;
+                                const link = document.createElement('a');
+                                link.href = docPreview.blobUrl;
+                                link.setAttribute('download', docPreview.nombre);
+                                document.body.appendChild(link);
+                                link.click();
+                                link.remove();
+                            }}
+                        >
+                            <IconDownload size={14} />
+                            Descargar
+                        </Button>
+                    </DialogHeader>
+
+                    <div className="flex min-h-0 flex-1 items-center justify-center bg-muted/30 p-2">
+                        {docPreview?.mimeType === 'application/pdf' && (
+                            <iframe
+                                src={docPreview.blobUrl}
+                                title={docPreview.nombre}
+                                className="h-[75vh] w-full rounded border-0"
+                            />
+                        )}
+                        {docPreview?.mimeType.startsWith('image/') && (
+                            <img
+                                src={docPreview.blobUrl}
+                                alt={docPreview.nombre}
+                                className="max-h-[75vh] max-w-full rounded object-contain shadow"
+                            />
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
         </div>
     );
