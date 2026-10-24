@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { useNavStore } from '../../../store/navStore';
 import {
     solicitudesClientesService,
     type SolicitudClienteResumen,
@@ -46,6 +47,7 @@ const TRANSICIONES: Record<string, string[]> = {
 export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
+    const { pendingSolicitudClienteId, setPendingSolicitudClienteId } = useNavStore();
 
     const [solicitudes, setSolicitudes] = useState<SolicitudClienteResumen[]>([]);
     const [loading, setLoading] = useState(true);
@@ -59,6 +61,14 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     useEffect(() => {
         loadLista();
     }, []);
+
+    // Llegada desde una notificación de la campana: abre directamente esa solicitud.
+    useEffect(() => {
+        if (!pendingSolicitudClienteId) return;
+        const id = pendingSolicitudClienteId;
+        setPendingSolicitudClienteId(null);
+        abrirDetalle(id);
+    }, [pendingSolicitudClienteId]);
 
     const loadLista = async () => {
         try {

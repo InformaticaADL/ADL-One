@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
+import { esNotificacionSolicitudCliente } from '../utils/notificationNavigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -32,7 +33,7 @@ interface NotificationPopoverProps {
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened, onClose, children }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setPendingSolicitudClienteId, setSelectedRequestId, setFichasMode } = useNavStore();
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
 
@@ -56,6 +57,13 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
 
         if (!notif.leido) {
             markAsRead(notif.id_notificacion).catch(console.error);
+        }
+
+        if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
+            setPendingSolicitudClienteId(notif.id_referencia);
+            setActiveModule('solicitudes-clientes');
+            setActiveSubmodule('');
+            return;
         }
 
         if (notif.id_referencia) {

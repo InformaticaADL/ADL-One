@@ -162,6 +162,7 @@ const DashboardPage = () => {
         if (!activeSubmodule) {
             // Módulos que SI tienen su propia vista de aterrizaje directa (Stand-alone)
             if (activeModule === 'solicitudes') return <UniversalInbox />;
+            if (activeModule === 'solicitudes-clientes') return <SolicitudesClientesPage onBack={() => resetNavigation()} />;
             if (activeModule === 'notificaciones') return <UserNotificationsPage />;
             if (activeModule === 'chat') return <ChatModule />;
             if (activeModule === 'perfil') return <ProfilePage />;

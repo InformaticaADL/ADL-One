@@ -8,6 +8,7 @@ interface NavState {
     drawerOpen: boolean;
     pendingRequestId: number | null; // For deep-linking from notifications
     pendingChatId: number | null; // For deep-linking to specific chat
+    pendingSolicitudClienteId: number | null; // Solicitud de cliente (WebClientesV2) a abrir al llegar desde una notificación
     selectedRequestId: number | null; // Phase 27
     selectedFichaId: number | null;
     selectedCorrelativo: string | null;
@@ -23,6 +24,7 @@ interface NavState {
     setDrawerOpen: (isOpen: boolean) => void;
     setPendingRequestId: (id: number | null) => void;
     setPendingChatId: (id: number | null) => void;
+    setPendingSolicitudClienteId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
     setSelectedFicha: (id: number | null, correlativo: string | null) => void;
     // Cotización que originó la ficha que se está creando: el formulario la lee
@@ -63,6 +65,7 @@ export const useNavStore = create<NavState>()(
             sidebarCollapsed: false,
             pendingRequestId: null,
             pendingChatId: null,
+            pendingSolicitudClienteId: null,
             selectedRequestId: null,
             selectedFichaId: null,
             selectedCorrelativo: null,
@@ -85,6 +88,7 @@ export const useNavStore = create<NavState>()(
             toggleSidebar: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
             setPendingRequestId: (id) => set({ pendingRequestId: id }),
             setPendingChatId: (id) => set({ pendingChatId: id }),
+            setPendingSolicitudClienteId: (id) => set({ pendingSolicitudClienteId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),
             setSelectedFicha: (id, correlativo) => set({ selectedFichaId: id, selectedCorrelativo: correlativo }),
             setCotizacionParaFicha: (id) => set({ cotizacionParaFicha: id }),
@@ -101,6 +105,7 @@ export const useNavStore = create<NavState>()(
                 drawerOpen: false,
                 sidebarCollapsed: false,
                 pendingRequestId: null,
+                pendingSolicitudClienteId: null,
                 selectedRequestId: null,
                 selectedFichaId: null,
                 selectedCorrelativo: null,

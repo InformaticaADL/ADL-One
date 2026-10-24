@@ -2,6 +2,7 @@ import {
     IconMessageCircle,
     IconFileInvoice,
     IconClipboardList,
+    IconBuilding,
 } from '@tabler/icons-react';
 
 export interface DynamicModuleLink {
@@ -51,6 +52,8 @@ export function canAccessModule(module: DynamicModule, hasPermission: (p: string
 // Módulos con iconos de Tabler, fijos (no vienen del menú dinámico del backend).
 export const FIXED_TOP_MODULES: FixedModule[] = [
     { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
+    // Solicitudes que los clientes hacen desde el portal (WebClientesV2). Cada persona ve solo las de sus empresas asignadas.
+    { label: 'Solicitudes de clientes', icon: IconBuilding, id: 'solicitudes-clientes' },
     { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
     {
         label: 'Facturación', icon: IconFileInvoice, id: 'facturacion', permission: 'FAC_ACCESO',
