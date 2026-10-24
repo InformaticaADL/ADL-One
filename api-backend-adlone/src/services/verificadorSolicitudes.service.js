@@ -37,6 +37,17 @@ class VerificadorSolicitudesService {
     }
 
     /**
+     * ¿Este usuario es verificador (jefatura en copia)? Los verificadores ven TODAS las solicitudes de clientes.
+     */
+    async esVerificador(idUsuario) {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('u', sql.Numeric(10, 0), idUsuario)
+            .query('SELECT 1 AS x FROM dbo.rel_usuario_verificador_solicitudes WHERE id_usuario = @u');
+        return r.recordset.length > 0;
+    }
+
+    /**
      * Quita un verificador por su id de fila.
      */
     async quitar(id) {

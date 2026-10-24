@@ -5,6 +5,7 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import empresaAsignadaService from './empresaAsignada.service.js';
+import verificadorSolicitudesService from './verificadorSolicitudes.service.js';
 
 const WC_URL = process.env.WEBCLIENTES_API_URL || 'http://localhost:8020';
 // Las solicitudes usan su propia llave (scope solicitudes:write). Facturación y cotizaciones siguen con
@@ -38,15 +39,18 @@ const SolicitudesProxyService = {
      * campanita pero no encontraba la solicitud acá.
      */
     async listar(idUsuario) {
-        const [empresas, esRespaldo] = await Promise.all([
+        const [empresas, esRespaldo, esVerificador] = await Promise.all([
             empresaAsignadaService.misEmpresas(idUsuario),
             empresaAsignadaService.esRespaldo(idUsuario),
+            verificadorSolicitudesService.esVerificador(idUsuario),
         ]);
-        if (!empresas.length && !esRespaldo) return [];
+        if (!empresas.length && !esRespaldo && !esVerificador) return [];
         const ids = empresas.map(e => e.id_empresa).join(',');
         const qs = new URLSearchParams();
         if (ids) qs.set('empresas', ids);
         if (esRespaldo) qs.set('incluirSinAsignar', '1');
+        // Los verificadores (jefatura en copia) ven las solicitudes de TODAS las empresas.
+        if (esVerificador) qs.set('todas', '1');
         const { status, body } = await wcFetch(`/v1/solicitudes?${qs.toString()}`);
         if (status !== 200) throw new Error(body?.error || 'Error al obtener solicitudes.');
         return body;

@@ -1,14 +1,17 @@
 import apiClient from '../config/axios.config';
 
+export type EstadoSolicitudCliente = 'recibida' | 'en_revision' | 'respondida' | 'cerrada';
+
 export interface SolicitudClienteResumen {
     id: number;
     asunto: string;
-    estado: 'recibida' | 'en_revision' | 'respondida' | 'cerrada';
+    estado: EstadoSolicitudCliente;
     creada_en: string;
     actualizada_en: string;
     id_cliente: number;
     cliente_nombre: string;
     solicitante_nombre: string;
+    solicitante_email?: string | null;
     responsable_nombre: string | null;
     id_empresa: number;
     area: 'LAB' | 'MAM';
@@ -24,14 +27,28 @@ export interface SolicitudClienteMensaje {
     autor_nombre: string;
 }
 
+export interface SolicitudClienteReferencia {
+    id: number;
+    id_caso: number | null;
+    id_documento: number | null;
+    caso_codigo: string | null;
+    documento_nombre: string | null;
+    documento_nombre_original: string | null;
+    documento_disponible: number;
+}
+
 export interface SolicitudClienteDetalle {
     id: number;
     asunto: string;
-    estado: SolicitudClienteResumen['estado'];
+    estado: EstadoSolicitudCliente;
     creada_en: string;
+    actualizada_en?: string;
     id_cliente: number;
     cliente_nombre: string;
-    referencias: any[];
+    solicitante_nombre?: string | null;
+    solicitante_email?: string | null;
+    responsable_nombre?: string | null;
+    referencias: SolicitudClienteReferencia[];
     mensajes: SolicitudClienteMensaje[];
 }
 
@@ -50,7 +67,7 @@ export const solicitudesClientesService = {
         await apiClient.post(`/api/solicitudes-clientes/${id}/mensajes`, { texto });
     },
 
-    async cambiarEstado(id: number, estado: SolicitudClienteResumen['estado']): Promise<void> {
+    async cambiarEstado(id: number, estado: EstadoSolicitudCliente): Promise<void> {
         await apiClient.patch(`/api/solicitudes-clientes/${id}/estado`, { estado });
     },
 
