@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { notificationService } from '../services/notification.service';
 import { io, Socket } from 'socket.io-client';
 import API_CONFIG from '../config/api.config';
+import { esNotificacionSolicitudCliente } from '../features/notifications/utils/notificationNavigation';
 
 export interface Notification {
     id_notificacion: number;
@@ -20,7 +21,11 @@ interface NotificationState {
     loading: boolean;
     // X-10: estado de la conexión Socket.IO
     socketStatus: 'idle' | 'connecting' | 'connected' | 'disconnected';
+    // Último aviso en vivo de una solicitud de cliente del portal (lo muestra AvisoSolicitudesCliente como toast).
+    avisoSolicitudCliente: Notification | null;
+    limpiarAvisoSolicitudCliente: () => void;
     fetchNotifications: () => Promise<void>;
+    refrescarEnSegundoPlano: () => Promise<void>;
     markAsRead: (id: number) => Promise<void>;
     markAsReadByRef: (idReferencia: number) => Promise<void>;
     markAllAsRead: () => Promise<void>;
@@ -36,15 +41,39 @@ let socket: Socket | null = null;
 // Servicios) puedan escuchar eventos propios sin abrir una segunda conexión.
 export const getNotificationSocket = (): Socket | null => socket;
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+// Las solicitudes de clientes las crea el portal escribiendo directo en la base: no pasan por el socket de este backend.
+// Por eso se consulta cada pocos segundos; así la campana, el contador y el aviso se actualizan sin recargar la página.
+const REFRESCO_NOTIFICACIONES_MS = 20000;
+// Se pone en true tras la primera carga: así lo ya existente al iniciar sesión no dispara avisos, y lo que llega después sí.
+let baseCargada = false;
+let temporizadorRefresco: ReturnType<typeof setInterval> | null = null;
+const detenerRefresco = () => { if (temporizadorRefresco) { clearInterval(temporizadorRefresco); temporizadorRefresco = null; } };
+
+export const useNotificationStore = create<NotificationState>((set, get) => ({
     notifications: [],
     loading: false,
     socketStatus: 'idle',
+    avisoSolicitudCliente: null,
+    limpiarAvisoSolicitudCliente: () => set({ avisoSolicitudCliente: null }),
+
+    refrescarEnSegundoPlano: async () => {
+        try {
+            const data: Notification[] = await notificationService.getMyNotifications(false);
+            if (!Array.isArray(data)) return;
+            const conocidas = new Set(get().notifications.map((n) => n.id_notificacion));
+            const nueva = baseCargada
+                ? data.find((n) => !n.leido && !conocidas.has(n.id_notificacion) && esNotificacionSolicitudCliente(n))
+                : undefined;
+            baseCargada = true;
+            set(nueva ? { notifications: data, avisoSolicitudCliente: nueva } : { notifications: data });
+        } catch { /* se reintenta en el próximo ciclo */ }
+    },
 
     fetchNotifications: async () => {
         set({ loading: true });
         try {
             const data = await notificationService.getMyNotifications(false);
+            baseCargada = true;
             set({ notifications: data, loading: false });
         } catch (error) {
             console.error('Error fetching notifications:', error);
@@ -109,6 +138,9 @@ export const useNotificationStore = create<NotificationState>((set) => ({
             socket = null;
         }
 
+        detenerRefresco();
+        temporizadorRefresco = setInterval(() => { void get().refrescarEnSegundoPlano(); }, REFRESCO_NOTIFICACIONES_MS);
+
         set({ socketStatus: 'connecting' });
         const baseUrl = API_CONFIG.getBaseURL();
         socket = io(baseUrl, {
@@ -150,12 +182,14 @@ export const useNotificationStore = create<NotificationState>((set) => ({
                 leido: false
             };
             set((state) => ({
-                notifications: [mappedNotif, ...state.notifications]
+                notifications: [mappedNotif, ...state.notifications],
+                ...(esNotificacionSolicitudCliente(mappedNotif) ? { avisoSolicitudCliente: mappedNotif } : {}),
             }));
         });
     },
 
     disconnectSocket: () => {
+        detenerRefresco();
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -166,10 +200,12 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     // Limpia notificaciones y cierra el socket. Se llama en logout para que el
     // siguiente usuario no vea notificaciones del anterior.
     reset: () => {
+        detenerRefresco();
+        baseCargada = false;
         if (socket) {
             socket.disconnect();
             socket = null;
         }
-        set({ notifications: [], loading: false, socketStatus: 'idle' });
+        set({ notifications: [], loading: false, socketStatus: 'idle', avisoSolicitudCliente: null });
     }
 }));

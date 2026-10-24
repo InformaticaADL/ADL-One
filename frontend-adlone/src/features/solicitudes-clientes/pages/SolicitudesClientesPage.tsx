@@ -12,6 +12,8 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useNavStore } from '../../../store/navStore';
+import { useNotificationStore } from '../../../store/notificationStore';
+import { esNotificacionSolicitudCliente } from '../../notifications/utils/notificationNavigation';
 import {
     solicitudesClientesService,
     type SolicitudClienteResumen,
@@ -48,6 +50,7 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
     const { pendingSolicitudClienteId, setPendingSolicitudClienteId } = useNavStore();
+    const { notifications, markAsRead } = useNotificationStore();
 
     const [solicitudes, setSolicitudes] = useState<SolicitudClienteResumen[]>([]);
     const [loading, setLoading] = useState(true);
@@ -82,6 +85,10 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const abrirDetalle = async (id: number) => {
+        // Sus avisos de la campana quedan leídos (solo los de solicitudes de clientes: el id_referencia puede coincidir con el de una solicitud interna).
+        notifications
+            .filter((n) => !n.leido && n.id_referencia === id && esNotificacionSolicitudCliente(n))
+            .forEach((n) => { void markAsRead(n.id_notificacion); });
         try {
             setLoadingDetalle(true);
             setDetalle(await solicitudesClientesService.detalle(id));
