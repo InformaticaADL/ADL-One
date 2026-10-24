@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -80,6 +81,7 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     const [busqueda, setBusqueda] = useState('');
     const [estadoFiltro, setEstadoFiltro] = useState<'todas' | EstadoSolicitudCliente>('todas');
     const [empresaFiltro, setEmpresaFiltro] = useState('todas');
+    const [casoFiltro, setCasoFiltro] = useState('todos');
     const [areaFiltro, setAreaFiltro] = useState('todas');
     const [soloSinTomar, setSoloSinTomar] = useState(false);
 
@@ -184,18 +186,27 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
         () => [...new Set(solicitudes.map((s) => s.cliente_nombre).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es')),
         [solicitudes]);
     const areas = useMemo(() => [...new Set(solicitudes.map((s) => s.area))], [solicitudes]);
+    const codigosDeCasos = (s: SolicitudClienteResumen) => (s.casos || '').split(',').map((c) => c.trim()).filter(Boolean);
+    // Los casos que se ofrecen salen de las solicitudes que quedan con el filtro de empresa elegido.
+    const casos = useMemo(
+        () => [...new Set(solicitudes
+            .filter((s) => empresaFiltro === 'todas' || s.cliente_nombre === empresaFiltro)
+            .flatMap((s) => (s.casos || '').split(',').map((c) => c.trim()).filter(Boolean)))]
+            .sort((a, b) => b.localeCompare(a, 'es', { numeric: true })),
+        [solicitudes, empresaFiltro]);
 
     const sinEstado = useMemo(() => {
         const term = busqueda.trim().toLowerCase();
         return solicitudes.filter((s) => {
             if (empresaFiltro !== 'todas' && s.cliente_nombre !== empresaFiltro) return false;
             if (areaFiltro !== 'todas' && s.area !== areaFiltro) return false;
+            if (casoFiltro !== 'todos' && !codigosDeCasos(s).includes(casoFiltro)) return false;
             if (soloSinTomar && s.responsable_nombre) return false;
             if (!term) return true;
-            return [s.asunto, s.cliente_nombre, s.solicitante_nombre, s.solicitante_email, `#${s.id}`]
+            return [s.asunto, s.cliente_nombre, s.solicitante_nombre, s.solicitante_email, s.casos, `#${s.id}`]
                 .some((v) => (v || '').toLowerCase().includes(term));
         });
-    }, [solicitudes, busqueda, empresaFiltro, areaFiltro, soloSinTomar]);
+    }, [solicitudes, busqueda, empresaFiltro, casoFiltro, areaFiltro, soloSinTomar]);
 
     const conteoEstado = useMemo(() => {
         const c: Record<string, number> = { todas: sinEstado.length };
@@ -209,9 +220,9 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
             .sort((a, b) => new Date(b.actualizada_en).getTime() - new Date(a.actualizada_en).getTime()),
         [sinEstado, estadoFiltro]);
 
-    const hayFiltros = !!busqueda.trim() || estadoFiltro !== 'todas' || empresaFiltro !== 'todas' || areaFiltro !== 'todas' || soloSinTomar;
+    const hayFiltros = !!busqueda.trim() || estadoFiltro !== 'todas' || empresaFiltro !== 'todas' || casoFiltro !== 'todos' || areaFiltro !== 'todas' || soloSinTomar;
     const limpiarFiltros = () => {
-        setBusqueda(''); setEstadoFiltro('todas'); setEmpresaFiltro('todas'); setAreaFiltro('todas'); setSoloSinTomar(false);
+        setBusqueda(''); setEstadoFiltro('todas'); setEmpresaFiltro('todas'); setCasoFiltro('todos'); setAreaFiltro('todas'); setSoloSinTomar(false);
     };
 
     const sinLeer = useMemo(() => {
@@ -277,13 +288,25 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
                     />
                 </div>
 
+                <div className="grid grid-cols-2 gap-2">
+                    <Combobox
+                        value={empresaFiltro}
+                        onValueChange={(v) => { setEmpresaFiltro(v); setCasoFiltro('todos'); }}
+                        placeholder="Todas las empresas"
+                        searchPlaceholder="Buscar empresa..."
+                        options={[{ value: 'todas', label: 'Todas las empresas' }, ...empresas.map((e) => ({ value: e, label: e }))]}
+                    />
+                    <Combobox
+                        value={casoFiltro}
+                        onValueChange={setCasoFiltro}
+                        placeholder="Todos los casos"
+                        searchPlaceholder="Buscar caso (OI)..."
+                        emptyText="Sin casos."
+                        options={[{ value: 'todos', label: 'Todos los casos' }, ...casos.map((c) => ({ value: c, label: c }))]}
+                    />
+                </div>
+
                 <div className="flex flex-wrap gap-2">
-                    {empresas.length > 1 && (
-                        <select className={cn(claseSelect, 'min-w-0 flex-1')} value={empresaFiltro} onChange={(e) => setEmpresaFiltro(e.target.value)}>
-                            <option value="todas">Todas las empresas</option>
-                            {empresas.map((e) => <option key={e} value={e}>{e}</option>)}
-                        </select>
-                    )}
                     {areas.length > 1 && (
                         <select className={claseSelect} value={areaFiltro} onChange={(e) => setAreaFiltro(e.target.value)}>
                             <option value="todas">Todas las áreas</option>
@@ -363,7 +386,7 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
                                                 <span className="shrink-0 text-[11px] text-muted-foreground">{fechaCorta(s.actualizada_en)}</span>
                                             </div>
                                             <p className={cn('truncate text-sm', nueva ? 'font-semibold text-foreground' : 'text-foreground/80')}>{s.asunto}</p>
-                                            <p className="truncate text-xs text-muted-foreground">{s.cliente_nombre}</p>
+                                            <p className="truncate text-xs text-muted-foreground">{s.cliente_nombre}{s.casos ? ` · ${s.casos.split(',').join(', ')}` : ''}</p>
                                             <div className="mt-1 flex flex-wrap items-center gap-1.5">
                                                 <Badge variant={ESTADO_VARIANT[s.estado]}>{ESTADO_LABEL[s.estado]}</Badge>
                                                 <Badge variant="outline">{AREA_LABEL[s.area] || s.area}</Badge>

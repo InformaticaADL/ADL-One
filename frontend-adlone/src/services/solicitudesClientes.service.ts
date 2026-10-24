@@ -15,6 +15,8 @@ export interface SolicitudClienteResumen {
     responsable_nombre: string | null;
     id_empresa: number;
     area: 'LAB' | 'MAM';
+    /** Códigos de los casos a los que se refiere la solicitud, separados por coma. */
+    casos?: string | null;
 }
 
 export interface SolicitudClienteMensaje {
