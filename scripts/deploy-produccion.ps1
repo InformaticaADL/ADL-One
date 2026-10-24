@@ -65,7 +65,14 @@ Ejecutar 'git' @('pull', '--ff-only')
 $despues = (git rev-parse --short HEAD).Trim()
 # Sin commits nuevos igual se reinicia: un cambio solo en el .env no trae commits y necesita reinicio.
 $soloReinicio = ($antes -eq $despues -and -not $Forzar)
-if ($soloReinicio) { Write-Host "   Sin commits nuevos ($despues): no se instala ni se compila, solo se reinicia." }
+# El frontend publicado deja anotado en frontend-adlone\dist\.desplegado de que commit es. Si no coincide con el codigo
+# actual (por ejemplo, se trajo el codigo en otra ocasion y no se compilo), se compila aunque no haya commits nuevos.
+$marcador = Join-Path $raiz 'frontend-adlone\dist\.desplegado'
+$frontDesactualizado = (-not (Test-Path $marcador)) -or ((Get-Content $marcador -Raw).Trim() -ne $despues)
+if ($soloReinicio) {
+    if ($hacerFrontend -and $frontDesactualizado) { Write-Host "   Sin commits nuevos ($despues), pero el frontend publicado no es de este commit: se compila." }
+    else { Write-Host "   Sin commits nuevos ($despues): no se compila, solo se reinicia." }
+}
 else { Write-Host "   $antes -> $despues"; git log --oneline "$antes..$despues" }
 
 $migraciones = if ($soloReinicio) { $null } else { git diff --name-only $antes $despues -- api-backend-adlone/migrations db-migrations }
@@ -74,14 +81,14 @@ if ($migraciones) {
     $migraciones | ForEach-Object { Write-Host "   $_" -ForegroundColor Yellow }
 }
 
-if ($hacerBackend -and -not $soloReinicio) {
+if ($hacerBackend) {
     Paso 'Backend: dependencias'
     Set-Location (Join-Path $raiz 'api-backend-adlone')
     Ejecutar 'npm' @('install', '--no-audit', '--no-fund')
 }
 
 $huboNuevoDist = $false
-if ($hacerFrontend -and -not $soloReinicio) {
+if ($hacerFrontend -and (-not $soloReinicio -or $frontDesactualizado)) {
     Paso 'Frontend: dependencias y compilacion (1-3 min; el sitio sigue sirviendo la version anterior)'
     $front = Join-Path $raiz 'frontend-adlone'
     Set-Location $front
@@ -111,6 +118,7 @@ if ($hacerFrontend) {
         if (Test-Path $anterior) { Remove-Item $anterior -Recurse -Force }
         if (Test-Path $dist) { Rename-Item $dist 'dist-anterior' }
         Rename-Item $nuevo 'dist'
+        Set-Content -Path (Join-Path $dist '.desplegado') -Value $despues -Encoding ASCII
         Ejecutar 'pm2' @('start', $APP_FRONTEND)
         EsperarVivo $APP_FRONTEND "http://localhost:$PUERTO_FRONTEND/"
     } else {
