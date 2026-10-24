@@ -52,6 +52,8 @@ const TRANSICIONES: Record<string, EstadoSolicitudCliente[]> = {
 const REFRESCO_LISTA_MS = 15000;
 const REFRESCO_DETALLE_MS = 5000;
 
+const requiereAtencion = (s: SolicitudClienteResumen) => Number(s.requiere_atencion) === 1;
+
 const iniciales = (nombre?: string | null) =>
     (nombre || '?').split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase() || '?';
 
@@ -70,7 +72,7 @@ const claseSelect =
 export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
-    const { pendingSolicitudClienteId, setPendingSolicitudClienteId } = useNavStore();
+    const { pendingSolicitudClienteId, setPendingSolicitudClienteId, setSolicitudesClientePendientes } = useNavStore();
     const notifications = useNotificationStore((s) => s.notifications);
     const markAsRead = useNotificationStore((s) => s.markAsRead);
 
@@ -84,6 +86,7 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
     const [casoFiltro, setCasoFiltro] = useState('todos');
     const [areaFiltro, setAreaFiltro] = useState('todas');
     const [soloSinTomar, setSoloSinTomar] = useState(false);
+    const [soloPorAtender, setSoloPorAtender] = useState(false);
 
     // Detalle
     const [seleccionada, setSeleccionada] = useState<number | null>(null);
@@ -104,12 +107,14 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
             const unicas = new Map<number, SolicitudClienteResumen>();
             filas.forEach((f) => { if (!unicas.has(f.id)) unicas.set(f.id, f); });
             setSolicitudes([...unicas.values()]);
+            // El contador de la barra lateral se alinea al instante con lo que muestra la lista.
+            setSolicitudesClientePendientes([...unicas.values()].filter(requiereAtencion).length);
         } catch {
             if (!silencioso) showToast({ type: 'error', message: 'Error al cargar las solicitudes' });
         } finally {
             if (!silencioso) setLoading(false);
         }
-    }, [showToast]);
+    }, [showToast, setSolicitudesClientePendientes]);
 
     const cargarDetalle = useCallback(async (id: number, silencioso = false) => {
         try {
@@ -202,11 +207,12 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
             if (areaFiltro !== 'todas' && s.area !== areaFiltro) return false;
             if (casoFiltro !== 'todos' && !codigosDeCasos(s).includes(casoFiltro)) return false;
             if (soloSinTomar && s.responsable_nombre) return false;
+            if (soloPorAtender && !requiereAtencion(s)) return false;
             if (!term) return true;
             return [s.asunto, s.cliente_nombre, s.solicitante_nombre, s.solicitante_email, s.casos, `#${s.id}`]
                 .some((v) => (v || '').toLowerCase().includes(term));
         });
-    }, [solicitudes, busqueda, empresaFiltro, casoFiltro, areaFiltro, soloSinTomar]);
+    }, [solicitudes, busqueda, empresaFiltro, casoFiltro, areaFiltro, soloSinTomar, soloPorAtender]);
 
     const conteoEstado = useMemo(() => {
         const c: Record<string, number> = { todas: sinEstado.length };
@@ -220,16 +226,12 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
             .sort((a, b) => new Date(b.actualizada_en).getTime() - new Date(a.actualizada_en).getTime()),
         [sinEstado, estadoFiltro]);
 
-    const hayFiltros = !!busqueda.trim() || estadoFiltro !== 'todas' || empresaFiltro !== 'todas' || casoFiltro !== 'todos' || areaFiltro !== 'todas' || soloSinTomar;
+    const hayFiltros = !!busqueda.trim() || estadoFiltro !== 'todas' || empresaFiltro !== 'todas' || casoFiltro !== 'todos' || areaFiltro !== 'todas' || soloSinTomar || soloPorAtender;
     const limpiarFiltros = () => {
-        setBusqueda(''); setEstadoFiltro('todas'); setEmpresaFiltro('todas'); setCasoFiltro('todos'); setAreaFiltro('todas'); setSoloSinTomar(false);
+        setBusqueda(''); setEstadoFiltro('todas'); setEmpresaFiltro('todas'); setCasoFiltro('todos'); setAreaFiltro('todas'); setSoloSinTomar(false); setSoloPorAtender(false);
     };
 
-    const sinLeer = useMemo(() => {
-        const ids = new Set<number>();
-        notifications.forEach((n) => { if (!n.leido && n.id_referencia && esNotificacionSolicitudCliente(n)) ids.add(Number(n.id_referencia)); });
-        return ids;
-    }, [notifications]);
+    const totalPorAtender = useMemo(() => solicitudes.filter(requiereAtencion).length, [solicitudes]);
 
     const resumenSeleccionada = solicitudes.find((s) => s.id === seleccionada) || null;
 
@@ -316,6 +318,14 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
                     <Button
                         type="button"
                         size="sm"
+                        variant={soloPorAtender ? 'default' : 'outline'}
+                        onClick={() => setSoloPorAtender((v) => !v)}
+                    >
+                        Por atender ({totalPorAtender})
+                    </Button>
+                    <Button
+                        type="button"
+                        size="sm"
                         variant={soloSinTomar ? 'default' : 'outline'}
                         onClick={() => setSoloSinTomar((v) => !v)}
                     >
@@ -364,7 +374,7 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
                     <ul className="divide-y divide-border">
                         {filtradas.map((s) => {
                             const activa = s.id === seleccionada;
-                            const nueva = sinLeer.has(s.id);
+                            const nueva = requiereAtencion(s);
                             return (
                                 <li key={s.id}>
                                     <button
@@ -391,7 +401,7 @@ export const SolicitudesClientesPage: React.FC<Props> = ({ onBack }) => {
                                                 <Badge variant={ESTADO_VARIANT[s.estado]}>{ESTADO_LABEL[s.estado]}</Badge>
                                                 <Badge variant="outline">{AREA_LABEL[s.area] || s.area}</Badge>
                                                 {!s.responsable_nombre && <span className="text-[11px] text-muted-foreground">Sin tomar</span>}
-                                                {nueva && <span className="ml-auto h-2 w-2 rounded-full bg-primary" title="Sin leer" />}
+                                                {nueva && <span className="ml-auto h-2 w-2 rounded-full bg-primary" title="Por atender" />}
                                             </div>
                                         </div>
                                     </button>

@@ -10,8 +10,6 @@ import {
 } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
-import { useNotificationStore } from '../../store/notificationStore';
-import { esNotificacionSolicitudCliente } from '../../features/notifications/utils/notificationNavigation';
 import API_CONFIG from '../../config/api.config';
 import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
@@ -45,10 +43,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         dynamicModules: rawDynamicModules,
         setDynamicModules,
         ursUnreadCount,
+        solicitudesClientePendientes,
     } = useNavStore();
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
-    // Solicitudes de clientes del portal sin leer (avisos de la campana).
-    const solicitudesClienteSinLeer = useNotificationStore((s) => s.notifications.filter((n) => !n.leido && esNotificacionSolicitudCliente(n)).length);
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
@@ -374,7 +371,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
                 <div className="mb-3 flex flex-col gap-0.5">
-                    {visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : item.id === 'solicitudes-clientes' ? solicitudesClienteSinLeer : undefined))}
+                    {visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : item.id === 'solicitudes-clientes' ? solicitudesClientePendientes : undefined))}
                 </div>
                 {renderGroup('UNIDADES', unidades)}
                 {renderGroup('GESTIÓN', gestionOp)}

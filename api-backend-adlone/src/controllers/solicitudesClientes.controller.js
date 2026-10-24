@@ -111,3 +111,23 @@ export async function avisoInterno(req, res) {
         errorResponse(res, e.message, 500);
     }
 }
+
+/**
+ * GET /api/solicitudes-clientes/pendientes — cuántas solicitudes visibles para este usuario siguen pendientes de atender
+ * (nadie las ha tomado ni respondido, o el cliente escribió después). Es el número de la barra lateral.
+ */
+export async function pendientes(req, res) {
+    try {
+        const filas = await SolicitudesProxyService.listar(req.user.id);
+        const vistas = new Set();
+        let total = 0;
+        for (const f of filas) {
+            if (vistas.has(f.id)) continue; // un cliente con varias empresas repite la fila
+            vistas.add(f.id);
+            if (Number(f.requiere_atencion) === 1) total++;
+        }
+        successResponse(res, { pendientes: total });
+    } catch (e) {
+        errorResponse(res, e.message, 500);
+    }
+}

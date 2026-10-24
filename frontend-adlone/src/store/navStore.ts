@@ -47,6 +47,9 @@ interface NavState {
     setUrsFilters: (filters: Partial<{ searchTerm: string; status: string; area: string; type: string }>) => void;
     ursUnreadCount: number;
     setUrsUnreadCount: (count: number) => void;
+    // Solicitudes de clientes pendientes de atender (contador de la barra lateral).
+    solicitudesClientePendientes: number;
+    setSolicitudesClientePendientes: (count: number) => void;
     // Tramo de ruta más allá del submódulo activo (p.ej. "Fichas de Ingreso >
     // Carga masiva"), publicado por el PageHeader de la vista actual — así la
     // barra de ruta persistente (RouteBreadcrumb) puede reflejar navegación
@@ -126,6 +129,8 @@ export const useNavStore = create<NavState>()(
             setUrsFilters: (filters) => set((state) => ({ ursFilters: { ...state.ursFilters, ...filters } })),
             ursUnreadCount: 0,
             setUrsUnreadCount: (count) => set({ ursUnreadCount: count }),
+            solicitudesClientePendientes: 0,
+            setSolicitudesClientePendientes: (count) => set({ solicitudesClientePendientes: count }),
             pageBreadcrumb: [],
             setPageBreadcrumb: (items) => set({ pageBreadcrumb: items }),
         }),

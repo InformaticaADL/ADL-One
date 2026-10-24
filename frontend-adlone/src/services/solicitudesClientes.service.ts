@@ -17,6 +17,8 @@ export interface SolicitudClienteResumen {
     area: 'LAB' | 'MAM';
     /** Códigos de los casos a los que se refiere la solicitud, separados por coma. */
     casos?: string | null;
+    /** 1 si sigue pendiente de atender (nadie la tomó ni respondió, o el cliente escribió después). */
+    requiere_atencion?: number | boolean;
 }
 
 export interface SolicitudClienteMensaje {
@@ -58,6 +60,11 @@ export const solicitudesClientesService = {
     async listar(): Promise<SolicitudClienteResumen[]> {
         const response = await apiClient.get('/api/solicitudes-clientes');
         return response.data.data;
+    },
+
+    async pendientes(): Promise<number> {
+        const response = await apiClient.get('/api/solicitudes-clientes/pendientes');
+        return Number(response.data.data?.pendientes) || 0;
     },
 
     async detalle(id: number): Promise<SolicitudClienteDetalle> {
