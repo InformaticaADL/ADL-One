@@ -3,7 +3,6 @@ import { IconWifiOff, IconMenu2 } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
-import { AvisoSolicitudesCliente } from '../../features/notifications/components/AvisoSolicitudesCliente';
 import { RouteBreadcrumb } from './TopBar';
 import { HelpCenter } from '../common/HelpCenter';
 
@@ -112,7 +111,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
 
     return (
         <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
-            <AvisoSolicitudesCliente />
             {isCompact ? (
                 <div
                     style={{
