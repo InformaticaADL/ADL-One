@@ -29,6 +29,15 @@ class AuthController {
             if (err.code === 'USER_NOT_FOUND') {
                 return errorResponse(res, err.message, err.statusCode || 404);
             }
+            // Contraseña incorrecta: 401 con el número de intentos y el correo enmascarado
+            if (err.code === 'BAD_PASSWORD') {
+                return res.status(401).json({
+                    success: false,
+                    message: err.message,
+                    data: { failedAttempts: err.failedAttempts, maskedEmail: err.maskedEmail },
+                    timestamp: new Date().toISOString(),
+                });
+            }
             // S-13: cuenta bloqueada
             if (err.code === 'ACCOUNT_LOCKED') {
                 return errorResponse(res, err.message, err.statusCode || 423);
@@ -44,7 +53,13 @@ class AuthController {
     // Negocio prefirió mensajes específicos en sistema interno.
     async requestPasswordReset(req, res) {
         try {
-            const { email } = req.body;
+            const { username } = req.body;
+            let { email } = req.body;
+            // Desde el login se pide por usuario: el correo se resuelve acá, sin que el navegador lo vea completo.
+            if (!email && username) {
+                email = await authService.getCorreoPorUsuario(username);
+                if (!email) return errorResponse(res, 'Este usuario no tiene un correo registrado. Contacte al administrador.', 404);
+            }
             if (!email) return errorResponse(res, 'Email requerido', 400);
             const ip = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '';
             await authService.requestPasswordReset(email, String(ip).split(',')[0].trim());
