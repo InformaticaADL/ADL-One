@@ -17,12 +17,34 @@ import { useToast } from '../../../contexts/ToastContext';
 // tenía una observación guardada (ej. desde el otro analizador), se conserva
 // y la nueva se agrega debajo con un guion y la fecha de la actualización —
 // nunca se sobreescribe la observación existente.
+const RE_FECHA_EN_LINEA = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})\b/g;
+const normalizarTexto = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
+// Misma regla que el backend (claveLineaObservacion): igual texto Y misma fecha, ignorando el
+// prefijo "- [dd/mm/aaaa]" que agrega el sistema.
+const claveLinea = (linea: string): string => {
+    const sinPrefijo = linea.replace(/^\s*-?\s*\[\d{1,2}\/\d{1,2}\/\d{4}\]\s*/, '');
+    const conFechas = sinPrefijo.replace(RE_FECHA_EN_LINEA, (_m, d: string, m: string, a: string) =>
+        `${a.length === 2 ? '20' + a : a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
+    return normalizarTexto(conFechas).replace(/^-\s*/, '');
+};
+
 export const appendObservacion = (actual: string | null | undefined, nueva: string): string => {
     const limpia = actual && actual.trim() ? actual.trim() : '';
+    const existentes = limpia.split(/\r?\n/).map(claveLinea).filter(Boolean);
+    const yaEsta = (k: string) => existentes.some((e) => e.includes(k));
+    const vistas = new Set<string>();
+    // Solo las líneas del Excel que el equipo aún no tiene (mismo texto y misma fecha).
+    const nuevas = nueva.split(/\r?\n/).map((l) => l.trim()).filter((l) => {
+        const k = claveLinea(l);
+        if (!k || yaEsta(k) || vistas.has(k)) return false;
+        vistas.add(k);
+        return true;
+    });
+    if (nuevas.length === 0) return limpia;
     const hoy = new Date();
     const fecha = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
-    const linea = `- [${fecha}] ${nueva}`;
-    return limpia ? `${limpia}\n${linea}` : linea;
+    const bloque = `- [${fecha}] ${nuevas.join('\n')}`;
+    return limpia ? `${limpia}\n${bloque}` : bloque;
 };
 
 // Detecta la advertencia fija que generan ambos analizadores backend cuando

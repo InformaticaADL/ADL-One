@@ -7,7 +7,9 @@ import {
     IconFileSpreadsheet,
     IconX,
     IconTemperature,
+    IconFileAnalytics,
 } from '@tabler/icons-react';
+import { ImportacionInformeModal } from './ImportacionInformeModal';
 import { equipoService, type AnalisisTemperaturaResponse, type AnalisisTemperaturaItem } from '../services/equipo.service';
 import { formatearTamano } from '../utils/documentosEquipo';
 import { useToast } from '../../../contexts/ToastContext';
@@ -88,6 +90,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
 
     // Filtros — todo client-side sobre el array ya cargado en memoria.
     const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
+    const [mostrarInforme, setMostrarInforme] = useState(false);
     const [soloAdvertencias, setSoloAdvertencias] = useState(false);
     const [busqueda, setBusqueda] = useState('');
 
@@ -322,6 +325,9 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                             <StatCard label="Difieren" value={resultado.resumen.difieren} tone="warning" onClick={() => toggleFiltroEstado('difiere')} active={filtroEstado === 'difiere'} />
                         </div>
                         <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                            <Button size="sm" variant="outline" className="shrink-0" onClick={() => setMostrarInforme(true)}>
+                                <IconFileAnalytics size={14} /> Ver informe completo
+                            </Button>
                             {resultado.resumen.difieren > 0 && (
                                 <Button
                                     size="sm"
@@ -556,6 +562,14 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <ImportacionInformeModal
+                isOpen={mostrarInforme}
+                onClose={() => setMostrarInforme(false)}
+                titulo="Verificaciones de temperatura"
+                archivo={file?.name}
+                items={resultado?.items || []}
+                rowErrors={resultado?.rowErrors || []}
+            />
         </Dialog>
     );
 };

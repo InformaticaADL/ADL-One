@@ -16,6 +16,34 @@ export const normalize = (value) => {
         .trim();
 };
 
+
+// ── Observaciones ──────────────────────────────────────────────────────────────────────────────
+// La observación del Excel suele ser un historial de varias líneas con fecha propia. Se compara
+// línea por línea contra lo que ya tiene el equipo, y solo las líneas que no están se agregan.
+// Dos líneas son la misma si coinciden en texto Y en fecha: "22.01.25 Dado de baja" y
+// "22/01/2025 dado de baja" son la misma; con otra fecha ya son distintas. Se ignora el
+// prefijo "- [dd/mm/aaaa]" que agrega el propio sistema al actualizar.
+const RE_FECHA_EN_LINEA = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})\b/g;
+export const claveLineaObservacion = (linea) => {
+    const sinPrefijo = String(linea ?? '').replace(/^\s*-?\s*\[\d{1,2}\/\d{1,2}\/\d{4}\]\s*/, '');
+    const conFechas = sinPrefijo.replace(RE_FECHA_EN_LINEA, (_m, d, m, a) =>
+        `${a.length === 2 ? '20' + a : a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
+    return normalize(conFechas).replace(/^-\s*/, '');
+};
+export const lineasNuevasObservacion = (excel, bd) => {
+    const existentes = String(bd ?? '').split(/\r?\n/).map(claveLineaObservacion).filter(Boolean);
+    // Una línea ya está si coincide con una existente o si está contenida en ella (la existente puede
+    // traer más texto, ej. "Dado de baja 16.02.26 Informado por X" frente a "Dado de baja 16.02.26").
+    const yaEsta = (k) => existentes.some((e) => e.includes(k));
+    const vistas = new Set();
+    return String(excel ?? '').split(/\r?\n/).map((l) => l.trim()).filter((l) => {
+        const k = claveLineaObservacion(l);
+        if (!k || yaEsta(k) || vistas.has(k)) return false;
+        vistas.add(k);
+        return true;
+    });
+};
+
 // Nombres que aparecen distintos en los Excel pero corresponden al mismo
 // muestreador ya registrado en el sistema con otro nombre (ej. "Ernesto
 // Lira" en los archivos es en realidad "Javier Lira"). Se resuelven antes de
@@ -276,6 +304,9 @@ class EquipoExcelImportService {
                         serie: valoresCrudos.serie,
                     },
                 };
+                if (rows.some((r) => r.codigo === parsedRow.codigo)) {
+                    rowErrors.push({ rowNumber, message: `El código ${parsedRow.codigo} está repetido en el Excel; se usará la última fila.` });
+                }
                 rows.push(parsedRow);
             } catch (err) {
                 rowErrors.push({ rowNumber, message: `No se pudo leer la fila: ${err.message}` });
@@ -449,7 +480,9 @@ function sonEquivalentes(campo, valorExcel, valorBD) {
         const a = Number(valorExcel);
         const b = valorBD === null || valorBD === undefined || valorBD === '' ? 0 : Number(valorBD);
         if (Number.isNaN(a) || Number.isNaN(b)) return normalize(valorExcel) === normalize(valorBD);
-        return a === b;
+        // Tolerancia: los errores se guardan con 1 decimal y el Excel trae ruido de
+        // punto flotante (-0.0600000000000008 vs -0.1 ya redondeado).
+        return Math.abs(a - b) < 0.005;
     }
     if (campo === 'observacion') {
         // La observación se AGREGA (nunca se sobreescribe — ver appendObservacion
@@ -458,7 +491,7 @@ function sonEquivalentes(campo, valorExcel, valorBD) {
         // substring, no es una diferencia real — compararla por igualdad exacta
         // la marcaría como "distinta" para siempre y la agregaría de nuevo en
         // cada reanálisis.
-        return normalize(valorBD).includes(normalize(valorExcel));
+        return lineasNuevasObservacion(valorExcel, valorBD).length === 0;
     }
     return normalize(valorExcel) === normalize(valorBD);
 }

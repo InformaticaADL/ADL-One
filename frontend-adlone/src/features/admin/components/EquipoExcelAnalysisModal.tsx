@@ -8,7 +8,9 @@ import {
     IconFileSpreadsheet,
     IconX,
     IconListDetails,
+    IconFileAnalytics,
 } from '@tabler/icons-react';
+import { ImportacionInformeModal } from './ImportacionInformeModal';
 import { equipoService, type AnalisisExcelResponse, type AnalisisExcelItem } from '../services/equipo.service';
 import { formatearTamano } from '../utils/documentosEquipo';
 import { useToast } from '../../../contexts/ToastContext';
@@ -194,6 +196,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
 
     // Filtros — todo client-side sobre el array ya cargado en memoria.
     const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>('todos');
+    const [mostrarInforme, setMostrarInforme] = useState(false);
     const [filtroSede, setFiltroSede] = useState('todos');
     const [soloAdvertencias, setSoloAdvertencias] = useState(false);
     const [busqueda, setBusqueda] = useState('');
@@ -543,6 +546,9 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                             <StatCard label="No existen" value={resultado.resumen.noExisten} tone="destructive" onClick={() => toggleFiltroEstado('no_existe')} active={filtroEstado === 'no_existe'} />
                         </div>
                         <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
+                            <Button size="sm" variant="outline" className="shrink-0" onClick={() => setMostrarInforme(true)}>
+                                <IconFileAnalytics size={14} /> Ver informe completo
+                            </Button>
                             {resultado.resumen.noExisten > 0 && (
                                 <Button
                                     size="sm"
@@ -874,6 +880,14 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <ImportacionInformeModal
+                isOpen={mostrarInforme}
+                onClose={() => setMostrarInforme(false)}
+                titulo="Inventario de equipos"
+                archivo={file?.name}
+                items={resultado?.items || []}
+                rowErrors={resultado?.rowErrors || []}
+            />
         </Dialog>
     );
 };
