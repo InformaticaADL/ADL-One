@@ -21,6 +21,7 @@ import { facturacionService } from '../services/facturacion.service';
 import API_CONFIG from '../../../config/api.config';
 import PdfViewerModal from './PdfViewerModal';
 import { descargarArchivo } from '../utils/download';
+import { fmtFecha } from '../utils/fechas';
 
 const ESTADO_BADGE: Record<string, 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive'> = {
     BORRADOR: 'secondary', PDF_GENERADO: 'outline', ENVIADA: 'outline', PENDIENTE_OC: 'warning',
@@ -51,7 +52,6 @@ interface Prefactura {
 
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL') : '—';
 const PAGE_SIZE = 10;
 
@@ -67,6 +67,8 @@ interface EditarForm {
     observaciones?: string;
     forma_pago?: string;
     facturado_por?: string;
+    mes_ano?: string;
+    fecha_facturacion?: string;
     descuento_uf?: number;
     ingreso_uf?: number;
 }
@@ -153,10 +155,18 @@ const FacturacionPrefacturas: React.FC = () => {
 
     const puedeCorregir = detalle && EDITABLES.includes(detalle.estado);
 
+    const [glosaFeLibre, setGlosaFeLibre] = useState(false);
+    const [formasPago, setFormasPago] = useState<{ id_formapago: number; nombre_formapago: string }[]>([]);
+    const [glosas, setGlosas] = useState<{ id_glosa: number; nombre_glosa: string }[]>([]);
+
     const abrirEditar = () => {
+        if (formasPago.length === 0) facturacionService.listarFormasPago().then(setFormasPago).catch(() => {});
+        if (glosas.length === 0) facturacionService.listarGlosas().then(setGlosas).catch(() => {});
         setEditarForm({
             glosa: detalle.glosa, glosa_fe: detalle.glosa_fe, observaciones: detalle.observaciones,
             forma_pago: detalle.forma_pago, facturado_por: detalle.facturado_por,
+            mes_ano: detalle.mes_ano || '',
+            fecha_facturacion: detalle.fecha_facturacion ? String(detalle.fecha_facturacion).slice(0, 10) : '',
             descuento_uf: Number(detalle.descuento_uf) || 0, ingreso_uf: Number(detalle.ingreso_uf) || 0,
         });
         setEditarOpen(true);
@@ -487,7 +497,7 @@ const FacturacionPrefacturas: React.FC = () => {
             )}
 
             <Sheet open={drawerId !== null} onOpenChange={(open) => { if (!open) cerrarDetalle(); }}>
-                <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
+                <SheetContent className="w-full overflow-y-auto sm:max-w-2xl [&>*]:shrink-0">
                     <SheetHeader>
                         <div className="flex items-center gap-2">
                             <SheetTitle>{detalle ? `Pre-Factura N° ${detalle.numero_id}` : 'Detalle'}</SheetTitle>
@@ -644,6 +654,7 @@ const FacturacionPrefacturas: React.FC = () => {
                                                 <TableHead>N° OC</TableHead>
                                                 <TableHead>Fecha OC</TableHead>
                                                 <TableHead>N° HES</TableHead>
+                                                <TableHead>Fecha HES</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -652,6 +663,7 @@ const FacturacionPrefacturas: React.FC = () => {
                                                     <TableCell>{oc.numero_oc}</TableCell>
                                                     <TableCell>{fmtFecha(oc.fecha_oc)}</TableCell>
                                                     <TableCell>{oc.numero_hes || '—'}</TableCell>
+                                                    <TableCell>{oc.numero_hes ? fmtFecha(oc.fecha_hes) : '—'}</TableCell>
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -702,10 +714,10 @@ const FacturacionPrefacturas: React.FC = () => {
                         </FieldLabel>
                         <FieldLabel label="Observaciones">
                             <textarea
-                                rows={2}
+                                rows={3}
                                 value={ocForm.observaciones}
                                 onChange={(e) => setOcForm({ ...ocForm, observaciones: e.target.value })}
-                                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                className="flex w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             />
                         </FieldLabel>
                     </div>
@@ -720,7 +732,7 @@ const FacturacionPrefacturas: React.FC = () => {
             </Dialog>
 
             <Dialog open={editarOpen} onOpenChange={setEditarOpen}>
-                <DialogContent className="sm:max-w-lg">
+                <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{detalle ? `Corregir Pre-Factura N° ${detalle.numero_id}` : 'Corregir'}</DialogTitle>
                     </DialogHeader>
@@ -733,11 +745,48 @@ const FacturacionPrefacturas: React.FC = () => {
                             <Input value={editarForm.glosa || ''} onChange={(e) => setEditarForm({ ...editarForm, glosa: e.target.value })} />
                         </FieldLabel>
                         <FieldLabel label="Glosa factura electrónica">
-                            <Input value={editarForm.glosa_fe || ''} onChange={(e) => setEditarForm({ ...editarForm, glosa_fe: e.target.value })} />
+                            <div className="flex flex-col gap-1.5">
+                                {glosaFeLibre || (editarForm.glosa_fe && !glosas.some((g) => g.nombre_glosa === editarForm.glosa_fe)) ? (
+                                    <Input placeholder="Escribe la glosa" value={editarForm.glosa_fe || ''} onChange={(e) => setEditarForm({ ...editarForm, glosa_fe: e.target.value })} />
+                                ) : (
+                                    <Combobox
+                                        value={editarForm.glosa_fe || undefined}
+                                        onValueChange={(v) => setEditarForm({ ...editarForm, glosa_fe: v })}
+                                        placeholder="Elegir una glosa del catálogo"
+                                        searchPlaceholder="Buscar glosa..."
+                                        className="h-auto min-h-9 w-full"
+                                        contentClassName="max-w-[92vw]"
+                                        wrapOptions
+                                        wrapSelected
+                                        options={glosas.map((g) => ({ value: g.nombre_glosa, label: g.nombre_glosa }))}
+                                    />
+                                )}
+                                <Button type="button" size="sm" variant="outline" className="h-8 self-end px-3 text-sm font-medium" onClick={() => { if (glosaFeLibre || (editarForm.glosa_fe && !glosas.some((g) => g.nombre_glosa === editarForm.glosa_fe))) { setGlosaFeLibre(false); if (!glosas.some((g) => g.nombre_glosa === editarForm.glosa_fe)) setEditarForm({ ...editarForm, glosa_fe: '' }); } else setGlosaFeLibre(true); }}>
+                                    {glosaFeLibre || (editarForm.glosa_fe && !glosas.some((g) => g.nombre_glosa === editarForm.glosa_fe)) ? 'Elegir del catálogo' : 'Escribir otra glosa'}
+                                </Button>
+                            </div>
                         </FieldLabel>
                         <FieldLabel label="Forma de pago">
-                            <Input value={editarForm.forma_pago || ''} onChange={(e) => setEditarForm({ ...editarForm, forma_pago: e.target.value })} />
+                            <Combobox
+                                value={editarForm.forma_pago || undefined}
+                                onValueChange={(v) => setEditarForm({ ...editarForm, forma_pago: v })}
+                                placeholder="Elegir forma de pago"
+                                searchPlaceholder="Buscar forma de pago..."
+                                className="h-auto min-h-9 w-full"
+                                contentClassName="max-w-[92vw]"
+                                wrapOptions
+                                wrapSelected
+                                options={formasPago.map((f) => ({ value: f.nombre_formapago, label: f.nombre_formapago }))}
+                            />
                         </FieldLabel>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                            <FieldLabel label="Mes / año">
+                                <Input placeholder="Ej: 10/2026" maxLength={10} value={editarForm.mes_ano || ''} onChange={(e) => setEditarForm({ ...editarForm, mes_ano: e.target.value })} />
+                            </FieldLabel>
+                            <FieldLabel label="Fecha de facturación">
+                                <DatePicker value={editarForm.fecha_facturacion || ''} onChange={(v) => setEditarForm({ ...editarForm, fecha_facturacion: v })} />
+                            </FieldLabel>
+                        </div>
                         <FieldLabel label="Facturado por">
                             <Input value={editarForm.facturado_por || ''} onChange={(e) => setEditarForm({ ...editarForm, facturado_por: e.target.value })} />
                         </FieldLabel>
@@ -751,10 +800,10 @@ const FacturacionPrefacturas: React.FC = () => {
                         </div>
                         <FieldLabel label="Observaciones">
                             <textarea
-                                rows={2}
+                                rows={3}
                                 value={editarForm.observaciones || ''}
                                 onChange={(e) => setEditarForm({ ...editarForm, observaciones: e.target.value })}
-                                className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                                className="flex w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                             />
                         </FieldLabel>
                     </div>

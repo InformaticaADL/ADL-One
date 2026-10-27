@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import {
     IconSearch, IconArrowRight, IconArrowLeft, IconCircleCheck, IconFileInvoice, IconEye,
-    IconMail, IconWorldUpload, IconCheck,
+    IconMail, IconWorldUpload, IconCheck, IconRefresh,
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -103,6 +103,12 @@ const FacturacionProcesar: React.FC = () => {
     const [pageSize, setPageSize] = useState(PAGE_SIZE);
     const [agrupacionTipo, setAgrupacionTipo] = useState<AgrupacionTipo>('SIN_AGRUPACION');
     const [formaPago, setFormaPago] = useState('');
+    // La glosa se elige del catálogo; "escribir otra" cambia el selector por un campo de texto (nunca los dos a la vez).
+    const [glosaLibre, setGlosaLibre] = useState(false);
+    // true mientras la glosa sea la que el sistema generó solo al entrar a este paso (en cuanto se edita o se elige otra, deja de serlo).
+    const [glosaAuto, setGlosaAuto] = useState(false);
+    // El texto que se generó solo, para poder volver a él después de elegir otra glosa o escribir una distinta.
+    const [glosaAutoTexto, setGlosaAutoTexto] = useState('');
     const [glosa, setGlosa] = useState('');
     const [observaciones, setObservaciones] = useState('');
     const [creando, setCreando] = useState(false);
@@ -200,7 +206,10 @@ const FacturacionProcesar: React.FC = () => {
         setStep(1);
         if (!glosa) {
             const mesAnio = new Date().toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
-            setGlosa(`Servicio de Muestreo y Análisis de Medio Ambiente – ${mesAnio} – ${seleccionados.length} caso(s)`);
+            const generada = `Servicio de Muestreo y Análisis de Medio Ambiente – ${mesAnio} – ${seleccionados.length} caso(s)`;
+            setGlosa(generada);
+            setGlosaAuto(true);
+            setGlosaAutoTexto(generada);
         }
         const idsEmpresa = new Set(seleccionados.map((c) => c.id_empresaservicio));
         if (!formaPago && idsEmpresa.size === 1) {
@@ -302,7 +311,7 @@ const FacturacionProcesar: React.FC = () => {
 
     const reiniciar = () => {
         setStep(0); setCasos([]); setSelectedIds([]); setBuscado(false); setPage(1);
-        setResultado(null); setAgrupacionTipo('SIN_AGRUPACION'); setFormaPago(''); setGlosa(''); setObservaciones('');
+        setResultado(null); setAgrupacionTipo('SIN_AGRUPACION'); setFormaPago(''); setGlosa(''); setGlosaAuto(false); setGlosaAutoTexto(''); setObservaciones('');
         setPdfs({}); setPublicadas({}); setEnviadas({});
     };
 
@@ -434,45 +443,77 @@ const FacturacionProcesar: React.FC = () => {
 
                     <p className="mb-2.5 text-sm font-semibold text-foreground">Datos adicionales</p>
                     <div className="mb-5 flex flex-col gap-2.5">
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <Input
-                                placeholder="Forma de pago"
-                                value={formaPago}
-                                onChange={(e) => setFormaPago(e.target.value)}
-                                className="flex-1"
-                            />
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-xs font-medium text-muted-foreground">Forma de pago</span>
                             <Combobox
-                                value={undefined}
+                                value={formaPago}
                                 onValueChange={setFormaPago}
-                                placeholder={cargandoConfig ? 'Cargando...' : 'Elegir'}
+                                placeholder={cargandoConfig ? 'Cargando...' : 'Elegir forma de pago'}
                                 searchPlaceholder="Buscar forma de pago..."
-                                className="w-full sm:w-44"
+                                className="h-auto min-h-9 w-full"
+                                contentClassName="max-w-[92vw]"
+                                wrapOptions
+                                wrapSelected
                                 disabled={cargandoConfig}
                                 options={formasPago.map((f) => ({ value: f.nombre_formapago, label: f.nombre_formapago }))}
                             />
                         </div>
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                            <Input
-                                placeholder="Glosa"
-                                value={glosa}
-                                onChange={(e) => setGlosa(e.target.value)}
-                                className="flex-1"
-                            />
-                            <Combobox
-                                value={undefined}
-                                onValueChange={setGlosa}
-                                placeholder="Elegir"
-                                searchPlaceholder="Buscar glosa..."
-                                className="w-full sm:w-44"
-                                options={glosas.map((g) => ({ value: g.nombre_glosa, label: g.nombre_glosa }))}
-                            />
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                                    Glosa
+                                    {glosaAuto && glosa && <Badge variant="secondary" className="text-[10px]">Glosa generada automáticamente</Badge>}
+                                </span>
+                                <div className="flex flex-wrap items-center gap-2">
+                                {glosaAutoTexto && glosa !== glosaAutoTexto && (
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 px-3 text-sm font-medium"
+                                        title={glosaAutoTexto}
+                                        onClick={() => { setGlosa(glosaAutoTexto); setGlosaAuto(true); setGlosaLibre(false); }}
+                                    >
+                                        <IconRefresh size={14} /> Volver a la glosa automática
+                                    </Button>
+                                )}
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-8 px-3 text-sm font-medium"
+                                    onClick={() => { if (glosaLibre || (glosa && !glosas.some((g) => g.nombre_glosa === glosa))) { setGlosaLibre(false); if (!glosas.some((g) => g.nombre_glosa === glosa)) setGlosa(''); } else setGlosaLibre(true); }}
+                                >
+                                    {glosaLibre || (glosa && !glosas.some((g) => g.nombre_glosa === glosa)) ? 'Elegir del catálogo' : 'Escribir otra glosa'}
+                                </Button>
+                                </div>
+                            </div>
+                            {glosaLibre || (glosa && !glosas.some((g) => g.nombre_glosa === glosa)) ? (
+                                <Input
+                                    placeholder="Escribe la glosa"
+                                    value={glosa}
+                                    onChange={(e) => { setGlosaAuto(false); setGlosa(e.target.value); }}
+                                />
+                            ) : (
+                                <Combobox
+                                    value={glosa || undefined}
+                                    onValueChange={(v) => { setGlosaAuto(false); setGlosa(v); }}
+                                    placeholder="Elegir una glosa del catálogo"
+                                    searchPlaceholder="Buscar glosa..."
+                                    className="h-auto min-h-9 w-full"
+                                    contentClassName="max-w-[92vw]"
+                                    wrapOptions
+                                    wrapSelected
+                                    options={glosas.map((g) => ({ value: g.nombre_glosa, label: g.nombre_glosa }))}
+                                />
+                            )}
                         </div>
                         <textarea
                             placeholder="Observaciones"
                             value={observaciones}
                             onChange={(e) => setObservaciones(e.target.value)}
                             rows={2}
-                            className="flex w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="flex w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                         />
                     </div>
 
@@ -550,7 +591,17 @@ const FacturacionProcesar: React.FC = () => {
                                                 onClick={() => setPreviewUrl(`${API_CONFIG.getBaseURL()}${pdf.pdf_resumen_path}`)}
                                             >
                                                 {!pdf ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconEye size={14} />}
-                                                {pdf ? 'Ver documento' : 'Generando PDF…'}
+                                                {pdf ? 'Ver resumen' : 'Generando PDF…'}
+                                            </Button>
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                disabled={!pdf?.pdf_detalle_path}
+                                                title="Incluye las técnicas y el costo operativo de cada caso"
+                                                onClick={() => setPreviewUrl(`${API_CONFIG.getBaseURL()}${pdf.pdf_detalle_path}`)}
+                                            >
+                                                {!pdf ? <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary border-t-transparent" /> : <IconEye size={14} />}
+                                                Ver detalle con análisis
                                             </Button>
                                             <Button
                                                 size="sm"

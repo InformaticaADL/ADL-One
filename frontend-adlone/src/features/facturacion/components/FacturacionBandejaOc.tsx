@@ -16,8 +16,8 @@ import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/ser
 import PdfViewerModal from './PdfViewerModal';
 import API_CONFIG from '../../../config/api.config';
 import { useToast } from '../../../contexts/ToastContext';
+import { fmtFecha } from '../utils/fechas';
 
-const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 

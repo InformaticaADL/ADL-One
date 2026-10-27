@@ -251,7 +251,7 @@ class FacturacionService {
                 });
 
                 const totalUf = subtotalUf; // sin descuentos/ingresos en esta fase
-                const netoClp = Math.round(totalUf * valorUf);
+                const netoClp = Math.round(Math.round(totalUf * 100) / 100 * valorUf); // como el sistema antiguo: UF a 2 decimales y luego × valor UF
                 const ivaClp = Math.round(netoClp * 0.19);
                 const totalClp = netoClp + ivaClp;
 
@@ -751,7 +751,7 @@ class FacturacionService {
         for (const [, casos] of grupos) {
             const first = casos[0];
             const subtotalUf = casos.reduce((s, c) => s + Number(c.precio_venta_uf || 0), 0);
-            const netoClp = Math.round(subtotalUf * valorUf);
+            const netoClp = Math.round(Math.round(subtotalUf * 100) / 100 * valorUf);
             const ivaClp = Math.round(netoClp * 0.19);
             pfs.push({
                 numero_id: 'VISTA PREVIA',
@@ -964,10 +964,10 @@ class FacturacionService {
             UPDATE p SET
                 p.subtotal_uf = ISNULL(s.suma, 0),
                 p.total_uf = ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf,
-                p.neto_clp = ROUND((ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf) * p.valor_uf, 0),
-                p.iva_clp  = ROUND(ROUND((ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf) * p.valor_uf, 0) * 0.19, 0),
-                p.total_clp = ROUND((ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf) * p.valor_uf, 0)
-                            + ROUND(ROUND((ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf) * p.valor_uf, 0) * 0.19, 0),
+                p.neto_clp = ROUND(ROUND(ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf, 2) * p.valor_uf, 0),
+                p.iva_clp  = ROUND(ROUND(ROUND(ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf, 2) * p.valor_uf, 0) * 0.19, 0),
+                p.total_clp = ROUND(ROUND(ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf, 2) * p.valor_uf, 0)
+                            + ROUND(ROUND(ROUND(ISNULL(s.suma, 0) - p.descuento_uf + p.ingreso_uf, 2) * p.valor_uf, 0) * 0.19, 0),
                 p.fecha_modificacion = GETDATE(),
                 -- Los PDF ya generados dejan de reflejar el contenido: se
                 -- invalidan para que nadie mande el viejo por correo.
@@ -1222,10 +1222,17 @@ class FacturacionService {
     async _resolverClienteVentas(idEmpresaServicio) {
         const pool = await getConnection();
 
+        // Misma regla que el sistema antiguo (fac_electronica_exportatxt_v2 de LaboratorioADL): el archivo
+        // plano lleva id_cli = id_empresaservicio del LIMS, y id_dir / id_gir / id_ciu / id_comunaef salen
+        // de la ficha de la empresa (mae_empresaservicios), con los nombres de sus catálogos. No se usan
+        // los ids de adl_facturacion.clientes: son otra numeración (Mowi es el 9 allá y el 383 en el LIMS).
         const esReq = pool.request();
         esReq.input('id', sql.Numeric(10, 0), idEmpresaServicio);
         const esRes = await esReq.query(`
-            SELECT rut_empresaservicios AS rut, nombre_empresaservicios AS razon_social
+            SELECT rut_empresaservicios AS rut, nombre_empresaservicios AS razon_social,
+                   ISNULL(NULLIF(LTRIM(RTRIM(direccion_comercial)), ''), direccion_empresaservicios) AS direccion,
+                   giro_empresaservicios AS giro, ciudad_empresaservicios AS ciudad,
+                   id_direccion, id_giro, id_ciudad, id_comunaef, id_formapago
             FROM mae_empresaservicios WHERE id_empresaservicio = @id
         `);
         const es = esRes.recordset[0];
@@ -1238,43 +1245,48 @@ class FacturacionService {
         const cfgRes = await cfgReq.query('SELECT * FROM fac_cliente_config WHERE id_empresaservicio = @id');
         const cfg = cfgRes.recordset[0] || {};
 
-        const rut = cfg.rut || es.rut;
-        let idCli = cfg.id_cli_ventas;
-        let razonSocial = cfg.razon_social || es.razon_social;
+        // Lo configurado en Facturación → Configuración → Clientes manda; si no, la ficha de la empresa.
+        // En las columnas de ids del LIMS 0 y NULL significan "sin dato".
+        const id = (...vals) => vals.find((v) => v !== null && v !== undefined && Number(v) > 0) ?? null;
+        const txt = (...vals) => vals.map((v) => (v == null ? '' : String(v).trim())).find((v) => v) || null;
 
-        if (!idCli) {
-            const cliReq = pool.request();
-            cliReq.input('rut', sql.VarChar(12), rut);
-            const cliRes = await cliReq.query('SELECT TOP 1 idcliente, razon_social FROM adl_facturacion.dbo.clientes WHERE rut = @rut');
-            const cliente = cliRes.recordset[0];
-            if (!cliente) {
-                throw new Error(`Cliente con RUT ${rut} no está registrado en el Sistema de Ventas (adl_facturacion.clientes). Regístralo (spNuevoCliente) antes de emitir.`);
-            }
-            idCli = cliente.idcliente;
-            razonSocial = razonSocial || cliente.razon_social;
+        const rut = txt(cfg.rut, es.rut);
+        const razonSocial = txt(cfg.razon_social, es.razon_social);
+        const direccion = txt(cfg.direccion, es.direccion);
+        const giro = txt(cfg.giro, es.giro);
+        const nomCiudad = txt(cfg.nom_ciu_ventas, es.ciudad);
+        const idCli = id(cfg.id_cli_ventas, idEmpresaServicio);
+        const idDir = id(cfg.id_dir_ventas, es.id_direccion);
+        const idGir = id(cfg.id_gir_ventas, es.id_giro);
+        const idCiu = id(cfg.id_ciu_ventas, es.id_ciudad);
+
+        // Comuna: la configurada, la de la ficha, o la de mae_comuna que se llama igual que la ciudad.
+        let idCom = id(cfg.id_com_ventas, es.id_comunaef);
+        let nomCom = txt(cfg.nom_com_ventas);
+        if (!idCom || !nomCom) {
+            const com = idCom
+                ? (await pool.request().input('c', sql.Int, idCom)
+                    .query('SELECT id_comuna, nombre_comuna FROM mae_comuna WHERE id_comuna = @c')).recordset[0]
+                : (nomCiudad ? (await pool.request().input('n', sql.VarChar(100), nomCiudad)
+                    .query("SELECT TOP 1 id_comuna, nombre_comuna FROM mae_comuna WHERE habilitado = 'S' AND LTRIM(RTRIM(nombre_comuna)) = @n COLLATE Latin1_General_CI_AI")).recordset[0] : null);
+            if (com) { idCom = idCom || com.id_comuna; nomCom = nomCom || com.nombre_comuna.trim(); }
         }
 
-        let idDir = cfg.id_dir_ventas, direccion = cfg.direccion, idCom = cfg.id_com_ventas;
-        if (!idDir) {
-            const dirReq = pool.request();
-            dirReq.input('idCli', sql.Int, idCli);
-            const dirRes = await dirReq.query('SELECT TOP 1 iddireccion, direccion, idcomuna FROM adl_facturacion.dbo.clientesdir WHERE idcliente = @idCli ORDER BY iddireccion');
-            const d = dirRes.recordset[0];
-            if (!d) throw new Error(`Cliente RUT ${rut} no tiene dirección registrada en el Sistema de Ventas.`);
-            idDir = d.iddireccion;
-            direccion = direccion || d.direccion;
-            idCom = idCom || d.idcomuna;
-        }
-
-        let idGir = cfg.id_gir_ventas, giro = cfg.giro;
-        if (!idGir) {
-            const girReq = pool.request();
-            girReq.input('idCli', sql.Int, idCli);
-            const girRes = await girReq.query('SELECT TOP 1 idgiro, giro FROM adl_facturacion.dbo.clientesgir WHERE idcliente = @idCli ORDER BY idgiro');
-            const g = girRes.recordset[0];
-            if (!g) throw new Error(`Cliente RUT ${rut} no tiene giro registrado en el Sistema de Ventas.`);
-            idGir = g.idgiro;
-            giro = giro || g.giro;
+        // El Sistema de Ventas rechaza las filas con datos del cliente vacíos (p. ej. "falta la ciudad"),
+        // así que no se genera un archivo incompleto: se dice exactamente qué completar.
+        const faltantes = [];
+        if (!rut) faltantes.push('RUT');
+        if (!razonSocial) faltantes.push('Razón social');
+        if (!direccion) faltantes.push('Dirección');
+        if (!idDir) faltantes.push('ID de dirección');
+        if (!giro) faltantes.push('Giro');
+        if (!idGir) faltantes.push('ID de giro');
+        if (!nomCiudad) faltantes.push('Ciudad');
+        if (!idCiu) faltantes.push('ID de ciudad');
+        if (!nomCom) faltantes.push('Comuna');
+        if (!idCom) faltantes.push('ID de comuna');
+        if (faltantes.length) {
+            throw new Error(`Faltan datos de ${razonSocial || 'el cliente'} para el Sistema de Ventas: ${faltantes.join(', ')}. Complétalos en Facturación → Configuración → Clientes (en el sistema antiguo salen de la ficha de la empresa en LaboratorioADL).`);
         }
 
         return {
@@ -1286,10 +1298,10 @@ class FacturacionService {
             razon_social: razonSocial,
             direccion,
             giro,
-            id_ciu_ventas: cfg.id_ciu_ventas || null,
-            nom_ciu_ventas: cfg.nom_ciu_ventas || null,
-            id_com_ventas: idCom || null,
-            nom_com_ventas: cfg.nom_com_ventas || null,
+            id_ciu_ventas: idCiu,
+            nom_ciu_ventas: nomCiudad,
+            id_com_ventas: idCom,
+            nom_com_ventas: nomCom,
         };
     }
 
@@ -1309,14 +1321,14 @@ class FacturacionService {
             Math.round(pf.neto_clp), q('Casa Matriz'), q('Laboratorio'),
             q(cfg.rut), q(cfg.razon_social), q(cfg.direccion), q(cfg.direccion),
             cfg.id_ciu_ventas, q(cfg.nom_ciu_ventas), cfg.id_com_ventas, q(cfg.nom_com_ventas),
-            q(cfg.giro), q(pf.forma_pago || ''),
+            q(cfg.giro), q(cfg.nom_fp ?? pf.forma_pago ?? ''),
             q(''), q(''), '/  /',
-            0, q(''), q(''),
+            0, q(''), q(this._notaDe(pf)),
         ].join(',');
     }
 
     /** Fila de referencia (OC o HES) — misma cabecera repetida, cantidad=0. */
-    _filaReferencia(pf, cfg, tipoRef, numRef, fechaRef) {
+    _filaReferencia(pf, cfg, tipoRef, numRef, fechaRef, referencia = '') {
         const q = (s) => `"${s ?? ''}"`;
         const fechaFac = pf.fecha_facturacion ? this._fechaDDMMYYYY(pf.fecha_facturacion) : this._hoyDDMMYYYY();
         const fref = fechaRef ? this._fechaDDMMYYYY(fechaRef) : '/  /';
@@ -1329,10 +1341,31 @@ class FacturacionService {
             0, q(''), q(''),
             q(cfg.rut), q(cfg.razon_social), q(cfg.direccion), q(cfg.direccion),
             cfg.id_ciu_ventas, q(cfg.nom_ciu_ventas), cfg.id_com_ventas, q(cfg.nom_com_ventas),
-            q(cfg.giro), q(pf.forma_pago || ''),
+            q(cfg.giro), q(cfg.nom_fp ?? pf.forma_pago ?? ''),
             q(tipoRef), q(numRef), fref,
-            0, q(''), q(''),
+            0, q(referencia || ''), q(this._notaDe(pf)),
         ].join(',');
+    }
+
+    /** Última columna del archivo: el sistema antiguo escribe "Nota: …" cuando la factura tiene nota; acá son las observaciones. */
+    _notaDe(pf) {
+        const n = String(pf.observaciones ?? '').replace(/[\r\n]+/g, ' ').replace(/"/g, "'").trim();
+        return n ? `Nota: ${n}` : '';
+    }
+
+    /**
+     * Id y nombre de la forma de pago en el catálogo del sistema antiguo (LaboratorioADL.mae_formapago): el
+     * archivo lleva el id real de la forma elegida, no una constante.
+     */
+    async _formaPagoVentas(nombre) {
+        const buscado = String(nombre ?? '').trim();
+        if (!buscado) return null;
+        const pool = await getConnection();
+        const r = await pool.request().input('n', sql.VarChar(100), buscado)
+            .query("SELECT TOP 1 id_formapago, nombre_formapago FROM LaboratorioADL.dbo.mae_formapago WHERE habilitado = 'S' AND LTRIM(RTRIM(nombre_formapago)) = @n COLLATE Latin1_General_CI_AI");
+        const fp = r.recordset[0];
+        if (!fp) throw new Error(`La forma de pago "${buscado}" no existe en el catálogo del Sistema de Ventas. Elige una de la lista en Corregir.`);
+        return { id: fp.id_formapago, nombre: fp.nombre_formapago.trim().slice(0, 30) };
     }
 
     /** DD/MM/YYYY de "ahora" — hora local, correcto usar getters locales. */
@@ -1405,19 +1438,27 @@ class FacturacionService {
             const aviso = await this._avisoHesFaltante(pf.id_prefactura, sinHes ? null : 'ok');
             if (aviso) avisos.push(`Pre-factura N° ${pf.numero_id}: ${aviso}`);
 
-            pf.fecha_facturacion = hoy;
-            await pool.request()
-                .input('id', sql.Int, pf.id_prefactura)
-                .input('fecha', sql.Date, hoy)
-                .query('UPDATE fac_prefactura SET fecha_facturacion = @fecha, fecha_modificacion = GETDATE() WHERE id_prefactura = @id');
-
+            // Primero los datos del cliente: si faltan, se corta antes de tocar la fecha de la pre-factura.
             const cfg = await this._resolverClienteVentas(pf.id_empresaservicio);
+
+            const fp = await this._formaPagoVentas(pf.forma_pago);
+            if (fp) { cfg.id_formapago_ventas = fp.id; cfg.nom_fp = fp.nombre; }
+
+            // La fecha de facturación es la del día en que se genera, salvo que se haya corregido a mano
+            // (Corregir → Fecha de facturación), que es lo que permite el sistema antiguo.
+            if (!pf.fecha_facturacion) {
+                pf.fecha_facturacion = hoy;
+                await pool.request()
+                    .input('id', sql.Int, pf.id_prefactura)
+                    .input('fecha', sql.Date, hoy)
+                    .query('UPDATE fac_prefactura SET fecha_facturacion = @fecha, fecha_modificacion = GETDATE() WHERE id_prefactura = @id');
+            }
 
             filas.push(this._filaLinea(pf, cfg));
             for (const oc of pf.ordenes_compra) {
-                filas.push(this._filaReferencia(pf, cfg, 'OC', oc.numero_oc, oc.fecha_oc));
+                filas.push(this._filaReferencia(pf, cfg, 'OC', oc.numero_oc, oc.fecha_oc, oc.referencia));
                 if (oc.numero_hes) {
-                    filas.push(this._filaReferencia(pf, cfg, 'HES', oc.numero_hes, oc.fecha_hes));
+                    filas.push(this._filaReferencia(pf, cfg, 'HES', oc.numero_hes, oc.fecha_hes, oc.referencia));
                 }
             }
 

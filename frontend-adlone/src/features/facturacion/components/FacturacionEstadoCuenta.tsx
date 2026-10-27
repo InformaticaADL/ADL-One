@@ -10,9 +10,9 @@ import { IconRefresh, IconCash, IconAlertTriangle } from '@tabler/icons-react';
 import { facturacionService } from '../services/facturacion.service';
 import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
+import { fmtFecha } from '../utils/fechas';
 
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
-const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const hoyStr = () => new Date().toISOString().slice(0, 10);
 
 // Tramos de antigüedad: solo informan hace cuánto se emitió, NO mora — no hay
