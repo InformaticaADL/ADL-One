@@ -377,13 +377,17 @@ class FichaIngresoService {
         }
     }
 
-    async createFicha(data) {
+    // opts.transaction: transacción de quien llama (grupo de puntos). Si viene, ni se abre ni se confirma acá, y el
+    //   resultado trae despuesDeConfirmar() con la notificación y la auditoría, que se ejecutan tras confirmar.
+    // opts.sinNotificar: no avisa de esta ficha (en un grupo se avisa una sola vez, desde la primera).
+    async createFicha(data, opts = {}) {
         // data structure: { antecedentes: {}, analisis: [], observaciones: "", user: { id: 1 } }
         const pool = await getConnection();
-        const transaction = new sql.Transaction(pool);
+        const externa = !!opts.transaction;
+        const transaction = opts.transaction || new sql.Transaction(pool);
 
         try {
-            await transaction.begin();
+            if (!externa) await transaction.begin();
             logger.info('Transaction started for createFicha');
 
             // 1. Generar ID Ficha (Manual MAX+1 logic from FoxPro)
@@ -743,9 +747,11 @@ class FichaIngresoService {
                 observacion: obs // Restore user observation
             });
 
-            await transaction.commit();
-            logger.info(`Ficha creada con éxito. ID: ${newId}`);
+            if (!externa) await transaction.commit();
+            logger.info(`Ficha creada${externa ? ' (a la espera de confirmar el grupo)' : ' con éxito'}. ID: ${newId}`);
 
+            // Notificación y auditoría: van DESPUÉS de confirmar. Con transacción ajena las ejecuta quien confirma.
+            const despuesDeConfirmar = async () => {
             // Notificacion
             const notifDate = new Date();
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
@@ -777,7 +783,7 @@ class FichaIngresoService {
             const fichaEventCode = data.isRemuestreo ? 'FICHA_REMUESTREO_CREADA' : 'FICHA_CREADA';
             const accionText = data.isRemuestreo ? 'Ficha de Remuestreo Creada' : 'Ficha Comercial Creada';
 
-            this.getFichaContextForNotification(newId, notifUser, accionText, pool).then(baseContext => {
+            if (!opts.sinNotificar) this.getFichaContextForNotification(newId, notifUser, accionText, pool).then(baseContext => {
                 const fullContext = {
                     ...baseContext,
                     id_usuario_accion: userId || (data.user ? (data.user.id_usuario || data.user.id) : 0),
@@ -801,11 +807,15 @@ class FichaIngresoService {
                 severidad: 1
             });
 
+            };
+
+            if (externa) return { success: true, id: newId, message: 'Ficha creada correctamente', despuesDeConfirmar };
+            await despuesDeConfirmar();
             return { success: true, id: newId, message: 'Ficha creada correctamente' };
 
         } catch (error) {
             logger.error('Error creating ficha:', error);
-            try { await transaction.rollback(); } catch (e) { }
+            if (!externa) { try { await transaction.rollback(); } catch (e) { } }
             throw error;
         }
     }
@@ -2507,6 +2517,7 @@ class FichaIngresoService {
                 });
             }
 
+            await this._mergeGrupos(pool, result.recordset);
             return result.recordset;
         } catch (error) {
             logger.error('SP MAM_FichaComercial_ConsultaCoordinador failed', error);
@@ -2521,10 +2532,262 @@ class FichaIngresoService {
             // La SP es de un tercero (WITH ENCRYPTION, no editable) y no trae Base
             // Operaciones (mae_lugaranalisis) — se resuelve aparte y se mezcla por id.
             await this._mergeBaseOperaciones(pool, result.recordset);
+            await this._mergeGrupos(pool, result.recordset);
             return result.recordset;
         } catch (error) {
             logger.error('SP MAM_FichaComercial_ConsultaComercial failed in getAllFichas', error);
             throw error;
+        }
+    }
+
+    // ── Grupos de muestreo: una visita con varios puntos. Cada punto sigue siendo una ficha completa y el vínculo vive en
+    // App_Ma_GrupoMuestreo / App_Ma_GrupoMuestreo_Ficha (migrations/2026-10-27-grupo-muestreo.sql).
+    _errorGrupo(error) {
+        if (error && (error.number === 208 || /Invalid object name/i.test(error.message || ''))) {
+            const e = new Error('Los grupos de muestreo aún no están habilitados en la base de datos: falta aplicar la migración 2026-10-27-grupo-muestreo.sql.');
+            e.statusCode = 409;
+            return e;
+        }
+        return error;
+    }
+
+    _errorDatos(mensaje, statusCode = 400) {
+        const e = new Error(mensaje);
+        e.statusCode = statusCode;
+        return e;
+    }
+
+    // Agrega id_grupo y grupo_total a cada fila. Si las tablas del grupo no existen aún, la lista queda como antes.
+    async _mergeGrupos(pool, recordset) {
+        if (!recordset || recordset.length === 0) return;
+        const idDe = (r) => parseInt(r.id_fichaingresoservicio || r.fichaingresoservicio || r.id);
+        const ids = recordset.map(idDe).filter((n) => Number.isInteger(n) && n > 0);
+        if (ids.length === 0) return;
+        try {
+            const res = await pool.request().query(`
+                SELECT gf.id_fichaingresoservicio AS id, gf.id_grupo,
+                       (SELECT COUNT(*) FROM App_Ma_GrupoMuestreo_Ficha x WHERE x.id_grupo = gf.id_grupo) AS total
+                FROM App_Ma_GrupoMuestreo_Ficha gf
+                WHERE gf.id_fichaingresoservicio IN (${ids.join(',')})`);
+            const mapa = new Map(res.recordset.map((r) => [Number(r.id), r]));
+            recordset.forEach((row) => {
+                const g = mapa.get(idDe(row));
+                row.id_grupo = g ? g.id_grupo : null;
+                row.grupo_total = g ? g.total : null;
+            });
+        } catch (e) {
+            logger.warn(`[grupos] no se pudo leer el grupo de las fichas: ${e.message}`);
+        }
+    }
+
+    // Map(id_ficha -> { id_grupo, total, puntos: [nombres] }) para las fichas que pertenecen a un grupo.
+    async _infoGrupos(pool, fichaIds) {
+        const info = new Map();
+        const ids = (fichaIds || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+        if (ids.length === 0) return info;
+        try {
+            const res = await pool.request().query(`
+                SELECT gf.id_grupo, gf.id_fichaingresoservicio AS id, gf.orden, e.ma_punto_muestreo AS punto
+                FROM App_Ma_GrupoMuestreo_Ficha gf
+                JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = gf.id_fichaingresoservicio
+                WHERE gf.id_grupo IN (SELECT id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio IN (${ids.join(',')}))
+                ORDER BY gf.id_grupo, gf.orden, gf.id_fichaingresoservicio`);
+            const porGrupo = new Map();
+            res.recordset.forEach((r) => {
+                if (!porGrupo.has(r.id_grupo)) porGrupo.set(r.id_grupo, []);
+                porGrupo.get(r.id_grupo).push(r);
+            });
+            porGrupo.forEach((filas, idGrupo) => {
+                const puntos = filas.map((f) => String(f.punto || `Ficha ${f.id}`).trim());
+                filas.forEach((f) => info.set(Number(f.id), { id_grupo: idGrupo, total: filas.length, puntos }));
+            });
+        } catch (e) {
+            logger.warn(`[grupos] no se pudo leer la información de grupos: ${e.message}`);
+        }
+        return info;
+    }
+
+    // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una
+    // por cada punto de data.puntosAdicionales. Los análisis se copian a todas (cada punto puede traer los suyos en
+    // p.analisis). El costo operativo se cobra una sola vez por visita: solo la primera ficha lo lleva.
+    async createFichaGrupo(data) {
+        const adicionales = Array.isArray(data.puntosAdicionales) ? data.puntosAdicionales : [];
+        if (adicionales.length === 0) return this.createFicha(data);
+        if (adicionales.length > 59) throw this._errorDatos('Una visita admite hasta 60 puntos.');
+
+        const nombres = [data.antecedentes?.puntoMuestreo, ...adicionales.map((p) => p.puntoMuestreo)].map((s) => String(s || '').trim());
+        if (nombres.some((n) => !n)) throw this._errorDatos('Todos los puntos necesitan un nombre.');
+        const vistos = new Set();
+        for (const n of nombres) {
+            const k = n.toLowerCase();
+            if (vistos.has(k)) throw this._errorDatos(`El punto "${n}" está repetido.`);
+            vistos.add(k);
+        }
+
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const ant = data.antecedentes || {};
+            const ids = [];
+            const despues = [];
+
+            const primera = await this.createFicha(data, { transaction });
+            ids.push(primera.id);
+            despues.push(primera.despuesDeConfirmar);
+
+            for (const p of adicionales) {
+                const r = await this.createFicha({
+                    ...data,
+                    antecedentes: {
+                        ...ant,
+                        puntoMuestreo: String(p.puntoMuestreo).trim(),
+                        zona: p.zona ?? '',
+                        utmNorte: p.utmNorte ?? '',
+                        utmEste: p.utmEste ?? '',
+                        refGoogle: p.refGoogle ?? '',
+                        ubicacion_lat: p.ubicacion_lat ?? null,
+                        ubicacion_lon: p.ubicacion_lon ?? null,
+                    },
+                    analisis: Array.isArray(p.analisis) && p.analisis.length > 0 ? p.analisis : data.analisis,
+                    costoOperativo: { activo: false, uf: 0 }, // una sola vez por visita
+                }, { transaction, sinNotificar: true });
+                ids.push(r.id);
+                despues.push(r.despuesDeConfirmar);
+            }
+
+            const userId = data.user ? (data.user.id_usuario || data.user.id || 0) : 0;
+            const rqGrupo = new sql.Request(transaction);
+            rqGrupo.input('empresa', sql.Numeric(10, 0), ant.selectedCliente ? Number(ant.selectedCliente) : null);
+            rqGrupo.input('centro', sql.Numeric(10, 0), ant.selectedFuente ? Number(ant.selectedFuente) : null);
+            rqGrupo.input('usuario', sql.Numeric(10, 0), userId || null);
+            const idGrupo = (await rqGrupo.query(`
+                INSERT INTO App_Ma_GrupoMuestreo (id_empresa, id_centro, creado_por)
+                OUTPUT INSERTED.id_grupo
+                VALUES (@empresa, @centro, @usuario)`)).recordset[0].id_grupo;
+
+            for (const [i, idFicha] of ids.entries()) {
+                const rq = new sql.Request(transaction);
+                rq.input('g', sql.Int, idGrupo);
+                rq.input('f', sql.Numeric(10, 0), idFicha);
+                rq.input('o', sql.Int, i + 1);
+                await rq.query('INSERT INTO App_Ma_GrupoMuestreo_Ficha (id_grupo, id_fichaingresoservicio, orden) VALUES (@g, @f, @o)');
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId,
+                    accion: 'GRUPO_MUESTREO',
+                    estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Ficha creada como punto ${i + 1} de ${ids.length} del grupo de muestreo #${idGrupo}.`,
+                });
+            }
+
+            await transaction.commit();
+            for (const fn of despues) { try { await fn(); } catch (e) { logger.warn('Post-creación de grupo:', e); } }
+            return { success: true, id: ids[0], ids, id_grupo: idGrupo, message: `Visita creada con ${ids.length} puntos` };
+        } catch (error) {
+            logger.error('Error creating ficha grupo:', error);
+            try { await transaction.rollback(); } catch (e) { /* ya revertida */ }
+            throw this._errorGrupo(error);
+        }
+    }
+
+    // Agrupa fichas que ya existen (misma empresa y mismo centro, ninguna en otro grupo).
+    async agruparFichas({ ids, user, nota }) {
+        const lista = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))].sort((a, b) => a - b);
+        if (lista.length < 2) throw this._errorDatos('Seleccione al menos dos fichas para agrupar.');
+
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const fichas = (await new sql.Request(transaction).query(`
+                SELECT id_fichaingresoservicio AS id, id_empresa, id_centro
+                FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${lista.join(',')})`)).recordset;
+            if (fichas.length !== lista.length) throw this._errorDatos('Alguna de las fichas no existe.');
+            if (new Set(fichas.map((f) => String(f.id_centro))).size > 1 || new Set(fichas.map((f) => String(f.id_empresa))).size > 1) {
+                throw this._errorDatos('Solo se pueden agrupar fichas de la misma empresa y el mismo centro.');
+            }
+            const ya = (await new sql.Request(transaction).query(`
+                SELECT id_fichaingresoservicio AS id FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio IN (${lista.join(',')})`)).recordset;
+            if (ya.length > 0) throw this._errorDatos(`Las fichas ${ya.map((r) => '#' + r.id).join(', ')} ya pertenecen a un grupo.`, 409);
+
+            const userId = user ? (user.id_usuario || user.id || 0) : 0;
+            const rqGrupo = new sql.Request(transaction);
+            rqGrupo.input('empresa', sql.Numeric(10, 0), fichas[0].id_empresa);
+            rqGrupo.input('centro', sql.Numeric(10, 0), fichas[0].id_centro);
+            rqGrupo.input('usuario', sql.Numeric(10, 0), userId || null);
+            rqGrupo.input('nota', sql.NVarChar(250), nota ? String(nota).slice(0, 250) : null);
+            const idGrupo = (await rqGrupo.query(`
+                INSERT INTO App_Ma_GrupoMuestreo (id_empresa, id_centro, creado_por, nota)
+                OUTPUT INSERTED.id_grupo
+                VALUES (@empresa, @centro, @usuario, @nota)`)).recordset[0].id_grupo;
+
+            for (const [i, idFicha] of lista.entries()) {
+                const rq = new sql.Request(transaction);
+                rq.input('g', sql.Int, idGrupo);
+                rq.input('f', sql.Numeric(10, 0), idFicha);
+                rq.input('o', sql.Int, i + 1);
+                await rq.query('INSERT INTO App_Ma_GrupoMuestreo_Ficha (id_grupo, id_fichaingresoservicio, orden) VALUES (@g, @f, @o)');
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Ficha agrupada como punto ${i + 1} de ${lista.length} del grupo de muestreo #${idGrupo}.`,
+                });
+            }
+            await transaction.commit();
+            return { success: true, id_grupo: idGrupo, fichas: lista };
+        } catch (error) {
+            try { await transaction.rollback(); } catch (e) { /* ya revertida */ }
+            throw this._errorGrupo(error);
+        }
+    }
+
+    // Deshace el grupo (las fichas quedan sueltas, sin cambios).
+    async desagruparGrupo(idGrupo, user) {
+        const id = Number(idGrupo);
+        if (!Number.isInteger(id) || id <= 0) throw this._errorDatos('Grupo no válido.');
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const fichas = (await new sql.Request(transaction).input('g', sql.Int, id)
+                .query('SELECT id_fichaingresoservicio AS id FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g')).recordset;
+            if (fichas.length === 0) throw this._errorDatos('El grupo no existe.', 404);
+            await new sql.Request(transaction).input('g', sql.Int, id).query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g');
+            await new sql.Request(transaction).input('g', sql.Int, id).query('DELETE FROM App_Ma_GrupoMuestreo WHERE id_grupo = @g');
+            const userId = user ? (user.id_usuario || user.id || 0) : 0;
+            for (const f of fichas) {
+                await this.logHistorial(transaction, {
+                    idFicha: f.id, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Se deshizo el grupo de muestreo #${id}; la ficha queda sin grupo.`,
+                });
+            }
+            await transaction.commit();
+            return { success: true, fichas: fichas.map((f) => f.id) };
+        } catch (error) {
+            try { await transaction.rollback(); } catch (e) { /* ya revertida */ }
+            throw this._errorGrupo(error);
+        }
+    }
+
+    // Grupo al que pertenece una ficha, con todos sus puntos; null si no pertenece a ninguno (o si aún no hay tablas).
+    async getGrupoDeFicha(idFicha) {
+        const pool = await getConnection();
+        try {
+            const res = await pool.request().input('id', sql.Numeric(10, 0), Number(idFicha)).query(`
+                SELECT gf.id_grupo, gf.id_fichaingresoservicio AS id, gf.orden,
+                       e.ma_punto_muestreo AS punto, e.estado_ficha AS estado
+                FROM App_Ma_GrupoMuestreo_Ficha gf
+                JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = gf.id_fichaingresoservicio
+                WHERE gf.id_grupo = (SELECT id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @id)
+                ORDER BY gf.orden, gf.id_fichaingresoservicio`);
+            if (res.recordset.length === 0) return null;
+            return {
+                id_grupo: res.recordset[0].id_grupo,
+                total: res.recordset.length,
+                puntos: res.recordset.map((r) => ({ id_fichaingresoservicio: Number(r.id), punto: String(r.punto || '').trim(), estado: r.estado, orden: r.orden })),
+            };
+        } catch (e) {
+            logger.warn(`[grupos] no se pudo leer el grupo de la ficha ${idFicha}: ${e.message}`);
+            return null;
         }
     }
 
@@ -3064,8 +3327,18 @@ class FichaIngresoService {
             const notifFecha = notifDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
             const notifHora = notifDate.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', hour12: false });
 
+            // Fichas de un mismo grupo (visita con varios puntos): se avisa UNA sola vez por grupo, desde la primera ficha.
+            const infoGrupos = await this._infoGrupos(pool, distinctFichas);
+            const gruposYaAvisados = new Set();
+
             // For each ficha, collect detailed service information
             for (const fid of distinctFichas) {
+                const gi = infoGrupos.get(Number(fid));
+                if (gi) {
+                    if (gruposYaAvisados.has(gi.id_grupo)) continue;
+                    gruposYaAvisados.add(gi.id_grupo);
+                }
+                const sufijoGrupo = gi ? ` (Visita de ${gi.total} puntos: ${gi.puntos.join(', ')})` : '';
                 // Determine if it was already in process (Reprogramación)
                 const statusReq = new sql.Request(transaction);
                 statusReq.input('fid', sql.Numeric(10, 0), fid);
@@ -3289,7 +3562,7 @@ class FichaIngresoService {
                             total_servicios: totalServicios,
                             servicios: serviciosFinal,
                             asignado_por: asignadoPor,
-                            OBSERVACION: observacionNotificacion || meta.glosa || 'Sin observaciones'
+                            OBSERVACION: (observacionNotificacion || meta.glosa || 'Sin observaciones') + sufijoGrupo
                         }).catch(e => logger.warn('UNS trigger failed:', e));
                     }).catch(e => logger.error('Error in getFichaContextForNotification:', e));
                 }

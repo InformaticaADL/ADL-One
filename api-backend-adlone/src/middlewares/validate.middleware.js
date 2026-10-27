@@ -48,6 +48,20 @@ export const fichaValidationSchemas = {
         params: Joi.object(),
     }),
 
+    createGrupo: Joi.object({
+        body: Joi.object({
+            antecedentes: Joi.object().required(),
+            analisis: Joi.array().items(Joi.object()).required(),
+            observaciones: Joi.string().max(5000).optional(),
+            puntosAdicionales: Joi.array().items(Joi.object({
+                puntoMuestreo: Joi.string().trim().min(1).max(250).required(),
+                analisis: Joi.array().items(Joi.object()).optional(),
+            }).unknown(true)).max(59).required(),
+        }).unknown(true).required(),
+        query: Joi.object(),
+        params: Joi.object(),
+    }),
+
     approve: Joi.object({
         body: Joi.object({
             observaciones: Joi.string().max(5000).optional(),

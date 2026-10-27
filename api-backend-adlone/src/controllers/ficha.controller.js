@@ -133,6 +133,77 @@ class FichaIngresoController {
         }
     }
 
+    // Visita con varios puntos: crea una ficha por punto (misma ficha base, costo operativo una sola vez) y las agrupa.
+    async createGrupo(req, res) {
+        try {
+            if (!req.body.antecedentes || !req.body.analisis) {
+                return errorResponse(res, 'Datos incompletos: Faltan antecedentes o análisis', 400);
+            }
+            const data = { ...req.body };
+            if (req.user) data.user = req.user;
+
+            // Coordenadas de cada punto a partir de su enlace de Google Maps (igual que en la creación simple).
+            const resolver = async (ref) => {
+                const link = String(ref || '').trim();
+                if (!link) return { lat: null, lon: null };
+                try {
+                    const coords = await resolverGoogleMapsLink(link);
+                    return coords ? { lat: coords.lat, lon: coords.lon } : { lat: null, lon: null };
+                } catch (e) {
+                    logger.warn(`[ficha-create-grupo] Error resolving link: ${e.message}`);
+                    return { lat: null, lon: null };
+                }
+            };
+            const base = await resolver(data.antecedentes?.refGoogle);
+            data.antecedentes = { ...data.antecedentes, ubicacion_lat: base.lat, ubicacion_lon: base.lon };
+            if (Array.isArray(data.puntosAdicionales)) {
+                data.puntosAdicionales = await Promise.all(data.puntosAdicionales.map(async (p) => {
+                    const c = await resolver(p.refGoogle);
+                    return { ...p, ubicacion_lat: c.lat, ubicacion_lon: c.lon };
+                }));
+            }
+
+            const result = await fichaService.createFichaGrupo(data);
+            notificarCalendarioActualizado();
+            return successResponse(res, result, result.message || 'Ficha creada exitosamente', 201);
+        } catch (err) {
+            logger.error('Error in createGrupo ficha controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al crear la visita con varios puntos', err.statusCode || 500, err.message);
+        }
+    }
+
+    async agrupar(req, res) {
+        try {
+            const result = await fichaService.agruparFichas({ ids: req.body?.ids, user: req.user, nota: req.body?.nota });
+            notificarCalendarioActualizado();
+            return successResponse(res, result, 'Fichas agrupadas');
+        } catch (err) {
+            logger.error('Error in agrupar fichas controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al agrupar las fichas', err.statusCode || 500, err.message);
+        }
+    }
+
+    async desagrupar(req, res) {
+        try {
+            const result = await fichaService.desagruparGrupo(req.body?.id_grupo, req.user);
+            notificarCalendarioActualizado();
+            return successResponse(res, result, 'Grupo deshecho');
+        } catch (err) {
+            logger.error('Error in desagrupar controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al deshacer el grupo', err.statusCode || 500, err.message);
+        }
+    }
+
+    async getGrupo(req, res) {
+        try {
+            const result = await fichaService.getGrupoDeFicha(req.params.id);
+            return successResponse(res, result, 'Grupo de la ficha');
+        } catch (err) {
+            logger.error('Error in getGrupo controller:', err);
+            return errorResponse(res, 'Error al obtener el grupo', 500, err.message);
+        }
+    }
+
     async getById(req, res) {
         try {
             const { id } = req.params;

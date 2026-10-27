@@ -16,7 +16,8 @@ import {
     IconPlus,
     IconCheck,
     IconAlertTriangle,
-    IconExternalLink
+    IconExternalLink,
+    IconTrash
 } from '@tabler/icons-react';
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
 import apiClient from '../../../config/axios.config';
@@ -26,6 +27,10 @@ import { Button } from '../../../components/ui/button';
 import { Combobox } from '../../../components/ui/combobox';
 import { Alert, AlertDescription } from '../../../components/ui/alert';
 import { cn } from '../../../lib/utils';
+
+// Punto adicional de la misma visita: se crea como una ficha aparte (con su caso, su FoMa y sus resultados) que
+// comparte todo lo demás con la ficha principal.
+type PuntoAdicional = { id: number; puntoMuestreo: string; utmNorte: string; utmEste: string; refGoogle: string };
 
 // Validates a Google Maps reference string client-side before hitting the backend.
 // Defined outside the component so it is never recreated on re-renders.
@@ -334,6 +339,11 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     const [cargos, setCargos] = useState<any[]>([]);
     const [cargoResponsable, setCargoResponsable] = useState<string | null>(null);
     const [puntoMuestreo, setPuntoMuestreo] = useState<string>('');
+    const [puntosAdicionales, setPuntosAdicionales] = useState<PuntoAdicional[]>([]);
+    const agregarPunto = () => setPuntosAdicionales(prev => [...prev, { id: Date.now() + prev.length, puntoMuestreo: '', utmNorte: '', utmEste: '', refGoogle: '' }]);
+    const quitarPunto = (id: number) => setPuntosAdicionales(prev => prev.filter(p => p.id !== id));
+    const cambiarPunto = (id: number, campo: keyof Omit<PuntoAdicional, 'id'>, valor: string) =>
+        setPuntosAdicionales(prev => prev.map(p => (p.id === id ? { ...p, [campo]: valor } : p)));
     const [tiposMuestreo, setTiposMuestreo] = useState<any[]>([]);
     const [selectedTipoMuestreo, setSelectedTipoMuestreo] = useState<string | null>(null);
     const [tiposMuestra, setTiposMuestra] = useState<any[]>([]);
@@ -515,6 +525,19 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 required.push({ label: 'UTM Este',  value: utmEste });
             }
 
+            // Puntos adicionales de la misma visita: nombre obligatorio y sin repetir; UTM si la zona lo exige.
+            const nombresVistos = new Set<string>([puntoMuestreo.trim().toLowerCase()]);
+            puntosAdicionales.forEach((p, i) => {
+                const n = p.puntoMuestreo.trim();
+                required.push({ label: `Punto ${i + 2}`, value: n });
+                if (n && nombresVistos.has(n.toLowerCase())) required.push({ label: `Punto ${i + 2} repetido`, value: '' });
+                nombresVistos.add(n.toLowerCase());
+                if (zona && !isNA(zona, zonasUTMList)) {
+                    required.push({ label: `Punto ${i + 2}: UTM Norte`, value: p.utmNorte });
+                    required.push({ label: `Punto ${i + 2}: UTM Este`, value: p.utmEste });
+                }
+            });
+
             if (medicionCaudal && !isNA(medicionCaudal, modalidades)) {
                 required.push({ label: 'Modalidad de Medición', value: selectedModalidad });
                 if (selectedModalidad && !isNA(selectedModalidad, modalidades)) {
@@ -544,7 +567,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
         selectedObjetivo, responsableMuestreo, cargoResponsable,
         puntoMuestreo, periodo, frecuencia, factor, totalServicios,
-        zona, utmNorte, utmEste,
+        zona, utmNorte, utmEste, puntosAdicionales,
         selectedInstrumento, nroInstrumento, anioInstrumento,
         selectedComponente, selectedSubArea, glosa,
         selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,
@@ -732,6 +755,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 selectedActividad: selectedActividad || '',
                 duracion: duracion || '',
                 refGoogle: refGoogle || '',
+                // Otros puntos de la misma visita (cada uno se crea como una ficha); la zona UTM es la de la ficha principal.
+                puntosAdicionales: puntosAdicionales.map((p) => ({
+                    puntoMuestreo: p.puntoMuestreo.trim(),
+                    zona: zona || '',
+                    utmNorte: p.utmNorte,
+                    utmEste: p.utmEste,
+                    refGoogle: p.refGoogle,
+                })),
                 medicionCaudal: medicionCaudal || '',
                 selectedModalidad: selectedModalidad || '',
                 responsableMuestreo: responsableMuestreo || '',
@@ -1347,6 +1378,52 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         Se realizarán <b>{totalServicios}</b> muestreo(s) en total, con una frecuencia de <b>{frecuencia}</b> vez/veces cada periodo <b>{frecuenciasData.find(f => f.value === periodo)?.label?.toLowerCase() || periodo}</b>, multiplicado por un factor de <b>{factor}</b>.
                     </p>
                 )}
+            </Block>
+
+            <Block>
+                <BlockTitle icon={IconMapPin} color="#7c3aed">Otros puntos de la misma visita</BlockTitle>
+                <p className="mb-3 text-xs text-muted-foreground">
+                    Si en esta visita se toman las mismas mediciones en más de un punto del centro, agréguelos aquí. Se crea una ficha por
+                    punto, con los mismos datos y análisis, y se programan juntas. El costo operativo se cobra una sola vez por visita.
+                    Un punto con análisis distintos se corrige después, editando su ficha.
+                </p>
+                {puntosAdicionales.map((p, i) => (
+                    <Row key={p.id} className="mb-3">
+                        <TextInput
+                            size="lg"
+                            label={<FieldLabel label={`Punto ${i + 2} *`} help="Nombre o código del punto dentro del centro. Debe ser distinto de los demás puntos de la visita." />}
+                            value={p.puntoMuestreo}
+                            onChange={(e: any) => cambiarPunto(p.id, 'puntoMuestreo', e.target.value)}
+                        />
+                        <TextInput
+                            size="sm"
+                            label="UTM Norte"
+                            value={p.utmNorte}
+                            onChange={(e: any) => cambiarPunto(p.id, 'utmNorte', e.target.value)}
+                            disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
+                        />
+                        <TextInput
+                            size="sm"
+                            label="UTM Este"
+                            value={p.utmEste}
+                            onChange={(e: any) => cambiarPunto(p.id, 'utmEste', e.target.value)}
+                            disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
+                        />
+                        <TextInput
+                            size="lg"
+                            label="Referencia Google Maps"
+                            placeholder="https://maps.app.goo.gl/... o -41.45,-72.92"
+                            value={p.refGoogle}
+                            onChange={(e: any) => cambiarPunto(p.id, 'refGoogle', e.target.value)}
+                        />
+                        <Button type="button" variant="ghost" size="icon" className="shrink-0" onClick={() => quitarPunto(p.id)} aria-label={`Quitar el punto ${i + 2}`}>
+                            <IconTrash size={17} />
+                        </Button>
+                    </Row>
+                ))}
+                <Button type="button" variant="outline" onClick={agregarPunto} disabled={puntosAdicionales.length >= 59}>
+                    <IconPlus size={16} /> Agregar otro punto
+                </Button>
             </Block>
             </div>
 

@@ -27,7 +27,8 @@ import {
     IconChevronDown,
     IconChevronRight,
     IconAlertTriangle,
-    IconLayoutList
+    IconLayoutList,
+    IconLink
 } from '@tabler/icons-react';
 
 interface Props {
@@ -69,6 +70,9 @@ const requiereRetiroAparte = (ficha: any) =>
     esCompuesta(ficha) && Number(ficha?.ma_duracion_muestreo || 0) >= 24;
 
 const idDeFicha = (row: any): number => Number(row?.id_fichaingresoservicio || row?.fichaingresoservicio);
+
+// Pendiente de aprobación por el Área de Coordinación: todavía no se puede agendar.
+const estaBloqueada = (f: any) => String(f?.estado_ficha || f?.nombre_estadomuestreo || '').toUpperCase().includes('COORDINAC');
 
 export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssignment }) => {
     const { showToast } = useToast();
@@ -267,6 +271,39 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
     // Varias fichas del mismo centro son puntos distintos del mismo lugar físico y se
     // muestrean el mismo día — agruparlas es lo que permite agendarlas de una vez.
+    // Visitas (grupos de muestreo): fichas de varios puntos que se agendan JUNTAS. Una visita solo se agenda entera: todos
+    // sus puntos presentes en esta lista, aprobados y en el mismo número de servicio. Así no queda un punto sin agendar.
+    const visitas = useMemo(() => {
+        const mapa = new Map<number, { miembros: any[]; asignable: boolean; motivo: string; servicio: number | null }>();
+        fichas.forEach((f) => {
+            const g = Number(f.id_grupo);
+            if (!g) return;
+            if (!mapa.has(g)) mapa.set(g, { miembros: [], asignable: true, motivo: '', servicio: null });
+            mapa.get(g)!.miembros.push(f);
+        });
+        mapa.forEach((v) => {
+            const esperados = Number(v.miembros[0]?.grupo_total || v.miembros.length);
+            if (v.miembros.length < esperados) {
+                v.asignable = false;
+                v.motivo = 'Faltan puntos del grupo en esta lista (ya tienen todos sus servicios agendados).';
+                return;
+            }
+            const numeros = new Set<number>();
+            for (const f of v.miembros) {
+                if (estaBloqueada(f)) { v.asignable = false; v.motivo = 'Hay puntos pendientes de aprobación por Coordinación.'; break; }
+                const c = proximoServicio(f);
+                if (!c) { v.asignable = false; v.motivo = 'Hay puntos sin servicios por agendar.'; break; }
+                numeros.add(c.numero_servicio);
+            }
+            if (v.asignable && numeros.size > 1) {
+                v.asignable = false;
+                v.motivo = 'Los puntos van en servicios distintos: agéndelos desde el detalle de cada ficha.';
+            }
+            if (v.asignable) v.servicio = [...numeros][0] ?? null;
+        });
+        return mapa;
+    }, [fichas]);
+
     const grupos = useMemo<Grupo[]>(() => {
         const mapa = new Map<string, Grupo>();
         filteredFichas.forEach((f) => {
@@ -283,13 +320,17 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             }
             const g = mapa.get(key)!;
             g.fichas.push(f);
-            const bloqueadoPorCoordinacion = String(f.estado_ficha || f.nombre_estadomuestreo || '').toUpperCase().includes('COORDINAC');
-            if (!bloqueadoPorCoordinacion && proximoServicio(f)) g.asignables.push(f);
+            const bloqueadoPorCoordinacion = estaBloqueada(f);
+            const visita = f.id_grupo ? visitas.get(Number(f.id_grupo)) : undefined;
+            if (!bloqueadoPorCoordinacion && proximoServicio(f) && (!visita || visita.asignable)) g.asignables.push(f);
         });
 
         const lista = Array.from(mapa.values());
         lista.forEach((g) => {
+            // Las visitas primero y con sus puntos juntos; después las fichas sueltas.
             g.fichas.sort((a, b) =>
+                (Number(b.id_grupo || 0) > 0 ? 1 : 0) - (Number(a.id_grupo || 0) > 0 ? 1 : 0) ||
+                Number(a.id_grupo || 0) - Number(b.id_grupo || 0) ||
                 String(a.ma_punto_muestreo || '').localeCompare(String(b.ma_punto_muestreo || '')) ||
                 idDeFicha(a) - idDeFicha(b)
             );
@@ -297,22 +338,51 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         // Primero los centros con más trabajo por agendar: es donde el agendado en bloque rinde.
         lista.sort((a, b) => b.asignables.length - a.asignables.length || a.centro.localeCompare(b.centro));
         return lista;
-    }, [filteredFichas]);
+    }, [filteredFichas, visitas]);
 
     const gruposPaginados = useMemo(() => {
         const start = (currentPage - 1) * gruposPorPagina;
         return grupos.slice(start, start + gruposPorPagina);
     }, [grupos, currentPage]);
 
+    // Se parte de TODAS las fichas (no solo las filtradas): una visita seleccionada lleva todos sus puntos aunque un filtro oculte alguno.
     const fichasSeleccionadas = useMemo(
-        () => filteredFichas.filter((f) => seleccion.has(idDeFicha(f))),
-        [filteredFichas, seleccion]
+        () => fichas.filter((f) => seleccion.has(idDeFicha(f))),
+        [fichas, seleccion]
     );
 
     const hayCompuestas = useMemo(() => fichasSeleccionadas.some(requiereRetiroAparte), [fichasSeleccionadas]);
     const compuestasCount = useMemo(() => fichasSeleccionadas.filter(requiereRetiroAparte).length, [fichasSeleccionadas]);
 
+    const idsDeVisita = (idGrupo: number): number[] => (visitas.get(idGrupo)?.miembros || []).map(idDeFicha);
+
+    // Marca o desmarca la visita completa (todos sus puntos a la vez).
+    const toggleVisita = (idGrupo: number) => {
+        const v = visitas.get(idGrupo);
+        if (!v) return;
+        if (!v.asignable) {
+            showToast({ type: 'warning', message: v.motivo || 'Esta visita no se puede agendar todavía.' });
+            return;
+        }
+        const ids = idsDeVisita(idGrupo);
+        const todos = ids.every((id) => seleccion.has(id));
+        setSeleccion((prev) => {
+            const next = new Set(prev);
+            ids.forEach((id) => { if (todos) next.delete(id); else next.add(id); });
+            return next;
+        });
+    };
+
+    const estadoVisita = (idGrupo: number): boolean | 'indeterminate' => {
+        const ids = idsDeVisita(idGrupo);
+        const marcados = ids.filter((id) => seleccion.has(id)).length;
+        if (marcados === 0) return false;
+        return marcados === ids.length ? true : 'indeterminate';
+    };
+
     const toggleFicha = (id: number) => {
+        const ficha = fichas.find((x) => idDeFicha(x) === id);
+        if (ficha && Number(ficha.id_grupo)) { toggleVisita(Number(ficha.id_grupo)); return; }
         setSeleccion((prev) => {
             const next = new Set(prev);
             if (next.has(id)) next.delete(id); else next.add(id);
@@ -321,7 +391,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     };
 
     const toggleGrupo = (g: Grupo) => {
-        const ids = g.asignables.map(idDeFicha);
+        // Una visita entra siempre completa, aunque algún punto no esté visible por los filtros.
+        const ids = [...new Set(g.asignables.flatMap((f) => (Number(f.id_grupo) ? idsDeVisita(Number(f.id_grupo)) : [idDeFicha(f)])))];
         const todos = ids.length > 0 && ids.every((id) => seleccion.has(id));
         setSeleccion((prev) => {
             const next = new Set(prev);
@@ -347,6 +418,47 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return 'warning';
         if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) return 'destructive';
         return 'outline';
+    };
+
+    const recargarFichas = async () => {
+        const refreshed = await fichaService.getForAssignment();
+        let data: any[] = [];
+        if (Array.isArray(refreshed)) data = refreshed;
+        else if (refreshed && Array.isArray(refreshed.data)) data = refreshed.data;
+        setFichas(data || []);
+    };
+
+    // Agrupar fichas que ya existen: ≥ 2, sueltas y del mismo centro.
+    const puedeAgrupar = useMemo(() => {
+        if (fichasSeleccionadas.length < 2) return false;
+        if (fichasSeleccionadas.some((f) => Number(f.id_grupo))) return false;
+        return new Set(fichasSeleccionadas.map((f) => String(f.id_centro))).size === 1;
+    }, [fichasSeleccionadas]);
+
+    const agruparSeleccion = async () => {
+        setSaving(true);
+        try {
+            await fichaService.agrupar(fichasSeleccionadas.map(idDeFicha));
+            showToast({ type: 'success', message: `${fichasSeleccionadas.length} puntos agrupados como una sola visita` });
+            setSeleccion(new Set());
+            await recargarFichas();
+        } catch (error: any) {
+            showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudieron agrupar las fichas' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const deshacerVisita = async (idGrupo: number) => {
+        if (!window.confirm('¿Deshacer esta visita? Las fichas quedan sueltas, sin ningún otro cambio.')) return;
+        try {
+            await fichaService.desagrupar(idGrupo);
+            showToast({ type: 'success', message: 'Visita deshecha' });
+            setSeleccion(new Set());
+            await recargarFichas();
+        } catch (error: any) {
+            showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudo deshacer la visita' });
+        }
     };
 
     const abrirAsignar = () => {
@@ -644,12 +756,42 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                             const corr = proximoServicio(f);
                                             const status = f.estado_ficha || f.nombre_estadomuestreo;
                                             const bloqueadoPorCoordinacion = String(status || '').toUpperCase().includes('COORDINAC');
-                                            const asignable = !!corr && !bloqueadoPorCoordinacion;
+                                            const idVisita = Number(f.id_grupo) || 0;
+                                            const visita = idVisita ? visitas.get(idVisita) : undefined;
+                                            const asignable = !!corr && !bloqueadoPorCoordinacion && (!visita || visita.asignable);
                                             const total = Number(f.total_servicios || 0);
+                                            const primeroDeVisita = !!visita && g.fichas.findIndex((x) => Number(x.id_grupo) === idVisita) === g.fichas.indexOf(f);
 
                                             return (
+                                                <React.Fragment key={String(id)}>
+                                                {primeroDeVisita && visita && (
+                                                    <div className="flex items-center gap-3 border-b border-border/60 bg-primary/5 px-4 py-2">
+                                                        {puedeAsignar && (
+                                                            <Checkbox
+                                                                checked={estadoVisita(idVisita)}
+                                                                disabled={!visita.asignable}
+                                                                onCheckedChange={() => toggleVisita(idVisita)}
+                                                                aria-label={`Seleccionar los ${visita.miembros.length} puntos de la visita`}
+                                                            />
+                                                        )}
+                                                        <IconLink size={15} className="shrink-0 text-primary" />
+                                                        <span className="min-w-0 flex-1 truncate text-xs font-semibold text-primary">
+                                                            Visita de {visita.miembros.length} punto{visita.miembros.length !== 1 ? 's' : ''}
+                                                            {visita.servicio ? ` · servicio ${visita.servicio}` : ''}
+                                                        </span>
+                                                        {!visita.asignable && (
+                                                            <Badge variant="warning" className="hidden max-w-[320px] truncate font-normal sm:inline-flex" title={visita.motivo}>
+                                                                {visita.motivo}
+                                                            </Badge>
+                                                        )}
+                                                        {puedeAsignar && (
+                                                            <Button variant="ghost" size="sm" className="shrink-0 text-muted-foreground" onClick={() => deshacerVisita(idVisita)}>
+                                                                Deshacer grupo
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                )}
                                                 <div
-                                                    key={String(id)}
                                                     className={cn(
                                                         'flex items-center gap-3 border-b border-border/60 px-4 py-2.5 transition-colors hover:bg-muted/40',
                                                         seleccion.has(id) && 'bg-primary/5'
@@ -702,6 +844,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                         <IconCalendarStats size={17} />
                                                     </Button>
                                                 </div>
+                                                </React.Fragment>
                                             );
                                         })}
                                     </div>
@@ -737,6 +880,18 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                         >
                             Limpiar
                         </Button>
+                        {puedeAgrupar && (
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-background/70 hover:bg-background/10 hover:text-background"
+                                onClick={agruparSeleccion}
+                                disabled={saving}
+                                title="Une estos puntos como una sola visita: se agendan juntos y comparten el aviso."
+                            >
+                                <IconLink size={15} /> Agrupar como una visita
+                            </Button>
+                        )}
                         <Button size="sm" onClick={abrirAsignar}>
                             <IconCalendarStats size={15} /> Agendar y asignar
                         </Button>
