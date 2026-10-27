@@ -405,8 +405,10 @@ export const initScheduler = () => {
     // Every 24 hours (Tracking history purge — retention: 30 days)
     setInterval(purgeTrackingHistory, 24 * 60 * 60 * 1000);
 
-    // Every 24 hours (UF diaria — Banco Central)
-    setInterval(actualizarUfDiaria, 24 * 60 * 60 * 1000);
+    // Cada hora (UF diaria — Banco Central). Antes corría cada 24 h contadas desde que arrancó el
+    // servidor: la UF del día quedaba sin registrar hasta esa hora, o todo el día si mindicador.cl
+    // fallaba en ese único intento. Es idempotente: si la de hoy ya está, no hace nada.
+    setInterval(actualizarUfDiaria, 60 * 60 * 1000);
 
     // Every 24 hours (Cotizaciones cuya vigencia venció)
     setInterval(expirarCotizaciones, 24 * 60 * 60 * 1000);

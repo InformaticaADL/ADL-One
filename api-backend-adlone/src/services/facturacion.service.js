@@ -3379,6 +3379,26 @@ class FacturacionService {
      * Pensado para correr una vez al día vía scheduler; también expuesto
      * como acción manual ("actualizar ahora").
      */
+    /**
+     * Respaldo oficial: la tabla de UF diaria del SII (publica los valores con días de anticipación).
+     * Se usa cuando mindicador.cl no responde o aún no trae el día. Devuelve null si no se encuentra.
+     */
+    async _obtenerUfDesdeSii(hoy) {
+        const [anio, mes, dia] = hoy.split('-').map(Number);
+        const MESES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+        const resp = await fetch(`https://www.sii.cl/valores_y_fechas/uf/uf${anio}.htm`, { signal: AbortSignal.timeout(15000) });
+        if (!resp.ok) throw new Error(`sii.cl respondió ${resp.status}`);
+        const html = await resp.text();
+        const ini = html.indexOf(`<h2>${MESES[mes - 1]}</h2>`);
+        if (ini < 0) return null;
+        const sig = html.indexOf('<h2>', ini + 10);
+        const bloque = html.slice(ini, sig < 0 ? undefined : sig);
+        const m = bloque.match(new RegExp(`<th[^>]*><strong>${dia}</strong></th>[^<]*<td[^>]*>([0-9.,]+)</td>`));
+        if (!m) return null;
+        const valor = Number(m[1].replace(/\./g, '').replace(',', '.'));
+        return Number.isFinite(valor) && valor > 0 ? valor : null;
+    }
+
     async actualizarValorUfHoy() {
         const pool = await getConnection();
         // Fecha LOCAL (no toISOString/UTC) — igual que _hoyDDMMYYYY: en Chile
@@ -3392,6 +3412,10 @@ class FacturacionService {
         if (existente.recordset.length > 0 && existente.recordset[0].fuente === 'MANUAL') {
             return { actualizado: false, motivo: 'Ya existe un valor MANUAL para hoy; no se sobrescribe.' };
         }
+        // Si el valor de hoy ya llegó del Banco Central no hay nada que hacer (el planificador revisa cada hora).
+        if (existente.recordset.length > 0 && existente.recordset.length > 0 && existente.recordset[0].fuente !== 'MANUAL') {
+            return { actualizado: false, motivo: 'La UF de hoy ya está registrada.' };
+        }
 
         // Reintenta ante fallas transitorias de red (visto en producción: una
         // llamada funciona y la siguiente, segundos después, da timeout —
@@ -3403,8 +3427,11 @@ class FacturacionService {
                 const resp = await fetch('https://mindicador.cl/api/uf', { signal: AbortSignal.timeout(15000) });
                 if (!resp.ok) throw new Error(`mindicador.cl respondió ${resp.status}`);
                 const data = await resp.json();
-                valor = data?.serie?.[0]?.valor;
-                if (!valor) throw new Error('Respuesta de mindicador.cl sin valor UF.');
+                // Se toma la entrada DE HOY, no la primera de la serie: si esa trae otra fecha se
+                // guardaría un valor equivocado bajo la fecha de hoy.
+                const entradaHoy = (data?.serie || []).find((s) => String(s.fecha).slice(0, 10) === hoy);
+                valor = entradaHoy?.valor;
+                if (!valor) throw new Error(`mindicador.cl aún no publica la UF del ${hoy}.`);
                 ultimoError = null;
                 break;
             } catch (err) {
@@ -3413,18 +3440,26 @@ class FacturacionService {
                 if (intento < 3) await new Promise((r) => setTimeout(r, 2000));
             }
         }
+        let fuente = 'BCCH_API';
         if (ultimoError) {
-            logger.error(`[UF] Error obteniendo UF desde mindicador.cl tras 3 intentos: ${ultimoError.message}`);
-            throw new Error(`No se pudo obtener la UF del día tras 3 intentos: ${ultimoError.message}`);
+            logger.warn(`[UF] mindicador.cl falló tras 3 intentos (${ultimoError.message}); se prueba con la tabla oficial del SII.`);
+            try {
+                valor = await this._obtenerUfDesdeSii(hoy);
+            } catch (errSii) {
+                logger.error(`[UF] Tampoco se pudo leer la UF desde sii.cl: ${errSii.message}`);
+            }
+            if (!valor) throw new Error(`No se pudo obtener la UF del día (mindicador.cl: ${ultimoError.message}; SII sin valor).`);
+            fuente = 'SII';
         }
 
         const req = pool.request();
         req.input('fecha', sql.Date, hoy);
         req.input('valor', sql.Decimal(18, 4), valor);
+        req.input('fuente', sql.VarChar(50), fuente);
         if (existente.recordset.length > 0) {
-            await req.query(`UPDATE fac_valor_uf SET valor = @valor, fuente = 'BCCH_API', fecha_registro = GETDATE() WHERE fecha = @fecha`);
+            await req.query(`UPDATE fac_valor_uf SET valor = @valor, fuente = @fuente, fecha_registro = GETDATE() WHERE fecha = @fecha`);
         } else {
-            await req.query(`INSERT INTO fac_valor_uf (fecha, valor, fuente) VALUES (@fecha, @valor, 'BCCH_API')`);
+            await req.query(`INSERT INTO fac_valor_uf (fecha, valor, fuente) VALUES (@fecha, @valor, @fuente)`);
         }
 
         logger.info(`[UF] Valor UF actualizado: ${valor} (${hoy})`);
