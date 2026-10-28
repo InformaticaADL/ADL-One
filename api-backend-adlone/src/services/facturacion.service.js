@@ -1391,6 +1391,112 @@ class FacturacionService {
         return `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()}`;
     }
 
+    /** AAAA-MM-DD de una fecha guardada (Date de mssql en UTC-medianoche, o texto); null si no hay. */
+    _isoDia(v) {
+        if (!v) return null;
+        if (typeof v === 'string') { const m = v.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null; }
+        const d = v instanceof Date ? v : new Date(v);
+        if (Number.isNaN(d.getTime())) return null;
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+    }
+
+    /**
+     * El Sistema de Ventas rechaza una referencia (OC/HES) sin fecha o con fecha posterior a la de la factura
+     * ("Fecha documento referencia no válida"). Se avisa ANTES de generar el archivo, indicando qué corregir.
+     */
+    _validarReferencias(pf, fechaFacturacionISO) {
+        const problemas = [];
+        for (const oc of pf.ordenes_compra || []) {
+            for (const [tipo, numero, fecha] of [['OC', oc.numero_oc, oc.fecha_oc], ['HES', oc.numero_hes, oc.fecha_hes]]) {
+                if (!numero) continue;
+                const iso = this._isoDia(fecha);
+                if (!iso) problemas.push(`${tipo} ${numero} no tiene fecha`);
+                else if (iso > fechaFacturacionISO) problemas.push(`${tipo} ${numero} tiene fecha ${this._fechaDDMMYYYY(iso)}, posterior a la fecha de facturación ${this._fechaDDMMYYYY(fechaFacturacionISO)}`);
+            }
+        }
+        if (problemas.length) {
+            throw new Error(`Pre-factura N° ${pf.numero_id}: el Sistema de Ventas rechaza referencias sin fecha o con fecha posterior a la factura (\"Fecha documento referencia no válida\"). ${problemas.join('; ')}. Corrige las fechas de la OC/HES en el detalle de la pre-factura, o la fecha de facturación en Corregir.`);
+        }
+    }
+
+    /** Corrige una OC/HES ya registrada (solo mientras la pre-factura sea corregible). */
+    async actualizarOrdenCompra(idPrefactura, idOc, datos, idUsuario) {
+        if (!datos?.numeroOc) throw new Error('numeroOc es requerido.');
+        const pool = await getConnection();
+        const pf = (await pool.request().input('id', sql.Int, idPrefactura).query('SELECT estado FROM fac_prefactura WHERE id_prefactura = @id')).recordset[0];
+        this._validarEditable(pf);
+        const r = await pool.request()
+            .input('idOc', sql.Int, idOc).input('idPf', sql.Int, idPrefactura)
+            .input('numeroOc', sql.VarChar(100), datos.numeroOc).input('fechaOc', sql.Date, datos.fechaOc || null)
+            .input('referencia', sql.NVarChar(300), datos.referencia || null)
+            .input('numeroHes', sql.VarChar(100), datos.numeroHes || null).input('fechaHes', sql.Date, datos.fechaHes || null)
+            .input('observaciones', sql.NVarChar(500), datos.observaciones || null)
+            .query(`UPDATE fac_orden_compra SET numero_oc = @numeroOc, fecha_oc = @fechaOc, referencia = @referencia,
+                      numero_hes = @numeroHes, fecha_hes = @fechaHes, observaciones = @observaciones
+                    WHERE id_oc = @idOc AND id_prefactura = @idPf`);
+        if (!r.rowsAffected[0]) throw new Error('La OC no existe en esta pre-factura.');
+        await pool.request().input('idEntidad', sql.Int, idPrefactura).input('idUsuario', sql.Int, idUsuario || null)
+            .input('desc', sql.NVarChar(500), `OC ${datos.numeroOc} corregida${datos.numeroHes ? ` (HES ${datos.numeroHes})` : ''}.`)
+            .query(`INSERT INTO fac_historial (entidad, id_entidad, accion, descripcion, id_usuario) VALUES ('PREFACTURA', @idEntidad, 'OC_EDITADA', @desc, @idUsuario)`);
+        return this.getPrefacturaDetalle(idPrefactura);
+    }
+
+    /** Elimina una OC/HES registrada por error (solo mientras la pre-factura sea corregible). */
+    async eliminarOrdenCompra(idPrefactura, idOc, idUsuario) {
+        const pool = await getConnection();
+        const pf = (await pool.request().input('id', sql.Int, idPrefactura).query('SELECT estado FROM fac_prefactura WHERE id_prefactura = @id')).recordset[0];
+        this._validarEditable(pf);
+        const oc = (await pool.request().input('idOc', sql.Int, idOc).input('idPf', sql.Int, idPrefactura)
+            .query('SELECT numero_oc FROM fac_orden_compra WHERE id_oc = @idOc AND id_prefactura = @idPf')).recordset[0];
+        if (!oc) throw new Error('La OC no existe en esta pre-factura.');
+        await pool.request().input('idOc', sql.Int, idOc).query('DELETE FROM fac_orden_compra WHERE id_oc = @idOc');
+        // Sin OC no se puede emitir: vuelve a esperar una.
+        await pool.request().input('id', sql.Int, idPrefactura).query(`
+            UPDATE fac_prefactura SET estado = 'PENDIENTE_OC', fecha_modificacion = GETDATE()
+            WHERE id_prefactura = @id AND estado = 'OC_RECIBIDA'
+              AND NOT EXISTS (SELECT 1 FROM fac_orden_compra WHERE id_prefactura = @id)`);
+        await pool.request().input('idEntidad', sql.Int, idPrefactura).input('idUsuario', sql.Int, idUsuario || null)
+            .input('desc', sql.NVarChar(500), `OC ${oc.numero_oc} eliminada.`)
+            .query(`INSERT INTO fac_historial (entidad, id_entidad, accion, descripcion, id_usuario) VALUES ('PREFACTURA', @idEntidad, 'OC_ELIMINADA', @desc, @idUsuario)`);
+        return this.getPrefacturaDetalle(idPrefactura);
+    }
+
+    /**
+     * Deshace "En emisión" cuando el archivo plano NO llegó a emitirse (p. ej. el Sistema de Ventas lo rechazó al
+     * subirlo): la pre-factura vuelve a ser corregible y se puede generar de nuevo. Se niega si el Sistema de Ventas ya
+     * tiene esa pre-factura (hay que anularla allá primero) o si ya tiene folio.
+     */
+    async reabrirEmision(idPrefactura, idUsuario) {
+        const pool = await getConnection();
+        const pf = (await pool.request().input('id', sql.Int, idPrefactura)
+            .query('SELECT id_prefactura, numero_id, estado FROM fac_prefactura WHERE id_prefactura = @id')).recordset[0];
+        if (!pf) throw new Error('Pre-factura no encontrada.');
+        if (pf.estado !== 'EN_EMISION') throw new Error(`Solo se puede reabrir una pre-factura en emisión (esta está en ${pf.estado}).`);
+        const enVentas = (await pool.request().input('p', sql.Int, pf.numero_id)
+            .query('SELECT COUNT(*) n FROM adl_facturacion.dbo.ventas WHERE prefactura = @p')).recordset[0].n;
+        if (enVentas > 0) throw new Error(`La pre-factura N° ${pf.numero_id} ya existe en el Sistema de Ventas: anúlala allá antes de reabrirla acá.`);
+        const conFolio = (await pool.request().input('id', sql.Int, idPrefactura)
+            .query("SELECT COUNT(*) n FROM fac_emision WHERE id_prefactura = @id AND (folio_sii IS NOT NULL OR estado = 'FOLIO_REGISTRADO')")).recordset[0].n;
+        if (conFolio > 0) throw new Error('La pre-factura ya tiene folio registrado: no se puede reabrir.');
+        const nOc = (await pool.request().input('id', sql.Int, idPrefactura)
+            .query('SELECT COUNT(*) n FROM fac_orden_compra WHERE id_prefactura = @id')).recordset[0].n;
+
+        const tx = new sql.Transaction(pool);
+        await tx.begin();
+        try {
+            await new sql.Request(tx).input('id', sql.Int, idPrefactura)
+                .query("UPDATE fac_emision SET estado = 'DESCARTADO', fecha_modificacion = GETDATE() WHERE id_prefactura = @id AND estado = 'ARCHIVO_GENERADO'");
+            // La fecha de facturación se había fijado sola al generar el archivo: se libera para que se fije de nuevo.
+            await new sql.Request(tx).input('id', sql.Int, idPrefactura).input('estado', sql.VarChar(30), nOc > 0 ? 'OC_RECIBIDA' : 'ENVIADA')
+                .query('UPDATE fac_prefactura SET estado = @estado, fecha_facturacion = NULL, fecha_modificacion = GETDATE() WHERE id_prefactura = @id');
+            await new sql.Request(tx).input('idEntidad', sql.Int, idPrefactura).input('idUsuario', sql.Int, idUsuario || null)
+                .input('desc', sql.NVarChar(500), 'Emisión reabierta: el archivo plano no se emitió en el Sistema de Ventas.')
+                .query("INSERT INTO fac_historial (entidad, id_entidad, accion, estado_anterior, estado_nuevo, descripcion, id_usuario) VALUES ('PREFACTURA', @idEntidad, 'EMISION_REABIERTA', 'EN_EMISION', 'REABIERTA', @desc, @idUsuario)");
+            await tx.commit();
+        } catch (e) { await tx.rollback(); throw e; }
+        return this.getPrefacturaDetalle(idPrefactura);
+    }
+
     /**
      * Genera el archivo plano de un lote de pre-facturas y lo deja listo
      * para subir manualmente al Sistema de Ventas. Requiere que cada
@@ -1440,6 +1546,9 @@ class FacturacionService {
 
             // Primero los datos del cliente: si faltan, se corta antes de tocar la fecha de la pre-factura.
             const cfg = await this._resolverClienteVentas(pf.id_empresaservicio);
+
+            // Las referencias (OC/HES) no pueden faltar de fecha ni ser posteriores a la factura: se valida antes de tocar nada.
+            this._validarReferencias(pf, this._isoDia(pf.fecha_facturacion) || hoy);
 
             const fp = await this._formaPagoVentas(pf.forma_pago);
             if (fp) { cfg.id_formapago_ventas = fp.id; cfg.nom_fp = fp.nombre; }

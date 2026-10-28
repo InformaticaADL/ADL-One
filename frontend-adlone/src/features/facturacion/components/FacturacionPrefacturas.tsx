@@ -2,10 +2,11 @@ import { useEffect, useState, useCallback } from 'react';
 import {
     IconRefresh, IconFileText, IconMail, IconExternalLink,
     IconTruck, IconHistory, IconSend2, IconFileExport, IconDownload, IconFolders,
-    IconPencil, IconBan, IconTrash, IconChevronDown,
+    IconPencil, IconBan, IconTrash, IconChevronDown, IconAlertTriangle,
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
@@ -55,6 +56,11 @@ const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFra
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL') : '—';
 const PAGE_SIZE = 10;
 
+const hoyISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
 // Estados en los que todavía se puede corregir (mismo criterio que el
 // backend: después de emitir, ADL ONE y el Sistema de Ventas quedarían
 // diciendo cosas distintas).
@@ -100,6 +106,11 @@ const FacturacionPrefacturas: React.FC = () => {
     const [accionLoading, setAccionLoading] = useState<string | null>(null);
 
     const [ocModalOpen, setOcModalOpen] = useState(false);
+    // Si no es null, el modal de OC/HES está corrigiendo esa OC en vez de registrar una nueva.
+    const [ocEditId, setOcEditId] = useState<number | null>(null);
+    // Confirmaciones con diálogos propios (no los avisos del navegador).
+    const [confirmOcEliminar, setConfirmOcEliminar] = useState<any | null>(null);
+    const [confirmReabrir, setConfirmReabrir] = useState(false);
     const [ocForm, setOcForm] = useState<{ numeroOc: string; fechaOc: string; referencia: string; numeroHes: string; fechaHes: string; observaciones: string }>(
         { numeroOc: '', fechaOc: '', referencia: '', numeroHes: '', fechaHes: '', observaciones: '' }
     );
@@ -154,6 +165,25 @@ const FacturacionPrefacturas: React.FC = () => {
     const cerrarDetalle = () => { setDrawerId(null); setDetalle(null); };
 
     const puedeCorregir = detalle && EDITABLES.includes(detalle.estado);
+
+    // El Sistema de Ventas rechaza una OC/HES sin fecha o con fecha posterior a la de la factura. Si la fecha de
+    // facturación aún no se fijó, se fija al generar el archivo plano: hoy.
+    const fechaFactEfectiva: string = detalle?.fecha_facturacion ? String(detalle.fecha_facturacion).slice(0, 10) : hoyISO();
+    const problemasFecha = (numeroOc?: string | null, fechaOc?: string | null, numeroHes?: string | null, fechaHes?: string | null): string[] => {
+        const out: string[] = [];
+        const iso = (v?: string | null) => (v ? String(v).slice(0, 10) : '');
+        if (numeroOc) {
+            if (!iso(fechaOc)) out.push(`La OC ${numeroOc} no tiene fecha.`);
+            else if (iso(fechaOc) > fechaFactEfectiva) out.push(`La fecha de la OC (${fmtFecha(iso(fechaOc))}) es posterior a la fecha de facturación (${fmtFecha(fechaFactEfectiva)}).`);
+        }
+        if (numeroHes) {
+            if (!iso(fechaHes)) out.push(`La HES ${numeroHes} no tiene fecha.`);
+            else if (iso(fechaHes) > fechaFactEfectiva) out.push(`La fecha de la HES (${fmtFecha(iso(fechaHes))}) es posterior a la fecha de facturación (${fmtFecha(fechaFactEfectiva)}).`);
+        }
+        return out;
+    };
+    const referenciasVigentes = detalle && !['EMITIDA', 'ANULADA'].includes(detalle.estado);
+    const problemasModal = problemasFecha(ocForm.numeroOc, ocForm.fechaOc, ocForm.numeroHes, ocForm.fechaHes);
 
     const [glosaFeLibre, setGlosaFeLibre] = useState(false);
     const [formasPago, setFormasPago] = useState<{ id_formapago: number; nombre_formapago: string }[]>([]);
@@ -252,26 +282,78 @@ const FacturacionPrefacturas: React.FC = () => {
         }
     };
 
+    const abrirEditarOc = (oc: any) => {
+        setOcEditId(oc.id_oc);
+        setOcForm({
+            numeroOc: oc.numero_oc || '',
+            fechaOc: oc.fecha_oc ? String(oc.fecha_oc).slice(0, 10) : '',
+            referencia: oc.referencia || '',
+            numeroHes: oc.numero_hes || '',
+            fechaHes: oc.fecha_hes ? String(oc.fecha_hes).slice(0, 10) : '',
+            observaciones: oc.observaciones || '',
+        });
+        setOcModalOpen(true);
+    };
+
+    const eliminarOc = async () => {
+        const oc = confirmOcEliminar;
+        if (!drawerId || !oc) return;
+        try {
+            setAccionLoading('oc');
+            await facturacionService.eliminarOrdenCompra(drawerId, oc.id_oc);
+            setConfirmOcEliminar(null);
+            showToast({ type: 'success', message: 'Orden de compra eliminada' });
+            await refrescarDetalle();
+            await cargar();
+        } catch (e: any) {
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo eliminar la OC' });
+        } finally {
+            setAccionLoading(null);
+        }
+    };
+
+    const reabrirEmision = async () => {
+        if (!drawerId) return;
+        try {
+            setAccionLoading('reabrir');
+            await facturacionService.reabrirEmision(drawerId);
+            setConfirmReabrir(false);
+            showToast({ type: 'success', message: 'Emisión reabierta: ya puedes corregir la pre-factura y volver a generar el archivo' });
+            await refrescarDetalle();
+            await cargar();
+        } catch (e: any) {
+            showToast({ type: 'error', message: e?.response?.data?.message || 'No se pudo reabrir la emisión' });
+        } finally {
+            setAccionLoading(null);
+        }
+    };
+
     const registrarOc = async () => {
         if (!drawerId) return;
         if (!ocForm.numeroOc.trim()) { showToast({ type: 'error', message: 'El N° de Orden de Compra es requerido' }); return; }
         try {
             setAccionLoading('oc');
-            const r = await facturacionService.registrarOrdenCompra(drawerId, {
+            const payload = {
                 numeroOc: ocForm.numeroOc,
                 fechaOc: ocForm.fechaOc || undefined,
                 referencia: ocForm.referencia || undefined,
                 numeroHes: ocForm.numeroHes || undefined,
                 fechaHes: ocForm.fechaHes || undefined,
                 observaciones: ocForm.observaciones || undefined,
-            });
+            };
+            const r: any = ocEditId
+                ? await facturacionService.actualizarOrdenCompra(drawerId, ocEditId, payload)
+                : await facturacionService.registrarOrdenCompra(drawerId, payload);
             // El HES faltante avisa, no bloquea: la OC igual quedó registrada.
-            if (r?.aviso_hes) {
+            if (ocEditId) {
+                showToast({ type: 'success', message: 'Orden de compra corregida' });
+            } else if (r?.aviso_hes) {
                 showToast({ type: 'warning', message: r.aviso_hes, duration: 8000 });
             } else {
                 showToast({ type: 'success', message: 'Orden de compra registrada' });
             }
             setOcModalOpen(false);
+            setOcEditId(null);
             setOcForm({ numeroOc: '', fechaOc: '', referencia: '', numeroHes: '', fechaHes: '', observaciones: '' });
             await refrescarDetalle();
             await cargar();
@@ -604,6 +686,14 @@ const FacturacionPrefacturas: React.FC = () => {
                                     <p className="mt-1 text-xs text-muted-foreground">
                                         La pre-factura fue emitida o está en emisión: modificarla acá dejaría ADL ONE y el Sistema de Ventas con datos distintos.
                                     </p>
+                                    {detalle.estado === 'EN_EMISION' && (
+                                        <div className="mt-2">
+                                            <p className="text-xs text-muted-foreground">Si el archivo plano no se pudo subir o el Sistema de Ventas lo rechazó, puedes reabrir la emisión para corregir y volver a generarlo.</p>
+                                            <Button size="sm" variant="outline" className="mt-2" onClick={() => setConfirmReabrir(true)}>
+                                                <IconRefresh size={14} /> Reabrir emisión
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -646,6 +736,16 @@ const FacturacionPrefacturas: React.FC = () => {
                             </div>
 
                             <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Órdenes de compra / HES ({detalle.ordenes_compra?.length || 0})</p>
+                            {referenciasVigentes && (detalle.ordenes_compra || []).some((oc: any) => problemasFecha(oc.numero_oc, oc.fecha_oc, oc.numero_hes, oc.fecha_hes).length > 0) && (
+                                <Alert variant="warning" className="mb-3">
+                                    <IconAlertTriangle />
+                                    <AlertTitle>Hay fechas que el Sistema de Ventas rechazará</AlertTitle>
+                                    <AlertDescription>
+                                        Una OC o HES no puede faltar de fecha ni ser posterior a la fecha de facturación ({fmtFecha(fechaFactEfectiva)}).
+                                        Corrígelas con el lápiz de la tabla antes de generar el archivo plano.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             {detalle.ordenes_compra?.length ? (
                                 <div className="mb-5 overflow-hidden rounded-xl border border-border bg-card">
                                     <Table>
@@ -655,15 +755,40 @@ const FacturacionPrefacturas: React.FC = () => {
                                                 <TableHead>Fecha OC</TableHead>
                                                 <TableHead>N° HES</TableHead>
                                                 <TableHead>Fecha HES</TableHead>
+                                                {puedeCorregir && <TableHead className="w-20" />}
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {detalle.ordenes_compra.map((oc: any) => (
-                                                <TableRow key={oc.id_orden_compra}>
+                                                <TableRow key={oc.id_oc}>
                                                     <TableCell>{oc.numero_oc}</TableCell>
-                                                    <TableCell>{fmtFecha(oc.fecha_oc)}</TableCell>
+                                                    <TableCell>
+                                                        {referenciasVigentes && problemasFecha(oc.numero_oc, oc.fecha_oc, null, null).length > 0 ? (
+                                                            <span className="inline-flex items-center gap-1 font-medium text-warning" title={problemasFecha(oc.numero_oc, oc.fecha_oc, null, null).join(' ')}>
+                                                                <IconAlertTriangle size={13} /> {oc.fecha_oc ? fmtFecha(oc.fecha_oc) : 'Sin fecha'}
+                                                            </span>
+                                                        ) : fmtFecha(oc.fecha_oc)}
+                                                    </TableCell>
                                                     <TableCell>{oc.numero_hes || '—'}</TableCell>
-                                                    <TableCell>{oc.numero_hes ? fmtFecha(oc.fecha_hes) : '—'}</TableCell>
+                                                    <TableCell>
+                                                        {!oc.numero_hes ? '—' : (referenciasVigentes && problemasFecha(null, null, oc.numero_hes, oc.fecha_hes).length > 0) ? (
+                                                            <span className="inline-flex items-center gap-1 font-medium text-warning" title={problemasFecha(null, null, oc.numero_hes, oc.fecha_hes).join(' ')}>
+                                                                <IconAlertTriangle size={13} /> {oc.fecha_hes ? fmtFecha(oc.fecha_hes) : 'Sin fecha'}
+                                                            </span>
+                                                        ) : fmtFecha(oc.fecha_hes)}
+                                                    </TableCell>
+                                                    {puedeCorregir && (
+                                                        <TableCell>
+                                                            <div className="flex gap-1">
+                                                                <Button size="icon" variant="ghost" className="h-7 w-7" title="Corregir esta OC/HES" onClick={() => abrirEditarOc(oc)}>
+                                                                    <IconPencil size={13} />
+                                                                </Button>
+                                                                <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive" title="Eliminar esta OC/HES" onClick={() => setConfirmOcEliminar(oc)}>
+                                                                    <IconTrash size={13} />
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    )}
                                                 </TableRow>
                                             ))}
                                         </TableBody>
@@ -691,10 +816,10 @@ const FacturacionPrefacturas: React.FC = () => {
                 </SheetContent>
             </Sheet>
 
-            <Dialog open={ocModalOpen} onOpenChange={setOcModalOpen}>
+            <Dialog open={ocModalOpen} onOpenChange={(abierto) => { setOcModalOpen(abierto); if (!abierto) { setOcEditId(null); setOcForm({ numeroOc: '', fechaOc: '', referencia: '', numeroHes: '', fechaHes: '', observaciones: '' }); } }}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Registrar Orden de Compra / HES</DialogTitle>
+                        <DialogTitle>{ocEditId ? 'Corregir Orden de Compra / HES' : 'Registrar Orden de Compra / HES'}</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col gap-3.5">
                         <FieldLabel label="N° Orden de Compra" required>
@@ -712,6 +837,15 @@ const FacturacionPrefacturas: React.FC = () => {
                         <FieldLabel label="Fecha HES">
                             <DatePicker value={ocForm.fechaHes} onChange={(v) => setOcForm({ ...ocForm, fechaHes: v })} />
                         </FieldLabel>
+                        {problemasModal.length > 0 && (
+                            <Alert variant="warning">
+                                <IconAlertTriangle />
+                                <AlertTitle>El Sistema de Ventas no aceptará esta fecha</AlertTitle>
+                                <AlertDescription>
+                                    {problemasModal.join(' ')} Una OC o HES no puede faltar de fecha ni ser posterior a la factura. Corrige la fecha, o la fecha de facturación en Corregir.
+                                </AlertDescription>
+                            </Alert>
+                        )}
                         <FieldLabel label="Observaciones">
                             <textarea
                                 rows={3}
@@ -725,7 +859,7 @@ const FacturacionPrefacturas: React.FC = () => {
                         <Button variant="outline" onClick={() => setOcModalOpen(false)}>Cancelar</Button>
                         <Button disabled={accionLoading === 'oc'} onClick={registrarOc}>
                             {accionLoading === 'oc' ? <Spinner className="border-primary-foreground" /> : <IconSend2 size={14} />}
-                            Registrar
+                            {ocEditId ? 'Guardar cambios' : 'Registrar'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -826,6 +960,43 @@ const FacturacionPrefacturas: React.FC = () => {
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setConfirmQuitarCaso(null)}>Cancelar</Button>
                         <Button variant="destructive" onClick={confirmarQuitarCaso}>Quitar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmOcEliminar !== null} onOpenChange={(open) => { if (!open) setConfirmOcEliminar(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¿Eliminar la OC {confirmOcEliminar?.numero_oc}?</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        Se elimina esta orden de compra{confirmOcEliminar?.numero_hes ? ` y su HES ${confirmOcEliminar.numero_hes}` : ''}. Si era la única, la pre-factura vuelve a quedar pendiente de OC.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmOcEliminar(null)}>Cancelar</Button>
+                        <Button variant="destructive" disabled={accionLoading === 'oc'} onClick={eliminarOc}>
+                            {accionLoading === 'oc' ? <Spinner className="border-primary-foreground" /> : null}
+                            Eliminar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={confirmReabrir} onOpenChange={setConfirmReabrir}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>¿Reabrir la emisión de la pre-factura N° {detalle?.numero_id}?</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        Úsalo solo si el archivo plano <strong>no se emitió</strong> en el Sistema de Ventas, por ejemplo porque lo rechazó al subirlo.
+                        La pre-factura vuelve a ser corregible y podrás generar el archivo de nuevo.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmReabrir(false)}>Cancelar</Button>
+                        <Button disabled={accionLoading === 'reabrir'} onClick={reabrirEmision}>
+                            {accionLoading === 'reabrir' ? <Spinner className="border-primary-foreground" /> : null}
+                            Reabrir emisión
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
