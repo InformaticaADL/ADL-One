@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { HubGrid, type HubOption } from '../components/HubGrid';
@@ -11,6 +11,8 @@ interface Props {
 
 export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const { hasPermission } = useAuth();
+
+    const GC_ACCESS = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
 
     const OPTIONS: HubOption[] = [
         {
@@ -24,12 +26,24 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             ),
             description: 'Inventario, configuración y mantenimiento preventivo de equipos.',
         },
+        {
+            id: 'gc-dashboard-equipos',
+            label: 'Dashboard de Equipos',
+            icon: <IconChartBar size={20} stroke={1.75} />,
+            description: 'KPIs, gráficos y análisis del inventario de equipos de calidad.',
+        },
+        {
+            id: 'gc-calendario-vencimientos',
+            label: 'Calendario de Vencimientos',
+            icon: <IconCalendarEvent size={20} stroke={1.75} />,
+            description: 'Vista mensual de vencimientos de equipos con alertas por proximidad.',
+        },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {
-        if (opt.id === 'admin-equipos-gestion') {
+        if (opt.id === 'admin-equipos-gestion' || opt.id === 'gc-dashboard-equipos' || opt.id === 'gc-calendario-vencimientos') {
             // RB-08: removido AI_MA_ADMIN_ACCESO
-            return hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
+            return GC_ACCESS;
         }
         return false;
     });

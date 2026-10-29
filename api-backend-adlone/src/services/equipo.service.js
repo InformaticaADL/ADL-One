@@ -775,8 +775,18 @@ export const equipoService = {
             // que originalmente cargó la tabla): sigla VarChar(20), equipo_asociado VarChar(200).
             // Usar anchos más angostos acá rompe el protocolo TDS con cualquier valor real que
             // los supere — mismo tipo de bug ya confirmado y corregido para tienefc.
-            request.input('sigla', sql.VarChar(20), data.sigla || '');
-            request.input('correlativo', sql.Numeric(10, 0), data.correlativo || 0);
+            // Si sigla/correlativo no vienen del body, extraerlos del código (ej: "BAT.222/MA.PM" → sigla=BAT, correlativo=222)
+            let siglaCreate = data.sigla || '';
+            let correlativoCreate = data.correlativo || 0;
+            if ((!siglaCreate || !correlativoCreate) && data.codigo) {
+                const m = data.codigo.match(/^([A-Za-z]+)\.(\d+)\//);
+                if (m) {
+                    if (!siglaCreate) siglaCreate = m[1];
+                    if (!correlativoCreate) correlativoCreate = parseInt(m[2], 10);
+                }
+            }
+            request.input('sigla', sql.VarChar(20), siglaCreate);
+            request.input('correlativo', sql.Numeric(10, 0), correlativoCreate);
             const tienefcCreate = (data.tiene_fc === 'SI' || data.tiene_fc === 'S') ? 'S' : 'N';
             request.input('tienefc', sql.VarChar(1), tienefcCreate);
             request.input('error0', sql.Numeric(10, 1), isNaN(parseFloat(data.error0)) ? 0 : parseFloat(data.error0));

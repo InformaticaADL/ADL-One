@@ -4,6 +4,7 @@ import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
 import auditService from './audit.service.js';
 import unsService from './uns.service.js';
+import gemUsuariosService, { ROL_GEM } from './gemUsuarios.service.js';
 import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit-table';
@@ -4125,9 +4126,22 @@ class FichaIngresoService {
             throw error;
         }
     }
-    async getMuestreosEjecutados() {
+    async getMuestreosEjecutados(user) {
         const pool = await getConnection();
         const request = pool.request();
+
+        // Si el usuario tiene rol GEM MAM y tiene empresas asignadas, filtrar solo esas empresas.
+        let empresaFilter = '';
+        if (user && user.id) {
+            const isGem = await gemUsuariosService.isGemUser(user.id);
+            if (isGem) {
+                const empresas = await gemUsuariosService.getEmpresasAsignadas(user.id);
+                if (empresas.length > 0) {
+                    const ids = empresas.map(e => Number(e.id_empresa)).filter(Boolean).join(',');
+                    empresaFilter = `AND f.id_empresa IN (${ids})`;
+                }
+            }
+        }
 
         const query = `
             SELECT
@@ -4171,6 +4185,7 @@ class FichaIngresoService {
             LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador
             LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
             WHERE a.id_estadomuestreo = 3
+            ${empresaFilter}
             ORDER BY a.caso_adlab DESC, a.fecha_muestreo DESC, f.id_fichaingresoservicio DESC
         `;
 

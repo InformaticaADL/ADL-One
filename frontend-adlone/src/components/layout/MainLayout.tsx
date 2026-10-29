@@ -69,6 +69,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         '', 'informatica', 'medio_ambiente', 'gestion_calidad',
         'admin-roles', 'admin-users', 'admin-notifications', 'admin-urs',
         'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados',
+        'gc-dashboard-equipos',
     ];
     const esAdminInfo =
         activeModule === 'admin_informacion' && ADMIN_INFO_SCREENS.includes(activeSubmodule || '');

@@ -777,6 +777,20 @@ frontend-adlone/
 - **Corrección de Anchos de Columna (`sigla`, `equipo_asociado`)**: los 5 caminos de escritura de `mae_equipo` (`createEquipo`, `createEquiposBulk`, `updateEquipo`, `deleteEquipo`, `restoreVersion`) bindeaban `sigla` y `equipo_asociado` con anchos `VarChar` más angostos que las columnas reales (confirmado contra `import_all_equipos.js`), generando el mismo error de protocolo TDS que `tienefc` ante valores reales que los superaban. Corregido a los anchos reales en la tabla principal, y con `clip()` en los inserts a `mae_equipo_historial` (columnas más angostas por diseño).
 - **Carga Diferida de Documentos (`EquipoForm.tsx`)**: el documento de mantención ya no se sube al servidor al seleccionarlo, sino recién al guardar el equipo — evita que cancelar el formulario o quitar el documento antes de guardar deje archivos huérfanos en disco.
 
+### 85. Dashboard de Equipos GC, Calendario de Vencimientos y Filtrado GEM por Empresa (Octubre 2026) 📊📅🔬
+
+- **Dashboard de Equipos de Gestión de Calidad (`GcEquiposDashboardPage.tsx`, `EquiposDashboard.tsx`)**:
+  - Nueva vista de analítica y métricas para el inventario de equipos en GC: total de equipos, activos vs. inactivos, conteo de vencidos y por vencer en los próximos 30 días, y desglose por sede y categoría.
+- **Calendario Mensual Interactivo de Vencimientos (`GcCalendarioVencimientosPage.tsx`)**:
+  - Vista de calendario por mes con badges cromáticos de estado (*Vencido*, *Por vencer*, *Vigente*), panel lateral de detalle del día seleccionado y buscador rápido por código, nombre o responsable.
+  - Accesos directos integrados en el Hub de Gestión de Calidad (`AdminGcHub.tsx`) y enrutamiento central (`DashboardPage.tsx`).
+- **Auto-extracción de Sigla y Correlativo (`equipo.service.js`)**:
+  - En la creación de equipos, si no se especifican explícitamente `sigla` o `correlativo`, se extraen automáticamente mediante regex del código institucional (ej. `BAT.222/MA.PM` → sigla: `BAT`, correlativo: `222`).
+- **Mejoras en Visualización de Documentos de Equipos (`EquiposPage.tsx`)**:
+  - Optimización del diálogo de previsualización de documentos adjuntos (PDFs e imágenes) con botón de descarga directo y layout ajustado.
+- **Filtrado de Muestreos Ejecutados para Usuarios GEM (`ficha.controller.js`, `ficha.service.js`)**:
+  - Detección del rol GEM en el usuario autenticado para filtrar los muestreos ejecutados (`getMuestreosEjecutados`) únicamente según sus empresas cliente asignadas en `rel_usuario_empresa_asignada`.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -876,6 +890,7 @@ npm run dev       # Puerto 5173
 | **Filtros y Búsqueda en Analizadores Excel** | StatCards clicables, filtro por sede, toggle de advertencias, búsqueda flotante por código/nombre | ✅ Implementado |
 | **Integridad de equipo_asociado** | Renombrado en cascada al cambiar el código de un equipo dentro de la misma transacción | ✅ Implementado |
 | **Carga Diferida de Documentos de Equipo** | Subida del archivo recién al guardar (no al seleccionar) — elimina archivos huérfanos en disco | ✅ Implementado |
+| **Dashboard y Calendario GC + Filtro GEM** | Dashboard de equipos GC, calendario de vencimientos y filtrado de muestreos por empresas asignadas GEM | ✅ Implementado |
 
 ---
 

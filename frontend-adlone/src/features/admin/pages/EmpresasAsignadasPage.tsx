@@ -45,16 +45,17 @@ export const EmpresasAsignadasPage: React.FC<Props> = ({ onBack }) => {
     const loadData = async () => {
         try {
             setLoading(true);
-            const [a, u, e] = await Promise.all([
+            const [a, u, e] = await Promise.allSettled([
                 empresaAsignadaService.listarTodas(),
                 rbacService.getAllUsersWithStatus(),
                 empresaAsignadaService.empresas(),
             ]);
-            setAsignaciones(a);
-            setUsuarios(u.filter((x) => x.habilitado === 'S'));
-            setEmpresas(e);
-        } catch (error) {
-            showToast({ type: 'error', message: 'Error al cargar las asignaciones' });
+            if (a.status === 'fulfilled') setAsignaciones(a.value);
+            else showToast({ type: 'error', message: 'Error al cargar las asignaciones' });
+            if (u.status === 'fulfilled') setUsuarios(u.value.filter((x) => x.habilitado === 'S'));
+            else showToast({ type: 'error', message: 'Error al cargar los usuarios' });
+            if (e.status === 'fulfilled') setEmpresas(e.value);
+            else showToast({ type: 'warning', message: 'No se pudieron cargar las empresas del portal (WebClientesV2 no disponible)' });
         } finally {
             setLoading(false);
         }

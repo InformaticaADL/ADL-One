@@ -378,9 +378,9 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al generar el Excel de la ficha', 500, err.message);
         }
     }
-    async getMuestreosEjecutados(_req, res) {
+    async getMuestreosEjecutados(req, res) {
         try {
-            const result = await fichaService.getMuestreosEjecutados();
+            const result = await fichaService.getMuestreosEjecutados(req.user);
             return successResponse(res, result, 'Muestreos ejecutados obtenidos exitosamente');
         } catch (err) {
             logger.error('Error in getMuestreosEjecutados controller:', err);

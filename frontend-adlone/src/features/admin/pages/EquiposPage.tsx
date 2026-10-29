@@ -16,7 +16,8 @@ import {
     IconPaperclip,
     IconFileSpreadsheet,
     IconChevronUp,
-    IconChevronDown
+    IconChevronDown,
+    IconCalendarEvent
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,8 @@ import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { EquipoForm } from '../components/EquipoForm';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
+import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
+import { GcCalendarioVencimientosPage } from './GcCalendarioVencimientosPage';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useNavStore } from '../../../store/navStore';
@@ -163,6 +166,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resultadoAutoEquipos, setResultadoAutoEquipos] = useState<AnalisisExcelResponse | null>(null);
     const [resultadoAutoTemperatura, setResultadoAutoTemperatura] = useState<AnalisisTemperaturaResponse | null>(null);
     const fileInputAutoRef = useRef<HTMLInputElement>(null);
+    const [activeView, setActiveView] = useState<'general' | 'list' | 'dashboard' | 'calendario'>('general');
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
@@ -272,7 +276,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         estados: ['Activo', 'Inactivo']
     });
 
-    const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb } = useNavStore();
+    const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb, setActiveSubmodule } = useNavStore();
 
     // EquipoForm ya dibuja su propio título/botón "Volver" (no usa PageHeader),
     // así que en vez de montar un segundo PageHeader visual encima publicamos
@@ -1222,6 +1226,26 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         );
     };
 
+    const handleKpiClick = (filter: KpiFilter) => {
+        setActiveView('list');
+        setPage(1);
+        setFilterExpired(false);
+        setFilterInactiveSampler(false);
+        setFilterFechaDesde('');
+        setFilterFechaHasta('');
+        setFilterEstado(null);
+        if (filter === 'activos') {
+            setFilterEstado('Activo');
+        } else if (filter === 'vencidos') {
+            setFilterExpired(true);
+        } else if (filter === 'por_vencer') {
+            setFilterFechaDesde(todayStr);
+            setFilterFechaHasta(in30Str);
+            setFilterEstado('Activo');
+        }
+        // 'all' y 'sin_asignar' van a la lista sin filtros especiales
+    };
+
     return (
         // En teléfono la página scrollea completa (ver isFullHeightModule en
         // MainLayout): fijar la cabecera dejaba la lista en una franja mínima.
@@ -1249,21 +1273,36 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 {/* En teléfono los tres rótulos suman más que el ancho de pantalla:
                     la fila se desliza en horizontal (sin barra visible) en vez de
                     comprimir los botones. */}
+                <div className="flex items-center gap-2">
                 <div className="scrollbar-none inline-flex h-9 w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground md:w-fit md:justify-center [&>button]:shrink-0">
+                    {/* Tab: General */}
                     <button
                         type="button"
                         onClick={() => {
-                            if (isPorVencerActive) {
-                                setFilterFechaDesde('');
-                                setFilterFechaHasta('');
-                                setFilterEstado(null);
-                            } else {
-                                setFilterFechaDesde(todayStr);
-                                setFilterFechaHasta(in30Str);
-                                setFilterEstado('Activo');
-                                setFilterExpired(false);
-                                setFilterInactiveSampler(false);
-                            }
+                            setActiveView('general');
+                            setFilterExpired(false);
+                            setFilterInactiveSampler(false);
+                            setFilterFechaDesde('');
+                            setFilterFechaHasta('');
+                            setFilterEstado(null);
+                            setPage(1);
+                        }}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            activeView === 'general' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
+                    >
+                        General
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setActiveView('list');
+                            setFilterFechaDesde(todayStr);
+                            setFilterFechaHasta(in30Str);
+                            setFilterEstado('Activo');
+                            setFilterExpired(false);
+                            setFilterInactiveSampler(false);
                             setPage(1);
                         }}
                         className={cn(
@@ -1276,8 +1315,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     <button
                         type="button"
                         onClick={() => {
-                            const nextVal = !filterExpired;
-                            setFilterExpired(nextVal);
+                            setActiveView('list');
+                            setFilterExpired(true);
                             setFilterEstado(null);
                             setFilterInactiveSampler(false);
                             setFilterFechaDesde('');
@@ -1294,9 +1333,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     <button
                         type="button"
                         onClick={() => {
-                            const nextVal = !filterInactiveSampler;
-                            setFilterInactiveSampler(nextVal);
-                            setFilterEstado(nextVal ? 'Activo' : null);
+                            setActiveView('list');
+                            setFilterInactiveSampler(true);
+                            setFilterEstado('Activo');
                             setFilterExpired(false);
                             setFilterFechaDesde('');
                             setFilterFechaHasta('');
@@ -1312,15 +1351,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     <button
                         type="button"
                         onClick={() => {
-                            if (isActivosActive) {
-                                setFilterEstado(null);
-                            } else {
-                                setFilterEstado('Activo');
-                                setFilterExpired(false);
-                                setFilterInactiveSampler(false);
-                                setFilterFechaDesde('');
-                                setFilterFechaHasta('');
-                            }
+                            setActiveView('list');
+                            setFilterEstado('Activo');
+                            setFilterExpired(false);
+                            setFilterInactiveSampler(false);
+                            setFilterFechaDesde('');
+                            setFilterFechaHasta('');
                             setPage(1);
                         }}
                         className={cn(
@@ -1330,6 +1366,32 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     >
                         Activos{activeCount > 0 && ` (${activeCount})`}
                     </button>
+                    {/* Tab: Dashboard */}
+                    <button
+                        type="button"
+                        onClick={() => { setActiveView('dashboard'); handleClearFilters(); }}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            activeView === 'dashboard' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
+                    >
+                        Dashboard
+                    </button>
+                </div>
+                {/* Botón Calendario de Vencimientos */}
+                <button
+                    type="button"
+                    onClick={() => { setActiveView('calendario'); handleClearFilters(); }}
+                    className={cn(
+                        'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
+                        activeView === 'calendario'
+                            ? 'border-primary bg-primary/10 text-primary'
+                            : 'bg-background text-muted-foreground shadow-xs hover:bg-muted hover:text-foreground'
+                    )}
+                >
+                    <IconCalendarEvent size={15} />
+                    Calendario
+                </button>
                 </div>
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -1498,13 +1560,34 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
             </div>
 
+            {/* Vista Dashboard (KPIs + gráficos) */}
+            {activeView === 'dashboard' && (
+                <div className={cn(!isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
+                    <EquiposDashboard
+                        equipos={allEquipos}
+                        expiringCount={expiringCount}
+                        expiredCount={expiredCount}
+                        activeCount={activeCount}
+                        inactiveSamplerCount={inactiveSamplerCount}
+                        onKpiClick={handleKpiClick}
+                    />
+                </div>
+            )}
+
+            {/* Vista Calendario de Vencimientos */}
+            {activeView === 'calendario' && (
+                <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
+                    <GcCalendarioVencimientosPage onBack={() => setActiveView('general')} hideHeader onEditEquipo={handleEdit} />
+                </div>
+            )}
+
             {/* La tarjeta NO lleva flex-1 (se estiraría dejando un hueco en blanco con
                 pocas filas) ni la franja lleva overflow-y-auto (scrollearía la página
                 entera, empujando la paginación fuera de vista al subir las filas por
                 página). Con `min-h-0` y shrink por defecto, la tarjeta mide su contenido
                 mientras entra y se encoge cuando no: ahí scrollea la tabla por dentro y
                 la paginación, que es shrink-0, queda fija abajo. */}
-            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1')}>
+            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1', (activeView === 'dashboard' || activeView === 'calendario') && 'hidden')}>
                 <div ref={listaRef} className="relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
@@ -2217,15 +2300,35 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             {/* ── Document Preview Modal ── */}
             <Dialog open={!!docPreview} onOpenChange={(open) => { if (!open) cerrarDocPreview(); }}>
                 <DialogContent className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 overflow-hidden p-0">
-                    <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-3">
-                        <DialogTitle className="flex min-w-0 items-center gap-2 text-sm font-medium">
+                    <DialogHeader className="border-b px-4 py-3">
+                        <DialogTitle className="flex min-w-0 items-center gap-2 pr-8 text-sm font-medium">
                             <IconPaperclip size={16} className="shrink-0 text-primary" />
                             <span className="truncate">{docPreview?.nombre}</span>
                         </DialogTitle>
+                    </DialogHeader>
+
+                    <div className="flex min-h-0 flex-1 items-center justify-center bg-muted/30 p-2">
+                        {docPreview?.mimeType === 'application/pdf' && (
+                            <iframe
+                                src={docPreview.blobUrl}
+                                title={docPreview.nombre}
+                                className="h-[70vh] w-full rounded border-0"
+                            />
+                        )}
+                        {docPreview?.mimeType.startsWith('image/') && (
+                            <img
+                                src={docPreview.blobUrl}
+                                alt={docPreview.nombre}
+                                className="max-h-[70vh] max-w-full rounded object-contain shadow"
+                            />
+                        )}
+                    </div>
+
+                    <div className="flex justify-center border-t px-4 py-3">
                         <Button
                             variant="outline"
                             size="sm"
-                            className="ml-4 shrink-0 gap-1.5 text-xs"
+                            className="gap-1.5 text-xs"
                             onClick={async () => {
                                 if (!docPreview) return;
                                 const link = document.createElement('a');
@@ -2239,23 +2342,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             <IconDownload size={14} />
                             Descargar
                         </Button>
-                    </DialogHeader>
-
-                    <div className="flex min-h-0 flex-1 items-center justify-center bg-muted/30 p-2">
-                        {docPreview?.mimeType === 'application/pdf' && (
-                            <iframe
-                                src={docPreview.blobUrl}
-                                title={docPreview.nombre}
-                                className="h-[75vh] w-full rounded border-0"
-                            />
-                        )}
-                        {docPreview?.mimeType.startsWith('image/') && (
-                            <img
-                                src={docPreview.blobUrl}
-                                alt={docPreview.nombre}
-                                className="max-h-[75vh] max-w-full rounded object-contain shadow"
-                            />
-                        )}
                     </div>
                 </DialogContent>
             </Dialog>

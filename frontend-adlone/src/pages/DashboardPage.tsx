@@ -24,8 +24,11 @@ import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
 import { AdminGcHub } from '../features/admin/pages/AdminGcHub';
 import { MuestreadoresPage } from '../features/admin/pages/MuestreadoresPage';
 import { GemUsuariosPage } from '../features/admin/pages/GemUsuariosPage';
+
 import { RevisionDuplicadosPage } from '../features/admin/pages/RevisionDuplicadosPage';
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
+import { GcEquiposDashboardPage } from '../features/admin/pages/GcEquiposDashboardPage';
+import { GcCalendarioVencimientosPage } from '../features/admin/pages/GcCalendarioVencimientosPage';
 import NewRequestPage from '../features/urs/pages/NewRequestPage';
 import UniversalInbox from '../features/urs/components/UniversalInbox';
 import { UserNotificationsPage } from '../features/notifications/pages/UserNotificationsPage';
@@ -114,9 +117,11 @@ const DashboardPage = () => {
         );
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
+        if (activeSubmodule === 'gc-dashboard-equipos') return <GcEquiposDashboardPage onBack={() => setActiveSubmodule('')} />;
+        if (activeSubmodule === 'gc-calendario-vencimientos') return <GcCalendarioVencimientosPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-usuarios-gem') return <GemUsuariosPage onBack={() => setActiveSubmodule('')} />;
-        if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
+if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
 
         if (activeSubmodule === 'bm-consulta') {
             if (!hasPermission('BM_ACCESO') && !hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
