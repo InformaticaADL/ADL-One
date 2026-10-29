@@ -8,6 +8,8 @@ const LoginPage = () => {
     const { login } = useAuth();
     const { showToast } = useToast();
     const [loading, setLoading] = useState(false);
+    // Tras 3 contraseñas incorrectas el servidor informa el correo (enmascarado) para ofrecer recuperarla.
+    const [recoveryHint, setRecoveryHint] = useState<{ username: string; maskedEmail: string | null; attempts: number } | null>(null);
 
     const handleLoginSubmit = async (credentials: any) => {
         setLoading(true);
@@ -16,6 +18,10 @@ const LoginPage = () => {
             showToast({ type: 'success', message: '¡Bienvenido a ADL One!' });
         } catch (error: any) {
             const msg = error.response?.data?.message || 'Credenciales Incorrectas';
+            const datos = error.response?.data?.data;
+            if (error.response?.status === 401 && datos?.failedAttempts >= 3) {
+                setRecoveryHint({ username: credentials.email, maskedEmail: datos.maskedEmail ?? null, attempts: datos.failedAttempts });
+            }
             showToast({ type: 'error', message: msg });
         } finally {
             setLoading(false);
@@ -25,7 +31,7 @@ const LoginPage = () => {
     return (
         <div className="login-page">
             <div className="login-container">
-                <LoginForm onSubmit={handleLoginSubmit} isLoading={loading} />
+                <LoginForm onSubmit={handleLoginSubmit} isLoading={loading} recoveryHint={recoveryHint} onRecoveryClose={() => setRecoveryHint(null)} />
             </div>
         </div>
     );

@@ -308,18 +308,10 @@ export const FichaDetailView = () => {
     const isRechazada = (ficha?.estado_ficha || '').toUpperCase().includes('RECHAZADA');
     const showUf = hasPermission('FI_EXP_VER_UF');
 
-    // Se listan TODOS los equipos del muestreo (deduplicados por código), no solo los que la app
-    // móvil alcanzó a marcar usado_instalacion/usado_retiro='S' — ese flag no siempre cubre todos
-    // los equipos realmente asignados, y dejaba equipos reales fuera de la ficha.
-    const equiposInstUsados = equipos
-        ?.filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx) || [];
+    const equiposInstUsados = equipos?.filter((e: any) => e.usado_instalacion === 'S' || e.usado_retiro === 'S')
+        .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx) || [];
     const equiposInstalacion = equipos?.filter((e: any) => e.usado_instalacion === 'S') || [];
     const equiposRetiro = equipos?.filter((e: any) => e.usado_retiro === 'S') || [];
-    // Equipos que el modo Instalación/Retiro dejaría afuera de ambas columnas porque ningún flag
-    // vino en 'S' (mismo motivo de arriba): se muestran aparte para que no desaparezcan.
-    const equiposSinEtapa = equipos
-        ?.filter((e: any) => e.usado_instalacion !== 'S' && e.usado_retiro !== 'S')
-        .filter((e: any, idx: number, arr: any[]) => arr.findIndex((o: any) => o.codigo === e.codigo) === idx) || [];
 
     const analisisTerreno = analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo') || [];
     const analisisLaboratorio = analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio') || [];
@@ -650,22 +642,6 @@ export const FichaDetailView = () => {
                                                     ) : <span className="text-[13px] italic text-muted-foreground">No hay equipos registrados.</span>}
                                                 </div>
                                             </div>
-                                            {equiposSinEtapa.length > 0 && (
-                                                <div>
-                                                    <div className="mb-4 flex items-center gap-2">
-                                                        <IconTool className="text-muted-foreground" size={20} />
-                                                        <h5 className="m-0 text-base font-semibold">Otros Equipos Asignados</h5>
-                                                    </div>
-                                                    <div className="flex flex-col gap-2">
-                                                        {equiposSinEtapa.map((eq: any, i: number) => (
-                                                            <div key={i} className="rounded-md border border-border p-2">
-                                                                <span className="block text-[13px] font-semibold">{eq.nombre}</span>
-                                                                <span className="text-xs text-muted-foreground">Código: {eq.codigo}</span>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                     <div className="my-6 flex items-center gap-3">

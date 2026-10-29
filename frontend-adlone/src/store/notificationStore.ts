@@ -21,6 +21,7 @@ interface NotificationState {
     // X-10: estado de la conexión Socket.IO
     socketStatus: 'idle' | 'connecting' | 'connected' | 'disconnected';
     fetchNotifications: () => Promise<void>;
+    refrescarEnSegundoPlano: () => Promise<void>;
     markAsRead: (id: number) => Promise<void>;
     markAsReadByRef: (idReferencia: number) => Promise<void>;
     markAllAsRead: () => Promise<void>;
@@ -36,10 +37,24 @@ let socket: Socket | null = null;
 // Servicios) puedan escuchar eventos propios sin abrir una segunda conexión.
 export const getNotificationSocket = (): Socket | null => socket;
 
-export const useNotificationStore = create<NotificationState>((set) => ({
+// Las solicitudes de clientes las crea el portal escribiendo directo en la base: no pasan por el socket de este backend.
+// Por eso se consulta cada pocos segundos; así la campana, el contador y el aviso se actualizan sin recargar la página.
+const REFRESCO_NOTIFICACIONES_MS = 20000;
+let temporizadorRefresco: ReturnType<typeof setInterval> | null = null;
+const detenerRefresco = () => { if (temporizadorRefresco) { clearInterval(temporizadorRefresco); temporizadorRefresco = null; } };
+
+export const useNotificationStore = create<NotificationState>((set, get) => ({
     notifications: [],
     loading: false,
     socketStatus: 'idle',
+
+    refrescarEnSegundoPlano: async () => {
+        try {
+            const data: Notification[] = await notificationService.getMyNotifications(false);
+            if (!Array.isArray(data)) return;
+            set({ notifications: data });
+        } catch { /* se reintenta en el próximo ciclo */ }
+    },
 
     fetchNotifications: async () => {
         set({ loading: true });
@@ -109,6 +124,9 @@ export const useNotificationStore = create<NotificationState>((set) => ({
             socket = null;
         }
 
+        detenerRefresco();
+        temporizadorRefresco = setInterval(() => { void get().refrescarEnSegundoPlano(); }, REFRESCO_NOTIFICACIONES_MS);
+
         set({ socketStatus: 'connecting' });
         const baseUrl = API_CONFIG.getBaseURL();
         socket = io(baseUrl, {
@@ -156,6 +174,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     },
 
     disconnectSocket: () => {
+        detenerRefresco();
         if (socket) {
             socket.disconnect();
             socket = null;
@@ -166,6 +185,7 @@ export const useNotificationStore = create<NotificationState>((set) => ({
     // Limpia notificaciones y cierra el socket. Se llama en logout para que el
     // siguiente usuario no vea notificaciones del anterior.
     reset: () => {
+        detenerRefresco();
         if (socket) {
             socket.disconnect();
             socket = null;

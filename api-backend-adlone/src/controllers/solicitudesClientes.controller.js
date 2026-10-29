@@ -1,5 +1,8 @@
 import SolicitudesProxyService from '../services/solicitudesProxy.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
+import sql from 'mssql';
+import { getConnection } from '../config/database.js';
+import { getIo } from '../utils/socketManager.js';
 
 export async function listar(req, res) {
     try {
@@ -64,6 +67,66 @@ export async function tomar(req, res) {
             autorEmail:  null,
         });
         successResponse(res, result);
+    } catch (e) {
+        errorResponse(res, e.message, 500);
+    }
+}
+
+/**
+ * POST /api/solicitudes-clientes/interno/aviso — lo llama WebClientesV2 (servidor a servidor) justo después de escribir
+ * los avisos de una solicitud en mae_notificacion. Emite cada aviso por el socket de su destinatario para que salga en
+ * vivo (aviso emergente, campana y contador) sin esperar al refresco. Solo emite avisos ya existentes de tipo
+ * solicitud_cliente: la llamada no puede crear ni inventar notificaciones.
+ */
+export async function avisoInterno(req, res) {
+    try {
+        const ids = (Array.isArray(req.body?.ids) ? req.body.ids : [])
+            .map(Number).filter((n) => Number.isInteger(n) && n > 0).slice(0, 100);
+        if (!ids.length) return errorResponse(res, 'ids es requerido.', 400);
+        const pool = await getConnection();
+        const request = pool.request();
+        ids.forEach((id, i) => request.input('i' + i, sql.Numeric(10, 0), id));
+        const r = await request.query(`
+            SELECT id_notificacion, id_usuario, titulo, mensaje, tipo, id_referencia, area, fecha_creacion
+            FROM dbo.mae_notificacion
+            WHERE tipo = 'solicitud_cliente' AND id_notificacion IN (${ids.map((_, i) => '@i' + i).join(',')})`);
+        let io = null;
+        try { io = getIo(); } catch { /* socket no inicializado: los avisos igual están en la base */ }
+        if (io) {
+            for (const n of r.recordset) {
+                io.to(`user_${n.id_usuario}`).emit('nuevaNotificacion', {
+                    id_notificacion: n.id_notificacion,
+                    id_usuario: n.id_usuario,
+                    titulo: n.titulo,
+                    mensaje: n.mensaje,
+                    tipo: n.tipo,
+                    id_referencia: n.id_referencia,
+                    area: n.area,
+                    fecha_creacion: n.fecha_creacion,
+                });
+            }
+        }
+        successResponse(res, { emitidos: io ? r.recordset.length : 0 });
+    } catch (e) {
+        errorResponse(res, e.message, 500);
+    }
+}
+
+/**
+ * GET /api/solicitudes-clientes/pendientes — cuántas solicitudes visibles para este usuario siguen pendientes de atender
+ * (nadie las ha tomado ni respondido, o el cliente escribió después). Es el número de la barra lateral.
+ */
+export async function pendientes(req, res) {
+    try {
+        const filas = await SolicitudesProxyService.listar(req.user.id);
+        const vistas = new Set();
+        let total = 0;
+        for (const f of filas) {
+            if (vistas.has(f.id)) continue; // un cliente con varias empresas repite la fila
+            vistas.add(f.id);
+            if (Number(f.requiere_atencion) === 1) total++;
+        }
+        successResponse(res, { pendientes: total });
     } catch (e) {
         errorResponse(res, e.message, 500);
     }

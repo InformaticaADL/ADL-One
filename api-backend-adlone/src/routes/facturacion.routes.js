@@ -29,6 +29,9 @@ router.post('/prefacturas/:id/anular', authenticate, verifyPermission('FAC_PREFA
 router.post('/prefacturas/:id/pdf', authenticate, verifyPermission('FAC_PREFACTURAS_PDF'), facturacionController.generarPdfs);
 router.post('/prefacturas/:id/enviar', authenticate, verifyPermission('FAC_PREFACTURAS_EMAIL'), facturacionController.enviarPorEmail);
 router.post('/prefacturas/:id/ordenes-compra', authenticate, verifyPermission('FAC_OC_REGISTRAR'), facturacionController.registrarOrdenCompra);
+router.put('/prefacturas/:id/ordenes-compra/:idOc', authenticate, verifyPermission('FAC_OC_REGISTRAR'), facturacionController.actualizarOrdenCompra);
+router.delete('/prefacturas/:id/ordenes-compra/:idOc', authenticate, verifyPermission('FAC_OC_REGISTRAR'), facturacionController.eliminarOrdenCompra);
+router.post('/prefacturas/:id/reabrir-emision', authenticate, verifyPermission('FAC_EMISION'), facturacionController.reabrirEmision);
 
 // Fase 4 — emisión: archivo plano al Sistema de Ventas.
 router.post('/emision/archivo-plano', authenticate, verifyPermission('FAC_EMISION'), facturacionController.generarArchivoPlano);

@@ -77,6 +77,21 @@ export const facturacionService = {
         return response.data.data;
     },
 
+    async actualizarOrdenCompra(id: number, idOc: number, datos: any) {
+        const response = await apiClient.put(`/api/facturacion/prefacturas/${id}/ordenes-compra/${idOc}`, datos);
+        return response.data.data;
+    },
+
+    async eliminarOrdenCompra(id: number, idOc: number) {
+        const response = await apiClient.delete(`/api/facturacion/prefacturas/${id}/ordenes-compra/${idOc}`);
+        return response.data.data;
+    },
+
+    async reabrirEmision(id: number) {
+        const response = await apiClient.post(`/api/facturacion/prefacturas/${id}/reabrir-emision`);
+        return response.data.data;
+    },
+
     async registrarOrdenCompra(id: number, datos: any) {
         const response = await apiClient.post(`/api/facturacion/prefacturas/${id}/ordenes-compra`, datos);
         return response.data.data;

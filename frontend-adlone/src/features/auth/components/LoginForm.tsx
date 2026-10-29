@@ -22,9 +22,12 @@ import { cn } from '@/lib/utils';
 interface LoginFormProps {
     onSubmit: (credentials: LoginCredentials) => void;
     isLoading?: boolean;
+    // Se informa tras 3 contraseñas incorrectas: abre el aviso para recuperar la contraseña por correo.
+    recoveryHint?: { username: string; maskedEmail: string | null; attempts: number } | null;
+    onRecoveryClose?: () => void;
 }
 
-export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
+export const LoginForm = ({ onSubmit, isLoading = false, recoveryHint = null, onRecoveryClose }: LoginFormProps) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [passwordVisible, setPasswordVisible] = useState(false);
@@ -36,6 +39,9 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
     const [forgotSending, setForgotSending] = useState(false);
     const [forgotSent, setForgotSent] = useState(false);
     const [forgotError, setForgotError] = useState<string | null>(null);
+    const [hintSending, setHintSending] = useState(false);
+    const [hintSent, setHintSent] = useState(false);
+    const [hintError, setHintError] = useState<string | null>(null);
 
     useEffect(() => {
         const reason = sessionStorage.getItem('auth_logout_reason');
@@ -52,6 +58,26 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
         const trimmedPass = password.trim();
         if (trimmedUser && trimmedPass) {
             onSubmit({ email: trimmedUser, password: trimmedPass, rememberMe });
+        }
+    };
+
+    const closeRecoveryHint = () => {
+        setHintSent(false);
+        setHintError(null);
+        onRecoveryClose?.();
+    };
+
+    const sendRecoveryHint = async () => {
+        if (!recoveryHint) return;
+        setHintError(null);
+        setHintSending(true);
+        try {
+            await apiClient.post('/api/auth/forgot-password', { username: recoveryHint.username });
+            setHintSent(true);
+        } catch (err: any) {
+            setHintError(err?.response?.data?.message || 'No se pudo enviar el correo. Intenta nuevamente.');
+        } finally {
+            setHintSending(false);
         }
     };
 
@@ -143,6 +169,56 @@ export const LoginForm = ({ onSubmit, isLoading = false }: LoginFormProps) => {
                     </div>
                 </form>
             </div>
+
+            <Dialog open={!!recoveryHint} onOpenChange={(open) => !open && closeRecoveryHint()}>
+                <DialogContent className="max-w-[460px]">
+                    <DialogHeader>
+                        <DialogTitle>¿Olvidaste tus credenciales?</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        {!hintSent ? (
+                            <>
+                                <div className="rounded-lg bg-primary/5 p-4 text-sm text-foreground">
+                                    {recoveryHint?.maskedEmail ? (
+                                        <>Llevas {recoveryHint.attempts} intentos con una contraseña incorrecta. Podemos enviar un correo a <strong>{recoveryHint.maskedEmail}</strong> con un enlace para crear una nueva contraseña.</>
+                                    ) : (
+                                        <>Llevas {recoveryHint?.attempts} intentos con una contraseña incorrecta, y este usuario no tiene un correo registrado. Contacta al administrador para recuperar el acceso.</>
+                                    )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">Con 5 intentos fallidos la cuenta se bloquea por 5 minutos.</p>
+                                {hintError && (
+                                    <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-foreground">
+                                        <IconAlertCircle size={18} className="mt-0.5 shrink-0 text-destructive" />
+                                        {hintError}
+                                    </div>
+                                )}
+                                <div className="mt-2 flex justify-between gap-2">
+                                    <Button variant="outline" onClick={closeRecoveryHint}>Ahora no</Button>
+                                    {recoveryHint?.maskedEmail && (
+                                        <Button disabled={hintSending} onClick={sendRecoveryHint}>
+                                            {hintSending ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" /> : <IconMail size={16} />}
+                                            Enviar correo
+                                        </Button>
+                                    )}
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 p-3 text-sm text-foreground">
+                                    <IconCheck size={18} className="mt-0.5 shrink-0 text-success" />
+                                    <div>
+                                        <p className="font-medium">Correo enviado</p>
+                                        <p className="mt-1 text-muted-foreground">Revisa {recoveryHint?.maskedEmail}. El enlace es válido por 60 minutos.</p>
+                                    </div>
+                                </div>
+                                <Button variant="outline" className="w-full" onClick={closeRecoveryHint}>
+                                    <IconArrowLeft size={16} /> Volver al login
+                                </Button>
+                            </>
+                        )}
+                    </div>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={showForgotModal} onOpenChange={(open) => !open && closeForgotModal()}>
                 <DialogContent className="max-w-[480px]">

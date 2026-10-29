@@ -12,7 +12,9 @@ const router = express.Router();
 
 // Ensure upload directory exists
 // Ensure upload directory exists
-let uploadDir = process.env.PROFILE_PICS_PATH || 'uploads/profile_pics';
+// Sin PROFILE_PICS_PATH, junto al resto de los archivos subidos (UPLOAD_PATH): es la carpeta que server.js sirve como
+// /uploads, así que lo que se guarda aquí se ve en la foto de perfil y en el chat.
+let uploadDir = process.env.PROFILE_PICS_PATH || path.join(process.env.UPLOAD_PATH || 'uploads', 'profile_pics');
 uploadDir = path.resolve(uploadDir);
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir, { recursive: true });

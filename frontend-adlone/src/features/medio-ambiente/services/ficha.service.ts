@@ -61,6 +61,25 @@ export const fichaService = {
         const response = await apiClient.post('/api/fichas/create', data);
         return response.data;
     },
+    // Visita con varios puntos: una ficha por punto (mismos datos y análisis, costo operativo una sola vez), agrupadas.
+    createGrupo: async (data: Record<string, unknown>) => {
+        const response = await apiClient.post('/api/fichas/create-grupo', data);
+        return response.data;
+    },
+    // Agrupa fichas que ya existen (misma empresa y centro) como una sola visita.
+    agrupar: async (ids: number[], nota?: string) => {
+        const response = await apiClient.post('/api/fichas/agrupar', { ids, nota });
+        return response.data;
+    },
+    desagrupar: async (idGrupo: number) => {
+        const response = await apiClient.post('/api/fichas/desagrupar', { id_grupo: idGrupo });
+        return response.data;
+    },
+    // Grupo de una ficha con todos sus puntos; null si no pertenece a ninguno.
+    getGrupo: async (id: number) => {
+        const response = await apiClient.get(`/api/fichas/${id}/grupo`);
+        return response.data;
+    },
     update: async (id: number, data: Record<string, unknown>, user?: FichaUser) => {
         const payload = { ...data, user };
         const response = await apiClient.post(`/api/fichas/${id}/update`, payload);

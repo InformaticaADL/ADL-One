@@ -16,6 +16,10 @@ router.get('/resolve-url', authenticate, fichaController.resolveGoogleMaps);
 router.get('/analisis-por-defecto', authenticate, fichaController.getDefaultAnalyses);
 
 router.post('/create', authenticate, verifyPermission('FI_CREAR'), validateRequest(fichaValidationSchemas.create), fichaController.create);
+router.post('/create-grupo', authenticate, verifyPermission('FI_CREAR'), validateRequest(fichaValidationSchemas.createGrupo), fichaController.createGrupo);
+router.post('/agrupar', authenticate, verifyPermission(['FI_CREAR', 'FI_GEST_ASIG']), fichaController.agrupar);
+router.post('/desagrupar', authenticate, verifyPermission(['FI_CREAR', 'FI_GEST_ASIG']), fichaController.desagrupar);
+router.get('/:id/grupo', authenticate, fichaController.getGrupo);
 router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), fichaController.approve);
 router.post('/:id/reject', authenticate, verifyPermission('FI_RECHAZAR_TEC'), validateRequest(fichaValidationSchemas.reject), fichaController.reject);
 router.post('/:id/approve-coordinacion', authenticate, verifyPermission('FI_APROBAR_COO'), validateRequest(fichaValidationSchemas.approveCoordinacion), fichaController.approveCoordinacion);

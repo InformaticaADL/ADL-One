@@ -85,7 +85,7 @@ class AuthService {
             // legacy en texto plano (que se migran a bcrypt en este mismo login).
             const { match, needsRehash } = await verifyPassword(password, candidate.clave_usuario);
             if (!match) {
-                await this.recordFailedLoginAttempt(username, 'BAD_PASSWORD');
+                const intentosFallidos = await this.recordFailedLoginAttempt(username, 'BAD_PASSWORD');
                 auditService.log({
                     usuario_id: candidate.id_usuario,
                     area_key: 'it',
@@ -97,7 +97,14 @@ class AuthService {
                     metadatos_extra: { username, reason: 'BAD_PASSWORD' },
                     severidad: 2
                 });
-                return null; // Controller traduce a "Credenciales inválidas"
+                // Contraseña incorrecta: se informa cuántos intentos van y a qué correo (enmascarado)
+                // se puede enviar el enlace de recuperación, para ofrecerlo desde el login.
+                const errBad = new Error('Credenciales inválidas');
+                errBad.code = 'BAD_PASSWORD';
+                errBad.statusCode = 401;
+                errBad.failedAttempts = intentosFallidos;
+                errBad.maskedEmail = this.enmascararCorreo(candidate.correo_electronico);
+                throw errBad;
             }
 
             // Credenciales válidas → limpiar contadores de intentos fallidos (S-13)
@@ -249,7 +256,7 @@ class AuthService {
         try {
             const pool = await getConnection();
             const MAX_ATTEMPTS = 5;
-            const LOCK_MINUTES = 15;
+            const LOCK_MINUTES = 5;
             const cleanUser = String(username || '').trim();
             const now = new Date();
 
@@ -297,9 +304,28 @@ class AuthService {
             } else {
                 logger.info(`[S-13] Usuario ${cleanUser} failed_count = ${newCount}/${MAX_ATTEMPTS}`);
             }
+            return newCount;
         } catch (err) {
             logger.error('recordFailedLoginAttempt failed:', err.message);
+            return 0;
         }
+    }
+
+    // Muestra el correo sin revelarlo completo: "jp***@adldiagnostic.cl".
+    enmascararCorreo(correo) {
+        const c = String(correo || '').trim();
+        const at = c.indexOf('@');
+        if (at < 1) return null;
+        const local = c.slice(0, at);
+        return `${local.slice(0, Math.min(2, local.length))}***${c.slice(at)}`;
+    }
+
+    async getCorreoPorUsuario(username) {
+        const pool = await getConnection();
+        const r = await pool.request()
+            .input('u', sql.VarChar(150), String(username || '').trim())
+            .query("SELECT correo_electronico FROM mae_usuario WHERE nombre_usuario = @u AND habilitado <> 'N'");
+        return r.recordset[0]?.correo_electronico?.trim() || null;
     }
 
     async clearFailedLoginAttempts(username) {

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { IconUsers } from '@tabler/icons-react';
 import API_CONFIG from '../../config/api.config';
 
@@ -26,8 +27,15 @@ interface ChatAvatarProps {
     className?: string;
 }
 
+// Muchos usuarios (los que nunca subieron foto) quedaron con este archivo marcador, que no existe en el servidor.
+const FOTO_MARCADOR = /sinfoto.jpg/i;
+
 const ChatAvatar: React.FC<ChatAvatarProps> = ({ name, foto, size = 40, group, onClick, style, className }) => {
-    const src = foto ? `${API_CONFIG.getBaseURL()}${foto}` : undefined;
+    // Si la imagen no carga (marcador, archivo borrado), se muestran las iniciales en vez del icono de imagen rota.
+    const [fallo, setFallo] = useState(false);
+    useEffect(() => { setFallo(false); }, [foto]);
+    const fotoLimpia = foto && !FOTO_MARCADOR.test(foto) ? foto.trim() : null;
+    const src = fotoLimpia && !fallo ? `${API_CONFIG.getBaseURL()}${fotoLimpia}` : undefined;
     const bg = group ? '#13a8a8' : stringToColor(name);
     return (
         <div
@@ -42,7 +50,7 @@ const ChatAvatar: React.FC<ChatAvatarProps> = ({ name, foto, size = 40, group, o
             }}
         >
             {src ? (
-                <img src={src} alt={name || 'avatar'} className="h-full w-full object-cover" />
+                <img src={src} alt={name || 'avatar'} className="h-full w-full object-cover" onError={() => setFallo(true)} />
             ) : group ? (
                 <IconUsers size={Math.round(size * 0.5)} />
             ) : (

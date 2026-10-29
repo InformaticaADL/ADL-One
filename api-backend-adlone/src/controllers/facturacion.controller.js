@@ -79,6 +79,39 @@ class FacturacionController {
         }
     }
 
+    async actualizarOrdenCompra(req, res) {
+        try {
+            const idUsuario = req.user?.id || req.user?.id_usuario;
+            const result = await facturacionService.actualizarOrdenCompra(Number(req.params.id), Number(req.params.idOc), req.body, idUsuario);
+            res.json({ success: true, data: result });
+        } catch (err) {
+            logger.error('Error in actualizarOrdenCompra controller:', err);
+            res.status(400).json({ success: false, message: err.message });
+        }
+    }
+
+    async eliminarOrdenCompra(req, res) {
+        try {
+            const idUsuario = req.user?.id || req.user?.id_usuario;
+            const result = await facturacionService.eliminarOrdenCompra(Number(req.params.id), Number(req.params.idOc), idUsuario);
+            res.json({ success: true, data: result });
+        } catch (err) {
+            logger.error('Error in eliminarOrdenCompra controller:', err);
+            res.status(400).json({ success: false, message: err.message });
+        }
+    }
+
+    async reabrirEmision(req, res) {
+        try {
+            const idUsuario = req.user?.id || req.user?.id_usuario;
+            const result = await facturacionService.reabrirEmision(Number(req.params.id), idUsuario);
+            res.json({ success: true, data: result });
+        } catch (err) {
+            logger.error('Error in reabrirEmision controller:', err);
+            res.status(400).json({ success: false, message: err.message });
+        }
+    }
+
     async registrarOrdenCompra(req, res) {
         try {
             const idUsuario = req.user?.id || req.user?.id_usuario || null;

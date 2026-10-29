@@ -5,12 +5,16 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import empresaAsignadaService from './empresaAsignada.service.js';
+import verificadorSolicitudesService from './verificadorSolicitudes.service.js';
 
 const WC_URL = process.env.WEBCLIENTES_API_URL || 'http://localhost:8020';
-const WC_KEY  = process.env.WEBCLIENTES_API_KEY;
+// Las solicitudes usan su propia llave (scope solicitudes:write). Facturación y cotizaciones siguen con
+// WEBCLIENTES_API_KEY (ingesta:write, cotizaciones:*): no hace falta una sola llave con todos los permisos.
+// Si WEBCLIENTES_SOLICITUDES_KEY no está definida se usa WEBCLIENTES_API_KEY, como antes.
+const WC_KEY  = process.env.WEBCLIENTES_SOLICITUDES_KEY || process.env.WEBCLIENTES_API_KEY;
 
 function wcHeaders() {
-    if (!WC_KEY) throw new Error('WEBCLIENTES_API_KEY no configurada en .env');
+    if (!WC_KEY) throw new Error('WEBCLIENTES_SOLICITUDES_KEY (o WEBCLIENTES_API_KEY) no configurada en .env');
     return {
         Authorization: `Bearer ${WC_KEY}`,
         'Content-Type': 'application/json',
@@ -35,15 +39,18 @@ const SolicitudesProxyService = {
      * campanita pero no encontraba la solicitud acá.
      */
     async listar(idUsuario) {
-        const [empresas, esRespaldo] = await Promise.all([
+        const [empresas, esRespaldo, esVerificador] = await Promise.all([
             empresaAsignadaService.misEmpresas(idUsuario),
             empresaAsignadaService.esRespaldo(idUsuario),
+            verificadorSolicitudesService.esVerificador(idUsuario),
         ]);
-        if (!empresas.length && !esRespaldo) return [];
+        if (!empresas.length && !esRespaldo && !esVerificador) return [];
         const ids = empresas.map(e => e.id_empresa).join(',');
         const qs = new URLSearchParams();
         if (ids) qs.set('empresas', ids);
         if (esRespaldo) qs.set('incluirSinAsignar', '1');
+        // Los verificadores (jefatura en copia) ven las solicitudes de TODAS las empresas.
+        if (esVerificador) qs.set('todas', '1');
         const { status, body } = await wcFetch(`/v1/solicitudes?${qs.toString()}`);
         if (status !== 200) throw new Error(body?.error || 'Error al obtener solicitudes.');
         return body;

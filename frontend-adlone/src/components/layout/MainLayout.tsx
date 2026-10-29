@@ -8,6 +8,8 @@ import { HelpCenter } from '../common/HelpCenter';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
 import { useNotificationStore } from '../../store/notificationStore';
+import { solicitudesClientesService } from '../../services/solicitudesClientes.service';
+import { esNotificacionSolicitudCliente } from '../../features/notifications/utils/notificationNavigation';
 import { useAuth } from '../../contexts/AuthContext';
 import ContextualNotificationPanel from '../../features/notifications/components/ContextualNotificationPanel';
 import { ScrollButtons } from '../common/ScrollButtons';
@@ -93,7 +95,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // Global Notifications listener (Toast logic)
     const { user, token } = useAuth();
     const { fetchNotifications, initSocket, disconnectSocket, socketStatus } = useNotificationStore();
-    const { setUrsUnreadCount } = useNavStore();
+    const { setUrsUnreadCount, setSolicitudesClientePendientes } = useNavStore();
 
     // Socket Initialization + global counters fetch
     useEffect(() => {
@@ -107,6 +109,18 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             disconnectSocket();
         };
     }, [user?.id, token, initSocket, disconnectSocket, fetchNotifications, setUrsUnreadCount]);
+
+    // Contador de "Solicitudes de clientes": las que siguen pendientes de atender (no las que alguien solo abrió).
+    // Se recalcula al iniciar, cada 30 s y apenas llega un aviso nuevo de una solicitud (socket).
+    const firmaAvisosSolicitudes = useNotificationStore((s) => s.notifications
+        .filter((n) => esNotificacionSolicitudCliente(n)).map((n) => n.id_notificacion).join(','));
+    useEffect(() => {
+        if (!user?.id) return;
+        const actualizar = () => { solicitudesClientesService.pendientes().then(setSolicitudesClientePendientes).catch(() => {}); };
+        actualizar();
+        const t = setInterval(() => { if (!document.hidden) actualizar(); }, 30000);
+        return () => clearInterval(t);
+    }, [user?.id, firmaAvisosSolicitudes, setSolicitudesClientePendientes]);
 
     const siderWidth = sidebarCollapsed ? 80 : 240;
 

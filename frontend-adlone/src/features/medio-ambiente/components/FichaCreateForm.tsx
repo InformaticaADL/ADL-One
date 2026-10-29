@@ -33,12 +33,14 @@ const SuccessModal = ({
     isOpen,
     onClose,
     onViewFicha,
-    fichaId
+    fichaId,
+    cantidad = 1
 }: {
     isOpen: boolean;
     onClose: () => void;
     onViewFicha: () => void;
-    fichaId: number | null
+    fichaId: number | null;
+    cantidad?: number;
 }) => {
     return (
         <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -55,7 +57,9 @@ const SuccessModal = ({
                     <h4 className="m-0 text-center text-base font-semibold text-foreground">Registro Confirmado</h4>
 
                     <p className="text-center text-sm text-muted-foreground">
-                        Se ha generado la Ficha N° <span className="font-semibold text-primary">{fichaId}</span> correctamente en el sistema.
+                        {cantidad > 1
+                            ? <>Se generaron <span className="font-semibold text-primary">{cantidad} fichas</span> (una por punto), agrupadas como una sola visita. La primera es la N° <span className="font-semibold text-primary">{fichaId}</span>.</>
+                            : <>Se ha generado la Ficha N° <span className="font-semibold text-primary">{fichaId}</span> correctamente en el sistema.</>}
                     </p>
 
                     <div className="mt-4 flex w-full gap-3">
@@ -85,6 +89,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const [cargandoCotizacion, setCargandoCotizacion] = useState<boolean>(!!cotizacionParaFicha);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [createdFichaId, setCreatedFichaId] = useState<number | null>(null);
+    const [createdCount, setCreatedCount] = useState<number>(1);
     const [isAntecedentesValid, setIsAntecedentesValid] = useState(false);
     const [isObservacionesValid, setIsObservacionesValid] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -182,6 +187,9 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 return;
             }
 
+            // Otros puntos de la misma visita: no son un antecedente de la ficha, viajan aparte.
+            const { puntosAdicionales, ...antecedentesBase } = antData;
+
             // Descartar filas fijas (pH/Temperatura) que el usuario no configuró
             // con normativa/tabla, y quitar el array `opciones` (solo de UI).
             const analisisPayload = savedAnalysis
@@ -189,7 +197,8 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 .map((a: any) => { const rest = { ...a }; delete rest.opciones; return rest; });
 
             const payload = {
-                antecedentes: antData,
+                antecedentes: antecedentesBase,
+                ...(Array.isArray(puntosAdicionales) && puntosAdicionales.length > 0 ? { puntosAdicionales } : {}),
                 analisis: analisisPayload,
                 costoOperativo: {
                     activo: !!costoOperativo.enabled,
@@ -201,7 +210,8 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 idCotizacion: cotizacionParaFicha || null,
             };
 
-            const result = await fichaService.create(payload);
+            const esGrupo = Array.isArray(puntosAdicionales) && puntosAdicionales.length > 0;
+            const result = esGrupo ? await fichaService.createGrupo(payload) : await fichaService.create(payload);
 
             if (result && (result.success || result.data?.success)) {
                 const idToUse = result.data?.id_fichaingresoservicio || result.data?.id || result.id;
@@ -213,6 +223,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                         setCotizacionParaFicha(null);
                     }
                     setCreatedFichaId(Number(idToUse));
+                    setCreatedCount(Array.isArray(result.data?.ids) ? result.data.ids.length : 1);
                     setShowSuccessModal(true);
                 } else {
                     showToast({ type: 'warning', message: 'Ficha creada pero no se recibió un ID válido.' });
@@ -279,6 +290,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 onClose={handleCloseSuccess}
                 onViewFicha={handleViewFicha}
                 fichaId={createdFichaId}
+                cantidad={createdCount}
             />
 
             <div ref={topRef} className="h-0 overflow-hidden" />

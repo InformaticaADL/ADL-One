@@ -20,6 +20,12 @@ interface ComboboxProps {
   disabled?: boolean;
   /** Notified on every open/close transition — useful for lazy-loading or warning the user before they open the list. */
   onOpenChange?: (open: boolean) => void;
+  /** Clases extra del desplegable (por ej. un ancho mínimo mayor que el del botón). */
+  contentClassName?: string;
+  /** Si es true, las opciones largas se parten en varias líneas en vez de cortarse con "…". */
+  wrapOptions?: boolean;
+  /** Si es true, el valor seleccionado se muestra completo (varias líneas) en vez de cortarse. */
+  wrapSelected?: boolean;
 }
 
 // Select con buscador integrado — estándar del proyecto para todo select con
@@ -37,6 +43,9 @@ export function Combobox({
   className,
   disabled,
   onOpenChange,
+  contentClassName,
+  wrapOptions = false,
+  wrapSelected = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
@@ -71,13 +80,13 @@ export function Combobox({
             className
           )}
         >
-          <span className={cn('truncate text-left', !selected && 'text-muted-foreground')} title={selected?.label}>
+          <span className={cn(wrapSelected ? 'whitespace-normal break-words text-left' : 'truncate text-left', !selected && 'text-muted-foreground')} title={selected?.label}>
             {selected ? selected.label : placeholder}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+      <PopoverContent className={cn('w-[var(--radix-popover-trigger-width)] p-0', contentClassName)} align="start">
         <div className="relative border-b border-border">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -106,7 +115,7 @@ export function Combobox({
                 )}
               >
                 <Check className={cn('h-4 w-4 shrink-0', option.value === value ? 'opacity-100' : 'opacity-0')} />
-                <span className="truncate" title={option.label}>{option.label}</span>
+                <span className={wrapOptions ? 'break-words' : 'truncate'} title={option.label}>{option.label}</span>
               </button>
             ))
           )}

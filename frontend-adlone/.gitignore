@@ -32,3 +32,7 @@ dist-ssr
 
 # Reference document used to reformulate the quotation PDF (not code)
 MEDIO AMBIENTE-P881-01092026-EQUIPO TI.doc
+
+# Despliegue: compilacion en carpeta aparte y respaldo de la version anterior (scripts/deploy-produccion.ps1)
+dist-nuevo
+dist-anterior

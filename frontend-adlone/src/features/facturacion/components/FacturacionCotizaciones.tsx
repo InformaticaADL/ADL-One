@@ -27,6 +27,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import logoAdl from '../../../assets/images/logo_adl.png';
 import { catalogosService, type EmpresaServicio, type Centro } from '../../medio-ambiente/services/catalogos.service';
 import { analysisService } from '../../medio-ambiente/services/analysis.service';
+import { fmtFecha } from '../utils/fechas';
 
 // Colores de marca del PDF (mismos que _drawHeader en facturacion.service.js) —
 // se mantienen literales porque describen el documento impreso, no el tema de
@@ -51,7 +52,6 @@ const BANDEJA_PAGE_SIZE = 10;
 
 const fmtClp = (n: number) => Number(n || 0).toLocaleString('es-CL', { maximumFractionDigits: 0 });
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : '—';
 const fmtTamano = (b: number) => !b ? '' : b < 1024 ? `${b} B` : b < 1048576 ? `${(b / 1024).toFixed(0)} KB` : `${(b / 1048576).toFixed(1)} MB`;
 

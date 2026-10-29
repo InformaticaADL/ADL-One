@@ -16,9 +16,9 @@ import { cn } from '@/lib/utils';
 import { useToast } from '../../../contexts/ToastContext';
 import { facturacionService } from '../services/facturacion.service';
 import { catalogosService, type EmpresaServicio } from '../../medio-ambiente/services/catalogos.service';
+import { fmtFecha } from '../utils/fechas';
 
 const fmtUf = (n: number) => Number(n || 0).toLocaleString('es-CL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtFecha = (v: string | null) => v ? new Date(v).toLocaleDateString('es-CL') : '—';
 const fmtFechaHora = (v: string | null) => v ? new Date(v).toLocaleString('es-CL') : '—';
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const PAGE_SIZE = 10;

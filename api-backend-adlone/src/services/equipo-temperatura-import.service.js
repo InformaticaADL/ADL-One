@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
-import { normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador } from './equipo-excel-import.service.js';
+import { lineasNuevasObservacion, normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador } from './equipo-excel-import.service.js';
 
 // Columnas del "Resumen Verificaciones Intermedias T°". Los puntos de Error
 // (0,0°C / 15,0°C / 30,0°C) vienen ANTES que su espejo "Factor de Corrección"
@@ -122,9 +122,12 @@ class EquipoTemperaturaImportService {
             }
 
             try {
-                const error0 = valoresCrudos.error0 !== null ? Number(valoresCrudos.error0) : null;
-                const error15 = valoresCrudos.error15 !== null ? Number(valoresCrudos.error15) : null;
-                const error30 = valoresCrudos.error30 !== null ? Number(valoresCrudos.error30) : null;
+                // El factor de corrección se guarda con 1 decimal: se redondea acá para no
+                // arrastrar el ruido de punto flotante del Excel (-0.0600000000000008).
+                const aError = (v) => (v !== null ? Math.round(Number(v) * 10) / 10 : null);
+                const error0 = aError(valoresCrudos.error0);
+                const error15 = aError(valoresCrudos.error15);
+                const error30 = aError(valoresCrudos.error30);
                 rows.push({
                     rowNumber,
                     codigo,
@@ -281,13 +284,15 @@ function sonEquivalentes(campo, valorExcel, valorBD) {
         const a = Number(valorExcel);
         const b = valorBD === null || valorBD === undefined || valorBD === '' ? 0 : Number(valorBD);
         if (Number.isNaN(a) || Number.isNaN(b)) return normalize(valorExcel) === normalize(valorBD);
-        return a === b;
+        // Tolerancia: los errores se guardan con 1 decimal y el Excel trae ruido de
+        // punto flotante (-0.0600000000000008 vs -0.1 ya redondeado).
+        return Math.abs(a - b) < 0.005;
     }
     if (campo === 'observacion') {
         // Igual que en el analizador de Inventario: la observación se AGREGA,
         // nunca se sobreescribe, así que comparar por igualdad exacta la
         // marcaría como "distinta" para siempre tras la primera actualización.
-        return normalize(valorBD).includes(normalize(valorExcel));
+        return lineasNuevasObservacion(valorExcel, valorBD).length === 0;
     }
     return normalize(valorExcel) === normalize(valorBD);
 }

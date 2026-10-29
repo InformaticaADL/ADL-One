@@ -5,6 +5,7 @@ interface NavActions {
     setActiveSubmodule: (submoduleId: string) => void;
     setPendingRequestId: (id: number | null) => void;
     setPendingChatId: (id: number | null) => void;
+    setPendingSolicitudClienteId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
     setFichasMode: (mode: 'list_ejecutados') => void;
     hasPermission: (permission: string | string[]) => boolean;
@@ -16,12 +17,19 @@ const FICHA_DETALLE_PERMS = ['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_REC
 // Permisos que habilitan ver el listado de Muestreos Ejecutados (mismos que FichasIngresoPage usa para 'list_ejecutados')
 const FICHA_EJECUTADOS_PERMS = ['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC'];
 
+// Avisos de solicitudes de clientes del portal (los crea WebClientesV2). Llevan el id de la solicitud del portal, que NO es
+// el de una solicitud interna (URS): abrirlas en la bandeja interna da "Solicitud no encontrada".
+export const esNotificacionSolicitudCliente = (n: { tipo?: unknown; titulo?: string | null }) =>
+    String(n.tipo) === 'solicitud_cliente' ||
+    ['nueva solicitud de cliente', 'el cliente respondió'].includes((n.titulo || '').trim().toLowerCase());
+
 export const handleNotificationNavigation = (notif: Notification, actions: NavActions) => {
     const {
         setActiveModule,
         setActiveSubmodule,
         setPendingRequestId,
         setPendingChatId,
+        setPendingSolicitudClienteId,
         setSelectedRequestId,
         setFichasMode,
         hasPermission,
@@ -33,6 +41,13 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
             setActiveModule('chat');
             setActiveSubmodule('');
         }
+        return;
+    }
+
+    if (esNotificacionSolicitudCliente(notif)) {
+        setPendingSolicitudClienteId(notif.id_referencia);
+        setActiveModule('solicitudes-clientes');
+        setActiveSubmodule('');
         return;
     }
 
