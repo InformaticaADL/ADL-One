@@ -775,14 +775,18 @@ export const equipoService = {
             // que originalmente cargó la tabla): sigla VarChar(20), equipo_asociado VarChar(200).
             // Usar anchos más angostos acá rompe el protocolo TDS con cualquier valor real que
             // los supere — mismo tipo de bug ya confirmado y corregido para tienefc.
-            // Si sigla/correlativo no vienen del body, extraerlos del código (ej: "BAT.222/MA.PM" → sigla=BAT, correlativo=222)
+            // Si sigla/correlativo no vienen del body o vienen en 0, extraerlos del código (ej: "BAT.222/MA.PM" → sigla=BAT, correlativo=222)
             let siglaCreate = data.sigla || '';
-            let correlativoCreate = data.correlativo || 0;
-            if ((!siglaCreate || !correlativoCreate) && data.codigo) {
-                const m = data.codigo.match(/^([A-Za-z]+)\.(\d+)\//);
+            let correlativoCreate = Number(data.correlativo) || 0;
+            if (data.codigo) {
+                const cleanCod = data.codigo.trim();
+                const m = cleanCod.match(/^([A-Za-z0-9_\-]+?)[.\- ]+(\d+)/) || cleanCod.match(/(\d+)/);
                 if (m) {
-                    if (!siglaCreate) siglaCreate = m[1];
-                    if (!correlativoCreate) correlativoCreate = parseInt(m[2], 10);
+                    if (!siglaCreate && m[1] && isNaN(Number(m[1]))) siglaCreate = m[1];
+                    const numExtracted = parseInt(m[2] || m[1], 10);
+                    if (!correlativoCreate || correlativoCreate === 0) {
+                        correlativoCreate = numExtracted;
+                    }
                 }
             }
             request.input('sigla', sql.VarChar(20), siglaCreate);
@@ -1046,8 +1050,17 @@ export const equipoService = {
             }
             requestMain.input('habilitado', sql.VarChar(1), habilitadoFinal);
             // Ancho real de mae_equipo.sigla (ver nota en createEquipo) es VarChar(20), no 10.
-            requestMain.input('sigla', sql.VarChar(20), data.hasOwnProperty('sigla') ? (data.sigla || '') : (current.sigla || ''));
-            requestMain.input('correlativo', sql.Numeric(10, 0), data.hasOwnProperty('correlativo') ? (data.correlativo || 0) : (current.correlativo || 0));
+            let siglaUpdate = data.hasOwnProperty('sigla') ? (data.sigla || '') : (current.sigla || '');
+            let corrUpdate = data.hasOwnProperty('correlativo') ? Number(data.correlativo) : Number(current.correlativo);
+            if (nuevoCodigo && (!corrUpdate || isNaN(corrUpdate) || corrUpdate === 0)) {
+                const cleanCod = nuevoCodigo.trim();
+                const m = cleanCod.match(/^([A-Za-z0-9_\-]+?)[.\- ]+(\d+)/) || cleanCod.match(/(\d+)/);
+                if (m) {
+                    corrUpdate = parseInt(m[2] || m[1], 10);
+                }
+            }
+            requestMain.input('sigla', sql.VarChar(20), siglaUpdate);
+            requestMain.input('correlativo', sql.Numeric(10, 0), isNaN(corrUpdate) ? 0 : corrUpdate);
             // flagSN normaliza siempre a 1 char — hay ~655 equipos con tienefc='Si' (2
             // chars) heredado de antes de que la app normalizara este flag; bindearlo
             // crudo contra un parámetro VarChar(1) rompe el protocolo TDS.
