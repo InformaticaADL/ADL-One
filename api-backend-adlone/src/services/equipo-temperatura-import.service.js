@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
-import { lineasNuevasObservacion, normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador } from './equipo-excel-import.service.js';
+import { lineasNuevasObservacion, normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador, esVerificacionMasAntigua } from './equipo-excel-import.service.js';
 
 // Columnas del "Resumen Verificaciones Intermedias T°". Los puntos de Error
 // (0,0°C / 15,0°C / 30,0°C) vienen ANTES que su espejo "Factor de Corrección"
@@ -216,6 +216,11 @@ class EquipoTemperaturaImportService {
                     diffs: [],
                     warnings: [...warnings, 'No existe ningún equipo con este código en el sistema.'],
                 };
+            }
+
+            if (esVerificacionMasAntigua(excelData.ultima_verificacion, equipoDB.ultima_verificacion)) {
+                warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); se conserva la fecha actual.`);
+                excelData.ultima_verificacion = null;
             }
 
             const diffs = [];

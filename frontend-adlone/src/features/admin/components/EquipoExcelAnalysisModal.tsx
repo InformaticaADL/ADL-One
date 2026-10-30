@@ -151,8 +151,11 @@ const mapExcelDataToUpdatePayload = (item: AnalisisExcelItem) => {
     if (d.fecha_baja) payload.fecha_baja = d.fecha_baja;
     if (d.siguiente_verificacion) {
         // vigencia sigue a siguiente_verificacion (mismo criterio que EquipoForm).
+        // Si ya está vencida (equipos dados de baja o atrasados) solo se manda
+        // siguiente_verificacion: updateEquipo rechaza el update COMPLETO cuando
+        // la vigencia es anterior a hoy, y eso descartaba el resto de los campos.
         payload.siguiente_verificacion = d.siguiente_verificacion;
-        payload.vigencia = d.siguiente_verificacion;
+        if (d.siguiente_verificacion >= getTodayString()) payload.vigencia = d.siguiente_verificacion;
     }
     if (d.plazo_vigencia) payload.plazo_vigencia = d.plazo_vigencia;
     if (d.id_muestreador) payload.id_muestreador = d.id_muestreador;

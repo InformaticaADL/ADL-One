@@ -49,8 +49,20 @@ export const lineasNuevasObservacion = (excel, bd) => {
 // Lira" en los archivos es en realidad "Javier Lira"). Se resuelven antes de
 // buscar por nombre_muestreador, tanto en el analizador de Inventario como
 // en el de Temperaturas.
+// "Sede Puerto Montt"/"Base Puerto Montt" y "Base Villarrica"/"Sede Villarrica"
+// existen como dos muestreadores distintos en el sistema, y cada Excel usa uno
+// diferente: sin alias, cada análisis reasignaba cientos de equipos de uno al
+// otro. Se resuelven al que ya tienen asignado la mayoría de los equipos.
 const ALIAS_MUESTREADOR = {
     'ERNESTO LIRA': 'JAVIER LIRA',
+    'SEDE PUERTO MONTT': 'BASE PUERTO MONTT',
+    'BASE VILLARRICA': 'SEDE VILLARRICA',
+};
+
+// Un Excel desactualizado no debe retroceder la verificación ya registrada.
+export const esVerificacionMasAntigua = (excel, bd) => {
+    const bdYmd = toYYYYMMDD(bd);
+    return !!(excel && bdYmd && excel < bdYmd);
 };
 
 export const resolveNombreMuestreador = (nombreExcel) => {
@@ -62,11 +74,6 @@ export const resolveNombreMuestreador = (nombreExcel) => {
 // identifican su columna en el inventario real (OI-FoGe-21). Se usa
 // "includes" en vez de igualdad estricta para tolerar pequeños cambios de
 // redacción del header entre versiones del archivo.
-//
-// Importante: "Última/Próxima Verificación Trimestral T°" NO tiene keyword
-// acá a propósito — son las columnas de temperatura que este análisis omite
-// por instrucción explícita. Esas se leen aparte, en
-// equipo-temperatura-import.service.js, desde el otro archivo.
 const HEADER_KEYWORDS = {
     codigo: ['CODIGO'],
     nombre: ['NOMBRE DE EQUIPO', 'NOMBRE DEL EQUIPO'],
@@ -77,12 +84,14 @@ const HEADER_KEYWORDS = {
     estado_equipo: ['ESTADO'],
     observacion: ['OBSERVACION'],
     responsable_nombre: ['RESPONSABLE'],
-    // Dos ciclos de verificación distintos que sí trae el inventario (la
-    // prioridad entre ambos se resuelve en parseEquiposExcel, no acá).
+    // Tres ciclos de verificación distintos que trae el inventario (la
+    // prioridad entre ellos se resuelve en parseEquiposExcel, no acá).
     contrastacion_ultima: ['ULTIMA CONTRASTACION'],
     contrastacion_proxima: ['PROXIMA CONTRASTACION'],
     mantencion_ultima: ['ULTIMA MANTENCION'],
     mantencion_proxima: ['PROXIMA MANTENCION'],
+    trimestral_ultima: ['ULTIMA VERIFICACION TRIMESTRAL'],
+    trimestral_proxima: ['PROXIMA VERIFICACION TRIMESTRAL'],
     // Datos de compra/baja (columnas O-S y AA del inventario real). "Fecha"
     // (col. 16, de compra) es un header genérico que también es substring de
     // "Fecha dado de baja" (col. 27) — como el escaneo de encabezados es
@@ -250,9 +259,11 @@ class EquipoExcelImportService {
             const codigo = valoresCrudos.codigo ? String(valoresCrudos.codigo).trim() : null;
 
             try {
-                // Prioridad entre los dos ciclos de verificación que trae el inventario:
+                // Prioridad entre los ciclos de verificación que trae el inventario:
                 // Contrastación Semestral primero (la calibración "oficial"), luego
-                // Mantención Anual. Solo se usa un ciclo si tiene AMBAS fechas (última Y
+                // Mantención Anual y por último Verificación Trimestral T° (el único
+                // ciclo de las sondas pH/T°, que traen las otras dos en "No Aplica").
+                // Solo se usa un ciclo si tiene AMBAS fechas (última Y
                 // próxima) — así nunca se mezcla la última de un ciclo con la próxima de
                 // otro. Si ninguno trae el par completo, se deja null a propósito: el
                 // fallback a hoy/+90 días es solo para crear equipos nuevos y se aplica
@@ -263,6 +274,8 @@ class EquipoExcelImportService {
                 const contrastacionProxima = toYYYYMMDD(valoresCrudos.contrastacion_proxima);
                 const mantencionUltima = toYYYYMMDD(valoresCrudos.mantencion_ultima);
                 const mantencionProxima = toYYYYMMDD(valoresCrudos.mantencion_proxima);
+                const trimestralUltima = toYYYYMMDD(valoresCrudos.trimestral_ultima);
+                const trimestralProxima = toYYYYMMDD(valoresCrudos.trimestral_proxima);
                 let ultimaVerificacion = null;
                 let siguienteVerificacion = null;
                 if (contrastacionUltima && contrastacionProxima) {
@@ -271,6 +284,9 @@ class EquipoExcelImportService {
                 } else if (mantencionUltima && mantencionProxima) {
                     ultimaVerificacion = mantencionUltima;
                     siguienteVerificacion = mantencionProxima;
+                } else if (trimestralUltima && trimestralProxima) {
+                    ultimaVerificacion = trimestralUltima;
+                    siguienteVerificacion = trimestralProxima;
                 }
 
                 // Activo/Inactivo se deriva del texto de Estado — el inventario no trae
@@ -296,7 +312,10 @@ class EquipoExcelImportService {
                     documento_compra: valoresCrudos.documento_compra,
                     // El Excel mezcla número ("208691") y texto ("N/I") en esta columna.
                     n_documento_compra: valoresCrudos.n_documento_compra !== null ? String(valoresCrudos.n_documento_compra) : null,
-                    valor_unitario: valoresCrudos.valor_unitario,
+                    // "N/I" / "Pendiente" no son un monto: mandarlos a la columna numérica
+                    // hacía fallar el update completo del equipo.
+                    valor_unitario: Number.isFinite(Number(valoresCrudos.valor_unitario)) && valoresCrudos.valor_unitario !== null
+                        ? Number(valoresCrudos.valor_unitario) : null,
                     fecha_baja: toYYYYMMDD(valoresCrudos.fecha_baja),
                     referencia: {
                         marca: valoresCrudos.marca,
@@ -304,8 +323,10 @@ class EquipoExcelImportService {
                         serie: valoresCrudos.serie,
                     },
                 };
-                if (rows.some((r) => r.codigo === parsedRow.codigo)) {
+                const previa = parsedRow.codigo ? rows.findIndex((r) => r.codigo === parsedRow.codigo) : -1;
+                if (previa >= 0) {
                     rowErrors.push({ rowNumber, message: `El código ${parsedRow.codigo} está repetido en el Excel; se usará la última fila.` });
+                    rows.splice(previa, 1);
                 }
                 rows.push(parsedRow);
             } catch (err) {
@@ -423,6 +444,12 @@ class EquipoExcelImportService {
                     warnings,
                     referencia: row.referencia,
                 };
+            }
+
+            if (esVerificacionMasAntigua(excelData.ultima_verificacion, equipoDB.ultima_verificacion)) {
+                warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); se conservan las fechas actuales.`);
+                excelData.ultima_verificacion = null;
+                excelData.siguiente_verificacion = null;
             }
 
             const diffs = [];
