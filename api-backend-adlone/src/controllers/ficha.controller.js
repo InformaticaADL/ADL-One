@@ -195,6 +195,17 @@ class FichaIngresoController {
         }
     }
 
+    // Otros puntos de la visita que comparten un muestreo (para cancelarlos juntos desde el calendario).
+    async getPuntosVisita(req, res) {
+        try {
+            const result = await fichaService.getPuntosDeVisitaDeAgenda(req.params.idAgendamam);
+            return successResponse(res, result, 'Puntos de la visita');
+        } catch (err) {
+            logger.error('Error in getPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al obtener los puntos de la visita', err.statusCode || 500, err.message);
+        }
+    }
+
     async getGrupo(req, res) {
         try {
             const result = await fichaService.getGrupoDeFicha(req.params.id);
@@ -355,11 +366,42 @@ class FichaIngresoController {
 
     async cancelSampling(req, res) {
         try {
-            const { idAgenda, idFicha, motivo_cancelacion, idMotivoCancelacion } = req.body;
+            const { idAgenda, idFicha, motivo_cancelacion, idMotivoCancelacion, tambien } = req.body;
             const userData = req.user || { id: 0 };
-            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion, idMotivoCancelacion);
+
+            // Otros puntos de la misma visita que se cancelan junto con este (mismo muestreo, mismo motivo y observación).
+            const extras = Array.isArray(tambien) ? [...new Set(tambien.map(Number).filter((n) => Number.isInteger(n) && n > 0))] : [];
+            let permitidos = new Map();
+            if (extras.length > 0) {
+                const lista = await fichaService.getPuntosDeVisitaDeAgenda(idAgenda);
+                permitidos = new Map(lista.map((p) => [p.id_agenda, p]));
+                if (extras.some((id) => !permitidos.has(id))) {
+                    return errorResponse(res, 'Alguno de los puntos indicados no pertenece a esta visita o ya no se puede cancelar', 400);
+                }
+            }
+
+            const nombresExtras = extras.map((id) => permitidos.get(id).punto || `ficha ${permitidos.get(id).id_ficha}`);
+            const obsPrincipal = extras.length > 0
+                ? `${String(motivo_cancelacion || '').trim()} (se cancelan también los puntos: ${nombresExtras.join(', ')})`
+                : motivo_cancelacion;
+            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, obsPrincipal, idMotivoCancelacion);
+
+            const cancelados = [Number(idAgenda)];
+            const fallidos = [];
+            for (const id of extras) {
+                const p = permitidos.get(id);
+                try {
+                    await fichaService.cancelAgendaSampling(p.id_agenda, p.id_ficha, userData,
+                        `${String(motivo_cancelacion || '').trim()} (cancelado junto con otros puntos de la visita)`, idMotivoCancelacion, { sinNotificar: true });
+                    cancelados.push(id);
+                } catch (e) {
+                    logger.warn(`[cancel-sampling] no se pudo cancelar el punto ${p.punto || p.id_ficha}: ${e.message}`);
+                    fallidos.push({ id_agenda: id, punto: p.punto || null, error: e.message });
+                }
+            }
             notificarCalendarioActualizado();
-            return successResponse(res, result, 'Muestreo cancelado exitosamente');
+            return successResponse(res, { ...result, cancelados, fallidos },
+                fallidos.length > 0 ? 'Muestreo cancelado, pero algunos puntos de la visita no se pudieron cancelar' : 'Muestreo cancelado exitosamente');
         } catch (err) {
             logger.error('Error in cancelSampling controller:', err);
             return errorResponse(res, 'Error al cancelar el muestreo', 500, err.message);

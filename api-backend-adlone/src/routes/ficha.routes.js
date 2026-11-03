@@ -39,6 +39,7 @@ router.get('/:id', authenticate, validateRequest(fichaValidationSchemas.getById)
 router.post('/:id/agenda', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA_RUTA_CREAR']), validateRequest(fichaValidationSchemas.updateAgenda), fichaController.updateAgenda);
 router.patch('/agenda/:idAgendamam/realizado-gem', authenticate, fichaController.updateRealizadoGem);
 router.patch('/agenda/:idAgendamam/caso-adlab', authenticate, fichaController.updateCasoAdlab);
+router.get('/agenda/:idAgendamam/puntos-visita', authenticate, fichaController.getPuntosVisita);
 router.post('/:id/update', authenticate, verifyPermission('FI_EDITAR'), fichaController.update);
 
 export default router;

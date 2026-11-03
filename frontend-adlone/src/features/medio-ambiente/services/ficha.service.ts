@@ -144,9 +144,15 @@ export const fichaService = {
         const response = await apiClient.get(`/api/fichas/${id}/historial`);
         return response.data.data;
     },
-    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: FichaUser, motivo_cancelacion: string, idMotivoCancelacion: number) => {
-        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion, idMotivoCancelacion });
+    // `tambien`: agendas de otros puntos de la misma visita que se cancelan junto con esta (mismo motivo y observación).
+    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: FichaUser, motivo_cancelacion: string, idMotivoCancelacion: number, tambien: number[] = []) => {
+        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion, idMotivoCancelacion, tambien });
         return response.data;
+    },
+    // Otros puntos de la visita que comparten este muestreo y todavía se pueden cancelar (vacío si la ficha no es de una visita).
+    getPuntosVisita: async (idAgenda: number): Promise<{ id_agenda: number; id_ficha: number; punto: string | null; correlativo: string }[]> => {
+        const response = await apiClient.get(`/api/fichas/agenda/${idAgenda}/puntos-visita`);
+        return response.data?.data ?? [];
     },
     getSamplingEquipos: async (idFicha: number, correlativo: string) => {
         const response = await apiClient.get(`/api/fichas/${idFicha}/sampling-equipos?correlativo=${correlativo}`);

@@ -2558,7 +2558,8 @@ class FichaIngresoService {
         return e;
     }
 
-    // Agrega id_grupo y grupo_total a cada fila. Si las tablas del grupo no existen aún, la lista queda como antes.
+    // Agrega id_grupo, grupo_total, grupo_orden y grupo_punto (nombre del punto) a cada fila de una ficha que pertenece a un grupo.
+    // Si las tablas del grupo no existen aún, la lista queda como antes.
     async _mergeGrupos(pool, recordset) {
         if (!recordset || recordset.length === 0) return;
         const idDe = (r) => parseInt(r.id_fichaingresoservicio || r.fichaingresoservicio || r.id);
@@ -2566,15 +2567,19 @@ class FichaIngresoService {
         if (ids.length === 0) return;
         try {
             const res = await pool.request().query(`
-                SELECT gf.id_fichaingresoservicio AS id, gf.id_grupo,
-                       (SELECT COUNT(*) FROM App_Ma_GrupoMuestreo_Ficha x WHERE x.id_grupo = gf.id_grupo) AS total
+                SELECT gf.id_fichaingresoservicio AS id, gf.id_grupo, gf.orden,
+                       (SELECT COUNT(*) FROM App_Ma_GrupoMuestreo_Ficha x WHERE x.id_grupo = gf.id_grupo) AS total,
+                       LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
                 FROM App_Ma_GrupoMuestreo_Ficha gf
+                LEFT JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = gf.id_fichaingresoservicio
                 WHERE gf.id_fichaingresoservicio IN (${ids.join(',')})`);
             const mapa = new Map(res.recordset.map((r) => [Number(r.id), r]));
             recordset.forEach((row) => {
                 const g = mapa.get(idDe(row));
                 row.id_grupo = g ? g.id_grupo : null;
                 row.grupo_total = g ? g.total : null;
+                row.grupo_orden = g ? g.orden : null;
+                row.grupo_punto = g ? g.punto : null;
             });
         } catch (e) {
             logger.warn(`[grupos] no se pudo leer el grupo de las fichas: ${e.message}`);
@@ -2606,6 +2611,45 @@ class FichaIngresoService {
             logger.warn(`[grupos] no se pudo leer la información de grupos: ${e.message}`);
         }
         return info;
+    }
+
+    // Número de servicio de un muestreo: el 2.º segmento de frecuencia_correlativo ("1051-2-Pendiente-5743" → 2).
+    _numeroDeServicio(correlativo) {
+        const n = String(correlativo || '').split('-')[1];
+        return /^\d+$/.test(n || '') ? Number(n) : null;
+    }
+
+    // El muestreo `idAgendamam` y sus equivalentes en los demás puntos de su visita: mismo grupo y mismo N° de servicio, sin contar
+    // los ya cancelados. Una ficha que no está en un grupo no tiene hermanos. `hermanos` trae el nombre de cada punto.
+    async _agendasHermanas(pool, idAgendamam) {
+        const propio = (await pool.request().input('a', sql.Numeric, idAgendamam)
+            .query('SELECT id_agendamam, id_fichaingresoservicio, frecuencia_correlativo FROM App_Ma_Agenda_MUESTREOS WHERE id_agendamam = @a')).recordset[0];
+        if (!propio) return { propio: null, hermanos: [] };
+        const miNumero = this._numeroDeServicio(propio.frecuencia_correlativo);
+        if (miNumero === null) return { propio, hermanos: [] };
+        const delGrupo = (await pool.request().input('f', sql.Numeric, propio.id_fichaingresoservicio).query(`
+            SELECT a.id_agendamam, a.id_fichaingresoservicio, a.frecuencia_correlativo, a.estado_caso, a.retiro_completado,
+                   a.id_estadomuestreo, a.realizado_por_gem, LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
+            FROM App_Ma_Agenda_MUESTREOS a
+            JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+            WHERE a.id_fichaingresoservicio <> @f
+              AND a.id_fichaingresoservicio IN (
+                  SELECT id_fichaingresoservicio FROM App_Ma_GrupoMuestreo_Ficha
+                  WHERE id_grupo = (SELECT id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @f))
+            ORDER BY a.id_fichaingresoservicio`)).recordset;
+        const hermanos = delGrupo.filter((a) => this._numeroDeServicio(a.frecuencia_correlativo) === miNumero
+            && String(a.estado_caso || '').toUpperCase() !== 'CANCELADO');
+        return { propio, hermanos };
+    }
+
+    // Puntos de la visita que comparten el muestreo `idAgendamam`, para ofrecer cancelarlos juntos. Solo los que aún se pueden cancelar.
+    async getPuntosDeVisitaDeAgenda(idAgendamam) {
+        const pool = await getConnection();
+        const { propio, hermanos } = await this._agendasHermanas(pool, idAgendamam);
+        if (!propio) throw this._errorDatos('El muestreo no existe', 404);
+        return hermanos
+            .filter((h) => !(h.id_estadomuestreo === 3 || h.realizado_por_gem))
+            .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo }));
     }
 
     // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una
@@ -3647,7 +3691,8 @@ class FichaIngresoService {
             throw error;
         }
     }
-    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idMotivoCancelacion) {
+    // opciones.sinNotificar: no envía el aviso de cancelación (al cancelar varios puntos de una visita, avisa solo el principal).
+    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idMotivoCancelacion, opciones = {}) {
         if (!idMotivoCancelacion) throw new Error('Debe indicar el motivo de la cancelación');
         if (!String(observations || '').trim()) throw new Error('Debe indicar una observación para cancelar el muestreo');
         const pool = await getConnection();
@@ -3736,7 +3781,7 @@ class FichaIngresoService {
             logger.info(`Muestreo cancelado exitosamente: Agenda ${idAgenda}`);
 
             // NOTIFICACIÓN: Muestreo Cancelado
-            try {
+            if (!opciones.sinNotificar) try {
                 const poolNotif = await getConnection();
                 const reqNotif = poolNotif.request();
                 reqNotif.input('idAgenda', sql.BigInt, Number(idAgenda));
@@ -4546,25 +4591,8 @@ class FichaIngresoService {
 
         // Una visita con varios puntos tiene UN solo OI: el mismo muestreo (mismo N° de servicio, el 2.º segmento de
         // frecuencia_correlativo) de los demás puntos del grupo lleva el mismo código. Una ficha sin grupo va sola, como siempre.
-        const numeroServicio = (corr) => {
-            const n = String(corr || '').split('-')[1];
-            return /^\d+$/.test(n || '') ? Number(n) : null;
-        };
-        const propio = (await pool.request().input('a', sql.Numeric, idAgendamam)
-            .query('SELECT id_agendamam, id_fichaingresoservicio, frecuencia_correlativo FROM App_Ma_Agenda_MUESTREOS WHERE id_agendamam = @a')).recordset[0];
+        const { propio, hermanos } = await this._agendasHermanas(pool, idAgendamam);
         if (!propio) throw new Error('No se encontró el muestreo.');
-        const miNumero = numeroServicio(propio.frecuencia_correlativo);
-        let hermanos = [];
-        if (miNumero !== null) {
-            const delGrupo = (await pool.request().input('f', sql.Numeric, propio.id_fichaingresoservicio).query(`
-                SELECT a.id_agendamam, a.id_fichaingresoservicio, a.frecuencia_correlativo, a.estado_caso, a.retiro_completado
-                FROM App_Ma_Agenda_MUESTREOS a
-                WHERE a.id_fichaingresoservicio <> @f
-                  AND a.id_fichaingresoservicio IN (
-                      SELECT id_fichaingresoservicio FROM App_Ma_GrupoMuestreo_Ficha
-                      WHERE id_grupo = (SELECT id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @f))`)).recordset;
-            hermanos = delGrupo.filter((a) => numeroServicio(a.frecuencia_correlativo) === miNumero && String(a.estado_caso || '').toUpperCase() !== 'CANCELADO');
-        }
         const idsConjunto = [Number(propio.id_agendamam), ...hermanos.map((h) => Number(h.id_agendamam))];
 
         // Validar que el caso_adlab no esté ya asignado a un muestreo ajeno a este conjunto

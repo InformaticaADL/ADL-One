@@ -143,6 +143,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const [editedSamplerId, setEditedSamplerId] = useState<number | ''>('');
     const [cancellationReasons, setCancellationReasons] = useState<any[]>([]);
     const [selectedReasonId, setSelectedReasonId] = useState<number | ''>('');
+    // Otros puntos de la misma visita que se pueden cancelar junto con este muestreo.
+    const [puntosVisita, setPuntosVisita] = useState<{ id_agenda: number; id_ficha: number; punto: string | null }[]>([]);
+    const [puntosACancelar, setPuntosACancelar] = useState<Set<number>>(new Set());
     const [isSavingEvent, setIsSavingEvent] = useState(false);
     const [showVersionPrompt, setShowVersionPrompt] = useState(false);
     const [pendingPayload, setPendingPayload] = useState<UpdateAgendaPayload | null>(null);
@@ -325,6 +328,18 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         globalMuestreadores.map(m => ({ value: String(m.id_muestreador), label: m.nombre_muestreador })),
         [globalMuestreadores]
     );
+
+    // Al abrir la cancelación, trae los otros puntos de la visita que comparten este muestreo (si la ficha es de una visita).
+    useEffect(() => {
+        setPuntosVisita([]);
+        setPuntosACancelar(new Set());
+        if (!showCancelConfirm || !selectedEvent?.id_agenda) return;
+        let cancelado = false;
+        fichaService.getPuntosVisita(Number(selectedEvent.id_agenda))
+            .then(lista => { if (!cancelado) setPuntosVisita(lista); })
+            .catch(() => { /* sin la lista se cancela solo este punto, como siempre */ });
+        return () => { cancelado = true; };
+    }, [showCancelConfirm, selectedEvent?.id_agenda]);
 
     const cancellationOptions = useMemo(() =>
         cancellationReasons.map(r => ({ value: String(r.id_motivocancelacion), label: r.nombre_motivo })),
@@ -1025,6 +1040,43 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     <div className="flex flex-col gap-4">
                         <p className="text-[13px]">¿Está seguro que desea cancelar este muestreo? Esta acción es irreversible.</p>
 
+                        {puntosVisita.length > 0 && (
+                            <div className="rounded-md border border-border bg-muted/30 p-3">
+                                <p className="m-0 mb-2 text-xs text-muted-foreground">
+                                    Este muestreo es parte de una visita con varios puntos. Por defecto se cancela <b className="text-foreground">solo este punto</b>;
+                                    marque los que también quiera cancelar.
+                                </p>
+                                <div className="mb-1.5 flex items-center justify-between">
+                                    <span className="text-xs font-medium text-foreground">Cancelar también</span>
+                                    <button
+                                        type="button"
+                                        className="text-xs text-primary underline-offset-2 hover:underline"
+                                        onClick={() => setPuntosACancelar(puntosACancelar.size === puntosVisita.length ? new Set() : new Set(puntosVisita.map(p => p.id_agenda)))}
+                                    >
+                                        {puntosACancelar.size === puntosVisita.length ? 'Quitar todos' : 'Marcar todos'}
+                                    </button>
+                                </div>
+                                <ul className="m-0 flex max-h-40 list-none flex-col gap-1 overflow-y-auto p-0">
+                                    {puntosVisita.map(p => (
+                                        <li key={p.id_agenda}>
+                                            <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={puntosACancelar.has(p.id_agenda)}
+                                                    onChange={(e) => setPuntosACancelar(prev => {
+                                                        const sig = new Set(prev);
+                                                        if (e.target.checked) sig.add(p.id_agenda); else sig.delete(p.id_agenda);
+                                                        return sig;
+                                                    })}
+                                                />
+                                                <span>{p.punto || `Ficha ${p.id_ficha}`}</span>
+                                            </label>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+
                         <div>
                             <span className="mb-1 block text-xs">Motivo de Cancelación *</span>
                             <Combobox
@@ -1049,14 +1101,21 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 if (!selectedEvent) return;
                                 setIsSavingEvent(true);
                                 try {
-                                    await fichaService.cancelAgendaSampling(
+                                    const resCancel = await fichaService.cancelAgendaSampling(
                                         selectedEvent.id_agenda,
                                         selectedEvent.id,
                                         { id: user?.id || 0, usuario: user?.name || '' },
                                         cancelReason,
-                                        Number(selectedReasonId)
+                                        Number(selectedReasonId),
+                                        [...puntosACancelar]
                                     );
-                                    showToast({ type: 'success', message: 'Muestreo cancelado correctamente.' });
+                                    const fallidosCancel: { punto: string | null }[] = resCancel?.data?.fallidos ?? [];
+                                    const totalCancelados: number = resCancel?.data?.cancelados?.length ?? 1;
+                                    showToast(fallidosCancel.length > 0
+                                        ? { type: 'warning', message: `Se cancelaron ${totalCancelados} punto(s), pero no se pudo cancelar: ${fallidosCancel.map(f => f.punto || 'un punto').join(', ')}.` }
+                                        : { type: 'success', message: totalCancelados > 1 ? `Se cancelaron ${totalCancelados} puntos de la visita.` : 'Muestreo cancelado correctamente.' });
+                                    setPuntosVisita([]);
+                                    setPuntosACancelar(new Set());
                                     lastFetchRef.current = '';
                                     setShowCancelConfirm(false);
                                     setCancelReason('');

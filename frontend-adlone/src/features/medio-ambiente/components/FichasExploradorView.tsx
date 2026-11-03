@@ -23,6 +23,8 @@ import {
     IconSearch,
     IconEraser,
     IconFilter,
+    IconChevronDown,
+    IconChevronRight,
 } from '@tabler/icons-react';
 
 interface Props {
@@ -198,10 +200,41 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
 
     const panelFilterCount = [searchId, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, dateFrom, dateTo].filter(Boolean).length;
 
+    // Una visita con varios puntos se muestra como UNA fila (la del primer punto que cumple los filtros) que se despliega con todos
+    // sus puntos. Los puntos de una misma visita siempre se ven completos al desplegar, aunque un filtro deje fuera a alguno.
+    const [visitasAbiertas, setVisitasAbiertas] = useState<Set<number>>(new Set());
+    const toggleVisita = (idGrupo: number) => setVisitasAbiertas(prev => {
+        const sig = new Set(prev);
+        if (sig.has(idGrupo)) sig.delete(idGrupo); else sig.add(idGrupo);
+        return sig;
+    });
+    const puntosPorVisita = useMemo(() => {
+        const m = new Map<number, any[]>();
+        fichas.forEach(f => {
+            const g = Number(f.id_grupo);
+            if (!g) return;
+            if (!m.has(g)) m.set(g, []);
+            m.get(g)!.push(f);
+        });
+        m.forEach(lista => lista.sort((a, b) => (Number(a.grupo_orden) || 0) - (Number(b.grupo_orden) || 0)
+            || Number(a.id_fichaingresoservicio) - Number(b.id_fichaingresoservicio)));
+        return m;
+    }, [fichas]);
+    const filasVisibles = useMemo(() => {
+        const vistos = new Set<number>();
+        return sortedFichas.filter(f => {
+            const g = Number(f.id_grupo);
+            if (!g) return true;
+            if (vistos.has(g)) return false;
+            vistos.add(g);
+            return true;
+        });
+    }, [sortedFichas]);
+
     const paginatedFichas = useMemo(() => {
         const start = (page - 1) * itemsPerPage;
-        return sortedFichas.slice(start, start + itemsPerPage);
-    }, [sortedFichas, page]);
+        return filasVisibles.slice(start, start + itemsPerPage);
+    }, [filasVisibles, page, itemsPerPage]);
 
     const handleDownloadPdf = async (e: React.MouseEvent | undefined, ficha: any) => {
         e?.stopPropagation();
@@ -232,7 +265,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                 ]}
                 rightSection={
                     <div className="flex flex-wrap items-center gap-2.5">
-                        <span className="text-xs text-muted-foreground">{sortedFichas.length} registros encontrados</span>
+                        <span className="text-xs text-muted-foreground">{filasVisibles.length} registros encontrados</span>
 
                         <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
                             <SheetTrigger asChild>
@@ -373,9 +406,41 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                     const status = getStatusProps(ficha.estado_ficha);
                                     const isRejected = (ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA');
                                     const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
+                                    const idVisita = Number(ficha.id_grupo) || 0;
+                                    const puntos = idVisita ? (puntosPorVisita.get(idVisita) || []) : [];
+                                    const esVisita = idVisita > 0 && puntos.length > 1;
+                                    const abierta = esVisita && visitasAbiertas.has(idVisita);
+                                    const accionesDe = (f: any) => {
+                                        const id = f.id_fichaingresoservicio || f.fichaingresoservicio;
+                                        const rechazada = (f.estado_ficha || '').toUpperCase().includes('RECHAZADA');
+                                        return [
+                                            {
+                                                label: 'Ver ficha',
+                                                icon: <IconEye size={16} />,
+                                                onClick: () => onViewDetail(id),
+                                                hidden: !hasPermission('FI_CONSULTAR') && !hasPermission('FI_VER') && !hasPermission('FI_EDITAR'),
+                                            },
+                                            {
+                                                label: rechazada ? 'Descargar PDF (ficha rechazada)' : 'Descargar PDF',
+                                                icon: <IconDownload size={16} />,
+                                                onClick: () => handleDownloadPdf(undefined, f),
+                                                danger: rechazada,
+                                                hidden: !hasPermission('FI_EXPORTAR_CFI') && !hasPermission('FI_EXP_AFE'),
+                                            },
+                                        ];
+                                    };
                                     return (
-                                        <TableRow key={String(idFicha)}>
-                                            <TableCell className="font-semibold text-primary">{ficha.fichaingresoservicio || '-'}</TableCell>
+                                        <React.Fragment key={String(idFicha)}>
+                                        <TableRow className={esVisita ? 'cursor-pointer' : undefined} onClick={esVisita ? () => toggleVisita(idVisita) : undefined}>
+                                            <TableCell className="font-semibold text-primary">
+                                                {esVisita ? (
+                                                    <span className="flex items-center gap-1.5">
+                                                        {abierta ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                                                        <span>{ficha.fichaingresoservicio || '-'}</span>
+                                                        <Badge variant="secondary" className="ml-1 whitespace-nowrap px-1.5 font-normal">Visita · {puntos.length} puntos</Badge>
+                                                    </span>
+                                                ) : (ficha.fichaingresoservicio || '-')}
+                                            </TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant={status.variant}>{status.label}</Badge>
                                             </TableCell>
@@ -387,25 +452,30 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                             {/* La columna PDF se quitó: su descarga vive acá, junto a
                                                 "Ver ficha", en el menú de acciones estándar. */}
                                             <TableCell className="text-right">
-                                                <RowActionsMenu
-                                                    actions={[
-                                                        {
-                                                            label: 'Ver ficha',
-                                                            icon: <IconEye size={16} />,
-                                                            onClick: () => onViewDetail(idFicha),
-                                                            hidden: !hasPermission('FI_CONSULTAR') && !hasPermission('FI_VER') && !hasPermission('FI_EDITAR'),
-                                                        },
-                                                        {
-                                                            label: isRejected ? 'Descargar PDF (ficha rechazada)' : 'Descargar PDF',
-                                                            icon: <IconDownload size={16} />,
-                                                            onClick: () => handleDownloadPdf(undefined, ficha),
-                                                            danger: isRejected,
-                                                            hidden: !hasPermission('FI_EXPORTAR_CFI') && !hasPermission('FI_EXP_AFE'),
-                                                        },
-                                                    ]}
-                                                />
+                                                {esVisita ? (
+                                                    <span className="text-xs text-muted-foreground">{abierta ? 'Ocultar puntos' : 'Ver puntos'}</span>
+                                                ) : (
+                                                    <RowActionsMenu actions={accionesDe(ficha)} />
+                                                )}
                                             </TableCell>
                                         </TableRow>
+                                        {abierta && puntos.map((p, i) => {
+                                            const st = getStatusProps(p.estado_ficha);
+                                            const idP = p.id_fichaingresoservicio || p.fichaingresoservicio;
+                                            return (
+                                                <TableRow key={`${idFicha}-p${idP}`} className="bg-muted/30">
+                                                    <TableCell className="pl-9 text-sm text-primary">{p.fichaingresoservicio || '-'}</TableCell>
+                                                    <TableCell className="text-center"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
+                                                    <TableCell colSpan={4} className="text-sm">
+                                                        <span className="font-medium text-foreground">Punto {i + 1}:</span>{' '}
+                                                        <span className="text-muted-foreground">{p.grupo_punto || 'sin nombre'}</span>
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[140px] truncate" title={p.base_operaciones}>{p.base_operaciones || ''}</TableCell>
+                                                    <TableCell className="text-right"><RowActionsMenu actions={accionesDe(p)} /></TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                        </React.Fragment>
                                     );
                                 })
                             )}
@@ -417,7 +487,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
             <DataPagination
                 page={page}
                 pageSize={itemsPerPage}
-                total={sortedFichas.length}
+                total={filasVisibles.length}
                 onPageChange={setPage}
                 onPageSizeChange={(size) => { setItemsPerPage(size); setPage(1); }}
             />
