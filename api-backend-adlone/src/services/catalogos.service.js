@@ -13,7 +13,7 @@ const ALLOWED_TABLES = new Set([
   'mae_dispositivohidraulico', 'mae_solicitud_tipo', 'mae_permiso',
   'mae_notificacion_regla', 'mae_evento_notificacion', 'mae_comuna', 'mae_zonautm',
   'mae_competencia', 'mae_estado_equipo', 'mae_equipo_catalogo', 'mae_tecnica', 'mae_seccion',
-  'mae_normativa', 'mae_normativareferencia', 'App_Ma_ReferenciaAnalisis'
+  'mae_normativa', 'mae_normativareferencia', 'App_Ma_ReferenciaAnalisis', 'mae_motivocancelacion'
 ]);
 
 // Columns that must never be returned by the generic getMaestroData endpoint
@@ -415,6 +415,24 @@ export const catalogosService = {
       return result.recordset;
     } catch (error) {
       logger.error('Error in getEstadosMuestreo service:', error);
+      throw error;
+    }
+  },
+
+  // para: 'terreno' (ADL Sampling) | 'coordinacion' (ADL ONE) | undefined (todos). Los de 'ambos' salen siempre.
+  getMotivosCancelacion: async (para) => {
+    try {
+      const pool = await getConnection();
+      const request = pool.request();
+      let filtro = '';
+      if (para === 'terreno' || para === 'coordinacion') {
+        request.input('para', sql.VarChar(20), para);
+        filtro = " AND ISNULL(NULLIF(LTRIM(RTRIM(aplica_a)), ''), 'ambos') IN ('ambos', @para)";
+      }
+      const result = await request.query(`SELECT id_motivocancelacion, nombre_motivo, aplica_a FROM mae_motivocancelacion WHERE habilitado = 'S'${filtro} ORDER BY orden, id_motivocancelacion`);
+      return result.recordset;
+    } catch (error) {
+      logger.error('Error in getMotivosCancelacion service:', error);
       throw error;
     }
   },

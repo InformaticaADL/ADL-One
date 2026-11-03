@@ -144,8 +144,8 @@ export const fichaService = {
         const response = await apiClient.get(`/api/fichas/${id}/historial`);
         return response.data.data;
     },
-    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: FichaUser, motivo_cancelacion: string, idEstadoMuestreo?: number) => {
-        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion, idEstadoMuestreo });
+    cancelAgendaSampling: async (idAgenda: number, idFicha: number, user: FichaUser, motivo_cancelacion: string, idMotivoCancelacion: number) => {
+        const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion, idMotivoCancelacion });
         return response.data;
     },
     getSamplingEquipos: async (idFicha: number, correlativo: string) => {

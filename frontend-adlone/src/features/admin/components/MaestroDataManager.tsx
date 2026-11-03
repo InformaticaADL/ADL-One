@@ -54,6 +54,8 @@ interface MaestroConfig {
             noCreate?: boolean;
         }
     };
+    /** Campos con opciones fijas (lista desplegable en vez de texto libre). */
+    fixedOptions?: { [fieldName: string]: { value: string; label: string }[] };
 }
 
 interface Props {
@@ -496,6 +498,22 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
     const renderField = (col: string) => {
         const icon = getFieldIcon(col);
         const isLookup = config.lookups && config.lookups[col];
+        const fijas = config.fixedOptions?.[col];
+
+        if (fijas) {
+            return (
+                <div key={col}>
+                    <Label className="mb-1 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                    <Combobox
+                        className="border-l-[3px] border-l-sky-400"
+                        placeholder={`Seleccione ${formatHeader(col)}...`}
+                        options={fijas}
+                        value={formData[col] ? String(formData[col]) : fijas[0].value}
+                        onValueChange={(v) => setFormData({ ...formData, [col]: v })}
+                    />
+                </div>
+            );
+        }
 
         if (isLookup) {
             const lookup = config.lookups![col];

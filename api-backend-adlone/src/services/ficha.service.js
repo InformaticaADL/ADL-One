@@ -3628,7 +3628,9 @@ class FichaIngresoService {
             throw error;
         }
     }
-    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idEstadoMuestreo) {
+    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idMotivoCancelacion) {
+        if (!idMotivoCancelacion) throw new Error('Debe indicar el motivo de la cancelación');
+        if (!String(observations || '').trim()) throw new Error('Debe indicar una observación para cancelar el muestreo');
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -3664,11 +3666,13 @@ class FichaIngresoService {
             const agendaReq = new sql.Request(transaction);
             agendaReq.input('id_agenda', sql.Numeric(18, 0), idAgenda);
             agendaReq.input('motivo', sql.VarChar(500), observations || '');
-            agendaReq.input('id_estado', sql.Int, idEstadoMuestreo || 99); // Fallback to 99 if not provided
+            agendaReq.input('id_motivo', sql.Int, Number(idMotivoCancelacion));
+            agendaReq.input('id_estado', sql.Int, 6); // 6 = Cancelado en ADL (la cancelación desde ADL ONE la hace coordinación)
             await agendaReq.query(`
                 UPDATE App_Ma_Agenda_MUESTREOS
                 SET estado_caso = 'CANCELADO',
                     id_estadomuestreo = @id_estado,
+                    id_motivocancelacion = @id_motivo,
                     motivo_cancelacion = @motivo
                 WHERE id_agendamam = @id_agenda
             `);
