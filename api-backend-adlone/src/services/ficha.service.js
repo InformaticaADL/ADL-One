@@ -2642,13 +2642,15 @@ class FichaIngresoService {
         return { propio, hermanos };
     }
 
-    // Puntos de la visita que comparten el muestreo `idAgendamam`, para ofrecer cancelarlos juntos. Solo los que aún se pueden cancelar.
-    async getPuntosDeVisitaDeAgenda(idAgendamam) {
+    // Puntos de la visita que comparten el muestreo `idAgendamam`. modo 'cancelables' (por defecto): los que aún se pueden cancelar,
+    // para ofrecer cancelarlos juntos. modo 'ejecutados': los que ya se ejecutaron, para saltar entre ellos en el detalle.
+    async getPuntosDeVisitaDeAgenda(idAgendamam, modo = 'cancelables') {
         const pool = await getConnection();
         const { propio, hermanos } = await this._agendasHermanas(pool, idAgendamam);
         if (!propio) throw this._errorDatos('El muestreo no existe', 404);
+        const ejecutado = (h) => h.id_estadomuestreo === 3 || !!h.realizado_por_gem;
         return hermanos
-            .filter((h) => !(h.id_estadomuestreo === 3 || h.realizado_por_gem))
+            .filter((h) => (modo === 'ejecutados' ? ejecutado(h) : !ejecutado(h)))
             .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo }));
     }
 

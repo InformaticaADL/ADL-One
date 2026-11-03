@@ -150,8 +150,9 @@ export const fichaService = {
         return response.data;
     },
     // Otros puntos de la visita que comparten este muestreo y todavía se pueden cancelar (vacío si la ficha no es de una visita).
-    getPuntosVisita: async (idAgenda: number): Promise<{ id_agenda: number; id_ficha: number; punto: string | null; correlativo: string }[]> => {
-        const response = await apiClient.get(`/api/fichas/agenda/${idAgenda}/puntos-visita`);
+    // modo 'ejecutados': en cambio devuelve los que ya se ejecutaron (para moverse entre ellos en el detalle).
+    getPuntosVisita: async (idAgenda: number, modo: 'cancelables' | 'ejecutados' = 'cancelables'): Promise<{ id_agenda: number; id_ficha: number; punto: string | null; correlativo: string }[]> => {
+        const response = await apiClient.get(`/api/fichas/agenda/${idAgenda}/puntos-visita`, { params: { modo } });
         return response.data?.data ?? [];
     },
     getSamplingEquipos: async (idFicha: number, correlativo: string) => {

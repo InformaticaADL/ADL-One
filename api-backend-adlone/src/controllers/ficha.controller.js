@@ -198,7 +198,8 @@ class FichaIngresoController {
     // Otros puntos de la visita que comparten un muestreo (para cancelarlos juntos desde el calendario).
     async getPuntosVisita(req, res) {
         try {
-            const result = await fichaService.getPuntosDeVisitaDeAgenda(req.params.idAgendamam);
+            const modo = req.query.modo === 'ejecutados' ? 'ejecutados' : 'cancelables';
+            const result = await fichaService.getPuntosDeVisitaDeAgenda(req.params.idAgendamam, modo);
             return successResponse(res, result, 'Puntos de la visita');
         } catch (err) {
             logger.error('Error in getPuntosVisita controller:', err);

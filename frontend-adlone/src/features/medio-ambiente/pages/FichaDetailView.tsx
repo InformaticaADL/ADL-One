@@ -60,6 +60,7 @@ export const FichaDetailView = () => {
     const {
         selectedFichaId,
         selectedCorrelativo,
+        setSelectedFicha,
         setActiveSubmodule,
         activeModule,
         setHelpCenterOpen,
@@ -152,6 +153,19 @@ export const FichaDetailView = () => {
 
         fetchDetail();
     }, [selectedFichaId, selectedCorrelativo]);
+
+    // Si este muestreo es parte de una visita con varios puntos, los otros puntos ya ejecutados quedan a un clic.
+    const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string }[]>([]);
+    const idAgendaActual = data?.ficha?.id_agendamam;
+    useEffect(() => {
+        setOtrosPuntosEjecutados([]);
+        if (!idAgendaActual) return;
+        let cancelado = false;
+        fichaService.getPuntosVisita(Number(idAgendaActual), 'ejecutados')
+            .then(lista => { if (!cancelado) setOtrosPuntosEjecutados(lista); })
+            .catch(() => { /* sin la lista simplemente no se muestra el aviso */ });
+        return () => { cancelado = true; };
+    }, [idAgendaActual]);
 
     const handleBack = () => {
         if (activeModule === 'gem' || activeModule === 'unidades-gem') {
@@ -334,6 +348,18 @@ export const FichaDetailView = () => {
 
     return (
         <div className="shadcn-scope w-full max-w-full overflow-x-hidden p-4">
+
+            {otrosPuntosEjecutados.length > 0 && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                    <IconMapPin size={16} className="shrink-0 text-primary" />
+                    <span className="font-medium text-foreground">Este muestreo es parte de una visita con varios puntos. Otros puntos ejecutados:</span>
+                    {otrosPuntosEjecutados.map(p => (
+                        <Button key={p.id_ficha} variant="outline" size="sm" onClick={() => setSelectedFicha(p.id_ficha, p.correlativo)}>
+                            {p.punto || `Ficha ${p.id_ficha}`}
+                        </Button>
+                    ))}
+                </div>
+            )}
 
             {/* Header */}
             <Card className="mb-4 overflow-hidden" style={{ background: 'var(--app-header-gradient)' }}>
