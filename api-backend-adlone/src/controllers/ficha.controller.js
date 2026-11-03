@@ -133,7 +133,8 @@ class FichaIngresoController {
         }
     }
 
-    // Visita con varios puntos: crea una ficha por punto (misma ficha base, costo operativo una sola vez) y las agrupa.
+    // Visita con varios puntos: crea una ficha por punto (cada punto puede traer sus propios antecedentes y análisis; el costo
+    // operativo se reparte entre los puntos) y las agrupa.
     async createGrupo(req, res) {
         try {
             if (!req.body.antecedentes || !req.body.analisis) {

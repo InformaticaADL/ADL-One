@@ -55,8 +55,9 @@ export const fichaValidationSchemas = {
             observaciones: Joi.string().max(5000).optional(),
             puntosAdicionales: Joi.array().items(Joi.object({
                 puntoMuestreo: Joi.string().trim().min(1).max(250).required(),
+                antecedentes: Joi.object().optional(),
                 analisis: Joi.array().items(Joi.object()).optional(),
-            }).unknown(true)).max(59).required(),
+            }).unknown(true)).required(),
         }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object(),

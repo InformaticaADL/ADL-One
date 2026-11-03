@@ -2609,9 +2609,11 @@ class FichaIngresoService {
     }
 
     // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una
-    // por cada punto de data.puntosAdicionales. Los análisis se copian a todas (cada punto puede traer los suyos en
-    // p.analisis). El costo operativo es uno general por visita: se divide en partes iguales entre los puntos (cada ficha
-    // lleva su parte, en centésimas de UF; el resto de la división se reparte de a 0,01 desde la primera ficha).
+    // por cada punto de data.puntosAdicionales. Cada punto adicional puede traer sus propios antecedentes completos
+    // (p.antecedentes, que pisan a los del primer punto) y sus propios análisis (p.analisis); lo que no traiga se copia del
+    // primero. Todos deben ser de la misma empresa y el mismo centro. El costo operativo es uno general por visita: se divide
+    // en partes iguales entre los puntos (cada ficha lleva su parte, en centésimas de UF; el resto de la división se reparte
+    // de a 0,01 desde la primera ficha).
     async createFichaGrupo(data) {
         const adicionales = Array.isArray(data.puntosAdicionales) ? data.puntosAdicionales : [];
         if (adicionales.length === 0) return this.createFicha(data);
@@ -2623,6 +2625,14 @@ class FichaIngresoService {
             const k = n.toLowerCase();
             if (vistos.has(k)) throw this._errorDatos(`El punto "${n}" está repetido.`);
             vistos.add(k);
+        }
+        const mismo = (a, b) => String(a ?? '') === String(b ?? '');
+        for (const p of adicionales) {
+            const a = p.antecedentes;
+            if (a && ((a.selectedCliente !== undefined && !mismo(a.selectedCliente, data.antecedentes?.selectedCliente))
+                || (a.selectedFuente !== undefined && !mismo(a.selectedFuente, data.antecedentes?.selectedFuente)))) {
+                throw this._errorDatos(`El punto "${String(p.puntoMuestreo).trim()}" es de otra empresa o centro: todos los puntos de una visita deben ser de la misma empresa y el mismo centro.`);
+            }
         }
 
         const pool = await getConnection();
@@ -2650,6 +2660,7 @@ class FichaIngresoService {
                     ...data,
                     antecedentes: {
                         ...ant,
+                        ...(p.antecedentes || {}),
                         puntoMuestreo: String(p.puntoMuestreo).trim(),
                         zona: p.zona ?? '',
                         utmNorte: p.utmNorte ?? '',

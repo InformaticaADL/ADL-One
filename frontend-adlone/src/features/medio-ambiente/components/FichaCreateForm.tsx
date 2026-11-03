@@ -13,7 +13,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import {
@@ -26,8 +26,40 @@ import {
     IconEdit,
     IconEye,
     IconInfoCircle,
+    IconMapPin,
+    IconTrash,
 } from '@tabler/icons-react';
 import { useNavStore } from '../../../store/navStore';
+
+// ─── Visita con varios puntos ────────────────────────────────────────────────────────────────────────
+// Un punto ya completado de la visita. `antecedentes` es lo que devuelve AntecedentesForm.getData() y
+// `analisisUI` la lista de análisis tal como la edita AnalysisForm (con sus campos de pantalla).
+type PuntoVisita = { id: number; antecedentes: any; analisisUI: any[] };
+
+const claveBorrador = (idUsuario: unknown) => `adlone:borrador-visita:${idUsuario ?? 0}`;
+
+const leerBorrador = (clave: string): any => {
+    try {
+        const raw = localStorage.getItem(clave);
+        if (!raw) return null;
+        const d = JSON.parse(raw);
+        if (d?.version !== 1) return null;
+        const hayPuntos = Array.isArray(d.puntos) && d.puntos.length > 0;
+        const hayActual = !!(d.actual?.antecedentes?.puntoMuestreo || d.actual?.antecedentes?.selectedFuente);
+        return hayPuntos || hayActual ? d : null;
+    } catch { return null; }
+};
+const escribirBorrador = (clave: string, valor: unknown): boolean => {
+    try { localStorage.setItem(clave, JSON.stringify(valor)); return true; } catch { return false; }
+};
+const borrarBorrador = (clave: string) => { try { localStorage.removeItem(clave); } catch { /* sin acceso al almacenamiento */ } };
+
+// Los análisis viajan sin los campos que solo usa la pantalla (filas fijas sin configurar y opciones).
+const analisisParaEnviar = (lista: any[]) =>
+    lista.filter((a: any) => !a._fijo || a.id_referenciaanalisis).map((a: any) => { const rest = { ...a }; delete rest.opciones; return rest; });
+
+// Un punto nuevo parte con los datos del anterior; solo se vacía lo que identifica al punto.
+const sinDatosDelPunto = (ant: any) => ({ ...ant, puntoMuestreo: '', utmNorte: '', utmEste: '', refGoogle: '' });
 
 const SuccessModal = ({
     isOpen,
@@ -100,6 +132,23 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const topRef = useRef<HTMLDivElement>(null);
     const [savedAnalysis, setSavedAnalysis] = useState<any[]>([]);
     const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
+
+    // Visita con varios puntos: al abrir se pregunta si será uno o varios. En "varios" cada punto se completa y se guarda
+    // como borrador (en este navegador) hasta "Finalizar", que crea todos juntos en una sola operación.
+    const [modo, setModo] = useState<'pregunta' | 'uno' | 'varios'>('pregunta');
+    const [puntos, setPuntos] = useState<PuntoVisita[]>([]);
+    const [editandoId, setEditandoId] = useState<number | null>(null);
+    const [datosIniciales, setDatosIniciales] = useState<any>(null);
+    const [formKey, setFormKey] = useState(0);
+    const [decisionAbierta, setDecisionAbierta] = useState(false);
+    const [obsInicial, setObsInicial] = useState('');
+    const [obsKey, setObsKey] = useState(0);
+    const claveBorr = claveBorrador(user?.id);
+    const [borradorPendiente, setBorradorPendiente] = useState<any>(() => (cotizacionParaFicha ? null : leerBorrador(claveBorrador(user?.id))));
+    const numeroPuntoActual = editandoId != null ? puntos.findIndex(p => p.id === editandoId) + 1 : puntos.length + 1;
+    // Foto del estado para el autoguardado (el intervalo no debe depender de cada render).
+    const estadoRef = useRef<any>(null);
+    estadoRef.current = { modo, puntos, editandoId, costoOperativo, savedAnalysis, decisionAbierta };
 
     // Pre-agregar análisis fijos (pH + Temperatura, DS 90 / Tabla 1 / Terreno) a la
     // ficha nueva. Quedan listos para rellenar precio (UF=0) y son desmarcables
@@ -177,43 +226,44 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
         }
     };
 
+    // Datos comunes a toda la visita: costo operativo, observaciones comerciales, usuario y cotización de origen.
+    const datosDeLaVisita = () => ({
+        costoOperativo: {
+            activo: !!costoOperativo.enabled,
+            uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0
+        },
+        observaciones: observacionesRef.current?.getData() || 'No Aplica',
+        user: { id: user?.id || 0 },
+        // Trazabilidad cotización → ficha → casos → pre-factura.
+        idCotizacion: cotizacionParaFicha || null,
+    });
+
     const handleSave = async () => {
+        if (isSaving) return;
+        const antData = antecedentesRef.current?.getData ? antecedentesRef.current.getData() : null;
+        if (!antData) {
+            showToast({ type: 'warning', message: 'Por favor complete los antecedentes requeridos' });
+            return;
+        }
+        await enviarVisita({
+            // Descartar filas fijas (pH/Temperatura) que el usuario no configuró
+            // con normativa/tabla, y quitar el array `opciones` (solo de UI).
+            antecedentes: antData,
+            analisis: analisisParaEnviar(savedAnalysis),
+            ...datosDeLaVisita(),
+        }, false);
+    };
+
+    // Crea la ficha (un punto) o la visita completa (varios puntos agrupados) y muestra el resultado.
+    const enviarVisita = async (payload: Record<string, unknown>, esGrupo: boolean) => {
         if (isSaving) return;
         setIsSaving(true);
         try {
-            const antData = antecedentesRef.current?.getData ? antecedentesRef.current.getData() : null;
-            if (!antData) {
-                showToast({ type: 'warning', message: 'Por favor complete los antecedentes requeridos' });
-                return;
-            }
-
-            // Otros puntos de la misma visita: no son un antecedente de la ficha, viajan aparte.
-            const { puntosAdicionales, ...antecedentesBase } = antData;
-
-            // Descartar filas fijas (pH/Temperatura) que el usuario no configuró
-            // con normativa/tabla, y quitar el array `opciones` (solo de UI).
-            const analisisPayload = savedAnalysis
-                .filter((a: any) => !a._fijo || a.id_referenciaanalisis)
-                .map((a: any) => { const rest = { ...a }; delete rest.opciones; return rest; });
-
-            const payload = {
-                antecedentes: antecedentesBase,
-                ...(Array.isArray(puntosAdicionales) && puntosAdicionales.length > 0 ? { puntosAdicionales } : {}),
-                analisis: analisisPayload,
-                costoOperativo: {
-                    activo: !!costoOperativo.enabled,
-                    uf: costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0
-                },
-                observaciones: observacionesRef.current?.getData() || 'No Aplica',
-                user: { id: user?.id || 0 },
-                // Trazabilidad cotización → ficha → casos → pre-factura.
-                idCotizacion: cotizacionParaFicha || null,
-            };
-
-            const esGrupo = Array.isArray(puntosAdicionales) && puntosAdicionales.length > 0;
             const result = esGrupo ? await fichaService.createGrupo(payload) : await fichaService.create(payload);
 
             if (result && (result.success || result.data?.success)) {
+                borrarBorrador(claveBorr);
+                setDecisionAbierta(false);
                 const idToUse = result.data?.id_fichaingresoservicio || result.data?.id || result.id;
                 if (idToUse) {
                     if (cotizacionParaFicha) {
@@ -237,6 +287,161 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             showToast({ type: 'error', message: error.response?.data?.message || 'Error al grabar la ficha' });
         } finally {
             setIsSaving(false);
+        }
+    };
+
+    // ─── Varios puntos ──────────────────────────────────────────────────────────────────────────────────
+    // Guarda el borrador en el navegador. Con el diálogo de decisión abierto el formulario muestra un punto que ya está en la
+    // lista, así que no se guarda como "punto en curso" para no duplicarlo al retomar.
+    const guardarBorradorAhora = useCallback((): boolean => {
+        const e = estadoRef.current;
+        if (!e || e.modo !== 'varios') return true;
+        const enCurso = !e.decisionAbierta ? antecedentesRef.current?.getData?.() : null;
+        const hayEnCurso = !!(enCurso && (enCurso.puntoMuestreo || enCurso.selectedFuente));
+        if (e.puntos.length === 0 && !hayEnCurso) return true;
+        return escribirBorrador(claveBorr, {
+            version: 1,
+            guardadoEn: Date.now(),
+            puntos: e.puntos,
+            editandoId: e.editandoId,
+            costoOperativo: e.costoOperativo,
+            observaciones: observacionesRef.current?.getData() || '',
+            actual: hayEnCurso ? { antecedentes: enCurso, analisisUI: e.savedAnalysis } : null,
+        });
+    }, [claveBorr]);
+
+    useEffect(() => {
+        if (modo !== 'varios') return;
+        let avisado = false;
+        const guardar = () => {
+            if (!guardarBorradorAhora() && !avisado) {
+                avisado = true;
+                showToast({ type: 'warning', message: 'No se pudo guardar el borrador en este navegador. Termine la visita antes de salir.' });
+            }
+        };
+        const t = setInterval(guardar, 4000);
+        window.addEventListener('beforeunload', guardar);
+        return () => { clearInterval(t); window.removeEventListener('beforeunload', guardar); };
+    }, [modo, guardarBorradorAhora, showToast]);
+
+    // Carga un punto en el formulario (se vuelve a montar para que tome los datos como iniciales).
+    const cargarPuntoEnFormulario = (antecedentes: any, analisisUI: any[], idEditando: number | null) => {
+        setEditandoId(idEditando);
+        setDatosIniciales(antecedentes);
+        setSavedAnalysis(analisisUI.map((a: any) => ({ ...a })));
+        setFormKey(k => k + 1);
+        setActiveTab('antecedentes');
+        scrollToTop();
+    };
+
+    const handleGuardarPunto = () => {
+        const ant = antecedentesRef.current?.getData ? antecedentesRef.current.getData() : null;
+        if (!ant) {
+            showToast({ type: 'warning', message: 'Por favor complete los antecedentes requeridos' });
+            return;
+        }
+        const nombre = String(ant.puntoMuestreo || '').trim();
+        const otros = puntos.filter(p => p.id !== editandoId);
+        if (otros.some(p => String(p.antecedentes.puntoMuestreo || '').trim().toLowerCase() === nombre.toLowerCase())) {
+            showToast({ type: 'warning', message: `El punto "${nombre}" ya existe en esta visita. Use un nombre distinto.` });
+            return;
+        }
+        if (otros.some(p => String(p.antecedentes.selectedCliente) !== String(ant.selectedCliente) || String(p.antecedentes.selectedFuente) !== String(ant.selectedFuente))) {
+            showToast({ type: 'warning', message: 'Todos los puntos de una visita deben ser de la misma empresa y el mismo centro.' });
+            return;
+        }
+        const punto: PuntoVisita = { id: editandoId ?? Date.now(), antecedentes: ant, analisisUI: savedAnalysis };
+        setPuntos(prev => (editandoId != null ? prev.map(p => (p.id === editandoId ? punto : p)) : [...prev, punto]));
+        setEditandoId(null);
+        setDecisionAbierta(true);
+    };
+
+    const handleAgregarOtroPunto = () => {
+        const base = puntos[puntos.length - 1];
+        if (!base) return;
+        setDecisionAbierta(false);
+        cargarPuntoEnFormulario(sinDatosDelPunto(base.antecedentes), base.analisisUI, null);
+    };
+
+    const handleEditarPunto = (id: number) => {
+        const p = puntos.find(x => x.id === id);
+        if (!p) return;
+        setDecisionAbierta(false);
+        cargarPuntoEnFormulario(p.antecedentes, p.analisisUI, id);
+    };
+
+    const handleQuitarPunto = (id: number) => {
+        if (puntos.length <= 1) return;
+        setPuntos(prev => prev.filter(p => p.id !== id));
+    };
+
+    const handleFinalizarVisita = async () => {
+        if (puntos.length === 0) return;
+        const [primero, ...resto] = puntos;
+        await enviarVisita({
+            antecedentes: primero.antecedentes,
+            analisis: analisisParaEnviar(primero.analisisUI),
+            ...(resto.length > 0 ? {
+                puntosAdicionales: resto.map(p => ({
+                    puntoMuestreo: String(p.antecedentes.puntoMuestreo || '').trim(),
+                    zona: p.antecedentes.zona || '',
+                    utmNorte: p.antecedentes.utmNorte || '',
+                    utmEste: p.antecedentes.utmEste || '',
+                    refGoogle: p.antecedentes.refGoogle || '',
+                    // El punto lleva TODOS sus antecedentes y sus análisis: pueden diferir del punto 1.
+                    antecedentes: p.antecedentes,
+                    analisis: analisisParaEnviar(p.analisisUI),
+                })),
+            } : {}),
+            ...datosDeLaVisita(),
+        }, resto.length > 0);
+    };
+
+    const handleSalirConBorrador = () => {
+        if (!guardarBorradorAhora()) {
+            showToast({ type: 'warning', message: 'No se pudo guardar el borrador en este navegador.' });
+            return;
+        }
+        onBackToMenu();
+    };
+
+    const handleDescartarBorrador = () => {
+        borrarBorrador(claveBorr);
+        setBorradorPendiente(null);
+        setPuntos([]);
+        setEditandoId(null);
+        setDecisionAbierta(false);
+        setDatosIniciales(null);
+        setModo('pregunta');
+        setFormKey(k => k + 1);
+        setObsInicial('');
+        setObsKey(k => k + 1);
+        setSavedAnalysis([]);
+        // Vuelve a los análisis fijos de partida (pH + Temperatura), igual que al abrir la pantalla.
+        fichaService.getDefaultAnalyses().then((defaults: any[]) => {
+            if (!defaults || defaults.length === 0) return;
+            setSavedAnalysis(prev => (prev.length > 0 ? prev : defaults.map((d: any, i: number) => ({
+                ...d,
+                uf_individual: 0,
+                item: i + 1,
+                savedId: `fijo-${d._fijoTecnica || d.nombre_tecnica || i}-${Date.now()}-${i}`
+            }))));
+        }).catch(() => { /* la ficha arranca sin los fijos */ });
+    };
+
+    const handleContinuarBorrador = () => {
+        const d = borradorPendiente;
+        if (!d) return;
+        setBorradorPendiente(null);
+        setModo('varios');
+        setPuntos(Array.isArray(d.puntos) ? d.puntos : []);
+        if (d.costoOperativo) setCostoOperativo(d.costoOperativo);
+        setObsInicial(d.observaciones || '');
+        setObsKey(k => k + 1);
+        if (d.actual?.antecedentes) {
+            cargarPuntoEnFormulario(d.actual.antecedentes, d.actual.analisisUI || [], d.editandoId ?? null);
+        } else {
+            setDecisionAbierta(true);
         }
     };
 
@@ -293,15 +498,101 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 cantidad={createdCount}
             />
 
+            {/* Borrador de una visita con varios puntos que quedó a medias */}
+            <Dialog open={!!borradorPendiente} onOpenChange={() => { /* hay que elegir una opción */ }}>
+                <DialogContent className="max-w-[460px]" showCloseButton={false} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+                    <DialogHeader>
+                        <DialogTitle>Tiene una visita sin terminar</DialogTitle>
+                        <DialogDescription>
+                            {(borradorPendiente?.puntos?.length || 0) > 0
+                                ? `Quedaron ${borradorPendiente.puntos.length} punto(s) guardados: ${borradorPendiente.puntos.map((p: PuntoVisita) => p.antecedentes?.puntoMuestreo || 'sin nombre').join(', ')}.`
+                                : 'Quedó un punto a medio completar.'}
+                            {' '}Guardado el {borradorPendiente?.guardadoEn ? new Date(borradorPendiente.guardadoEn).toLocaleString('es-CL') : ''}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-2">
+                        <Button variant="outline" onClick={handleDescartarBorrador}>Descartar y empezar de nuevo</Button>
+                        <Button onClick={handleContinuarBorrador}>Continuar donde quedé</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Primera pregunta: ¿uno o varios puntos? */}
+            <Dialog open={modo === 'pregunta' && !borradorPendiente && !cargandoCotizacion} onOpenChange={(abierto) => { if (!abierto) onBackToMenu(); }}>
+                <DialogContent className="max-w-[480px]" showCloseButton={false}>
+                    <DialogHeader>
+                        <DialogTitle>¿Cuántos puntos tendrá esta visita?</DialogTitle>
+                        <DialogDescription>
+                            Si en el mismo centro se muestrean varios puntos en una sola visita, créelos juntos: comparten empresa, centro y datos
+                            generales, y solo cambia lo propio de cada punto. Todos quedan agrupados bajo un mismo OI.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:gap-2">
+                        <Button variant="outline" onClick={onBackToMenu}>Cancelar</Button>
+                        <Button variant="outline" onClick={() => setModo('uno')}>Un solo punto</Button>
+                        <Button onClick={() => setModo('varios')}><IconMapPin size={18} /> Varios puntos</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Después de guardar cada punto: ¿otro o finalizar? */}
+            <Dialog open={decisionAbierta} onOpenChange={() => { /* hay que elegir una opción */ }}>
+                <DialogContent className="max-w-[560px]" showCloseButton={false} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+                    <DialogHeader>
+                        <DialogTitle>{puntos.length === 1 ? 'Punto 1 guardado' : `${puntos.length} puntos guardados`}</DialogTitle>
+                        <DialogDescription>
+                            Aún no se ha creado nada: las fichas se crean todas juntas al finalizar. El costo operativo es uno por visita y se reparte entre los puntos.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ul className="m-0 flex max-h-[40vh] list-none flex-col gap-1.5 overflow-y-auto p-0">
+                        {puntos.map((p, i) => (
+                            <li key={p.id} className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
+                                <span className="font-semibold text-primary">Punto {i + 1}</span>
+                                <span className="min-w-0 flex-1 truncate text-foreground">{p.antecedentes?.puntoMuestreo || 'sin nombre'}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">{p.analisisUI?.length || 0} análisis</span>
+                                <Button type="button" variant="ghost" size="icon" aria-label={`Editar el punto ${i + 1}`} onClick={() => handleEditarPunto(p.id)}><IconEdit size={16} /></Button>
+                                <Button type="button" variant="ghost" size="icon" aria-label={`Quitar el punto ${i + 1}`} disabled={puntos.length <= 1} onClick={() => handleQuitarPunto(p.id)}><IconTrash size={16} /></Button>
+                            </li>
+                        ))}
+                    </ul>
+                    <DialogFooter className="gap-2 sm:gap-2">
+                        <Button variant="ghost" onClick={handleSalirConBorrador} disabled={isSaving}>Salir y seguir después</Button>
+                        <Button variant="outline" onClick={handleAgregarOtroPunto} disabled={isSaving}><IconPlus size={18} /> Agregar otro punto</Button>
+                        <Button onClick={handleFinalizarVisita} disabled={isSaving}>
+                            {isSaving && <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />}
+                            Finalizar y crear {puntos.length > 1 ? `${puntos.length} fichas` : 'la ficha'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <div ref={topRef} className="h-0 overflow-hidden" />
             <PageHeader
                 title="Nueva Ficha de Ingreso"
-                onBack={onBackToMenu}
+                onBack={modo === 'varios' ? handleSalirConBorrador : onBackToMenu}
                 breadcrumbItems={[
-                    { label: 'Fichas de Ingreso', onClick: onBackToMenu },
+                    { label: 'Fichas de Ingreso', onClick: modo === 'varios' ? handleSalirConBorrador : onBackToMenu },
                     { label: 'Creación Manual' }
                 ]}
             />
+
+            {modo === 'varios' && (
+                <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2.5 text-sm">
+                    <IconMapPin size={16} className="shrink-0 text-primary" />
+                    <span className="font-medium text-foreground">
+                        Visita con varios puntos · {editandoId != null ? `editando el punto ${numeroPuntoActual}` : `completando el punto ${numeroPuntoActual}`}
+                    </span>
+                    {puntos.map((p, i) => (
+                        <span key={p.id} className={cn('rounded-full border px-2 py-0.5 text-xs', p.id === editandoId ? 'border-primary text-primary' : 'border-border text-muted-foreground')}>
+                            {i + 1}. {p.antecedentes?.puntoMuestreo || 'sin nombre'}
+                        </span>
+                    ))}
+                    <span className="ml-auto flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">Se guarda un borrador automáticamente.</span>
+                        <Button type="button" variant="ghost" size="sm" onClick={() => { if (window.confirm('¿Descartar esta visita y el borrador?')) handleDescartarBorrador(); }}>Descartar</Button>
+                    </span>
+                </div>
+            )}
 
             {/* overflow-clip (no -hidden): recorta igual las esquinas del tab bar,
                 pero sin volverse contenedor de scroll — overflow-hidden rompía el
@@ -367,8 +658,9 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                                     </div>
                                 )}
                                 <AntecedentesForm
+                                    key={formKey}
                                     ref={antecedentesRef}
-                                    initialData={prefillCotizacion?.antecedentes}
+                                    initialData={datosIniciales ?? prefillCotizacion?.antecedentes}
                                     onValidationChange={handleValidationChange}
                                 />
                             </>
@@ -396,7 +688,9 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                         style={{ padding: `${isMobile ? 16 : 32}px ${panelPadding}px` }}
                     >
                         <ObservacionesForm
+                            key={obsKey}
                             ref={observacionesRef}
+                            initialValue={obsInicial}
                             label="Instrucciones comerciales"
                             onValidationChange={handleObsValidationChange}
                         />
@@ -445,7 +739,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                                 </Button>
                                 <Button
                                     size="lg"
-                                    onClick={handleSave}
+                                    onClick={modo === 'varios' ? handleGuardarPunto : handleSave}
                                     disabled={!isAntecedentesValid || savedAnalysis.length === 0 || !isObservacionesValid || isSaving}
                                 >
                                     {isSaving ? (
@@ -453,7 +747,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                                     ) : (
                                         <IconPlus size={20} />
                                     )}
-                                    Grabar Ficha
+                                    {modo === 'varios' ? `Guardar punto ${numeroPuntoActual}` : 'Grabar Ficha'}
                                 </Button>
                             </>
                         )}
