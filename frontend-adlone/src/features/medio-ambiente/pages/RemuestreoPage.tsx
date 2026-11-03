@@ -40,6 +40,9 @@ const RemuestreoPageContent: React.FC = () => {
     const [analysisList, setAnalysisList] = useState<any[]>([]);
     const [costoOperativo, setCostoOperativo] = useState<{ enabled: boolean; uf: number | string }>({ enabled: true, uf: '' });
     const [observaciones, setObservaciones] = useState<string>('');
+    // Otros puntos de la visita de la ficha original, que se pueden remuestrear junto con este.
+    const [otrosPuntos, setOtrosPuntos] = useState<{ id: number; punto: string; estado: string }[]>([]);
+    const [puntosExtra, setPuntosExtra] = useState<Set<number>>(new Set());
 
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
     const mappedInitialDataRef = useRef<any>(null);
@@ -89,6 +92,16 @@ const RemuestreoPageContent: React.FC = () => {
                 setCostoOperativo({ enabled: true, uf: coUF > 0 ? coUF : '' });
                 setObservaciones('');
 
+                // ¿La ficha es un punto de una visita? Entonces se pueden remuestrear también los otros puntos.
+                setPuntosExtra(new Set());
+                try {
+                    const g = (await fichaService.getGrupo(selectedFichaId))?.data;
+                    setOtrosPuntos((g?.puntos || [])
+                        .filter((p: any) => Number(p.id_fichaingresoservicio) !== Number(selectedFichaId))
+                        .map((p: any) => ({ id: Number(p.id_fichaingresoservicio), punto: p.punto || `Ficha ${p.id_fichaingresoservicio}`, estado: p.estado || '' })));
+                } catch {
+                    setOtrosPuntos([]);
+                }
             } else {
                 showToast({ type: 'error', message: 'No se pudo cargar la ficha original' });
             }
@@ -117,7 +130,7 @@ const RemuestreoPageContent: React.FC = () => {
             return;
         }
 
-        const payload = {
+        let payload: Record<string, unknown> = {
             antecedentes: antecedentesData,
             analisis: analysisList,
             costoOperativo: {
@@ -132,9 +145,43 @@ const RemuestreoPageContent: React.FC = () => {
 
         try {
             setSaving(true);
-            const response = await fichaService.create(payload);
+
+            // Remuestreo de varios puntos de una visita: se crea una visita nueva. Cada punto marcado entra con su nombre, sus
+            // coordenadas y sus análisis originales; el resto de los datos es el de esta pantalla (misma visita, mismo centro).
+            const extras = otrosPuntos.filter(p => puntosExtra.has(p.id));
+            if (extras.length > 0) {
+                let costoTotal = costoOperativo.enabled ? Number(costoOperativo.uf || 0) : 0;
+                const puntosAdicionales: Record<string, unknown>[] = [];
+                for (const e of extras) {
+                    const resp = await fichaService.getById(e.id);
+                    const d = resp?.data || resp;
+                    const m: any = mapToAntecedentes(d, d?.agenda);
+                    const filas: any[] = d?.detalles || [];
+                    const costoRowE = filas.find((r: any) => r.tipo_analisis === 'CostoOperativo');
+                    if (costoOperativo.enabled) costoTotal += Number(costoRowE?.uf_individual || 0);
+                    puntosAdicionales.push({
+                        puntoMuestreo: String(m.puntoMuestreo || e.punto).trim(),
+                        zona: m.zona || '',
+                        utmNorte: m.utmNorte || '',
+                        utmEste: m.utmEste || '',
+                        refGoogle: m.refGoogle || '',
+                        originalFichaId: e.id,
+                        analisis: filas
+                            .filter((r: any) => r.tipo_analisis !== 'CostoOperativo')
+                            .map((r: any, i: number) => ({ ...r, savedId: `remuestreo-${e.id}-${i}-${Date.now()}`, item: i + 1 })),
+                    });
+                }
+                payload = {
+                    ...payload,
+                    puntosAdicionales,
+                    // El costo operativo es uno por visita: suma de lo que cobraba cada punto (se reparte al crear).
+                    costoOperativo: { activo: !!costoOperativo.enabled, uf: Math.round(costoTotal * 100) / 100 },
+                };
+            }
+
+            const response = extras.length > 0 ? await fichaService.createGrupo(payload) : await fichaService.create(payload);
             if (response && (response.success || response.id)) {
-                showToast({ type: 'success', message: 'Remuestreo creado exitosamente' });
+                showToast({ type: 'success', message: extras.length > 0 ? `Remuestreo creado: ${extras.length + 1} puntos` : 'Remuestreo creado exitosamente' });
                 // Return to Muestreos Ejecutados List
                 setFichasMode('list_ejecutados');
                 setActiveSubmodule('ma-fichas-ingreso');
@@ -184,6 +231,43 @@ const RemuestreoPageContent: React.FC = () => {
                         </p>
                     </div>
                 </div>
+
+                {otrosPuntos.length > 0 && (
+                    <div className="rounded-lg border border-border bg-muted/30 p-3">
+                        <div className="mb-1.5 flex items-center justify-between gap-3">
+                            <p className="m-0 text-sm font-semibold text-foreground">Esta ficha es un punto de una visita con {otrosPuntos.length + 1} puntos</p>
+                            <button
+                                type="button"
+                                className="text-xs text-primary underline-offset-2 hover:underline"
+                                onClick={() => setPuntosExtra(puntosExtra.size === otrosPuntos.length ? new Set() : new Set(otrosPuntos.map(p => p.id)))}
+                            >
+                                {puntosExtra.size === otrosPuntos.length ? 'Quitar todos' : 'Marcar todos'}
+                            </button>
+                        </div>
+                        <p className="m-0 mb-2 text-[13px] text-muted-foreground">
+                            Por defecto se remuestrea solo este punto. Marque los que también quiera remuestrear: se crea una visita nueva con
+                            ellos, cada uno con sus coordenadas y análisis originales (se pueden ajustar después en su ficha).
+                        </p>
+                        <ul className="m-0 flex list-none flex-wrap gap-x-5 gap-y-1 p-0">
+                            {otrosPuntos.map(p => (
+                                <li key={p.id}>
+                                    <label className="flex cursor-pointer items-center gap-2 text-[13px]">
+                                        <input
+                                            type="checkbox"
+                                            checked={puntosExtra.has(p.id)}
+                                            onChange={(e) => setPuntosExtra(prev => {
+                                                const sig = new Set(prev);
+                                                if (e.target.checked) sig.add(p.id); else sig.delete(p.id);
+                                                return sig;
+                                            })}
+                                        />
+                                        <span>{p.punto}</span>
+                                    </label>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
 
                 <Card className="overflow-hidden rounded-2xl p-0">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>

@@ -2702,6 +2702,8 @@ class FichaIngresoService {
             for (const [k, p] of adicionales.entries()) {
                 const r = await this.createFicha({
                     ...data,
+                    // En un remuestreo cada punto nuevo nace de su propia ficha original.
+                    ...(data.isRemuestreo && p.originalFichaId ? { originalFichaId: p.originalFichaId } : {}),
                     antecedentes: {
                         ...ant,
                         ...(p.antecedentes || {}),
