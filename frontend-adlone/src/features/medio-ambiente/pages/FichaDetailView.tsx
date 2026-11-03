@@ -183,7 +183,10 @@ export const FichaDetailView = () => {
             await fichaService.updateRealizadoGem(Number(ficha.id_agendamam), true);
             // 2. Asignar el código OI (debe quedar guardado en BD antes de regenerar
             // documentos, porque el PDF lee caso_adlab en vivo desde la base de datos)
-            await fichaService.updateCasoAdlab(Number(ficha.id_agendamam), fullCode);
+            const oiRes = await fichaService.updateCasoAdlab(Number(ficha.id_agendamam), fullCode);
+            // En una visita con varios puntos el OI se aplica al mismo muestreo de los demás puntos que ya tienen el retiro completado.
+            const oiAplicados: number = oiRes?.data?.aplicados ?? 1;
+            const oiPendientes: { punto: string | null; id_ficha: number }[] = oiRes?.data?.pendientes ?? [];
 
             // Update local state so header reflects the new OI
             setData((prev: any) => {
@@ -205,7 +208,15 @@ export const FichaDetailView = () => {
             });
             setConfirmModalOpen(false);
             setOiNumero('');
-            showToast({ type: 'success', message: `Muestreo marcado como realizado. Caso ${fullCode} asignado correctamente.` });
+            showToast({
+                type: oiPendientes.length > 0 ? 'warning' : 'success',
+                message: oiAplicados > 1 || oiPendientes.length > 0
+                    ? `Muestreo marcado como realizado. Caso ${fullCode} asignado a ${oiAplicados} punto(s) de la visita.` +
+                      (oiPendientes.length > 0
+                          ? ` Faltan por completar el retiro: ${oiPendientes.map(p => p.punto || `ficha ${p.id_ficha}`).join(', ')} (al completarlo, asigne el mismo OI).`
+                          : '')
+                    : `Muestreo marcado como realizado. Caso ${fullCode} asignado correctamente.`
+            });
 
             // 3. Regenerar documentos (FoMa / Cadena de Custodia) con el nuevo ID Caso,
             // si el usuario dejó los switches marcados. No bloquea el flujo si falla.

@@ -4542,42 +4542,88 @@ class FichaIngresoService {
 
         const idCasoStr = casoAdlab.replace(/\D/g, '');
         const idCaso = idCasoStr ? parseInt(idCasoStr, 10) : null;
+        const oi = casoAdlab.trim();
 
-        // Validar que el caso_adlab no esté ya asignado a otro registro
+        // Una visita con varios puntos tiene UN solo OI: el mismo muestreo (mismo N° de servicio, el 2.º segmento de
+        // frecuencia_correlativo) de los demás puntos del grupo lleva el mismo código. Una ficha sin grupo va sola, como siempre.
+        const numeroServicio = (corr) => {
+            const n = String(corr || '').split('-')[1];
+            return /^\d+$/.test(n || '') ? Number(n) : null;
+        };
+        const propio = (await pool.request().input('a', sql.Numeric, idAgendamam)
+            .query('SELECT id_agendamam, id_fichaingresoservicio, frecuencia_correlativo FROM App_Ma_Agenda_MUESTREOS WHERE id_agendamam = @a')).recordset[0];
+        if (!propio) throw new Error('No se encontró el muestreo.');
+        const miNumero = numeroServicio(propio.frecuencia_correlativo);
+        let hermanos = [];
+        if (miNumero !== null) {
+            const delGrupo = (await pool.request().input('f', sql.Numeric, propio.id_fichaingresoservicio).query(`
+                SELECT a.id_agendamam, a.id_fichaingresoservicio, a.frecuencia_correlativo, a.estado_caso, a.retiro_completado
+                FROM App_Ma_Agenda_MUESTREOS a
+                WHERE a.id_fichaingresoservicio <> @f
+                  AND a.id_fichaingresoservicio IN (
+                      SELECT id_fichaingresoservicio FROM App_Ma_GrupoMuestreo_Ficha
+                      WHERE id_grupo = (SELECT id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @f))`)).recordset;
+            hermanos = delGrupo.filter((a) => numeroServicio(a.frecuencia_correlativo) === miNumero && String(a.estado_caso || '').toUpperCase() !== 'CANCELADO');
+        }
+        const idsConjunto = [Number(propio.id_agendamam), ...hermanos.map((h) => Number(h.id_agendamam))];
+
+        // Validar que el caso_adlab no esté ya asignado a un muestreo ajeno a este conjunto
         const dupCheck = await pool.request()
-            .input('idAgendamam', sql.Numeric, idAgendamam)
-            .input('casoAdlab', sql.VarChar(10), casoAdlab.trim())
+            .input('casoAdlab', sql.VarChar(10), oi)
             .query(`
                 SELECT TOP 1 id_agendamam
                 FROM App_Ma_Agenda_MUESTREOS
                 WHERE caso_adlab = @casoAdlab
-                  AND id_agendamam != @idAgendamam
+                  AND id_agendamam NOT IN (${idsConjunto.join(',')})
             `);
         if (dupCheck.recordset.length > 0) {
-            throw new Error(`El código de caso "${casoAdlab.trim()}" ya está asignado a otro muestreo.`);
+            throw new Error(`El código de caso "${oi}" ya está asignado a otro muestreo.`);
         }
 
-        request.input('idAgendamam', sql.Numeric, idAgendamam);
-        request.input('casoAdlab', sql.VarChar(10), casoAdlab.trim());
-        request.input('idCaso', sql.Numeric, idCaso);
-
-        const query = `
-            UPDATE App_Ma_Agenda_MUESTREOS
-            SET caso_adlab  = @casoAdlab,
-                id_caso     = @idCaso,
-                estado_caso = 'PROCESO'
-            WHERE id_agendamam = @idAgendamam
-              AND retiro_completado = 'S'
-        `;
-
+        const transaction = new sql.Transaction(pool);
         try {
-            const result = await request.query(query);
-            if (result.rowsAffected[0] === 0) {
+            await transaction.begin();
+            const asignar = async (ids) => {
+                const rq = new sql.Request(transaction);
+                rq.input('casoAdlab', sql.VarChar(10), oi);
+                rq.input('idCaso', sql.Numeric, idCaso);
+                return rq.query(`
+                    UPDATE App_Ma_Agenda_MUESTREOS
+                    SET caso_adlab  = @casoAdlab,
+                        id_caso     = @idCaso,
+                        estado_caso = 'PROCESO'
+                    WHERE id_agendamam IN (${ids.join(',')})
+                      AND retiro_completado = 'S'
+                `);
+            };
+
+            const propia = await asignar([Number(propio.id_agendamam)]);
+            if (propia.rowsAffected[0] === 0) {
                 throw new Error('No se encontró el muestreo o no cumple la condición retiro_completado = S.');
             }
-            logger.info(`[updateCasoAdlab] id_agendamam=${idAgendamam} caso_adlab="${casoAdlab}" → PROCESO`);
-            return { success: true };
+            // Los demás puntos reciben el mismo OI si ya tienen el retiro completado; los que aún no, quedan pendientes.
+            const listos = hermanos.filter((h) => h.retiro_completado === 'S');
+            const pendientes = hermanos.filter((h) => h.retiro_completado !== 'S');
+            if (listos.length > 0) await asignar(listos.map((h) => Number(h.id_agendamam)));
+
+            await transaction.commit();
+
+            let puntosPendientes = [];
+            if (pendientes.length > 0) {
+                const fichas = [...new Set(pendientes.map((h) => Number(h.id_fichaingresoservicio)))];
+                const nombres = (await pool.request().query(
+                    `SELECT id_fichaingresoservicio AS id, ma_punto_muestreo AS punto FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${fichas.join(',')})`
+                )).recordset;
+                puntosPendientes = pendientes.map((h) => ({
+                    id_agendamam: Number(h.id_agendamam),
+                    id_ficha: Number(h.id_fichaingresoservicio),
+                    punto: nombres.find((n) => Number(n.id) === Number(h.id_fichaingresoservicio))?.punto || null,
+                }));
+            }
+            logger.info(`[updateCasoAdlab] id_agendamam=${idAgendamam} caso_adlab="${oi}" → PROCESO (+${listos.length} del grupo, ${pendientes.length} pendientes)`);
+            return { success: true, aplicados: 1 + listos.length, pendientes: puntosPendientes };
         } catch (error) {
+            try { await transaction.rollback(); } catch (e) { /* ya revertida */ }
             logger.error('Error updating caso_adlab:', error);
             throw error;
         }
