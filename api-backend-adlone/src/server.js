@@ -45,6 +45,8 @@ import biologiaMolecularRoutes from './routes/biologia-molecular.routes.js';
 import empresaAsignadaRoutes from './routes/empresaAsignada.routes.js';
 import verificadorSolicitudesRoutes from './routes/verificadorSolicitudes.routes.js';
 import solicitudesClientesRoutes from './routes/solicitudesClientes.routes.js';
+import verificacionTemperaturaRoutes from './routes/verificacionTemperatura.routes.js';
+import firmaRemotaRoutes from './routes/firmaRemota.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -214,6 +216,11 @@ app.use(helmet({
         },
     },
 }));
+// Página pública de firma por celular (QR de la verificación de temperatura).
+// Va ANTES de CORS: la página la sirve este mismo backend (mismo origen), pero
+// el navegador manda "Origin" en el POST de la firma y el filtro global lo
+// rechazaba por no estar en CORS_ORIGIN (la IP del servidor cambia según la red).
+app.use('/firma', firmaRemotaRoutes);
 app.use(cors(corsOptions));
 app.use(compression());
 app.use(express.json({ limit: '1mb' }));
@@ -248,6 +255,7 @@ app.use('/api/biologia-molecular', biologiaMolecularRoutes);
 app.use('/api/empresas-asignadas', empresaAsignadaRoutes);
 app.use('/api/verificadores-solicitudes', verificadorSolicitudesRoutes);
 app.use('/api/solicitudes-clientes', solicitudesClientesRoutes);
+app.use('/api/verificaciones-temperatura', verificacionTemperaturaRoutes);
 
 // Avatares predefinidos del sistema: viven en el repo (van versionados en git),
 // por lo que SIEMPRE están disponibles y viajan solos al migrar de equipo —

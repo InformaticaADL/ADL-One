@@ -218,9 +218,10 @@ class EquipoTemperaturaImportService {
                 };
             }
 
+            // El Excel tiene prioridad: aunque su verificación sea más antigua que
+            // la registrada, su fecha se ofrece para actualizar (solo se avisa).
             if (esVerificacionMasAntigua(excelData.ultima_verificacion, equipoDB.ultima_verificacion)) {
-                warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); se conserva la fecha actual.`);
-                excelData.ultima_verificacion = null;
+                warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); al actualizar se usa la fecha del Excel.`);
             }
 
             const diffs = [];

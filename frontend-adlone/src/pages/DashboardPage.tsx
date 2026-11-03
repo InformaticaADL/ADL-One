@@ -29,6 +29,7 @@ import { RevisionDuplicadosPage } from '../features/admin/pages/RevisionDuplicad
 import { EquiposPage } from '../features/admin/pages/EquiposPage';
 import { GcEquiposDashboardPage } from '../features/admin/pages/GcEquiposDashboardPage';
 import { GcCalendarioVencimientosPage } from '../features/admin/pages/GcCalendarioVencimientosPage';
+import { GcVerificacionTemperaturaPage } from '../features/admin/pages/GcVerificacionTemperaturaPage';
 import NewRequestPage from '../features/urs/pages/NewRequestPage';
 import UniversalInbox from '../features/urs/components/UniversalInbox';
 import { UserNotificationsPage } from '../features/notifications/pages/UserNotificationsPage';
@@ -119,6 +120,11 @@ const DashboardPage = () => {
         if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'gc-dashboard-equipos') return <GcEquiposDashboardPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'gc-calendario-vencimientos') return <GcCalendarioVencimientosPage onBack={() => setActiveSubmodule('')} />;
+        if (activeSubmodule === 'gc-verificacion-temperatura') return (
+            <ProtectedContent permission="GC_VERIF_TEMP">
+                <GcVerificacionTemperaturaPage onBack={() => setActiveSubmodule('')} />
+            </ProtectedContent>
+        );
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-usuarios-gem') return <GemUsuariosPage onBack={() => setActiveSubmodule('')} />;
 if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;

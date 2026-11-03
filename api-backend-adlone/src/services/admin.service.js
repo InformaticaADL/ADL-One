@@ -7,6 +7,57 @@ import path from 'path';
 import logger from '../utils/logger.js';
 import ursService from './urs.service.js';
 
+// mae_muestreador_documento.id_competencia llega con una migración: hasta que
+// se ejecute, los documentos se siguen listando (como generales) en vez de
+// romper la pantalla. Se comprueba una vez y se cachea solo si ya existe.
+let docCompetenciaColumnExists = false;
+const hasDocCompetenciaColumn = async (pool) => {
+    if (docCompetenciaColumnExists) return true;
+    try {
+        const r = await pool.request().query("SELECT COL_LENGTH('mae_muestreador_documento', 'id_competencia') AS c");
+        docCompetenciaColumnExists = !!r.recordset[0]?.c;
+        if (!docCompetenciaColumnExists) logger.warn('Falta mae_muestreador_documento.id_competencia — ejecute migrations/add_competencia_to_muestreador_documento.sql');
+    } catch (e) {
+        logger.warn('No se pudo verificar mae_muestreador_documento.id_competencia: ' + e.message);
+    }
+    return docCompetenciaColumnExists;
+};
+
+// Igual para las columnas observacion/habilitado de mae_muestreador_competencia
+// y su tabla de historial (todo viene en la misma migración).
+let competenciaObservacionColumnExists = false;
+const hasCompetenciaObservacionColumn = async (pool) => {
+    if (competenciaObservacionColumnExists) return true;
+    try {
+        const r = await pool.request().query(`SELECT COL_LENGTH('mae_muestreador_competencia', 'observacion') AS c,
+                                                     COL_LENGTH('mae_muestreador_competencia', 'habilitado') AS hab,
+                                                     OBJECT_ID('mae_muestreador_competencia_historial', 'U') AS h`);
+        const row = r.recordset[0] || {};
+        competenciaObservacionColumnExists = !!row.c && !!row.hab && !!row.h;
+        if (!competenciaObservacionColumnExists) logger.warn('Falta mae_muestreador_competencia.observacion — ejecute migrations/add_observacion_to_muestreador_competencia.sql');
+    } catch (e) {
+        logger.warn('No se pudo verificar mae_muestreador_competencia.observacion: ' + e.message);
+    }
+    return competenciaObservacionColumnExists;
+};
+
+// Las asignaciones deshabilitadas ya no se borran (quedan con habilitado='N'):
+// toda consulta que lea "las competencias del muestreador" debe filtrarlas.
+// Antes de la migración no existe la columna y todas cuentan como habilitadas.
+const filtroCompetenciaHabilitada = async (pool, alias = 'mc') =>
+    (await hasCompetenciaObservacionColumn(pool)) ? `AND ${alias}.habilitado = 'S'` : '';
+
+const validarObservacionCompetencia = async (observacion, accion) => {
+    const obs = String(observacion || '').trim();
+    if (!obs) { const e = new Error(`La observación es obligatoria para ${accion} la competencia`); e.statusCode = 400; throw e; }
+    if (!(await hasCompetenciaObservacionColumn(await getConnection()))) {
+        const e = new Error('Falta ejecutar la migración add_observacion_to_muestreador_competencia.sql para guardar la observación');
+        e.statusCode = 409;
+        throw e;
+    }
+    return obs.substring(0, 1000);
+};
+
 // Helper to execute Stored Procedures
 const callSP = async (spName, params = {}) => {
     try {
@@ -33,6 +84,7 @@ export const adminService = {
         try {
             const pool = await getConnection();
             const request = pool.request();
+            const soloHabilitadas = await filtroCompetenciaHabilitada(pool);
 
             let query = `
                 SELECT
@@ -45,7 +97,7 @@ export const adminService = {
                     (SELECT c.nombre_competencia AS nombre, c.activo AS activo
                      FROM mae_muestreador_competencia mc
                      JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
-                     WHERE mc.id_muestreador = mae_muestreador.id_muestreador
+                     WHERE mc.id_muestreador = mae_muestreador.id_muestreador ${soloHabilitadas}
                      ORDER BY c.orden, c.nombre_competencia
                      FOR JSON PATH) AS competencias_json
                 FROM mae_muestreador
@@ -214,32 +266,59 @@ export const adminService = {
     // --- DOCUMENTOS DE MUESTREADOR ---
     getDocumentosMuestreador: async (id) => {
         const pool = await getConnection();
+        const conCompetencia = await hasDocCompetenciaColumn(pool);
         const r = await pool.request()
             .input('id', sql.Numeric(10, 0), Number(id))
-            .query(`SELECT id_documento, id_muestreador, nombre_documento, descripcion, ruta_archivo, fecha_subida, id_usuario_subida
+            .query(`SELECT id_documento, id_muestreador, nombre_documento, descripcion, ruta_archivo, fecha_subida, id_usuario_subida,
+                           ${conCompetencia ? 'id_competencia' : 'CAST(NULL AS INT) AS id_competencia'}
                     FROM mae_muestreador_documento WHERE id_muestreador = @id ORDER BY fecha_subida DESC`);
         return r.recordset;
     },
 
-    addDocumentoMuestreador: async (id, { nombre_documento, descripcion, ruta_archivo, id_usuario_subida }) => {
+    addDocumentoMuestreador: async (id, { nombre_documento, descripcion, ruta_archivo, id_usuario_subida, id_competencia }) => {
         const pool = await getConnection();
-        const r = await pool.request()
+        const idComp = Number(id_competencia) || null;
+        if (idComp && !(await hasDocCompetenciaColumn(pool))) {
+            const e = new Error('Falta ejecutar la migración add_competencia_to_muestreador_documento.sql para adjuntar documentos por competencia');
+            e.statusCode = 409;
+            throw e;
+        }
+        const req = pool.request()
             .input('id', sql.Numeric(10, 0), Number(id))
             .input('nombre', sql.NVarChar(200), nombre_documento)
             .input('desc', sql.NVarChar(500), descripcion || null)
             .input('ruta', sql.NVarChar(500), ruta_archivo)
-            .input('uid', sql.Numeric(10, 0), id_usuario_subida || null)
-            .query(`INSERT INTO mae_muestreador_documento (id_muestreador, nombre_documento, descripcion, ruta_archivo, id_usuario_subida)
+            .input('uid', sql.Numeric(10, 0), id_usuario_subida || null);
+        if (idComp) req.input('comp', sql.Int, idComp);
+        const r = await req.query(`INSERT INTO mae_muestreador_documento (id_muestreador, nombre_documento, descripcion, ruta_archivo, id_usuario_subida${idComp ? ', id_competencia' : ''})
                     OUTPUT INSERTED.id_documento
-                    VALUES (@id, @nombre, @desc, @ruta, @uid)`);
+                    VALUES (@id, @nombre, @desc, @ruta, @uid${idComp ? ', @comp' : ''})`);
         return { id_documento: r.recordset[0].id_documento };
     },
 
     deleteDocumentoMuestreador: async (idDoc) => {
         const pool = await getConnection();
+        const conCompetencia = await hasDocCompetenciaColumn(pool);
         const sel = await pool.request()
             .input('id', sql.Int, Number(idDoc))
-            .query('SELECT ruta_archivo FROM mae_muestreador_documento WHERE id_documento = @id');
+            .query(`SELECT ruta_archivo, id_muestreador, ${conCompetencia ? 'id_competencia' : 'CAST(NULL AS INT) AS id_competencia'}
+                    FROM mae_muestreador_documento WHERE id_documento = @id`);
+        // Los documentos de una competencia deshabilitada quedan como respaldo de
+        // solo lectura: no se pueden eliminar hasta que se vuelva a habilitar.
+        const doc = sel.recordset[0];
+        if (doc?.id_competencia && (await hasCompetenciaObservacionColumn(pool))) {
+            const hab = await pool.request()
+                .input('m', sql.Numeric(10, 0), Number(doc.id_muestreador))
+                .input('c', sql.Int, Number(doc.id_competencia))
+                .query(`SELECT 1 AS ok FROM mae_muestreador_competencia mc
+                        JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
+                        WHERE mc.id_muestreador = @m AND mc.id_competencia = @c AND mc.habilitado = 'S' AND c.activo = 'S'`);
+            if (!hab.recordset.length) {
+                const e = new Error('La competencia está deshabilitada: sus documentos solo se pueden ver, no eliminar');
+                e.statusCode = 409;
+                throw e;
+            }
+        }
         await pool.request()
             .input('id', sql.Int, Number(idDoc))
             .query('DELETE FROM mae_muestreador_documento WHERE id_documento = @id');
@@ -295,9 +374,10 @@ export const adminService = {
     // SOFT DELETE: marca inactiva, conserva asignaciones existentes
     deactivateCompetencia: async (id) => {
         const pool = await getConnection();
+        const soloHabilitadas = await filtroCompetenciaHabilitada(pool);
         const cnt = await pool.request()
             .input('id', sql.Int, Number(id))
-            .query('SELECT COUNT(*) c FROM mae_muestreador_competencia WHERE id_competencia = @id');
+            .query(`SELECT COUNT(*) c FROM mae_muestreador_competencia mc WHERE mc.id_competencia = @id ${soloHabilitadas}`);
         await pool.request()
             .input('id', sql.Int, Number(id))
             .query("UPDATE mae_competencia SET activo='N' WHERE id_competencia=@id");
@@ -312,15 +392,99 @@ export const adminService = {
     },
 
     // --- COMPETENCIAS por muestreador ---
+    // Solo las habilitadas: las deshabilitadas (habilitado='N') siguen en la
+    // tabla, pero su motivo se consulta en el historial.
     getCompetenciasMuestreador: async (id) => {
         const pool = await getConnection();
+        const conObservacion = await hasCompetenciaObservacionColumn(pool);
+        const soloHabilitadas = await filtroCompetenciaHabilitada(pool);
         const r = await pool.request()
             .input('id', sql.Numeric(10, 0), Number(id))
-            .query(`SELECT c.id_competencia, c.nombre_competencia, c.activo, mc.fecha_asignacion
+            .query(`SELECT c.id_competencia, c.nombre_competencia, c.activo, mc.fecha_asignacion,
+                           ${conObservacion
+                               ? `mc.observacion, (SELECT TOP 1 u.nombre_usuario FROM mae_usuario u WHERE u.id_usuario = mc.id_usuario_asignacion) AS usuario_asignacion`
+                               : 'CAST(NULL AS NVARCHAR(1000)) AS observacion, CAST(NULL AS VARCHAR(100)) AS usuario_asignacion'}
                     FROM mae_muestreador_competencia mc
                     JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
-                    WHERE mc.id_muestreador = @id
+                    WHERE mc.id_muestreador = @id ${soloHabilitadas}
                     ORDER BY c.orden, c.nombre_competencia`);
+        return r.recordset;
+    },
+
+    // Habilita UNA competencia con su observación obligatoria. Si la fila ya
+    // existe (habilitada o deshabilitada antes) se reactiva en el mismo
+    // registro, conservando su fecha de asignación original. El cambio queda
+    // además en el historial.
+    habilitarCompetenciaMuestreador: async (id, idCompetencia, observacion, idUsuario) => {
+        const obs = await validarObservacionCompetencia(observacion, 'habilitar');
+        const pool = await getConnection();
+        const comp = await pool.request().input('c', sql.Int, Number(idCompetencia))
+            .query("SELECT 1 AS ok FROM mae_competencia WHERE id_competencia = @c AND activo = 'S'");
+        if (!comp.recordset.length) { const e = new Error('La competencia no existe o está inactiva'); e.statusCode = 404; throw e; }
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            await new sql.Request(transaction)
+                .input('id', sql.Numeric(10, 0), Number(id))
+                .input('c', sql.Int, Number(idCompetencia))
+                .input('obs', sql.NVarChar(1000), obs)
+                .input('uid', sql.Numeric(10, 0), idUsuario || null)
+                .query(`IF EXISTS (SELECT 1 FROM mae_muestreador_competencia WHERE id_muestreador = @id AND id_competencia = @c)
+                            UPDATE mae_muestreador_competencia
+                            SET habilitado = 'S', observacion = @obs, id_usuario_asignacion = @uid, fecha_modificacion = GETDATE()
+                            WHERE id_muestreador = @id AND id_competencia = @c
+                        ELSE
+                            INSERT INTO mae_muestreador_competencia (id_muestreador, id_competencia, habilitado, observacion, id_usuario_asignacion, fecha_modificacion)
+                            VALUES (@id, @c, 'S', @obs, @uid, GETDATE());
+                        INSERT INTO mae_muestreador_competencia_historial (id_muestreador, id_competencia, accion, observacion, id_usuario)
+                        VALUES (@id, @c, 'HABILITADA', @obs, @uid);`);
+            await transaction.commit();
+        } catch (e) {
+            await transaction.rollback();
+            throw e;
+        }
+        return { success: true };
+    },
+
+    // Deshabilita sin borrar: la fila queda con habilitado='N' y el motivo
+    // obligatorio en `observacion` (y en el historial). Los documentos
+    // adjuntos a la competencia tampoco se borran.
+    deshabilitarCompetenciaMuestreador: async (id, idCompetencia, observacion, idUsuario) => {
+        const obs = await validarObservacionCompetencia(observacion, 'deshabilitar');
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            await new sql.Request(transaction)
+                .input('id', sql.Numeric(10, 0), Number(id))
+                .input('c', sql.Int, Number(idCompetencia))
+                .input('obs', sql.NVarChar(1000), obs)
+                .input('uid', sql.Numeric(10, 0), idUsuario || null)
+                .query(`UPDATE mae_muestreador_competencia
+                        SET habilitado = 'N', observacion = @obs, id_usuario_asignacion = @uid, fecha_modificacion = GETDATE()
+                        WHERE id_muestreador = @id AND id_competencia = @c;
+                        INSERT INTO mae_muestreador_competencia_historial (id_muestreador, id_competencia, accion, observacion, id_usuario)
+                        VALUES (@id, @c, 'DESHABILITADA', @obs, @uid);`);
+            await transaction.commit();
+        } catch (e) {
+            await transaction.rollback();
+            throw e;
+        }
+        return { success: true };
+    },
+
+    // Historial de habilitaciones/deshabilitaciones del muestreador, del más
+    // reciente al más antiguo. Vacío si la migración aún no se ejecutó.
+    getHistorialCompetenciasMuestreador: async (id) => {
+        const pool = await getConnection();
+        if (!(await hasCompetenciaObservacionColumn(pool))) return [];
+        const r = await pool.request()
+            .input('id', sql.Numeric(10, 0), Number(id))
+            .query(`SELECT h.id_historial, h.id_competencia, h.accion, h.observacion, h.fecha,
+                           (SELECT TOP 1 u.nombre_usuario FROM mae_usuario u WHERE u.id_usuario = h.id_usuario) AS usuario
+                    FROM mae_muestreador_competencia_historial h
+                    WHERE h.id_muestreador = @id
+                    ORDER BY h.fecha DESC, h.id_historial DESC`);
         return r.recordset;
     },
 
@@ -329,18 +493,32 @@ export const adminService = {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         const wanted = (ids || []).map(Number).filter(Boolean);
+        const conEstado = await hasCompetenciaObservacionColumn(pool);
         try {
             await transaction.begin();
-            await new sql.Request(transaction)
-                .input('id', sql.Numeric(10, 0), Number(id))
-                .query(`DELETE mc FROM mae_muestreador_competencia mc
-                        JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
-                        WHERE mc.id_muestreador = @id AND c.activo = 'S'`);
+            // Las activas que ya no vienen en la lista se quitan; las que se
+            // mantienen conservan su fecha y observación. Con la migración
+            // aplicada se deshabilitan (habilitado='N') en vez de borrarse.
+            const delReq = new sql.Request(transaction).input('id', sql.Numeric(10, 0), Number(id));
+            wanted.forEach((cid, i) => delReq.input(`k${i}`, sql.Int, cid));
+            const mantener = wanted.length ? `AND mc.id_competencia NOT IN (${wanted.map((_, i) => `@k${i}`).join(', ')})` : '';
+            await delReq.query(conEstado
+                ? `UPDATE mc SET mc.habilitado = 'N', mc.fecha_modificacion = GETDATE()
+                   FROM mae_muestreador_competencia mc
+                   JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
+                   WHERE mc.id_muestreador = @id AND c.activo = 'S' AND mc.habilitado = 'S' ${mantener}`
+                : `DELETE mc FROM mae_muestreador_competencia mc
+                   JOIN mae_competencia c ON c.id_competencia = mc.id_competencia
+                   WHERE mc.id_muestreador = @id AND c.activo = 'S' ${mantener}`);
             for (const cid of wanted) {
                 await new sql.Request(transaction)
                     .input('id', sql.Numeric(10, 0), Number(id))
                     .input('c', sql.Int, cid)
-                    .query(`INSERT INTO mae_muestreador_competencia (id_muestreador, id_competencia)
+                    .query(`${conEstado
+                        ? `UPDATE mae_muestreador_competencia SET habilitado = 'S', fecha_modificacion = GETDATE()
+                           WHERE id_muestreador = @id AND id_competencia = @c AND habilitado = 'N';`
+                        : ''}
+                            INSERT INTO mae_muestreador_competencia (id_muestreador, id_competencia)
                             SELECT @id, @c
                             WHERE EXISTS (SELECT 1 FROM mae_competencia WHERE id_competencia=@c AND activo='S')
                               AND NOT EXISTS (SELECT 1 FROM mae_muestreador_competencia WHERE id_muestreador=@id AND id_competencia=@c)`);

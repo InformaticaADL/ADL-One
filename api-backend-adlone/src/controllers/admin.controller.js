@@ -136,12 +136,13 @@ export const adminController = {
                 nombre_documento,
                 descripcion: req.body.descripcion,
                 ruta_archivo,
-                id_usuario_subida: req.user ? (req.user.id_usuario || req.user.id) : null
+                id_usuario_subida: req.user ? (req.user.id_usuario || req.user.id) : null,
+                id_competencia: req.body.id_competencia
             });
             res.json({ success: true, data: { ...result, ruta_archivo, nombre_documento }, message: 'Documento agregado' });
         } catch (error) {
             logger.error('Controller addDocumentoMuestreador error:', error);
-            res.status(500).json({ success: false, message: 'Error al subir documento' });
+            res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Error al subir documento' });
         }
     },
 
@@ -151,7 +152,7 @@ export const adminController = {
             res.json({ success: true, message: 'Documento eliminado' });
         } catch (error) {
             logger.error('Controller deleteDocumentoMuestreador error:', error);
-            res.status(500).json({ success: false, message: 'Error al eliminar documento' });
+            res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Error al eliminar documento' });
         }
     },
 
@@ -220,6 +221,43 @@ export const adminController = {
         } catch (error) {
             logger.error('Controller setCompetenciasMuestreador error:', error);
             res.status(500).json({ success: false, message: 'Error al actualizar competencias del muestreador' });
+        }
+    },
+    habilitarCompetenciaMuestreador: async (req, res) => {
+        try {
+            await adminService.habilitarCompetenciaMuestreador(
+                req.params.id,
+                req.params.idCompetencia,
+                req.body.observacion,
+                req.user ? (req.user.id_usuario || req.user.id) : null
+            );
+            res.json({ success: true, message: 'Competencia habilitada' });
+        } catch (error) {
+            logger.error('Controller habilitarCompetenciaMuestreador error:', error);
+            res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Error al habilitar la competencia' });
+        }
+    },
+    deshabilitarCompetenciaMuestreador: async (req, res) => {
+        try {
+            await adminService.deshabilitarCompetenciaMuestreador(
+                req.params.id,
+                req.params.idCompetencia,
+                req.body?.observacion,
+                req.user ? (req.user.id_usuario || req.user.id) : null
+            );
+            res.json({ success: true, message: 'Competencia deshabilitada' });
+        } catch (error) {
+            logger.error('Controller deshabilitarCompetenciaMuestreador error:', error);
+            res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'Error al deshabilitar la competencia' });
+        }
+    },
+    getHistorialCompetenciasMuestreador: async (req, res) => {
+        try {
+            const result = await adminService.getHistorialCompetenciasMuestreador(req.params.id);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            logger.error('Controller getHistorialCompetenciasMuestreador error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener el historial de competencias' });
         }
     },
 

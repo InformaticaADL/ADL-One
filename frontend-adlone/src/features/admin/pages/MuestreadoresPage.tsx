@@ -576,6 +576,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
             <CompetenciasMuestreadorModal
                 isOpen={showCompetenciasModal}
                 onClose={() => { setShowCompetenciasModal(false); setCompetenciasMuestreador(null); }}
+                onChanged={fetchData}
                 muestreador={competenciasMuestreador}
             />
 

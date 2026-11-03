@@ -282,7 +282,7 @@ const formatearValorDiff = (v: unknown, campo?: string) => {
 
 // Un panel ("ventana") con una lista de campo: valor — usado dos veces en
 // DiffDetailView, una para lo actual y otra para lo nuevo.
-const PanelCampos: React.FC<{
+export const PanelCampos: React.FC<{
     titulo: string;
     icon: React.ReactNode;
     tono: 'neutral' | 'cambio';
@@ -316,22 +316,30 @@ const PanelCampos: React.FC<{
 // que se lean como dos "ventanas" separadas de un vistazo. El botón "Volver"
 // solo cambia de vista (no vuelve a analizar ni pierde el estado de la
 // lista) — quien lo use sigue viendo exactamente el mismo análisis.
+// panel: dentro del panel lateral del análisis (sin "Volver" ni título propio:
+// los pone el panel); los dos lados se apilan si el panel es angosto.
 export const DiffDetailView: React.FC<{
     titulo: string;
     subtitulo?: string;
     diffs: DiffRow[];
     onBack: () => void;
     children?: React.ReactNode;
-}> = ({ titulo, subtitulo, diffs, onBack, children }) => (
-    <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
-        <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
-            <IconArrowLeft size={14} /> Volver a resultados
-        </Button>
-        <div>
-            <h4 className="text-base font-semibold">{titulo}</h4>
-            {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
-        </div>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+    panel?: boolean;
+}> = ({ titulo, subtitulo, diffs, onBack, children, panel = false }) => (
+    <div className="@container flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto">
+        {!panel && (
+            <>
+                <Button variant="ghost" size="sm" className="self-start" onClick={onBack}>
+                    <IconArrowLeft size={14} /> Volver a resultados
+                </Button>
+                <div>
+                    <h4 className="text-base font-semibold">{titulo}</h4>
+                    {subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
+                </div>
+            </>
+        )}
+        {panel && subtitulo && <p className="text-xs text-muted-foreground">{subtitulo}</p>}
+        <div className={cn('grid grid-cols-1 gap-4', panel ? '@2xl:grid-cols-2' : 'sm:grid-cols-2')}>
             <PanelCampos
                 titulo="Actual (Base de Datos)"
                 icon={<IconDatabase size={15} />}

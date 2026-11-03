@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { HubGrid, type HubOption } from '../components/HubGrid';
@@ -38,9 +38,16 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             icon: <IconCalendarEvent size={20} stroke={1.75} />,
             description: 'Vista mensual de vencimientos de equipos con alertas por proximidad.',
         },
+        {
+            id: 'gc-verificacion-temperatura',
+            label: 'Verificación de Temperatura',
+            icon: <IconTemperature size={20} stroke={1.75} />,
+            description: 'Formulario OI-FoGe-39: mediciones, firma del muestreador y PDF en el equipo.',
+        },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {
+        if (opt.id === 'gc-verificacion-temperatura') return hasPermission('GC_VERIF_TEMP');
         if (opt.id === 'admin-equipos-gestion' || opt.id === 'gc-dashboard-equipos' || opt.id === 'gc-calendario-vencimientos') {
             // RB-08: removido AI_MA_ADMIN_ACCESO
             return GC_ACCESS;

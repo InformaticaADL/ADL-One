@@ -35,6 +35,8 @@ export interface Equipo {
     siguiente_verificacion?: string;   // DATE - calculada (ultima + 90 días) pero editable
     plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
     estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
+    ultima_modificacion?: string | null;  // última fecha de cambio en mae_equipo_historial
+    usuario_modificacion?: string | null; // quién hizo ese cambio
     habilitado_muestreador?: string;   // 'S' o 'N' de mae_muestreador
     // Documento de la revisión/mantención vigente. En mae_equipo_historial las
     // mismas columnas conservan el de cada versión anterior.
@@ -93,12 +95,16 @@ export interface AnalisisExcelItem {
     diffs: { campo: string; etiqueta: string; valorExcel: unknown; valorBD: unknown }[];
     warnings: string[];
     referencia?: { marca?: string | null; modelo?: string | null; serie?: string | null };
+    // Ficha actual del equipo en el sistema (coincide / difiere).
+    equipo?: Equipo;
 }
 
 export interface AnalisisExcelResponse {
     success: boolean;
-    resumen: { total: number; coinciden: number; difieren: number; noExisten: number };
+    resumen: { total: number; coinciden: number; difieren: number; noExisten: number; soloEnBD?: number };
     items: AnalisisExcelItem[];
+    // Equipos del sistema que no vienen en el Excel (solo para consultar).
+    soloEnBD?: Equipo[];
     rowErrors: { rowNumber: number; message: string }[];
 }
 

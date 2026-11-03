@@ -126,6 +126,9 @@ router.put('/competencias/:id/reactivar', verifyToken, verifyPermission('MU_COMP
 // para que vea un listado de solo lectura en el formulario de edición.
 router.get('/muestreadores/:id/competencias', verifyToken, verifyPermission(['MU_COMPETENCIAS', 'MA_MUESTREADORES']), adminController.getCompetenciasMuestreador);
 router.put('/muestreadores/:id/competencias', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.setCompetenciasMuestreador);
+router.get('/muestreadores/:id/competencias/historial', verifyToken, verifyPermission(['MU_COMPETENCIAS', 'MA_MUESTREADORES']), adminController.getHistorialCompetenciasMuestreador);
+router.post('/muestreadores/:id/competencias/:idCompetencia', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.habilitarCompetenciaMuestreador);
+router.delete('/muestreadores/:id/competencias/:idCompetencia', verifyToken, verifyPermission('MU_COMPETENCIAS'), adminController.deshabilitarCompetenciaMuestreador);
 
 // --- USUARIOS GEM --- gestión acotada para el Jefe Técnico: solo usuarios
 // del rol "Área GEM MaM" (id 20), nunca el resto del sistema.

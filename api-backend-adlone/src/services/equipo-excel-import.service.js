@@ -446,10 +446,10 @@ class EquipoExcelImportService {
                 };
             }
 
+            // El Excel tiene prioridad: aunque su verificación sea más antigua que
+            // la registrada, sus fechas se ofrecen para actualizar (solo se avisa).
             if (esVerificacionMasAntigua(excelData.ultima_verificacion, equipoDB.ultima_verificacion)) {
-                warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); se conservan las fechas actuales.`);
-                excelData.ultima_verificacion = null;
-                excelData.siguiente_verificacion = null;
+                warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); al actualizar se usan las fechas del Excel.`);
             }
 
             const diffs = [];
@@ -476,17 +476,25 @@ class EquipoExcelImportService {
                 diffs,
                 warnings,
                 referencia: row.referencia,
+                // Ficha actual del equipo, para el panel "Ver" del análisis.
+                equipo: equipoDB,
             };
         });
+
+        // Equipos que están en el sistema pero NO en el Excel: solo para
+        // consultarlos (no se actualizan ni se crean desde el análisis).
+        const codigosExcel = new Set(parsedRows.filter((r) => r.codigo).map((r) => normalize(r.codigo)));
+        const soloEnBD = (equiposDB || []).filter((e) => !e.codigo || !codigosExcel.has(normalize(e.codigo)));
 
         const resumen = {
             total: items.length,
             coinciden: items.filter((i) => i.status === 'coincide').length,
             difieren: items.filter((i) => i.status === 'difiere').length,
             noExisten: items.filter((i) => i.status === 'no_existe').length,
+            soloEnBD: soloEnBD.length,
         };
 
-        return { resumen, items };
+        return { resumen, items, soloEnBD };
     }
 }
 

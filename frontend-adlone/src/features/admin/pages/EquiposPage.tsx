@@ -109,6 +109,23 @@ const isDateExpired = (dateStr?: string): boolean => {
     return d.getTime() < today.getTime();
 };
 
+type OrdenEquipos = 'vigencia' | 'nombre' | 'activos_primero' | 'ultimas_modificaciones';
+
+// "Modificado 02-11-2026 17:19 · Usuario", al ordenar por últimas modificaciones.
+// La fecha viene de un DATETIME de SQL Server (hora local del servidor) que el
+// driver entrega como si fuera UTC: se lee con getUTC* para no correrla de hora.
+const UltimaModificacion: React.FC<{ equipo: Equipo }> = ({ equipo }) => {
+    if (!equipo.ultima_modificacion) return <p className="truncate text-[11px] font-normal text-muted-foreground">Sin modificaciones registradas</p>;
+    const d = new Date(equipo.ultima_modificacion);
+    const p2 = (n: number) => String(n).padStart(2, '0');
+    const texto = `${p2(d.getUTCDate())}-${p2(d.getUTCMonth() + 1)}-${d.getUTCFullYear()} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`;
+    return (
+        <p className="truncate text-[11px] font-normal text-muted-foreground" title={`Modificado el ${texto}${equipo.usuario_modificacion ? ` por ${equipo.usuario_modificacion}` : ''}`}>
+            Modificado {texto}{equipo.usuario_modificacion ? ` · ${equipo.usuario_modificacion}` : ''}
+        </p>
+    );
+};
+
 export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // --- View State ---
     const [viewMode, setViewMode] = useState<'list' | 'form'>('list');
@@ -243,7 +260,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [filterExpired, setFilterExpired] = useState(false);
     const [filterInactiveSampler, setFilterInactiveSampler] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
-    const [sortBy, setSortBy] = useState<'vigencia' | 'nombre' | 'activos_primero'>('vigencia');
+    const [sortBy, setSortBy] = useState<OrdenEquipos>('vigencia');
     const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
     const formatLocalDate = (date: Date): string => {
@@ -1408,13 +1425,14 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                     <Combobox
                         value={sortBy}
-                        onValueChange={(v) => { setSortBy((v || 'vigencia') as 'vigencia' | 'nombre' | 'activos_primero'); setSortOrder('asc'); }}
+                        onValueChange={(v) => { setSortBy((v || 'vigencia') as OrdenEquipos); setSortOrder('asc'); }}
                         placeholder="Ordenar por"
                         className="w-full sm:w-48"
                         options={[
                             { value: 'vigencia', label: 'Vencimiento (próximo primero)' },
                             { value: 'nombre', label: 'Nombre (A-Z)' },
                             { value: 'activos_primero', label: 'Activos primero' },
+                            { value: 'ultimas_modificaciones', label: 'Últimas modificaciones' },
                         ]}
                     />
 
@@ -1612,6 +1630,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 <div className="min-w-0">
                                                     <p className="truncate text-sm font-semibold text-foreground">{equipo.codigo || 'S/N'}</p>
                                                     <p className="truncate text-sm font-medium text-foreground">{equipo.nombre}</p>
+                                                    {sortBy === 'ultimas_modificaciones' && <UltimaModificacion equipo={equipo} />}
                                                 </div>
                                                 <div className="flex shrink-0 items-center gap-1">
                                                     {hasAccepted && (
@@ -1747,7 +1766,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                     )}
                                                 </TableCell>
                                                 <TableCell className="truncate text-sm font-semibold text-foreground" title={equipo.codigo || 'S/N'}>{equipo.codigo || 'S/N'}</TableCell>
-                                                <TableCell className="truncate font-medium text-foreground" title={equipo.nombre}>{equipo.nombre}</TableCell>
+                                                <TableCell className="truncate font-medium text-foreground" title={equipo.nombre}>
+                                                    {equipo.nombre}
+                                                    {sortBy === 'ultimas_modificaciones' && <UltimaModificacion equipo={equipo} />}
+                                                </TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.tipo}>{equipo.tipo}</TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.ubicacion}>{equipo.ubicacion}</TableCell>
                                                 <TableCell><Badge variant={isInactive ? 'destructive' : 'success'}>{equipo.estado}</Badge></TableCell>

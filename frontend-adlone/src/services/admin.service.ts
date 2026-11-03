@@ -56,11 +56,12 @@ export const adminService = {
         const response = await apiClient.get(`/api/admin/muestreadores/${id}/documentos`);
         return response.data.data;
     },
-    uploadDocumentoMuestreador: async (id: number, file: File, nombre_documento: string, descripcion?: string) => {
+    uploadDocumentoMuestreador: async (id: number, file: File, nombre_documento: string, descripcion?: string, id_competencia?: number) => {
         const form = new FormData();
         form.append('archivo', file);
         form.append('nombre_documento', nombre_documento);
         if (descripcion) form.append('descripcion', descripcion);
+        if (id_competencia) form.append('id_competencia', String(id_competencia));
         const response = await apiClient.post(`/api/admin/muestreadores/${id}/documentos`, form, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
@@ -99,6 +100,18 @@ export const adminService = {
     setCompetenciasMuestreador: async (id: number, ids: number[]) => {
         const response = await apiClient.put(`/api/admin/muestreadores/${id}/competencias`, { ids });
         return response.data;
+    },
+    habilitarCompetenciaMuestreador: async (id: number, idCompetencia: number, observacion: string) => {
+        const response = await apiClient.post(`/api/admin/muestreadores/${id}/competencias/${idCompetencia}`, { observacion });
+        return response.data;
+    },
+    deshabilitarCompetenciaMuestreador: async (id: number, idCompetencia: number, observacion: string) => {
+        const response = await apiClient.delete(`/api/admin/muestreadores/${id}/competencias/${idCompetencia}`, { data: { observacion } });
+        return response.data;
+    },
+    getHistorialCompetenciasMuestreador: async (id: number) => {
+        const response = await apiClient.get(`/api/admin/muestreadores/${id}/competencias/historial`);
+        return response.data.data;
     },
 
     // --- PERFIL / RENDIMIENTO ---

@@ -358,12 +358,27 @@ export const equipoService = {
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
                     e.Plazo_Vigencia as plazo_vigencia,
-                    e.Estado as estado_equipo${docsColumns}
+                    e.Estado as estado_equipo,
+                    um.ultima_modificacion,
+                    um.usuario_modificacion${docsColumns}
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
+                -- Última modificación: mae_equipo no guarda fecha propia; cada
+                -- edición deja (o refresca) una fila en el historial con su fecha y usuario.
+                OUTER APPLY (
+                    SELECT TOP 1 h.fecha_cambio AS ultima_modificacion,
+                           (SELECT TOP 1 ISNULL(NULLIF(LTRIM(RTRIM(u.usuario)), ''), u.nombre_usuario)
+                            FROM mae_usuario u WHERE u.id_usuario = h.usuario_cambio) AS usuario_modificacion
+                    FROM mae_equipo_historial h
+                    WHERE h.id_equipo = e.id_equipo
+                    ORDER BY h.fecha_cambio DESC
+                ) um
                 ${whereClause}
                 ORDER BY
-                    (CASE WHEN EXISTS (
+                    ${sortBy === 'ultimas_modificaciones'
+                        // Lo más reciente primero; los nunca editados al final (por id, los nuevos antes).
+                        ? 'CASE WHEN um.ultima_modificacion IS NULL THEN 1 ELSE 0 END ASC, um.ultima_modificacion DESC, e.id_equipo DESC'
+                        : `(CASE WHEN EXISTS (
                         SELECT 1 FROM mae_solicitud s
                         JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
                         WHERE s.estado IN ('PENDIENTE', 'ACEPTADA', 'EN_REVISION')
@@ -377,7 +392,7 @@ export const equipoService = {
                         : sortBy === 'activos_primero'
                         ? "CASE WHEN e.habilitado = 'S' THEN 0 ELSE 1 END ASC,"
                         : ''}
-                    e.id_equipo ASC
+                    e.id_equipo ASC`}
                 OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
             `;
 

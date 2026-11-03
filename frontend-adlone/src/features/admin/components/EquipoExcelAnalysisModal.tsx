@@ -9,9 +9,14 @@ import {
     IconX,
     IconListDetails,
     IconFileAnalytics,
+    IconEye,
+    IconDatabase,
+    IconFileSpreadsheet as IconExcel,
+    IconPencil,
+    IconPower,
 } from '@tabler/icons-react';
 import { ImportacionInformeModal } from './ImportacionInformeModal';
-import { equipoService, type AnalisisExcelResponse, type AnalisisExcelItem } from '../services/equipo.service';
+import { equipoService, type AnalisisExcelResponse, type AnalisisExcelItem, type Equipo } from '../services/equipo.service';
 import { formatearTamano } from '../utils/documentosEquipo';
 import { useToast } from '../../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
@@ -21,8 +26,9 @@ import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, Attach
 import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import { EquipoForm } from './EquipoForm';
+import { EquipoDetalleLectura } from './EquipoDetalleLectura';
 import {
-    EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
+    EstadoBadge, StatCard, DiffDetailView, PanelCampos, BusquedaFlotante, LoteResultadoView,
     guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante,
     SolicitarMuestreadorPopover,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
@@ -39,8 +45,9 @@ interface Props {
     archivoInicial?: File | null;
 }
 
-type Vista = 'upload' | 'resultados' | 'form' | 'detalle' | 'confirmacion_lote';
-type FiltroEstado = 'todos' | AnalisisExcelItem['status'];
+type Vista = 'upload' | 'resultados' | 'form' | 'confirmacion_lote';
+// 'solo_bd': equipos que están en el sistema pero no en el Excel (solo consulta).
+type FiltroEstado = 'todos' | AnalisisExcelItem['status'] | 'solo_bd';
 
 const LOTE_KEY = 'equipo_excel_lote_pendiente';
 
@@ -174,6 +181,16 @@ const buildInitialData = (item: AnalisisExcelItem): any => {
     return { id_equipo: 0, ...mapExcelDataToPayload(item.excelData) };
 };
 
+// Campos leídos del inventario, en el orden en que se muestran en "Datos del Excel".
+const ETIQUETAS_EXCEL: Record<string, string> = {
+    codigo: 'Código', nombre: 'Nombre', tipo: 'Tipo (catálogo)', ubicacion: 'Sede', estado: 'Estado',
+    estado_equipo: 'Estado operativo', id_muestreador: 'Responsable (id)', ultima_verificacion: 'Última revisión',
+    siguiente_verificacion: 'Siguiente revisión', que_mide: 'Qué mide', unidad_medida_textual: 'Unidad de medida',
+    unidad_medida_sigla: 'Sigla unidad', proveedor: 'Proveedor', fecha_compra: 'Fecha de compra',
+    documento_compra: 'Documento', n_documento_compra: 'N° documento', valor_unitario: 'Valor unitario',
+    fecha_baja: 'Fecha dado de baja', observacion: 'Observación',
+};
+
 const STATUS_META: Record<AnalisisExcelItem['status'], EstadoMeta> = {
     coincide: { label: 'Coincide', badge: 'success' },
     difiere: { label: 'Difiere', badge: 'warning' },
@@ -187,6 +204,17 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
     const [resultado, setResultado] = useState<AnalisisExcelResponse | null>(null);
     const [vista, setVista] = useState<Vista>('upload');
     const [itemSeleccionado, setItemSeleccionado] = useState<AnalisisExcelItem | null>(null);
+    const [equipoBd, setEquipoBd] = useState<Equipo | null>(null);
+    // "Solo en el sistema": editar (formulario completo) o deshabilitar (dejar inactivo).
+    // true: el panel de la derecha muestra el formulario en vez de la ficha.
+    const [editandoBd, setEditandoBd] = useState(false);
+    const [equipoDeshabilitar, setEquipoDeshabilitar] = useState<Equipo | null>(null);
+    const [estadoDeshabilitar, setEstadoDeshabilitar] = useState<'Fuera de Servicio' | 'Dado de Baja'>('Fuera de Servicio');
+    const [motivoDeshabilitar, setMotivoDeshabilitar] = useState('');
+    const [deshabilitando, setDeshabilitando] = useState(false);
+    // Fila abierta en el panel lateral (por rowNumber, así siempre se lee la versión actual del item).
+    const [filaVer, setFilaVer] = useState<number | null>(null);
+    const [pestanaVer, setPestanaVer] = useState<'diferencias' | 'ficha' | 'excel' | 'editar'>('diferencias');
     const [subiendoFila, setSubiendoFila] = useState<number | null>(null);
     const [actualizandoFila, setActualizandoFila] = useState<number | null>(null);
     const [subiendoTodo, setSubiendoTodo] = useState(false);
@@ -272,17 +300,19 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
         analizar(file);
     };
 
+    // "Editar" / "Revisar" se abre en el panel de la derecha, igual que "Ver".
     const abrirForm = (item: AnalisisExcelItem) => {
-        setItemSeleccionado(item);
-        setVista('form');
+        setFilaVer(item.rowNumber);
+        setPestanaVer('editar');
     };
 
     // "Ver" solo cambia de vista — el resultado del análisis (resultado, items)
     // no se toca, así que "Volver a resultados" deja la lista exactamente como
     // estaba, sin volver a subir ni re-analizar el archivo.
     const abrirDetalle = (item: AnalisisExcelItem) => {
-        setItemSeleccionado(item);
-        setVista('detalle');
+        if (filaVer === item.rowNumber) { setFilaVer(null); return; }
+        setFilaVer(item.rowNumber);
+        setPestanaVer(item.status === 'difiere' ? 'diferencias' : item.status === 'coincide' ? 'ficha' : 'excel');
     };
 
     // Quita el item del contador "No existen" y lo pasa a "Coinciden" en el estado local,
@@ -490,6 +520,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
     const sedesDisponibles = useMemo(() => {
         const set = new Set<string>();
         resultado?.items.forEach((i) => { if (i.excelData.ubicacion) set.add(i.excelData.ubicacion); });
+        resultado?.soloEnBD?.forEach((e) => { if (e.ubicacion) set.add(e.ubicacion); });
         return Array.from(set).sort();
     }, [resultado]);
 
@@ -509,6 +540,66 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
         });
     }, [resultado, filtroEstado, filtroSede, soloAdvertencias, busqueda]);
 
+    const soloEnBdFiltrados = useMemo(() => {
+        const q = busqueda.trim().toLowerCase();
+        return (resultado?.soloEnBD || []).filter((e) => {
+            if (filtroSede !== 'todos' && e.ubicacion !== filtroSede) return false;
+            if (q && !`${e.codigo || ''} ${e.nombre || ''} ${e.tipo || ''} ${e.nombre_asignado || ''}`.toLowerCase().includes(q)) return false;
+            return true;
+        });
+    }, [resultado, filtroSede, busqueda]);
+
+    useEffect(() => { if (filtroEstado !== 'solo_bd') { setEquipoBd(null); setEditandoBd(false); } }, [filtroEstado]);
+
+    const itemVer = useMemo(
+        () => (filaVer === null ? null : itemsFiltrados.find((i) => i.rowNumber === filaVer && i.status !== 'coincide') || null),
+        [filaVer, itemsFiltrados],
+    );
+
+    // Vuelve a leer un equipo de "Solo en el sistema" (tras editarlo o deshabilitarlo)
+    // y lo reemplaza en la lista y en el panel, sin re-analizar todo el Excel.
+    const refrescarEquipoBd = async (idEquipo: number) => {
+        try {
+            const r = await equipoService.getEquipoById(idEquipo);
+            const nuevo: Equipo | undefined = r?.success ? r.data : undefined;
+            if (!nuevo) return;
+            setResultado((prev) => prev && ({ ...prev, soloEnBD: (prev.soloEnBD || []).map((e) => (e.id_equipo === idEquipo ? { ...e, ...nuevo } : e)) }));
+            setEquipoBd((prev) => (prev && prev.id_equipo === idEquipo ? { ...prev, ...nuevo } : prev));
+        } catch { /* la lista queda como estaba */ }
+    };
+
+    const abrirDeshabilitar = (e: Equipo) => {
+        setEstadoDeshabilitar('Fuera de Servicio');
+        setMotivoDeshabilitar('');
+        setEquipoDeshabilitar(e);
+    };
+
+    // Deja el equipo Inactivo. El estado operativo también cambia (Fuera de
+    // Servicio / Dado de Baja): con "Operativo", updateEquipo lo volvería a activar.
+    const confirmarDeshabilitar = async () => {
+        const e = equipoDeshabilitar;
+        if (!e || !motivoDeshabilitar.trim()) return;
+        setDeshabilitando(true);
+        try {
+            const hoy = getTodayString();
+            await equipoService.updateEquipo(e.id_equipo, {
+                estado: 'Inactivo',
+                estado_equipo: estadoDeshabilitar,
+                observacion: appendObservacion(e.observacion, `${estadoDeshabilitar} (no aparece en el inventario Excel): ${motivoDeshabilitar.trim()}`),
+                ...(estadoDeshabilitar === 'Dado de Baja' && !e.fecha_baja ? { fecha_baja: hoy } : {}),
+            });
+            showToast({ type: 'success', message: `${e.codigo} quedó inactivo (${estadoDeshabilitar})` });
+            setEquipoDeshabilitar(null);
+            await refrescarEquipoBd(e.id_equipo);
+            onDataChanged();
+        } catch (err) {
+            const e2 = err as { response?: { data?: { message?: string } }; message?: string };
+            showToast({ type: 'error', message: e2?.response?.data?.message || e2?.message || 'No se pudo deshabilitar el equipo' });
+        } finally {
+            setDeshabilitando(false);
+        }
+    };
+
     const toggleFiltroEstado = (estado: FiltroEstado) => {
         setFiltroEstado((prev) => (prev === estado ? 'todos' : estado));
     };
@@ -519,7 +610,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
             onOpenChange={(open) => { if (!open) { if (procesandoLote) return; handleClose(); } }}
         >
             <DialogContent
-                className="flex max-h-[90vh] max-w-7xl flex-col gap-4 overflow-hidden"
+                className="flex h-[95vh] w-[98vw] max-w-[1800px] flex-col gap-4 overflow-hidden"
                 showCloseButton={!procesandoLote}
                 onInteractOutside={(e) => { if (procesandoLote) e.preventDefault(); }}
                 onEscapeKeyDown={(e) => { if (procesandoLote) e.preventDefault(); }}
@@ -542,11 +633,12 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                     contadores (Coinciden/Difieren/No existen) son clicables: filtran la tabla. */}
                 {resultado && vista !== 'confirmacion_lote' && (
                     <div className="flex flex-col gap-3 border-b border-border pb-4 sm:flex-row sm:items-stretch">
-                        <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-4">
+                        <div className="grid flex-1 grid-cols-2 gap-2 sm:grid-cols-5">
                             <StatCard label="Total analizados" value={resultado.resumen.total} tone="default" onClick={() => setFiltroEstado('todos')} active={filtroEstado === 'todos'} />
                             <StatCard label="Coinciden" value={resultado.resumen.coinciden} tone="success" onClick={() => toggleFiltroEstado('coincide')} active={filtroEstado === 'coincide'} />
                             <StatCard label="Difieren" value={resultado.resumen.difieren} tone="warning" onClick={() => toggleFiltroEstado('difiere')} active={filtroEstado === 'difiere'} />
                             <StatCard label="No existen" value={resultado.resumen.noExisten} tone="destructive" onClick={() => toggleFiltroEstado('no_existe')} active={filtroEstado === 'no_existe'} />
+                            <StatCard label="Solo en el sistema" value={resultado.resumen.soloEnBD ?? resultado.soloEnBD?.length ?? 0} tone="default" onClick={() => toggleFiltroEstado('solo_bd')} active={filtroEstado === 'solo_bd'} />
                         </div>
                         <div className="flex shrink-0 flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                             <Button size="sm" variant="outline" className="shrink-0" onClick={() => setMostrarInforme(true)}>
@@ -620,6 +712,15 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                             onClick={() => setSoloAdvertencias((v) => !v)}
                         >
                             <IconAlertTriangle size={14} /> Solo con advertencias
+                        </Button>
+                        {/* Equipos del sistema que no vienen en el Excel: solo para consultarlos. */}
+                        <Button
+                            variant={filtroEstado === 'solo_bd' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => toggleFiltroEstado('solo_bd')}
+                            title="Equipos que están en el sistema pero no en este Excel (solo consulta)"
+                        >
+                            <IconDatabase size={14} /> No están en el Excel ({resultado.soloEnBD?.length ?? 0})
                         </Button>
                         {(filtroEstado !== 'todos' || filtroSede !== 'todos' || soloAdvertencias || busqueda) && (
                             <Button variant="ghost" size="sm" onClick={() => { setFiltroEstado('todos'); setFiltroSede('todos'); setSoloAdvertencias(false); setBusqueda(''); }}>
@@ -695,25 +796,179 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                     </div>
                 )}
 
-                {vista === 'resultados' && resultado && (
-                    <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                        <Table>
+                {/* "No están en el Excel": lista de consulta. Al presionar "Ver" la lista se
+                    corre a la izquierda (más angosta) y el detalle aparece a la derecha. */}
+                {vista === 'resultados' && resultado && filtroEstado === 'solo_bd' && (
+                    <div className="flex min-h-0 flex-1 flex-col gap-2">
+                        <p className="flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                            <IconDatabase size={14} className="mt-0.5 shrink-0" />
+                            <span>
+                                Equipos registrados en el sistema que <b className="text-foreground">no aparecen en este Excel</b>. Son solo de consulta: no se actualizan ni se crean desde este análisis.
+                            </span>
+                        </p>
+                        <div className={cn(
+                            'grid min-h-0 flex-1 gap-3 transition-[grid-template-columns] duration-300 ease-out',
+                            equipoBd ? 'grid-cols-[minmax(340px,2fr)_minmax(0,3fr)]' : 'grid-cols-[minmax(0,1fr)_0fr]',
+                        )}>
+                            <div className="min-h-0 overflow-auto rounded-xl border border-border bg-card">
+                                <Table className="min-w-[640px]" containerClassName="overflow-visible">
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent">
+                                            <TableHead>Código</TableHead>
+                                            <TableHead>Nombre</TableHead>
+                                            {!equipoBd && <TableHead>Tipo</TableHead>}
+                                            {!equipoBd && <TableHead>Sede</TableHead>}
+                                            <TableHead>Estado</TableHead>
+                                            {!equipoBd && <TableHead>Responsable</TableHead>}
+                                            {!equipoBd && <TableHead>Siguiente revisión</TableHead>}
+                                            <TableHead className="text-right">Acción</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {soloEnBdFiltrados.map((e) => {
+                                            const seleccionado = equipoBd?.id_equipo === e.id_equipo;
+                                            return (
+                                                <TableRow
+                                                    key={e.id_equipo}
+                                                    className={cn('cursor-pointer', seleccionado && 'bg-primary/5 hover:bg-primary/10')}
+                                                    onClick={() => { setEditandoBd(false); setEquipoBd(e); }}
+                                                >
+                                                    <TableCell className={cn('text-sm font-semibold text-foreground', seleccionado && 'border-l-2 border-l-primary')}>{e.codigo || '—'}</TableCell>
+                                                    <TableCell className="max-w-[220px] truncate font-medium text-foreground" title={e.nombre}>{e.nombre || '—'}</TableCell>
+                                                    {!equipoBd && <TableCell className="text-sm text-muted-foreground">{e.tipo || '—'}</TableCell>}
+                                                    {!equipoBd && <TableCell className="text-sm">{e.ubicacion || '—'}</TableCell>}
+                                                    <TableCell className="text-sm">
+                                                        <span className={cn(e.estado === 'Activo' ? 'text-success' : 'text-muted-foreground')}>{e.estado}</span>
+                                                        {e.estado_equipo && <span className="block text-[11px] text-muted-foreground">{e.estado_equipo}</span>}
+                                                    </TableCell>
+                                                    {!equipoBd && <TableCell className="text-sm">{e.nombre_asignado || '—'}</TableCell>}
+                                                    {!equipoBd && <TableCell className="text-sm">{e.vigencia || '—'}</TableCell>}
+                                                    <TableCell className="whitespace-nowrap text-right">
+                                                        <div className="flex justify-end gap-1.5" onClick={(ev) => ev.stopPropagation()}>
+                                                            <Button
+                                                                size="sm"
+                                                                variant={seleccionado && !editandoBd ? 'default' : 'outline'}
+                                                                onClick={() => { setEditandoBd(false); setEquipoBd(seleccionado && !editandoBd ? null : e); }}
+                                                            >
+                                                                <IconEye size={14} /> {seleccionado && !editandoBd ? 'Viendo' : 'Ver'}
+                                                            </Button>
+                                                            {/* Siempre visibles: con el panel abierto la lista se desplaza hacia el lado para verlos. */}
+                                                            {(
+                                                                <>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant={seleccionado && editandoBd ? 'default' : 'outline'}
+                                                                        onClick={() => { setEquipoBd(e); setEditandoBd(true); }}
+                                                                    >
+                                                                        <IconPencil size={14} /> {seleccionado && editandoBd ? 'Editando' : 'Editar'}
+                                                                    </Button>
+                                                                    {e.estado === 'Activo' ? (
+                                                                        <Button size="sm" variant="outline" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => abrirDeshabilitar(e)}>
+                                                                            <IconPower size={14} /> Deshabilitar
+                                                                        </Button>
+                                                                    ) : (
+                                                                        <span className="flex w-[104px] items-center justify-center text-xs text-muted-foreground">Inactivo</span>
+                                                                    )}
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })}
+                                    </TableBody>
+                                </Table>
+                                {soloEnBdFiltrados.length === 0 && (
+                                    <p className="py-10 text-center text-sm text-muted-foreground">
+                                        {(resultado.soloEnBD || []).length === 0 ? 'Todos los equipos del sistema aparecen en este Excel.' : 'Ningún equipo coincide con los filtros actuales.'}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Detalle a la derecha; key = id para que la entrada se anime al cambiar de equipo. */}
+                            <div className="min-h-0 overflow-hidden">
+                                {equipoBd && (
+                                    <div key={equipoBd.id_equipo} className="flex h-full min-h-0 flex-col rounded-xl border border-border bg-background p-3 animate-in fade-in slide-in-from-right-6 duration-300">
+                                        {editandoBd ? (
+                                            <>
+                                                <div className="mb-2 flex items-center gap-2">
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="truncate text-lg font-bold leading-tight">{equipoBd.codigo}</p>
+                                                        <p className="truncate text-sm text-muted-foreground">Editando · {equipoBd.nombre}</p>
+                                                    </div>
+                                                    <Button variant="ghost" size="sm" onClick={() => setEditandoBd(false)}><IconEye size={14} /> Ver ficha</Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditandoBd(false); setEquipoBd(null); }} aria-label="Cerrar" title="Cerrar"><IconX size={16} /></Button>
+                                                </div>
+                                                <div key={`form-bd-${equipoBd.id_equipo}`} className="min-h-0 flex-1 overflow-y-auto pr-1">
+                                                    <EquipoForm
+                                                        initialData={equipoBd}
+                                                        onCancel={() => setEditandoBd(false)}
+                                                        onSave={() => {
+                                                            setEditandoBd(false);
+                                                            refrescarEquipoBd(equipoBd.id_equipo);
+                                                            onDataChanged();
+                                                        }}
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : (
+                                        <>
+                                        <EquipoDetalleLectura equipo={equipoBd} onBack={() => setEquipoBd(null)} panel />
+                                        <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+                                            <Button variant="outline" size="sm" onClick={() => setEditandoBd(true)}>
+                                                <IconPencil size={14} /> Editar
+                                            </Button>
+                                            {equipoBd.estado === 'Activo' ? (
+                                                <Button variant="destructive" size="sm" onClick={() => abrirDeshabilitar(equipoBd)}>
+                                                    <IconPower size={14} /> Deshabilitar
+                                                </Button>
+                                            ) : (
+                                                <span className="flex items-center text-xs text-muted-foreground">El equipo ya está inactivo</span>
+                                            )}
+                                        </div>
+                                        </>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Resultados: al presionar "Ver" la lista se corre a la izquierda (más
+                    angosta) y el detalle de la fila aparece a la derecha. */}
+                {vista === 'resultados' && resultado && filtroEstado !== 'solo_bd' && (
+                    <div className={cn(
+                        'grid min-h-0 flex-1 gap-3 transition-[grid-template-columns] duration-300 ease-out',
+                        itemVer ? 'grid-cols-[minmax(340px,2fr)_minmax(0,3fr)]' : 'grid-cols-[minmax(0,1fr)_0fr]',
+                    )}>
+                    <div className="min-h-0 overflow-auto rounded-xl border border-border bg-card">
+                        <Table className={cn(itemVer && 'min-w-[820px]')} containerClassName="overflow-visible">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead>Código</TableHead>
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>Estado</TableHead>
-                                    <TableHead>Detalle</TableHead>
+                                    {!itemVer && <TableHead>Detalle</TableHead>}
                                     <TableHead className="text-right">Acción</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {itemsFiltrados.map((item) => (
-                                    <TableRow key={item.rowNumber}>
-                                        <TableCell className="text-sm font-semibold text-foreground">{item.codigo || '—'}</TableCell>
-                                        <TableCell className="font-medium text-foreground">{item.nombre || '—'}</TableCell>
+                                {itemsFiltrados.map((item) => {
+                                    const viendo = filaVer === item.rowNumber;
+                                    // "Ver" solo en lo que aún falta resolver (difiere / no existe): lo que
+                                    // ya coincide —de origen o recién actualizado o creado— no lo necesita.
+                                    const pendiente = item.status !== 'coincide';
+                                    return (
+                                    <TableRow
+                                        key={item.rowNumber}
+                                        className={cn(itemVer && pendiente && 'cursor-pointer', viendo && 'bg-primary/5 hover:bg-primary/10')}
+                                        onClick={itemVer && pendiente ? () => abrirDetalle(item) : undefined}
+                                    >
+                                        <TableCell className={cn('text-sm font-semibold text-foreground', viendo && 'border-l-2 border-l-primary')}>{item.codigo || '—'}</TableCell>
+                                        <TableCell className="max-w-[260px] truncate font-medium text-foreground" title={item.nombre || ''}>{item.nombre || '—'}</TableCell>
                                         <TableCell><EstadoBadge status={item.status} meta={STATUS_META} /></TableCell>
-                                        <TableCell className="max-w-xs text-xs text-muted-foreground">
+                                        {!itemVer && <TableCell className="max-w-xs text-xs text-muted-foreground">
                                             {item.status === 'difiere' && (
                                                 <span>{item.diffs.length} campo(s) distinto(s): {item.diffs.map(d => d.etiqueta).join(', ')}</span>
                                             )}
@@ -723,16 +978,21 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                                     <IconAlertTriangle size={12} className="mt-0.5 shrink-0" /> <span>{item.warnings[0]}</span>
                                                 </div>
                                             )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
+                                        </TableCell>}
+                                        <TableCell className="whitespace-nowrap text-right" onClick={(ev) => ev.stopPropagation()}>
                                             {/* Grilla de ancho fijo por botón (Ver/Subir, Actualizar, Solicitar,
                                                 Editar) — así cada uno cae siempre en la misma posición horizontal
                                                 entre filas, tenga o no esa fila ese botón en particular. */}
                                             <div className="grid grid-cols-[64px_108px_88px_72px] items-center justify-items-end gap-1.5">
                                                 <div>
-                                                    {item.status === 'difiere' && (
-                                                        <Button size="sm" variant="outline" onClick={() => abrirDetalle(item)} disabled={procesandoLote}>
-                                                            Ver
+                                                    {pendiente && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant={viendo && pestanaVer !== 'editar' ? 'default' : 'outline'}
+                                                            onClick={() => (viendo && pestanaVer === 'editar' ? setPestanaVer(item.status === 'difiere' ? 'diferencias' : 'excel') : abrirDetalle(item))}
+                                                            disabled={procesandoLote}
+                                                        >
+                                                            <IconEye size={14} /> {viendo && pestanaVer !== 'editar' ? 'Viendo' : 'Ver'}
                                                         </Button>
                                                     )}
                                                 </div>
@@ -776,15 +1036,21 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                                 </div>
                                                 <div>
                                                     {item.status !== 'coincide' && (
-                                                        <Button size="sm" variant="outline" onClick={() => abrirForm(item)} disabled={procesandoLote}>
-                                                            {item.status === 'no_existe' ? 'Revisar' : 'Editar'}
+                                                        <Button
+                                                            size="sm"
+                                                            variant={viendo && pestanaVer === 'editar' ? 'default' : 'outline'}
+                                                            onClick={() => abrirForm(item)}
+                                                            disabled={procesandoLote}
+                                                        >
+                                                            {viendo && pestanaVer === 'editar' ? 'Editando' : item.status === 'no_existe' ? 'Revisar' : 'Editar'}
                                                         </Button>
                                                     )}
                                                 </div>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                         {itemsFiltrados.length === 0 && (
@@ -796,31 +1062,121 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                             </div>
                         )}
                     </div>
-                )}
 
-                {vista === 'detalle' && itemSeleccionado && (
-                    <DiffDetailView
-                        titulo={`${itemSeleccionado.nombre || 'Equipo'} — ${itemSeleccionado.codigo || 'sin código'}`}
-                        subtitulo={`${itemSeleccionado.diffs.length} campo(s) distinto(s)`}
-                        diffs={itemSeleccionado.diffs}
-                        onBack={() => setVista('resultados')}
-                    >
-                        <Button variant="outline" size="sm" onClick={() => abrirForm(itemSeleccionado)}>
-                            Editar en formulario completo
-                        </Button>
-                        <Button
-                            size="sm"
-                            onClick={() => actualizarFila(itemSeleccionado, true)}
-                            disabled={actualizandoFila === itemSeleccionado.rowNumber}
-                        >
-                            {actualizandoFila === itemSeleccionado.rowNumber ? (
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                            ) : (
-                                <IconCloudUpload size={14} />
-                            )}
-                            Actualizar
-                        </Button>
-                    </DiffDetailView>
+                    {/* Panel de detalle a la derecha; key = fila para que la entrada se anime al cambiar. */}
+                    <div className="min-h-0 overflow-hidden">
+                        {itemVer && (
+                            <div key={itemVer.rowNumber} className="flex h-full min-h-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 animate-in fade-in slide-in-from-right-6 duration-300">
+                                <div className="flex items-start gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-lg font-bold leading-tight">{itemVer.codigo || 'Sin código'}</p>
+                                        <p className="truncate text-sm text-muted-foreground">{itemVer.nombre || itemVer.equipo?.nombre || ''}</p>
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                            <EstadoBadge status={itemVer.status} meta={STATUS_META} />
+                                            <span className="text-[11px] text-muted-foreground">Fila {itemVer.rowNumber} del Excel</span>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setFilaVer(null)} aria-label="Cerrar detalle" title="Cerrar detalle">
+                                        <IconX size={16} />
+                                    </Button>
+                                </div>
+
+                                {itemVer.warnings.length > 0 && (
+                                    <div className="flex flex-col gap-1 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
+                                        {itemVer.warnings.map((w, i) => (
+                                            <p key={i} className="flex items-start gap-1.5"><IconAlertTriangle size={13} className="mt-0.5 shrink-0" /> {w}</p>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Pestañas según el estado de la fila */}
+                                <div className="flex gap-1 rounded-lg bg-muted p-1">
+                                    {([
+                                        itemVer.status === 'difiere' && { id: 'diferencias' as const, label: `Diferencias (${itemVer.diffs.length})` },
+                                        itemVer.equipo && { id: 'ficha' as const, label: 'Ficha en el sistema' },
+                                        { id: 'excel' as const, label: 'Datos del Excel' },
+                                        { id: 'editar' as const, label: itemVer.status === 'no_existe' ? 'Revisar y crear' : 'Editar' },
+                                    ].filter(Boolean) as { id: 'diferencias' | 'ficha' | 'excel' | 'editar'; label: string }[]).map((t) => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => setPestanaVer(t.id)}
+                                            className={cn('flex-1 rounded-md px-2 py-1.5 text-sm transition-colors', pestanaVer === t.id ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                                        >
+                                            {t.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="flex min-h-0 flex-1 flex-col">
+                                    {pestanaVer === 'diferencias' && itemVer.status === 'difiere' && (
+                                        <DiffDetailView panel titulo="" diffs={itemVer.diffs} onBack={() => setFilaVer(null)} subtitulo="Lo que cambiaría en el sistema al actualizar con el Excel." />
+                                    )}
+                                    {pestanaVer === 'ficha' && itemVer.equipo && (
+                                        <EquipoDetalleLectura equipo={itemVer.equipo} onBack={() => setFilaVer(null)} panel sinEncabezado />
+                                    )}
+                                    {pestanaVer === 'editar' && (
+                                        <div key={`form-${itemVer.rowNumber}`} className="min-h-0 flex-1 overflow-y-auto pr-1">
+                                            <EquipoForm
+                                                initialData={buildInitialData(itemVer)}
+                                                onCancel={() => setPestanaVer(itemVer.status === 'difiere' ? 'diferencias' : 'excel')}
+                                                onSave={() => {
+                                                    setFilaVer(null);
+                                                    reanalizar();
+                                                }}
+                                            />
+                                        </div>
+                                    )}
+                                    {(pestanaVer === 'excel' || (pestanaVer === 'ficha' && !itemVer.equipo) || (pestanaVer === 'diferencias' && itemVer.status !== 'difiere')) && (
+                                        <div className="min-h-0 overflow-y-auto">
+                                            <PanelCampos
+                                                titulo="Datos leídos del Excel"
+                                                icon={<IconExcel size={15} />}
+                                                tono="neutral"
+                                                filas={Object.entries(ETIQUETAS_EXCEL)
+                                                    .filter(([campo]) => itemVer.excelData[campo as keyof typeof itemVer.excelData] !== undefined)
+                                                    .map(([campo, etiqueta]) => ({ campo, etiqueta, valor: itemVer.excelData[campo as keyof typeof itemVer.excelData] }))}
+                                            />
+                                            {itemVer.referencia && (itemVer.referencia.marca || itemVer.referencia.modelo || itemVer.referencia.serie) && (
+                                                <p className="mt-2 px-1 text-xs text-muted-foreground">
+                                                    Referencia (no se guarda): {[itemVer.referencia.marca, itemVer.referencia.modelo, itemVer.referencia.serie].filter(Boolean).join(' · ')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Acciones de la fila (el formulario de "Editar" trae las suyas) */}
+                                {itemVer.status !== 'coincide' && pestanaVer !== 'editar' && (
+                                    <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+                                        {extraerResponsableFaltante(itemVer.warnings) && (
+                                            <SolicitarMuestreadorPopover nombreSugerido={extraerResponsableFaltante(itemVer.warnings)!} origen="Inventario de Equipos" />
+                                        )}
+                                        <Button variant="outline" size="sm" onClick={() => setPestanaVer('editar')} disabled={procesandoLote}>
+                                            <IconPencil size={14} /> {itemVer.status === 'no_existe' ? 'Revisar y crear' : 'Editar'}
+                                        </Button>
+                                        {itemVer.status === 'difiere' && (
+                                            <Button size="sm" onClick={() => actualizarFila(itemVer)} disabled={actualizandoFila === itemVer.rowNumber || procesandoLote}>
+                                                {actualizandoFila === itemVer.rowNumber
+                                                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                                    : <IconCloudUpload size={14} />}
+                                                Actualizar
+                                            </Button>
+                                        )}
+                                        {itemVer.status === 'no_existe' && (
+                                            <Button size="sm" onClick={() => subirFila(itemVer)} disabled={subiendoFila === itemVer.rowNumber || procesandoLote}>
+                                                {subiendoFila === itemVer.rowNumber
+                                                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                                    : <IconUpload size={14} />}
+                                                Subir
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    </div>
                 )}
 
                 {vista === 'form' && itemSeleccionado && (
@@ -883,6 +1239,64 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            <Dialog open={!!equipoDeshabilitar} onOpenChange={(o) => { if (!o && !deshabilitando) setEquipoDeshabilitar(null); }}>
+                <DialogContent className="max-w-md gap-4">
+                    <DialogHeader>
+                        <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive"><IconPower size={22} /></div>
+                            <div className="min-w-0 text-left">
+                                <DialogTitle>Deshabilitar equipo</DialogTitle>
+                                <p className="truncate text-sm text-muted-foreground">{equipoDeshabilitar?.codigo} · {equipoDeshabilitar?.nombre}</p>
+                            </div>
+                        </div>
+                    </DialogHeader>
+                    <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                        El equipo está en el sistema pero no aparece en el inventario Excel. Quedará <b className="text-foreground">Inactivo</b> y el motivo se agrega a su observación.
+                    </p>
+                    <div className="flex flex-col gap-1.5">
+                        <span className="text-sm font-medium">Nuevo estado operativo</span>
+                        <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1">
+                            {(['Fuera de Servicio', 'Dado de Baja'] as const).map((op) => (
+                                <button
+                                    key={op}
+                                    type="button"
+                                    onClick={() => setEstadoDeshabilitar(op)}
+                                    className={cn('rounded-md py-1.5 text-sm transition-colors', estadoDeshabilitar === op ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                                >
+                                    {op}
+                                </button>
+                            ))}
+                        </div>
+                        {estadoDeshabilitar === 'Dado de Baja' && !equipoDeshabilitar?.fecha_baja && (
+                            <span className="text-[11px] text-muted-foreground">Se registra la fecha de baja de hoy.</span>
+                        )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        <label htmlFor="motivo-deshabilitar" className="text-sm font-medium">Motivo <span className="text-destructive">*</span></label>
+                        <textarea
+                            id="motivo-deshabilitar"
+                            autoFocus
+                            rows={3}
+                            maxLength={500}
+                            value={motivoDeshabilitar}
+                            onChange={(ev) => setMotivoDeshabilitar(ev.target.value)}
+                            placeholder="Ej: No se encuentra en la sede; se retira del inventario."
+                            className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            disabled={deshabilitando}
+                        />
+                    </div>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setEquipoDeshabilitar(null)} disabled={deshabilitando}>Cancelar</Button>
+                        <Button variant="destructive" onClick={confirmarDeshabilitar} disabled={!motivoDeshabilitar.trim() || deshabilitando}>
+                            {deshabilitando
+                                ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                : <IconPower size={15} />}
+                            Deshabilitar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <ImportacionInformeModal
                 isOpen={mostrarInforme}
                 onClose={() => setMostrarInforme(false)}
