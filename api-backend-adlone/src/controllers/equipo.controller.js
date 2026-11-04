@@ -29,6 +29,16 @@ export const equipoController = {
         }
     },
 
+    getResumenCalidad: async (req, res) => {
+        try {
+            const data = await equipoService.getResumenCalidad();
+            res.json({ success: true, data });
+        } catch (error) {
+            logger.error('Controller getResumenCalidad error:', error);
+            res.status(500).json({ success: false, message: 'Error al obtener el resumen de equipos' });
+        }
+    },
+
     exportExcel: async (req, res) => {
         try {
             const buffer = await equipoService.exportEquiposExcel(req.query);

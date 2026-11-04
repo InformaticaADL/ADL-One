@@ -159,6 +159,7 @@ router.put('/equipos/catalogo/:id', verifyToken, verifyPermission('AI_MA_EDITAR_
 router.delete('/equipos/catalogo/:id', verifyToken, verifyPermission('EQ_DESACTIVAR'), equipoController.deleteEquipoCatalogo);
 router.get('/equipos/suggest-code', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.suggestNextCode);
 router.get('/equipos/next-correlativo/:tipo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getNextCorrelativo);
+router.get('/equipos/resumen-calidad', verifyToken, verifyPermission(['GC_ACCESO', 'GC_EQUIPOS', 'MA_A_GEST_EQUIPO']), equipoController.getResumenCalidad);
 router.get('/equipos/export/excel', verifyToken, verifyPermission('EQ_EXP'), equipoController.exportExcel);
 router.post('/equipos/import-excel/analizar', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), subirExcelEquipos, equipoController.analizarExcel);
 router.post('/equipos/import-excel/analizar-temperatura', verifyToken, verifyPermission('EQ_IMPORT_EXCEL'), subirExcelEquipos, equipoController.analizarExcelTemperatura);

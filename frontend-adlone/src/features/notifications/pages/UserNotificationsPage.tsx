@@ -232,7 +232,7 @@ export const UserNotificationsPage = () => {
                                                         {dayjs(notif.fecha).format('HH:mm')}
                                                     </span>
                                                 </div>
-                                                <p className="m-0 line-clamp-2 text-[13px] text-muted-foreground">
+                                                <p className="m-0 line-clamp-2 whitespace-pre-line text-[13px] text-muted-foreground">
                                                     {notif.mensaje}
                                                 </p>
                                                 {notif.area && (

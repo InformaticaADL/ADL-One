@@ -1,4 +1,5 @@
 import { equipoService } from '../services/equipo.service.js';
+import { equipoVencimientosService } from '../services/equipo-vencimientos.service.js';
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from '../services/uns.service.js';
@@ -23,6 +24,20 @@ export const initScheduler = () => {
             }
         } catch (error) {
             logger.error('Error verifying expired equipment:', error);
+        }
+        // Equipos inactivados por vencimiento que ya tienen una revisión vigente.
+        try {
+            const r = await equipoService.reactivarEquiposRenovados();
+            if (r.processed > 0) logger.info(`Daily Check: reactivated ${r.processed} renewed equipment(s): ${r.codigos.join(', ')}`);
+        } catch (error) {
+            logger.error('Error reactivating renewed equipment:', error);
+        }
+        // Avisos a Gestión de Calidad 30 y 7 días antes del vencimiento.
+        try {
+            const r = await equipoVencimientosService.notificarProximosVencimientos();
+            if (r.enviadas > 0) logger.info(`Daily Check: sent ${r.enviadas} expiration notice(s).`);
+        } catch (error) {
+            logger.error('Error sending expiration notices:', error);
         }
     };
 

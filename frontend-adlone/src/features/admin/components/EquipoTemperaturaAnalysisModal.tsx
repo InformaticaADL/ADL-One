@@ -8,9 +8,13 @@ import {
     IconX,
     IconTemperature,
     IconFileAnalytics,
+    IconEye,
+    IconPencil,
 } from '@tabler/icons-react';
 import { ImportacionInformeModal } from './ImportacionInformeModal';
-import { equipoService, type AnalisisTemperaturaResponse, type AnalisisTemperaturaItem } from '../services/equipo.service';
+import { equipoService, type AnalisisTemperaturaResponse, type AnalisisTemperaturaItem, type Equipo } from '../services/equipo.service';
+import { EquipoForm } from './EquipoForm';
+import { EquipoDetalleLectura } from './EquipoDetalleLectura';
 import { formatearTamano } from '../utils/documentosEquipo';
 import { useToast } from '../../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
@@ -21,7 +25,7 @@ import { cn } from '@/lib/utils';
 import {
     EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
     guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante,
-    SolicitarMuestreadorPopover,
+    SolicitarMuestreadorPopover, PanelCampos,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
 } from './excelAnalysisShared';
 
@@ -36,10 +40,18 @@ interface Props {
     archivoInicial?: File | null;
 }
 
-type Vista = 'upload' | 'resultados' | 'detalle' | 'confirmacion_lote';
+type Vista = 'upload' | 'resultados' | 'confirmacion_lote';
+type PestanaVer = 'diferencias' | 'ficha' | 'excel' | 'editar';
 type FiltroEstado = 'todos' | AnalisisTemperaturaItem['status'];
 
 const LOTE_KEY = 'equipo_temperatura_lote_pendiente';
+
+// Campos leídos del Resumen de verificaciones T°, en el orden en que se muestran en "Datos del Excel".
+const ETIQUETAS_EXCEL: Record<string, string> = {
+    codigo: 'Código', ubicacion: 'Sede', error0: 'Error 0', error15: 'Error 15', error30: 'Error 30',
+    tiene_fc: 'Factor de corrección', ultima_verificacion: 'Última verificación', estado_equipo: 'Estado operativo',
+    id_muestreador: 'Responsable (id)', equipo_asociado: 'Equipo asociado', observacion: 'Observación',
+};
 
 const STATUS_META: Record<AnalisisTemperaturaItem['status'], EstadoMeta> = {
     coincide: { label: 'Coincide', badge: 'success' },
@@ -80,7 +92,11 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
     const [analizando, setAnalizando] = useState(false);
     const [resultado, setResultado] = useState<AnalisisTemperaturaResponse | null>(null);
     const [vista, setVista] = useState<Vista>('upload');
-    const [itemSeleccionado, setItemSeleccionado] = useState<AnalisisTemperaturaItem | null>(null);
+    // Vista dividida: fila abierta en el panel de la derecha y su pestaña.
+    const [filaVer, setFilaVer] = useState<number | null>(null);
+    const [pestanaVer, setPestanaVer] = useState<PestanaVer>('diferencias');
+    // Ficha del equipo en el sistema de la fila abierta (se pide al abrirla).
+    const [fichaBd, setFichaBd] = useState<{ id: number; equipo: Equipo | null; cargando: boolean } | null>(null);
     const [actualizandoFila, setActualizandoFila] = useState<number | null>(null);
     const [actualizandoTodo, setActualizandoTodo] = useState(false);
     const [progresoTodo, setProgresoTodo] = useState<{ hecho: number; total: number } | null>(null);
@@ -128,7 +144,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
         setFile(null);
         setResultado(null);
         setVista('upload');
-        setItemSeleccionado(null);
+        setFilaVer(null);
         setFiltroEstado('todos');
         setSoloAdvertencias(false);
         setBusqueda('');
@@ -159,11 +175,12 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
         analizar(file);
     };
 
-    // "Ver" solo cambia de vista — el resultado del análisis no se toca, así
-    // que "Volver a resultados" deja la lista exactamente como estaba.
-    const abrirDetalle = (item: AnalisisTemperaturaItem) => {
-        setItemSeleccionado(item);
-        setVista('detalle');
+    // "Ver" abre la fila en el panel de la derecha (la lista se corre a la
+    // izquierda); el resultado del análisis no se toca. Otra vez "Ver" lo cierra.
+    const abrirDetalle = (item: AnalisisTemperaturaItem, pestana?: PestanaVer) => {
+        if (filaVer === item.rowNumber && !pestana) { setFilaVer(null); return; }
+        setFilaVer(item.rowNumber);
+        setPestanaVer(pestana ?? (item.status === 'difiere' ? 'diferencias' : 'excel'));
     };
 
     const marcarComoActualizado = (rowNumber: number) => {
@@ -185,13 +202,12 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
         await equipoService.updateEquipo(item.id_equipo, buildUpdatePayload(item));
     };
 
-    const actualizarFila = async (item: AnalisisTemperaturaItem, volverAResultados = false) => {
+    const actualizarFila = async (item: AnalisisTemperaturaItem) => {
         setActualizandoFila(item.rowNumber);
         try {
             await actualizarEquipo(item);
             marcarComoActualizado(item.rowNumber);
             showToast({ type: 'success', message: `Equipo "${item.nombre || item.codigo}" actualizado correctamente` });
-            if (volverAResultados) setVista('resultados');
         } catch (err: any) {
             showToast({ type: 'error', message: err?.response?.data?.message || err?.message || 'No se pudo actualizar el equipo' });
         } finally {
@@ -289,6 +305,26 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
         });
     }, [resultado, filtroEstado, soloAdvertencias, busqueda]);
 
+    // Solo lo pendiente (difiere / no encontrado) se abre en el panel: al
+    // actualizarse pasa a "coincide" y el panel se cierra solo.
+    const itemVer = useMemo(
+        () => (filaVer === null ? null : itemsFiltrados.find((i) => i.rowNumber === filaVer && i.status !== 'coincide') || null),
+        [filaVer, itemsFiltrados],
+    );
+
+    // Al abrir una fila con equipo en el sistema se trae su ficha completa
+    // (para "Ficha en el sistema" y "Editar").
+    const idEquipoVer = itemVer?.id_equipo ?? null;
+    useEffect(() => {
+        if (!idEquipoVer) { setFichaBd(null); return; }
+        let vigente = true;
+        setFichaBd({ id: idEquipoVer, equipo: null, cargando: true });
+        equipoService.getEquipoById(idEquipoVer)
+            .then((r) => { if (vigente) setFichaBd({ id: idEquipoVer, equipo: r?.success ? r.data : null, cargando: false }); })
+            .catch(() => { if (vigente) setFichaBd({ id: idEquipoVer, equipo: null, cargando: false }); });
+        return () => { vigente = false; };
+    }, [idEquipoVer]);
+
     const toggleFiltroEstado = (estado: FiltroEstado) => {
         setFiltroEstado((prev) => (prev === estado ? 'todos' : estado));
     };
@@ -299,7 +335,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
             onOpenChange={(open) => { if (!open) { if (actualizandoTodo) return; handleClose(); } }}
         >
             <DialogContent
-                className="flex max-h-[90vh] max-w-7xl flex-col gap-4 overflow-hidden"
+                className="flex h-[95vh] w-[98vw] max-w-[1800px] flex-col gap-4 overflow-hidden"
                 showCloseButton={!actualizandoTodo}
                 onInteractOutside={(e) => { if (actualizandoTodo) e.preventDefault(); }}
                 onEscapeKeyDown={(e) => { if (actualizandoTodo) e.preventDefault(); }}
@@ -431,25 +467,39 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                     </div>
                 )}
 
+                {/* Resultados: al presionar "Ver" la lista se corre a la izquierda (más
+                    angosta) y el detalle de la fila aparece a la derecha. */}
                 {vista === 'resultados' && resultado && (
-                    <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border bg-card">
-                        <Table>
+                    <div className={cn(
+                        'grid min-h-0 flex-1 gap-3 transition-[grid-template-columns] duration-300 ease-out',
+                        itemVer ? 'grid-cols-[minmax(340px,2fr)_minmax(0,3fr)]' : 'grid-cols-[minmax(0,1fr)_0fr]',
+                    )}>
+                    <div className="min-h-0 overflow-auto rounded-xl border border-border bg-card">
+                        <Table className={cn(itemVer && 'min-w-[760px]')} containerClassName="overflow-visible">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead>Código</TableHead>
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>Estado</TableHead>
-                                    <TableHead>Detalle</TableHead>
+                                    {!itemVer && <TableHead>Detalle</TableHead>}
                                     <TableHead className="text-right">Acción</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {itemsFiltrados.map((item) => (
-                                    <TableRow key={item.rowNumber}>
-                                        <TableCell className="text-sm font-semibold text-foreground">{item.codigo || '—'}</TableCell>
-                                        <TableCell className="font-medium text-foreground">{item.nombre || '—'}</TableCell>
+                                {itemsFiltrados.map((item) => {
+                                    const viendo = filaVer === item.rowNumber;
+                                    // "Ver" solo en lo que aún falta resolver (difiere / no encontrado).
+                                    const pendiente = item.status !== 'coincide';
+                                    return (
+                                    <TableRow
+                                        key={item.rowNumber}
+                                        className={cn(itemVer && pendiente && 'cursor-pointer', viendo && 'bg-primary/5 hover:bg-primary/10')}
+                                        onClick={itemVer && pendiente ? () => abrirDetalle(item) : undefined}
+                                    >
+                                        <TableCell className={cn('text-sm font-semibold text-foreground', viendo && 'border-l-2 border-l-primary')}>{item.codigo || '—'}</TableCell>
+                                        <TableCell className="max-w-[260px] truncate font-medium text-foreground" title={item.nombre || ''}>{item.nombre || '—'}</TableCell>
                                         <TableCell><EstadoBadge status={item.status} meta={STATUS_META} /></TableCell>
-                                        <TableCell className="max-w-xs text-xs text-muted-foreground">
+                                        {!itemVer && <TableCell className="max-w-xs text-xs text-muted-foreground">
                                             {item.status === 'difiere' && (
                                                 <span>{item.diffs.length} campo(s) distinto(s): {item.diffs.map(d => d.etiqueta).join(', ')}</span>
                                             )}
@@ -459,16 +509,21 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                                     <IconAlertTriangle size={12} className="mt-0.5 shrink-0" /> <span>{item.warnings[0]}</span>
                                                 </div>
                                             )}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            {/* Grilla de ancho fijo por botón (Ver, Actualizar, Solicitar) — así
+                                        </TableCell>}
+                                        <TableCell className="whitespace-nowrap text-right" onClick={(ev) => ev.stopPropagation()}>
+                                            {/* Grilla de ancho fijo por botón (Ver, Actualizar, Solicitar, Editar) — así
                                                 cada uno cae siempre en la misma posición horizontal entre filas,
                                                 tenga o no esa fila ese botón en particular. */}
-                                            <div className="grid grid-cols-[64px_108px_88px] items-center justify-items-end gap-1.5">
+                                            <div className="grid grid-cols-[72px_108px_88px_80px] items-center justify-items-end gap-1.5">
                                                 <div>
-                                                    {item.status === 'difiere' && (
-                                                        <Button size="sm" variant="outline" onClick={() => abrirDetalle(item)} disabled={actualizandoTodo}>
-                                                            Ver
+                                                    {pendiente && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant={viendo && pestanaVer !== 'editar' ? 'default' : 'outline'}
+                                                            onClick={() => (viendo && pestanaVer === 'editar' ? setPestanaVer(item.status === 'difiere' ? 'diferencias' : 'excel') : abrirDetalle(item))}
+                                                            disabled={actualizandoTodo}
+                                                        >
+                                                            <IconEye size={14} /> {viendo && pestanaVer !== 'editar' ? 'Viendo' : 'Ver'}
                                                         </Button>
                                                     )}
                                                 </div>
@@ -496,10 +551,23 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                                         />
                                                     )}
                                                 </div>
+                                                <div>
+                                                    {item.status === 'difiere' && item.id_equipo && (
+                                                        <Button
+                                                            size="sm"
+                                                            variant={viendo && pestanaVer === 'editar' ? 'default' : 'outline'}
+                                                            onClick={() => (viendo && pestanaVer === 'editar' ? setPestanaVer('diferencias') : abrirDetalle(item, 'editar'))}
+                                                            disabled={actualizandoTodo}
+                                                        >
+                                                            <IconPencil size={14} /> {viendo && pestanaVer === 'editar' ? 'Editando' : 'Editar'}
+                                                        </Button>
+                                                    )}
+                                                </div>
                                             </div>
                                         </TableCell>
                                     </TableRow>
-                                ))}
+                                    );
+                                })}
                             </TableBody>
                         </Table>
                         {itemsFiltrados.length === 0 && (
@@ -511,28 +579,117 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                             </div>
                         )}
                     </div>
-                )}
 
-                {vista === 'detalle' && itemSeleccionado && (
-                    <DiffDetailView
-                        titulo={`${itemSeleccionado.nombre || 'Equipo'} — ${itemSeleccionado.codigo || 'sin código'}`}
-                        subtitulo={`${itemSeleccionado.diffs.length} campo(s) distinto(s)`}
-                        diffs={itemSeleccionado.diffs}
-                        onBack={() => setVista('resultados')}
-                    >
-                        <Button
-                            size="sm"
-                            onClick={() => actualizarFila(itemSeleccionado, true)}
-                            disabled={actualizandoFila === itemSeleccionado.rowNumber}
-                        >
-                            {actualizandoFila === itemSeleccionado.rowNumber ? (
-                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                            ) : (
-                                <IconCloudUpload size={14} />
-                            )}
-                            Actualizar
-                        </Button>
-                    </DiffDetailView>
+                    {/* Panel de detalle a la derecha; key = fila para que la entrada se anime al cambiar. */}
+                    <div className="min-h-0 overflow-hidden">
+                        {itemVer && (
+                            <div key={itemVer.rowNumber} className="flex h-full min-h-0 flex-col gap-3 rounded-xl border border-border bg-background p-3 animate-in fade-in slide-in-from-right-6 duration-300">
+                                <div className="flex items-start gap-3">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate text-lg font-bold leading-tight">{itemVer.codigo || 'Sin código'}</p>
+                                        <p className="truncate text-sm text-muted-foreground">{itemVer.nombre || fichaBd?.equipo?.nombre || ''}</p>
+                                        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                                            <EstadoBadge status={itemVer.status} meta={STATUS_META} />
+                                            <span className="text-[11px] text-muted-foreground">Fila {itemVer.rowNumber} del Excel</span>
+                                        </div>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" onClick={() => setFilaVer(null)} aria-label="Cerrar detalle" title="Cerrar detalle">
+                                        <IconX size={16} />
+                                    </Button>
+                                </div>
+
+                                {itemVer.warnings.length > 0 && (
+                                    <div className="flex flex-col gap-1 rounded-lg border border-warning/30 bg-warning/5 px-3 py-2 text-xs text-warning">
+                                        {itemVer.warnings.map((w, i) => (
+                                            <p key={i} className="flex items-start gap-1.5"><IconAlertTriangle size={13} className="mt-0.5 shrink-0" /> {w}</p>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Pestañas según el estado de la fila */}
+                                <div className="flex gap-1 rounded-lg bg-muted p-1">
+                                    {([
+                                        itemVer.status === 'difiere' && { id: 'diferencias' as const, label: `Diferencias (${itemVer.diffs.length})` },
+                                        itemVer.id_equipo && { id: 'ficha' as const, label: 'Ficha en el sistema' },
+                                        { id: 'excel' as const, label: 'Datos del Excel' },
+                                        itemVer.id_equipo && { id: 'editar' as const, label: 'Editar' },
+                                    ].filter(Boolean) as { id: PestanaVer; label: string }[]).map((t) => (
+                                        <button
+                                            key={t.id}
+                                            type="button"
+                                            onClick={() => setPestanaVer(t.id)}
+                                            className={cn('flex-1 rounded-md px-2 py-1.5 text-sm transition-colors', pestanaVer === t.id ? 'bg-background font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                                        >
+                                            {t.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="flex min-h-0 flex-1 flex-col">
+                                    {pestanaVer === 'diferencias' && itemVer.status === 'difiere' && (
+                                        <DiffDetailView panel titulo="" diffs={itemVer.diffs} onBack={() => setFilaVer(null)} subtitulo="Lo que cambiaría en el sistema al actualizar con el Excel." />
+                                    )}
+                                    {(pestanaVer === 'ficha' || pestanaVer === 'editar') && itemVer.id_equipo && (
+                                        !fichaBd || fichaBd.cargando ? (
+                                            <div className="flex flex-1 items-center justify-center py-10">
+                                                <span className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                                            </div>
+                                        ) : !fichaBd.equipo ? (
+                                            <p className="py-10 text-center text-sm text-muted-foreground">No se pudo cargar la ficha del equipo.</p>
+                                        ) : pestanaVer === 'ficha' ? (
+                                            <EquipoDetalleLectura equipo={fichaBd.equipo} onBack={() => setFilaVer(null)} panel sinEncabezado />
+                                        ) : (
+                                            <div key={`form-${itemVer.rowNumber}`} className="min-h-0 flex-1 overflow-y-auto pr-1">
+                                                <EquipoForm
+                                                    initialData={fichaBd.equipo}
+                                                    onCancel={() => setPestanaVer(itemVer.status === 'difiere' ? 'diferencias' : 'excel')}
+                                                    onSave={() => {
+                                                        setFilaVer(null);
+                                                        reanalizar();
+                                                    }}
+                                                />
+                                            </div>
+                                        )
+                                    )}
+                                    {(pestanaVer === 'excel' || (pestanaVer === 'diferencias' && itemVer.status !== 'difiere')) && (
+                                        <div className="min-h-0 overflow-y-auto">
+                                            <PanelCampos
+                                                titulo="Datos leídos del Excel"
+                                                icon={<IconFileSpreadsheet size={15} />}
+                                                tono="neutral"
+                                                filas={Object.entries(ETIQUETAS_EXCEL)
+                                                    .filter(([campo]) => itemVer.excelData[campo as keyof typeof itemVer.excelData] !== undefined)
+                                                    .map(([campo, etiqueta]) => ({ campo, etiqueta, valor: itemVer.excelData[campo as keyof typeof itemVer.excelData] }))}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Acciones de la fila (el formulario de "Editar" trae las suyas) */}
+                                {pestanaVer !== 'editar' && (extraerResponsableFaltante(itemVer.warnings) || itemVer.status === 'difiere') && (
+                                    <div className="flex flex-wrap justify-end gap-2 border-t border-border pt-3">
+                                        {extraerResponsableFaltante(itemVer.warnings) && (
+                                            <SolicitarMuestreadorPopover nombreSugerido={extraerResponsableFaltante(itemVer.warnings)!} origen="Resumen Verificaciones Intermedias T°" />
+                                        )}
+                                        {itemVer.status === 'difiere' && itemVer.id_equipo && (
+                                            <Button variant="outline" size="sm" onClick={() => setPestanaVer('editar')} disabled={actualizandoTodo}>
+                                                <IconPencil size={14} /> Editar
+                                            </Button>
+                                        )}
+                                        {itemVer.status === 'difiere' && (
+                                            <Button size="sm" onClick={() => actualizarFila(itemVer)} disabled={actualizandoFila === itemVer.rowNumber || actualizandoTodo}>
+                                                {actualizandoFila === itemVer.rowNumber
+                                                    ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                                                    : <IconCloudUpload size={14} />}
+                                                Actualizar
+                                            </Button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                    </div>
                 )}
 
                 {vista === 'confirmacion_lote' && loteResultado && (

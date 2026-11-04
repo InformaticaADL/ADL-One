@@ -9,7 +9,7 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
-import { esNotificacionSolicitudCliente } from '../utils/notificationNavigation';
+import { esNotificacionSolicitudCliente, AREA_VENCIMIENTOS_EQUIPOS, abrirCalendarioVencimientos } from '../utils/notificationNavigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -57,6 +57,12 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
 
         if (!notif.leido) {
             markAsRead(notif.id_notificacion).catch(console.error);
+        }
+
+        if (notif.area === AREA_VENCIMIENTOS_EQUIPOS) {
+            abrirCalendarioVencimientos({ setActiveModule, setActiveSubmodule, hasPermission, showToast });
+            if (isMobile) window.dispatchEvent(new CustomEvent('close-mobile-sidebar'));
+            return;
         }
 
         if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
@@ -201,7 +207,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
                                                 <div className={cn('truncate text-xs font-bold', notif.leido ? 'text-muted-foreground' : 'text-foreground')}>
                                                     {formatTitle(notif.titulo)}
                                                 </div>
-                                                <div className="mb-0.5 line-clamp-2 text-xs text-muted-foreground">
+                                                <div className="mb-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
                                                     {notif.mensaje}
                                                 </div>
                                                 <div className="text-[10px] font-medium text-primary">

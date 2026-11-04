@@ -38,6 +38,12 @@ const getVigenciaEstado = (str?: string): 'vigente' | 'por_vencer' | 'vencido' |
     return 'vigente';
 };
 
+// Con datos de /equipos/resumen-calidad la vigencia viene calculada en el
+// backend (incluye 'retirado': dados de baja / fuera de servicio, que no
+// cuentan como vencidos). Sin ella (Gestión de Equipos) se calcula acá.
+type EstadoVig = 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'retirado';
+const estadoVig = (e: Equipo): EstadoVig => e.estado_vigencia ?? getVigenciaEstado(e.vigencia || e.siguiente_verificacion);
+
 // ── KPI Card ──
 const KpiCard: React.FC<{
     label: string; value: number | string;
@@ -187,12 +193,10 @@ export const EquiposDashboard: React.FC<Props> = ({
     };
 
     const equiposFiltered = useMemo(() => {
-        const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
-        const en30 = new Date(hoy); en30.setDate(hoy.getDate() + 30);
         switch (activeFilter) {
             case 'activos':     return equipos.filter(e => e.estado === 'Activo');
-            case 'vencidos':    return equipos.filter(e => { const d = parseVigencia(e.vigencia || e.siguiente_verificacion); return d != null && d < hoy; });
-            case 'por_vencer':  return equipos.filter(e => { const d = parseVigencia(e.vigencia || e.siguiente_verificacion); return d != null && d >= hoy && d <= en30; });
+            case 'vencidos':    return equipos.filter(e => estadoVig(e) === 'vencido');
+            case 'por_vencer':  return equipos.filter(e => estadoVig(e) === 'por_vencer');
             case 'sin_asignar': return equipos.filter(e => !e.id_muestreador);
             default:            return equipos;
         }
@@ -221,15 +225,16 @@ export const EquiposDashboard: React.FC<Props> = ({
 
     // ── Estado de vigencia (donut) ──
     const vigenciaData = useMemo(() => {
-        const counts = { vigente: 0, por_vencer: 0, vencido: 0, sin_fecha: 0 };
+        const counts = { vigente: 0, por_vencer: 0, vencido: 0, sin_fecha: 0, retirado: 0 };
         equiposFiltered.forEach(e => {
-            counts[getVigenciaEstado(e.vigencia || e.siguiente_verificacion)]++;
+            counts[estadoVig(e)]++;
         });
         return [
             { name: 'Vigente',    value: counts.vigente,    fill: '#10b981' },
             { name: 'Por vencer', value: counts.por_vencer, fill: '#f59e0b' },
             { name: 'Vencido',    value: counts.vencido,    fill: '#f43f5e' },
             { name: 'Sin fecha',  value: counts.sin_fecha,  fill: '#64748b' },
+            { name: 'Retirado',   value: counts.retirado,   fill: '#cbd5e1' },
         ].filter(d => d.value > 0);
     }, [equiposFiltered]);
 
@@ -244,12 +249,12 @@ export const EquiposDashboard: React.FC<Props> = ({
         }
         equiposFiltered.forEach(e => {
             const fecha = parseVigencia(e.vigencia || e.siguiente_verificacion);
-            if (!fecha) return;
+            if (!fecha || estadoVig(e) === 'retirado') return;
             const diff = (fecha.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24 * 30);
             if (diff < 0 || diff >= 8) return;
             const key = fecha.toLocaleDateString('es-CL', { month: 'short', year: '2-digit' });
             if (!meses[key]) return;
-            const estado = getVigenciaEstado(e.vigencia || e.siguiente_verificacion);
+            const estado = estadoVig(e);
             if (estado === 'vencido') meses[key].vencidos++;
             else if (estado === 'por_vencer') meses[key].por_vencer++;
             else meses[key].vigentes++;
@@ -260,7 +265,7 @@ export const EquiposDashboard: React.FC<Props> = ({
     // ── Proximos a vencer (tabla) ──
     const proximos = useMemo(() => {
         return equiposFiltered
-            .filter(e => e.vigencia || e.siguiente_verificacion)
+            .filter(e => (e.vigencia || e.siguiente_verificacion) && estadoVig(e) !== 'retirado')
             .map(e => ({ ...e, _fecha: parseVigencia(e.vigencia || e.siguiente_verificacion) }))
             .filter(e => e._fecha)
             .sort((a, b) => a._fecha!.getTime() - b._fecha!.getTime())
@@ -322,7 +327,7 @@ export const EquiposDashboard: React.FC<Props> = ({
     const cicloDatos = useMemo(() => {
         const hoy = new Date();
         return equiposFiltered
-            .filter(e => e.ultima_verificacion && e.siguiente_verificacion)
+            .filter(e => e.ultima_verificacion && e.siguiente_verificacion && estadoVig(e) !== 'retirado')
             .map(e => {
                 const ultima    = parseVigencia(e.ultima_verificacion);
                 const siguiente = parseVigencia(e.siguiente_verificacion);
@@ -332,7 +337,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                 return {
                     x: Math.max(0, diasDesde),
                     y: diasHasta,
-                    estado: getVigenciaEstado(e.vigencia || e.siguiente_verificacion),
+                    estado: estadoVig(e),
                     nombre: e.nombre || e.codigo || '—',
                 };
             })
@@ -365,10 +370,8 @@ export const EquiposDashboard: React.FC<Props> = ({
 
     const vencidosPorTipo = useMemo(() => {
         const map: Record<string, number> = {};
-        const hoy = new Date(); hoy.setHours(0,0,0,0);
         equiposFiltered.forEach(e => {
-            const d = parseVigencia(e.vigencia || e.siguiente_verificacion);
-            if (!d || d >= hoy) return;
+            if (estadoVig(e) !== 'vencido') return;
             const tipo = e.tipo || 'Sin tipo';
             map[tipo] = (map[tipo] || 0) + 1;
         });
@@ -499,7 +502,7 @@ export const EquiposDashboard: React.FC<Props> = ({
 
             {/* KPI STRIP */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                <KpiCard label="Total Equipos"    value={total}         badge={`+${total - 235}`}                              badgeVariant="acc"  desc="vs. mes ant."     accentColor="#6366f1" sparkPoints={sparkTotal}  onClick={() => handleKpiToggle('all')}         active={activeFilter === 'all'}/>
+                <KpiCard label="Total Equipos"    value={total}         badgeVariant="acc"  desc="en inventario"     accentColor="#6366f1" sparkPoints={sparkTotal}  onClick={() => handleKpiToggle('all')}         active={activeFilter === 'all'}/>
                 <KpiCard label="Activos"          value={activeCount}   badge={`${((activeCount/total)*100).toFixed(1)}%`}     badgeVariant="ok"   desc="del inventario"   accentColor="#10b981" sparkPoints={sparkActivo} onClick={() => handleKpiToggle('activos')}     active={activeFilter === 'activos'}/>
                 <KpiCard label="Vencidos"         value={expiredCount}  badge={`${((expiredCount/total)*100).toFixed(1)}%`}    badgeVariant="err"  desc="requieren accion" accentColor="#f43f5e" sparkPoints={sparkErr}    onClick={() => handleKpiToggle('vencidos')}    active={activeFilter === 'vencidos'}/>
                 <KpiCard label="Por Vencer (30d)" value={expiringCount} badge={`${((expiringCount/total)*100).toFixed(1)}%`}   badgeVariant="warn" desc="atencion proxima"  accentColor="#f59e0b" sparkPoints={sparkWarn}  onClick={() => handleKpiToggle('por_vencer')}  active={activeFilter === 'por_vencer'}/>

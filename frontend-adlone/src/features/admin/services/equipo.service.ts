@@ -35,6 +35,9 @@ export interface Equipo {
     siguiente_verificacion?: string;   // DATE - calculada (ultima + 90 días) pero editable
     plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
     estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
+    // Solo en /equipos/resumen-calidad: vigencia calculada en el backend.
+    estado_vigencia?: 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'retirado';
+    dias_restantes?: number | null;
     ultima_modificacion?: string | null;  // última fecha de cambio en mae_equipo_historial
     usuario_modificacion?: string | null; // quién hizo ese cambio
     habilitado_muestreador?: string;   // 'S' o 'N' de mae_muestreador
@@ -133,7 +136,18 @@ export type AnalisisAutoResponse =
     | ({ tipo: 'equipos' } & AnalisisExcelResponse)
     | ({ tipo: 'temperatura' } & AnalisisTemperaturaResponse);
 
+export interface ResumenCalidad {
+    kpis: { total: number; activos: number; vencidos: number; porVencer: number; sinAsignar: number; retirados: number };
+    equipos: Equipo[];
+}
+
 export const equipoService = {
+    // Dashboard y Calendario de Vencimientos (Gestión de Calidad): vigencia y KPIs calculados en el backend.
+    getResumenCalidad: async (): Promise<ResumenCalidad> => {
+        const response = await apiClient.get('/api/admin/equipos/resumen-calidad');
+        return response.data.data;
+    },
+
     analizarExcel: async (file: File): Promise<AnalisisExcelResponse> => {
         const formData = new FormData();
         formData.append('archivo', file);

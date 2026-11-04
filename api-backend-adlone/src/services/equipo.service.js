@@ -1,6 +1,7 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
+import { ordenarObservacion } from '../utils/observacionEquipo.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
@@ -512,6 +513,52 @@ export const equipoService = {
         }
     },
 
+    // Datos para el Dashboard y el Calendario de Vencimientos de Gestión de
+    // Calidad: solo los campos que usan esas pantallas, con el estado de vigencia
+    // y los KPIs calculados acá, con las mismas reglas que la revisión diaria y
+    // los avisos (vencido = vencidoCondition; por vencer = activo y vence en 0-30
+    // días). Los dados de baja / fuera de servicio quedan como 'retirado': no
+    // cuentan como vencidos ni por vencer.
+    getResumenCalidad: async () => {
+        const pool = await getConnection();
+        const r = await pool.request().query(`
+            SELECT
+                e.id_equipo, e.codigo, e.nombre, e.tipoequipo AS tipo, e.sede AS ubicacion,
+                CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END AS estado,
+                e.Estado AS estado_equipo,
+                e.id_muestreador, m.nombre_muestreador AS nombre_asignado, m.habilitado AS habilitado_muestreador,
+                FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') AS vigencia,
+                CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) AS ultima_verificacion,
+                CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) AS siguiente_verificacion,
+                e.Plazo_Vigencia AS plazo_vigencia,
+                e.tienefc AS tiene_fc, e.error0, e.error15, e.error30, e.fc0, e.fc15, e.fc30,
+                CONVERT(VARCHAR(10), e.fecha_compra, 23) AS fecha_compra,
+                DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) AS dias_restantes,
+                CASE
+                    WHEN ISNULL(e.Estado, '') LIKE '%baja%' OR ISNULL(e.Estado, '') LIKE '%fuera de servicio%' THEN 'retirado'
+                    WHEN e.Siguiente_verificacion IS NULL THEN 'sin_fecha'
+                    WHEN ${vencidoCondition('e')} THEN 'vencido'
+                    WHEN CAST(e.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE) THEN 'retirado'
+                    WHEN DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) <= 30 THEN 'por_vencer'
+                    ELSE 'vigente'
+                END AS estado_vigencia
+            FROM mae_equipo e
+            LEFT JOIN mae_muestreador m ON m.id_muestreador = e.id_muestreador
+            ORDER BY e.Siguiente_verificacion, e.codigo
+        `);
+        const equipos = r.recordset;
+        const kpis = {
+            total: equipos.length,
+            activos: equipos.filter((e) => e.estado === 'Activo').length,
+            vencidos: equipos.filter((e) => e.estado_vigencia === 'vencido').length,
+            // Igual que el KPI de Gestión de Equipos: activos que vencen en 0-30 días.
+            porVencer: equipos.filter((e) => e.estado_vigencia === 'por_vencer' && e.estado === 'Activo').length,
+            sinAsignar: equipos.filter((e) => !e.id_muestreador).length,
+            retirados: equipos.filter((e) => e.estado_vigencia === 'retirado').length,
+        };
+        return { kpis, equipos };
+    },
+
     getNextCorrelativo: async (tipo) => {
         try {
             const pool = await getConnection();
@@ -821,7 +868,7 @@ export const equipoService = {
             request.input('valor_unitario', sql.Numeric(12, 2), data.valor_unitario ?? null);
             request.input('fecha_baja', sql.Date, parseSqlDate(data.fecha_baja) || null);
             request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
-            request.input('observacion', sql.VarChar(8000), data.observacion || '');
+            request.input('observacion', sql.VarChar(8000), ordenarObservacion(data.observacion) || '');
             request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
             request.input('que_mide', sql.VarChar(8000), data.que_mide || '');
             request.input('unidad_medida_textual', sql.VarChar(8000), data.unidad_medida_textual || '');
@@ -915,7 +962,7 @@ export const equipoService = {
                 request.input('valor_unitario', sql.Numeric(12, 2), data.valor_unitario ?? null);
                 request.input('fecha_baja', sql.Date, parseSqlDate(data.fecha_baja) || null);
                 request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
-                request.input('observacion', sql.VarChar(8000), data.observacion || '');
+                request.input('observacion', sql.VarChar(8000), ordenarObservacion(data.observacion) || '');
                 request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
                 request.input('que_mide', sql.VarChar(8000), data.que_mide || '');
                 request.input('unidad_medida_textual', sql.VarChar(8000), data.unidad_medida_textual || '');
@@ -1109,7 +1156,8 @@ export const equipoService = {
             const eqAsoc = data.hasOwnProperty('equipo_asociado') ? data.equipo_asociado : current.equipo_asociado;
             requestMain.input('equipo_asociado', sql.VarChar(200), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
 
-            requestMain.input('observacion', sql.VarChar(8000), data.hasOwnProperty('observacion') ? (data.observacion || '') : (current.observacion || ''));
+            // La observación se guarda con sus líneas ordenadas por fecha (más nueva abajo).
+            requestMain.input('observacion', sql.VarChar(8000), data.hasOwnProperty('observacion') ? (ordenarObservacion(data.observacion) || '') : (current.observacion || ''));
 
             const visMuest = data.hasOwnProperty('visible_muestreador') ? data.visible_muestreador : current.visible_muestreador;
             requestMain.input('visible_muestreador', sql.VarChar(1), (visMuest === 'SI' || visMuest === 'S') ? 'S' : 'N');
@@ -1625,6 +1673,39 @@ export const equipoService = {
         } catch (error) {
             try { await transaction.rollback(); } catch (rollbackError) {}
             logger.error('Error in inactivateExpiredEquipos service:', error);
+            throw error;
+        }
+    },
+
+    // Contraparte de inactivateExpiredEquipos: el equipo que quedó inactivo por
+    // vencimiento (habilitado='N' pero Estado sigue 'Operativo') y ya tiene una
+    // Siguiente_verificacion vigente se vuelve a activar. Los dados de baja y
+    // fuera de servicio no se tocan: esos se retiraron a propósito.
+    reactivarEquiposRenovados: async () => {
+        const pool = await getConnection();
+        const docsOk = await hasDocsColumns(pool);
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            const res = await new sql.Request(transaction).query(`
+                SELECT * FROM mae_equipo
+                WHERE habilitado = 'N'
+                  AND Estado LIKE '%operativo%'
+                  AND Siguiente_verificacion IS NOT NULL
+                  AND CAST(Siguiente_verificacion AS DATE) >= CAST(GETDATE() AS DATE)
+            `);
+            for (const current of res.recordset) {
+                const upd = new sql.Request(transaction);
+                upd.input('id', sql.Int, current.id_equipo);
+                await upd.query("UPDATE mae_equipo SET habilitado = 'S' WHERE id_equipo = @id");
+                // Igual que la inactivación: el historial guarda el estado nuevo, usuario 0 = sistema.
+                await insertHistorialSnapshot(transaction, { ...current, habilitado: 'S' }, current.version || 'v1', 0, docsOk);
+            }
+            await transaction.commit();
+            return { processed: res.recordset.length, codigos: res.recordset.map((e) => e.codigo) };
+        } catch (error) {
+            try { await transaction.rollback(); } catch { /* sin transacción abierta */ }
+            logger.error('Error in reactivarEquiposRenovados service:', error);
             throw error;
         }
     },

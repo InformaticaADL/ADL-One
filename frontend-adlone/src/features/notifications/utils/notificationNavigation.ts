@@ -23,6 +23,20 @@ export const esNotificacionSolicitudCliente = (n: { tipo?: unknown; titulo?: str
     String(n.tipo) === 'solicitud_cliente' ||
     ['nueva solicitud de cliente', 'el cliente respondió'].includes((n.titulo || '').trim().toLowerCase());
 
+// Avisos de vencimiento de equipos (scheduler del backend, 30 y 7 días antes):
+// no traen id_referencia y llevan al Calendario de Vencimientos de Calidad.
+export const AREA_VENCIMIENTOS_EQUIPOS = 'Vencimientos de equipos';
+const CALENDARIO_PERMS = ['GC_ACCESO', 'GC_EQUIPOS', 'MA_A_GEST_EQUIPO'];
+
+export const abrirCalendarioVencimientos = (actions: Pick<NavActions, 'setActiveModule' | 'setActiveSubmodule' | 'hasPermission' | 'showToast'>) => {
+    if (!actions.hasPermission(CALENDARIO_PERMS)) {
+        actions.showToast({ type: 'error', message: 'No tienes permiso para ver el Calendario de Vencimientos.' });
+        return;
+    }
+    actions.setActiveModule('admin_informacion');
+    actions.setActiveSubmodule('gc-calendario-vencimientos');
+};
+
 export const handleNotificationNavigation = (notif: Notification, actions: NavActions) => {
     const {
         setActiveModule,
@@ -35,6 +49,11 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
         hasPermission,
         showToast
     } = actions;
+
+    if (notif.area === AREA_VENCIMIENTOS_EQUIPOS) {
+        abrirCalendarioVencimientos(actions);
+        return;
+    }
 
     if (!notif.id_referencia) {
         if (notif.area === 'Chat') {

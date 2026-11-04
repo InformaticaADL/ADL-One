@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
 import { descargarDocumentoRevision, formatearTamano } from '../utils/documentosEquipo';
+import { ordenarObservacion } from '../utils/observacionEquipo';
 import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import { adminService } from '../../../services/admin.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
@@ -1487,13 +1488,20 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         placeholder="Detalles sobre el equipo..."
                                         value={formData.observacion || ''}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
+                                        // Al salir del campo las líneas quedan ordenadas por fecha, igual que al guardar.
+                                        onBlur={(e) => {
+                                            const ordenada = ordenarObservacion(e.target.value);
+                                            if (ordenada !== e.target.value.trim()) setFormData((p: any) => ({ ...p, observacion: ordenada }));
+                                        }}
                                         rows={3}
                                         className={cn(
                                             'flex min-h-[72px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
                                             attemptedSubmit && !formData.observacion && 'border-destructive'
                                         )}
                                     />
-                                    {attemptedSubmit && !formData.observacion && <p className="text-xs text-destructive">Obligatorio</p>}
+                                    {attemptedSubmit && !formData.observacion
+                                        ? <p className="text-xs text-destructive">Obligatorio</p>
+                                        : <p className="mt-1 text-xs text-muted-foreground">Al salir del campo, las líneas con fecha se ordenan de la más antigua a la más nueva.</p>}
                                 </div>
                             </div>
                             <SectionDivider>Verificación y Estado</SectionDivider>

@@ -7,8 +7,7 @@ import {
 } from '@tabler/icons-react';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import apiClient from '../../../config/axios.config';
-import type { Equipo } from '../services/equipo.service';
+import { equipoService, type Equipo } from '../services/equipo.service';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -92,13 +91,20 @@ function getEstado(vigencia: string | null | undefined): EstadoVig {
     return 'vigente';
 }
 
+// El backend ya trae la vigencia calculada (estado_vigencia), con las mismas
+// reglas que la revisión diaria y los avisos; getEstado queda de respaldo.
+function estadoDe(e: Equipo): EstadoVig {
+    const v = e.estado_vigencia;
+    return v && v !== 'retirado' ? v : getEstado(getVigencia(e));
+}
+
 function getVigencia(e: Equipo): string | null {
     return e.vigencia || e.siguiente_verificacion || null;
 }
 
 // ─── Badge compacto en celda del calendario ───────────────────────────────────
 const EquipoBadge: React.FC<{ eq: Equipo; selected: boolean; onClick: (eq: Equipo) => void }> = ({ eq, selected, onClick }) => {
-    const estado = getEstado(getVigencia(eq));
+    const estado = estadoDe(eq);
     const s = ESTADO[estado];
     return (
         <button
@@ -121,7 +127,7 @@ const EquipoBadge: React.FC<{ eq: Equipo; selected: boolean; onClick: (eq: Equip
 // ─── Panel de detalle del equipo ──────────────────────────────────────────────
 const DetallePanel: React.FC<{ eq: Equipo; onClose: () => void; onEdit?: (eq: Equipo) => void }> = ({ eq, onClose, onEdit }) => {
     const vig = getVigencia(eq);
-    const estado = getEstado(vig);
+    const estado = estadoDe(eq);
     const s = ESTADO[estado];
     const diasRestantes = vig ? (parseVigenciaStr(vig)?.diff(dayjs().startOf('day'), 'day') ?? null) : null;
 
@@ -224,11 +230,9 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
     const [diaPopup, setDiaPopup] = useState<{ label: string; equipos: Equipo[] } | null>(null);
 
     useEffect(() => {
-        apiClient.get('/api/admin/equipos', { params: { limit: 5000, page: 1 } })
-            .then(r => {
-                const data = r.data?.data?.equipos ?? r.data?.data ?? [];
-                setEquipos(Array.isArray(data) ? data : []);
-            })
+        // Los dados de baja / fuera de servicio no vencen: no se muestran en el calendario.
+        equipoService.getResumenCalidad()
+            .then(r => setEquipos(r.equipos.filter(e => e.estado_vigencia !== 'retirado')))
             .catch(() => setError('No se pudieron cargar los equipos.'))
             .finally(() => setLoading(false));
     }, []);
@@ -242,7 +246,7 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
 
     const equiposFiltrados = useMemo(() => {
         let list = equipos.filter(e => getVigencia(e) !== null);
-        if (filtroEstado !== 'todos') list = list.filter(e => getEstado(getVigencia(e)) === filtroEstado);
+        if (filtroEstado !== 'todos') list = list.filter(e => estadoDe(e) === filtroEstado);
         if (search.trim()) {
             const q = search.toLowerCase();
             list = list.filter(e =>
@@ -530,7 +534,7 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
                                 </div>
                             ) : equiposFiltrados.map(eq => {
                                 const vig = getVigencia(eq);
-                                const estado = getEstado(vig);
+                                const estado = estadoDe(eq);
                                 const s = ESTADO[estado];
                                 const esMes = vig && (parseVigenciaStr(vig)?.isSame(mes, 'month') ?? false);
                                 const active = seleccionado?.id_equipo === eq.id_equipo;
@@ -623,8 +627,7 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
                         {/* Lista */}
                         <div className="max-h-80 divide-y overflow-y-auto">
                             {diaPopup.equipos.map(eq => {
-                                const vig = getVigencia(eq);
-                                const estado = getEstado(vig);
+                                const estado = estadoDe(eq);
                                 const s = ESTADO[estado];
                                 return (
                                     <button
