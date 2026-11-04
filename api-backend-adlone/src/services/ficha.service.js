@@ -126,6 +126,29 @@ class FichaIngresoService {
 
         const row = pending.recordset[0];
 
+        // Visita con varios puntos (grupo): un solo aviso por visita, cuando completa el último punto.
+        // Los puntos hermanos son las otras fichas del grupo con el mismo número de servicio (Y de "X-Y-Estado-Z").
+        let hermanosIds = [];
+        try {
+            const numServ = (row.frecuencia_correlativo || '').split('-')[1];
+            const peers = await pool.request()
+                .input('f', sql.Numeric(10, 0), row.id_fichaingresoservicio)
+                .query(`
+                    SELECT a.id_agendamam, a.frecuencia_correlativo, a.id_estadomuestreo, a.estado_caso, a.notificado_completado
+                    FROM App_Ma_GrupoMuestreo_Ficha gf
+                    INNER JOIN App_Ma_GrupoMuestreo_Ficha gh ON gh.id_grupo = gf.id_grupo AND gh.id_fichaingresoservicio <> gf.id_fichaingresoservicio
+                    INNER JOIN App_Ma_Agenda_MUESTREOS a ON a.id_fichaingresoservicio = gh.id_fichaingresoservicio
+                    WHERE gf.id_fichaingresoservicio = @f`);
+            const mismos = peers.recordset.filter(p =>
+                (p.frecuencia_correlativo || '').split('-')[1] === numServ && p.estado_caso !== 'CANCELADO');
+            if (mismos.some(p => p.id_estadomuestreo !== 3)) {
+                return { notificado: false, motivo: 'Visita con varios puntos: faltan puntos por completar.' };
+            }
+            hermanosIds = mismos.filter(p => !p.notificado_completado).map(p => p.id_agendamam);
+        } catch (e) {
+            logger.error('[MuestreoCompletado] No se pudo revisar el grupo de la visita; se notifica el punto solo:', e);
+        }
+
         try {
             const baseContext = await this.getFichaContextForNotification(
                 row.id_fichaingresoservicio,
@@ -158,6 +181,13 @@ class FichaIngresoService {
         await pool.request()
             .input('id', sql.Numeric(10, 0), row.id_agendamam)
             .query('UPDATE App_Ma_Agenda_MUESTREOS SET notificado_completado = 1 WHERE id_agendamam = @id');
+
+        // Marca también los demás puntos de la visita para que el poller no los avise de nuevo.
+        for (const idH of hermanosIds) {
+            await pool.request()
+                .input('id', sql.Numeric(10, 0), idH)
+                .query('UPDATE App_Ma_Agenda_MUESTREOS SET notificado_completado = 1 WHERE id_agendamam = @id');
+        }
 
         return { notificado: true };
     }
