@@ -134,9 +134,9 @@ interface Props {
 export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
 
-    // El rango arranca el 1 de enero del año en curso. Estaba escrito a mano como
-    // '2026-01-01', así que en 2027 la consulta inicial habría traído el año anterior.
-    const [fechaDesde, setFechaDesde] = useState<string>(() => dayjs().startOf('year').format(FORMATO_ISO));
+    // La pantalla abre con los últimos 30 días. Antes traía todo el año en curso (85 mil filas, ~33 MB y varios segundos de CPU del
+    // servidor del laboratorio) cada vez que alguien la abría; para ver un período más largo se elige el rango y se consulta.
+    const [fechaDesde, setFechaDesde] = useState<string>(() => dayjs().subtract(30, 'day').format(FORMATO_ISO));
     const [fechaHasta, setFechaHasta] = useState<string>(() => dayjs().format(FORMATO_ISO));
 
     const [loading, setLoading] = useState(false);
@@ -148,7 +148,8 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
     const [pageSize, setPageSize] = useState(10);
     const [filtrosAbiertos, setFiltrosAbiertos] = useState(false);
 
-    const consultar = async () => {
+    // `fresco`: el botón Consultar pide datos al día; la consulta automática al abrir usa lo que el servidor ya tenga guardado.
+    const consultar = async (fresco = false) => {
         if (!fechaDesde || !fechaHasta) {
             showToast({ message: 'Debe ingresar un rango de fechas válido.', type: 'warning' });
             return;
@@ -163,7 +164,8 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
             const result = await biologiaMolecularApiClient.getConsultaMuestras({
                 fecha_desde: fechaDesde,
                 fecha_hasta: fechaHasta,
-                id_lugaranalisis: 1
+                id_lugaranalisis: 1,
+                ...(fresco ? { fresco: 1 as const } : {})
             });
             setData(result);
             setPage(1);
@@ -357,14 +359,14 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
                                     {filtrosActivos > 0 && (
                                         <Button variant="outline" onClick={limpiarFiltros}>Limpiar filtros</Button>
                                     )}
-                                    <Button onClick={() => void consultar()} disabled={loading}>
+                                    <Button onClick={() => void consultar(true)} disabled={loading}>
                                         {loading ? 'Consultando...' : 'Consultar'}
                                     </Button>
                                 </SheetFooter>
                             </SheetContent>
                         </Sheet>
 
-                        <Button variant="outline" onClick={() => void consultar()} disabled={loading} title="Volver a consultar">
+                        <Button variant="outline" onClick={() => void consultar(true)} disabled={loading} title="Volver a consultar">
                             <IconRefresh size={16} className={loading ? 'animate-spin' : ''} /> Recargar
                         </Button>
                         <Button variant="outline" onClick={exportar} disabled={loading || filtrados.length === 0}>

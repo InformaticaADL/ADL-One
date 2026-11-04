@@ -18,7 +18,8 @@ class BiologiaMolecularController {
             const data = await biologiaMolecularService.getConsultaMuestras({
                 fecha_desde,
                 fecha_hasta,
-                id_lugaranalisis: Number(id_lugaranalisis) || 1
+                id_lugaranalisis: Number(id_lugaranalisis) || 1,
+                fresco: req.query.fresco === '1'
             });
 
             return res.status(200).json({

@@ -22,6 +22,8 @@ export interface BiologiaMolecularFilter {
     fecha_desde: string;
     fecha_hasta: string;
     id_lugaranalisis?: number;
+    // 1 = no usar el resultado guardado en el servidor (el servidor lo ignora si es de hace menos de 1 minuto)
+    fresco?: 0 | 1;
 }
 
 const getAuthHeaders = () => {
