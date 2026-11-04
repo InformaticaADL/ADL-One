@@ -15,15 +15,10 @@ BEGIN
     );
 
     INSERT INTO mae_motivocancelacion (nombre_motivo, aplica_a, orden) VALUES
-        ('Cliente no disponible / no autoriza ingreso', 'terreno', 1),
-        ('Condiciones climáticas adversas', 'terreno', 2),
-        ('Acceso restringido o cerrado', 'terreno', 3),
-        ('Falla de equipo de medición', 'terreno', 4),
-        ('Punto de muestreo inexistente o inaccesible', 'terreno', 5),
-        ('Riesgo de seguridad para el muestreador', 'terreno', 6),
-        ('Reprogramación solicitada por el cliente', 'coordinacion', 7),
-        ('Error de coordinación / duplicidad de servicio', 'coordinacion', 8),
-        ('Otro (especificar en observaciones)', 'ambos', 99);
+        ('Por solicitud del cliente', 'ambos', 1),
+        ('Por decisión de ADL', 'ambos', 2),
+        ('Por condición climática', 'ambos', 3),
+        ('Por condición de seguridad', 'ambos', 4);
 END;
 
 -- Columna en la agenda para guardar el motivo estructurado (además del texto libre

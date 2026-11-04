@@ -70,6 +70,7 @@ interface MaestroConfig {
             noCreate?: boolean;
         };
     };
+    fixedOptions?: { [fieldName: string]: { value: string; label: string }[] };
 }
 
 interface Props {
@@ -385,13 +386,20 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Motivos de Cancelación',
             icon: <IconAlertOctagon size={24} />,
             color: 'red',
-            description: 'Motivos estructurados al cancelar un muestreo desde ADL Sampling.',
+            description: 'Motivos para cancelar un muestreo (ADL ONE y ADL Sampling). Agrega, edita, ordena o deshabilita opciones.',
             tableName: 'mae_motivocancelacion',
             idName: 'id_motivocancelacion',
             area: 'logistica',
             displayColumn: 'nombre_motivo',
             statusColumn: 'habilitado',
-            summaryColumns: ['nombre_motivo', 'aplica_a', 'orden']
+            summaryColumns: ['nombre_motivo', 'aplica_a', 'orden'],
+            fixedOptions: {
+                aplica_a: [
+                    { value: 'ambos', label: 'Ambos (ADL ONE y ADL Sampling)' },
+                    { value: 'terreno', label: 'Solo terreno (ADL Sampling)' },
+                    { value: 'coordinacion', label: 'Solo coordinación (ADL ONE)' },
+                ],
+            }
         },
 
         // AREA: INSTRUMENTAL Y TÉCNICA

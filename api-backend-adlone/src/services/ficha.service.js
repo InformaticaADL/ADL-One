@@ -2610,11 +2610,11 @@ class FichaIngresoService {
 
     // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una
     // por cada punto de data.puntosAdicionales. Los análisis se copian a todas (cada punto puede traer los suyos en
-    // p.analisis). El costo operativo se cobra una sola vez por visita: solo la primera ficha lo lleva.
+    // p.analisis). El costo operativo es uno general por visita: se divide en partes iguales entre los puntos (cada ficha
+    // lleva su parte, en centésimas de UF; el resto de la división se reparte de a 0,01 desde la primera ficha).
     async createFichaGrupo(data) {
         const adicionales = Array.isArray(data.puntosAdicionales) ? data.puntosAdicionales : [];
         if (adicionales.length === 0) return this.createFicha(data);
-        if (adicionales.length > 59) throw this._errorDatos('Una visita admite hasta 60 puntos.');
 
         const nombres = [data.antecedentes?.puntoMuestreo, ...adicionales.map((p) => p.puntoMuestreo)].map((s) => String(s || '').trim());
         if (nombres.some((n) => !n)) throw this._errorDatos('Todos los puntos necesitan un nombre.');
@@ -2633,11 +2633,19 @@ class FichaIngresoService {
             const ids = [];
             const despues = [];
 
-            const primera = await this.createFicha(data, { transaction });
+            const co = data.costoOperativo || { activo: false, uf: 0 };
+            const totalPuntos = adicionales.length + 1;
+            const centesimas = co.activo ? Math.round((Number(co.uf) || 0) * 100) : 0;
+            const parteCo = (i) => ({
+                activo: co.activo === true,
+                uf: (Math.floor(centesimas / totalPuntos) + (i < centesimas % totalPuntos ? 1 : 0)) / 100,
+            });
+
+            const primera = await this.createFicha({ ...data, costoOperativo: parteCo(0) }, { transaction });
             ids.push(primera.id);
             despues.push(primera.despuesDeConfirmar);
 
-            for (const p of adicionales) {
+            for (const [k, p] of adicionales.entries()) {
                 const r = await this.createFicha({
                     ...data,
                     antecedentes: {
@@ -2651,7 +2659,7 @@ class FichaIngresoService {
                         ubicacion_lon: p.ubicacion_lon ?? null,
                     },
                     analisis: Array.isArray(p.analisis) && p.analisis.length > 0 ? p.analisis : data.analisis,
-                    costoOperativo: { activo: false, uf: 0 }, // una sola vez por visita
+                    costoOperativo: parteCo(k + 1), // su parte del costo operativo general
                 }, { transaction, sinNotificar: true });
                 ids.push(r.id);
                 despues.push(r.despuesDeConfirmar);
@@ -3628,7 +3636,9 @@ class FichaIngresoService {
             throw error;
         }
     }
-    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idEstadoMuestreo) {
+    async cancelAgendaSampling(idAgenda, idFicha, user, observations, idMotivoCancelacion) {
+        if (!idMotivoCancelacion) throw new Error('Debe indicar el motivo de la cancelación');
+        if (!String(observations || '').trim()) throw new Error('Debe indicar una observación para cancelar el muestreo');
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -3664,11 +3674,13 @@ class FichaIngresoService {
             const agendaReq = new sql.Request(transaction);
             agendaReq.input('id_agenda', sql.Numeric(18, 0), idAgenda);
             agendaReq.input('motivo', sql.VarChar(500), observations || '');
-            agendaReq.input('id_estado', sql.Int, idEstadoMuestreo || 99); // Fallback to 99 if not provided
+            agendaReq.input('id_motivo', sql.Int, Number(idMotivoCancelacion));
+            agendaReq.input('id_estado', sql.Int, 6); // 6 = Cancelado en ADL (la cancelación desde ADL ONE la hace coordinación)
             await agendaReq.query(`
                 UPDATE App_Ma_Agenda_MUESTREOS
                 SET estado_caso = 'CANCELADO',
                     id_estadomuestreo = @id_estado,
+                    id_motivocancelacion = @id_motivo,
                     motivo_cancelacion = @motivo
                 WHERE id_agendamam = @id_agenda
             `);

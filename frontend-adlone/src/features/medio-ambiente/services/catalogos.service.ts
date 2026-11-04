@@ -284,6 +284,12 @@ export const catalogosService = {
             return response.data.data;
         });
     },
+    getMotivosCancelacion: async (): Promise<any[]> => {
+        return deduplicatedRequest('motivos-cancelacion-coordinacion', async () => {
+            const response = await axiosInstance.get('/motivos-cancelacion', { params: { para: 'coordinacion' } });
+            return response.data.data;
+        });
+    },
     getEstadosMuestreo: async (): Promise<any[]> => {
         return deduplicatedRequest('estados-muestreo', async () => {
             const response = await axiosInstance.get('/estados-muestreo');

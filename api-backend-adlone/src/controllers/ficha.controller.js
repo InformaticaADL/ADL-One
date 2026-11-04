@@ -354,9 +354,9 @@ class FichaIngresoController {
 
     async cancelSampling(req, res) {
         try {
-            const { idAgenda, idFicha, motivo_cancelacion, idEstadoMuestreo } = req.body;
+            const { idAgenda, idFicha, motivo_cancelacion, idMotivoCancelacion } = req.body;
             const userData = req.user || { id: 0 };
-            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion, idEstadoMuestreo);
+            const result = await fichaService.cancelAgendaSampling(idAgenda, idFicha, userData, motivo_cancelacion, idMotivoCancelacion);
             notificarCalendarioActualizado();
             return successResponse(res, result, 'Muestreo cancelado exitosamente');
         } catch (err) {

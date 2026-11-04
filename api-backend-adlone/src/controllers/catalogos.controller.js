@@ -211,6 +211,15 @@ export const catalogosController = {
         }
   },
     
+    getMotivosCancelacion: async (req, res) => {
+        try {
+            const data = await catalogosService.getMotivosCancelacion(req.query.para);
+            return successResponse(res, data, 'Motivos de cancelación retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+
     getEstadosEquipo: async (req, res) => {
         try {
             const data = await catalogosService.getEstadosEquipo();

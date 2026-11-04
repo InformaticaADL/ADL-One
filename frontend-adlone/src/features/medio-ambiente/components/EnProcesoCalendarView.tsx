@@ -162,7 +162,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             try {
                 const [mData, rData] = await Promise.all([
                     catalogosService.getMuestreadores(),
-                    catalogosService.getEstadosMuestreo()
+                    catalogosService.getMotivosCancelacion()
                 ]);
                 setGlobalMuestreadores(mData || []);
                 setCancellationReasons(rData || []);
@@ -327,7 +327,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     );
 
     const cancellationOptions = useMemo(() =>
-        cancellationReasons.map(r => ({ value: String(r.id_estadomuestreo), label: r.nombre_estadomuestreo })),
+        cancellationReasons.map(r => ({ value: String(r.id_motivocancelacion), label: r.nombre_motivo })),
         [cancellationReasons]
     );
     const centros = useMemo(() => {
