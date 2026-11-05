@@ -156,7 +156,7 @@ export const FichaDetailView = () => {
     }, [selectedFichaId, selectedCorrelativo]);
 
     // Si este muestreo es parte de una visita con varios puntos, los otros puntos ya ejecutados quedan a un clic.
-    const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string; hora?: string | null }[]>([]);
+    const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string; hora?: string | null; observador?: boolean }[]>([]);
     const idAgendaActual = data?.ficha?.id_agendamam;
     useEffect(() => {
         setOtrosPuntosEjecutados([]);
@@ -358,6 +358,9 @@ export const FichaDetailView = () => {
                     ...otrosPuntosEjecutados,
                 ].sort((a, b) => (a.hora && b.hora ? a.hora.localeCompare(b.hora) : a.hora ? -1 : b.hora ? 1 : a.id_ficha - b.id_ficha));
                 const actual = String(Number(ficha?.id_fichaingresoservicio));
+                // La firma del observador es una por visita: basta con que algún punto la tenga registrada
+                const nombreObs = (n: any) => !!n && n !== 'S/D';
+                const hayObservador = nombreObs(procesos?.instalacion?.nombreObservador) || nombreObs(procesos?.retiro?.nombreObservador) || otrosPuntosEjecutados.some((p) => p.observador);
                 return (
                     <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
                         <IconMapPin size={16} className="shrink-0 text-primary" />
@@ -377,6 +380,12 @@ export const FichaDetailView = () => {
                                 ))}
                             </SelectContent>
                         </Select>
+                        {!hayObservador && (
+                            <span className="flex items-center gap-1.5 text-[13px] font-medium text-amber-700">
+                                <IconAlertTriangle size={15} className="shrink-0" />
+                                Falta registrar la firma del observador: la visita no se puede dar por cerrada.
+                            </span>
+                        )}
                     </div>
                 );
             })()}

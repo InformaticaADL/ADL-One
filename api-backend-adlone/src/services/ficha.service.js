@@ -2699,7 +2699,8 @@ class FichaIngresoService {
         if (miNumero === null) return { propio, hermanos: [] };
         const delGrupo = (await pool.request().input('f', sql.Numeric, propio.id_fichaingresoservicio).query(`
             SELECT a.id_agendamam, a.id_fichaingresoservicio, a.frecuencia_correlativo, a.estado_caso, a.retiro_completado,
-                   a.id_estadomuestreo, a.realizado_por_gem, a.ma_muestreo_fechai, a.ma_muestreo_horai, LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
+                   a.id_estadomuestreo, a.realizado_por_gem, a.ma_muestreo_fechai, a.ma_muestreo_horai,
+                   a.nombre_observadorterreno, a.nombre_observadorterreno_retiro, LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
             FROM App_Ma_Agenda_MUESTREOS a
             JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
             WHERE a.id_fichaingresoservicio <> @f
@@ -2721,7 +2722,7 @@ class FichaIngresoService {
         const ejecutado = (h) => h.id_estadomuestreo === 3 || !!h.realizado_por_gem;
         return hermanos
             .filter((h) => (modo === 'ejecutados' ? ejecutado(h) : !ejecutado(h)))
-            .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo, hora: this._claveHora(h.ma_muestreo_fechai, h.ma_muestreo_horai) }));
+            .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo, hora: this._claveHora(h.ma_muestreo_fechai, h.ma_muestreo_horai), observador: !!(String(h.nombre_observadorterreno || '').trim() || String(h.nombre_observadorterreno_retiro || '').trim()) }));
     }
 
     // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una
@@ -4589,6 +4590,7 @@ class FichaIngresoService {
                 (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) AS id_grupo,
                 LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto_muestreo,
                 a.ma_muestreo_fechai, a.ma_muestreo_horai,
+                a.nombre_observadorterreno, a.nombre_observadorterreno_retiro,
                 f.estado_ficha,
                 a.realizado_por_gem,
                 a.fecha_realizado_gem

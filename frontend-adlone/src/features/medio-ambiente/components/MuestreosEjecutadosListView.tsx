@@ -279,6 +279,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
         const total = v.miembros.length;
         const realizados = v.miembros.filter((x: any) => realizadoStates[x.id_agendamam?.toString()]?.realizado).length;
         const casos = Array.from(new Set(v.miembros.map((x: any) => casoAdlabMap[x.id_agendamam?.toString()]).filter(Boolean)));
+        const sinFirmaObservador = !v.miembros.some((x: any) => String(x.nombre_observadorterreno || '').trim() || String(x.nombre_observadorterreno_retiro || '').trim());
         return (
             <React.Fragment key={`visita-${v._clave}-${idx}`}>
                 <TableRow
@@ -303,6 +304,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                 {abierta ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
                             </Button>
                             <Badge variant="secondary">Visita · {total} puntos</Badge>
+                            {sinFirmaObservador && <span className="text-[10px] font-medium text-amber-700" title="La visita no se puede dar por cerrada sin la firma del observador">Falta registrar la firma del observador</span>}
                         </div>
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{v.fecha_retiro ? new Date(v.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
