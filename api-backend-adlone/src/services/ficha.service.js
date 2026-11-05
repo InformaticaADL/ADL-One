@@ -1468,7 +1468,8 @@ class FichaIngresoService {
                     f.es_remuestreo,
                     f.id_ficha_original,
                     red.id_ejecucion as id_ejecucion_ruta,
-                    red.orden as orden_ruta
+                    red.orden as orden_ruta,
+                    (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) as id_grupo
                 FROM App_Ma_FichaIngresoServicio_ENC f
                 INNER JOIN App_Ma_Agenda_MUESTREOS a ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
                 LEFT JOIN mae_muestreador m ON a.id_muestreador = m.id_muestreador

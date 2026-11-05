@@ -69,6 +69,7 @@ interface FichaEvento {
     cliente?: string;
     email_cliente?: string;
     base_operaciones?: string;
+    id_grupo?: number | null;
 }
 
 interface CalendarEvent extends FichaEvento {
@@ -76,6 +77,22 @@ interface CalendarEvent extends FichaEvento {
     event_dia: number;
     event_mes: number;
     event_ano: number;
+}
+
+// Junta en un bloque los puntos de una misma visita (mismo grupo, mismo tipo de evento y mismo número de servicio "X-Y-...").
+// Los eventos sin grupo quedan como bloques de un solo elemento, en su posición original.
+function agruparPorVisita(events: CalendarEvent[]): CalendarEvent[][] {
+    const bloques: CalendarEvent[][] = [];
+    const porClave = new Map<string, CalendarEvent[]>();
+    events.forEach((ev) => {
+        if (ev.id_grupo == null) { bloques.push([ev]); return; }
+        const servicio = (ev.correlativo || '').split('-')[1] || '';
+        const clave = `${ev.id_grupo}|${ev.tipo_evento}|${servicio}`;
+        const existente = porClave.get(clave);
+        if (existente) existente.push(ev);
+        else { const nuevo = [ev]; porClave.set(clave, nuevo); bloques.push(nuevo); }
+    });
+    return bloques;
 }
 
 interface UpdateAgendaPayload {
@@ -709,8 +726,17 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                 <Badge variant="secondary">{events.length}</Badge>
                                             </div>
                                             <div className="flex flex-col gap-1.5">
-                                                {events.sort((a, b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => (
-                                                    <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} />
+                                                {agruparPorVisita(events.sort((a, b) => a.correlativo.localeCompare(b.correlativo))).map((bloque) => (
+                                                    bloque.length > 1 ? (
+                                                        <div key={`visita-${bloque[0].id_grupo}-${bloque[0].tipo_evento}-${bloque[0].id}`} className="flex flex-col gap-1.5 rounded-md border border-dashed border-primary/50 p-1.5">
+                                                            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
+                                                                Visita de {bloque.length} puntos · {bloque[0].tipo_evento === 'RETIRO' ? 'retiro' : 'muestreo'}
+                                                            </span>
+                                                            {bloque.map((ev) => <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} />)}
+                                                        </div>
+                                                    ) : (
+                                                        <EventCard key={`${bloque[0].id}-${bloque[0].tipo_evento}`} ev={bloque[0]} />
+                                                    )
                                                 ))}
                                             </div>
                                         </div>
