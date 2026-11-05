@@ -207,6 +207,25 @@ class FichaIngresoController {
         }
     }
 
+    async getAcompanante(req, res) {
+        try {
+            return successResponse(res, await fichaService.getAcompananteVisita(req.params.id), 'Acompañante de la visita');
+        } catch (err) {
+            logger.error('Error in getAcompanante controller:', err);
+            return errorResponse(res, 'Error al obtener el acompañante', 500, err.message);
+        }
+    }
+
+    async setAcompanante(req, res) {
+        try {
+            const result = await fichaService.setAcompananteVisita(req.params.id, req.body?.id_muestreador, req.user);
+            return successResponse(res, result, 'Acompañante guardado');
+        } catch (err) {
+            logger.error('Error in setAcompanante controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al guardar el acompañante', err.statusCode || 500, err.message);
+        }
+    }
+
     async getGrupo(req, res) {
         try {
             const result = await fichaService.getGrupoDeFicha(req.params.id);

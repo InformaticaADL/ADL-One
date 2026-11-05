@@ -80,6 +80,15 @@ export const fichaService = {
         const response = await apiClient.get(`/api/fichas/${id}/grupo`);
         return response.data;
     },
+    // Acompañante (opcional) de la visita a la que pertenece la ficha; id_grupo null si la ficha va sola.
+    getAcompanante: async (id: number): Promise<{ id_grupo: number | null; id_muestreador: number | null; nombre: string | null }> => {
+        const response = await apiClient.get(`/api/fichas/${id}/acompanante`);
+        return response.data?.data ?? response.data;
+    },
+    setAcompanante: async (id: number, idMuestreador: number | null) => {
+        const response = await apiClient.put(`/api/fichas/${id}/acompanante`, { id_muestreador: idMuestreador });
+        return response.data;
+    },
     update: async (id: number, data: Record<string, unknown>, user?: FichaUser) => {
         const payload = { ...data, user };
         const response = await apiClient.post(`/api/fichas/${id}/update`, payload);

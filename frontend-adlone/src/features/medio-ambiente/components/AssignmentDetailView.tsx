@@ -56,6 +56,15 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
 
     const [muestreadorInstalacion, setMuestreadorInstalacion] = useState<Record<number, number>>({});
     const [muestreadorRetiro, setMuestreadorRetiro] = useState<Record<number, number>>({});
+    // Acompañante opcional de la visita (solo fichas que son parte de un grupo)
+    const [acompanante, setAcompanante] = useState<{ idGrupo: number | null; id: number | null; guardado: number | null }>({ idGrupo: null, id: null, guardado: null });
+    useEffect(() => {
+        let activo = true;
+        fichaService.getAcompanante(fichaId)
+            .then((a) => { if (activo) setAcompanante({ idGrupo: a?.id_grupo ?? null, id: a?.id_muestreador ?? null, guardado: a?.id_muestreador ?? null }); })
+            .catch(() => { /* sin acompañante o sin conexión: el campo simplemente no se muestra */ });
+        return () => { activo = false; };
+    }, [fichaId]);
     const [selectedDate, setSelectedDate] = useState('');
     const [dbFieldValue, setDbFieldValue] = useState('');
     const [frequencyDays, setFrequencyDays] = useState<number>(0);
@@ -437,6 +446,10 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     observacionNotificacion: observacionAsignacion.trim() || null
                 });
 
+                if (acompanante.idGrupo && acompanante.id !== acompanante.guardado) {
+                    try { await fichaService.setAcompanante(fichaId, acompanante.id); }
+                    catch (e: any) { showToast({ message: e?.response?.data?.message || 'La asignación se guardó, pero no se pudo guardar el acompañante', type: 'warning' }); }
+                }
                 showToast({ message: response.message || 'Asignación guardada correctamente', type: 'success' });
                 setTimeout(() => onBack(), 1500);
             } catch (error) {
@@ -699,6 +712,19 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                                     } else { applyBulkRetiro(); }
                                                 }
                                             }}
+                                        />
+                                    </div>
+                                )}
+                                {acompanante.idGrupo != null && (
+                                    <div>
+                                        <span className="mb-1 block text-xs">Acompañante (opcional)</span>
+                                        <Combobox
+                                            className="w-44"
+                                            placeholder="Sin acompañante"
+                                            searchPlaceholder="Buscar muestreador..."
+                                            options={[{ value: '0', label: 'Sin acompañante' }, ...muestreadorOptions]}
+                                            value={acompanante.id ? String(acompanante.id) : ''}
+                                            onValueChange={(val) => setAcompanante((a) => ({ ...a, id: val && val !== '0' ? Number(val) : null }))}
                                         />
                                     </div>
                                 )}

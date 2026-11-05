@@ -2925,6 +2925,52 @@ class FichaIngresoService {
     }
 
     // Grupo al que pertenece una ficha, con todos sus puntos; null si no pertenece a ninguno (o si aún no hay tablas).
+    // Acompañante de la visita a la que pertenece la ficha (tabla App_Ma_Visita_Acompanante; servicio 0 = todos los servicios del grupo).
+    // Es opcional y solo para visitas con varios puntos: una ficha que va sola no tiene grupo, por lo que no tiene acompañante.
+    async getAcompananteVisita(idFicha) {
+        const grupo = await this.getGrupoDeFicha(idFicha);
+        if (!grupo) return { id_grupo: null, id_muestreador: null, nombre: null };
+        const pool = await getConnection();
+        const r = await pool.request().input('g', sql.Int, grupo.id_grupo).query(`
+            SELECT TOP 1 va.id_muestreador, m.nombre_muestreador
+            FROM App_Ma_Visita_Acompanante va
+            LEFT JOIN mae_muestreador m ON m.id_muestreador = va.id_muestreador
+            WHERE va.id_grupo = @g ORDER BY va.creado_en DESC`);
+        const fila = r.recordset[0];
+        return { id_grupo: grupo.id_grupo, id_muestreador: fila ? Number(fila.id_muestreador) : null, nombre: fila ? String(fila.nombre_muestreador || '').trim() : null };
+    }
+
+    // Fija (o quita, con idMuestreador vacío) el acompañante de la visita. No puede ser el muestreador de instalación ni el de retiro.
+    async setAcompananteVisita(idFicha, idMuestreador, user) {
+        const grupo = await this.getGrupoDeFicha(idFicha);
+        if (!grupo) throw this._errorDatos('El acompañante solo se asigna a visitas con varios puntos.');
+        const id = idMuestreador ? Number(idMuestreador) : null;
+        const pool = await getConnection();
+        if (id) {
+            const ids = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
+            const choque = (await pool.request().input('m', sql.Numeric(10, 0), id).query(`
+                SELECT COUNT(*) AS n FROM App_Ma_Agenda_MUESTREOS
+                WHERE id_fichaingresoservicio IN (${ids.join(',')}) AND (id_muestreador = @m OR id_muestreador2 = @m)`)).recordset[0].n;
+            if (choque) throw this._errorDatos('El acompañante no puede ser también el muestreador responsable de la visita.');
+        }
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_Visita_Acompanante WHERE id_grupo = @g');
+            if (id) {
+                await new sql.Request(transaction)
+                    .input('g', sql.Int, grupo.id_grupo).input('m', sql.Numeric(10, 0), id)
+                    .input('u', sql.Numeric(10, 0), (user && (user.id_usuario || user.id)) || null)
+                    .query('INSERT INTO App_Ma_Visita_Acompanante (id_grupo, servicio, id_muestreador, creado_por) VALUES (@g, 0, @m, @u)');
+            }
+            await transaction.commit();
+        } catch (e) {
+            try { await transaction.rollback(); } catch (e2) { /* ya revertida */ }
+            throw e;
+        }
+        return this.getAcompananteVisita(idFicha);
+    }
+
     async getGrupoDeFicha(idFicha) {
         const pool = await getConnection();
         try {

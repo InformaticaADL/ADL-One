@@ -20,6 +20,8 @@ router.post('/create-grupo', authenticate, verifyPermission('FI_CREAR'), validat
 router.post('/agrupar', authenticate, verifyPermission(['FI_CREAR', 'FI_GEST_ASIG']), fichaController.agrupar);
 router.post('/desagrupar', authenticate, verifyPermission(['FI_CREAR', 'FI_GEST_ASIG']), fichaController.desagrupar);
 router.get('/:id/grupo', authenticate, fichaController.getGrupo);
+router.get('/:id/acompanante', authenticate, fichaController.getAcompanante);
+router.put('/:id/acompanante', authenticate, verifyPermission('FI_GEST_ASIG'), fichaController.setAcompanante);
 router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), fichaController.approve);
 router.post('/:id/approve-visita/tecnica', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), (req, res) => fichaController.aprobarVisita(Object.assign(req, { params: { ...req.params, etapa: 'tecnica' } }), res));
 router.post('/:id/approve-visita/coordinacion', authenticate, verifyPermission('FI_APROBAR_COO'), validateRequest(fichaValidationSchemas.approveCoordinacion), (req, res) => fichaController.aprobarVisita(Object.assign(req, { params: { ...req.params, etapa: 'coordinacion' } }), res));
