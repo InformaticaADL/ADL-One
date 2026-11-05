@@ -168,6 +168,19 @@ export const FichaDetailView = () => {
         return () => { cancelado = true; };
     }, [idAgendaActual]);
 
+    // Acompañante (opcional) de la visita
+    const [acompananteVisita, setAcompananteVisita] = useState<string | null>(null);
+    const idFichaActual = data?.ficha?.id_fichaingresoservicio;
+    useEffect(() => {
+        setAcompananteVisita(null);
+        if (!idFichaActual) return;
+        let cancelado = false;
+        fichaService.getAcompanante(Number(idFichaActual))
+            .then((a) => { if (!cancelado) setAcompananteVisita(a?.nombre || null); })
+            .catch(() => { /* sin dato: no se muestra */ });
+        return () => { cancelado = true; };
+    }, [idFichaActual]);
+
     const handleBack = () => {
         if (activeModule === 'gem' || activeModule === 'unidades-gem') {
             setActiveSubmodule('gem-muestreos-completados');
@@ -380,6 +393,9 @@ export const FichaDetailView = () => {
                                 ))}
                             </SelectContent>
                         </Select>
+                        {acompananteVisita && (
+                            <span className="text-[13px] text-muted-foreground">Acompañante: <span className="font-medium text-foreground">{acompananteVisita}</span></span>
+                        )}
                         {!hayObservador && (
                             <span className="flex items-center gap-1.5 text-[13px] font-medium text-amber-700">
                                 <IconAlertTriangle size={15} className="shrink-0" />
