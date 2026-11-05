@@ -21,6 +21,8 @@ router.post('/agrupar', authenticate, verifyPermission(['FI_CREAR', 'FI_GEST_ASI
 router.post('/desagrupar', authenticate, verifyPermission(['FI_CREAR', 'FI_GEST_ASIG']), fichaController.desagrupar);
 router.get('/:id/grupo', authenticate, fichaController.getGrupo);
 router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), fichaController.approve);
+router.post('/:id/approve-visita/tecnica', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), (req, res) => fichaController.aprobarVisita(Object.assign(req, { params: { ...req.params, etapa: 'tecnica' } }), res));
+router.post('/:id/approve-visita/coordinacion', authenticate, verifyPermission('FI_APROBAR_COO'), validateRequest(fichaValidationSchemas.approveCoordinacion), (req, res) => fichaController.aprobarVisita(Object.assign(req, { params: { ...req.params, etapa: 'coordinacion' } }), res));
 router.post('/:id/reject', authenticate, verifyPermission('FI_RECHAZAR_TEC'), validateRequest(fichaValidationSchemas.reject), fichaController.reject);
 router.post('/:id/approve-coordinacion', authenticate, verifyPermission('FI_APROBAR_COO'), validateRequest(fichaValidationSchemas.approveCoordinacion), fichaController.approveCoordinacion);
 router.post('/:id/review-coordinacion', authenticate, verifyPermission('FI_RECHAZAR_COO'), validateRequest(fichaValidationSchemas.reviewCoordinacion), fichaController.reviewCoordinacion);

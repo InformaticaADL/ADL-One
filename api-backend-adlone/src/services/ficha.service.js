@@ -2005,7 +2005,7 @@ class FichaIngresoService {
     }
 
 
-    async approveFicha(id, { observaciones }, user) {
+    async approveFicha(id, { observaciones, sinNotificar = false }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
@@ -2050,7 +2050,7 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Jefatura Técnica';
 
-            this.getFichaContextForNotification(id, notifUser, 'Ficha Aprobada por Área Técnica', pool).then(baseContext => {
+            if (!sinNotificar) this.getFichaContextForNotification(id, notifUser, 'Ficha Aprobada por Área Técnica', pool).then(baseContext => {
                 unsService.trigger('FICHA_APROBADA_TECNICA', {
                     ...baseContext,
                     id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
@@ -2077,6 +2077,36 @@ class FichaIngresoService {
             await transaction.rollback();
             throw error;
         }
+    }
+
+    // Aprueba de una vez TODOS los puntos de la visita a la que pertenece la ficha `id` (los que están pendientes en esa etapa), con las
+    // mismas observaciones. Se envía un solo aviso (el de la ficha desde la que se aprueba). etapa: 'tecnica' | 'coordinacion'.
+    // Una ficha que no es parte de un grupo se aprueba sola.
+    async aprobarVisita(id, { observaciones, etapa }, user) {
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const ids = grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)];
+        const estados = (await pool.request().query(
+            `SELECT id_fichaingresoservicio, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
+        )).recordset;
+        const valida = etapa === 'coordinacion' ? [1] : [3, 4];
+        const pendientes = estados.filter((e) => valida.includes(Number(e.id_validaciontecnica))).map((e) => Number(e.id_fichaingresoservicio));
+        // la ficha desde la que se aprueba va primero: es la que avisa
+        pendientes.sort((a, b) => (a === Number(id) ? -1 : b === Number(id) ? 1 : a - b));
+        if (pendientes.length === 0) throw this._errorDatos('Ningún punto de la visita está pendiente en esta etapa.');
+        const aprobados = [];
+        const fallidos = [];
+        for (let i = 0; i < pendientes.length; i++) {
+            try {
+                if (etapa === 'coordinacion') await this.approveCoordinacion(pendientes[i], { observaciones, sinNotificar: i > 0 }, user);
+                else await this.approveFicha(pendientes[i], { observaciones, sinNotificar: i > 0 }, user);
+                aprobados.push(pendientes[i]);
+            } catch (e) {
+                logger.warn(`[aprobarVisita] no se pudo aprobar la ficha ${pendientes[i]}: ${e.message}`);
+                fallidos.push({ id: pendientes[i], error: e.message });
+            }
+        }
+        return { aprobados, fallidos, total: ids.length };
     }
 
     async rejectFicha(id, { observaciones }, user) {
@@ -2150,7 +2180,7 @@ class FichaIngresoService {
     }
 
 
-    async approveCoordinacion(id, { observaciones }, user) {
+    async approveCoordinacion(id, { observaciones, sinNotificar = false }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool); // Require transaction for history consistency
 
@@ -2203,7 +2233,7 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Coordinación';
 
-            this.getFichaContextForNotification(id, notifUser, 'Ficha Aprobada por Coordinación', pool).then(baseContext => {
+            if (!sinNotificar) this.getFichaContextForNotification(id, notifUser, 'Ficha Aprobada por Coordinación', pool).then(baseContext => {
                 unsService.trigger('FICHA_APROBADA_COORDINACION', {
                     ...baseContext,
                     id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,

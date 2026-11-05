@@ -36,6 +36,8 @@ import {
 interface Props {
     fichaId: number;
     onBack: () => void;
+    // Si se entrega, en una visita con varios puntos se muestra el selector de punto y se aprueba toda la visita de una vez.
+    onCambiarFicha?: (id: number) => void;
 }
 
 type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
@@ -112,7 +114,7 @@ const StaticField = ({ label, value, span }: { label: string; value: any; span?:
     </div>
 );
 
-export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
+export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiarFicha }) => {
     const { showToast } = useToast();
     const catalogos = useCachedCatalogos();
     const auth = useAuth();
@@ -121,6 +123,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
     const isVerySmall = useMediaQuery('(max-width: 450px)');
 
     const [loading, setLoading] = useState(true);
+    // Visita con varios puntos: todos sus puntos a un clic y aprobación de toda la visita de una vez
+    const [grupo, setGrupo] = useState<{ total: number; puntos: { id_fichaingresoservicio: number; punto: string; estado: string }[] } | null>(null);
+    const [aprobarTodaLaVisita, setAprobarTodaLaVisita] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
@@ -148,6 +153,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
         title: string;
         message: string;
     } | null>(null);
+
+    useEffect(() => {
+        setGrupo(null);
+        if (!fichaId) return;
+        let cancelado = false;
+        fichaService.getGrupo(fichaId)
+            .then((resp: any) => { if (!cancelado) { const g = resp?.data ?? null; setGrupo(g && g.total > 1 ? g : null); } })
+            .catch(() => { /* sin grupo: la ficha se aprueba sola */ });
+        return () => { cancelado = true; };
+    }, [fichaId]);
+    const esVisita = !!grupo && grupo.total > 1;
 
     const timelineCreationData = useMemo(() => {
         if (!data) return undefined;
@@ -320,16 +336,26 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
         try {
             switch (confirmAction.type) {
                 case 'approve_tech':
-                    await fichaService.approve(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
-                    showToast({ type: 'success', message: 'Ficha ACEPTADA técnicamente' });
+                    if (esVisita && aprobarTodaLaVisita) {
+                        const r = (await fichaService.aprobarVisita(fichaId, 'tecnica', { observaciones: tecnicaObs, user: { id: user?.id || 0 } }))?.data;
+                        showToast({ type: 'success', message: `Visita ACEPTADA técnicamente (${r?.aprobados?.length ?? 0} puntos)` });
+                    } else {
+                        await fichaService.approve(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
+                        showToast({ type: 'success', message: 'Ficha ACEPTADA técnicamente' });
+                    }
                     break;
                 case 'reject_tech':
                     await fichaService.reject(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
                     showToast({ type: 'info', message: 'Revisión solicitada a Comercial' });
                     break;
                 case 'approve_coord':
-                    await fichaService.approveCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
-                    showToast({ type: 'success', message: 'Ficha APROBADA para programación' });
+                    if (esVisita && aprobarTodaLaVisita) {
+                        const r = (await fichaService.aprobarVisita(fichaId, 'coordinacion', { observaciones: coordinacionObs, user: { id: user?.id || 0 } }))?.data;
+                        showToast({ type: 'success', message: `Visita APROBADA para programación (${r?.aprobados?.length ?? 0} puntos)` });
+                    } else {
+                        await fichaService.approveCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
+                        showToast({ type: 'success', message: 'Ficha APROBADA para programación' });
+                    }
                     break;
                 case 'reject_coord':
                     await fichaService.reviewCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
@@ -415,6 +441,26 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                     </div>
                 }
             />
+
+            {esVisita && onCambiarFicha && (
+                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                    <span className="font-medium text-foreground">Visita con {grupo!.total} puntos:</span>
+                    {grupo!.puntos.map((p, i) => {
+                        const actual = Number(p.id_fichaingresoservicio) === Number(fichaId);
+                        return (
+                            <Button
+                                key={p.id_fichaingresoservicio}
+                                variant={actual ? 'default' : 'outline'}
+                                size="sm"
+                                aria-current={actual ? 'true' : undefined}
+                                onClick={() => { if (!actual) onCambiarFicha(Number(p.id_fichaingresoservicio)); }}
+                            >
+                                Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}
+                            </Button>
+                        );
+                    })}
+                </div>
+            )}
 
             <Card className="p-0">
                 <div style={{ padding: `${isMobile ? 16 : 24}px ${panelPad}px 0` }}>
@@ -660,6 +706,12 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             Ingrese sus observaciones técnicas antes de aprobar o solicitar revisión.
                                         </span>
                                         <DeferredTextarea placeholder="Ingrese sus observaciones técnicas aquí..." value={tecnicaObs} onChange={setTecnicaObs} minRows={3} />
+                                        {esVisita && (
+                                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
+                                                <input type="checkbox" checked={aprobarTodaLaVisita} onChange={(e) => setAprobarTodaLaVisita(e.target.checked)} />
+                                                Aprobar los {grupo!.total} puntos de la visita de una vez
+                                            </label>
+                                        )}
                                         <div className="mt-4 flex justify-end gap-2.5">
                                             <ProtectedContent permission="FI_APROBAR_TEC">
                                                 <span title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : undefined}>
@@ -689,6 +741,12 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack }) => {
                                             Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.
                                         </span>
                                         <DeferredTextarea placeholder="Ingrese las observaciones de coordinación aquí..." value={coordinacionObs} onChange={setCoordinacionObs} minRows={3} />
+                                        {esVisita && (
+                                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
+                                                <input type="checkbox" checked={aprobarTodaLaVisita} onChange={(e) => setAprobarTodaLaVisita(e.target.checked)} />
+                                                Aprobar los {grupo!.total} puntos de la visita de una vez
+                                            </label>
+                                        )}
                                         <div className="mt-4 flex justify-end gap-2.5">
                                             <ProtectedContent permission="FI_APROBAR_COO">
                                                 <span title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : undefined}>

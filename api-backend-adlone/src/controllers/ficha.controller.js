@@ -276,6 +276,21 @@ class FichaIngresoController {
         }
     }
 
+    // Aprueba todos los puntos de la visita de la ficha (etapa técnica o de coordinación)
+    async aprobarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones } = req.body;
+            const etapa = req.params.etapa === 'coordinacion' ? 'coordinacion' : 'tecnica';
+            const userData = req.user || { id: 0 };
+            const result = await fichaService.aprobarVisita(id, { observaciones, etapa }, userData);
+            return successResponse(res, result, 'Visita aprobada');
+        } catch (err) {
+            logger.error('Error in aprobarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al aprobar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
     async approveCoordinacion(req, res) {
         try {
             const { id } = req.params;

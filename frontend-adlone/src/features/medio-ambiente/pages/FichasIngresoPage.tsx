@@ -120,6 +120,7 @@ export const FichasIngresoPage = () => {
         case 'detail_ficha':
             return selectedFichaId ? (
                 <FichaUniversalView 
+                    onCambiarFicha={(id) => setSelectedFicha(id, null)}
                     fichaId={selectedFichaId} 
                     onBack={() => setFichasMode('list_fichas')} 
                 />

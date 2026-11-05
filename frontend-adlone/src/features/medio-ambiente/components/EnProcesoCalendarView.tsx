@@ -545,7 +545,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     }
 
     if (detailFichaId) {
-        return <FichaUniversalView fichaId={detailFichaId} onBack={() => setDetailFichaId(null)} />;
+        return <FichaUniversalView fichaId={detailFichaId} onBack={() => setDetailFichaId(null)} onCambiarFicha={(id) => setDetailFichaId(id)} />;
     }
 
     const EventCard = ({ ev, compact }: { ev: CalendarEvent; compact?: boolean }) => {

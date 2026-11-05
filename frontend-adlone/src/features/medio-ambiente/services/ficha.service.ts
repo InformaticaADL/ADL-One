@@ -97,6 +97,11 @@ export const fichaService = {
         const response = await apiClient.post(`/api/fichas/${id}/reject`, data);
         return response.data;
     },
+    // Aprueba de una vez todos los puntos de la visita de la ficha (etapa: 'tecnica' | 'coordinacion')
+    aprobarVisita: async (id: number, etapa: 'tecnica' | 'coordinacion', data: ObsPayload) => {
+        const response = await apiClient.post(`/api/fichas/${id}/approve-visita/${etapa}`, data);
+        return response.data;
+    },
     approveCoordinacion: async (id: number, data: ObsPayload) => {
         const response = await apiClient.post(`/api/fichas/${id}/approve-coordinacion`, data);
         return response.data;
