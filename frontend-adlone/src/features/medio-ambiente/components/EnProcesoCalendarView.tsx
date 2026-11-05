@@ -772,6 +772,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         <div className="grid grid-cols-7" style={{ gap: isCompact ? 4 : 5 }}>
                             {calendarCells.map((day, idx) => {
                                 const events = day ? filteredEvents.filter(ev => ev.event_dia === day && ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear()) : [];
+                                // Los puntos de una misma visita cuentan como un solo bloque ("Visita · N")
+                                const bloques = agruparPorVisita(events);
                                 const todayDate = new Date();
                                 const isToday = day === todayDate.getDate() && currentMonth.getMonth() === todayDate.getMonth() && currentMonth.getFullYear() === todayDate.getFullYear();
                                 const maxBadges = isCompact ? 3 : 2;
@@ -801,9 +803,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     >
                                                         {day}
                                                     </span>
-                                                    {isMobile && events.length > 0 && (
+                                                    {isMobile && bloques.length > 0 && (
                                                         <div className="flex gap-0.5">
-                                                            {events.slice(0, 2).map((_, eidx) => (
+                                                            {bloques.slice(0, 2).map((_, eidx) => (
                                                                 <div key={eidx} className="h-1 w-1 rounded-full bg-primary" />
                                                             ))}
                                                         </div>
@@ -811,18 +813,19 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                 </div>
                                                 {!isMobile && (
                                                     <div className="mt-1 flex flex-col gap-0.5">
-                                                        {events.slice(0, maxBadges).map((ev, eidx) => (
+                                                        {bloques.slice(0, maxBadges).map((bloque, eidx) => (
                                                             <Badge
                                                                 key={eidx}
-                                                                variant={STATUS_VARIANT[getStatusColor(ev)]}
+                                                                variant={STATUS_VARIANT[getStatusColor(bloque[0])]}
                                                                 className="w-full justify-center truncate px-0.5 py-0 text-center leading-[1.4]"
                                                                 style={{ fontSize: isCompact ? 10 : 8 }}
+                                                                title={bloque.length > 1 ? bloque.map((b) => b.correlativo).join(' · ') : undefined}
                                                             >
-                                                                {ev.correlativo}
+                                                                {bloque.length > 1 ? `Visita · ${bloque.length}` : bloque[0].correlativo}
                                                             </Badge>
                                                         ))}
-                                                        {events.length > maxBadges && (
-                                                            <span className="text-center text-[10px] text-muted-foreground">+{events.length - maxBadges}</span>
+                                                        {bloques.length > maxBadges && (
+                                                            <span className="text-center text-[10px] text-muted-foreground">+{bloques.length - maxBadges}</span>
                                                         )}
                                                     </div>
                                                 )}
