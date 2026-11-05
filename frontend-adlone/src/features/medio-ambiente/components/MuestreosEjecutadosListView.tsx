@@ -233,6 +233,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                 entradas.push(visita);
             }
             // Una "visita" de un solo punto ejecutado se ve como una fila normal
+            // Dentro de la visita, los puntos van en el orden en que se hicieron (por hora)
+            const clave = (m: any) => (m.ma_muestreo_fechai && m.ma_muestreo_horai ? `${String(m.ma_muestreo_fechai).slice(0, 10)} ${String(m.ma_muestreo_horai).slice(0, 5)}` : '');
+            for (const e of entradas) if (e._visita) e.miembros.sort((a: any, b: any) => (clave(a) && clave(b) ? clave(a).localeCompare(clave(b)) : clave(a) ? -1 : clave(b) ? 1 : 0));
             g.items = entradas.map((e) => (e._visita && e.miembros.length === 1 ? e.miembros[0] : e));
         }
 

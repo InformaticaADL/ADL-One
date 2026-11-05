@@ -15,6 +15,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -443,22 +444,23 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
             />
 
             {esVisita && onCambiarFicha && (
-                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                    <span className="font-medium text-foreground">Visita con {grupo!.total} puntos:</span>
-                    {grupo!.puntos.map((p, i) => {
-                        const actual = Number(p.id_fichaingresoservicio) === Number(fichaId);
-                        return (
-                            <Button
-                                key={p.id_fichaingresoservicio}
-                                variant={actual ? 'default' : 'outline'}
-                                size="sm"
-                                aria-current={actual ? 'true' : undefined}
-                                onClick={() => { if (!actual) onCambiarFicha(Number(p.id_fichaingresoservicio)); }}
-                            >
-                                Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}
-                            </Button>
-                        );
-                    })}
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                    <span className="font-medium text-foreground">Visita con {grupo!.total} puntos</span>
+                    <Select
+                        value={String(fichaId)}
+                        onValueChange={(v) => { if (Number(v) !== Number(fichaId)) onCambiarFicha(Number(v)); }}
+                    >
+                        <SelectTrigger className="h-8 w-[340px] max-w-full" aria-label="Punto de la visita">
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {grupo!.puntos.map((p, i) => (
+                                <SelectItem key={p.id_fichaingresoservicio} value={String(p.id_fichaingresoservicio)}>
+                                    Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
                 </div>
             )}
 

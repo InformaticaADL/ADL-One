@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -155,7 +156,7 @@ export const FichaDetailView = () => {
     }, [selectedFichaId, selectedCorrelativo]);
 
     // Si este muestreo es parte de una visita con varios puntos, los otros puntos ya ejecutados quedan a un clic.
-    const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string }[]>([]);
+    const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string; hora?: string | null }[]>([]);
     const idAgendaActual = data?.ficha?.id_agendamam;
     useEffect(() => {
         setOtrosPuntosEjecutados([]);
@@ -349,28 +350,36 @@ export const FichaDetailView = () => {
     return (
         <div className="shadcn-scope w-full max-w-full overflow-x-hidden p-4">
 
-            {otrosPuntosEjecutados.length > 0 && (
-                <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                    <IconMapPin size={16} className="shrink-0 text-primary" />
-                    <span className="font-medium text-foreground">Visita con {otrosPuntosEjecutados.length + 1} puntos:</span>
-                    {[
-                        { id_ficha: Number(ficha?.id_fichaingresoservicio), punto: ficha?.punto_muestreo || null, correlativo: String(ficha?.frecuencia_correlativo || ''), actual: true },
-                        ...otrosPuntosEjecutados.map((p) => ({ ...p, actual: false })),
-                    ]
-                        .sort((a, b) => a.id_ficha - b.id_ficha)
-                        .map((p, i) => (
-                            <Button
-                                key={p.id_ficha}
-                                variant={p.actual ? 'default' : 'outline'}
-                                size="sm"
-                                aria-current={p.actual ? 'true' : undefined}
-                                onClick={() => { if (!p.actual) setSelectedFicha(p.id_ficha, p.correlativo); }}
-                            >
-                                Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}
-                            </Button>
-                        ))}
-                </div>
-            )}
+            {otrosPuntosEjecutados.length > 0 && (() => {
+                // Todos los puntos de la visita, ordenados por la hora en que se hicieron (el primero que se hizo es el Punto 1)
+                const claveActual = ficha?.ma_muestreo_fechai && ficha?.ma_muestreo_horai ? `${String(ficha.ma_muestreo_fechai).slice(0, 10)} ${String(ficha.ma_muestreo_horai).slice(0, 5)}` : null;
+                const puntos = [
+                    { id_ficha: Number(ficha?.id_fichaingresoservicio), punto: ficha?.punto_muestreo || null, correlativo: String(ficha?.frecuencia_correlativo || ''), hora: claveActual },
+                    ...otrosPuntosEjecutados,
+                ].sort((a, b) => (a.hora && b.hora ? a.hora.localeCompare(b.hora) : a.hora ? -1 : b.hora ? 1 : a.id_ficha - b.id_ficha));
+                const actual = String(Number(ficha?.id_fichaingresoservicio));
+                return (
+                    <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
+                        <IconMapPin size={16} className="shrink-0 text-primary" />
+                        <span className="font-medium text-foreground">Visita con {puntos.length} puntos</span>
+                        <Select
+                            value={actual}
+                            onValueChange={(v) => { const p = puntos.find((x) => String(x.id_ficha) === v); if (p && String(p.id_ficha) !== actual) setSelectedFicha(p.id_ficha, p.correlativo); }}
+                        >
+                            <SelectTrigger className="h-8 w-[340px] max-w-full" aria-label="Punto de la visita">
+                                <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {puntos.map((p, i) => (
+                                    <SelectItem key={p.id_ficha} value={String(p.id_ficha)}>
+                                        Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}{p.hora ? ` · ${p.hora.slice(11)}` : ''}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                );
+            })()}
 
             {/* Header */}
             <Card className="mb-4 overflow-hidden" style={{ background: 'var(--app-header-gradient)' }}>

@@ -2674,6 +2674,15 @@ class FichaIngresoService {
         return info;
     }
 
+    // "AAAA-MM-DD HH:mm" de la hora en que se hizo un punto (para ordenar los puntos de una visita por cuál se hizo primero); null si aún no tiene.
+    _claveHora(fecha, hora) {
+        const h = String(hora || '').trim();
+        if (!h || !fecha) return null;
+        const d = new Date(fecha);
+        if (isNaN(d.getTime()) || d.getUTCFullYear() <= 1900) return null;
+        return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')} ${h.slice(0, 5)}`;
+    }
+
     // Número de servicio de un muestreo: el 2.º segmento de frecuencia_correlativo ("1051-2-Pendiente-5743" → 2).
     _numeroDeServicio(correlativo) {
         const n = String(correlativo || '').split('-')[1];
@@ -2684,13 +2693,13 @@ class FichaIngresoService {
     // los ya cancelados. Una ficha que no está en un grupo no tiene hermanos. `hermanos` trae el nombre de cada punto.
     async _agendasHermanas(pool, idAgendamam) {
         const propio = (await pool.request().input('a', sql.Numeric, idAgendamam)
-            .query('SELECT id_agendamam, id_fichaingresoservicio, frecuencia_correlativo FROM App_Ma_Agenda_MUESTREOS WHERE id_agendamam = @a')).recordset[0];
+            .query('SELECT id_agendamam, id_fichaingresoservicio, frecuencia_correlativo, ma_muestreo_fechai, ma_muestreo_horai FROM App_Ma_Agenda_MUESTREOS WHERE id_agendamam = @a')).recordset[0];
         if (!propio) return { propio: null, hermanos: [] };
         const miNumero = this._numeroDeServicio(propio.frecuencia_correlativo);
         if (miNumero === null) return { propio, hermanos: [] };
         const delGrupo = (await pool.request().input('f', sql.Numeric, propio.id_fichaingresoservicio).query(`
             SELECT a.id_agendamam, a.id_fichaingresoservicio, a.frecuencia_correlativo, a.estado_caso, a.retiro_completado,
-                   a.id_estadomuestreo, a.realizado_por_gem, LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
+                   a.id_estadomuestreo, a.realizado_por_gem, a.ma_muestreo_fechai, a.ma_muestreo_horai, LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
             FROM App_Ma_Agenda_MUESTREOS a
             JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
             WHERE a.id_fichaingresoservicio <> @f
@@ -2712,7 +2721,7 @@ class FichaIngresoService {
         const ejecutado = (h) => h.id_estadomuestreo === 3 || !!h.realizado_por_gem;
         return hermanos
             .filter((h) => (modo === 'ejecutados' ? ejecutado(h) : !ejecutado(h)))
-            .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo }));
+            .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo, hora: this._claveHora(h.ma_muestreo_fechai, h.ma_muestreo_horai) }));
     }
 
     // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una
@@ -4579,6 +4588,7 @@ class FichaIngresoService {
                 m2.nombre_muestreador as muestreador_retiro,
                 (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) AS id_grupo,
                 LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto_muestreo,
+                a.ma_muestreo_fechai, a.ma_muestreo_horai,
                 f.estado_ficha,
                 a.realizado_por_gem,
                 a.fecha_realizado_gem
