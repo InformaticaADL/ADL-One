@@ -272,8 +272,8 @@ function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNav
     );
 }
 
-export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean, missing?: string[]) => void }>((props, ref) => {
-    const { initialData, onValidationChange } = props;
+export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean, missing?: string[]) => void, exigirCoordenadas?: boolean }>((props, ref) => {
+    const { initialData, onValidationChange, exigirCoordenadas = false } = props;
     const { hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
     const { showToast } = useToast();
@@ -511,7 +511,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 required.push({ label: 'N° Instrumento', value: nroInstrumento });
             }
 
-            if (zona && !isNA(zona, zonasUTMList)) {
+            // Visita con varios puntos: cada punto es un lugar distinto, así que la zona no puede ser "No aplica"
+            // y las coordenadas son obligatorias.
+            if (exigirCoordenadas) {
+                if (isNA(zona, zonasUTMList)) required.push({ label: 'Zona UTM (cada punto de una visita necesita sus coordenadas; no puede ser "No aplica")', value: '' });
+                required.push({ label: 'UTM Norte', value: utmNorte });
+                required.push({ label: 'UTM Este',  value: utmEste });
+            } else if (zona && !isNA(zona, zonasUTMList)) {
                 required.push({ label: 'UTM Norte', value: utmNorte });
                 required.push({ label: 'UTM Este',  value: utmEste });
             }
@@ -545,7 +551,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         tipoMonitoreo, selectedLugar, selectedCliente, selectedEmpresa, selectedFuente, selectedContacto,
         selectedObjetivo, responsableMuestreo, cargoResponsable,
         puntoMuestreo, periodo, frecuencia, factor, totalServicios,
-        zona, utmNorte, utmEste,
+        zona, utmNorte, utmEste, exigirCoordenadas,
         selectedInstrumento, nroInstrumento, anioInstrumento,
         selectedComponente, selectedSubArea, glosa,
         selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, duracion,

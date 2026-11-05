@@ -662,6 +662,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                                     ref={antecedentesRef}
                                     initialData={datosIniciales ?? prefillCotizacion?.antecedentes}
                                     onValidationChange={handleValidationChange}
+                                    exigirCoordenadas={modo === 'varios'}
                                 />
                             </>
                         )}
