@@ -2005,7 +2005,22 @@ class FichaIngresoService {
     }
 
 
+    // Una visita (grupo de varios puntos) no se puede aprobar sin la firma del observador: es obligatoria, una por visita. Cuenta como
+    // registrada si algún punto de la visita tiene el nombre del observador (en instalación o en retiro). Una ficha que va sola no se revisa aquí.
+    async _exigirFirmaObservadorDeVisita(id) {
+        const grupo = await this.getGrupoDeFicha(id);
+        if (!grupo || !grupo.puntos || grupo.puntos.length < 2) return;
+        const ids = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
+        const pool = await getConnection();
+        const r = await pool.request().query(
+            `SELECT COUNT(*) AS n FROM App_Ma_Agenda_MUESTREOS
+             WHERE id_fichaingresoservicio IN (${ids.join(',')})
+               AND (LTRIM(RTRIM(ISNULL(nombre_observadorterreno, ''))) <> '' OR LTRIM(RTRIM(ISNULL(nombre_observadorterreno_retiro, ''))) <> '')`);
+        if (!r.recordset[0].n) throw this._errorDatos('Falta registrar la firma del observador: la visita no se puede aprobar hasta que el muestreador la registre.');
+    }
+
     async approveFicha(id, { observaciones, sinNotificar = false }, user) {
+        await this._exigirFirmaObservadorDeVisita(id);
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
@@ -2083,6 +2098,7 @@ class FichaIngresoService {
     // mismas observaciones. Se envía un solo aviso (el de la ficha desde la que se aprueba). etapa: 'tecnica' | 'coordinacion'.
     // Una ficha que no es parte de un grupo se aprueba sola.
     async aprobarVisita(id, { observaciones, etapa }, user) {
+        await this._exigirFirmaObservadorDeVisita(id);
         const pool = await getConnection();
         const grupo = await this.getGrupoDeFicha(id);
         const ids = grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)];
@@ -2181,6 +2197,7 @@ class FichaIngresoService {
 
 
     async approveCoordinacion(id, { observaciones, sinNotificar = false }, user) {
+        await this._exigirFirmaObservadorDeVisita(id);
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool); // Require transaction for history consistency
 
