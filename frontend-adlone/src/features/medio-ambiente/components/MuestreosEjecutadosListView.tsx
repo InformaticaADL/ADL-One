@@ -19,6 +19,8 @@ import {
     IconSearch,
     IconEraser,
     IconFilter,
+    IconChevronDown,
+    IconChevronRight,
 } from '@tabler/icons-react';
 
 // Permisos que habilitan abrir el detalle de ejecución. No hay columna de
@@ -78,6 +80,13 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
+    // Visitas con varios puntos: una sola fila por visita; los puntos se ven al desplegarla.
+    const [visitasAbiertas, setVisitasAbiertas] = useState<Set<string>>(new Set());
+    const alternarVisita = (clave: string) => setVisitasAbiertas((prev) => {
+        const nuevo = new Set(prev);
+        if (nuevo.has(clave)) nuevo.delete(clave); else nuevo.add(clave);
+        return nuevo;
+    });
     const itemsPerPage = 12;
 
     useEffect(() => {
@@ -210,6 +219,23 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             groups[fechaStr].items.push(m);
         });
 
+        for (const g of Object.values(groups)) {
+            const entradas: any[] = [];
+            const porVisita = new Map<string, any>();
+            for (const m of g.items) {
+                const servicio = String(m.frecuencia_correlativo || '').split('-')[1] || '';
+                if (m.id_grupo == null || !servicio) { entradas.push(m); continue; }
+                const clave = `${m.id_grupo}-${servicio}`;
+                const existente = porVisita.get(clave);
+                if (existente) { existente.miembros.push(m); continue; }
+                const visita = { ...m, _visita: true, _clave: clave, miembros: [m] };
+                porVisita.set(clave, visita);
+                entradas.push(visita);
+            }
+            // Una "visita" de un solo punto ejecutado se ve como una fila normal
+            g.items = entradas.map((e) => (e._visita && e.miembros.length === 1 ? e.miembros[0] : e));
+        }
+
         return Object.values(groups).sort((a, b) => {
             return new Date(b.fecha).getTime() - new Date(a.fecha).getTime(); // Más recientes primero
         });
@@ -242,6 +268,85 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     }
 
     const showCaso = activeModule !== 'gem' && activeModule !== 'unidades-gem';
+    const columnas = showCaso ? 9 : 8;
+
+    // Fila de una visita (varios puntos ejecutados): un solo acceso; al desplegarla aparecen todos sus puntos.
+    const renderVisita = (v: any, idx: number) => {
+        const abierta = visitasAbiertas.has(v._clave);
+        const total = v.miembros.length;
+        const realizados = v.miembros.filter((x: any) => realizadoStates[x.id_agendamam?.toString()]?.realizado).length;
+        const casos = Array.from(new Set(v.miembros.map((x: any) => casoAdlabMap[x.id_agendamam?.toString()]).filter(Boolean)));
+        return (
+            <React.Fragment key={`visita-${v._clave}-${idx}`}>
+                <TableRow
+                    onClick={puedeVerDetalle ? () => abrirDetalle(v.miembros[0]) : undefined}
+                    title={puedeVerDetalle ? 'Ver la visita completa' : undefined}
+                    className={cn('bg-muted/30', puedeVerDetalle && 'cursor-pointer')}
+                >
+                    {showCaso && (
+                        <TableCell>
+                            {casos.length > 0 ? <Badge>{casos.join(' · ')}</Badge> : <span className="text-xs text-muted-foreground">Sin asignar</span>}
+                        </TableCell>
+                    )}
+                    <TableCell>
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6"
+                                aria-label={abierta ? 'Ocultar los puntos' : 'Mostrar los puntos'}
+                                onClick={(e) => { e.stopPropagation(); alternarVisita(v._clave); }}
+                            >
+                                {abierta ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                            </Button>
+                            <Badge variant="secondary">Visita · {total} puntos</Badge>
+                        </div>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{v.fecha_retiro ? new Date(v.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={v.cliente}>{v.cliente || '-'}</TableCell>
+                    <TableCell className="max-w-[180px] truncate" title={v.centro}>{v.centro || '-'}</TableCell>
+                    <TableCell>
+                        <span className="block text-xs font-medium">{v.nombre_subarea || '-'}</span>
+                        <span className="block text-[10px] text-muted-foreground">{v.objetivo || '-'}</span>
+                    </TableCell>
+                    <TableCell>{v.muestreador || 'Sin Asignar'}</TableCell>
+                    <TableCell>{v.muestreador_retiro || '-'}</TableCell>
+                    <TableCell>
+                        {realizados === total
+                            ? <span className="block text-[10px] font-bold text-success">✓ Realizado ({realizados}/{total})</span>
+                            : <span className="text-[10px] text-muted-foreground">{realizados} de {total} realizados</span>}
+                    </TableCell>
+                </TableRow>
+                {abierta && (
+                    <TableRow className="hover:bg-transparent">
+                        <TableCell colSpan={columnas} className="bg-muted/10 p-0">
+                            <div className="flex flex-col divide-y divide-border">
+                                {v.miembros.map((p: any, i: number) => {
+                                    const k = p.id_agendamam?.toString();
+                                    const ok = !!realizadoStates[k]?.realizado;
+                                    return (
+                                        <button
+                                            key={`${k}-${i}`}
+                                            type="button"
+                                            disabled={!puedeVerDetalle}
+                                            onClick={() => abrirDetalle(p)}
+                                            className="flex w-full items-center gap-3 px-6 py-2.5 text-left text-sm hover:bg-accent disabled:cursor-default"
+                                        >
+                                            <span className="w-14 shrink-0 text-xs font-semibold text-muted-foreground">Punto {i + 1}</span>
+                                            <span className="min-w-0 flex-1 font-medium">{p.punto_muestreo || 'Sin nombre'}</span>
+                                            <span className="shrink-0 text-xs text-muted-foreground" title={p.frecuencia_correlativo}>{p.frecuencia_correlativo}</span>
+                                            {showCaso && (casoAdlabMap[k] ? <Badge>{casoAdlabMap[k]}</Badge> : <span className="text-xs text-muted-foreground">Sin caso</span>)}
+                                            {ok ? <Badge variant="success">Realizado</Badge> : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </TableCell>
+                    </TableRow>
+                )}
+            </React.Fragment>
+        );
+    };
 
     return (
         <div className="shadcn-scope">
@@ -351,6 +456,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                     </TableHeader>
                                     <TableBody>
                                         {group.items.map((m, idx) => {
+                                            if (m._visita) return renderVisita(m, idx);
                                             const key = m.id_agendamam?.toString();
                                             const isRealizado = !!realizadoStates[key]?.realizado;
                                             return (

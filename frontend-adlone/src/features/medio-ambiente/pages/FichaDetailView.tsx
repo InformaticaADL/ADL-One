@@ -352,12 +352,23 @@ export const FichaDetailView = () => {
             {otrosPuntosEjecutados.length > 0 && (
                 <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
                     <IconMapPin size={16} className="shrink-0 text-primary" />
-                    <span className="font-medium text-foreground">Este muestreo es parte de una visita con varios puntos. Otros puntos ejecutados:</span>
-                    {otrosPuntosEjecutados.map(p => (
-                        <Button key={p.id_ficha} variant="outline" size="sm" onClick={() => setSelectedFicha(p.id_ficha, p.correlativo)}>
-                            {p.punto || `Ficha ${p.id_ficha}`}
-                        </Button>
-                    ))}
+                    <span className="font-medium text-foreground">Visita con {otrosPuntosEjecutados.length + 1} puntos:</span>
+                    {[
+                        { id_ficha: Number(ficha?.id_fichaingresoservicio), punto: ficha?.punto_muestreo || null, correlativo: String(ficha?.frecuencia_correlativo || ''), actual: true },
+                        ...otrosPuntosEjecutados.map((p) => ({ ...p, actual: false })),
+                    ]
+                        .sort((a, b) => a.id_ficha - b.id_ficha)
+                        .map((p, i) => (
+                            <Button
+                                key={p.id_ficha}
+                                variant={p.actual ? 'default' : 'outline'}
+                                size="sm"
+                                aria-current={p.actual ? 'true' : undefined}
+                                onClick={() => { if (!p.actual) setSelectedFicha(p.id_ficha, p.correlativo); }}
+                            >
+                                Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}
+                            </Button>
+                        ))}
                 </div>
             )}
 

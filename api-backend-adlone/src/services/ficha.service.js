@@ -4547,6 +4547,8 @@ class FichaIngresoService {
                 o.nombre_objetivomuestreo_ma as objetivo,
                 m.nombre_muestreador as muestreador,
                 m2.nombre_muestreador as muestreador_retiro,
+                (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) AS id_grupo,
+                LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto_muestreo,
                 f.estado_ficha,
                 a.realizado_por_gem,
                 a.fecha_realizado_gem
@@ -4720,6 +4722,7 @@ class FichaIngresoService {
                             ct.nombre_contacto, ct.email_contacto,
                             a.temperatura_corregidai, a.temperatura_corregidat, a.temperatura_corregidacompuesta, a.temperatura_fc,
                             a.id_supervisor, a.id_supervisor_retiro,
+                            LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto_muestreo,
                             f.ma_coordenadas, -- Add UTM coordinates as fallback
                             CONVERT(VARCHAR(10), a.fechaderivado, 103) AS fechaderivado, a.horaderivado,
                             l.nombre_laboratorioensayo AS laboratorio_derivacion_nombre,
@@ -4878,14 +4881,14 @@ class FichaIngresoService {
                         } else if (lowerFile.includes('foto') && /\.(jpg|jpeg|png)$/i.test(file)) {
                             fsPhotos.push(publicUrl);
                         } else if (lowerFile.endsWith('.pdf')) {
-                            if (lowerFile.startsWith('foma_')) {
+                            if (lowerFile.startsWith('foma_') && !lowerFile.startsWith('foma_visita_')) {
                                 fsDocs.push({
                                     nombre: file,
                                     tipo: 'FoMa',
                                     ruta: publicUrl,
                                     label: 'Documento FoMa'
                                 });
-                            } else if (lowerFile.startsWith('cadenacustodia_')) {
+                            } else if (lowerFile.startsWith('cadenacustodia_') && !lowerFile.startsWith('cadenacustodiavisita_')) {
                                 let labName = 'General';
                                 const strippedFreq = frecuenciaReal.trim();
                                 const prefixRegex = new RegExp(`^cadenacustodia_${strippedFreq}_`, 'i');
@@ -4917,6 +4920,44 @@ class FichaIngresoService {
                 } catch (fsErr) {
                     logger.warn(`Could not read correlativo folder ${correlativoFolder}: ${fsErr.message}`);
                 }
+            }
+
+            // Documentos de la visita: en una visita con varios puntos hay UN FoMa y UNA cadena de custodia por laboratorio, guardados en la
+            // carpeta de uno de sus puntos (no en la de cada uno). Se buscan en las carpetas de todos los puntos y se muestran desde cualquiera.
+            try {
+                if (f.id_agendamam) {
+                    const { propio, hermanos } = await this._agendasHermanas(pool, f.id_agendamam);
+                    if (propio && hermanos.length > 0) {
+                        const vistos = new Set((media.documentos || []).map((d) => d.nombre));
+                        const docsVisita = [];
+                        for (const punto of [propio, ...hermanos]) {
+                            const base = String(punto.frecuencia_correlativo || '').trim();
+                            const candidatas = [...new Set([base, base.replace('Pendiente', 'Ejecutado'), base.replace('Ejecutado', 'Pendiente')])];
+                            for (const carpeta of candidatas) {
+                                const dir = path.join(rootFotosPath, carpeta);
+                                if (!carpeta || !fs.existsSync(dir)) continue;
+                                for (const archivo of fs.readdirSync(dir)) {
+                                    const minus = archivo.toLowerCase();
+                                    if (!minus.endsWith('.pdf') || vistos.has(archivo)) continue;
+                                    const esFoma = minus.startsWith('foma_visita_');
+                                    const esCadena = minus.startsWith('cadenacustodiavisita_');
+                                    if (!esFoma && !esCadena) continue;
+                                    vistos.add(archivo);
+                                    const ruta = '/fotos/' + carpeta + '/' + archivo;
+                                    if (esFoma) {
+                                        docsVisita.push({ nombre: archivo, tipo: 'FoMa', ruta, label: 'FoMa de la visita', visita: true });
+                                    } else {
+                                        const m = /^cadenacustodiavisita_[^_]+_(.+)\.pdf$/i.exec(archivo);
+                                        docsVisita.push({ nombre: archivo, tipo: 'Cadena de Custodia', ruta, label: m ? m[1].replace(/_/g, ' ') : 'General', visita: true });
+                                    }
+                                }
+                            }
+                        }
+                        if (docsVisita.length > 0) media.documentos = (media.documentos || []).concat(docsVisita);
+                    }
+                }
+            } catch (visitaErr) {
+                logger.warn('No se pudieron buscar los documentos de la visita: ' + visitaErr.message);
             }
 
             // ✅ FIX FIRMAS-VACÍAS: firmas antiguas se guardaron sin sufijo "_instalacion"/"_retiro"
