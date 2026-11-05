@@ -59,6 +59,21 @@ const analisisParaEnviar = (lista: any[]) =>
     lista.filter((a: any) => !a._fijo || a.id_referenciaanalisis).map((a: any) => { const rest = { ...a }; delete rest.opciones; return rest; });
 
 // Un punto nuevo parte con los datos del anterior; solo se vacía lo que identifica al punto.
+// [clave en los antecedentes, nombre que ve el usuario]
+const CAMPOS_QUE_NO_SUELEN_CAMBIAR: Array<[string, string]> = [
+    ['selectedCliente', 'Empresa'],
+    ['selectedEmpresa', 'Empresa a facturar'],
+    ['selectedFuente', 'Centro'],
+    ['selectedContacto', 'Contacto'],
+    ['selectedObjetivo', 'Objetivo del muestreo'],
+    ['tipoMonitoreo', 'Tipo de monitoreo'],
+    ['selectedInstrumento', 'Instrumento ambiental'],
+    ['selectedComponente', 'Componente ambiental'],
+    ['selectedSubArea', 'Subárea'],
+    ['selectedTipoMuestreo', 'Tipo de muestreo'],
+    ['selectedTipoMuestra', 'Tipo de muestra'],
+];
+
 const sinDatosDelPunto = (ant: any) => ({ ...ant, puntoMuestreo: '', utmNorte: '', utmEste: '', refGoogle: '' });
 
 const SuccessModal = ({
@@ -141,6 +156,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
     const [datosIniciales, setDatosIniciales] = useState<any>(null);
     const [formKey, setFormKey] = useState(0);
     const [decisionAbierta, setDecisionAbierta] = useState(false);
+    const [cambiosPendientes, setCambiosPendientes] = useState<{ ant: any; campos: string[] } | null>(null);
     const [obsInicial, setObsInicial] = useState('');
     const [obsKey, setObsKey] = useState(0);
     const claveBorr = claveBorrador(user?.id);
@@ -350,6 +366,21 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             showToast({ type: 'warning', message: 'Todos los puntos de una visita deben ser de la misma empresa y el mismo centro.' });
             return;
         }
+        // Campos que casi nunca cambian de un punto a otro de la misma visita: si el usuario cambió alguno respecto del punto anterior,
+        // se le pide confirmar antes de guardar (suele ser un descuido al copiar el punto).
+        const idxActual = editandoId != null ? puntos.findIndex(p => p.id === editandoId) : puntos.length;
+        const referencia = idxActual > 0 ? puntos[idxActual - 1] : null;
+        if (referencia) {
+            const campos = CAMPOS_QUE_NO_SUELEN_CAMBIAR.filter(([clave]) => String(referencia.antecedentes?.[clave] ?? '') !== String(ant?.[clave] ?? '')).map(([, etiqueta]) => etiqueta);
+            if (campos.length > 0) {
+                setCambiosPendientes({ ant, campos });
+                return;
+            }
+        }
+        guardarPunto(ant);
+    };
+
+    const guardarPunto = (ant: any) => {
         const punto: PuntoVisita = { id: editandoId ?? Date.now(), antecedentes: ant, analisisUI: savedAnalysis };
         setPuntos(prev => (editandoId != null ? prev.map(p => (p.id === editandoId ? punto : p)) : [...prev, punto]));
         setEditandoId(null);
@@ -535,12 +566,32 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                 </DialogContent>
             </Dialog>
 
+            {/* Alerta: se cambió algo que normalmente no cambia entre puntos de una visita */}
+            <Dialog open={!!cambiosPendientes} onOpenChange={(abierto) => { if (!abierto) setCambiosPendientes(null); }}>
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-[520px]" showCloseButton={false}>
+                    <DialogHeader>
+                        <DialogTitle>Cambió datos que normalmente no cambian</DialogTitle>
+                        <DialogDescription className="break-words">
+                            Respecto del punto anterior de esta visita, modificó:
+                        </DialogDescription>
+                    </DialogHeader>
+                    <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm font-semibold text-foreground">
+                        {cambiosPendientes?.campos.map((c) => <li key={c}>{c}</li>)}
+                    </ul>
+                    <p className="m-0 text-sm text-muted-foreground">¿Es intencional? Si fue un descuido, vuelva y corríjalo antes de guardar.</p>
+                    <DialogFooter className="flex flex-wrap justify-end gap-2 sm:gap-2">
+                        <Button variant="outline" onClick={() => setCambiosPendientes(null)}>Revisar</Button>
+                        <Button onClick={() => { const c = cambiosPendientes; setCambiosPendientes(null); if (c) guardarPunto(c.ant); }}>Sí, guardar así</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Después de guardar cada punto: ¿otro o finalizar? */}
             <Dialog open={decisionAbierta} onOpenChange={() => { /* hay que elegir una opción */ }}>
-                <DialogContent className="max-w-[560px]" showCloseButton={false} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+                <DialogContent className="w-[calc(100vw-2rem)] max-w-[760px] max-h-[90vh] overflow-y-auto" showCloseButton={false} onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
                     <DialogHeader>
                         <DialogTitle>{puntos.length === 1 ? 'Punto 1 guardado' : `${puntos.length} puntos guardados`}</DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription className="break-words">
                             Aún no se ha creado nada: las fichas se crean todas juntas al finalizar. El costo operativo es uno por visita y se reparte entre los puntos.
                         </DialogDescription>
                     </DialogHeader>
@@ -555,7 +606,7 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                             </li>
                         ))}
                     </ul>
-                    <DialogFooter className="gap-2 sm:gap-2">
+                    <DialogFooter className="flex flex-wrap justify-end gap-2 sm:gap-2">
                         <Button variant="ghost" onClick={handleSalirConBorrador} disabled={isSaving}>Salir y seguir después</Button>
                         <Button variant="outline" onClick={handleAgregarOtroPunto} disabled={isSaving}><IconPlus size={18} /> Agregar otro punto</Button>
                         <Button onClick={handleFinalizarVisita} disabled={isSaving}>
