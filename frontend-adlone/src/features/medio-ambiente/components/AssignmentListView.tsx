@@ -428,18 +428,22 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         setFichas(data || []);
     };
 
-    // Agrupar fichas que ya existen: ≥ 2, sueltas y del mismo centro.
+    // Agrupar fichas que ya existen: ≥ 2 y del mismo centro. Todas sueltas = una visita nueva. Si hay una visita ya armada, las demás
+    // (sueltas) se suman a ella como un punto más (p. ej. un punto extra que pidió el cliente en terreno).
+    const gruposElegidos = useMemo(() => new Set(fichasSeleccionadas.map((f) => Number(f.id_grupo)).filter(Boolean)), [fichasSeleccionadas]);
+    const sumaAVisita = gruposElegidos.size === 1 && fichasSeleccionadas.some((f) => !Number(f.id_grupo));
     const puedeAgrupar = useMemo(() => {
         if (fichasSeleccionadas.length < 2) return false;
-        if (fichasSeleccionadas.some((f) => Number(f.id_grupo))) return false;
+        if (gruposElegidos.size > 1) return false;
+        if (gruposElegidos.size === 1 && !fichasSeleccionadas.some((f) => !Number(f.id_grupo))) return false;
         return new Set(fichasSeleccionadas.map((f) => String(f.id_centro))).size === 1;
-    }, [fichasSeleccionadas]);
+    }, [fichasSeleccionadas, gruposElegidos]);
 
     const agruparSeleccion = async () => {
         setSaving(true);
         try {
             await fichaService.agrupar(fichasSeleccionadas.map(idDeFicha));
-            showToast({ type: 'success', message: `${fichasSeleccionadas.length} puntos agrupados como una sola visita` });
+            showToast({ type: 'success', message: sumaAVisita ? 'Punto agregado a la visita' : `${fichasSeleccionadas.length} puntos agrupados como una sola visita` });
             setSeleccion(new Set());
             await recargarFichas();
         } catch (error: any) {
@@ -887,9 +891,9 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                 className="text-background/70 hover:bg-background/10 hover:text-background"
                                 onClick={agruparSeleccion}
                                 disabled={saving}
-                                title="Une estos puntos como una sola visita: se agendan juntos y comparten el aviso."
+                                title={sumaAVisita ? 'Suma las fichas sueltas a la visita elegida como un punto más (con su propio precio y datos).' : 'Une estos puntos como una sola visita: se agendan juntos y comparten el aviso.'}
                             >
-                                <IconLink size={15} /> Agrupar como una visita
+                                <IconLink size={15} /> {sumaAVisita ? 'Agregar a la visita' : 'Agrupar como una visita'}
                             </Button>
                         )}
                         <Button size="sm" onClick={abrirAsignar}>

@@ -2863,10 +2863,34 @@ class FichaIngresoService {
                 throw this._errorDatos('Solo se pueden agrupar fichas de la misma empresa y el mismo centro.');
             }
             const ya = (await new sql.Request(transaction).query(`
-                SELECT id_fichaingresoservicio AS id FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio IN (${lista.join(',')})`)).recordset;
-            if (ya.length > 0) throw this._errorDatos(`Las fichas ${ya.map((r) => '#' + r.id).join(', ')} ya pertenecen a un grupo.`, 409);
+                SELECT id_fichaingresoservicio AS id, id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio IN (${lista.join(',')})`)).recordset;
+            const gruposYa = [...new Set(ya.map((x) => Number(x.id_grupo)))];
+            if (gruposYa.length > 1) throw this._errorDatos('Las fichas elegidas pertenecen a visitas distintas: no se pueden unir.', 409);
 
             const userId = user ? (user.id_usuario || user.id || 0) : 0;
+
+            // Punto extra: hay una visita ya armada y las demás fichas están sueltas → se suman a esa visita (una ficha más, con su
+            // propio precio, parámetros y datos). Cada una queda al final del orden.
+            if (gruposYa.length === 1) {
+                const idGrupoExistente = gruposYa[0];
+                const sueltas = lista.filter((id) => !ya.some((x) => Number(x.id) === id));
+                if (sueltas.length === 0) throw this._errorDatos('Todas las fichas elegidas ya forman parte de esa visita.', 409);
+                const total = (await new sql.Request(transaction).input('g', sql.Int, idGrupoExistente)
+                    .query('SELECT COUNT(*) AS n, ISNULL(MAX(orden), 0) AS mx FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g')).recordset[0];
+                for (const [i, idFicha] of sueltas.entries()) {
+                    const rq = new sql.Request(transaction);
+                    rq.input('g', sql.Int, idGrupoExistente);
+                    rq.input('f', sql.Numeric(10, 0), idFicha);
+                    rq.input('o', sql.Int, Number(total.mx) + i + 1);
+                    await rq.query('INSERT INTO App_Ma_GrupoMuestreo_Ficha (id_grupo, id_fichaingresoservicio, orden) VALUES (@g, @f, @o)');
+                    await this.logHistorial(transaction, {
+                        idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                        observacion: `Ficha agregada como punto ${Number(total.n) + i + 1} de la visita (grupo de muestreo #${idGrupoExistente}).`,
+                    });
+                }
+                await transaction.commit();
+                return { success: true, id_grupo: idGrupoExistente, fichas: lista, agregadas: sueltas };
+            }
             const rqGrupo = new sql.Request(transaction);
             rqGrupo.input('empresa', sql.Numeric(10, 0), fichas[0].id_empresa);
             rqGrupo.input('centro', sql.Numeric(10, 0), fichas[0].id_centro);
