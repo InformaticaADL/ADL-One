@@ -109,6 +109,43 @@ class FacturacionService {
         });
     }
 
+    /**
+     * El precio de una visita depende de sus parámetros, no de sus puntos: cada parámetro (técnica) se cobra una sola vez por visita,
+     * aunque se haya medido en varios puntos, y el costo operativo es el total de la visita. Para que las sumas por caso sigan
+     * cuadrando, el total de la visita queda en su primer punto y los demás en 0.
+     * `filas` son filas con id_agendamam e id_fichaingresoservicio; `mapa` es el de _visitasDeAgendas; se modifica `campo` en cada fila.
+     */
+    async _precioPorParametroDeVisitas(exec, filas, mapa, campo) {
+        const porVisita = new Map();
+        for (const f of filas) {
+            const v = mapa.get(Number(f.id_agendamam));
+            if (!v || !v.id_grupo || v.servicio == null) continue;
+            const k = v.id_grupo + '|' + v.servicio;
+            if (!porVisita.has(k)) porVisita.set(k, []);
+            porVisita.get(k).push(f);
+        }
+        for (const miembros of porVisita.values()) {
+            if (miembros.length < 2) continue;
+            const fichas = [...new Set(miembros.map((m) => Number(m.id_fichaingresoservicio)))];
+            const det = await new sql.Request(exec).query(`
+                SELECT d.tipo_analisis, d.id_tecnica, d.item, d.uf_individual
+                FROM App_Ma_FichaIngresoServicio_DET d
+                WHERE d.id_fichaingresoservicio IN (${fichas.join(',')}) AND d.activo = 1
+            `);
+            let costoOperativo = 0;
+            const tecnicas = new Map();
+            for (const a of det.recordset) {
+                const uf = Number(a.uf_individual || 0);
+                if (a.tipo_analisis === 'CostoOperativo') { costoOperativo += uf; continue; }
+                const clave = a.id_tecnica != null ? 'T' + a.id_tecnica : 'I' + a.item;
+                tecnicas.set(clave, Math.max(tecnicas.get(clave) || 0, uf));
+            }
+            const total = costoOperativo + [...tecnicas.values()].reduce((s, x) => s + x, 0);
+            miembros.sort((x, y) => Number(x.id_agendamam) - Number(y.id_agendamam));
+            miembros.forEach((m, i) => { m[campo] = i === 0 ? total : 0; });
+        }
+    }
+
     /** Unidades de facturación: cada visita (≥ 2 puntos de la misma pre-factura) es una sola; el resto, un caso cada una. */
     _unidades(casos) {
         const unidades = [];
@@ -229,6 +266,7 @@ class FacturacionService {
         const mapa = await this._visitasDeAgendas(pool, filas.map((r) => r.id_agendamam));
         const claves = [...mapa.values()].filter((v) => v.id_grupo && v.servicio !== null);
         const miembros = await this._miembrosDeVisitas(pool, claves);
+        await this._precioPorParametroDeVisitas(pool, filas, mapa, 'precio_uf');
         const out = [];
         const vistas = new Map();
         for (const fila of filas) {
@@ -353,6 +391,8 @@ class FacturacionService {
                 WHERE a.id_agendamam IN (${idsInClause})
             `);
             const casos = detalle.recordset;
+            // Una visita cobra cada parámetro una sola vez, no una por punto
+            await this._precioPorParametroDeVisitas(transaction, casos, await this._visitasDeAgendas(transaction, casos.map((c) => c.id_agendamam)), 'precio_analisis_uf');
 
             const valorUf = input.valorUf || await this.resolverValorUf(transaction, new Date());
 
@@ -799,11 +839,11 @@ class FacturacionService {
                     }
                     for (const a of detRes.recordset) {
                         if (a.tipo_analisis === 'CostoOperativo') { costoOperativo += Number(a.uf_individual || 0); hayCostoOperativo = true; continue; }
+                        // Cada parámetro se cobra una sola vez por visita, sin importar en cuántos puntos se midió
                         const nombre = a.nombre_tecnica || '-';
-                        const clave = nombre + '|' + Number(a.uf_individual || 0);
-                        const l = lineas.get(clave) || { nombre, unitario: Number(a.uf_individual || 0), cantidad: 0 };
-                        l.cantidad += 1;
-                        lineas.set(clave, l);
+                        const l = lineas.get(nombre) || { nombre, unitario: 0, cantidad: 1 };
+                        l.unitario = Math.max(l.unitario, Number(a.uf_individual || 0));
+                        lineas.set(nombre, l);
                     }
                 }
                 const filasDetalle = c.puntos === 1 ? unaLinea : [...lineas.values()];
@@ -915,6 +955,7 @@ class FacturacionService {
 
         const valorUf = await this.resolverValorUf(pool, new Date());
         const grupos = new Map();
+        await this._precioPorParametroDeVisitas(pool, detalle.recordset, await this._visitasDeAgendas(pool, detalle.recordset.map((c) => c.id_agendamam)), 'precio_venta_uf');
         for (const c of await this._anotarVisitas(pool, detalle.recordset)) {
             const subKey = agrupacionTipo === 'CENTRO' ? `C${c.id_centro}`
                 : agrupacionTipo === 'TIPO_AGUA' ? `T${c.id_tipoagua}`
