@@ -2012,11 +2012,17 @@ class FichaIngresoService {
         if (!grupo || !grupo.puntos || grupo.puntos.length < 2) return;
         const ids = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
         const pool = await getConnection();
+        // El observador se registra durante la ejecución en terreno: antes de que algún punto se haya ejecutado no existe y no se puede exigir
+        // (las aprobaciones técnica y de coordinación de una visita nueva ocurren antes de ejecutarla).
         const r = await pool.request().query(
-            `SELECT COUNT(*) AS n FROM App_Ma_Agenda_MUESTREOS
-             WHERE id_fichaingresoservicio IN (${ids.join(',')})
-               AND (LTRIM(RTRIM(ISNULL(nombre_observadorterreno, ''))) <> '' OR LTRIM(RTRIM(ISNULL(nombre_observadorterreno_retiro, ''))) <> '')`);
-        if (!r.recordset[0].n) throw this._errorDatos('Falta registrar la firma del observador: la visita no se puede aprobar hasta que el muestreador la registre.');
+            `SELECT
+                SUM(CASE WHEN id_estadomuestreo = 3 OR instalacion_completado = 'S' OR retiro_completado = 'S' THEN 1 ELSE 0 END) AS ejecutados,
+                SUM(CASE WHEN LTRIM(RTRIM(ISNULL(nombre_observadorterreno, ''))) <> '' OR LTRIM(RTRIM(ISNULL(nombre_observadorterreno_retiro, ''))) <> '' THEN 1 ELSE 0 END) AS con_observador
+             FROM App_Ma_Agenda_MUESTREOS
+             WHERE id_fichaingresoservicio IN (${ids.join(',')})`);
+        const { ejecutados, con_observador } = r.recordset[0];
+        if (!ejecutados) return; // visita aún sin ejecutar
+        if (!con_observador) throw this._errorDatos('Falta registrar la firma del observador: la visita no se puede aprobar hasta que el muestreador la registre.');
     }
 
     async approveFicha(id, { observaciones, sinNotificar = false }, user) {
