@@ -155,6 +155,31 @@ export const FichaDetailView = () => {
         fetchDetail();
     }, [selectedFichaId, selectedCorrelativo]);
 
+    // Se mantiene al día sin recargar la página (por ejemplo, el aviso "Falta registrar la firma" desaparece al registrarla en la app).
+    const [refrescos, setRefrescos] = useState(0);
+    useEffect(() => {
+        if (!selectedFichaId || !selectedCorrelativo) return;
+        let activo = true;
+        const refrescar = async () => {
+            if (document.visibilityState !== 'visible') return;
+            try {
+                const response = await apiClient.get(`/api/fichas/${selectedFichaId}/execution-detail`, { params: { correlativo: selectedCorrelativo } });
+                if (!activo) return;
+                setData(response.data.data || response.data);
+                setRefrescos((n) => n + 1);
+            } catch { /* si falla se conserva lo que ya se ve */ }
+        };
+        const intervalo = window.setInterval(refrescar, 45000);
+        document.addEventListener('visibilitychange', refrescar);
+        window.addEventListener('focus', refrescar);
+        return () => {
+            activo = false;
+            window.clearInterval(intervalo);
+            document.removeEventListener('visibilitychange', refrescar);
+            window.removeEventListener('focus', refrescar);
+        };
+    }, [selectedFichaId, selectedCorrelativo]);
+
     // Si este muestreo es parte de una visita con varios puntos, los otros puntos ya ejecutados quedan a un clic.
     const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string; hora?: string | null; observador?: boolean }[]>([]);
     const idAgendaActual = data?.ficha?.id_agendamam;
@@ -166,7 +191,7 @@ export const FichaDetailView = () => {
             .then(lista => { if (!cancelado) setOtrosPuntosEjecutados(lista); })
             .catch(() => { /* sin la lista simplemente no se muestra el aviso */ });
         return () => { cancelado = true; };
-    }, [idAgendaActual]);
+    }, [idAgendaActual, refrescos]);
 
     // Acompañante (opcional) de la visita
     const [acompananteVisita, setAcompananteVisita] = useState<string | null>(null);
@@ -359,6 +384,8 @@ export const FichaDetailView = () => {
         .filter((p: string, idx: number, arr: string[]) => arr.indexOf(p) === idx);
     const fotosInstalacion = media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion'));
     const fotosRetiro = media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('retiro'));
+    // Foto obligatoria de cada medición hecha en terreno; el nombre del archivo trae el parámetro
+    const fotosMedicion: { ruta: string; parametro: string; fase: string | null }[] = media?.fotos_medicion || [];
 
     return (
         <div className="shadcn-scope w-full max-w-full overflow-x-hidden p-4">
@@ -953,6 +980,15 @@ export const FichaDetailView = () => {
                                             </div>
                                         </div>
                                     )}
+                                    <div className="mt-6">
+                                        <div className="mb-4 flex items-center gap-2">
+                                            <IconPhoto className="text-primary" size={20} />
+                                            <h5 className="m-0 text-base font-semibold">Fotos de las mediciones</h5>
+                                        </div>
+                                        <div className="rounded-lg border border-border p-4">
+                                            <MedicionPhotoGrid fotos={fotosMedicion} mostrarFase={!isPuntual} onOpen={setOpenedImage} />
+                                        </div>
+                                    </div>
                                 </div>
                             </TabsContent>
 
@@ -1235,6 +1271,31 @@ function SectionDivider({ label }: { label: string }) {
         <div className="mb-4 flex items-center gap-3">
             <span className="text-[11px] font-semibold text-muted-foreground">{label}</span>
             <hr className="flex-1 border-t border-border" />
+        </div>
+    );
+}
+
+function MedicionPhotoGrid({ fotos, mostrarFase, onOpen }: { fotos: { ruta: string; parametro: string; fase: string | null }[]; mostrarFase: boolean; onOpen: (url: string) => void }) {
+    if (!fotos || fotos.length === 0) {
+        return <span className="text-[13px] italic text-muted-foreground">No hay fotos de mediciones.</span>;
+    }
+    return (
+        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
+            {fotos.map((foto, idx) => {
+                const url = `${apiClient.defaults.baseURL}${foto.ruta}`;
+                return (
+                    <Card key={idx} className="cursor-pointer p-1 transition-shadow hover:shadow-md" onClick={() => onOpen(url)}>
+                        <img
+                            src={url}
+                            className="h-[140px] w-full rounded object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x300?text=Sin+Imagen'; }}
+                            alt={foto.parametro}
+                        />
+                        <span className="mt-1 block truncate px-1 text-xs font-medium" title={foto.parametro}>{foto.parametro}</span>
+                        {mostrarFase && foto.fase && <span className="block px-1 text-[10px] capitalize text-muted-foreground">{foto.fase === 'instalacion' ? 'Instalación' : 'Retiro'}</span>}
+                    </Card>
+                );
+            })}
         </div>
     );
 }

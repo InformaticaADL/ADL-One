@@ -4720,10 +4720,44 @@ class FichaIngresoService {
 
         try {
             const result = await request.query(query);
-            return result.recordset || [];
+            const filas = result.recordset || [];
+            await this._anexarAvanceDeVisitas(pool, filas);
+            return filas;
         } catch (error) {
             logger.error('Error fetching muestreos ejecutados:', error);
             throw error;
+        }
+    }
+
+    // A cada fila de un punto ejecutado que pertenece a una visita (grupo + N° de servicio) le agrega cuántos puntos tiene
+    // la visita (sin contar los cancelados) y cuáles siguen sin ejecutar: visita_total y visita_pendientes.
+    async _anexarAvanceDeVisitas(pool, filas) {
+        const grupos = Array.from(new Set(filas.map((r) => Number(r.id_grupo)).filter(Boolean)));
+        if (grupos.length === 0) return;
+        const hermanas = (await pool.request().query(`
+            SELECT gf.id_grupo, a.id_agendamam, a.frecuencia_correlativo, a.id_estadomuestreo, a.estado_caso,
+                   LTRIM(RTRIM(e.ma_punto_muestreo)) AS punto
+            FROM App_Ma_GrupoMuestreo_Ficha gf
+            JOIN App_Ma_Agenda_MUESTREOS a ON a.id_fichaingresoservicio = gf.id_fichaingresoservicio
+            JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = a.id_fichaingresoservicio
+            WHERE gf.id_grupo IN (${grupos.join(',')})`)).recordset;
+        const porVisita = new Map();
+        for (const h of hermanas) {
+            if (String(h.estado_caso || '').toUpperCase() === 'CANCELADO') continue;
+            const numero = this._numeroDeServicio(h.frecuencia_correlativo);
+            if (numero === null) continue;
+            const clave = `${h.id_grupo}-${numero}`;
+            if (!porVisita.has(clave)) porVisita.set(clave, []);
+            porVisita.get(clave).push(h);
+        }
+        for (const r of filas) {
+            const numero = this._numeroDeServicio(r.frecuencia_correlativo);
+            const puntos = r.id_grupo != null && numero !== null ? porVisita.get(`${r.id_grupo}-${numero}`) : null;
+            if (!puntos) continue;
+            r.visita_total = puntos.length;
+            r.visita_pendientes = puntos
+                .filter((p) => Number(p.id_estadomuestreo) !== 3)
+                .map((p) => ({ id_agendamam: p.id_agendamam, punto: p.punto || null }));
         }
     }
 
@@ -5016,6 +5050,7 @@ class FichaIngresoService {
                 try {
                     const files = fs.readdirSync(correlativoFolder);
                     const fsPhotos = [];
+                    const fsMediciones = [];
                     const fsDocs = [];
 
                     files.forEach(file => {
@@ -5028,6 +5063,14 @@ class FichaIngresoService {
                                 ruta: publicUrl,
                                 tipo: lowerFile.includes('instalacion') ? 'instalacion' : lowerFile.includes('retiro') ? 'retiro' : 'desconocido',
                                 rol: lowerFile.includes('muestreador') ? 'muestreador' : lowerFile.includes('observador') ? 'observador' : lowerFile.includes('supervisor') ? 'supervisor' : 'otro'
+                            });
+                        } else if (lowerFile.includes('_med_') && /\.(jpg|jpeg|png)$/i.test(file)) {
+                            // <frecuencia>_med_<parametro>_<punto>_<fase>.<ext>: el parametro va con guiones en vez de espacios
+                            const m = file.match(/_med_([^_]+)_.*_(instalacion|retiro)\.[A-Za-z0-9]+$/i);
+                            fsMediciones.push({
+                                ruta: publicUrl,
+                                parametro: m ? m[1].replace(/-/g, ' ') : 'Medición',
+                                fase: m ? m[2].toLowerCase() : null,
                             });
                         } else if (lowerFile.includes('foto') && /\.(jpg|jpeg|png)$/i.test(file)) {
                             fsPhotos.push(publicUrl);
@@ -5067,6 +5110,7 @@ class FichaIngresoService {
                     });
 
                     media.ma_fotografia = fsPhotos.join(';');
+                    media.fotos_medicion = fsMediciones;
                     media.documentos = fsDocs;
                 } catch (fsErr) {
                     logger.warn(`Could not read correlativo folder ${correlativoFolder}: ${fsErr.message}`);

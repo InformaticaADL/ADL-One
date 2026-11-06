@@ -21,6 +21,7 @@ import {
     IconFilter,
     IconChevronDown,
     IconChevronRight,
+    IconRefresh,
 } from '@tabler/icons-react';
 
 // Permisos que habilitan abrir el detalle de ejecución. No hay columna de
@@ -91,10 +92,20 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
 
     useEffect(() => {
         loadMuestreos();
+        // Se mantiene al día sin recargar la página: por ejemplo, "Falta registrar la firma" desaparece solo al registrarla en la app.
+        const refrescar = () => { if (document.visibilityState === 'visible') loadMuestreos(true); };
+        const intervalo = window.setInterval(refrescar, 45000);
+        document.addEventListener('visibilitychange', refrescar);
+        window.addEventListener('focus', refrescar);
+        return () => {
+            window.clearInterval(intervalo);
+            document.removeEventListener('visibilitychange', refrescar);
+            window.removeEventListener('focus', refrescar);
+        };
     }, []);
 
-    const loadMuestreos = async () => {
-        setLoading(true);
+    const loadMuestreos = async (silencioso = false) => {
+        if (!silencioso) setLoading(true);
         try {
             const response = await fichaService.getMuestreosEjecutados();
             let data = [];
@@ -124,9 +135,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             setCasoAdlabMap(initialCasos);
         } catch (error) {
             console.error("Error loading muestreos ejecutados:", error);
-            showToast({ type: 'error', message: "Error al cargar los muestreos ejecutados" });
+            if (!silencioso) showToast({ type: 'error', message: "Error al cargar los muestreos ejecutados" });
         } finally {
-            setLoading(false);
+            if (!silencioso) setLoading(false);
         }
     };
 
@@ -236,7 +247,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             // Dentro de la visita, los puntos van en el orden en que se hicieron (por hora)
             const clave = (m: any) => (m.ma_muestreo_fechai && m.ma_muestreo_horai ? `${String(m.ma_muestreo_fechai).slice(0, 10)} ${String(m.ma_muestreo_horai).slice(0, 5)}` : '');
             for (const e of entradas) if (e._visita) e.miembros.sort((a: any, b: any) => (clave(a) && clave(b) ? clave(a).localeCompare(clave(b)) : clave(a) ? -1 : clave(b) ? 1 : 0));
-            g.items = entradas.map((e) => (e._visita && e.miembros.length === 1 ? e.miembros[0] : e));
+            g.items = entradas.map((e) => (e._visita && e.miembros.length === 1 && !(Number(e.visita_total) > 1) ? e.miembros[0] : e));
         }
 
         return Object.values(groups).sort((a, b) => {
@@ -276,7 +287,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     // Fila de una visita (varios puntos ejecutados): un solo acceso; al desplegarla aparecen todos sus puntos.
     const renderVisita = (v: any, idx: number) => {
         const abierta = visitasAbiertas.has(v._clave);
-        const total = v.miembros.length;
+        const ejecutados = v.miembros.length;
+        const pendientes: { id_agendamam: number; punto: string | null }[] = v.visita_pendientes || [];
+        const total = Math.max(Number(v.visita_total) || 0, ejecutados + pendientes.length, ejecutados);
         const realizados = v.miembros.filter((x: any) => realizadoStates[x.id_agendamam?.toString()]?.realizado).length;
         const casos = Array.from(new Set(v.miembros.map((x: any) => casoAdlabMap[x.id_agendamam?.toString()]).filter(Boolean)));
         const sinFirmaObservador = !v.miembros.some((x: any) => String(x.nombre_observadorterreno || '').trim() || String(x.nombre_observadorterreno_retiro || '').trim());
@@ -304,6 +317,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                 {abierta ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
                             </Button>
                             <Badge variant="secondary">Visita · {total} puntos</Badge>
+                            {pendientes.length > 0 && <Badge variant="warning">{ejecutados} de {total} ejecutados</Badge>}
                             {sinFirmaObservador && <span className="text-[10px] font-medium text-amber-700" title="La visita no se puede dar por cerrada sin la firma del observador">Falta registrar la firma del observador</span>}
                         </div>
                     </TableCell>
@@ -317,9 +331,11 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                     <TableCell>{v.muestreador || 'Sin Asignar'}</TableCell>
                     <TableCell>{v.muestreador_retiro || '-'}</TableCell>
                     <TableCell>
-                        {realizados === total
-                            ? <span className="block text-[10px] font-bold text-success">✓ Realizado ({realizados}/{total})</span>
-                            : <span className="text-[10px] text-muted-foreground">{realizados} de {total} realizados</span>}
+                        {pendientes.length > 0
+                            ? <span className="block text-[10px] font-semibold text-amber-700">En curso · faltan {pendientes.length} {pendientes.length === 1 ? 'punto' : 'puntos'}</span>
+                            : realizados === total
+                                ? <span className="block text-[10px] font-bold text-success">✓ Realizado ({realizados}/{total})</span>
+                                : <span className="text-[10px] text-muted-foreground">{realizados} de {total} realizados</span>}
                     </TableCell>
                 </TableRow>
                 {abierta && (
@@ -345,6 +361,13 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                         </button>
                                     );
                                 })}
+                                {pendientes.map((p, i) => (
+                                    <div key={`pend-${p.id_agendamam}`} className="flex w-full items-center gap-3 px-6 py-2.5 text-sm text-muted-foreground">
+                                        <span className="w-14 shrink-0 text-xs font-semibold">Punto {ejecutados + i + 1}</span>
+                                        <span className="min-w-0 flex-1">{p.punto || 'Sin nombre'}</span>
+                                        <span className="text-[10px] font-medium text-amber-700">Pendiente de ejecutar</span>
+                                    </div>
+                                ))}
                             </div>
                         </TableCell>
                     </TableRow>
@@ -366,6 +389,9 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                 rightSection={
                     <div className="flex flex-wrap items-center gap-2.5">
                         <span className="text-xs text-muted-foreground">{filteredMuestreos.length} servicios registrados</span>
+                        <Button variant="outline" onClick={() => loadMuestreos()} disabled={loading} title="Volver a cargar el listado">
+                            <IconRefresh size={16} /> Actualizar
+                        </Button>
                         {/* Los filtros vivían en una tarjeta siempre visible que empujaba el
                             listado fuera de pantalla. Ahora van en el panel lateral, igual
                             que en el resto de los listados. */}
