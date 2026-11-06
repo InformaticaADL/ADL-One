@@ -35,6 +35,9 @@ interface CasoFacturable {
     id_tipoagua: string | number;
     fecha_informe: string;
     precio_uf: number;
+    // Una visita (varios puntos) es un solo caso: su OI, N puntos y el precio total
+    es_visita?: boolean;
+    puntos?: number;
 }
 
 const PAGE_SIZE = 10;
@@ -384,7 +387,10 @@ const FacturacionProcesar: React.FC = () => {
                                                         aria-label={`Seleccionar caso ${c.n_caso}`}
                                                     />
                                                 </TableCell>
-                                                <TableCell>{c.n_caso}</TableCell>
+                                                <TableCell>
+                                                    {c.n_caso}
+                                                    {c.es_visita && <span className="ml-2 text-xs text-muted-foreground">· {c.puntos} puntos</span>}
+                                                </TableCell>
                                                 <TableCell className="max-w-[220px] truncate">{c.empresaservicio_nombre}</TableCell>
                                                 <TableCell className="max-w-[180px] truncate">{c.centro_nombre}</TableCell>
                                                 <TableCell>{c.fecha_informe ? new Date(c.fecha_informe).toLocaleDateString('es-CL') : '—'}</TableCell>

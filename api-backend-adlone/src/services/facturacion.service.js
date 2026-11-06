@@ -17,6 +17,124 @@ const fmtUfValor = (n) => Number(n || 0).toLocaleString('es-CL', { minimumFracti
 
 class FacturacionService {
 
+    // ------------------------------------------------------------------
+    // VISITAS (varios puntos): una visita es UN caso de facturación (un OI, N puntos). En la base cada punto sigue siendo una ficha con su
+    // fila de agenda (por eso fac_prefactura_caso guarda una fila por punto y los totales cuadran), pero la cola, la creación de la
+    // pre-factura y los PDF tratan a la visita como una unidad: mismo grupo (App_Ma_GrupoMuestreo_Ficha) y mismo N° de servicio
+    // (2.º segmento de frecuencia_correlativo).
+    // ------------------------------------------------------------------
+
+    _servicioDe(frecuencia) {
+        const n = String(frecuencia || '').split('-')[1];
+        return /^\d+$/.test(n || '') ? Number(n) : null;
+    }
+
+    _esCancelada(fila) {
+        return String(fila.estado_caso || '').toUpperCase() === 'CANCELADO' || /ANULA/i.test(String(fila.frecuencia_correlativo || ''));
+    }
+
+    /** Grupo y N° de servicio de cada agenda: Map id_agendamam -> { id_grupo, servicio } (id_grupo null si la ficha va sola). */
+    async _visitasDeAgendas(exec, ids) {
+        const out = new Map();
+        const lista = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+        if (lista.length === 0) return out;
+        const res = await new sql.Request(exec).query(`
+            SELECT a.id_agendamam, a.frecuencia_correlativo, gf.id_grupo
+            FROM App_Ma_Agenda_MUESTREOS a
+            LEFT JOIN App_Ma_GrupoMuestreo_Ficha gf ON gf.id_fichaingresoservicio = a.id_fichaingresoservicio
+            WHERE a.id_agendamam IN (${lista.join(',')})`);
+        for (const r of res.recordset) {
+            out.set(Number(r.id_agendamam), { id_grupo: r.id_grupo == null ? null : Number(r.id_grupo), servicio: this._servicioDe(r.frecuencia_correlativo) });
+        }
+        return out;
+    }
+
+    /** Todas las agendas de cada visita pedida: Map "grupo|servicio" -> filas. */
+    async _miembrosDeVisitas(exec, claves) {
+        const out = new Map();
+        const grupos = [...new Set(claves.map((c) => c.id_grupo).filter(Boolean))];
+        if (grupos.length === 0) return out;
+        const res = await new sql.Request(exec).query(`
+            SELECT a.id_agendamam, gf.id_grupo, a.frecuencia_correlativo, a.id_estadomuestreo, a.informe_emitido,
+                   a.id_estado_facturacion, a.estado_caso, a.caso_adlab
+            FROM App_Ma_GrupoMuestreo_Ficha gf
+            JOIN App_Ma_Agenda_MUESTREOS a ON a.id_fichaingresoservicio = gf.id_fichaingresoservicio
+            WHERE gf.id_grupo IN (${grupos.join(',')})`);
+        for (const r of res.recordset) {
+            const k = r.id_grupo + '|' + this._servicioDe(r.frecuencia_correlativo);
+            if (!out.has(k)) out.set(k, []);
+            out.get(k).push(r);
+        }
+        return out;
+    }
+
+    /** Una visita se puede facturar cuando todos sus puntos no cancelados están ejecutados y con el informe emitido. */
+    _visitaCompleta(filas) {
+        const activas = filas.filter((r) => !this._esCancelada(r));
+        return activas.length > 0 && activas.every((r) => Number(r.id_estadomuestreo) === 3 && r.informe_emitido === 'S');
+    }
+
+    /**
+     * Expande los ids elegidos: si uno es el punto de una visita, se toman todos los puntos de esa visita que se pueden facturar.
+     * Falla si la visita aún tiene puntos sin informe (no se factura a medias).
+     */
+    async _expandirVisitas(exec, ids) {
+        const mapa = await this._visitasDeAgendas(exec, ids);
+        const claves = [...mapa.values()].filter((v) => v.id_grupo && v.servicio !== null);
+        const miembros = await this._miembrosDeVisitas(exec, claves);
+        const expandidos = new Set();
+        for (const id of ids) {
+            const v = mapa.get(Number(id));
+            if (!v || !v.id_grupo || v.servicio === null) { expandidos.add(Number(id)); continue; }
+            const filas = miembros.get(v.id_grupo + '|' + v.servicio) || [];
+            if (filas.length === 0) { expandidos.add(Number(id)); continue; }
+            if (!this._visitaCompleta(filas)) {
+                const oi = (filas.find((r) => r.caso_adlab) || {}).caso_adlab || ('visita ' + v.id_grupo + '-' + v.servicio);
+                throw new Error(`La visita ${oi} aún tiene puntos sin informe emitido: se factura cuando estén todos.`);
+            }
+            for (const r of filas) {
+                if (this._esCancelada(r)) continue;
+                if (r.id_estado_facturacion == null || Number(r.id_agendamam) === Number(id)) expandidos.add(Number(r.id_agendamam));
+            }
+        }
+        return [...expandidos];
+    }
+
+    /** Agrega id_grupo y servicio a cada caso (para agruparlos en los PDF). */
+    async _anotarVisitas(exec, casos) {
+        const mapa = await this._visitasDeAgendas(exec, casos.map((c) => c.id_agendamam));
+        return casos.map((c) => {
+            const v = mapa.get(Number(c.id_agendamam)) || {};
+            return { ...c, id_grupo: v.id_grupo || null, servicio: v.servicio ?? null };
+        });
+    }
+
+    /** Unidades de facturación: cada visita (≥ 2 puntos de la misma pre-factura) es una sola; el resto, un caso cada una. */
+    _unidades(casos) {
+        const unidades = [];
+        const porVisita = new Map();
+        for (const c of casos) {
+            if (c.id_grupo && c.servicio != null) {
+                const k = c.id_grupo + '|' + c.servicio;
+                if (!porVisita.has(k)) { const u = { casos: [] }; porVisita.set(k, u); unidades.push(u); }
+                porVisita.get(k).casos.push(c);
+            } else unidades.push({ casos: [c] });
+        }
+        return unidades.map((u) => {
+            const cs = u.casos;
+            const oi = (cs.find((c) => c.correlativo_caso && !/^\d+-\d+-/.test(String(c.correlativo_caso))) || cs[0]).correlativo_caso;
+            const fechas = cs.map((c) => c.fecha_informe).filter(Boolean).sort();
+            return {
+                casos: cs,
+                puntos: cs.length,
+                correlativo_caso: oi,
+                fecha_informe: fechas.length ? fechas[fechas.length - 1] : null,
+                nombre_centro: cs[0].nombre_centro,
+                precio_venta_uf: cs.reduce((t, c) => t + Number(c.precio_venta_uf || 0), 0),
+            };
+        });
+    }
+
     /**
      * Casos facturables de Medio Ambiente: muestreos ejecutados con su informe
      * completo (ver trg_App_Ma_Resultados_InformeCompleto) y aún no incluidos
@@ -99,11 +217,39 @@ class FacturacionService {
 
         try {
             const result = await request.query(query);
-            return result.recordset;
+            return await this._agruparFacturablesPorVisita(pool, result.recordset);
         } catch (error) {
             logger.error('Error obteniendo casos facturables:', error);
             throw error;
         }
+    }
+
+    /** Une los puntos de una misma visita en una sola fila de la cola; las visitas con puntos sin informe aún no aparecen. */
+    async _agruparFacturablesPorVisita(pool, filas) {
+        const mapa = await this._visitasDeAgendas(pool, filas.map((r) => r.id_agendamam));
+        const claves = [...mapa.values()].filter((v) => v.id_grupo && v.servicio !== null);
+        const miembros = await this._miembrosDeVisitas(pool, claves);
+        const out = [];
+        const vistas = new Map();
+        for (const fila of filas) {
+            const v = mapa.get(Number(fila.id_agendamam));
+            if (!v || !v.id_grupo || v.servicio === null) { out.push(fila); continue; }
+            const k = v.id_grupo + '|' + v.servicio;
+            if (!this._visitaCompleta(miembros.get(k) || [])) continue; // se factura cuando estén todos los puntos
+            if (!vistas.has(k)) {
+                const fila0 = { ...fila, es_visita: true, id_grupo: v.id_grupo, puntos: 0, ids_agendamam: [], precio_uf: 0 };
+                vistas.set(k, fila0);
+                out.push(fila0);
+            }
+            const u = vistas.get(k);
+            u.puntos += 1;
+            u.ids_agendamam.push(Number(fila.id_agendamam));
+            u.precio_uf = Number(u.precio_uf) + Number(fila.precio_uf || 0);
+            if (Number(fila.id_agendamam) < Number(u.id_agendamam)) u.id_agendamam = fila.id_agendamam;
+            if (fila.fecha_informe && (!u.fecha_informe || fila.fecha_informe > u.fecha_informe)) u.fecha_informe = fila.fecha_informe;
+            if (fila.n_caso && /^\d+-\d+-/.test(String(u.n_caso)) ) u.n_caso = fila.n_caso;
+        }
+        return out;
     }
 
     /**
@@ -156,7 +302,7 @@ class FacturacionService {
      * @returns {Promise<Array<{numero_id:number, id_prefactura:number, id_empresaservicio:number, agrupacion_valor:string, total_uf:number, total_clp:number, casos:number}>>}
      */
     async crearPrefacturas(input, idUsuario) {
-        const ids = [...new Set((input.idAgendamamList || []).map(Number))];
+        let ids = [...new Set((input.idAgendamamList || []).map(Number))];
         if (ids.length === 0) throw new Error('Debe seleccionar al menos un caso.');
         if (ids.some((n) => !Number.isInteger(n) || n <= 0)) {
             throw new Error('idAgendamamList debe contener solo IDs numéricos válidos.');
@@ -172,6 +318,8 @@ class FacturacionService {
         await transaction.begin();
 
         try {
+            // Una visita elegida arrastra a todos sus puntos (todos o ninguno)
+            ids = await this._expandirVisitas(transaction, ids);
             const idsInClause = ids.join(',');
 
             // 1) Reclamar (candado anti doble-cobro)
@@ -418,7 +566,7 @@ class FacturacionService {
 
         return {
             ...cabecera.recordset[0],
-            casos: casos.recordset,
+            casos: await this._anotarVisitas(pool, casos.recordset),
             ordenes_compra: ordenesCompra.recordset,
             historial: historial.recordset,
         };
@@ -565,8 +713,10 @@ class FacturacionService {
 
             doc.font('Helvetica').fontSize(9);
             let subtotalCentro = 0;
-            for (const c of casos) {
-                doc.text(c.correlativo_caso || '-', 46, y, { width: 200 })
+            for (const c of this._unidades(casos)) {
+                // Una visita sale como un solo caso: su OI y la cantidad de puntos (no cuáles son)
+                const etiqueta = (c.correlativo_caso || '-') + (c.puntos > 1 ? ` · ${c.puntos} puntos` : '');
+                doc.text(etiqueta, 46, y, { width: 200 })
                     .text(c.fecha_informe ? this._fechaDDMMYYYY(c.fecha_informe) : '-', 260, y, { width: 130 })
                     .text(fmtUf(c.precio_venta_uf), 395, y, { width: 90, align: 'right' })
                     .text(fmtUf(c.precio_venta_uf), 490, y, { width: 65, align: 'right' });
@@ -618,28 +768,54 @@ class FacturacionService {
             ]);
 
             let subtotalCentro = 0;
-            for (const c of casos) {
+            for (const c of this._unidades(casos)) {
                 if (y > 700) { doc.addPage(); y = 40; }
                 doc.font('Helvetica-Bold').fontSize(8.5).text(c.correlativo_caso || '-', 46, y, { width: 140 });
+                if (c.puntos > 1) {
+                    doc.font('Helvetica').fontSize(7.5).fillColor('#555').text(`Visita · ${c.puntos} puntos`, 46, y + 11, { width: 140 });
+                    doc.fillColor('#000');
+                }
 
-                const detReq = pool.request();
-                detReq.input('idFicha', sql.Numeric(10, 0), c.id_fichaingresoservicio);
-                const detRes = await detReq.query(`
-                    SELECT d.tipo_analisis, t.nombre_tecnica, d.uf_individual
-                    FROM App_Ma_FichaIngresoServicio_DET d
-                    LEFT JOIN mae_tecnica t ON t.id_tecnica = d.id_tecnica
-                    WHERE d.id_fichaingresoservicio = @idFicha AND d.activo = 1
-                    ORDER BY d.item
-                `);
+                // Parámetros de la visita: cada técnica una vez, con la cantidad de puntos que la llevan (no se detalla qué punto es cuál);
+                // el costo operativo sale una sola vez, con el total de la visita.
+                const lineas = new Map();
+                const unaLinea = [];
+                let costoOperativo = 0;
+                let hayCostoOperativo = false;
+                for (const punto of c.casos) {
+                    const detReq = pool.request();
+                    detReq.input('idFicha', sql.Numeric(10, 0), punto.id_fichaingresoservicio);
+                    const detRes = await detReq.query(`
+                        SELECT d.tipo_analisis, t.nombre_tecnica, d.uf_individual
+                        FROM App_Ma_FichaIngresoServicio_DET d
+                        LEFT JOIN mae_tecnica t ON t.id_tecnica = d.id_tecnica
+                        WHERE d.id_fichaingresoservicio = @idFicha AND d.activo = 1
+                        ORDER BY d.item
+                    `);
+                    if (c.puntos === 1) {
+                        // Un caso de un solo punto sale como siempre: una línea por fila del DET, en su orden
+                        for (const a of detRes.recordset) unaLinea.push({ nombre: a.tipo_analisis === 'CostoOperativo' ? 'Costo operativo' : (a.nombre_tecnica || '-'), unitario: Number(a.uf_individual || 0), cantidad: 1 });
+                        continue;
+                    }
+                    for (const a of detRes.recordset) {
+                        if (a.tipo_analisis === 'CostoOperativo') { costoOperativo += Number(a.uf_individual || 0); hayCostoOperativo = true; continue; }
+                        const nombre = a.nombre_tecnica || '-';
+                        const clave = nombre + '|' + Number(a.uf_individual || 0);
+                        const l = lineas.get(clave) || { nombre, unitario: Number(a.uf_individual || 0), cantidad: 0 };
+                        l.cantidad += 1;
+                        lineas.set(clave, l);
+                    }
+                }
+                const filasDetalle = c.puntos === 1 ? unaLinea : [...lineas.values()];
+                if (c.puntos > 1 && hayCostoOperativo && costoOperativo > 0) filasDetalle.push({ nombre: 'Costo operativo', unitario: costoOperativo, cantidad: 1 });
 
                 doc.font('Helvetica').fontSize(8.5);
-                for (const a of detRes.recordset) {
+                for (const a of filasDetalle) {
                     if (y > 730) { doc.addPage(); y = 40; }
-                    const nombre = a.tipo_analisis === 'CostoOperativo' ? 'Costo operativo' : (a.nombre_tecnica || '-');
-                    doc.text(nombre, 195, y, { width: 170 })
-                        .text('1', 375, y, { width: 40, align: 'right' })
-                        .text(fmtUf(a.uf_individual), 425, y, { width: 60, align: 'right' })
-                        .text(fmtUf(a.uf_individual), 490, y, { width: 65, align: 'right' });
+                    doc.text(a.nombre, 195, y, { width: 170 })
+                        .text(String(a.cantidad), 375, y, { width: 40, align: 'right' })
+                        .text(fmtUf(a.unitario), 425, y, { width: 60, align: 'right' })
+                        .text(fmtUf(a.unitario * a.cantidad), 490, y, { width: 65, align: 'right' });
                     y += 12;
                 }
                 doc.lineWidth(0.5).strokeColor('#ddd').moveTo(375, y).lineTo(555, y).stroke();
@@ -711,13 +887,14 @@ class FacturacionService {
      * revisar antes de confirmar en Procesar.
      */
     async generarPdfPreview(idAgendamamList, agrupacionTipo = 'SIN_AGRUPACION') {
-        const ids = [...new Set((idAgendamamList || []).map(Number))];
+        let ids = [...new Set((idAgendamamList || []).map(Number))];
         if (ids.length === 0) throw new Error('Debe seleccionar al menos un caso.');
         if (!['SIN_AGRUPACION', 'CENTRO', 'TIPO_AGUA'].includes(agrupacionTipo)) {
             throw new Error('agrupacionTipo inválido.');
         }
 
         const pool = await getConnection();
+        ids = await this._expandirVisitas(pool, ids);
         const idsInClause = ids.join(',');
         const detalle = await pool.request().query(`
             SELECT
@@ -738,7 +915,7 @@ class FacturacionService {
 
         const valorUf = await this.resolverValorUf(pool, new Date());
         const grupos = new Map();
-        for (const c of detalle.recordset) {
+        for (const c of await this._anotarVisitas(pool, detalle.recordset)) {
             const subKey = agrupacionTipo === 'CENTRO' ? `C${c.id_centro}`
                 : agrupacionTipo === 'TIPO_AGUA' ? `T${c.id_tipoagua}`
                 : 'ALL';
@@ -1048,16 +1225,24 @@ class FacturacionService {
                 .query('SELECT * FROM fac_prefactura_caso WHERE id_pf_caso = @idc AND id_prefactura = @idp')).recordset[0];
             if (!caso) throw new Error('Ese caso no pertenece a esta pre-factura.');
 
-            const restantes = (await new sql.Request(transaction).input('idp', sql.Int, idPrefactura)
-                .query('SELECT COUNT(*) AS n FROM fac_prefactura_caso WHERE id_prefactura = @idp')).recordset[0].n;
-            if (restantes <= 1) {
+            // Si el caso es un punto de una visita, se quita la visita completa (todos sus puntos de esta pre-factura)
+            const todos = (await new sql.Request(transaction).input('idp', sql.Int, idPrefactura)
+                .query('SELECT id_pf_caso, id_agendamam FROM fac_prefactura_caso WHERE id_prefactura = @idp')).recordset;
+            const anotados = await this._anotarVisitas(transaction, todos);
+            const mio = anotados.find((x) => Number(x.id_pf_caso) === Number(idPfCaso));
+            const aQuitar = (mio && mio.id_grupo && mio.servicio != null)
+                ? anotados.filter((x) => x.id_grupo === mio.id_grupo && x.servicio === mio.servicio)
+                : (mio ? [mio] : []);
+            if (todos.length - aQuitar.length < 1) {
                 throw new Error('Es el único caso de la pre-factura: anúlala en vez de dejarla vacía.');
             }
 
-            await new sql.Request(transaction).input('idc', sql.Int, idPfCaso)
-                .query('DELETE FROM fac_prefactura_caso WHERE id_pf_caso = @idc');
-            await new sql.Request(transaction).input('ida', sql.Numeric(10, 0), caso.id_agendamam)
-                .query(`UPDATE App_Ma_Agenda_MUESTREOS SET id_estado_facturacion = NULL WHERE id_agendamam = @ida`);
+            for (const q of aQuitar) {
+                await new sql.Request(transaction).input('idc', sql.Int, q.id_pf_caso)
+                    .query('DELETE FROM fac_prefactura_caso WHERE id_pf_caso = @idc');
+                await new sql.Request(transaction).input('ida', sql.Numeric(10, 0), q.id_agendamam)
+                    .query(`UPDATE App_Ma_Agenda_MUESTREOS SET id_estado_facturacion = NULL WHERE id_agendamam = @ida`);
+            }
 
             await new sql.Request(transaction)
                 .input('idEntidad', sql.Int, idPrefactura)

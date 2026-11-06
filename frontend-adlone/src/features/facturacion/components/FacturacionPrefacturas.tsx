@@ -87,6 +87,21 @@ interface CasoPrefactura {
     precio_venta_uf: number;
 }
 
+// Una visita (varios puntos de la misma pre-factura) se muestra como un solo caso: OI, cantidad de puntos y total.
+const unidadesCasos = (casos: any[] = []) => {
+    const out: any[] = [];
+    const visitas = new Map<string, any>();
+    for (const c of casos) {
+        if (c.id_grupo && c.servicio != null) {
+            const k = `${c.id_grupo}|${c.servicio}`;
+            const u = visitas.get(k);
+            if (u) { u.puntos += 1; u.precio_venta_uf = Number(u.precio_venta_uf || 0) + Number(c.precio_venta_uf || 0); }
+            else { const nuevo = { ...c, puntos: 1, precio_venta_uf: Number(c.precio_venta_uf || 0) }; visitas.set(k, nuevo); out.push(nuevo); }
+        } else out.push({ ...c, puntos: 1 });
+    }
+    return out;
+};
+
 function Spinner({ className }: { className?: string }) {
     return <div className={cn('h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent', className)} />;
 }
@@ -699,7 +714,7 @@ const FacturacionPrefacturas: React.FC = () => {
 
                             <div className="my-4 border-t border-border" />
 
-                            <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Casos incluidos ({detalle.casos?.length || 0})</p>
+                            <p className="mb-2.5 text-xs font-bold uppercase tracking-wide text-muted-foreground">Casos incluidos ({unidadesCasos(detalle.casos).length})</p>
                             <div className="mb-5 overflow-hidden rounded-xl border border-border bg-card">
                                 <Table>
                                     <TableHeader>
@@ -707,16 +722,19 @@ const FacturacionPrefacturas: React.FC = () => {
                                             <TableHead>N° Caso</TableHead>
                                             <TableHead>Centro</TableHead>
                                             <TableHead className="text-right">UF</TableHead>
-                                            {puedeCorregir && (detalle.casos?.length || 0) > 1 && <TableHead className="w-10" />}
+                                            {puedeCorregir && unidadesCasos(detalle.casos).length > 1 && <TableHead className="w-10" />}
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {(detalle.casos || []).map((c: any) => (
+                                        {unidadesCasos(detalle.casos).map((c: any) => (
                                             <TableRow key={c.id_pf_caso}>
-                                                <TableCell>{c.correlativo_caso}</TableCell>
+                                                <TableCell>
+                                                    {c.correlativo_caso}
+                                                    {c.puntos > 1 && <span className="ml-2 text-xs text-muted-foreground">· {c.puntos} puntos</span>}
+                                                </TableCell>
                                                 <TableCell className="max-w-[200px] truncate">{c.nombre_centro}</TableCell>
                                                 <TableCell className="text-right tabular-nums">{fmtUf(c.precio_venta_uf)}</TableCell>
-                                                {puedeCorregir && (detalle.casos?.length || 0) > 1 && (
+                                                {puedeCorregir && unidadesCasos(detalle.casos).length > 1 && (
                                                     <TableCell>
                                                         <Button
                                                             size="icon"
@@ -956,7 +974,7 @@ const FacturacionPrefacturas: React.FC = () => {
                     <DialogHeader>
                         <DialogTitle>¿Quitar el caso {confirmQuitarCaso?.correlativo_caso || confirmQuitarCaso?.id_agendamam}?</DialogTitle>
                     </DialogHeader>
-                    <p className="text-sm text-muted-foreground">Vuelve a la cola de facturables para incluirlo en otra pre-factura. Se recalculan los totales.</p>
+                    <p className="text-sm text-muted-foreground">Vuelve a la cola de facturables para incluirlo en otra pre-factura. Si es una visita, se quitan todos sus puntos. Se recalculan los totales.</p>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setConfirmQuitarCaso(null)}>Cancelar</Button>
                         <Button variant="destructive" onClick={confirmarQuitarCaso}>Quitar</Button>
