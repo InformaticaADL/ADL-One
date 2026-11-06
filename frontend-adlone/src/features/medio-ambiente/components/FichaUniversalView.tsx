@@ -331,6 +331,20 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         }
     };
 
+    // Aprobar toda la visita puede dejar puntos sin aprobar (cada uno se aprueba por separado): se avisa cuáles y por qué, no solo "éxito"
+    const avisarResultadoVisita = (r: any, textoOk: string) => {
+        const aprobados = r?.aprobados?.length ?? 0;
+        const fallidos: { id: number; error: string }[] = r?.fallidos ?? [];
+        if (fallidos.length === 0) {
+            showToast({ type: 'success', message: `Visita ${textoOk} (${aprobados} puntos)` });
+            return;
+        }
+        showToast({
+            type: 'error',
+            message: `Se aprobaron ${aprobados} de ${r?.total ?? aprobados + fallidos.length} puntos. No se pudo aprobar: ${fallidos.map((x) => `ficha ${x.id} (${x.error})`).join('; ')}`,
+        });
+    };
+
     const processAction = async () => {
         if (!confirmAction) return;
         setActionLoading(true);
@@ -339,7 +353,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                 case 'approve_tech':
                     if (esVisita && aprobarTodaLaVisita) {
                         const r = (await fichaService.aprobarVisita(fichaId, 'tecnica', { observaciones: tecnicaObs, user: { id: user?.id || 0 } }))?.data;
-                        showToast({ type: 'success', message: `Visita ACEPTADA técnicamente (${r?.aprobados?.length ?? 0} puntos)` });
+                        avisarResultadoVisita(r, 'ACEPTADA técnicamente');
                     } else {
                         await fichaService.approve(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
                         showToast({ type: 'success', message: 'Ficha ACEPTADA técnicamente' });
@@ -352,7 +366,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                 case 'approve_coord':
                     if (esVisita && aprobarTodaLaVisita) {
                         const r = (await fichaService.aprobarVisita(fichaId, 'coordinacion', { observaciones: coordinacionObs, user: { id: user?.id || 0 } }))?.data;
-                        showToast({ type: 'success', message: `Visita APROBADA para programación (${r?.aprobados?.length ?? 0} puntos)` });
+                        avisarResultadoVisita(r, 'APROBADA para programación');
                     } else {
                         await fichaService.approveCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
                         showToast({ type: 'success', message: 'Ficha APROBADA para programación' });
