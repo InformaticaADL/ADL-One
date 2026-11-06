@@ -2118,16 +2118,28 @@ class FichaIngresoService {
         if (pendientes.length === 0) throw this._errorDatos('Ningún punto de la visita está pendiente en esta etapa.');
         const aprobados = [];
         const fallidos = [];
+        const aprobarUno = (idPunto, i) => (etapa === 'coordinacion'
+            ? this.approveCoordinacion(idPunto, { observaciones, sinNotificar: i > 0 }, user)
+            : this.approveFicha(idPunto, { observaciones, sinNotificar: i > 0 }, user));
+        logger.info(`[aprobarVisita] etapa ${etapa}: ficha ${id}, grupo con ${ids.length} puntos, pendientes en esta etapa: ${pendientes.join(', ')}`);
         for (let i = 0; i < pendientes.length; i++) {
             try {
-                if (etapa === 'coordinacion') await this.approveCoordinacion(pendientes[i], { observaciones, sinNotificar: i > 0 }, user);
-                else await this.approveFicha(pendientes[i], { observaciones, sinNotificar: i > 0 }, user);
+                try {
+                    await aprobarUno(pendientes[i], i);
+                } catch (e1) {
+                    // Un fallo puntual (bloqueo o interbloqueo en la base) no debe dejar a un punto sin aprobar: se reintenta una vez
+                    if (e1.statusCode) throw e1;
+                    logger.warn(`[aprobarVisita] ficha ${pendientes[i]} falló (${e1.message}); se reintenta una vez`);
+                    await new Promise((r) => setTimeout(r, 500));
+                    await aprobarUno(pendientes[i], i);
+                }
                 aprobados.push(pendientes[i]);
             } catch (e) {
-                logger.warn(`[aprobarVisita] no se pudo aprobar la ficha ${pendientes[i]}: ${e.message}`);
+                logger.error(`[aprobarVisita] no se pudo aprobar la ficha ${pendientes[i]} (etapa ${etapa}): ${e.message}`, { stack: e.stack });
                 fallidos.push({ id: pendientes[i], error: e.message });
             }
         }
+        logger.info(`[aprobarVisita] etapa ${etapa}: aprobados ${aprobados.join(', ') || '-'}; fallidos ${fallidos.map((f) => f.id).join(', ') || '-'}`);
         return { aprobados, fallidos, total: ids.length };
     }
 
