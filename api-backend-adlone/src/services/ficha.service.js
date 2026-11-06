@@ -3942,6 +3942,10 @@ class FichaIngresoService {
             await transaction.commit();
             logger.info(`Muestreo cancelado exitosamente: Agenda ${idAgenda}`);
 
+            // Si el punto era parte de una visita, sus documentos (FoMa y cadenas) cambian o recién pueden generarse: se le avisa a ADL SAMPLING,
+            // que los regenera solo si todos los puntos activos de la visita ya están completos. Un fallo aquí no afecta la cancelación.
+            this.avisarVisitaCambiada(idAgenda);
+
             // NOTIFICACIÓN: Muestreo Cancelado
             if (!opciones.sinNotificar) try {
                 const poolNotif = await getConnection();
@@ -5273,6 +5277,21 @@ class FichaIngresoService {
      * el template lo lee en vivo). No lanza si un documento falla: cada
      * resultado queda reflejado en el objeto devuelto.
      */
+    avisarVisitaCambiada(idAgendamam) {
+        const baseUrl = process.env.APP_MAM_API_URL;
+        if (!baseUrl || !process.env.INTERNAL_API_KEY) return;
+        fetch(`${baseUrl}/ficha/interno/regenerar-documentos-visita`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-internal-key': process.env.INTERNAL_API_KEY },
+            body: JSON.stringify({ id_agendamam: Number(idAgendamam) }),
+            signal: AbortSignal.timeout(30000),
+        }).then(async (r) => {
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) logger.warn(`Documentos de la visita no regenerados (agenda ${idAgendamam}): ${body.message || 'HTTP ' + r.status}`);
+            else if (body.regenerados) logger.info(`Documentos de la visita regenerados tras cancelar la agenda ${idAgendamam}`);
+        }).catch((e) => logger.warn(`No se pudo avisar a ADL SAMPLING de la visita (agenda ${idAgendamam}): ${e.message}`));
+    }
+
     async regenerarDocumentos(idAgendamam, { foma, cadena } = {}) {
         const baseUrl = process.env.APP_MAM_API_URL;
         const headers = {
