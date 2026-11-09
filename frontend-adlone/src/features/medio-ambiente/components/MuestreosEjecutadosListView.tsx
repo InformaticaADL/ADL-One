@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import {
@@ -23,6 +22,7 @@ import {
     IconChevronDown,
     IconChevronRight,
     IconRefresh,
+    IconAlertTriangle,
 } from '@tabler/icons-react';
 
 // Permisos que habilitan abrir el detalle de ejecución. No hay columna de
@@ -48,6 +48,15 @@ interface Props {
     onBackToMenu: () => void;
 }
 
+// Qué falta para cerrar un muestreo (o una visita), en orden de prioridad
+type EstadoCierre = 'curso' | 'firma' | 'caso' | 'listo' | 'hecho';
+const ESTADOS_CIERRE: { clave: EstadoCierre; etiqueta: string }[] = [
+    { clave: 'curso', etiqueta: 'En curso' },
+    { clave: 'firma', etiqueta: 'Falta firma' },
+    { clave: 'caso', etiqueta: 'Sin caso' },
+    { clave: 'listo', etiqueta: 'Listo para marcar' },
+];
+
 interface GroupedMuestreo {
     fecha: string;
     etiqueta: string;
@@ -58,6 +67,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const { setSelectedFicha, setActiveSubmodule, activeModule } = useNavStore();
     const { hasPermission } = useAuth();
     const puedeVerDetalle = hasPermission(PERMISOS_DETALLE);
+    const showCaso = activeModule !== 'gem' && activeModule !== 'unidades-gem';
 
     const abrirDetalle = (m: any) => {
         setSelectedFicha(m.id_fichaingresoservicio || m.correlativo_ficha, m.frecuencia_correlativo);
@@ -82,6 +92,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
     const [currentPage, setCurrentPage] = useState(1);
+    const [filtroEstado, setFiltroEstado] = useState<EstadoCierre | 'todos'>('todos');
     // Visitas con varios puntos: una sola fila por visita; los puntos se ven al desplegarla.
     const [visitasAbiertas, setVisitasAbiertas] = useState<Set<string>>(new Set());
     const alternarVisita = (clave: string) => setVisitasAbiertas((prev) => {
@@ -210,7 +221,7 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
         });
     }, [filteredMuestreos]);
 
-    const groupedMuestreos = useMemo(() => {
+    const groupedBase = useMemo(() => {
         const groups: Record<string, GroupedMuestreo> = {};
 
         sortedMuestreos.forEach(m => {
@@ -256,7 +267,28 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
         });
     }, [sortedMuestreos]);
 
-    const totalItems = sortedMuestreos.length;
+    const estadoDe = (e: any): EstadoCierre => {
+        const miembros: any[] = e._visita ? e.miembros : [e];
+        const pendientes = e._visita ? (e.visita_pendientes || []).length : 0;
+        if (pendientes > 0) return 'curso';
+        if (e._visita && !miembros.some((x: any) => String(x.nombre_observadorterreno || '').trim() || String(x.nombre_observadorterreno_retiro || '').trim())) return 'firma';
+        if (showCaso && !miembros.some((x: any) => casoAdlabMap[x.id_agendamam?.toString()])) return 'caso';
+        const realizados = miembros.filter((x: any) => realizadoStates[x.id_agendamam?.toString()]?.realizado).length;
+        return realizados === miembros.length ? 'hecho' : 'listo';
+    };
+    const conteoEstados = useMemo(() => {
+        const c: Record<EstadoCierre, number> = { curso: 0, firma: 0, caso: 0, listo: 0, hecho: 0 };
+        groupedBase.forEach((g) => g.items.forEach((e) => { c[estadoDe(e)] += 1; }));
+        return c;
+    }, [groupedBase, realizadoStates, casoAdlabMap]);
+    const groupedMuestreos = useMemo(() => {
+        if (filtroEstado === 'todos') return groupedBase;
+        return groupedBase
+            .map((g) => ({ ...g, items: g.items.filter((e) => estadoDe(e) === filtroEstado) }))
+            .filter((g) => g.items.length > 0);
+    }, [groupedBase, filtroEstado, realizadoStates, casoAdlabMap]);
+
+    const totalItems = groupedMuestreos.reduce((a, g) => a + g.items.length, 0);
     const totalPages = Math.ceil(totalItems / itemsPerPage) || 1;
 
     // Paginate grouped data
@@ -282,106 +314,128 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
         if (itemCount >= pageEnd) break;
     }
 
-    const showCaso = activeModule !== 'gem' && activeModule !== 'unidades-gem';
-    const columnas = showCaso ? 9 : 8;
 
-    // Fila de una visita (varios puntos ejecutados): un solo acceso; al desplegarla aparecen todos sus puntos.
-    const renderVisita = (v: any, idx: number) => {
-        const abierta = visitasAbiertas.has(v._clave);
-        const ejecutados = v.miembros.length;
-        const pendientes: { id_agendamam: number; punto: string | null }[] = v.visita_pendientes || [];
-        const total = Math.max(Number(v.visita_total) || 0, ejecutados + pendientes.length, ejecutados);
-        const realizados = v.miembros.filter((x: any) => realizadoStates[x.id_agendamam?.toString()]?.realizado).length;
-        const casos = Array.from(new Set(v.miembros.map((x: any) => casoAdlabMap[x.id_agendamam?.toString()]).filter(Boolean)));
-        const sinFirmaObservador = !v.miembros.some((x: any) => String(x.nombre_observadorterreno || '').trim() || String(x.nombre_observadorterreno_retiro || '').trim());
+    // Una entrada del listado: un punto único o una visita con varios puntos. Dice qué falta para cerrarla; "Abrir" lleva al detalle.
+    const renderEntrada = (m: any, idx: number) => {
+        const esVisita = !!m._visita;
+        const miembros: any[] = esVisita ? m.miembros : [m];
+        const clave = esVisita ? m._clave : `${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`;
+        const pendientes: { id_agendamam: number; punto: string | null }[] = esVisita ? (m.visita_pendientes || []) : [];
+        const ejecutados = miembros.length;
+        const total = esVisita ? Math.max(Number(m.visita_total) || 0, ejecutados + pendientes.length) : 1;
+        const estado = estadoDe(m);
+        const abierta = visitasAbiertas.has(clave);
+        const casos = Array.from(new Set(miembros.map((x: any) => casoAdlabMap[x.id_agendamam?.toString()]).filter(Boolean)));
+        const fotosTotal = miembros.reduce((a: number, x: any) => a + (x.fotos_medicion?.total || 0), 0);
+        const muestra: string[] = miembros.flatMap((x: any) => x.fotos_medicion?.muestra || []).slice(0, 3);
+        const primero = miembros[0];
+        const realizado = realizadoStates[primero.id_agendamam?.toString()];
+        const abrir = () => abrirDetalle(primero);
+        const etiqueta = estado === 'curso' ? { v: 'outline' as const, t: 'En curso' }
+            : estado === 'firma' ? { v: 'warning' as const, t: 'Falta firma' }
+            : estado === 'caso' ? { v: 'warning' as const, t: 'Sin caso' }
+            : estado === 'listo' ? { v: 'success' as const, t: 'Listo para marcar' }
+            : { v: 'secondary' as const, t: 'Realizado' };
+        const marca = estado === 'hecho' || estado === 'listo'
+            ? 'border-success bg-success text-white'
+            : estado === 'curso' ? 'border-dashed border-primary text-primary' : 'border-warning text-warning';
         return (
-            <React.Fragment key={`visita-${v._clave}-${idx}`}>
-                <TableRow
-                    onClick={puedeVerDetalle ? () => abrirDetalle(v.miembros[0]) : undefined}
-                    title={puedeVerDetalle ? 'Ver la visita completa' : undefined}
-                    className={cn('bg-muted/30', puedeVerDetalle && 'cursor-pointer')}
-                >
-                    {showCaso && (
-                        <TableCell>
-                            {casos.length > 0 ? <Badge>{casos.join(' · ')}</Badge> : <span className="text-xs text-muted-foreground">Sin asignar</span>}
-                        </TableCell>
-                    )}
-                    <TableCell>
-                        <div className="flex items-center gap-1.5 whitespace-nowrap">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-6 w-6"
-                                aria-label={abierta ? 'Ocultar los puntos' : 'Mostrar los puntos'}
-                                onClick={(e) => { e.stopPropagation(); alternarVisita(v._clave); }}
-                            >
-                                {abierta ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-                            </Button>
-                            <Badge variant="secondary">Visita · {total} puntos</Badge>
-                            {pendientes.length > 0 && <Badge variant="warning">{ejecutados} de {total} ejecutados</Badge>}
-                            {sinFirmaObservador && <span className="text-[10px] font-medium text-amber-700" title="La visita no se puede dar por cerrada sin la firma del observador">Falta registrar la firma del observador</span>}
+            <div key={`entrada-${clave}`} className="overflow-hidden rounded-lg border border-border bg-card">
+                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-3 max-sm:grid-cols-[auto_minmax(0,1fr)]">
+                    <span className={cn('grid h-[22px] w-[22px] place-items-center rounded-full border-[1.5px] text-[11px] font-semibold', marca)}>
+                        {estado === 'hecho' || estado === 'listo' ? '✓' : estado === 'curso' ? ejecutados : '!'}
+                    </span>
+                    <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold tracking-tight" title={m.cliente}>
+                            {m.cliente || '-'} <span className="font-normal text-muted-foreground">· {m.centro || '-'}</span>
                         </div>
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{v.fecha_retiro ? new Date(v.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
-                    <TableCell className="max-w-[180px] truncate" title={v.cliente}>{v.cliente || '-'}</TableCell>
-                    <TableCell className="max-w-[180px] truncate" title={v.centro}>{v.centro || '-'}</TableCell>
-                    <TableCell>
-                        <span className="block text-xs font-medium">{v.nombre_subarea || '-'}</span>
-                        <span className="block text-[10px] text-muted-foreground">{v.objetivo || '-'}</span>
-                    </TableCell>
-                    <TableCell>{v.muestreador || 'Sin Asignar'}</TableCell>
-                    <TableCell>{v.muestreador_retiro || '-'}</TableCell>
-                    <TableCell>
-                        {pendientes.length > 0
-                            ? <span className="block text-[10px] font-semibold text-amber-700">En curso · faltan {pendientes.length} {pendientes.length === 1 ? 'punto' : 'puntos'}</span>
-                            : realizados === total
-                                ? <span className="block text-[10px] font-bold text-success">✓ Realizado ({realizados}/{total})</span>
-                                : <span className="text-[10px] text-muted-foreground">{realizados} de {total} realizados</span>}
-                    </TableCell>
-                </TableRow>
-                {abierta && (
-                    <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={columnas} className="bg-muted/10 p-0">
-                            <div className="flex flex-col divide-y divide-border">
-                                {v.miembros.map((p: any, i: number) => {
-                                    const k = p.id_agendamam?.toString();
-                                    const ok = !!realizadoStates[k]?.realizado;
-                                    return (
-                                        <button
-                                            key={`${k}-${i}`}
-                                            type="button"
-                                            disabled={!puedeVerDetalle}
-                                            onClick={() => abrirDetalle(p)}
-                                            className="flex w-full items-center gap-3 px-6 py-2.5 text-left text-sm hover:bg-accent disabled:cursor-default"
-                                        >
-                                            <span className="w-14 shrink-0 text-xs font-semibold text-muted-foreground">Punto {i + 1}</span>
-                                            <span className="min-w-0 flex-1 font-medium">{p.punto_muestreo || 'Sin nombre'}</span>
-                                            {p.fotos_medicion?.total > 0 && (
-                                                <span className="flex shrink-0 items-center gap-1" title={`${p.fotos_medicion.total} foto(s) de mediciones`}>
-                                                    {p.fotos_medicion.muestra.map((ruta: string) => (
-                                                        <img key={ruta} src={`${apiClient.defaults.baseURL}${ruta}`} alt="" className="h-8 w-8 rounded border border-border object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                                    ))}
-                                                    {p.fotos_medicion.total > p.fotos_medicion.muestra.length && <span className="text-[10px] font-medium text-muted-foreground">+{p.fotos_medicion.total - p.fotos_medicion.muestra.length}</span>}
-                                                </span>
-                                            )}
-                                            <span className="shrink-0 text-xs text-muted-foreground" title={p.frecuencia_correlativo}>{p.frecuencia_correlativo}</span>
-                                            {showCaso && (casoAdlabMap[k] ? <Badge>{casoAdlabMap[k]}</Badge> : <span className="text-xs text-muted-foreground">Sin caso</span>)}
-                                            {ok ? <Badge variant="success">Realizado</Badge> : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
-                                        </button>
-                                    );
-                                })}
-                                {pendientes.map((p, i) => (
-                                    <div key={`pend-${p.id_agendamam}`} className="flex w-full items-center gap-3 px-6 py-2.5 text-sm text-muted-foreground">
-                                        <span className="w-14 shrink-0 text-xs font-semibold">Punto {ejecutados + i + 1}</span>
-                                        <span className="min-w-0 flex-1">{p.punto || 'Sin nombre'}</span>
-                                        <span className="text-[10px] font-medium text-amber-700">Pendiente de ejecutar</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </TableCell>
-                    </TableRow>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            <span>{esVisita ? `Visita · ${total} puntos` : 'Punto único'}</span>
+                            <span>{m.nombre_subarea || m.objetivo || '-'}</span>
+                            <span>{m.muestreador || 'Sin asignar'}{m.muestreador_retiro && m.muestreador_retiro !== m.muestreador ? ` / ${m.muestreador_retiro}` : ''}</span>
+                            {!esVisita && <span title={m.frecuencia_correlativo}>{m.frecuencia_correlativo || '-'}</span>}
+                            {!esVisita && m.fecha_completado && dayjs().diff(dayjs(m.fecha_completado), 'hour') < 24 && <Badge variant="success">Nuevo</Badge>}
+                            {esVisita && (
+                                <span className="inline-flex items-center gap-1.5">
+                                    <span className="h-1 w-20 overflow-hidden rounded-full bg-muted">
+                                        <span className={cn('block h-full rounded-full', ejecutados === total ? 'bg-success' : 'bg-foreground')} style={{ width: `${(100 * ejecutados) / total}%` }} />
+                                    </span>
+                                    <span className="tabular-nums">{ejecutados} de {total}</span>
+                                </span>
+                            )}
+                            {muestra.length > 0 && (
+                                <span className="inline-flex items-center gap-1" title={`${fotosTotal} foto(s) de mediciones`}>
+                                    {muestra.map((ruta) => (
+                                        <img key={ruta} src={`${apiClient.defaults.baseURL}${ruta}`} alt="" className="h-6 w-6 rounded border border-border object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                    ))}
+                                    {fotosTotal > muestra.length && <span className="tabular-nums">+{fotosTotal - muestra.length}</span>}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-end gap-2 max-sm:col-start-2 max-sm:justify-start">
+                        {showCaso && (casos.length > 0 ? <Badge variant="secondary" className="tabular-nums">{casos.join(' · ')}</Badge> : <span className="text-xs text-muted-foreground">Sin caso</span>)}
+                        <Badge variant={etiqueta.v}>{etiqueta.t}</Badge>
+                        {esVisita && (
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={abierta ? 'Ocultar los puntos' : 'Mostrar los puntos'} aria-expanded={abierta} onClick={() => alternarVisita(clave)}>
+                                {abierta ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                            </Button>
+                        )}
+                        {puedeVerDetalle && <Button variant="outline" size="sm" onClick={abrir}>Abrir</Button>}
+                    </div>
+                </div>
+                {estado === 'curso' && (
+                    <div className="mx-4 mb-3 ml-[50px] flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs font-medium text-warning">
+                        <IconAlertTriangle size={14} className="shrink-0" />
+                        Faltan {pendientes.length} {pendientes.length === 1 ? 'punto' : 'puntos'} por ejecutar. Los documentos se generan al completar todos.
+                    </div>
                 )}
-            </React.Fragment>
+                {estado === 'firma' && (
+                    <div className="mx-4 mb-3 ml-[50px] flex items-center gap-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs font-medium text-warning">
+                        <IconAlertTriangle size={14} className="shrink-0" />
+                        Falta registrar la firma del observador: la visita no se puede dar por cerrada.
+                    </div>
+                )}
+                {esVisita && abierta && (
+                    <div className="divide-y divide-border border-t border-border bg-muted/40">
+                        {miembros.map((p: any, i: number) => {
+                            const k = p.id_agendamam?.toString();
+                            const ok = !!realizadoStates[k]?.realizado;
+                            const fotos = p.fotos_medicion?.muestra || [];
+                            return (
+                                <div key={`${k}-${i}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto_auto] items-center gap-3 px-4 py-2 text-[13px] max-sm:grid-cols-[auto_minmax(0,1fr)_auto]">
+                                    <span className="grid h-[22px] w-[22px] place-items-center rounded-full border-[1.5px] border-success bg-success text-[11px] font-semibold text-white">✓</span>
+                                    <div className="min-w-0">
+                                        <span className="font-medium">{p.punto_muestreo || 'Sin nombre'}</span>
+                                        <span className="ml-2 text-xs text-muted-foreground" title={p.frecuencia_correlativo}>{p.frecuencia_correlativo}</span>
+                                    </div>
+                                    <span className="flex items-center gap-1 max-sm:hidden">
+                                        {fotos.map((ruta: string) => (
+                                            <img key={ruta} src={`${apiClient.defaults.baseURL}${ruta}`} alt="" className="h-6 w-6 rounded border border-border object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                        ))}
+                                    </span>
+                                    <span className="flex items-center gap-2">
+                                        {ok && <Badge variant="success">Realizado</Badge>}
+                                        {puedeVerDetalle && <Button variant="ghost" size="sm" onClick={() => abrirDetalle(p)}>Ver</Button>}
+                                    </span>
+                                </div>
+                            );
+                        })}
+                        {pendientes.map((p, i) => (
+                            <div key={`pend-${p.id_agendamam}`} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2 text-[13px] text-muted-foreground">
+                                <span className="grid h-[22px] w-[22px] place-items-center rounded-full border-[1.5px] border-dashed border-border text-[11px] font-semibold">{ejecutados + i + 1}</span>
+                                <span>{p.punto || 'Sin nombre'}</span>
+                                <span className="text-xs font-medium text-warning">Pendiente de ejecutar</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+                {!esVisita && realizado?.realizado && (
+                    <div className="border-t border-border bg-muted/40 px-4 py-1.5 text-xs text-muted-foreground">
+                        Realizado por <span className="font-medium text-foreground">{realizado.userName}</span>{realizado.fecha ? ` · ${realizado.fecha}` : ''}
+                    </div>
+                )}
+            </div>
         );
     };
 
@@ -461,6 +515,21 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
             />
 
             <div className="flex flex-col gap-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="inline-flex flex-wrap gap-0.5 rounded-lg border border-border bg-background p-0.5" role="group" aria-label="Filtrar por estado">
+                        {[{ clave: 'todos' as const, etiqueta: 'Todos' }, ...ESTADOS_CIERRE].map((op) => (
+                            <button
+                                key={op.clave}
+                                type="button"
+                                aria-pressed={filtroEstado === op.clave}
+                                onClick={() => { setFiltroEstado(op.clave); setCurrentPage(1); }}
+                                className={cn('rounded-md px-3 py-1 text-[13px] font-medium transition-colors', filtroEstado === op.clave ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                            >
+                                {op.etiqueta}{op.clave !== 'todos' && conteoEstados[op.clave] > 0 ? <span className="ml-1.5 tabular-nums text-muted-foreground">{conteoEstados[op.clave]}</span> : null}
+                            </button>
+                        ))}
+                    </div>
+                </div>
                 {loading ? (
                     <Card>
                         <div className="flex flex-col items-center gap-2 p-8">
@@ -474,87 +543,19 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                     </Card>
                 ) : (
                     displayedGroups.map((group) => (
-                        <Card key={group.fecha} className="overflow-hidden p-0">
-                            <div className="flex items-center justify-between bg-accent px-4 py-3">
-                                <span className="text-sm font-semibold">{group.etiqueta}</span>
-                                <Badge>{group.items.length} servicios</Badge>
+                        <section key={group.fecha} className="flex flex-col gap-2">
+                            <div className="flex items-center gap-3 pt-2 text-[13px] font-semibold text-muted-foreground">
+                                <span>{group.etiqueta} · {group.items.length}</span>
+                                <span className="h-px flex-1 bg-border" />
                             </div>
-                            <div className="overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent">
-                                            {showCaso && <TableHead className="w-[90px]">Caso ADLab</TableHead>}
-                                            <TableHead className="w-[130px]">Correlativo</TableHead>
-                                            <TableHead className="w-[110px]">Fecha</TableHead>
-                                            <TableHead className="w-[180px]">Cliente</TableHead>
-                                            <TableHead className="w-[180px]">F. Emisora</TableHead>
-                                            <TableHead className="w-[160px]">Área / Obj.</TableHead>
-                                            <TableHead className="w-[120px]">M. Inst.</TableHead>
-                                            <TableHead className="w-[120px]">M. Ret.</TableHead>
-                                            <TableHead className="w-[180px]">Realizado por GEM</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {group.items.map((m, idx) => {
-                                            if (m._visita) return renderVisita(m, idx);
-                                            const key = m.id_agendamam?.toString();
-                                            const isRealizado = !!realizadoStates[key]?.realizado;
-                                            return (
-                                                <TableRow
-                                                    key={`${m.id_agendamam || m.correlativo_ficha || m.id_fichaingresoservicio}-${idx}`}
-                                                    // Clic en cualquier parte de la fila: mismo destino
-                                                    // que el botón "Ver Detalle Ejecución".
-                                                    onClick={puedeVerDetalle ? () => abrirDetalle(m) : undefined}
-                                                    title={puedeVerDetalle ? 'Ver detalle de ejecución' : undefined}
-                                                    className={cn(
-                                                        isRealizado && 'bg-success/5 hover:bg-success/10',
-                                                        puedeVerDetalle && 'cursor-pointer'
-                                                    )}
-                                                >
-                                                    {showCaso && (
-                                                        <TableCell>
-                                                            {casoAdlabMap[key] ? <Badge>{casoAdlabMap[key]}</Badge> : <span className="text-xs text-muted-foreground">Sin asignar</span>}
-                                                        </TableCell>
-                                                    )}
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-1 whitespace-nowrap">
-                                                            <span className="text-xs font-semibold" title={m.frecuencia_correlativo}>{m.frecuencia_correlativo || '-'}</span>
-                                                            {m.fecha_completado && dayjs().diff(dayjs(m.fecha_completado), 'hour') < 24 && <Badge variant="success">Nuevo</Badge>}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="whitespace-nowrap">{m.fecha_retiro ? new Date(m.fecha_retiro).toLocaleDateString('es-CL', { timeZone: 'UTC' }) : '-'}</TableCell>
-                                                    <TableCell className="max-w-[180px] truncate" title={m.cliente}>{m.cliente || '-'}</TableCell>
-                                                    <TableCell className="max-w-[180px] truncate" title={m.centro}>{m.centro || '-'}</TableCell>
-                                                    <TableCell>
-                                                        <span className="block text-xs font-medium">{m.nombre_subarea || '-'}</span>
-                                                        <span className="block text-[10px] text-muted-foreground">{m.objetivo || '-'}</span>
-                                                    </TableCell>
-                                                    <TableCell>{m.muestreador || 'Sin Asignar'}</TableCell>
-                                                    <TableCell>{m.muestreador_retiro || '-'}</TableCell>
-                                                    <TableCell>
-                                                        {isRealizado ? (
-                                                            <div>
-                                                                <span className="block text-[10px] font-bold text-success">✓ Realizado</span>
-                                                                <span className="block text-[10px] leading-tight text-muted-foreground">
-                                                                    <strong>Por:</strong> {realizadoStates[key]?.userName}<br />
-                                                                    <strong>Fecha:</strong> {realizadoStates[key]?.fecha}
-                                                                </span>
-                                                            </div>
-                                                        ) : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </Card>
+                            {group.items.map((m, idx) => renderEntrada(m, idx))}
+                        </section>
                     ))
                 )}
 
                 <div className="flex items-center justify-between px-1">
                     <span className="text-[13px] text-muted-foreground">
-                        Mostrando {sortedMuestreos.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).length} de {filteredMuestreos.length} registros
+                        Mostrando {Math.min(itemsPerPage, Math.max(0, totalItems - (currentPage - 1) * itemsPerPage))} de {totalItems} {totalItems === 1 ? 'muestreo' : 'muestreos'}
                     </span>
                     <div className="flex items-center gap-1">
                         <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((p) => p - 1)}>Anterior</Button>

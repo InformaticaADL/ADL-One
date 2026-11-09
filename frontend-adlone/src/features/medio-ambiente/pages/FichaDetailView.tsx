@@ -405,21 +405,26 @@ export const FichaDetailView = () => {
                     <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
                         <IconMapPin size={16} className="shrink-0 text-primary" />
                         <span className="font-medium text-foreground">Visita con {puntos.length} puntos</span>
-                        <Select
-                            value={actual}
-                            onValueChange={(v) => { const p = puntos.find((x) => String(x.id_ficha) === v); if (p && String(p.id_ficha) !== actual) setSelectedFicha(p.id_ficha, p.correlativo); }}
-                        >
-                            <SelectTrigger className="h-8 w-[340px] max-w-full" aria-label="Punto de la visita">
-                                <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {puntos.map((p, i) => (
-                                    <SelectItem key={p.id_ficha} value={String(p.id_ficha)}>
-                                        Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}{p.hora ? ` · ${p.hora.slice(11)}` : ''}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Punto de la visita">
+                            {puntos.map((p, i) => (
+                                <button
+                                    key={p.id_ficha}
+                                    type="button"
+                                    aria-pressed={String(p.id_ficha) === actual}
+                                    onClick={() => { if (String(p.id_ficha) !== actual) setSelectedFicha(p.id_ficha, p.correlativo); }}
+                                    className={cn(
+                                        'flex items-center gap-2 rounded-lg border bg-background px-3 py-1.5 text-left text-[13px] transition-colors hover:bg-accent',
+                                        String(p.id_ficha) === actual ? 'border-foreground ring-1 ring-foreground' : 'border-border'
+                                    )}
+                                >
+                                    <span className="grid h-[18px] w-[18px] place-items-center rounded-full bg-success text-[10px] font-semibold text-white">✓</span>
+                                    <span>
+                                        <span className="block font-medium">Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}</span>
+                                        {p.hora && <span className="block text-[11.5px] text-muted-foreground">{p.hora.slice(11)}</span>}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                         {acompananteVisita && (
                             <span className="text-[13px] text-muted-foreground">Acompañante: <span className="font-medium text-foreground">{acompananteVisita}</span></span>
                         )}
@@ -433,89 +438,39 @@ export const FichaDetailView = () => {
                 );
             })()}
 
-            {/* Header */}
-            <Card className="mb-4 overflow-hidden" style={{ background: 'var(--app-header-gradient)' }}>
-                <div className="grid items-center gap-6 p-6" style={{ gridTemplateColumns: '3fr 7fr 2fr' }}>
-                    <div className="flex items-start gap-2">
-                        <Button variant="ghost" size="icon" className="mt-1" onClick={handleBack}>
-                            <IconArrowLeft size={20} />
-                        </Button>
-                        <div>
-                            <h2 className="m-0 text-2xl font-bold leading-tight text-primary">{ficha?.caso_adlab || 'Caso S/N'}</h2>
-                            <span className="mt-1 block text-xs font-semibold text-muted-foreground">{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</span>
-                            <Badge variant="success" className="mt-1.5">EJECUTADO</Badge>
+            {/* Cabecera: identidad del muestreo y acciones. El detalle de datos va en el panel "Resumen" */}
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+                <div className="flex min-w-0 items-start gap-2">
+                    <Button variant="ghost" size="icon" className="mt-0.5" onClick={handleBack}>
+                        <IconArrowLeft size={20} />
+                    </Button>
+                    <div className="min-w-0">
+                        <h2 className="m-0 truncate text-2xl font-semibold tracking-tight">{ficha?.nombre_empresa || '—'}</h2>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
+                            <Badge variant="secondary" className="tabular-nums">{ficha?.caso_adlab || 'Sin caso'}</Badge>
+                            <Badge variant="success">EJECUTADO</Badge>
+                            {isRechazada && <Badge variant="destructive">RECHAZADA</Badge>}
+                            <span>{ficha?.nombre_centro || '—'}</span><span>·</span><span>{ficha?.nombre_objetivomuestreo_ma || '—'}</span>
+                            <span>·</span><span className="tabular-nums" title="Correlativo">{ficha?.frecuencia_correlativo || 'Correlativo S/N'}</span>
                         </div>
                     </div>
-
-                    <div className="grid grid-cols-3 gap-6">
-                        {/* Group 1: Empresa Context */}
-                        <div className="flex flex-col gap-1">
-                            <span className="whitespace-nowrap text-[11px] font-semibold text-primary">EMPRESA / CONTACTO / UBICACIÓN</span>
-                            <span className="text-[13px] font-semibold text-primary">{ficha?.nombre_empresa || '—'}</span>
-                            <span className="text-xs text-muted-foreground">{ficha?.nombre_contacto || '—'}</span>
-                            <div className="mt-1 flex items-center gap-1">
-                                <IconMapPin size={12} className="text-muted-foreground" />
-                                <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</span>
-                                {ficha?.referencia_googlemaps && (
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" asChild>
-                                        <a href={ficha.referencia_googlemaps} target="_blank" rel="noopener noreferrer">
-                                            <IconMapPin size={14} />
-                                        </a>
-                                    </Button>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Group 2: Technical Context */}
-                        <div className="flex flex-col gap-1">
-                            <span className="whitespace-nowrap text-[11px] font-semibold text-primary">CENTRO / OBJETIVO</span>
-                            <span className="text-[13px] font-semibold">{ficha?.nombre_centro || '—'}</span>
-                            <span className="text-xs text-muted-foreground">{ficha?.nombre_objetivomuestreo_ma || '—'}</span>
-                        </div>
-
-                        {/* Group 3: Operational */}
-                        <div className="flex flex-col gap-1">
-                            <span className="whitespace-nowrap text-[11px] font-semibold text-primary">DETALLE ACTIVIDAD</span>
-                            {isPuntual ? (
-                                <div>
-                                    <span className="text-[10px] font-semibold text-muted-foreground">FECHA MUESTREO</span>
-                                    <span className="block text-xs font-semibold">{parseFechaStr(ficha?.ma_muestreo_fechai)}</span>
-                                    <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground" title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</span>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div>
-                                        <span className="text-[10px] font-semibold text-muted-foreground">INICIO</span>
-                                        <span className="block text-xs font-semibold">{parseFechaStr(ficha?.ma_muestreo_fechai)}</span>
-                                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground" title={procesos?.instalacion?.nombreMuestreador}>{procesos?.instalacion?.nombreMuestreador || '—'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="text-[10px] font-semibold text-muted-foreground">TÉRMINO</span>
-                                        <span className="block text-xs font-semibold">{parseFechaStr(ficha?.ma_muestreo_fechat)}</span>
-                                        <span className="overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground" title={procesos?.retiro?.nombreMuestreador}>{procesos?.retiro?.nombreMuestreador || '—'}</span>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="flex h-full flex-col items-end justify-center gap-2">
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2">
                         {/* Botón Información — abre el HelpCenter */}
-                        <Button variant="outline" className="w-full font-semibold" onClick={() => setHelpCenterOpen(true)}>
+                        <Button variant="outline" className="font-medium" onClick={() => setHelpCenterOpen(true)}>
                             <IconInfoCircle size={14} /> Información
                         </Button>
 
                         {!(activeModule === 'gem' || activeModule === 'unidades-gem') && (
                             <ProtectedContent permission="MA_COMERCIAL_REMUESTREAR">
-                                <Button variant="outline" className="w-full text-accent-violet hover:text-accent-violet" onClick={() => setActiveSubmodule('ma-remuestreo')}>
+                                <Button variant="outline" className="text-accent-violet hover:text-accent-violet" onClick={() => setActiveSubmodule('ma-remuestreo')}>
                                     <IconRefresh size={18} /> Remuestreo
                                 </Button>
                             </ProtectedContent>
                         )}
                         <ProtectedContent permission="FI_EXP_MC">
                             <Button
-                                className="w-full"
-                                variant={isRechazada ? 'destructive' : 'default'}
+                                variant={isRechazada ? 'destructive' : 'outline'}
                                 title={isRechazada ? 'Atención: Esta ficha ha sido rechazada' : 'Descargar PDF'}
                                 onClick={async () => {
                                     try {
@@ -540,7 +495,7 @@ export const FichaDetailView = () => {
 
                         {/* Realizado por GEM - solo visible para rol GEM MAM PM */}
                         {(activeModule === 'gem' || activeModule === 'unidades-gem') && isGemMamPm && (
-                            <div className={cn('w-full rounded-lg border p-2', realizadoGem?.realizado ? 'border-success bg-success/10' : 'border-border')}>
+                            <div className={cn('rounded-lg border px-3 py-1.5', realizadoGem?.realizado ? 'border-success bg-success/10' : 'border-border')}>
                                 <div className="flex flex-col items-center gap-1">
                                     <span className={cn('text-center text-[11px] font-semibold', realizadoGem?.realizado ? 'text-success' : 'text-muted-foreground')}>
                                         Realizado por GEM
@@ -561,8 +516,7 @@ export const FichaDetailView = () => {
                             </div>
                         )}
                     </div>
-                </div>
-            </Card>
+            </div>
 
             {/* Modal de confirmación Realizado por GEM + OI */}
             <Dialog
@@ -667,38 +621,25 @@ export const FichaDetailView = () => {
                 </DialogContent>
             </Dialog>
 
-            <Tabs defaultValue="datos_ingresados" className="w-full">
+            <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-5 max-lg:grid-cols-1">
+            <Tabs defaultValue="resultados" className="w-full min-w-0">
                 <TabsList>
-                    <TabsTrigger value="datos_ingresados" className="gap-1.5">
-                        <IconDatabase size={16} /> Datos ingresados
+                    <TabsTrigger value="resultados" className="gap-1.5">
+                        <IconDatabase size={16} /> Resultados
+                    </TabsTrigger>
+                    <TabsTrigger value="fotos" className="gap-1.5">
+                        <IconPhoto size={16} /> Fotos
+                    </TabsTrigger>
+                    <TabsTrigger value="firmas" className="gap-1.5">
+                        <IconSignature size={16} /> Firmas
                     </TabsTrigger>
                     <TabsTrigger value="documentos" className="gap-1.5">
                         <IconFileText size={16} /> Documentos
                     </TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="datos_ingresados" className="mt-4">
-                    <Card className="w-full overflow-hidden p-0">
-                        <Tabs defaultValue="equipos" className="w-full px-4">
-                            <TabsList>
-                                <TabsTrigger value="equipos" className="gap-1.5">
-                                    <IconTool size={16} /> Equipos
-                                </TabsTrigger>
-                                <TabsTrigger value="datos" className="gap-1.5">
-                                    <IconCalendarTime size={16} /> Datos
-                                </TabsTrigger>
-                                <TabsTrigger value="analisis" className="gap-1.5">
-                                    <IconFlask size={16} /> Análisis
-                                </TabsTrigger>
-                                <TabsTrigger value="fotos" className="gap-1.5">
-                                    <IconPhoto size={16} /> Fotos
-                                </TabsTrigger>
-                                <TabsTrigger value="firmas" className="gap-1.5">
-                                    <IconSignature size={16} /> Firmas
-                                </TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="equipos" className="mt-0">
+                <TabsContent value="resultados" className="mt-4 flex flex-col gap-4">
+                            <div data-seccion="equipos">
                                 <div className="p-4">
                                     {isPuntual ? (
                                         <div>
@@ -775,9 +716,9 @@ export const FichaDetailView = () => {
                                     <span className="mt-4 block text-[11px] font-semibold text-muted-foreground">OBSERVACIONES TÉCNICAS</span>
                                     <span className="text-[13px] italic text-muted-foreground">{procesos?.instalacion?.condiciones?.observaciones || 'Sin observaciones.'}</span>
                                 </div>
-                            </TabsContent>
+                            </div>
 
-                            <TabsContent value="datos" className="mt-0">
+                            <div data-seccion="datos">
                                 <div className="p-4">
                                     <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))' }}>
                                         {isPuntual ? (
@@ -847,9 +788,9 @@ export const FichaDetailView = () => {
                                         )}
                                     </div>
                                 </div>
-                            </TabsContent>
+                            </div>
 
-                            <TabsContent value="analisis" className="mt-0">
+                            <div data-seccion="analisis">
                                 <div className="p-4">
                                     <div className="flex flex-col gap-6">
                                         {/* Análisis de Terreno */}
@@ -931,9 +872,11 @@ export const FichaDetailView = () => {
                                         </div>
                                     </div>
                                 </div>
-                            </TabsContent>
+                            </div>
 
-                            <TabsContent value="fotos" className="mt-0">
+                </TabsContent>
+
+                            <TabsContent value="fotos" className="mt-4">
                                 <div className="p-4">
                                     {isPuntual ? (
                                         <div>
@@ -992,7 +935,7 @@ export const FichaDetailView = () => {
                                 </div>
                             </TabsContent>
 
-                            <TabsContent value="firmas" className="mt-0">
+                            <TabsContent value="firmas" className="mt-4">
                                 <div className="p-4">
                                     {isPuntual ? (
                                         <FirmasBloque proceso={procesos?.instalacion} nombreOrigen="instalacion" />
@@ -1014,9 +957,6 @@ export const FichaDetailView = () => {
                                     )}
                                 </div>
                             </TabsContent>
-                        </Tabs>
-                    </Card>
-                </TabsContent>
 
                 <TabsContent value="documentos" className="mt-4">
                     <Card className="w-full p-5">
@@ -1159,6 +1099,64 @@ export const FichaDetailView = () => {
                     </Card>
                 </TabsContent>
             </Tabs>
+
+            <aside className="flex flex-col gap-4 lg:sticky lg:top-3">
+                <Card className="p-4">
+                    <h4 className="m-0 mb-3 text-sm font-semibold tracking-tight">Resumen</h4>
+                    <dl className="m-0 grid grid-cols-[84px_minmax(0,1fr)] gap-x-3 gap-y-2 text-[13px]">
+                        <dt className="text-muted-foreground">Empresa</dt><dd className="m-0 break-words font-medium">{ficha?.nombre_empresa || '—'}</dd>
+                        <dt className="text-muted-foreground">Contacto</dt><dd className="m-0 break-words font-medium">{ficha?.nombre_contacto || '—'}</dd>
+                        <dt className="text-muted-foreground">Centro</dt><dd className="m-0 break-words font-medium">{ficha?.nombre_centro || '—'}</dd>
+                        <dt className="text-muted-foreground">Objetivo</dt><dd className="m-0 break-words font-medium">{ficha?.nombre_objetivomuestreo_ma || '—'}</dd>
+                        <dt className="text-muted-foreground">Ubicación</dt>
+                        <dd className="m-0 flex items-start gap-1 break-words font-medium tabular-nums">
+                            <span>{ficha?.latitud ? `${ficha.latitud}, ${ficha.longitud}` : (ficha?.ma_coordenadas || '—')}</span>
+                            {ficha?.referencia_googlemaps && (
+                                <a href={ficha.referencia_googlemaps} target="_blank" rel="noopener noreferrer" className="text-primary" title="Abrir en el mapa"><IconMapPin size={14} /></a>
+                            )}
+                        </dd>
+                        {isPuntual ? (
+                            <>
+                                <dt className="text-muted-foreground">Fecha</dt><dd className="m-0 font-medium tabular-nums">{parseFechaStr(ficha?.ma_muestreo_fechai)}</dd>
+                                <dt className="text-muted-foreground">Muestreador</dt><dd className="m-0 font-medium">{procesos?.instalacion?.nombreMuestreador || '—'}</dd>
+                            </>
+                        ) : (
+                            <>
+                                <dt className="text-muted-foreground">Inicio</dt><dd className="m-0 font-medium tabular-nums">{parseFechaStr(ficha?.ma_muestreo_fechai)}<span className="block font-normal text-muted-foreground">{procesos?.instalacion?.nombreMuestreador || '—'}</span></dd>
+                                <dt className="text-muted-foreground">Término</dt><dd className="m-0 font-medium tabular-nums">{parseFechaStr(ficha?.ma_muestreo_fechat)}<span className="block font-normal text-muted-foreground">{procesos?.retiro?.nombreMuestreador || '—'}</span></dd>
+                            </>
+                        )}
+                    </dl>
+                </Card>
+                {(() => {
+                    const nombreObs = (n: any) => !!n && n !== 'S/D';
+                    const hayObs = nombreObs(procesos?.instalacion?.nombreObservador) || nombreObs(procesos?.retiro?.nombreObservador) || otrosPuntosEjecutados.some((p) => p.observador);
+                    const ejecutados = 1 + otrosPuntosEjecutados.length;
+                    const pasos: { titulo: string; ok: boolean; detalle: string }[] = [
+                        { titulo: 'Puntos ejecutados', ok: true, detalle: `${ejecutados} ${ejecutados === 1 ? 'punto' : 'puntos'}` },
+                        { titulo: 'Firma del observador', ok: hayObs, detalle: hayObs ? 'Registrada' : 'Falta registrarla' },
+                        { titulo: 'Caso asignado', ok: !!ficha?.caso_adlab, detalle: ficha?.caso_adlab || 'Sin asignar' },
+                        { titulo: 'Realizado por GEM', ok: !!realizadoGem?.realizado, detalle: realizadoGem?.realizado ? realizadoGem.userName : 'Pendiente' },
+                    ];
+                    return (
+                        <Card className="p-4">
+                            <h4 className="m-0 mb-2 text-sm font-semibold tracking-tight">Cierre del muestreo</h4>
+                            <div className="divide-y divide-border">
+                                {pasos.map((p) => (
+                                    <div key={p.titulo} className="flex items-start gap-2.5 py-2 text-[13px]">
+                                        <span className={cn('mt-0.5 grid h-[18px] w-[18px] shrink-0 place-items-center rounded-full border-[1.5px] text-[10px] font-semibold', p.ok ? 'border-success bg-success text-white' : 'border-warning text-warning')}>{p.ok ? '✓' : '!'}</span>
+                                        <div>
+                                            <div className="font-medium">{p.titulo}</div>
+                                            <div className="text-xs text-muted-foreground">{p.detalle}</div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    );
+                })()}
+            </aside>
+            </div>
 
             <Dialog open={!!openedImage} onOpenChange={(open) => { if (!open) setOpenedImage(null); }}>
                 <DialogContent className="max-w-[80vw] p-0">
