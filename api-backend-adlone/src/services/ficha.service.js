@@ -4729,6 +4729,16 @@ class FichaIngresoService {
         }
     }
 
+    // Hasta `max` fotos de mediciones (<frecuencia>_med_*.jpg) de un punto, más cuántas hay en total. Solo lee el nombre de los archivos.
+    _fotosMedicionDe(frecuencia, max = 4) {
+        try {
+            const carpeta = path.join(process.env.RUTA_FOTOS || 'C:\Users\vremolcoy\Documents\FOTOS APP', String(frecuencia || '').trim());
+            if (!fs.existsSync(carpeta)) return { total: 0, muestra: [] };
+            const fotos = fs.readdirSync(carpeta).filter((f) => f.toLowerCase().includes('_med_') && /.(jpe?g|png)$/i.test(f));
+            return { total: fotos.length, muestra: fotos.slice(0, max).map((f) => `/fotos/${String(frecuencia).trim()}/${f}`) };
+        } catch { return { total: 0, muestra: [] }; }
+    }
+
     // A cada fila de un punto ejecutado que pertenece a una visita (grupo + N° de servicio) le agrega cuántos puntos tiene
     // la visita (sin contar los cancelados) y cuáles siguen sin ejecutar: visita_total y visita_pendientes.
     async _anexarAvanceDeVisitas(pool, filas) {
@@ -4755,6 +4765,7 @@ class FichaIngresoService {
             const puntos = r.id_grupo != null && numero !== null ? porVisita.get(`${r.id_grupo}-${numero}`) : null;
             if (!puntos) continue;
             r.visita_total = puntos.length;
+            r.fotos_medicion = this._fotosMedicionDe(r.frecuencia_correlativo);
             r.visita_pendientes = puntos
                 .filter((p) => Number(p.id_estadomuestreo) !== 3)
                 .map((p) => ({ id_agendamam: p.id_agendamam, punto: p.punto || null }));

@@ -5,6 +5,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { useNavStore } from '../../../store/navStore';
 import { useAuth } from '../../../contexts/AuthContext';
+import apiClient from '../../../config/axios.config';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -355,6 +356,14 @@ export const MuestreosEjecutadosListView: React.FC<Props> = ({ onBackToMenu }) =
                                         >
                                             <span className="w-14 shrink-0 text-xs font-semibold text-muted-foreground">Punto {i + 1}</span>
                                             <span className="min-w-0 flex-1 font-medium">{p.punto_muestreo || 'Sin nombre'}</span>
+                                            {p.fotos_medicion?.total > 0 && (
+                                                <span className="flex shrink-0 items-center gap-1" title={`${p.fotos_medicion.total} foto(s) de mediciones`}>
+                                                    {p.fotos_medicion.muestra.map((ruta: string) => (
+                                                        <img key={ruta} src={`${apiClient.defaults.baseURL}${ruta}`} alt="" className="h-8 w-8 rounded border border-border object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                    ))}
+                                                    {p.fotos_medicion.total > p.fotos_medicion.muestra.length && <span className="text-[10px] font-medium text-muted-foreground">+{p.fotos_medicion.total - p.fotos_medicion.muestra.length}</span>}
+                                                </span>
+                                            )}
                                             <span className="shrink-0 text-xs text-muted-foreground" title={p.frecuencia_correlativo}>{p.frecuencia_correlativo}</span>
                                             {showCaso && (casoAdlabMap[k] ? <Badge>{casoAdlabMap[k]}</Badge> : <span className="text-xs text-muted-foreground">Sin caso</span>)}
                                             {ok ? <Badge variant="success">Realizado</Badge> : <span className="text-[10px] text-muted-foreground">Pendiente</span>}
