@@ -36,6 +36,7 @@ import { UserNotificationsPage } from '../features/notifications/pages/UserNotif
 import { ProfilePage } from '../features/auth/pages/ProfilePage';
 import ChatModule from '../features/chat/ChatModule';
 import FacturacionModule from '../features/facturacion/components/FacturacionModule';
+import FacturacionSaludModule from '../features/facturacion-salud/components/FacturacionSaludModule';
 import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
@@ -168,6 +169,9 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
         // el módulo debe renderizarse SIEMPRE, tenga o no submódulo elegido
         // (FacturacionModule decide qué pestaña mostrar según activeSubmodule).
         if (activeModule === 'facturacion') return <FacturacionModule />;
+        if (activeModule === 'facturacion_salud' || (activeSubmodule && activeSubmodule.startsWith('fs-'))) {
+            return <FacturacionSaludModule />;
+        }
 
         // --- 3. Lógica de Aterrizaje (Logo de ADL One o Fallbacks) ---
         if (!activeSubmodule) {

@@ -67,4 +67,14 @@ export const FIXED_TOP_MODULES: FixedModule[] = [
             { id: 'fac-configuracion', label: 'Configuración', permission: 'FAC_UF_ADMIN' },
         ],
     },
+    {
+        label: 'Facturación Salud', icon: IconFileInvoice, id: 'facturacion_salud',
+        links: [
+            { id: 'fs-dashboard', label: 'Dashboard Salud' },
+            { id: 'fs-procesar', label: 'Valorizar y Pre-Facturar' },
+            { id: 'fs-prefacturas', label: 'Pre-Facturas Casos' },
+            { id: 'fs-otras-ventas', label: 'Otras Ventas y NC/ND' },
+            { id: 'fs-dte', label: 'Exportación DTE (35 Col)' },
+        ],
+    },
 ];
