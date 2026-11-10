@@ -112,6 +112,11 @@ const mapExcelDataToPayload = (d: AnalisisExcelItem['excelData']) => {
         fecha_baja: d.fecha_baja || undefined,
         plazo_vigencia: d.plazo_vigencia || '',
         estado_equipo: d.estado_equipo || '',
+        marca: d.marca || '',
+        modelo: d.modelo || '',
+        n_serie: d.n_serie || '',
+        influencia_significativa: d.influencia_significativa || '',
+        justificacion_influencia: d.justificacion_influencia || '',
     };
 };
 
@@ -156,6 +161,11 @@ const mapExcelDataToUpdatePayload = (item: AnalisisExcelItem) => {
     if (d.n_documento_compra) payload.n_documento_compra = d.n_documento_compra;
     if (d.valor_unitario !== undefined && d.valor_unitario !== null) payload.valor_unitario = d.valor_unitario;
     if (d.fecha_baja) payload.fecha_baja = d.fecha_baja;
+    if (d.marca) payload.marca = d.marca;
+    if (d.modelo) payload.modelo = d.modelo;
+    if (d.n_serie) payload.n_serie = d.n_serie;
+    if (d.influencia_significativa) payload.influencia_significativa = d.influencia_significativa;
+    if (d.justificacion_influencia) payload.justificacion_influencia = d.justificacion_influencia;
     if (d.siguiente_verificacion) {
         // vigencia sigue a siguiente_verificacion (mismo criterio que EquipoForm).
         // Si ya está vencida (equipos dados de baja o atrasados) solo se manda
@@ -183,7 +193,9 @@ const buildInitialData = (item: AnalisisExcelItem): any => {
 
 // Campos leídos del inventario, en el orden en que se muestran en "Datos del Excel".
 const ETIQUETAS_EXCEL: Record<string, string> = {
-    codigo: 'Código', nombre: 'Nombre', tipo: 'Tipo (catálogo)', ubicacion: 'Sede', estado: 'Estado',
+    codigo: 'Código', nombre: 'Nombre', marca: 'Marca', modelo: 'Modelo', n_serie: 'N° de serie',
+    tipo: 'Tipo (catálogo)', ubicacion: 'Sede', estado: 'Estado',
+    influencia_significativa: 'Influencia significativa', justificacion_influencia: 'Justificación',
     estado_equipo: 'Estado operativo', id_muestreador: 'Responsable (id)', ultima_verificacion: 'Última revisión',
     siguiente_verificacion: 'Siguiente revisión', que_mide: 'Qué mide', unidad_medida_textual: 'Unidad de medida',
     unidad_medida_sigla: 'Sigla unidad', proveedor: 'Proveedor', fecha_compra: 'Fecha de compra',

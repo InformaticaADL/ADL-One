@@ -15,6 +15,13 @@ import {
 import { facturacionSaludService } from '../services/facturacionSalud.service';
 import { useToast } from '../../../contexts/ToastContext';
 
+// Selector de estado con el mismo diseño de los flujos de Exportación DTE.
+const FILTROS_EMISION = [
+    { id: 'N', label: '1. Pendientes de Emisión DTE', sub: "emitido <> 'S'", desc: 'Pre-facturas aún no exportadas a DTE: se pueden gestionar (OI/OD, OC/HES, casos) o eliminar.' },
+    { id: 'S', label: '2. Emitidas a DTE', sub: "emitido = 'S'", desc: 'Pre-facturas ya exportadas en el archivo plano DTE.' },
+    { id: 'ALL', label: '3. Todas las Pre-Facturas', sub: 'facturacion_enc', desc: 'Todas las pre-facturas de casos de facturacion_enc.' },
+];
+
 const FacturacionSaludPrefacturas: React.FC = () => {
     const { showToast } = useToast();
 
@@ -257,9 +264,9 @@ const FacturacionSaludPrefacturas: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            {/* Barra de Filtros */}
+            {/* Estado de emisión (mismo diseño que los flujos de Exportación DTE) */}
             <Card className="p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <h3 className="m-0 text-base font-bold text-foreground">
                             Bandeja de Pre-Facturas de Casos (facturacion_enc)
@@ -270,48 +277,80 @@ const FacturacionSaludPrefacturas: React.FC = () => {
                             Liberación de Casos)
                         </p>
                     </div>
+                    <Button variant="outline" size="sm" onClick={cargarPrefacturas}>
+                        <IconRefresh size={15} /> Recargar
+                    </Button>
+                </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
-                            <IconSearch size={14} className="absolute left-2.5 top-2.5 text-muted-foreground" />
-                            <input
-                                type="text"
-                                placeholder="Buscar por ID, Folio, Cliente, RUT, OC..."
-                                value={busqueda}
-                                onChange={(e) => setBusqueda(e.target.value)}
-                                className="h-9 w-64 rounded-md border border-input bg-background pl-8 pr-3 text-xs"
-                            />
-                        </div>
+                <div className="flex flex-wrap gap-2">
+                    {FILTROS_EMISION.map((f) => {
+                        const active = emitidoFilter === f.id;
+                        return (
+                            <button
+                                key={f.id}
+                                type="button"
+                                onClick={() => setEmitidoFilter(f.id)}
+                                className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                                    active
+                                        ? 'border-primary bg-primary text-primary-foreground font-semibold shadow-sm'
+                                        : 'border-border bg-background text-foreground hover:bg-muted/50'
+                                }`}
+                            >
+                                <div>{f.label}</div>
+                                <div className={`font-mono text-[10px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                    {f.sub}
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                        <select
-                            value={emitidoFilter}
-                            onChange={(e) => setEmitidoFilter(e.target.value)}
-                            className="h-9 rounded-md border border-input bg-background px-2.5 text-xs font-medium"
-                        >
-                            <option value="N">Pendientes de Emisión DTE (emitido = N)</option>
-                            <option value="S">Emitidas a DTE (emitido = S)</option>
-                            <option value="ALL">Todas las Pre-Facturas</option>
-                        </select>
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+                    <div className="relative">
+                        <IconSearch size={14} className="absolute left-2.5 top-2.5 text-muted-foreground" />
+                        <input
+                            type="text"
+                            placeholder="Filtrar por ID, Folio, Cliente, RUT u OC..."
+                            value={busqueda}
+                            onChange={(e) => setBusqueda(e.target.value)}
+                            className="h-8 w-64 rounded border border-input bg-background pl-8 pr-2 text-xs"
+                        />
+                    </div>
 
-                        <Button variant="outline" size="sm" onClick={cargarPrefacturas}>
-                            <IconRefresh size={15} /> Actualizar
-                        </Button>
+                    {/* Totales de lo que se está viendo */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded border border-border bg-muted/40 px-2.5 py-1">
+                            Casos: <strong className="font-mono">{prefacturas.reduce((a, p) => a + Number(p.total_casos || 0), 0)}</strong>
+                        </span>
+                        <span className="rounded border border-border bg-muted/40 px-2.5 py-1">
+                            UF Final: <strong className="font-mono">{fmtUf(prefacturas.reduce((a, p) => a + Number(p.uf_totalfac || 0), 0))}</strong>
+                        </span>
+                        <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-emerald-800 dark:text-emerald-300">
+                            Neto: <strong className="font-mono">$ {fmtClp(prefacturas.reduce((a, p) => a + Number(p.peso_totalfac || 0), 0))}</strong>
+                        </span>
                     </div>
                 </div>
             </Card>
 
             {/* Tabla Principal de Pre-Facturas */}
             <Card className="p-4">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>{FILTROS_EMISION.find((f) => f.id === emitidoFilter)?.desc}</span>
+                    <span>
+                        Mostrando <strong>{prefacturas.length}</strong> pre-factura(s)
+                    </span>
+                </div>
+
                 {loading ? (
                     <div className="py-12 text-center text-xs text-muted-foreground">
                         Consultando facturacion_enc en localhost...
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="max-h-[500px] overflow-auto">
                         <table className="w-full border-collapse text-left text-xs">
-                            <thead>
+                            <thead className="sticky top-0 bg-muted/90 backdrop-blur">
                                 <tr className="border-b border-border text-[11px] uppercase text-muted-foreground">
-                                    <th className="py-2 pr-2">ID Fact.</th>
+                                    <th className="py-2 pl-2 pr-2">ID Fact.</th>
                                     <th className="py-2 px-2">Fecha</th>
                                     <th className="py-2 px-2">Cliente / RUT</th>
                                     <th className="py-2 px-2">Agrupación</th>
@@ -321,7 +360,7 @@ const FacturacionSaludPrefacturas: React.FC = () => {
                                     <th className="py-2 px-2 text-right">UF Final</th>
                                     <th className="py-2 px-2 text-right">Neto ($ CLP)</th>
                                     <th className="py-2 px-2">OC / DTE</th>
-                                    <th className="py-2 pl-2 text-right">Acciones</th>
+                                    <th className="py-2 pl-2 pr-2 text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
@@ -332,13 +371,13 @@ const FacturacionSaludPrefacturas: React.FC = () => {
                                             selectedId === pf.id_facturacion ? 'bg-primary/5' : ''
                                         }`}
                                     >
-                                        <td className="py-2.5 pr-2 font-mono font-bold text-primary">
+                                        <td className="py-2 pl-2 pr-2 font-mono font-bold text-primary">
                                             #{pf.id_facturacion}
                                         </td>
-                                        <td className="py-2.5 px-2 font-mono text-[11px]">
+                                        <td className="py-2 px-2 font-mono text-[11px]">
                                             {pf.fecha_facturacion}
                                         </td>
-                                        <td className="py-2.5 px-2">
+                                        <td className="py-2 px-2">
                                             <div className="font-semibold text-foreground">
                                                 {pf.nombre_empresaservicios}
                                             </div>
@@ -346,26 +385,26 @@ const FacturacionSaludPrefacturas: React.FC = () => {
                                                 {pf.rut_empresaservicios}
                                             </div>
                                         </td>
-                                        <td className="py-2.5 px-2 text-muted-foreground">
+                                        <td className="py-2 px-2 text-muted-foreground">
                                             {pf.facturado_por || 'Na'}
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-semibold">
+                                        <td className="py-2 px-2 text-right font-semibold">
                                             {pf.total_casos}
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-mono">
+                                        <td className="py-2 px-2 text-right font-mono">
                                             {fmtUf(pf.uf_totalcaso)}
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-mono text-[11px]">
+                                        <td className="py-2 px-2 text-right font-mono text-[11px]">
                                             <span className="text-emerald-600">+{fmtUf(pf.uf_totalotrosing)}</span> /{' '}
                                             <span className="text-rose-600">-{fmtUf(pf.uf_totalotrosdes)}</span>
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-mono font-bold text-foreground">
+                                        <td className="py-2 px-2 text-right font-mono font-bold text-foreground">
                                             {fmtUf(pf.uf_totalfac)} UF
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-mono font-semibold text-foreground">
+                                        <td className="py-2 px-2 text-right font-mono font-semibold text-foreground">
                                             $ {fmtClp(pf.peso_totalfac)}
                                         </td>
-                                        <td className="py-2.5 px-2">
+                                        <td className="py-2 px-2">
                                             <div className="flex flex-wrap items-center gap-1">
                                                 {pf.ocompra && (
                                                     <Badge variant="outline" className="font-mono text-[10px]">
@@ -380,7 +419,7 @@ const FacturacionSaludPrefacturas: React.FC = () => {
                                                 </Badge>
                                             </div>
                                         </td>
-                                        <td className="py-2.5 pl-2 text-right">
+                                        <td className="py-2 pl-2 pr-2 text-right">
                                             <div className="flex justify-end gap-1">
                                                 <Button
                                                     variant="outline"

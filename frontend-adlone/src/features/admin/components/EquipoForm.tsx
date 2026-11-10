@@ -40,6 +40,9 @@ import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FieldLabel } from '../../../components/common/FieldHelp';
 
+// Valores de "Influencia Significativa" del inventario OI-FoGe-21.
+const INFLUENCIAS = ['Alta', 'Media', 'Baja'];
+
 // Local HybridSelect replacement using shadcn components.
 // If strict=true, it uses Combobox (must be in list).
 // If strict=false, it uses an Input + datalist (can type any value, with suggestions).
@@ -122,7 +125,8 @@ const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) 
     </div>
 );
 
-const NO_ESTADO_EQUIPO = '__NONE__';
+// Estados del equipo (columna ESTADO del inventario OI-FoGe-21).
+const ESTADOS_EQUIPO = ['Operativo', 'Fuera de Servicio', 'Dado de Baja'];
 
 export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes }) => {
     // --- Helpers for default dates ---
@@ -208,7 +212,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         documento_compra: '',
         n_documento_compra: '',
         valor_unitario: '',
-        fecha_baja: ''
+        fecha_baja: '',
+        marca: '',
+        modelo: '',
+        n_serie: '',
+        influencia_significativa: '',
+        justificacion_influencia: ''
     });
 
     const [loading, setLoading] = useState(false);
@@ -232,7 +241,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [queMideOptions, setQueMideOptions] = useState<string[]>([]);
     const [unidadesOptions, setUnidadesOptions] = useState<string[]>([]);
     const [sedeOptions, setSedeOptions] = useState<string[]>([]);
-    const [estadoOptions, setEstadoOptions] = useState<string[]>([]);
+    const [, setEstadoOptions] = useState<string[]>([]);
     const [estadoEquipoOptions, setEstadoEquipoOptions] = useState<string[]>([]);
     const [fullCatalogItems, setFullCatalogItems] = useState<any[]>([]);
     const [nameToMetadata, setNameToMetadata] = useState<Record<string, any>>({});
@@ -455,7 +464,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         documento_compra: baseData.documento_compra || '',
                         n_documento_compra: baseData.n_documento_compra || '',
                         valor_unitario: baseData.valor_unitario ?? '',
-                        fecha_baja: baseData.fecha_baja ? baseData.fecha_baja.split('T')[0] : ''
+                        fecha_baja: baseData.fecha_baja ? baseData.fecha_baja.split('T')[0] : '',
+                        marca: baseData.marca || '',
+                        modelo: baseData.modelo || '',
+                        n_serie: baseData.n_serie || '',
+                        influencia_significativa: baseData.influencia_significativa || '',
+                        justificacion_influencia: baseData.justificacion_influencia || ''
                     });
 
                     if (hasId) {
@@ -628,7 +642,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             documentoCompra: dash(x.documento_compra),
             nDocumentoCompra: dash(x.n_documento_compra),
             valorUnitario: peso(x.valor_unitario),
-            fechaBaja: fechaDMY(x.fecha_baja)
+            fechaBaja: fechaDMY(x.fecha_baja),
+            marca: dash(x.marca),
+            modelo: dash(x.modelo),
+            nSerie: dash(x.n_serie),
+            influencia: dash(x.influencia_significativa),
+            justificacion: dash(x.justificacion_influencia)
         });
 
         const a = snap(base, false);
@@ -640,6 +659,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             { titulo: 'Medición', campos: [['¿Qué mide?', 'queMide'], ['Unidad de medida', 'unidad'], ['Sigla de la unidad', 'sigla'], ['Error 0', 'error0'], ['FC 0', 'fc0'], ['Error 15', 'error15'], ['FC 15', 'fc15'], ['Error 30', 'error30'], ['FC 30', 'fc30']] },
             { titulo: 'Configuración', campos: [['Factor de corrección', 'fc'], ['Visible para muestreadores', 'visible'], ['Incluir en informe', 'informe'], ['Equipo asociado', 'asociado']] },
             { titulo: 'Documento y notas', campos: [['Documento adjunto', 'documento'], ['Observación', 'observacion']] },
+            { titulo: 'Inventario', campos: [['Marca', 'marca'], ['Modelo', 'modelo'], ['N° de serie', 'nSerie'], ['Influencia significativa', 'influencia'], ['Justificación', 'justificacion']] },
             { titulo: 'Compra y Baja', campos: [['Proveedor', 'proveedor'], ['Fecha de compra', 'fechaCompra'], ['Documento', 'documentoCompra'], ['N° Documento', 'nDocumentoCompra'], ['Valor unitario', 'valorUnitario'], ['Fecha dado de baja', 'fechaBaja']] }
         ];
 
@@ -694,7 +714,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         documento_compra: b.documento_compra || '',
                         n_documento_compra: b.n_documento_compra || '',
                         valor_unitario: b.valor_unitario ?? '',
-                        fecha_baja: b.fecha_baja ? b.fecha_baja.split('T')[0] : ''
+                        fecha_baja: b.fecha_baja ? b.fecha_baja.split('T')[0] : '',
+                        marca: b.marca || '',
+                        modelo: b.modelo || '',
+                        n_serie: b.n_serie || '',
+                        influencia_significativa: b.influencia_significativa || '',
+                        justificacion_influencia: b.justificacion_influencia || ''
                     });
                     // El documento pasa a ser el de la versión habilitada; se descarta
                     // cualquier archivo que estuviera pendiente de guardar.
@@ -765,7 +790,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 formData.nombre &&
                 formData.tipo &&
                 formData.ubicacion &&
-                formData.estado &&
+                formData.estado_equipo &&
                 formData.codigo &&
                 formData.id_muestreador &&
                 formData.siguiente_verificacion &&
@@ -779,7 +804,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             formData.nombre &&
             formData.tipo &&
             formData.ubicacion &&
-            formData.estado &&
+            formData.estado_equipo &&
             formData.codigo &&
             hasNewRevision &&
             formData.id_muestreador &&
@@ -791,41 +816,60 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         );
     }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading]);
 
-    const missingFields = useMemo(() => {
-        const missing = [];
-        if (!formData.nombre) missing.push("Nombre del Equipo");
-        if (!formData.tipo) missing.push("Tipo de Equipo");
-        if (!formData.ubicacion) missing.push("Ubicación (Sede)");
-        if (!formData.estado) missing.push("Estado");
-        if (!formData.codigo) missing.push("Código Final");
+    // Lo que falta para poder guardar. `campo` es el data-campo del bloque del
+    // formulario: el aviso junto al botón lo usa para llevar al usuario ahí.
+    const faltantes = useMemo(() => {
+        const missing: { label: string; campo?: string }[] = [];
+        if (!formData.tipo) missing.push({ label: 'Tipo de Equipo', campo: 'tipo' });
+        if (!formData.ubicacion) missing.push({ label: 'Ubicación (Sede)', campo: 'ubicacion' });
+        if (!formData.estado_equipo) missing.push({ label: 'Estado', campo: 'estado' });
+        if (!formData.nombre) missing.push({ label: 'Nombre del Equipo', campo: 'nombre' });
+        if (!formData.codigo) missing.push({ label: 'Código Final', campo: 'codigo' });
 
         const isEdit = !!initialData?.id_equipo;
-        const hasNewRevision = isEdit
-            ? (formData.ultima_verificacion && formData.ultima_verificacion !== originalUltimaVerificacion)
-            : !!formData.ultima_verificacion;
-        // En edición ya no es obligatorio (ver isFormValid); en creación sigue exigiendo
-        // la fecha de la revisión inicial.
-        if (!isEdit && !hasNewRevision) {
-            missing.push("Fecha Creación");
-        }
+        // En edición ya no es obligatorio registrar revisión (ver isFormValid); en
+        // creación sigue exigiendo la fecha de la revisión inicial.
+        if (!isEdit && !formData.ultima_verificacion) missing.push({ label: 'Fecha Creación', campo: 'codigo' });
 
-        if (!formData.id_muestreador) missing.push("Responsable (Muestreador)");
-        if (!isEdit && !formData.que_mide) missing.push("¿Qué Mide?");
-        if (!isEdit && !formData.observacion) missing.push("Observación");
-        if (!formData.siguiente_verificacion) missing.push("Siguiente Revisión (Vigente hasta:)");
-        if (docUploading) missing.push("Esperando que termine la carga del archivo...");
+        if (!formData.id_muestreador) missing.push({ label: 'Responsable (Muestreador)', campo: 'id_muestreador' });
+        if (!isEdit && !formData.que_mide) missing.push({ label: '¿Qué Mide?', campo: 'que_mide' });
+        if (!isEdit && !formData.observacion) missing.push({ label: 'Observación', campo: 'observacion' });
+        if (!formData.siguiente_verificacion) missing.push({ label: 'Siguiente Revisión (Vigente hasta:)', campo: 'siguiente_verificacion' });
         return missing;
-    }, [formData, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading]);
+    }, [formData, initialData]);
+    const missingFields = faltantes.map((f) => f.label);
+
+    // Lleva al campo que falta, lo enfoca y enciende las marcas rojas.
+    const irACampo = (campo?: string) => {
+        setAttemptedSubmit(true);
+        if (!campo) return;
+        const bloque = document.querySelector<HTMLElement>(`[data-campo="${campo}"]`);
+        if (!bloque) return;
+        bloque.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        const control = bloque.querySelector<HTMLElement>('input:not([readonly]):not([disabled]), textarea, button[role="combobox"], button:not([disabled])');
+        setTimeout(() => control?.focus({ preventScroll: true }), 350);
+    };
 
     // Botón de acción principal: el del encabezado y el del pie comparten
     // etiqueta, estado y acción para que no puedan quedar desalineados.
     const accionLabel = !esCreacion
         ? 'Actualizar'
         : irARevision ? 'Siguiente' : (activeStep === 1 ? 'Guardar Todo' : 'Crear');
-    const accionDeshabilitada = !isFormValid || !(esCreacion ? canCreateEquipo : canEditEquipo);
-    const accionTitle = !isFormValid
-        ? `Campos obligatorios faltantes: ${missingFields.join(', ')}`
+    const sinPermiso = !(esCreacion ? canCreateEquipo : canEditEquipo);
+    const accionDeshabilitada = !isFormValid || sinPermiso;
+    // Motivos que no son un campo: esperas y permisos.
+    const bloqueos = [
+        ...(generatingCode ? ['Generando el código del equipo…'] : []),
+        ...(docUploading ? ['Esperando que termine la carga del archivo…'] : []),
+        ...(sinPermiso ? [`No tienes permiso para ${esCreacion ? 'crear' : 'editar'} equipos`] : []),
+    ];
+    const accionTitle = accionDeshabilitada
+        ? [missingFields.length ? `Falta: ${missingFields.join(', ')}` : '', ...bloqueos].filter(Boolean).join(' · ')
         : (esCreacion ? 'Guardar equipo' : 'Actualizar equipo');
+    // Al editar, el equipo ya existe: lo que falte se marca en rojo desde que
+    // carga, sin esperar a que se intente guardar (el botón está deshabilitado
+    // y nunca llegaría ese intento).
+    const mostrarErrores = attemptedSubmit || (!esCreacion && !loading);
     // Deshabilitado se ve gris, no azul translúcido: con disabled:opacity-50 el
     // botón seguía leyéndose como accionable aunque falten campos obligatorios.
     const accionDisabledClass = 'disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100';
@@ -1201,7 +1245,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     {activeStep === 0 && (
                         <div className="mt-2 flex flex-col gap-6">
                             <div className="grid grid-cols-12 gap-4">
-                                <div className={colSpanClass(4)}>
+                                <div className={colSpanClass(4)} data-campo="tipo">
                                     <HybridSelect
                                         label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
                                         placeholder="Seleccione..."
@@ -1211,10 +1255,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         strict={!isSuper}
                                         required
                                         disabled={!!initialData?.id_equipo}
-                                        error={attemptedSubmit && !formData.tipo && "Obligatorio"}
+                                        error={mostrarErrores && !formData.tipo && "Obligatorio"}
                                     />
                                 </div>
-                                <div className={colSpanClass(4)}>
+                                <div className={colSpanClass(4)} data-campo="ubicacion">
                                     <HybridSelect
                                         label={<FieldLabel label="Ubicación (Sede) *" help="Sede física de ADL donde se almacena y opera el equipo (ej: PM para Puerto Montt, CO para Coyhaique)." />}
                                         placeholder="Seleccione..."
@@ -1223,22 +1267,28 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         onChange={(val: any) => setFormData((p: any) => ({ ...p, ubicacion: val }))}
                                         strict
                                         required
-                                        error={attemptedSubmit && !formData.ubicacion && "Obligatorio"}
+                                        error={mostrarErrores && !formData.ubicacion && "Obligatorio"}
                                     />
                                 </div>
-                                <div className={colSpanClass(4)}>
+                                <div className={colSpanClass(4)} data-campo="estado">
+                                    {/* Estado del equipo (columna ESTADO del inventario). Activo/Inactivo
+                                        se deriva: Operativo → Activo; Fuera de Servicio o Dado de Baja → Inactivo. */}
                                     <HybridSelect
-                                        label={<FieldLabel label="Estado *" help="Estado de habilitación del equipo (ej: Habilitado) para su uso general en el sistema." />}
+                                        label={<FieldLabel label="Estado *" help="Operativo: en uso. Fuera de Servicio: no disponible por ahora (falla, mantención o calibración). Dado de Baja: retirado definitivamente. Fuera de Servicio y Dado de Baja dejan el equipo inactivo." />}
                                         placeholder="Seleccione..."
-                                        value={formData.estado}
-                                        options={estadoOptions}
-                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, estado: val }))}
+                                        value={formData.estado_equipo}
+                                        options={ESTADOS_EQUIPO.filter(o => estadoEquipoOptions.length === 0 || estadoEquipoOptions.some(c => c.toLowerCase() === o.toLowerCase()))}
+                                        onChange={(val: any) => setFormData((p: any) => ({
+                                            ...p,
+                                            estado_equipo: val || '',
+                                            estado: !val ? p.estado : (val === 'Operativo' ? 'Activo' : 'Inactivo'),
+                                        }))}
                                         strict
                                         required
-                                        error={attemptedSubmit && !formData.estado && "Obligatorio"}
+                                        error={mostrarErrores && !formData.estado_equipo && "Obligatorio"}
                                     />
                                 </div>
-                                <div className={colSpanClass(6)}>
+                                <div className={colSpanClass(6)} data-campo="nombre">
                                     <HybridSelect
                                         label={<FieldLabel label="Nombre del Equipo *" help="Modelo o nombre específico del equipo (ej: HI98194, YSI ProDSS) según catálogo." />}
                                         placeholder="Seleccione o escriba..."
@@ -1255,7 +1305,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         }}
                                         strict={!isSuper && !initialData?.id_equipo}
                                         required
-                                        error={attemptedSubmit && !formData.nombre && "Obligatorio"}
+                                        error={mostrarErrores && !formData.nombre && "Obligatorio"}
                                     />
                                 </div>
                                 <div className={colSpanClass(3)}>
@@ -1285,15 +1335,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </div>
                                 {initialData?.id_equipo ? (
                                     <>
-                                        <div className={colSpanClass(4)}>
+                                        <div className={colSpanClass(4)} data-campo="codigo">
                                             <div className="mb-1"><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
                                             <Input
                                                 value={formData.codigo}
                                                 readOnly={!isSuper}
-                                                className={cn('font-bold', attemptedSubmit && !formData.codigo && 'border-destructive')}
+                                                className={cn('font-bold', mostrarErrores && !formData.codigo && 'border-destructive')}
                                             />
                                             {formData.previousCode && <span className="text-xs text-muted-foreground">Anterior: {formData.previousCode}</span>}
-                                            {attemptedSubmit && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
+                                            {mostrarErrores && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
                                         </div>
                                         <div className={colSpanClass(4)}>
                                             <div className="mb-1"><FieldLabel label="Última Revisión" help="Fecha de la última revisión registrada de este equipo." /></div>
@@ -1332,15 +1382,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </>
                                 ) : (
                                     <>
-                                        <div className={colSpanClass(8)}>
+                                        <div className={colSpanClass(8)} data-campo="codigo">
                                             <div className="mb-1"><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
                                             <Input
                                                 value={formData.codigo}
                                                 readOnly={!isSuper}
-                                                className={cn('font-bold', attemptedSubmit && !formData.codigo && 'border-destructive')}
+                                                className={cn('font-bold', mostrarErrores && !formData.codigo && 'border-destructive')}
                                             />
                                             {formData.previousCode && <span className="text-xs text-muted-foreground">Anterior: {formData.previousCode}</span>}
-                                            {attemptedSubmit && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
+                                            {mostrarErrores && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
                                         </div>
                                         <div className={colSpanClass(4)}>
                                             <div className="mb-1"><FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." /></div>
@@ -1348,13 +1398,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 type="date"
                                                 value={formData.ultima_verificacion}
                                                 readOnly
-                                                className={cn(attemptedSubmit && !formData.ultima_verificacion && 'border-destructive')}
+                                                className={cn(mostrarErrores && !formData.ultima_verificacion && 'border-destructive')}
                                             />
-                                            {attemptedSubmit && !formData.ultima_verificacion && <p className="text-xs text-destructive">Se requiere una fecha de creación válida</p>}
+                                            {mostrarErrores && !formData.ultima_verificacion && <p className="text-xs text-destructive">Se requiere una fecha de creación válida</p>}
                                         </div>
                                     </>
                                 )}
-                                <div className={colSpanClass(6)}>
+                                <div className={colSpanClass(6)} data-campo="id_muestreador">
                                     <div className="mb-1"><FieldLabel label="Responsable (Muestreador) *" help="Muestreador responsable del cuidado y traslado del equipo en terreno." /></div>
                                     <Combobox
                                         placeholder="Seleccione..."
@@ -1366,9 +1416,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         }))}
                                         value={formData.id_muestreador ? String(formData.id_muestreador) : undefined}
                                         onValueChange={(val) => setFormData((p: any) => ({ ...p, id_muestreador: val ?? null }))}
-                                        className={cn(attemptedSubmit && !formData.id_muestreador && 'border-destructive')}
+                                        className={cn(mostrarErrores && !formData.id_muestreador && 'border-destructive')}
                                     />
-                                    {attemptedSubmit && !formData.id_muestreador && <p className="text-xs text-destructive">Obligatorio</p>}
+                                    {mostrarErrores && !formData.id_muestreador && <p className="text-xs text-destructive">Obligatorio</p>}
                                 </div>
                                 <div className={colSpanClass(6)}>
                                     {/* E-01: mostrar nombre + código para que el usuario pueda elegir, no IDs crudos */}
@@ -1400,9 +1450,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             </div>
                             <SectionDivider>Configuración Técnica</SectionDivider>
                             <div className="grid grid-cols-12 gap-4">
-                                <div className={colSpanClass(4)}>
+                                <div className={colSpanClass(4)} data-campo="que_mide">
                                     <HybridSelect
-                                        label={<FieldLabel label="¿Qué Mide? *" help="Parámetro o variable física/química que mide el equipo (ej: pH, Conductividad, Oxígeno Disuelto, Temperatura)." />}
+                                        label={<FieldLabel label={esCreacion ? '¿Qué Mide? *' : '¿Qué Mide?'} help="Parámetro o variable física/química que mide el equipo (ej: pH, Conductividad, Oxígeno Disuelto, Temperatura)." />}
                                         value={formData.que_mide}
                                         options={queMideOptions}
                                         onChange={(val: any) => {
@@ -1414,7 +1464,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             }));
                                         }}
                                         required
-                                        error={attemptedSubmit && !formData.que_mide && "Obligatorio"}
+                                        error={mostrarErrores && esCreacion && !formData.que_mide && "Obligatorio"}
                                     />
                                 </div>
                                 <div className={colSpanClass(4)}>
@@ -1482,8 +1532,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error30 === null || formData.error30 === '' ? '—' : (-Number(formData.error30)).toFixed(1)}</p>
                                     )}
                                 </div>
-                                <div className="col-span-12">
-                                    <div className="mb-1"><FieldLabel label="Observación *" help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
+                                <div className="col-span-12" data-campo="observacion">
+                                    <div className="mb-1"><FieldLabel label={esCreacion ? 'Observación *' : 'Observación'} help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
                                     <textarea
                                         placeholder="Detalles sobre el equipo..."
                                         value={formData.observacion || ''}
@@ -1496,17 +1546,17 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         rows={3}
                                         className={cn(
                                             'flex min-h-[72px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
-                                            attemptedSubmit && !formData.observacion && 'border-destructive'
+                                            mostrarErrores && esCreacion && !formData.observacion && 'border-destructive'
                                         )}
                                     />
-                                    {attemptedSubmit && !formData.observacion
+                                    {mostrarErrores && esCreacion && !formData.observacion
                                         ? <p className="text-xs text-destructive">Obligatorio</p>
                                         : <p className="mt-1 text-xs text-muted-foreground">Al salir del campo, las líneas con fecha se ordenan de la más antigua a la más nueva.</p>}
                                 </div>
                             </div>
                             <SectionDivider>Verificación y Estado</SectionDivider>
                             <div className="grid grid-cols-12 gap-4">
-                                <div className={colSpanClass(6)}>
+                                <div className={colSpanClass(6)} data-campo="siguiente_verificacion">
                                     <div className="mb-1 inline-flex flex-wrap items-center gap-1.5">
                                         <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help="Fecha programada para la próxima revisión técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
                                         <span className="text-xs font-normal text-muted-foreground">
@@ -1517,27 +1567,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         type="date"
                                         value={formData.siguiente_verificacion}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, siguiente_verificacion: e.target.value }))}
-                                        className={cn(attemptedSubmit && !formData.siguiente_verificacion && 'border-destructive')}
+                                        className={cn(mostrarErrores && !formData.siguiente_verificacion && 'border-destructive')}
                                     />
-                                    {attemptedSubmit && !formData.siguiente_verificacion && <p className="text-xs text-destructive">Obligatorio</p>}
-                                </div>
-                                <div className={colSpanClass(6)}>
-                                    <div className="mb-1"><FieldLabel label="Estado del Equipo" help="Estado operativo actual del equipo (ej: Operativo, En Mantención, En Calibración, Fuera de Servicio)." /></div>
-                                    <Combobox
-                                        placeholder="Seleccione..."
-                                        options={[
-                                            { value: NO_ESTADO_EQUIPO, label: 'Sin especificar' },
-                                            ...(estadoEquipoOptions.length > 0 ? estadoEquipoOptions : [
-                                                'Operativo',
-                                                'Dado de Baja',
-                                                'En Mantención',
-                                                'En Calibración',
-                                                'Fuera de Servicio',
-                                            ]).map(o => ({ value: o, label: o }))
-                                        ]}
-                                        value={formData.estado_equipo || NO_ESTADO_EQUIPO}
-                                        onValueChange={(val) => setFormData((p: any) => ({ ...p, estado_equipo: val === NO_ESTADO_EQUIPO ? '' : val }))}
-                                    />
+                                    {mostrarErrores && !formData.siguiente_verificacion && <p className="text-xs text-destructive">Obligatorio</p>}
                                 </div>
                                 <div className="col-span-12">
                                     <div className="mb-1">
@@ -1558,6 +1590,42 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         value={formData.plazo_vigencia || ''}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, plazo_vigencia: e.target.value }))}
                                         rows={2}
+                                        className="flex min-h-[56px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                    />
+                                </div>
+                            </div>
+
+                            <SectionDivider>Datos del Inventario</SectionDivider>
+                            <div className="grid grid-cols-12 gap-4">
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Marca" help="Fabricante del equipo (columna MARCA del inventario OI-FoGe-21)." /></div>
+                                    <Input value={formData.marca || ''} onChange={(e) => setFormData((p: any) => ({ ...p, marca: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="Modelo" help="Modelo del equipo según el fabricante." /></div>
+                                    <Input value={formData.modelo || ''} onChange={(e) => setFormData((p: any) => ({ ...p, modelo: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(4)}>
+                                    <div className="mb-1"><FieldLabel label="N° de Serie" help="Número de serie del fabricante (S/N si no tiene)." /></div>
+                                    <Input value={formData.n_serie || ''} onChange={(e) => setFormData((p: any) => ({ ...p, n_serie: e.target.value }))} />
+                                </div>
+                                <div className={colSpanClass(4)}>
+                                    <HybridSelect
+                                        label={<FieldLabel label="Influencia Significativa" help="Cuánto influye el equipo en los resultados que se informan: Alta, Media o Baja." />}
+                                        placeholder="Seleccione..."
+                                        value={formData.influencia_significativa || null}
+                                        options={INFLUENCIAS}
+                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, influencia_significativa: val || '' }))}
+                                        strict
+                                    />
+                                </div>
+                                <div className="col-span-12 md:col-span-8">
+                                    <div className="mb-1"><FieldLabel label="Justificación" help="Por qué el equipo tiene esa influencia significativa (columna JUSTIFICACIÓN del inventario)." /></div>
+                                    <textarea
+                                        value={formData.justificacion_influencia || ''}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, justificacion_influencia: e.target.value }))}
+                                        rows={2}
+                                        maxLength={1000}
                                         className="flex min-h-[56px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                                     />
                                 </div>
@@ -1812,6 +1880,43 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     )}
 
                     <SectionDivider />
+                    {activeStep === 0 && !loading && accionDeshabilitada && (faltantes.length > 0 || bloqueos.length > 0) && (
+                        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3" role="status">
+                            <div className="flex items-start gap-2.5">
+                                <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold">
+                                        {faltantes.length > 0
+                                            ? `Para ${esCreacion ? 'guardar' : 'actualizar'} el equipo falta${faltantes.length === 1 ? '' : 'n'} ${faltantes.length} campo${faltantes.length === 1 ? '' : 's'}`
+                                            : `Todavía no se puede ${esCreacion ? 'guardar' : 'actualizar'}`}
+                                    </p>
+                                    {faltantes.length > 0 && (
+                                        <>
+                                            <p className="mt-0.5 text-xs text-muted-foreground">Presiona uno para ir al campo.</p>
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {faltantes.map((f) => (
+                                                    <button
+                                                        key={f.label}
+                                                        type="button"
+                                                        onClick={() => irACampo(f.campo)}
+                                                        className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-background px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                                                    >
+                                                        {f.label}
+                                                        <IconChevronRight size={12} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                    {bloqueos.length > 0 && (
+                                        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                                            {bloqueos.map((b) => <li key={b}>{b}</li>)}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div className="flex flex-wrap justify-between gap-3">
                         {activeStep === 1 && esMasivo ? (
                             <Button variant="outline" onClick={() => setActiveStep(0)}>

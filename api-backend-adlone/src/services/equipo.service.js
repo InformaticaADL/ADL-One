@@ -2,6 +2,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 import { ordenarObservacion } from '../utils/observacionEquipo.js';
+import { normalizarEstadoEquipo, ESTADOS_EQUIPO } from '../utils/estadoEquipo.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
@@ -26,6 +27,48 @@ const hasDocsColumns = async (pool) => {
         docsColumnsExist = false;
     }
     return docsColumnsExist;
+};
+
+// Datos del inventario OI-FoGe-21 que mae_equipo no tenía: marca, modelo,
+// N° de serie, influencia significativa (Alta/Media/Baja) y su justificación.
+// Llegan con migrations/add_equipo_datos_inventario.sql; sin ella todo sigue
+// funcionando, solo que estos campos no se leen ni se guardan.
+const CAMPOS_INVENTARIO = [
+    { campo: 'marca', tipo: () => sql.NVarChar(100), max: 100 },
+    { campo: 'modelo', tipo: () => sql.NVarChar(100), max: 100 },
+    { campo: 'n_serie', tipo: () => sql.NVarChar(100), max: 100 },
+    { campo: 'influencia_significativa', tipo: () => sql.NVarChar(20), max: 20 },
+    { campo: 'justificacion_influencia', tipo: () => sql.NVarChar(1000), max: 1000 },
+];
+let invColumnsExist = false;
+let invColumnsRevisadas = 0; // si faltan, se vuelve a revisar (y avisar) cada 5 min
+const hasInvColumns = async (pool) => {
+    if (invColumnsExist) return true;
+    if (Date.now() - invColumnsRevisadas < 5 * 60 * 1000) return false;
+    invColumnsRevisadas = Date.now();
+    try {
+        const r = await pool.request().query(`SELECT
+            COL_LENGTH('mae_equipo', 'justificacion_influencia')           AS equipo,
+            COL_LENGTH('mae_equipo_historial', 'justificacion_influencia') AS historial`);
+        const row = r.recordset[0] || {};
+        invColumnsExist = !!row.equipo && !!row.historial;
+        if (!invColumnsExist) logger.warn('Faltan marca/modelo/serie/influencia en equipos — ejecute migrations/add_equipo_datos_inventario.sql');
+    } catch (e) {
+        logger.warn('No se pudieron verificar las columnas de inventario: ' + e.message);
+    }
+    return invColumnsExist;
+};
+// Fragmentos SQL (vacíos si las columnas no existen).
+const invCols = (alias = '') => (invColumnsExist ? ', ' + CAMPOS_INVENTARIO.map((c) => (alias ? `${alias}.${c.campo}` : c.campo)).join(', ') : '');
+const invVals = (suf = '') => (invColumnsExist ? ', ' + CAMPOS_INVENTARIO.map((c) => `@${c.campo}${suf}`).join(', ') : '');
+const invSet = (suf = '') => (invColumnsExist ? ', ' + CAMPOS_INVENTARIO.map((c) => `${c.campo} = @${c.campo}${suf}`).join(', ') : '');
+const textoInv = (c, v) => {
+    const t = v === null || v === undefined ? '' : String(v).trim();
+    return t ? t.slice(0, c.max) : null;
+};
+const invInputs = (req, src, suf = '') => {
+    if (!invColumnsExist) return;
+    for (const c of CAMPOS_INVENTARIO) req.input(`${c.campo}${suf}`, c.tipo(), textoInv(c, src?.[c.campo]));
 };
 
 // Helper to parse dates in various formats (ISO, DD/MM/YYYY, Date objects)
@@ -114,6 +157,7 @@ const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk
     req.input('n_documento_compra', sql.NVarChar(50), row.n_documento_compra || null);
     req.input('valor_unitario', sql.Numeric(12, 2), row.valor_unitario ?? null);
     req.input('fecha_baja', sql.Date, parseSqlDate(row.fecha_baja) || null);
+    invInputs(req, row);
     if (docsOk) {
         req.input('doc_nombre_h', sql.NVarChar(200), row.documento_nombre || null);
         req.input('doc_ruta_h', sql.NVarChar(500), row.documento_ruta || null);
@@ -125,14 +169,14 @@ const insertHistorialSnapshot = async (transaction, row, version, userId, docsOk
             sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
             observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
             Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-            fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja,
+            fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja${invCols()},
             usuario_cambio, version, fecha_cambio${docsOk ? ', documento_nombre, documento_ruta, documento_fecha' : ''}
         ) VALUES (
             @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
             @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
             @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
             @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_h,
-            @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja,
+            @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja${invVals()},
             @usuario_cambio, @version, GETDATE()${docsOk ? ', @doc_nombre_h, @doc_ruta_h, @doc_fecha_h' : ''}
         )
     `);
@@ -244,6 +288,7 @@ export const equipoService = {
             const direccionOrden = sortOrder === 'desc' ? 'DESC' : 'ASC';
             logger.info('getEquipos params: ' + JSON.stringify(params));
             const pool = await getConnection();
+            await hasInvColumns(pool);
 
             // Filters logic for both count and data
             let whereClause = ' WHERE 1=1';
@@ -271,9 +316,15 @@ export const equipoService = {
             }
 
             if (estado && estado !== 'Todos') {
-                const habilitadoVal = estado === 'Activo' ? 'S' : 'N';
-                request.input('habilitado', sql.VarChar(8000), habilitadoVal);
-                whereClause += ` AND e.habilitado = @habilitado`;
+                // Operativo / Fuera de Servicio / Dado de Baja filtran por el estado del
+                // inventario; Activo / Inactivo (compatibilidad) por el flag habilitado.
+                if (estado === 'Activo' || estado === 'Inactivo') {
+                    request.input('habilitado', sql.VarChar(8000), estado === 'Activo' ? 'S' : 'N');
+                    whereClause += ` AND e.habilitado = @habilitado`;
+                } else {
+                    request.input('estadoEquipo', sql.VarChar(100), normalizarEstadoEquipo(estado));
+                    whereClause += ` AND e.Estado = @estadoEquipo`;
+                }
             }
 
             if (id_muestreador && id_muestreador !== 'Todos') {
@@ -354,7 +405,7 @@ export const equipoService = {
                     e.documento_compra,
                     e.n_documento_compra,
                     e.valor_unitario,
-                    e.fecha_baja,
+                    e.fecha_baja${invCols('e')},
                     e.version,
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
@@ -391,7 +442,7 @@ export const equipoService = {
                         : sortBy === 'nombre'
                         ? `e.nombre ${direccionOrden},`
                         : sortBy === 'activos_primero'
-                        ? "CASE WHEN e.habilitado = 'S' THEN 0 ELSE 1 END ASC,"
+                        ? "CASE WHEN e.Estado = 'Operativo' THEN 0 WHEN e.Estado = 'Fuera de Servicio' THEN 1 ELSE 2 END ASC,"
                         : ''}
                     e.id_equipo ASC`}
                 OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY
@@ -410,7 +461,8 @@ export const equipoService = {
                     typesQuery = 'SELECT DISTINCT tipo_equipo as tipo FROM mae_equipo_catalogo WHERE tipo_equipo IS NOT NULL';
                 }
 
-                let statesQuery = 'SELECT DISTINCT CASE WHEN habilitado = \'S\' THEN \'Activo\' ELSE \'Inactivo\' END as estado FROM mae_equipo WHERE 1=1';
+                // Estados del inventario (ver utils/estadoEquipo.js), en orden fijo.
+                let statesQuery = "SELECT DISTINCT Estado AS estado FROM mae_equipo WHERE Estado IS NOT NULL";
                 if (sedeParam) {
                     statesQuery += ' AND sede = @sedeFilter';
                 }
@@ -458,7 +510,7 @@ export const equipoService = {
                 ]);
                 return {
                     tipos: tRes.recordset.map(r => r.tipo).sort(),
-                    estados: sRes.recordset.map(r => r.estado).sort(),
+                    estados: ESTADOS_EQUIPO.filter(x => sRes.recordset.some(r => r.estado === x)),
                     sedes: lRes.recordset.map(r => r.sede).sort(),
                     nombres: nRes.recordset, // Return full objects for frontend metadata extraction
                     que_mide: qRes.recordset.map(r => r.que_mide).sort(),
@@ -472,7 +524,7 @@ export const equipoService = {
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo
-                    WHERE habilitado = 'S'
+                    WHERE Estado = 'Operativo'
                       AND Siguiente_verificacion IS NOT NULL
                       AND CAST(Siguiente_verificacion AS DATE) <= CAST(DATEADD(day, 30, GETDATE()) AS DATE)
                       AND CAST(Siguiente_verificacion AS DATE) >= CAST(GETDATE() AS DATE)
@@ -486,12 +538,12 @@ export const equipoService = {
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo e
                     INNER JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
-                    WHERE e.habilitado = 'S' AND m.habilitado = 'N'
+                    WHERE e.Estado = 'Operativo' AND m.habilitado = 'N'
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as cnt
                     FROM mae_equipo
-                    WHERE habilitado = 'S'
+                    WHERE Estado = 'Operativo'
                 `)
             ]);
 
@@ -676,6 +728,7 @@ export const equipoService = {
     getEquipoById: async (id) => {
         try {
             const pool = await getConnection();
+            await hasInvColumns(pool);
             const request = pool.request();
             request.input('id', sql.Int, id);
 
@@ -720,7 +773,7 @@ export const equipoService = {
                     e.documento_compra,
                     e.n_documento_compra,
                     e.valor_unitario,
-                    e.fecha_baja,
+                    e.fecha_baja${invCols('e')},
                     e.version,
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
@@ -815,6 +868,7 @@ export const equipoService = {
             }
         }
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
@@ -867,6 +921,7 @@ export const equipoService = {
             request.input('n_documento_compra', sql.NVarChar(50), data.n_documento_compra || null);
             request.input('valor_unitario', sql.Numeric(12, 2), data.valor_unitario ?? null);
             request.input('fecha_baja', sql.Date, parseSqlDate(data.fecha_baja) || null);
+            invInputs(request, data);
             request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
             request.input('observacion', sql.VarChar(8000), ordenarObservacion(data.observacion) || '');
             request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
@@ -880,7 +935,7 @@ export const equipoService = {
             // Estado sincroniza con habilitado: Dado de Baja o Fuera de Servicio → 'N', Operativo
             // u otro valor → lo que vino de "estado". Un solo request.input('habilitado', ...):
             // mssql no permite declarar el mismo parámetro dos veces.
-            const estadoEquipoCreate = data.estado_equipo || null;
+            const estadoEquipoCreate = normalizarEstadoEquipo(data.estado_equipo);
             const estadoEquipoCreateL = estadoEquipoCreate ? estadoEquipoCreate.toLowerCase() : '';
             const habilitadoCreate = (estadoEquipoCreateL.includes('baja') || estadoEquipoCreateL.includes('fuera de servicio'))
                 ? 'N'
@@ -894,13 +949,13 @@ export const equipoService = {
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                     observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version,
                     Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-                    fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja
+                    fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja${invCols()}
                 ) VALUES (
                     @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                     @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1',
                     @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo,
-                    @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja
+                    @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja${invVals()}
                 );
             `;
 
@@ -921,6 +976,7 @@ export const equipoService = {
         }
 
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
@@ -961,6 +1017,7 @@ export const equipoService = {
                 request.input('n_documento_compra', sql.NVarChar(50), data.n_documento_compra || null);
                 request.input('valor_unitario', sql.Numeric(12, 2), data.valor_unitario ?? null);
                 request.input('fecha_baja', sql.Date, parseSqlDate(data.fecha_baja) || null);
+                invInputs(request, data);
                 request.input('equipo_asociado', sql.VarChar(200), (data.equipo_asociado === null || data.equipo_asociado === undefined || data.equipo_asociado === 'No Aplica') ? '0' : String(data.equipo_asociado));
                 request.input('observacion', sql.VarChar(8000), ordenarObservacion(data.observacion) || '');
                 request.input('visible_muestreador', sql.VarChar(1), (data.visible_muestreador === 'SI' || data.visible_muestreador === 'S') ? 'S' : 'N');
@@ -971,7 +1028,7 @@ export const equipoService = {
                 request.input('ultima_verificacion', sql.Date, parseSqlDate(data.ultima_verificacion) || null);
                 request.input('siguiente_verificacion', sql.Date, parseSqlDate(data.siguiente_verificacion) || null);
                 request.input('plazo_vigencia', sql.VarChar(500), data.plazo_vigencia || null);
-                request.input('estado_equipo', sql.VarChar(100), data.estado_equipo || null);
+                request.input('estado_equipo', sql.VarChar(100), normalizarEstadoEquipo(data.estado_equipo));
 
                 const queryMain = `
                     INSERT INTO mae_equipo (
@@ -979,13 +1036,13 @@ export const equipoService = {
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                         observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe, version,
                         Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-                        fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja
+                        fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja${invCols()}
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                         @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe, 'v1',
                         @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo,
-                        @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja
+                        @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja${invVals()}
                     );
                 `;
 
@@ -1004,6 +1061,7 @@ export const equipoService = {
 
     updateEquipo: async (id, data, userId = null) => {
         const pool = await getConnection();
+        await hasInvColumns(pool);
         // Si la migración 003 todavía no corrió, el equipo se actualiza igual:
         // simplemente sin la parte del documento (ver hasDocsColumns).
         const docsColumnsOk = await hasDocsColumns(pool);
@@ -1103,7 +1161,7 @@ export const equipoService = {
             // Si el estado_equipo se cambió explícitamente a 'baja'/'fuera de servicio' u
             // 'operativo', sincronizar el flag habilitado AQUÍ (un solo .input) para no generar
             // el error "A parameter with this name already exists" de mssql.
-            const estadoEqFinal = data.hasOwnProperty('estado_equipo') ? data.estado_equipo : current.Estado;
+            const estadoEqFinal = data.hasOwnProperty('estado_equipo') ? normalizarEstadoEquipo(data.estado_equipo) : current.Estado;
             let habilitadoFinal = data.hasOwnProperty('estado') ? (data.estado === 'Activo' ? 'S' : 'N') : current.habilitado;
             if (estadoEqFinal) {
                 const eL = estadoEqFinal.toLowerCase();
@@ -1152,6 +1210,8 @@ export const equipoService = {
             requestMain.input('n_documento_compra', sql.NVarChar(50), data.hasOwnProperty('n_documento_compra') ? (data.n_documento_compra || null) : (current.n_documento_compra || null));
             requestMain.input('valor_unitario', sql.Numeric(12, 2), data.hasOwnProperty('valor_unitario') ? (data.valor_unitario ?? null) : (current.valor_unitario ?? null));
             requestMain.input('fecha_baja', sql.Date, parseSqlDate(data.hasOwnProperty('fecha_baja') ? data.fecha_baja : current.fecha_baja) || null);
+            // Datos de inventario: lo que mande el formulario; si no viene el campo, se conserva.
+            invInputs(requestMain, Object.fromEntries(CAMPOS_INVENTARIO.map((c) => [c.campo, Object.prototype.hasOwnProperty.call(data, c.campo) ? data[c.campo] : current[c.campo]])));
 
             const eqAsoc = data.hasOwnProperty('equipo_asociado') ? data.equipo_asociado : current.equipo_asociado;
             requestMain.input('equipo_asociado', sql.VarChar(200), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
@@ -1245,7 +1305,7 @@ export const equipoService = {
                     documento_compra = @documento_compra,
                     n_documento_compra = @n_documento_compra,
                     valor_unitario = @valor_unitario,
-                    fecha_baja = @fecha_baja,
+                    fecha_baja = @fecha_baja${invSet()},
                     version = @version${docSet}
                 WHERE id_equipo = @id
             `;
@@ -1299,6 +1359,7 @@ export const equipoService = {
             const parsedId = Number(id);
             if (!Number.isInteger(parsedId) || parsedId <= 0) throw new Error('ID de equipo inválido');
             const pool = await getConnection();
+            await hasInvColumns(pool);
             const request = pool.request();
             request.input('id', sql.Numeric(10, 0), parsedId);
 
@@ -1335,7 +1396,7 @@ export const equipoService = {
                     h.que_mide,
                     h.unidad_medida_textual,
                     h.unidad_medida_sigla,
-                    h.informe,
+                    h.informe${invCols('h')},
                     h.fecha_cambio,
                     h.version,
                     u.usuario as nombre_usuario_cambio${docsColumns}
@@ -1355,6 +1416,7 @@ export const equipoService = {
 
     deleteEquipo: async (id, userId = null) => {
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
@@ -1416,6 +1478,7 @@ export const equipoService = {
             requestHist.input('n_documento_compra', sql.NVarChar(50), current.n_documento_compra);
             requestHist.input('valor_unitario', sql.Numeric(12, 2), current.valor_unitario);
             requestHist.input('fecha_baja', sql.Date, current.fecha_baja);
+            invInputs(requestHist, current);
 
             const queryHist = `
                 INSERT INTO mae_equipo_historial (
@@ -1423,14 +1486,14 @@ export const equipoService = {
                     sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                     observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
                     Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-                    fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja,
+                    fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja${invCols()},
                     usuario_cambio, version
                 ) VALUES (
                     @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                     @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                     @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
                     @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_del,
-                    @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja,
+                    @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja${invVals()},
                     @usuario_cambio, @version
                 );
             `;
@@ -1447,6 +1510,7 @@ export const equipoService = {
 
     restoreEquipoVersion: async (id, idHistorial, userId = null) => {
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
@@ -1521,6 +1585,7 @@ export const equipoService = {
             updReq.input('n_documento_compra_r', sql.NVarChar(50), target.n_documento_compra || null);
             updReq.input('valor_unitario_r', sql.Numeric(12, 2), target.valor_unitario ?? null);
             updReq.input('fecha_baja_r', sql.Date, target.fecha_baja || null);
+            invInputs(updReq, target, '_r');
             updReq.input('version', sql.VarChar(10), nextVersionLabel);
 
             // Restaurar una versión también restaura su documento: si se vuelve a
@@ -1547,7 +1612,7 @@ export const equipoService = {
                     fc0=@fc0_r, fc15=@fc15_r, fc30=@fc30_r,
                     proveedor=@proveedor_r, fecha_compra=@fecha_compra_r,
                     documento_compra=@documento_compra_r, n_documento_compra=@n_documento_compra_r,
-                    valor_unitario=@valor_unitario_r, fecha_baja=@fecha_baja_r,
+                    valor_unitario=@valor_unitario_r, fecha_baja=@fecha_baja_r${invSet('_r')},
                     version=@version${docRestore}
                 WHERE id_equipo = @id
             `);
@@ -1567,6 +1632,7 @@ export const equipoService = {
     // --- AUTOMATED TASKS ---
     inactivateExpiredEquipos: async () => {
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
@@ -1647,6 +1713,7 @@ export const equipoService = {
                 histReq.input('n_documento_compra', sql.NVarChar(50), current.n_documento_compra || null);
                 histReq.input('valor_unitario', sql.Numeric(12, 2), current.valor_unitario ?? null);
                 histReq.input('fecha_baja', sql.Date, current.fecha_baja || null);
+                invInputs(histReq, current);
 
                 await histReq.query(`
                     INSERT INTO mae_equipo_historial (
@@ -1654,14 +1721,14 @@ export const equipoService = {
                         sigla, correlativo, tienefc, error0, error15, error30, equipo_asociado,
                         observacion, visible_muestreador, que_mide, unidad_medida_textual, unidad_medida_sigla, informe,
                         Ultima_verificacion, Siguiente_verificacion, Plazo_Vigencia, Estado,
-                        fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja,
+                        fc0, fc15, fc30, proveedor, fecha_compra, documento_compra, n_documento_compra, valor_unitario, fecha_baja${invCols()},
                         usuario_cambio, version, fecha_cambio
                     ) VALUES (
                         @id_equipo, @codigo, @nombre, @tipoequipo, @sede, @fecha_vigencia, @id_muestreador, @habilitado,
                         @sigla, @correlativo, @tienefc, @error0, @error15, @error30, @equipo_asociado,
                         @observacion, @visible_muestreador, @que_mide, @unidad_medida_textual, @unidad_medida_sigla, @informe,
                         @ultima_verificacion, @siguiente_verificacion, @plazo_vigencia, @estado_equipo_exp,
-                        @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja,
+                        @fc0, @fc15, @fc30, @proveedor, @fecha_compra, @documento_compra, @n_documento_compra, @valor_unitario, @fecha_baja${invVals()},
                         @usuario_cambio, @version, GETDATE()
                     );
                 `);
@@ -1683,6 +1750,7 @@ export const equipoService = {
     // fuera de servicio no se tocan: esos se retiraron a propósito.
     reactivarEquiposRenovados: async () => {
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const docsOk = await hasDocsColumns(pool);
         const transaction = new sql.Transaction(pool);
         try {
@@ -1717,6 +1785,7 @@ export const equipoService = {
         try {
             const { search, tipo, sede, estado, id_muestreador, fechaDesde, fechaHasta } = params;
             const pool = await getConnection();
+            await hasInvColumns(pool);
             const request = pool.request();
 
             // 1. Build where clause (Same as getEquipos but without pagination)
@@ -1740,8 +1809,15 @@ export const equipoService = {
                 whereClause += ` AND e.sede = @sede`;
             }
             if (estado && estado !== 'Todos') {
-                request.input('habilitado', sql.VarChar(8000), estado === 'Activo' ? 'S' : 'N');
-                whereClause += ` AND e.habilitado = @habilitado`;
+                // Operativo / Fuera de Servicio / Dado de Baja filtran por el estado del
+                // inventario; Activo / Inactivo (compatibilidad) por el flag habilitado.
+                if (estado === 'Activo' || estado === 'Inactivo') {
+                    request.input('habilitado', sql.VarChar(8000), estado === 'Activo' ? 'S' : 'N');
+                    whereClause += ` AND e.habilitado = @habilitado`;
+                } else {
+                    request.input('estadoEquipo', sql.VarChar(100), normalizarEstadoEquipo(estado));
+                    whereClause += ` AND e.Estado = @estadoEquipo`;
+                }
             }
             if (id_muestreador && id_muestreador !== 'Todos') {
                 request.input('id_muestreador', sql.Int, Number(id_muestreador));
@@ -1761,11 +1837,11 @@ export const equipoService = {
                     e.id_equipo, e.codigo, e.nombre, e.tipoequipo as tipo, e.sede as ubicacion,
                     FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') as vigencia,
                     FORMAT(e.Ultima_verificacion, 'dd/MM/yyyy') as fecha_creacion,
-                    CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END as estado,
+                    ISNULL(e.Estado, CASE WHEN e.habilitado = 'S' THEN 'Operativo' ELSE 'Fuera de Servicio' END) as estado,
                     m.nombre_muestreador as nombre_asignado, e.sigla, e.correlativo,
                     e.tienefc as tiene_fc, e.error0, e.error15, e.error30, e.equipo_asociado,
                     e.observacion, e.visible_muestreador, e.que_mide, e.unidad_medida_textual,
-                    e.unidad_medida_sigla, e.informe, e.version
+                    e.unidad_medida_sigla, e.informe, e.version${invCols('e')}
                 FROM mae_equipo e
                 LEFT JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                 ${whereClause}
@@ -1776,7 +1852,7 @@ export const equipoService = {
 
             // 2. Aggregate data for "Reportes" sheet
             const stats = {
-                estado: { 'Activo': 0, 'Inactivo': 0 },
+                estado: Object.fromEntries(ESTADOS_EQUIPO.map((x) => [x, 0])),
                 tipo: {},
                 ubicacion: {},
                 responsable: {}
@@ -1784,7 +1860,7 @@ export const equipoService = {
 
             data.forEach(item => {
                 // Estado
-                stats.estado[item.estado]++;
+                stats.estado[item.estado] = (stats.estado[item.estado] || 0) + 1;
                 
                 // Tipo
                 const t = item.tipo || 'Sin Tipo';
@@ -1808,6 +1884,11 @@ export const equipoService = {
                 { header: 'ID', key: 'id_equipo', width: 10 },
                 { header: 'CÓDIGO', key: 'codigo', width: 15 },
                 { header: 'NOMBRE', key: 'nombre', width: 30 },
+                ...(invColumnsExist ? [
+                    { header: 'MARCA', key: 'marca', width: 20 },
+                    { header: 'MODELO', key: 'modelo', width: 20 },
+                    { header: 'N° DE SERIE', key: 'n_serie', width: 18 },
+                ] : []),
                 { header: 'ESTADO', key: 'estado', width: 12 },
                 { header: 'TIPO', key: 'tipo', width: 20 },
                 { header: 'UBICACIÓN', key: 'ubicacion', width: 25 },
@@ -1827,6 +1908,10 @@ export const equipoService = {
                 { header: 'INFORME', key: 'informe', width: 15 },
                 { header: 'VERSIÓN', key: 'version', width: 10 },
                 { header: 'VISIBLE MUEST.', key: 'visible_muestreador', width: 12 },
+                ...(invColumnsExist ? [
+                    { header: 'INFLUENCIA SIGNIFICATIVA', key: 'influencia_significativa', width: 14 },
+                    { header: 'JUSTIFICACIÓN', key: 'justificacion_influencia', width: 45 },
+                ] : []),
                 { header: 'OBSERVACIÓN', key: 'observacion', width: 40 }
             ];
             
@@ -1845,7 +1930,7 @@ export const equipoService = {
             // Format header
             wsData.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
             wsData.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E293B' } };
-            wsData.autoFilter = 'A1:V1';
+            wsData.autoFilter = { from: { row: 1, column: 1 }, to: { row: 1, column: wsData.columns.length } };
 
             // --- SHEET 2: REPORTES ---
             const wsReports = workbook.addWorksheet('Reportes');

@@ -58,6 +58,12 @@ export interface Equipo {
     n_documento_compra?: string | null;
     valor_unitario?: number | null;
     fecha_baja?: string | null;
+    // Datos del inventario OI-FoGe-21 (migrations/add_equipo_datos_inventario.sql).
+    marca?: string | null;
+    modelo?: string | null;
+    n_serie?: string | null;
+    influencia_significativa?: string | null;
+    justificacion_influencia?: string | null;
 }
 
 export interface EquipoHistorial extends Equipo {

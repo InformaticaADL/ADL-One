@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconFilePlus, IconSearch, IconFileTypePdf, IconPencil, IconEye, IconSignature, IconRefresh } from '@tabler/icons-react';
+import { IconFilePlus, IconSearch, IconFileTypePdf, IconPencil, IconEye, IconSignature, IconRefresh, IconLayoutColumns, IconX, IconTrash, IconThermometer, IconListDetails, IconChartBar } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -11,8 +12,10 @@ import { useToast } from '../../../contexts/ToastContext';
 import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
 import { verificacionTemperaturaService as api, type VerificacionResumen, type EstadoVerificacion } from '../services/verificacionTemperatura.service';
 import { ESTADO_META, fmtFecha, fmtNum, hoyYmd, nombrePeriodo } from '../utils/verificacionTemperatura';
-import { VerificacionTempEditor } from '../components/verificacion-temperatura/VerificacionTempEditor';
+import { VerificacionTempEditor, MesaVerificacionTemp, EliminarFichaDialog } from '../components/verificacion-temperatura/VerificacionTempEditor';
 import { CrearFichasDialog } from '../components/verificacion-temperatura/CrearFichasDialog';
+import { ErroresPatronPanel } from '../components/verificacion-temperatura/ErroresPatronPanel';
+import { ResumenVerificacionTemp } from '../components/verificacion-temperatura/ResumenVerificacionTemp';
 
 interface Props {
     onBack: () => void;
@@ -20,6 +23,9 @@ interface Props {
 
 type FiltroEstado = '' | EstadoVerificacion | 'NO_CUMPLE';
 const SEDES = ['PM', 'VI', 'AY', 'PA'];
+// Fichas que se pueden llevar a la mesa de trabajo (las que aún se llenan o firman).
+const ABIERTA = (e: EstadoVerificacion) => e === 'BORRADOR' || e === 'PENDIENTE_FIRMA';
+const MAX_MESA = 6;
 
 // Sección de G. Calidad que reemplaza la planilla "Guia - Verificación
 // Temperatura <mes>.xlsx": cada fila es una ficha OI-FoGe-39 (lo que antes era
@@ -36,6 +42,31 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
     const [abierta, setAbierta] = useState<number | null>(null);
     const [crearAbierto, setCrearAbierto] = useState(false);
     const [pdf, setPdf] = useState<{ url: string; titulo: string } | null>(null);
+    // Fichas del periodo o la hoja "Resumen" con estadística y gráficos.
+    const [vista, setVista] = useState<'fichas' | 'resumen' | 'patron'>('fichas');
+    // Selección para la mesa de trabajo (varios equipos a la vez).
+    const [seleccion, setSeleccion] = useState<number[]>([]);
+    const [mesa, setMesa] = useState<number[]>([]);
+    // Ficha en borrador que se quiere eliminar (descartar lo que se estaba llenando).
+    const [aEliminar, setAEliminar] = useState<VerificacionResumen | null>(null);
+    const [eliminando, setEliminando] = useState(false);
+
+    const eliminar = async () => {
+        if (!aEliminar) return;
+        setEliminando(true);
+        try {
+            await api.eliminar(aEliminar.id_verificacion);
+            showToast({ type: 'success', message: `Ficha de ${aEliminar.codigo_equipo} eliminada` });
+            setSeleccion((prev) => prev.filter((id) => id !== aEliminar.id_verificacion));
+            setAEliminar(null);
+            cargar();
+        } catch (err) {
+            const mensaje = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            showToast({ type: 'error', message: mensaje || 'No se pudo eliminar la ficha' });
+        } finally {
+            setEliminando(false);
+        }
+    };
 
     const cargar = useCallback(async () => {
         setCargando(true);
@@ -63,6 +94,22 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             return true;
         });
     }, [fichas, estado, sede, busqueda]);
+
+    // Al cambiar de periodo o recargar, se descartan las que ya no se pueden abrir.
+    useEffect(() => {
+        setSeleccion((prev) => prev.filter((id) => fichas.some((f) => f.id_verificacion === id && ABIERTA(f.estado))));
+    }, [fichas]);
+
+    const alternar = (id: number) => setSeleccion((prev) => {
+        if (prev.includes(id)) return prev.filter((x) => x !== id);
+        if (prev.length >= MAX_MESA) {
+            showToast({ type: 'warning', message: `La mesa admite hasta ${MAX_MESA} equipos a la vez` });
+            return prev;
+        }
+        return [...prev, id];
+    });
+    const seleccionables = visibles.filter((f) => ABIERTA(f.estado));
+    const todasMarcadas = seleccionables.length > 0 && seleccionables.every((f) => seleccion.includes(f.id_verificacion));
 
     const activas = fichas.filter((f) => f.estado !== 'ANULADA');
     const cuenta = (e: EstadoVerificacion) => fichas.filter((f) => f.estado === e).length;
@@ -103,7 +150,28 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 )}
             />
 
-            <div className="mb-4 flex flex-wrap items-end gap-3">
+            <div className="mb-4 flex w-fit rounded-lg border border-border bg-muted/40 p-1" role="tablist">
+                {([
+                    { k: 'fichas', label: 'Fichas', icon: IconListDetails },
+                    { k: 'resumen', label: 'Resumen y estadística', icon: IconChartBar },
+                    { k: 'patron', label: 'Errores de patrón', icon: IconThermometer },
+                ] as const).map(({ k, label, icon: Icono }) => (
+                    <button
+                        key={k}
+                        type="button"
+                        role="tab"
+                        aria-selected={vista === k}
+                        onClick={() => setVista(k)}
+                        className={cn('flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors', vista === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                    >
+                        <Icono size={15} /> {label}
+                    </button>
+                ))}
+            </div>
+
+            {vista === 'patron' && <ErroresPatronPanel />}
+
+            {vista !== 'patron' && <div className="mb-4 flex flex-wrap items-end gap-3">
                 <div className="w-52">
                     <p className="mb-1 text-xs text-muted-foreground">Periodo (campaña)</p>
                     <Combobox value={periodo} onValueChange={setPeriodo} options={opcionesPeriodo} placeholder="Periodo" />
@@ -119,11 +187,16 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                         </div>
                     </div>
                 )}
-                <Button variant="ghost" size="sm" onClick={cargar} disabled={cargando}>
-                    <IconRefresh size={15} className={cn(cargando && 'animate-spin')} /> Actualizar
-                </Button>
-            </div>
+                {vista === 'fichas' && (
+                    <Button variant="ghost" size="sm" onClick={cargar} disabled={cargando}>
+                        <IconRefresh size={15} className={cn(cargando && 'animate-spin')} /> Actualizar
+                    </Button>
+                )}
+            </div>}
 
+            {vista === 'resumen' && <ResumenVerificacionTemp periodo={periodo} onAbrirFicha={setAbierta} />}
+
+            {vista === 'fichas' && (<>
             <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
                 {stats.map((s) => (
                     <button
@@ -154,6 +227,17 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                         </button>
                     ))}
                 </div>
+                {seleccion.length > 0 && (
+                    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
+                        <span className="text-sm"><b>{seleccion.length}</b> seleccionada{seleccion.length === 1 ? '' : 's'}</span>
+                        <Button size="sm" className="h-7" onClick={() => setMesa(seleccion)}>
+                            <IconLayoutColumns size={14} /> Llenar a la vez
+                        </Button>
+                        <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSeleccion([])} title="Quitar selección">
+                            <IconX size={14} />
+                        </Button>
+                    </div>
+                )}
                 <div className="relative ml-auto w-full max-w-xs">
                     <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input className="h-8 pl-8" placeholder="Buscar equipo o muestreador..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
@@ -164,6 +248,15 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 <Table>
                     <TableHeader>
                         <TableRow className="hover:bg-transparent">
+                            <TableHead className="w-10">
+                                <Checkbox
+                                    checked={todasMarcadas}
+                                    disabled={seleccionables.length === 0}
+                                    onCheckedChange={(c) => setSeleccion(c ? seleccionables.slice(0, MAX_MESA).map((f) => f.id_verificacion) : [])}
+                                    aria-label="Seleccionar fichas para llenar a la vez"
+                                    title={`Seleccionar hasta ${MAX_MESA} fichas para llenarlas a la vez`}
+                                />
+                            </TableHead>
                             <TableHead>Equipo</TableHead>
                             <TableHead>Sede</TableHead>
                             <TableHead>Fecha</TableHead>
@@ -181,7 +274,20 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                             const meta = ESTADO_META[f.estado];
                             const fuera = (e: number | null) => e !== null && Math.abs(e) > 0.5;
                             return (
-                                <TableRow key={f.id_verificacion} className={cn('cursor-pointer', f.estado === 'ANULADA' && 'opacity-60')} onClick={() => setAbierta(f.id_verificacion)}>
+                                <TableRow
+                                    key={f.id_verificacion}
+                                    className={cn('cursor-pointer', f.estado === 'ANULADA' && 'opacity-60', seleccion.includes(f.id_verificacion) && 'bg-primary/5')}
+                                    onClick={() => setAbierta(f.id_verificacion)}
+                                >
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                        {ABIERTA(f.estado) && (
+                                            <Checkbox
+                                                checked={seleccion.includes(f.id_verificacion)}
+                                                onCheckedChange={() => alternar(f.id_verificacion)}
+                                                aria-label={`Seleccionar ${f.codigo_equipo}`}
+                                            />
+                                        )}
+                                    </TableCell>
                                     <TableCell>
                                         <p className="font-semibold">{f.codigo_equipo}</p>
                                         <p className="max-w-[220px] truncate text-xs text-muted-foreground">{f.nombre_equipo}</p>
@@ -204,6 +310,11 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                                                     : f.estado === 'PENDIENTE_FIRMA' ? <><IconSignature size={14} /> Firmar</>
                                                         : <><IconEye size={14} /> Ver</>}
                                             </Button>
+                                            {f.estado === 'BORRADOR' && (
+                                                <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setAEliminar(f)} title="Eliminar esta ficha en borrador (no se guarda)">
+                                                    <IconTrash size={16} />
+                                                </Button>
+                                            )}
                                             {f.estado !== 'ANULADA' && (
                                                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => verPdf(f)} title={f.estado === 'FIRMADA' ? 'Ver PDF firmado' : 'Vista previa PDF'}>
                                                     <IconFileTypePdf size={16} className="text-red-600" />
@@ -227,6 +338,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                     </div>
                 )}
             </div>
+            </>)}
 
             <CrearFichasDialog
                 open={crearAbierto}
@@ -238,6 +350,13 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 }}
             />
             <VerificacionTempEditor idVerificacion={abierta} onClose={() => setAbierta(null)} onChanged={cargar} />
+            <MesaVerificacionTemp
+                ids={mesa}
+                onClose={() => { setMesa([]); setSeleccion([]); }}
+                onChanged={cargar}
+                onQuitar={(id) => { setMesa((prev) => prev.filter((x) => x !== id)); setSeleccion((prev) => prev.filter((x) => x !== id)); }}
+            />
+            <EliminarFichaDialog ficha={aEliminar} eliminando={eliminando} onConfirmar={eliminar} onCancelar={() => setAEliminar(null)} />
             <PdfViewerModal open={!!pdf} onClose={() => setPdf(null)} url={pdf?.url ?? null} title={pdf?.titulo} />
         </div>
     );

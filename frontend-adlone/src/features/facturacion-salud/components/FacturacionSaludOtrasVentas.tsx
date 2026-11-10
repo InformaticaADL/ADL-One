@@ -21,6 +21,15 @@ const TIPOS_DOC = [
     { id: 10, codigo: 'NDE', label: '10 — NDE (Nota de Débito Electrónica)' },
 ];
 
+// Selector de tipo con el mismo diseño de los flujos de Exportación DTE.
+const FILTROS_TIPO = [
+    { id: 'ALL', label: 'Todos los documentos', sub: 'facturacion_otro', desc: 'Todos los documentos de facturacion_otro: FEA, FEE, NCE y NDE.' },
+    { id: '1', label: '1. FEA Otras Ventas (Afectas 19%)', sub: 'id_tipodocumento = 1', desc: 'Facturas afectas de otras ventas (totaldoc = neto * 1.19).' },
+    { id: '11', label: '2. FEE Facturas Exentas (Sin IVA)', sub: 'id_tipodocumento = 11', desc: 'Facturas exentas de IVA (totaldoc = neto).' },
+    { id: '8', label: '3. NCE Notas de Crédito', sub: 'id_tipodocumento = 8', desc: 'Notas de crédito: anulan, corrigen texto o reversan casos de la factura de referencia.' },
+    { id: '10', label: '4. NDE Notas de Débito', sub: 'id_tipodocumento = 10', desc: 'Notas de débito sobre una factura de referencia.' },
+];
+
 const CODIGOS_RAZON_NC = [
     {
         id: 1,
@@ -247,9 +256,9 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
 
     return (
         <div className="space-y-4">
-            {/* Barra Superior */}
+            {/* Tipos de documento (mismo diseño que los flujos de Exportación DTE) */}
             <Card className="p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <div>
                         <h3 className="m-0 text-base font-bold text-foreground">
                             Otras Ventas, Facturas Exentas y Notas de Crédito / Débito (facturacion_otro)
@@ -260,64 +269,83 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
                             reversa selectiva de casos por Nota de Crédito)
                         </p>
                     </div>
+                    <Button variant="outline" size="sm" onClick={cargarDocumentos}>
+                        <IconRefresh size={15} /> Recargar
+                    </Button>
+                </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap gap-2">
+                    {FILTROS_TIPO.map((t) => {
+                        const active = tipoFilter === t.id;
+                        return (
+                            <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setTipoFilter(t.id)}
+                                className={`rounded-lg border px-3 py-2 text-left text-xs transition ${
+                                    active
+                                        ? 'border-primary bg-primary text-primary-foreground font-semibold shadow-sm'
+                                        : 'border-border bg-background text-foreground hover:bg-muted/50'
+                                }`}
+                            >
+                                <div>{t.label}</div>
+                                <div className={`font-mono text-[10px] ${active ? 'text-primary-foreground/80' : 'text-muted-foreground'}`}>
+                                    {t.sub}
+                                </div>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <div className="relative">
                             <IconSearch size={14} className="absolute left-2.5 top-2.5 text-muted-foreground" />
                             <input
                                 type="text"
-                                placeholder="Buscar por ID, cliente, concepto, ref..."
+                                placeholder="Filtrar por ID, Cliente, Concepto o Referencia..."
                                 value={busqueda}
                                 onChange={(e) => setBusqueda(e.target.value)}
-                                className="h-9 w-56 rounded-md border border-input bg-background pl-8 pr-2 text-xs"
+                                className="h-8 w-64 rounded border border-input bg-background pl-8 pr-2 text-xs"
                             />
                         </div>
 
                         <select
-                            value={tipoFilter}
-                            onChange={(e) => setTipoFilter(e.target.value)}
-                            className="h-9 rounded-md border border-input bg-background px-2.5 text-xs"
-                        >
-                            <option value="ALL">Todos los Tipos (FEA, FEE, NCE, NDE)</option>
-                            <option value="1">1 — FEA (Otras Ventas Afecta)</option>
-                            <option value="11">11 — FEE (Factura Exenta)</option>
-                            <option value="8">8 — NCE (Nota de Crédito)</option>
-                            <option value="10">10 — NDE (Nota de Débito)</option>
-                        </select>
-
-                        <select
                             value={emitidoFilter}
                             onChange={(e) => setEmitidoFilter(e.target.value)}
-                            className="h-9 rounded-md border border-input bg-background px-2.5 text-xs"
+                            className="h-8 rounded border border-input bg-background px-2 text-xs font-medium"
                         >
                             <option value="ALL">Estado DTE: Todos</option>
-                            <option value="N">Pendientes DTE (emitido = N)</option>
-                            <option value="S">Emitidos DTE (emitido = S)</option>
+                            <option value="N">Solo pendientes de emisión (emitido &lt;&gt; 'S')</option>
+                            <option value="S">Solo emitidos (emitido = 'S')</option>
                         </select>
-
-                        <Button variant="outline" size="sm" onClick={cargarDocumentos}>
-                            <IconRefresh size={15} />
-                        </Button>
-
-                        <Button size="sm" onClick={() => setModalOpen(true)}>
-                            <IconPlus size={15} /> Nuevo Documento / Nota de Crédito
-                        </Button>
                     </div>
+
+                    <Button size="sm" onClick={() => setModalOpen(true)}>
+                        <IconPlus size={15} /> Nuevo Documento / Nota de Crédito
+                    </Button>
                 </div>
             </Card>
 
-            {/* Tabla de Documentos en facturacion_otro */}
+            {/* Tabla de Documentos del tipo seleccionado */}
             <Card className="p-4">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>{FILTROS_TIPO.find((t) => t.id === tipoFilter)?.desc}</span>
+                    <span>
+                        Mostrando <strong>{documentos.length}</strong> documento(s)
+                    </span>
+                </div>
+
                 {loading ? (
                     <div className="py-12 text-center text-xs text-muted-foreground">
                         Cargando registros de facturacion_otro...
                     </div>
                 ) : (
-                    <div className="overflow-x-auto">
+                    <div className="max-h-[500px] overflow-auto">
                         <table className="w-full border-collapse text-left text-xs">
-                            <thead>
+                            <thead className="sticky top-0 bg-muted/90 backdrop-blur">
                                 <tr className="border-b border-border text-[11px] uppercase text-muted-foreground">
-                                    <th className="py-2 pr-2">ID Fact.</th>
+                                    <th className="py-2 pl-2 pr-2">ID Fact.</th>
                                     <th className="py-2 px-2">Tipo Documento</th>
                                     <th className="py-2 px-2">Fecha</th>
                                     <th className="py-2 px-2">Cliente / RUT</th>
@@ -325,18 +353,18 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
                                     <th className="py-2 px-2">Referencia (NC/ND)</th>
                                     <th className="py-2 px-2 text-right">Monto UF</th>
                                     <th className="py-2 px-2 text-right">Neto ($ CLP)</th>
-                                    <th className="py-2 pl-2 text-right">Estado DTE</th>
+                                    <th className="py-2 pl-2 pr-2 text-right">Estado DTE</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
                                 {documentos.map((doc) => (
                                     <tr key={doc.id_otroscobros} className="hover:bg-muted/30">
-                                        <td className="py-2.5 pr-2 font-mono font-bold text-primary">
+                                        <td className="py-2 pl-2 pr-2 font-mono font-bold text-primary">
                                             #{doc.id_facturacion}
                                         </td>
-                                        <td className="py-2.5 px-2">{badgePorTipo(Number(doc.id_tipodocumento))}</td>
-                                        <td className="py-2.5 px-2 font-mono text-[11px]">{doc.fecha_documento}</td>
-                                        <td className="py-2.5 px-2">
+                                        <td className="py-2 px-2">{badgePorTipo(Number(doc.id_tipodocumento))}</td>
+                                        <td className="py-2 px-2 font-mono text-[11px]">{doc.fecha_documento}</td>
+                                        <td className="py-2 px-2">
                                             <div className="font-semibold text-foreground">
                                                 {doc.nombre_empresaservicios}
                                             </div>
@@ -344,10 +372,10 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
                                                 {doc.rut_empresaservicios}
                                             </div>
                                         </td>
-                                        <td className="py-2.5 px-2 max-w-xs truncate" title={doc.concepto_cobro}>
+                                        <td className="py-2 px-2 max-w-xs truncate" title={doc.concepto_cobro}>
                                             {doc.concepto_cobro}
                                         </td>
-                                        <td className="py-2.5 px-2 text-[11px]">
+                                        <td className="py-2 px-2 text-[11px]">
                                             {doc.num_ref ? (
                                                 <div>
                                                     <span className="font-mono font-semibold">
@@ -364,13 +392,13 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
                                                 <span className="text-muted-foreground">—</span>
                                             )}
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-mono">
+                                        <td className="py-2 px-2 text-right font-mono">
                                             {fmtUf(doc.monto_uf)} UF
                                         </td>
-                                        <td className="py-2.5 px-2 text-right font-mono font-bold text-foreground">
+                                        <td className="py-2 px-2 text-right font-mono font-bold text-foreground">
                                             $ {fmtClp(doc.monto)}
                                         </td>
-                                        <td className="py-2.5 pl-2 text-right">
+                                        <td className="py-2 pl-2 pr-2 text-right">
                                             <Badge
                                                 variant={doc.emitido === 'S' ? 'success' : 'warning'}
                                                 className="text-[10px]"
@@ -383,7 +411,7 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
                                 {documentos.length === 0 && (
                                     <tr>
                                         <td colSpan={9} className="py-8 text-center text-muted-foreground">
-                                            No se encontraron documentos con los filtros actuales.
+                                            No hay documentos de este tipo para los filtros seleccionados.
                                         </td>
                                     </tr>
                                 )}

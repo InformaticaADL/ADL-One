@@ -326,11 +326,13 @@ const getContextHelp = (
         return {
             title: 'Hub de Administración — Gestión de Calidad',
             queEs: 'Panel de acceso a las herramientas del área de Gestión de Calidad.',
-            queHace: 'Centraliza el acceso a Equipos de Medición y Muestreadores bajo la supervisión del área de calidad.',
+            queHace: 'Centraliza el control de los equipos de medición: inventario, indicadores, vencimientos y verificaciones de temperatura.',
             comoFunciona: [
-                '1. Haz clic en «Gestión de Equipos» para revisar y actualizar el estado de calibración del instrumental.',
-                '2. Accede a «Muestreadores» para verificar acreditaciones y licencias del personal.',
-                '3. Para volver al menú principal de Administración, usa el botón «Atrás».'
+                '1. «Gestión de Equipos»: inventario, edición, historial y carga desde Excel.',
+                '2. «Dashboard de Equipos»: indicadores y gráficos del estado del inventario.',
+                '3. «Calendario de Vencimientos»: en qué día vence la revisión de cada equipo.',
+                '4. «Verificación de Temperatura»: fichas OI-FoGe-39 con lecturas, cálculo y firma.',
+                '5. Para volver al menú principal de Administración, usa «Volver».'
             ]
         };
     }
@@ -430,29 +432,157 @@ const getContextHelp = (
     if (activeSubmodule === 'admin-equipos-gestion') {
         return {
             title: 'Gestión de Equipos de Medición',
-            queEs: 'Inventario y control del estado de calibración del instrumental de terreno y laboratorio.',
-            queHace: 'Permite registrar, editar, activar/desactivar y supervisar los equipos de medición. Incluye un panel de indicadores clave y un sistema de alertas automáticas para detectar calibraciones próximas a vencer, vigencias expiradas y responsabilidades afectadas.',
+            queEs: 'Inventario y control de vigencia del instrumental de terreno y laboratorio (inventario OI-FoGe-21).',
+            queHace: 'Permite registrar, editar, activar/desactivar y supervisar los equipos de medición, cargar el inventario y el resumen de temperaturas desde Excel, y llevar el historial de versiones de cada equipo con su documento de revisión.',
             comoFunciona: [
-                '1. TARJETAS DE INDICADORES (KPIs) superiores:',
-                '   • Por Vencer (30 días): Equipos activos cuya vigencia de calibración expira en los próximos 30 días (desde hoy inclusive).',
-                '   • Activos con vigencia vencida: Equipos activos cuya fecha de vigencia es menor al día actual (ya vencidos).',
-                '   • Equipos con muestreadores vencidos: Equipos (tanto activos como inactivos) que están asignados a un muestreador inhabilitado en el sistema.',
-                '   * Haz clic en cualquiera de estas tarjetas para aplicar el filtro correspondiente de forma automática.',
-                '2. COLUMNA ALERTA (⚠️): Aparece un ícono de triángulo naranja cuando el equipo tiene una solicitud ACEPTADA pendiente de ejecución (ej. traspaso, baja, recalibración aprobada). Haz clic en el ícono para abrir el panel de solicitudes y procesarla.',
-                '3. COLUMNA ESTADO — semáforo de colores: 🟢 Verde (punto) = Equipo Activo con calibración vigente | 🔴 Rojo (punto) = Equipo Inactivo o fuera de servicio.',
-                '4. COLUMNA VIGENCIA: El texto de la fecha se muestra en naranja y negrita si está por vencer en los próximos 30 días, y en rojo y negrita si ya está vencida.',
-                '5. COLUMNA RESPONSABLE: Muestra el muestreador asignado. Si el muestreador está inhabilitado/inactivo, aparecerá una etiqueta roja «Inactivo» al lado de su nombre. En los filtros de búsqueda, se muestra como «(Inactivo)».',
-                '6. Los equipos con alertas activas se muestran primero en la tabla (ordenados por prioridad), seguidos de los que vencen más pronto.',
-                '7. Para editar un equipo: haz clic en el ícono de «Lápiz» en la columna de Acciones y actualiza sus datos (vigencia, responsable, estado).',
-                '8. Para crear un nuevo equipo: presiona «Nuevo Equipo» en la cabecera e ingresa Código, Nombre, Tipo, Sede, Responsable y Fecha de Vigencia.',
-                '9. Para activar o desactivar un equipo: usa el ícono de encendido (⏻) en la columna de Acciones. Te pedirá confirmar y opcionalmente ingresar una observación.'
+                '1. FILTROS RÁPIDOS sobre la tabla (cada uno muestra cuántos equipos cumplen):',
+                '   • Por vencer: equipos activos cuya siguiente revisión vence en los próximos 30 días.',
+                '   • Vencidos: equipos cuya siguiente revisión ya pasó y siguen siendo del parque (no dados de baja ni fuera de servicio).',
+                '   • Muestreador inactivo: equipos asignados a un muestreador que está inhabilitado.',
+                '   • Activos: solo los equipos habilitados.',
+                '2. FILTROS Y ORDEN: filtra por Tipo, Sede, Estado y Responsable, y ordena por vencimiento (próximo primero), nombre, activos primero o últimas modificaciones. «Limpiar todo» quita los filtros.',
+                '3. COLUMNA ALERTA (⚠️): el equipo tiene una solicitud ACEPTADA lista para ejecutarse (traspaso, baja, extensión de vigencia…). Haz clic en el ícono para abrirla.',
+                '4. NUEVO EQUIPO: botón de la cabecera. El formulario tiene Información General, Configuración Técnica, Verificación y Estado, Datos del Inventario (marca, modelo, N° de serie, influencia significativa y justificación), Compra y Baja, y el documento de la revisión.',
+                '5. ACCIONES de cada fila (menú ⋮): Ver documento, Editar y Activar/Desactivar. Cada edición guarda una versión en el historial, que se puede comparar o restaurar desde el formulario.',
+                '6. SUBIR Y ANALIZAR EXCEL: sube el Inventario (OI-FoGe-21) o el Resumen de verificaciones T°; el sistema detecta cuál es y lo compara con lo registrado. Verás cuáles coinciden, cuáles difieren y cuáles no existen, con una vista dividida para revisar cada uno y actualizarlo o crearlo. Las fechas del Excel tienen prioridad, aunque sean más antiguas.',
+                '7. EXPORTAR: descarga el inventario filtrado en Excel con una hoja de reportes.',
+                '8. OBSERVACIÓN: al salir del campo, las líneas con fecha (00.00.0000, 00-00-0000, 00/00/0000 o «16 de octubre de 2023») se ordenan de la más antigua a la más nueva.'
             ],
             tips: [
-                'Usa las tarjetas superiores para ver rápidamente el estado del inventario y corregir asignaciones o renovar calibraciones de inmediato.',
-                'Si ves la etiqueta roja «Inactivo» en la columna Responsable, asigna el equipo a otro muestreador activo lo antes posible.',
-                'Si ves el ícono ⚠️ en la columna Alerta, haz clic en él: hay una solicitud ya aprobada esperando que la ejecutes (ej. actualizar vigencia, dar de baja, traspasar).',
-                'Un equipo en estado Inactivo NO puede ser asignado a muestreos. Actívalo solo cuando su calibración esté vigente.',
-                'Usa los filtros de Sede, Tipo y Responsable para revisar el inventario de una sucursal o área específica.'
+                'Todos los días el sistema inactiva los equipos cuya siguiente revisión venció y vuelve a activar los que se renovaron con una fecha válida (siguiente revisión de hoy en adelante).',
+                'Gestión de Calidad recibe avisos en Notificaciones cuando un equipo está a 30 días y a 7 días de vencer; al tocar el aviso se abre el Calendario de Vencimientos.',
+                'Si ves la etiqueta roja «Inactivo» junto al responsable, asigna el equipo a otro muestreador activo lo antes posible.',
+                'Un equipo inactivo no puede asignarse a muestreos. Actívalo solo cuando su revisión esté vigente.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: DASHBOARD DE EQUIPOS (Calidad)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'gc-dashboard-equipos') {
+        return {
+            title: 'Dashboard de Equipos',
+            queEs: 'Resumen gráfico del estado del inventario de equipos de medición.',
+            queHace: 'Muestra en un solo panel cuántos equipos hay, cuáles están vencidos o por vencer, cómo se reparten por tipo y sede, y la calidad de sus verificaciones (errores y factor de corrección). Los datos vienen calculados desde el servidor.',
+            comoFunciona: [
+                '1. INDICADORES superiores: Total Equipos, Activos, Vencidos, Por Vencer (30 días) y Sin Asignar.',
+                '2. ESTADO GENERAL y ESTADO DE VIGENCIA: reparto entre vigente, por vencer, vencido, sin fecha y retirado (dados de baja o fuera de servicio).',
+                '3. VENCIMIENTOS POR MES y PRÓXIMOS A VENCER: qué viene en los próximos meses, sin contar los retirados.',
+                '4. VENCIDOS POR TIPO, SIN ASIGNAR POR SEDE, EQUIPOS POR TIPO y POR SEDE: dónde se concentran los problemas.',
+                '5. FACTOR DE CORRECCIÓN, ERROR PROMEDIO POR TIPO y TRAZABILIDAD FC: resultados de las verificaciones de temperatura.',
+                '6. EQUIPOS POR AÑO DE COMPRA y CICLO DE VERIFICACIÓN: antigüedad del parque y frecuencia de revisión.'
+            ],
+            tips: [
+                'Para corregir un equipo, entra a Gestión de Equipos; este panel es solo de consulta.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: CALENDARIO DE VENCIMIENTOS (Calidad)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'gc-calendario-vencimientos') {
+        return {
+            title: 'Calendario de Vencimientos',
+            queEs: 'Calendario con la fecha en que vence la revisión de cada equipo.',
+            queHace: 'Ubica cada equipo en el día de su siguiente revisión y lo colorea según su estado, para planificar las verificaciones y calibraciones del mes.',
+            comoFunciona: [
+                '1. Cada equipo aparece en el día en que vence su siguiente revisión.',
+                '2. Colores: Vencido, Por vencer (30 días o menos), Vigente y Sin fecha. Los dados de baja y fuera de servicio no se muestran.',
+                '3. Navega entre meses con las flechas.',
+                '4. Haz clic en un día para ver sus equipos con tipo, ubicación, técnico, última verificación, plazo de vigencia y estado.'
+            ],
+            tips: [
+                'Los avisos de vencimiento (30 y 7 días antes) que llegan a Notificaciones abren directamente este calendario.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: VERIFICACIÓN DE TEMPERATURA (Calidad) — OI-FoGe-39
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'gc-verificacion-temperatura') {
+        return {
+            title: 'Verificación de Temperatura (OI-FoGe-39)',
+            queEs: 'Formulario digital OI-FoGe-39 de verificación intermedia de temperatura de los equipos que miden temperatura.',
+            queHace: 'Reemplaza la planilla Excel: crea una ficha por equipo y periodo, registra las 15 lecturas contra el termómetro patrón, calcula el error y si cumple (±0,5 °C), y al firmar guarda el PDF en el equipo y actualiza su revisión.',
+            comoFunciona: [
+                '1. CREAR FICHAS: elige periodo y sede y marca los equipos. Los dados de baja aparecen al final con la etiqueta «Dado de baja».',
+                '2. LLENAR: abre una ficha con «Llenar». Para llenar varios equipos a la vez, marca sus casillas en la lista y presiona «Llenar a la vez»: se abren lado a lado (hasta 6).',
+                '3. ANTECEDENTES: el patrón se elige solo según la sede y trae marca, modelo, N° de serie, fecha de calibración y empresa. La máxima división es siempre 5 y no se modifica.',
+                '4. LECTURAS: escribe la temperatura del patrón (TP) y presiona Enter. En ese momento se marca la hora y la TP queda bloqueada (🔒); Enter salta a la siguiente TP. Luego anota la TC (temperatura del equipo). Si te equivocas en una TP, bórrala con la × y escríbela de nuevo.',
+                '5. OBSERVACIÓN: al completar las 15 lecturas se agrega la fecha («- dd/mm/aaaa»), que no se puede borrar, y hay que escribir la observación a continuación. Es obligatoria.',
+                '6. FIRMAR: cada ficha tiene su botón «Firmar» (celular por QR, firma en pantalla o firma registrada). Al firmar, esa ficha queda «Firmada» y bloqueada; las demás de la mesa siguen abiertas.',
+                '7. DESCARTAR: «Descartar cambios» vuelve a lo último guardado; «Eliminar» borra una ficha en borrador sin dejar registro. Una ficha enviada a firma se anula con motivo.',
+                '8. RESUMEN Y ESTADÍSTICA: la pestaña muestra cada equipo con su última verificación (error y factor de corrección a 0/15/30 °C, resultado y estado de la ficha del periodo), igual que la hoja «Resumen» de la planilla. Los gráficos (avance, resultado por sede, antigüedad, distribución del error, mayor error e historial) filtran la tabla al hacer clic, y «Exportar Excel» descarga lo que se ve.',
+                '9. ERRORES DE PATRÓN: la pestaña junto a «Resumen y estadística» muestra por año la calibración y los errores de cada termómetro patrón. Solo el año vigente de cada patrón se puede corregir (lápiz); los años pasados quedan bloqueados (candado) y ningún registro se elimina. Con «Nuevo año» se carga el certificado siguiente, que viene con los datos del año anterior para corregir solo lo que cambió.'
+            ],
+            tips: [
+                'El año más reciente de cada patrón («Vigente») es el que usan las fichas nuevas: al guardarlo, sus errores pasan al termómetro patrón.',
+                'En el resumen, «dato del equipo» indica que ese equipo aún no tiene ficha en el sistema y se muestra lo registrado en su inventario.',
+                'Cada TP se guarda sola al registrarla, así que no se pierde aunque cierres la ventana.',
+                'Usa «Vista previa PDF» para revisar el formulario antes de firmar.',
+                'Al firmar, el equipo toma los nuevos errores 0/15/30 °C, su factor de corrección y la siguiente revisión a 3 meses.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: BIOLOGÍA MOLECULAR
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'bm-consulta') {
+        return {
+            title: 'Biología Molecular',
+            queEs: 'Consulta de muestras y resultados del área de Biología Molecular.',
+            queHace: 'Muestra las muestras y sus resultados dentro de un rango de fechas de muestreo, con filtros por lugar de análisis, resultado y centro.',
+            comoFunciona: [
+                '1. Al entrar se muestran los últimos 30 días.',
+                '2. Cambia el rango con «Fecha desde» y «Fecha hasta» (fecha de muestreo) y filtra por lugar de análisis, resultado y centro.',
+                '3. «Limpiar filtros» vuelve a la consulta inicial; «Volver a consultar» trae los datos de nuevo.'
+            ],
+            tips: [
+                'Los resultados se guardan 10 minutos y se comparten entre usuarios: si alguien acaba de consultar el mismo rango, la respuesta es inmediata. Un rango más corto también responde más rápido.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: HOY EN VIVO (Medio Ambiente)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'ma-hoy-en-vivo') {
+        return {
+            title: 'Hoy en Vivo',
+            queEs: 'Seguimiento en tiempo real de los muestreadores en terreno.',
+            queHace: 'Muestra en el mapa la última posición que envía la app de cada muestreador con jornada iniciada y cuántos están en terreno, en pausa, finalizados o sin señal.',
+            comoFunciona: [
+                '1. La vista «Hoy» muestra los indicadores En terreno, En pausa, Finalizados y Sin señal, y el mapa con la última posición de cada muestreador.',
+                '2. Las posiciones se actualizan solas mientras la app del muestreador esté enviando su ubicación; «Sin señal» indica que dejó de enviarla.',
+                '3. Selecciona un muestreador para ubicarlo en el mapa.',
+                '4. La vista «Historial» muestra las jornadas de días anteriores.'
+            ],
+            tips: [
+                'El historial de posiciones GPS se conserva 30 días y luego se elimina automáticamente.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: SOLICITUDES DE CLIENTES (portal ADL WEB GO)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'solicitudes-clientes' || activeModule === 'solicitudes-clientes') {
+        return {
+            title: 'Solicitudes de Clientes',
+            queEs: 'Bandeja de lo que los clientes piden desde su portal (ADL WEB GO).',
+            queHace: 'Reúne las solicitudes de las empresas que tienes asignadas para que las tomes, converses con el cliente y les des seguimiento. La bandeja se actualiza sola.',
+            comoFunciona: [
+                '1. Usa los filtros rápidos «Por atender» (pendientes) y «Sin tomar» (aún sin responsable), y filtra por empresa, área, estado o busca por texto.',
+                '2. Selecciona una solicitud para ver la conversación con el cliente.',
+                '3. «Tomar» la deja a tu cargo, para que el resto sepa quién la atiende.',
+                '4. Escribe tu respuesta y envíala con el botón o con Ctrl + Enter.'
+            ],
+            tips: [
+                'Solo ves las empresas que tienes asignadas. Las asignaciones se configuran en Informática → Solicitudes de clientes.'
             ]
         };
     }
@@ -492,7 +622,7 @@ const getContextHelp = (
                 '1. La tabla muestra todos los usuarios del sistema con su nombre, correo, rol y estado.',
                 '2. Usa el buscador o filtros para encontrar un usuario específico.',
                 '3. Para crear un usuario: haz clic en «Nuevo Usuario» e ingresa Nombre, Apellido, Correo y Rol.',
-                '4. REGLA CLAVE: La contraseña inicial por defecto para nuevos usuarios es «123456». El usuario debe cambiarla en su primer inicio de sesión.',
+                '4. CONTRASEÑA: al crear el usuario escribes su contraseña inicial en el formulario. Entrégasela por un medio seguro y pídele que la cambie desde Mi Perfil.',
                 '5. Para editar un usuario existente, haz clic en el ícono de «Lápiz» en su fila.',
                 '6. Para desactivar un usuario que ya no trabaja en la empresa, cambia su estado a «Inactivo» usando el switch de estado.',
                 '7. IMPORTANTE: No modificar contraseñas ni correos de los usuarios del área informática: «vremolcoy», «frehbein» y «rdiaz».'
@@ -608,6 +738,77 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: ADMINISTRACIÓN — Revisión de duplicados
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'admin-revision-duplicados') {
+        return {
+            title: 'Revisión de Duplicados',
+            queEs: 'Lista de empresas, servicios y centros que podrían estar repetidos en la base nueva.',
+            queHace: 'Propone posibles duplicados para que decidas si se unen o se mantienen separados. Nada se fusiona sin tu decisión.',
+            comoFunciona: [
+                '1. Revisa cada par sugerido y compara sus datos (nombre, coordenadas, etc.). Puedes filtrar por criterio y por estado (pendientes, fusionados, separados).',
+                '2. Si son el mismo, fusiónalos eligiendo cuál se mantiene. Si no, marca «Son distintos» y no volverán a aparecer como pendientes.',
+                '3. Puedes seleccionar varios pares y resolverlos juntos. El sistema pide confirmación y una observación opcional antes de aplicar.'
+            ],
+            tips: [
+                'Ante la duda, no fusiones: un registro unido por error afecta las fichas e informes que lo usan.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: ADMINISTRACIÓN — Solicitudes de clientes (empresas asignadas)
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'admin-solicitudes-clientes') {
+        return {
+            title: 'Solicitudes de Clientes — Asignaciones',
+            queEs: 'Configuración de quién atiende las solicitudes de cada empresa cliente.',
+            queHace: 'Asigna, por empresa y por área, la persona que recibe y atiende lo que esa empresa pide desde su portal.',
+            comoFunciona: [
+                '1. La lista muestra cada empresa con las personas asignadas por área.',
+                '2. Agrega una asignación eligiendo empresa, área y persona.',
+                '3. Quita una asignación con el ícono de papelera; se pide confirmación.'
+            ],
+            tips: [
+                'Cada persona ve en su bandeja de Solicitudes de clientes solo las empresas que tiene asignadas.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: ADMINISTRACIÓN — Verificadores de solicitudes
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'admin-verificadores-solicitudes') {
+        return {
+            title: 'Verificadores de Solicitudes',
+            queEs: 'Usuarios que reciben copia de todas las solicitudes de clientes.',
+            queHace: 'Agrega o quita verificadores: personas que quedan informadas de todas las solicitudes, sin importar la empresa. No aprueban ni bloquean nada.',
+            comoFunciona: [
+                '1. La lista muestra los verificadores actuales.',
+                '2. Agrega uno eligiendo el usuario.',
+                '3. Quítalo con el ícono de papelera; se pide confirmación.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: USUARIOS GEM
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'admin-usuarios-gem') {
+        return {
+            title: 'Usuarios GEM',
+            queEs: 'Administración de las cuentas del área GEM MaM.',
+            queHace: 'Permite al jefe técnico crear y editar las cuentas de su área y definir qué empresas tiene a cargo cada una.',
+            comoFunciona: [
+                '1. La lista muestra las cuentas GEM con sus empresas a cargo.',
+                '2. Crea o edita una cuenta con sus datos personales y su contraseña.',
+                '3. Marca las empresas que esa persona atiende.',
+                '4. Activa o desactiva cuentas; se pide confirmación.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: ADMINISTRACIÓN — Hub Informática
     // ─────────────────────────────────────────────────────────────────────────
     if (activeModule === 'admin_informacion' && activeSubmodule === 'informatica') {
@@ -689,6 +890,30 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: FACTURACIÓN
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeModule === 'facturacion') {
+        return {
+            title: 'Facturación',
+            queEs: 'Módulo para preparar la facturación de los servicios de ADL.',
+            queHace: 'Agrupa lo facturable en pre-facturas, arma y envía cotizaciones a los clientes, registra sus órdenes de compra y muestra el estado de cuenta de cada empresa.',
+            comoFunciona: [
+                '1. DASHBOARD: resumen de lo pendiente por facturar y accesos directos.',
+                '2. PROCESAR: genera las pre-facturas a partir de los servicios realizados.',
+                '3. PRE-FACTURAS: revisa cada pre-factura, su PDF resumen y la orden de compra asociada.',
+                '4. COTIZACIONES: arma una cotización con cliente, centro y servicios del convenio. «Enviar» genera el PDF y se lo entrega al cliente en su portal (ADL WEB GO).',
+                '5. ÓRDENES DE COMPRA: registra las OC que envían los clientes y revisa las que llegan desde el portal para confirmarlas o descartarlas.',
+                '6. ESTADO DE CUENTA: lo facturado y pendiente por empresa.',
+                '7. CONFIGURACIÓN: valores como la UF (solo administradores).'
+            ],
+            tips: [
+                'Cada pestaña aparece solo si tu rol tiene el permiso correspondiente.',
+                'Si una cotización avisa «Este centro no tiene convenio cargado» o «Hay ítems sin tarifa», completa el convenio antes de enviarla.'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: CHAT
     // ─────────────────────────────────────────────────────────────────────────
     if (activeModule === 'chat') {
@@ -724,11 +949,12 @@ const getContextHelp = (
                 '2. Las notificaciones no leídas aparecen destacadas con un punto naranja.',
                 '3. Haz clic en una notificación para ver el evento detallado y ser llevado directamente a la sección relacionada.',
                 '4. Marca notificaciones como leídas haciendo clic en el check o usando «Marcar todo como leído».',
-                '5. Usa los filtros por tipo para ver solo las notificaciones de una categoría (ej. solo fichas, solo calibraciones).',
-                '6. Las notificaciones antiguas leídas se archivan automáticamente después de 30 días.'
+                '5. Usa los filtros por tipo para ver solo las notificaciones de una categoría.',
+                '6. Las notificaciones llegan al instante, sin recargar la página.'
             ],
             tips: [
-                'Revisa el ícono de campana en el menú lateral regularmente para no perderte alertas importantes.'
+                'Gestión de Calidad recibe «Equipos por vencer (30 días)» y «Equipos por vencer (7 días)» con la lista de equipos; al tocarlas se abre el Calendario de Vencimientos.',
+                'Revisa la campana regularmente para no perderte alertas importantes.'
             ]
         };
     }
@@ -767,8 +993,8 @@ const getContextHelp = (
             '1. Usa la barra de navegación lateral izquierda para desplazarte entre los módulos disponibles según tu rol.',
             '2. El ícono de campana (🔔) en el menú lateral muestra tus notificaciones pendientes. Haz clic para verlas.',
             '3. El ícono de chat te permite comunicarte con otros miembros del equipo en tiempo real.',
-            '4. Haz clic en tu foto de perfil (esquina inferior izquierda) para acceder a tu perfil o cerrar sesión.',
-            '5. Para recibir ayuda sobre la pantalla en la que te encuentras, presiona el botón naranja (!) flotante en la esquina inferior derecha.',
+            '4. Haz clic en tu foto de perfil (esquina inferior izquierda) para acceder a tu perfil, a la Ayuda general o cerrar sesión.',
+            '5. Para recibir ayuda sobre la pantalla en la que te encuentras, presiona el botón «Información» en la cabecera de cada sección.',
             '6. Si el menú lateral está muy angosto, haz clic en el ícono de hamburguesa (☰) para expandirlo.'
         ],
         tips: [

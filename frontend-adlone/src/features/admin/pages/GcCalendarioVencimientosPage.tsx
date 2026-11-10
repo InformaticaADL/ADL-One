@@ -13,7 +13,8 @@ import 'dayjs/locale/es';
 
 dayjs.locale('es');
 
-interface Props { onBack: () => void; hideHeader?: boolean; onEditEquipo?: (eq: Equipo) => void }
+// recargar: al cambiar, vuelve a pedir los equipos (ej. tras guardar una ficha).
+interface Props { onBack: () => void; hideHeader?: boolean; onEditEquipo?: (eq: Equipo) => void; recargar?: number }
 
 type EstadoVig = 'vencido' | 'por_vencer' | 'vigente' | 'sin_fecha';
 
@@ -219,7 +220,7 @@ const DetallePanel: React.FC<{ eq: Equipo; onClose: () => void; onEdit?: (eq: Eq
 };
 
 // ─── Componente principal ─────────────────────────────────────────────────────
-export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHeader = false, onEditEquipo }) => {
+export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHeader = false, onEditEquipo, recargar = 0 }) => {
     const [equipos, setEquipos] = useState<Equipo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -232,10 +233,15 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
     useEffect(() => {
         // Los dados de baja / fuera de servicio no vencen: no se muestran en el calendario.
         equipoService.getResumenCalidad()
-            .then(r => setEquipos(r.equipos.filter(e => e.estado_vigencia !== 'retirado')))
+            .then(r => {
+                const lista = r.equipos.filter(e => e.estado_vigencia !== 'retirado');
+                setEquipos(lista);
+                // El detalle abierto se actualiza con los datos recién guardados.
+                setSeleccionado(prev => (prev ? lista.find(e => e.id_equipo === prev.id_equipo) ?? null : prev));
+            })
             .catch(() => setError('No se pudieron cargar los equipos.'))
             .finally(() => setLoading(false));
-    }, []);
+    }, [recargar]);
 
     const equiposMes = useMemo(() => equipos.filter(e => {
         const v = getVigencia(e);

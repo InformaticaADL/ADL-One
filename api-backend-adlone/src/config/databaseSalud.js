@@ -21,12 +21,28 @@ if (rawHost.includes('192.168.10.5')) {
   );
 }
 
+const useWindowsAuth = process.env.DB_SALUD_WINDOWS_AUTH === 'true';
+
 const configSalud = {
   server: rawHost,
   port: parseInt(process.env.DB_SALUD_PORT, 10) || 1433,
   database: process.env.DB_SALUD_DATABASE || 'LaboratorioADL',
-  user: process.env.DB_SALUD_USER || 'sa',
-  password: process.env.DB_SALUD_PASSWORD,
+  // Si es Windows Auth se usa autenticación NTLM (no se pasan user/password a nivel raíz).
+  ...(useWindowsAuth
+    ? {
+        authentication: {
+          type: 'ntlm',
+          options: {
+            domain:   process.env.DB_SALUD_DOMAIN   || '',
+            userName: process.env.DB_SALUD_USER      || '',
+            password: process.env.DB_SALUD_PASSWORD  || '',
+          },
+        },
+      }
+    : {
+        user:     process.env.DB_SALUD_USER     || 'sa',
+        password: process.env.DB_SALUD_PASSWORD || '',
+      }),
   options: {
     encrypt: process.env.DB_SALUD_ENCRYPT !== undefined
       ? process.env.DB_SALUD_ENCRYPT !== 'false'
