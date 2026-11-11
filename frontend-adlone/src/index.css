@@ -13,6 +13,10 @@
    moderna tiene SIEMPRE más prioridad que cualquier @layer, sin importar
    especificidad ni orden — por eso pisaba a TODOS los utilities (bordes,
    fondos, colores) de forma inconsistente y rompía los componentes shadcn. */
+/* El modo oscuro de la app se marca con data-theme="dark" en <html>; esto hace que las clases dark: de Tailwind lo sigan
+   (sin esto seguían el tema del sistema operativo). */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 @layer theme, base, utilities;
 @import "tailwindcss/theme.css" layer(theme);
 @import "tailwindcss/utilities.css" layer(utilities);
@@ -139,6 +143,16 @@
   --color-accent-orange: var(--app-accent-orange);
   --color-accent-red: var(--app-accent-red);
   --color-accent-green: var(--app-accent-green);
+  --radius-sm: calc(var(--sc-radius) - 6px);
+  --radius-md: calc(var(--sc-radius) - 3px);
+  --radius-lg: var(--sc-radius);
+  --radius-xl: calc(var(--sc-radius) + 6px);
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+/* Escala tipográfica de la app. Va en @theme (no inline) para que `html.ui-escala-plantilla` pueda cambiarla. */
+@theme {
   /* Escala tipográfica propia, un escalón por debajo de la de Tailwind: la UI
      se veía sobredimensionada para una app de gestión con tablas densas. Acá
      se cambia el SIGNIFICADO de text-sm, text-2xl, etc., así que alcanza con
@@ -162,12 +176,6 @@
   --text-3xl--line-height: 1.875rem;
   --text-4xl: 1.875rem;      /* 36 → 30 px */
   --text-4xl--line-height: 2.125rem;
-  --radius-sm: calc(var(--sc-radius) - 6px);
-  --radius-md: calc(var(--sc-radius) - 3px);
-  --radius-lg: var(--sc-radius);
-  --radius-xl: calc(var(--sc-radius) + 6px);
-  --font-sans: 'Inter', system-ui, sans-serif;
-  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
 }
 
 :root {
@@ -599,4 +607,125 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
   .shadcn-scope .text-\[32px\]   { font-size: 26px; }
   .shadcn-scope .text-\[40px\]   { font-size: 32px; }
   .shadcn-scope .text-\[64px\]   { font-size: 50px; }
+}
+
+/* ---------------------------------------------------------------------------
+   Tema neutro (diseño del «shadcn-admin»): grises con un leve tinte azulado,
+   bordes finos y radio de 0,625 rem. Colores idénticos a los de la plantilla,
+   incluido el color principal (casi negro; en oscuro, casi blanco).
+   Se activa con la clase `ui-neutral` sobre <html> (hook useTemaNeutro): así
+   alcanza también a los menús y popovers, que se montan fuera de la página.
+   Las páginas ya migradas lo activan al abrirse; cuando todo el sistema use este
+   diseño, estas variables pasan a :root y la clase deja de hacer falta.
+   --------------------------------------------------------------------------- */
+html.ui-neutral {
+  --sc-primary: oklch(0.208 0.042 265.755);
+  --sc-primary-foreground: oklch(0.984 0.003 247.858);
+  --sc-ring: oklch(0.704 0.04 256.788);
+  --sc-destructive: oklch(0.577 0.245 27.325);
+  --sc-background: oklch(1 0 0);
+  --sc-foreground: oklch(0.129 0.042 264.695);
+  --sc-card: oklch(1 0 0);
+  --sc-card-foreground: oklch(0.129 0.042 264.695);
+  --sc-secondary: oklch(0.968 0.007 247.896);
+  --sc-secondary-foreground: oklch(0.208 0.042 265.755);
+  --sc-muted: oklch(0.968 0.007 247.896);
+  --sc-muted-foreground: oklch(0.554 0.046 257.417);
+  --sc-accent: oklch(0.968 0.007 247.896);
+  --sc-accent-foreground: oklch(0.208 0.042 265.755);
+  --sc-border: oklch(0.929 0.013 255.508);
+  --sc-radius: 0.625rem;
+}
+
+html.ui-neutral[data-theme='dark'] {
+  --sc-primary: oklch(0.929 0.013 255.508);
+  --sc-primary-foreground: oklch(0.208 0.042 265.755);
+  --sc-ring: oklch(0.551 0.027 264.364);
+  --sc-destructive: oklch(0.704 0.191 22.216);
+  --sc-background: oklch(0.129 0.042 264.695);
+  --sc-foreground: oklch(0.984 0.003 247.858);
+  --sc-card: oklch(0.14 0.04 259.21);
+  --sc-card-foreground: oklch(0.984 0.003 247.858);
+  --sc-secondary: oklch(0.279 0.041 260.031);
+  --sc-secondary-foreground: oklch(0.984 0.003 247.858);
+  --sc-muted: oklch(0.279 0.041 260.031);
+  --sc-muted-foreground: oklch(0.704 0.04 256.788);
+  --sc-accent: oklch(0.279 0.041 260.031);
+  --sc-accent-foreground: oklch(0.984 0.003 247.858);
+  --sc-border: oklch(1 0 0 / 10%);
+}
+
+/* ---------------------------------------------------------------------------
+   Menú lateral (diseño del «shadcn-admin»): colores propios del menú y animación
+   de los submenús (se abren y cierran en 300 ms alternando el alto de la fila).
+   --------------------------------------------------------------------------- */
+@theme inline {
+  --color-sidebar-accent: var(--sc-sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sc-sidebar-accent-foreground);
+  --color-sidebar-primary: var(--sc-sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sc-sidebar-primary-foreground);
+  --color-sidebar-ring: var(--sc-sidebar-ring);
+}
+
+:root {
+  --sc-sidebar-accent: #f4f4f5;
+  --sc-sidebar-accent-foreground: var(--sc-foreground);
+  --sc-sidebar-primary: var(--sc-primary);
+  --sc-sidebar-primary-foreground: var(--sc-primary-foreground);
+  --sc-sidebar-ring: var(--sc-ring);
+}
+[data-theme='dark'] {
+  --sc-sidebar-accent: rgba(255, 255, 255, 0.07);
+}
+html.ui-neutral {
+  --sc-sidebar: var(--sc-background);
+  --sc-sidebar-accent: var(--sc-accent);
+  --sc-sidebar-accent-foreground: var(--sc-accent-foreground);
+}
+
+.sb-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 300ms ease-out;
+}
+.sb-collapse[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+.sb-collapse > div {
+  min-height: 0;
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-collapse {
+    transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Escala tipográfica de la plantilla (tamaños por defecto de Tailwind: text-sm 14 px,
+   text-2xl 24 px, base 16 px). Se activa con la clase `ui-escala-plantilla` sobre <html>
+   (hook useTemaNeutro({ escala: true })) mientras la página migrada está abierta; el
+   resto de la app mantiene su escala más densa hasta que se migre.
+   --------------------------------------------------------------------------- */
+html.ui-escala-plantilla {
+  --text-xs: 0.75rem;
+  --text-xs--line-height: calc(1 / 0.75);
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-base: 1rem;
+  --text-base--line-height: 1.5;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: calc(1.75 / 1.125);
+  --text-xl: 1.25rem;
+  --text-xl--line-height: calc(1.75 / 1.25);
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: calc(2 / 1.5);
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.2;
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: calc(2.5 / 2.25);
+}
+html.ui-escala-plantilla .shadcn-scope {
+  font-size: 1rem;
+  line-height: 1.5;
 }

@@ -3,6 +3,8 @@ import { IconWifiOff, IconMenu2 } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { Sidebar } from './Sidebar';
+import { NavigationProgress } from './NavigationProgress';
+import { useTemaNeutro } from '../../hooks/useTemaNeutro';
 import { RouteBreadcrumb } from './TopBar';
 import { HelpCenter } from '../common/HelpCenter';
 
@@ -20,6 +22,8 @@ interface MainLayoutProps {
 }
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
+    // Diseño del «shadcn-admin» (paleta neutra con el azul de ADL ONE) en todo el sistema.
+    useTemaNeutro();
     // Mismo umbral que usaba el breakpoint 'lg' (1200px) de la versión Mantine:
     // por debajo, la navegación pasa a panel deslizante en vez de columna fija.
     const isCompact = useMediaQuery('(max-width: 1200px)');
@@ -30,6 +34,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         fichasMode,
         sidebarCollapsed,
         resetNavigation,
+        toggleSidebar,
         helpCenterOpen,
         setHelpCenterOpen,
     } = useNavStore();
@@ -37,6 +42,25 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     const close = () => setOpened(false);
     const toggle = () => setOpened((v) => !v);
     const viewportRef = useRef<HTMLDivElement>(null);
+    // La cabecera gana sombra y desenfoque cuando el contenido ya se desplazó (como la de la plantilla).
+    const [scrolled, setScrolled] = useState(false);
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setScrolled(false);
+    }, [activeModule, activeSubmodule]);
+
+    // Ctrl/Cmd + B pliega y despliega el menú (atajo de la plantilla); no actúa mientras se escribe.
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'b') return;
+            const el = e.target as HTMLElement | null;
+            if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+            e.preventDefault();
+            toggleSidebar();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [toggleSidebar]);
 
     // Modules that manage their own internal scroll per column — bypass wrapper padding/overflow.
     // "Hoy en Vivo" needs this too: its map must fill the real available height, not a vh-minus-
@@ -122,10 +146,12 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         return () => clearInterval(t);
     }, [user?.id, firmaAvisosSolicitudes, setSolicitudesClientePendientes]);
 
-    const siderWidth = sidebarCollapsed ? 80 : 240;
+    // Medidas de la plantilla: 16 rem abierto y 4 rem contraído (3 rem del riel + el margen del diseño «inset»).
+    const siderWidth = sidebarCollapsed ? 64 : 256;
 
     return (
-        <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--app-bg)' }}>
+        <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--sc-sidebar)' }}>
+            <NavigationProgress />
             {isCompact ? (
                 <div
                     style={{
@@ -162,22 +188,21 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                 detecta un <Layout.Sider> real entre ellos — con un <div> normal
                 (necesario por el desplazamiento propio del panel móvil) los apilaba
                 verticalmente. */}
-            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'row', background: 'var(--app-bg)' }}>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative', display: 'flex', flexDirection: 'row', background: 'var(--sc-sidebar)' }}>
                 {/* Escritorio: columna fija que empuja el contenido. Móvil: panel
                     superpuesto que desliza sobre el contenido (no reserva ancho). */}
                 <div
                     style={
                         isCompact
                             ? {
-                                position: 'fixed', top: 60, bottom: 0, left: 0, zIndex: 220, width: 240,
+                                position: 'fixed', top: 60, bottom: 0, left: 0, zIndex: 220, width: 288,
                                 transform: opened ? 'translateX(0)' : 'translateX(-100%)',
                                 transition: 'transform 250ms ease',
                                 backgroundColor: 'var(--app-glass-bg-strong)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
                                 borderRight: '1px solid var(--app-border)',
                             }
                             : {
-                                width: siderWidth, flexShrink: 0, transition: 'width 300ms ease',
-                                borderRight: '1px solid var(--app-border)',
+                                width: siderWidth, flexShrink: 0, transition: 'width 200ms linear', padding: 8,
                             }
                     }
                 >
@@ -192,9 +217,16 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     <div onClick={close} style={{ position: 'fixed', inset: '60px 0 0 0', zIndex: 215, background: 'transparent' }} />
                 )}
 
-                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', background: 'var(--app-bg)' }}>
+                <div
+                    className="@container/content"
+                    style={{
+                        flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: 'var(--sc-background)',
+                        // Diseño «inset» de la plantilla: el contenido es una tarjeta con esquinas redondeadas sobre el fondo del menú.
+                        ...(isCompact ? { height: '100%' } : { alignSelf: 'stretch', margin: '8px 8px 8px 0', borderRadius: 12, boxShadow: '0 1px 2px rgba(0,0,0,0.06)' }),
+                    }}
+                >
                     <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden' }}>
-                        <RouteBreadcrumb />
+                        <RouteBreadcrumb scrolled={scrolled} />
                         {activeModule && (
                             <ContextualNotificationPanel area={activeModule.toUpperCase()} />
                         )}
@@ -208,6 +240,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         <div
                             key={`${activeModule}-${activeSubmodule}`}
                             ref={viewportRef}
+                            onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 10)}
                             // El resto de las secciones —Equipos, Muestreadores, fichas,
                             // GEM, Facturación…— entra con el mismo despliegue que usan
                             // los formularios, en vez del fundido corto.
