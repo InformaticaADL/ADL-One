@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { type Fila } from './formatos';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import {
     IconFileExport,
     IconDatabase,
 } from '@tabler/icons-react';
-import { facturacionSaludService } from '../services/facturacionSalud.service';
+import { facturacionSaludService, mensajeError } from '../services/facturacionSalud.service';
 import { useToast } from '../../../contexts/ToastContext';
 
 interface Props {
@@ -37,7 +38,7 @@ const PROGRAMA_TO_ELIGE: Record<number, number> = {
 
 const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectPrograma }) => {
     const { showToast } = useToast();
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<Fila | null>(null);
     const [loading, setLoading] = useState(true);
 
     const cargar = useCallback(async () => {
@@ -45,10 +46,10 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
         try {
             const d = await facturacionSaludService.getDashboard();
             setData(d);
-        } catch (e: any) {
+        } catch (e) {
             showToast({
                 type: 'error',
-                message: e?.response?.data?.message || 'Error al cargar el dashboard de Facturación Salud',
+                message: mensajeError(e, 'Error al cargar el dashboard de Facturación Salud'),
             });
         } finally {
             setLoading(false);
@@ -99,10 +100,10 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                     <h2 className="m-0 text-lg font-bold tracking-tight text-foreground md:text-xl">
-                        Resumen Operativo · Facturación Área Salud
+                        Resumen · Facturación área Salud
                     </h2>
                     <p className="m-0 mt-0.5 text-xs text-muted-foreground">
-                        Réplica integral del motor ADLSoft Visual FoxPro sobre base local{' '}
+                        Datos de la base local{' '}
                         <span className="font-mono font-semibold text-foreground">
                             {data.connection?.server}/{data.connection?.database}
                         </span>
@@ -146,7 +147,7 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         </div>
                         <Badge variant="warning" className="text-[11px]">Pendientes DTE</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Pre-facturas pendientes de emisión DTE</p>
+                    <p className="text-xs text-muted-foreground">Facturas aún no incluidas en un archivo para el emisor</p>
                     <p className="mt-0.5 text-2xl font-bold text-foreground">
                         {fmtClp(kpis.prefacturasPendientesDte || 0)}
                     </p>
@@ -162,7 +163,7 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         </div>
                         <Badge variant="success" className="text-[11px]">Emitidas</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Facturas de casos emitidas a DTE</p>
+                    <p className="text-xs text-muted-foreground">Facturas de casos ya incluidas en un archivo</p>
                     <p className="mt-0.5 text-2xl font-bold text-foreground">
                         {fmtClp(kpis.prefacturasEmitidasDte || 0)}
                     </p>
@@ -198,9 +199,9 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         <span className="text-xs font-semibold uppercase tracking-wider text-primary">Paso 1</span>
                         <IconArrowUpRight size={16} className="text-muted-foreground" />
                     </div>
-                    <p className="mt-1 text-sm font-bold text-foreground">Pre-Facturación y Valorización</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">Valorizar y facturar</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        8 Programas de Salud, 11 reglas tarifarias, costos operativos ATV/MOWI y agrupación.
+                        Valoriza los casos de cada programa, ajusta precios y crea las facturas.
                     </p>
                 </Card>
 
@@ -212,9 +213,9 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         <span className="text-xs font-semibold uppercase tracking-wider text-amber-600">Paso 2</span>
                         <IconArrowUpRight size={16} className="text-muted-foreground" />
                     </div>
-                    <p className="mt-1 text-sm font-bold text-foreground">Bandeja de Pre-Facturas</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">Facturas</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        Otros Ingresos (OI), Descuentos (OD), OC/HES, Excel Resumen/Detalle y Reproceso.
+                        Consulta una factura, graba montos y número, guías, órdenes de compra, datos para el emisor, cambio de empresa y eliminación.
                     </p>
                 </Card>
 
@@ -226,9 +227,9 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         <span className="text-xs font-semibold uppercase tracking-wider text-purple-600">Paso 3</span>
                         <IconReceipt2 size={16} className="text-muted-foreground" />
                     </div>
-                    <p className="mt-1 text-sm font-bold text-foreground">Otras Ventas y Notas (NC/ND)</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">Otras ventas y notas</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        FEA Otras Ventas, FEE Exenta, NDE y NCE con liberación o reversa selectiva de casos.
+                        Otras ventas, facturas exentas, notas de crédito (también por casos) y notas de débito.
                     </p>
                 </Card>
 
@@ -240,9 +241,9 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         <span className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Paso 4</span>
                         <IconFileExport size={16} className="text-muted-foreground" />
                     </div>
-                    <p className="mt-1 text-sm font-bold text-foreground">Exportación DTE (35 Columnas)</p>
+                    <p className="mt-1 text-sm font-bold text-foreground">Archivos para el emisor</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                        Generación de archivo plano CSV/TXT felectronicatxt para los 5 flujos tributarios.
+                        Genera el archivo plano de 35 columnas de cada tipo de documento.
                     </p>
                 </Card>
             </div>
@@ -274,7 +275,7 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-border">
-                                {pendientesPorPrograma.map((row: any) => {
+                                {pendientesPorPrograma.map((row: Fila) => {
                                     const elige = PROGRAMA_TO_ELIGE[Number(row.id_programa)] || 4;
                                     return (
                                         <tr key={row.id_programa} className="hover:bg-muted/40">
@@ -343,7 +344,7 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                     </div>
 
                     <div className="space-y-2.5">
-                        {resumenOtros.map((r: any) => (
+                        {resumenOtros.map((r: Fila) => (
                             <div
                                 key={r.id_tipodocumento}
                                 className="rounded-lg border border-border p-3 hover:bg-muted/30"

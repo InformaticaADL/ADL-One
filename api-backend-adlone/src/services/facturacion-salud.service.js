@@ -1,6 +1,35 @@
 import sql, { getConnectionSalud, getSaludConnectionInfo } from '../config/databaseSalud.js';
 import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
+import {
+  nombreSpPrever,
+  agruparLineasPrefactura,
+  textoMesFacturacion,
+  redondea,
+  enTrozos,
+  nombreSpEmpresas,
+  nombreSpCasos,
+  ID_TECNICA_ATBPLEX,
+  aplicaAtbplex,
+  tramoDePrecioPorRango,
+  mapConLimite
+} from './facturacion-salud.prefactura.js';
+import {
+  columnaDeLista,
+  esCasoDeProyecto,
+  esLineaDerivada,
+  tieneValorPrevio,
+  cantidadYTotal,
+  aplicaExcepcionViabilidad,
+  resolverPrecioLinea,
+  resolverPrecioProyecto,
+  modalidadScreening
+} from './facturacion-salud.valorizacion.js';
+import * as mantencion from './facturacion-salud.mantencion.js';
+import * as exportacion from './facturacion-salud.exportacion.js';
+import * as consulta from './facturacion-salud.consulta.js';
+import * as otrasVentas from './facturacion-salud.otrasventas.js';
+import * as pdfSalud from './facturacion-salud.pdf.js';
 
 /**
  * Catálogo oficial de los 8 Programas del Área de Salud en LaboratorioADL
@@ -61,7 +90,7 @@ export const PROGRAMAS_SALUD = [
     codigo: 'SAMIC',
     nombre: 'Susceptibilidad Antimicrobiano - SAMIC',
     ids_programa: [18],
-    es_oficial: false,
+    es_oficial: true,
     glosa_default: 'Servicio de Análisis Susceptibilidad Antimicrobiana (SAMIC)'
   },
   {
@@ -69,7 +98,7 @@ export const PROGRAMAS_SALUD = [
     codigo: 'CALIGUS',
     nombre: 'Susceptibilidad Caligus',
     ids_programa: [19],
-    es_oficial: false,
+    es_oficial: true,
     glosa_default: 'Servicio de Análisis Susceptibilidad Caligus'
   }
 ];
@@ -243,302 +272,306 @@ class FacturacionSaludService {
   // 1. PRE-FACTURACIÓN Y MOTOR DE VALORIZACIÓN DE CASOS DE SALUD
   // ==========================================================================
 
-  /**
-   * Construye el filtro SQL de elegibilidad de casos según programa, fechas y banderas (ensilaje / proa)
-   */
-  _buildCasosEligibilityConditions(request, {
-    eligeprograma = 4,
-    id_empresaservicio = null,
-    fecha_rec_ini = null,
-    fecha_rec_fin = null,
-    fecha_inf_ini = null,
-    fecha_inf_fin = null,
-    ensilaje = false,
-    proa = false
-  }) {
-    const prog = getProgramaConfig(eligeprograma);
-    const progIdsList = prog.ids_programa.join(',');
-
-    const conds = [
-      `md.estado = 'ENVIADO'`,
-      `ISNULL(md.id_facturacion, 0) = 0`,
-      `md.clasifica IN ('CLIENTE', 'COMPLEMENT')`,
-      `md.id_tecnica <> 647`,
-      `m.id_programa IN (${progIdsList})`
-    ];
-
-    if (Number(eligeprograma) === 1) {
-      // En PVA las vistas de prefacturación consideran técnicas <= 58 o asociadas al programa
-      conds.push(`md.id_tecnica <= 58`);
-    }
-
-    if ([2, 3, 8].includes(Number(eligeprograma))) {
-      conds.push(`(m.estado_caso IN ('FINAL', 'ENMIENDA-F', 'ENMIENFA-F'))`);
-    }
-
-    if (Number(eligeprograma) === 4) {
-      if (ensilaje) {
-        conds.push(`ISNULL(m.ensilaje, 'N') = 'S'`);
-      } else if (proa) {
-        conds.push(`ISNULL(m.proa, 'N') = 'S'`);
-      } else {
-        conds.push(`ISNULL(m.ensilaje, 'N') <> 'S'`);
-      }
-    }
-
-    if (id_empresaservicio && Number(id_empresaservicio) > 0) {
-      request.input('id_empresaservicio', sql.Numeric(10, 0), Number(id_empresaservicio));
-      conds.push(`m.id_empresaservicio = @id_empresaservicio`);
-    }
-
-    const isoRecIni = toIsoDate(fecha_rec_ini);
-    const isoRecFin = toIsoDate(fecha_rec_fin);
-    if (isoRecIni) {
-      request.input('fecha_rec_ini', sql.Date, isoRecIni);
-      conds.push(`COALESCE(m.FechaRecepcion, TRY_CONVERT(date, m.fecha_recepcion, 103)) >= @fecha_rec_ini`);
-    }
-    if (isoRecFin) {
-      request.input('fecha_rec_fin', sql.Date, isoRecFin);
-      conds.push(`COALESCE(m.FechaRecepcion, TRY_CONVERT(date, m.fecha_recepcion, 103)) <= @fecha_rec_fin`);
-    }
-
-    const isoInfIni = toIsoDate(fecha_inf_ini);
-    const isoInfFin = toIsoDate(fecha_inf_fin);
-    if (isoInfIni) {
-      request.input('fecha_inf_ini', sql.Date, isoInfIni);
-      conds.push(`COALESCE(m.FechaInforme, TRY_CONVERT(date, m.fecha_informe, 103)) >= @fecha_inf_ini`);
-    }
-    if (isoInfFin) {
-      request.input('fecha_inf_fin', sql.Date, isoInfFin);
-      conds.push(`COALESCE(m.FechaInforme, TRY_CONVERT(date, m.fecha_informe, 103)) <= @fecha_inf_fin`);
-    }
-
-    return conds.join(' AND ');
+  /** Conexión del módulo (aislada en un método para poder probar las lecturas con otra conexión). */
+  async _pool() {
+    return getConnectionSalud();
   }
 
   /**
-   * Lista las Empresas de Servicio que poseen casos elegibles para pre-facturar en los filtros dados
+   * Rango de "Fecha datos a procesar" de fac_prefacturacion_new_v6. ADLSOFT lo pasa a los procedimientos de elegibilidad, que lo
+   * comparan contra muestras.fecha_informe, y exige que esté (el mensaje de ADLSOFT es "Debe elegir un rango de Fechas").
+   */
+  _rangoSpElegibilidad({ fecha_proceso_ini, fecha_proceso_fin } = {}) {
+    const ini = toDmyString(fecha_proceso_ini);
+    const fin = toDmyString(fecha_proceso_fin);
+    if (!ini || !fin) throw new Error('Debe elegir un rango de fechas (fecha de los datos a procesar).');
+    return { ini, fin };
+  }
+
+  /**
+   * Botón "Procesar" (fac_prefacturacion_new_v6.scx): empresas con datos por facturar para el programa y el rango elegidos.
+   * Lo resuelve el mismo procedimiento que usa ADLSOFT. Igual que allá, la lista trae solo la empresa (una vez cada una); los
+   * conteos y totales no se calculan aquí porque ADLSOFT no los muestra y obligarían a repetir la consulta por empresa.
    */
   async getEmpresasConCasosElegibles(filters = {}) {
-    const pool = await getConnectionSalud();
-    const request = pool.request();
-    const whereSql = this._buildCasosEligibilityConditions(request, filters);
+    const { ini, fin } = this._rangoSpElegibilidad(filters);
+    const sp = nombreSpEmpresas(filters.eligeprograma ?? 4, filters);
+    const pool = await this._pool();
 
-    const query = `
-      SET DATEFORMAT dmy;
-      SELECT
-        es.id_empresaservicio,
-        LTRIM(RTRIM(es.rut_empresaservicios)) AS rut_empresaservicios,
-        LTRIM(RTRIM(es.nombre_empresaservicios)) AS nombre_empresaservicios,
-        LTRIM(RTRIM(ISNULL(es.precio_lista, 'Precio lista'))) AS precio_lista,
-        LTRIM(RTRIM(ISNULL(es.precio_especial, 'N'))) AS precio_especial,
-        ISNULL(es.factor_km, 0) AS factor_km,
-        LTRIM(RTRIM(ISNULL(es.costo_op, 'N'))) AS costo_op,
-        COUNT(DISTINCT m.id_caso) AS total_casos,
-        COUNT(md.item) AS total_lineas,
-        SUM(ISNULL(md.vtatotal, 0)) AS uf_total_actual,
-        SUM(CASE WHEN ISNULL(md.mf, 0) = 1 THEN 1 ELSE 0 END) AS lineas_valorizadas,
-        MIN(m.fecha_recepcion) AS min_fecha_recepcion,
-        MAX(m.fecha_informe) AS max_fecha_informe
-      FROM dbo.muestras m
-      INNER JOIN dbo.muestras_detalle md ON m.id_caso = md.id_caso
-      INNER JOIN dbo.mae_empresaservicios es ON m.id_empresaservicio = es.id_empresaservicio
-      WHERE ${whereSql}
-      GROUP BY
-        es.id_empresaservicio,
-        es.rut_empresaservicios,
-        es.nombre_empresaservicios,
-        es.precio_lista,
-        es.precio_especial,
-        es.factor_km,
-        es.costo_op
-      ORDER BY es.nombre_empresaservicios;
-    `;
+    const res = await pool.request()
+      .input('fi', sql.VarChar(10), ini)
+      .input('ff', sql.VarChar(10), fin)
+      .query(`SET DATEFORMAT dmy; EXEC dbo.${sp} @xfechaini = @fi, @xfechafin = @ff;`);
 
-    const res = await request.query(query);
-    return res.recordset || [];
+    // El procedimiento devuelve una fila por combinación (fecha de informe, técnica…): ADLSOFT se queda con cada empresa una vez.
+    const ids = [];
+    const vistos = new Set();
+    const soloEmpresa = filters.id_empresaservicio ? Number(filters.id_empresaservicio) : null;
+    for (const r of res.recordset || []) {
+      const id = Number(r.id_empresaservicio);
+      if (!Number.isFinite(id) || vistos.has(id)) continue;
+      if (soloEmpresa && id !== soloEmpresa) continue;
+      vistos.add(id);
+      ids.push(id);
+    }
+    if (ids.length === 0) return [];
+
+    const empresas = [];
+    for (const trozo of enTrozos(ids, 500)) {
+      const r = await pool.request().query(`
+        SELECT
+          es.id_empresaservicio,
+          LTRIM(RTRIM(ISNULL(es.rut_empresaservicios, ''))) AS rut_empresaservicios,
+          LTRIM(RTRIM(es.nombre_empresaservicios)) AS nombre_empresaservicios,
+          LTRIM(RTRIM(ISNULL(es.precio_lista, 'Precio lista'))) AS precio_lista,
+          LTRIM(RTRIM(ISNULL(es.precio_especial, 'N'))) AS precio_especial,
+          ISNULL(es.factor_km, 0) AS factor_km,
+          LTRIM(RTRIM(ISNULL(es.costo_op, 'N'))) AS costo_op
+        FROM dbo.mae_empresaservicios es
+        WHERE es.id_empresaservicio IN (${trozo.join(',')});
+      `);
+      empresas.push(...(r.recordset || []));
+    }
+    return empresas
+      .map((e) => ({ ...e, total_casos: null, total_lineas: null, uf_total_actual: null, lineas_valorizadas: null }))
+      .sort((a, b) => String(a.nombre_empresaservicios).localeCompare(String(b.nombre_empresaservicios), 'es'));
   }
 
   /**
-   * Obtiene los casos y su detalle técnico para una empresa y programa dados
+   * Doble clic en la empresa (fac_prefacturacion_new_v6.scx): sus casos por facturar y, por cada caso, las líneas que ADLSOFT
+   * valoriza. Los casos salen del procedimiento del programa y las líneas de fac_agrupaempresacasos_uno (las mismas dos
+   * consultas de ADLSOFT). Las líneas de ATBPlex (técnica 647) quedan fuera: ADLSOFT las valoriza en un paso previo aparte.
+   * Lo demás (nombres, tarifas de la técnica, etc.) se agrega con lecturas simples por id.
    */
   async getCasosElegiblesPorEmpresa(filters = {}) {
-    const pool = await getConnectionSalud();
-    const request = pool.request();
-    const whereSql = this._buildCasosEligibilityConditions(request, filters);
+    const idEmpresa = Number(filters.id_empresaservicio);
+    if (!idEmpresa) throw new Error('Falta la empresa a facturar.');
+    const { ini, fin } = this._rangoSpElegibilidad(filters);
+    const sp = nombreSpCasos(filters.eligeprograma ?? 4, filters);
+    const pool = await this._pool();
 
-    const query = `
-      SET DATEFORMAT dmy;
-      SELECT
-        m.id_caso,
-        LTRIM(RTRIM(m.caso_adlab)) AS caso_adlab,
-        m.id_empresaservicio,
-        LTRIM(RTRIM(es.nombre_empresaservicios)) AS nombre_empresaservicios,
-        LTRIM(RTRIM(es.rut_empresaservicios)) AS rut_empresaservicios,
-        LTRIM(RTRIM(ISNULL(es.precio_lista, 'Precio lista'))) AS precio_lista,
-        LTRIM(RTRIM(ISNULL(es.precio_especial, 'N'))) AS precio_especial,
-        ISNULL(es.factor_km, 0) AS factor_km,
-        LTRIM(RTRIM(ISNULL(es.costo_op, 'N'))) AS costo_op,
-        m.id_empresa,
-        LTRIM(RTRIM(ISNULL(emp.nombre_empresa, ''))) AS nombre_empresa,
-        m.id_centro,
-        LTRIM(RTRIM(ISNULL(mc.nombre_centro, m.nombre_centro))) AS nombre_centro,
-        ISNULL(mc.id_tipoagua, 0) AS id_tipoagua,
-        LTRIM(RTRIM(ISNULL(ta.nombre_tipoagua, 'N/A'))) AS nombre_tipoagua,
-        ISNULL(mc.co_fijo, 0) AS co_fijo,
-        LTRIM(RTRIM(ISNULL(mc.pm_ingreso, 'N'))) AS pm_ingreso,
-        m.id_programa,
-        LTRIM(RTRIM(ISNULL(mp.nombre_programa, m.nombre_programa))) AS nombre_programa,
-        m.id_especie,
-        LTRIM(RTRIM(ISNULL(esp.nombre_especie, ''))) AS nombre_especie,
-        m.id_lugaranalisis,
-        m.id_veterinario,
-        LTRIM(RTRIM(ISNULL(m.cliente_entrega, 'Sin Veterinario'))) AS cliente_entrega,
-        LTRIM(RTRIM(ISNULL(m.n_recepcion, ''))) AS n_recepcion,
-        LTRIM(RTRIM(ISNULL(m.fecha_muestreo, ''))) AS fecha_muestreo,
-        LTRIM(RTRIM(ISNULL(m.fecha_recepcion, ''))) AS fecha_recepcion,
-        LTRIM(RTRIM(ISNULL(m.fecha_informe, ''))) AS fecha_informe,
-        LTRIM(RTRIM(ISNULL(m.estado_caso, ''))) AS estado_caso,
-        ISNULL(m.id_proyecto, 0) AS id_proyecto,
-        LTRIM(RTRIM(ISNULL(m.ensilaje, 'N'))) AS ensilaje,
-        LTRIM(RTRIM(ISNULL(m.proa, 'N'))) AS proa,
-        LTRIM(RTRIM(ISNULL(m.multiplex, 'N'))) AS multiplex,
-        LTRIM(RTRIM(ISNULL(m.apertura, 'N'))) AS apertura,
-        ISNULL(m.sc_ncrotaltot, 0) AS sc_ncrotaltot,
-        ISNULL(m.uf_totalfac, 0) AS uf_totalfac,
-        LTRIM(RTRIM(ISNULL(m.ocompra, ''))) AS ocompra,
-        LTRIM(RTRIM(ISNULL(m.ocompra_fecha, ''))) AS ocompra_fecha,
-        md.item,
-        md.id_tecnica,
-        LTRIM(RTRIM(ISNULL(tec.nombre_tecnica, md.nombre_tecnica))) AS nombre_tecnica,
-        ISNULL(tec.id_tipocobro, 2) AS id_tipocobro,
-        LTRIM(RTRIM(ISNULL(tc.nombre_tipocobro, 'Muestra'))) AS nombre_tipocobro,
-        md.id_organo,
-        LTRIM(RTRIM(ISNULL(org.nombre_organo, md.nombre_organo))) AS nombre_organo,
-        md.id_medios,
-        LTRIM(RTRIM(ISNULL(med.nombre_medios, md.nombre_medios))) AS nombre_medios,
-        ISNULL(med.muestrasxplaca, 1) AS muestrasxplaca,
-        md.id_seccion,
-        LTRIM(RTRIM(ISNULL(md.tipoingreso, 'INDIVIDUAL'))) AS tipoingreso,
-        ISNULL(md.ind_nmuestras, 0) AS ind_nmuestras,
-        ISNULL(md.pol_npooles, 0) AS pol_npooles,
-        ISNULL(md.pol_npeces, 0) AS pol_npeces,
-        ISNULL(md.n_analisis, 0) AS n_analisis,
-        ISNULL(md.vtaunitario, 0) AS vtaunitario,
-        ISNULL(md.vtatotal, 0) AS vtatotal,
-        ISNULL(md.uf, 0) AS uf,
-        ISNULL(md.usd, 0) AS usd,
-        ISNULL(md.mf, 0) AS mf,
-        LTRIM(RTRIM(ISNULL(md.sederiva, 'N'))) AS sederiva,
-        LTRIM(RTRIM(ISNULL(md.pack, 'N'))) AS pack,
-        ISNULL(md.id_pack, 0) AS id_pack,
-        ISNULL(tec.precio_lista, 0) AS tec_precio_lista,
-        ISNULL(tec.precio_lista_menos, 0) AS tec_precio_convenio,
-        ISNULL(tec.precio_lista_mas, 0) AS tec_precio_recargo,
-        ISNULL(tec.precio_lista_adl, 0) AS tec_precio_adl,
-        ISNULL(tec.precio_lista_us, 0) AS tec_precio_usd,
-        ISNULL(tec.vta_cal, 0) AS tec_vta_cal
-      FROM dbo.muestras m
-      INNER JOIN dbo.muestras_detalle md ON m.id_caso = md.id_caso
-      INNER JOIN dbo.mae_empresaservicios es ON m.id_empresaservicio = es.id_empresaservicio
-      LEFT JOIN dbo.mae_empresa emp ON m.id_empresa = emp.id_empresa
-      LEFT JOIN dbo.mae_centro mc ON m.id_centro = mc.id_centro
-      LEFT JOIN dbo.mae_tipoagua ta ON mc.id_tipoagua = ta.id_tipoagua
-      LEFT JOIN dbo.mae_programa mp ON m.id_programa = mp.id_programa
-      LEFT JOIN dbo.mae_especie esp ON m.id_especie = esp.id_especie
-      LEFT JOIN dbo.mae_tecnica tec ON md.id_tecnica = tec.id_tecnica
-      LEFT JOIN dbo.mae_tipocobro tc ON tec.id_tipocobro = tc.id_tipocobro
-      LEFT JOIN dbo.mae_organo org ON md.id_organo = org.id_organo
-      LEFT JOIN dbo.mae_medios med ON md.id_medios = med.id_medios
-      WHERE ${whereSql}
-      ORDER BY m.caso_adlab ASC, md.item ASC;
-    `;
+    const res = await pool.request()
+      .input('es', sql.Numeric(10, 0), idEmpresa)
+      .input('fi', sql.VarChar(10), ini)
+      .input('ff', sql.VarChar(10), fin)
+      .query(`SET DATEFORMAT dmy; EXEC dbo.${sp} @xid_empresaservicio = @es, @xfechaini = @fi, @xfechafin = @ff;`);
 
-    const result = await request.query(query);
-    const rows = result.recordset || [];
+    const idsCasos = [];
+    const casosSp = new Map();
+    for (const r of res.recordset || []) {
+      const id = Number(r.id_caso);
+      if (!Number.isFinite(id) || casosSp.has(id)) continue;
+      casosSp.set(id, r);
+      idsCasos.push(id);
+    }
+    if (idsCasos.length === 0) return [];
 
-    const casosMap = new Map();
-    for (const r of rows) {
-      if (!casosMap.has(r.id_caso)) {
-        casosMap.set(r.id_caso, {
-          id_caso: r.id_caso,
-          caso_adlab: r.caso_adlab,
-          id_empresaservicio: r.id_empresaservicio,
-          nombre_empresaservicios: r.nombre_empresaservicios,
-          rut_empresaservicios: r.rut_empresaservicios,
-          precio_lista: r.precio_lista,
-          precio_especial: r.precio_especial,
-          factor_km: r.factor_km,
-          costo_op: r.costo_op,
-          id_empresa: r.id_empresa,
-          nombre_empresa: r.nombre_empresa,
-          id_centro: r.id_centro,
-          nombre_centro: r.nombre_centro,
-          id_tipoagua: r.id_tipoagua,
-          nombre_tipoagua: r.nombre_tipoagua,
-          co_fijo: r.co_fijo,
-          pm_ingreso: r.pm_ingreso,
-          id_programa: r.id_programa,
-          nombre_programa: r.nombre_programa,
-          id_especie: r.id_especie,
-          nombre_especie: r.nombre_especie,
-          id_lugaranalisis: r.id_lugaranalisis,
-          id_veterinario: r.id_veterinario,
-          cliente_entrega: r.cliente_entrega,
-          n_recepcion: r.n_recepcion,
-          fecha_muestreo: r.fecha_muestreo,
-          fecha_recepcion: r.fecha_recepcion,
-          fecha_informe: r.fecha_informe,
-          estado_caso: r.estado_caso,
-          id_proyecto: r.id_proyecto,
-          ensilaje: r.ensilaje,
-          proa: r.proa,
-          multiplex: r.multiplex,
-          apertura: r.apertura,
-          sc_ncrotaltot: r.sc_ncrotaltot,
-          ocompra: r.ocompra,
-          ocompra_fecha: r.ocompra_fecha,
-          uf_totalfac: 0,
-          lineas: []
-        });
-      }
-      const casoObj = casosMap.get(r.id_caso);
-      casoObj.lineas.push({
-        item: r.item,
-        id_tecnica: r.id_tecnica,
-        nombre_tecnica: r.nombre_tecnica,
-        id_tipocobro: r.id_tipocobro,
-        nombre_tipocobro: r.nombre_tipocobro,
-        id_organo: r.id_organo,
-        nombre_organo: r.nombre_organo,
-        id_medios: r.id_medios,
-        nombre_medios: r.nombre_medios,
-        muestrasxplaca: r.muestrasxplaca,
-        id_seccion: r.id_seccion,
-        tipoingreso: r.tipoingreso,
-        ind_nmuestras: r.ind_nmuestras,
-        pol_npooles: r.pol_npooles,
-        pol_npeces: r.pol_npeces,
-        n_analisis: r.n_analisis,
-        vtaunitario: r.vtaunitario,
-        vtatotal: r.vtatotal,
-        uf: r.uf,
-        usd: r.usd,
-        mf: r.mf,
-        sederiva: r.sederiva,
-        pack: r.pack,
-        id_pack: r.id_pack,
-        tec_precio_lista: r.tec_precio_lista,
-        tec_precio_convenio: r.tec_precio_convenio,
-        tec_precio_recargo: r.tec_precio_recargo,
-        tec_precio_adl: r.tec_precio_adl,
-        tec_precio_usd: r.tec_precio_usd,
-        tec_vta_cal: r.tec_vta_cal
-      });
-      casoObj.uf_totalfac = round2(casoObj.uf_totalfac + Number(r.vtatotal || 0));
+    // Líneas de cada caso: el mismo procedimiento que ADLSOFT ejecuta por caso (con un máximo de consultas en paralelo).
+    const lineasPorCaso = new Map();
+    await mapConLimite(idsCasos, 5, async (idCaso) => {
+      const r = await pool.request()
+        .input('c', sql.Numeric(10, 0), idCaso)
+        .query('EXEC dbo.fac_agrupaempresacasos_uno @xid_caso = @c;');
+      lineasPorCaso.set(idCaso, (r.recordset || []).filter((l) => Number(l.id_tecnica) !== ID_TECNICA_ATBPLEX));
+    });
+
+    // Datos del caso que el procedimiento no trae.
+    const datosCaso = new Map();
+    for (const trozo of enTrozos(idsCasos, 400)) {
+      const r = await pool.request().query(`
+        SELECT
+          m.id_caso,
+          LTRIM(RTRIM(ISNULL(es.rut_empresaservicios, ''))) AS rut_empresaservicios,
+          LTRIM(RTRIM(ISNULL(es.precio_lista, 'Precio lista'))) AS precio_lista,
+          LTRIM(RTRIM(ISNULL(es.precio_especial, 'N'))) AS precio_especial,
+          ISNULL(es.factor_km, 0) AS factor_km,
+          LTRIM(RTRIM(ISNULL(es.costo_op, 'N'))) AS costo_op,
+          LTRIM(RTRIM(ISNULL(emp.nombre_empresa, ''))) AS nombre_empresa,
+          LTRIM(RTRIM(ISNULL(mc.nombre_centro, m.nombre_centro))) AS nombre_centro,
+          ISNULL(mc.id_tipoagua, 0) AS id_tipoagua,
+          LTRIM(RTRIM(ISNULL(ta.nombre_tipoagua, 'N/A'))) AS nombre_tipoagua,
+          ISNULL(mc.co_fijo, 0) AS co_fijo,
+          LTRIM(RTRIM(ISNULL(mc.pm_ingreso, 'N'))) AS pm_ingreso,
+          LTRIM(RTRIM(ISNULL(mp.nombre_programa, m.nombre_programa))) AS nombre_programa,
+          LTRIM(RTRIM(ISNULL(esp.nombre_especie, ''))) AS nombre_especie,
+          LTRIM(RTRIM(ISNULL(m.cliente_entrega, 'Sin Veterinario'))) AS cliente_entrega,
+          LTRIM(RTRIM(ISNULL(m.n_recepcion, ''))) AS n_recepcion,
+          LTRIM(RTRIM(ISNULL(m.fecha_muestreo, ''))) AS fecha_muestreo,
+          ISNULL(m.sc_ncrotaltot, 0) AS sc_ncrotaltot
+        FROM dbo.muestras m
+        INNER JOIN dbo.mae_empresaservicios es ON m.id_empresaservicio = es.id_empresaservicio
+        LEFT JOIN dbo.mae_empresa emp ON m.id_empresa = emp.id_empresa
+        LEFT JOIN dbo.mae_centro mc ON m.id_centro = mc.id_centro
+        LEFT JOIN dbo.mae_tipoagua ta ON mc.id_tipoagua = ta.id_tipoagua
+        LEFT JOIN dbo.mae_programa mp ON m.id_programa = mp.id_programa
+        LEFT JOIN dbo.mae_especie esp ON m.id_especie = esp.id_especie
+        WHERE m.id_caso IN (${trozo.join(',')});
+      `);
+      for (const d of r.recordset || []) datosCaso.set(Number(d.id_caso), d);
     }
 
-    return Array.from(casosMap.values());
+    // Datos de cada línea que el procedimiento no trae: tipo de cobro, tarifas de la técnica, placas del medio y valores ya guardados.
+    const datosLinea = new Map();
+    for (const trozo of enTrozos(idsCasos, 400)) {
+      const r = await pool.request().query(`
+        SELECT
+          md.id_caso,
+          md.item,
+          ISNULL(tec.id_tipocobro, 2) AS id_tipocobro,
+          LTRIM(RTRIM(ISNULL(tc.nombre_tipocobro, 'Muestra'))) AS nombre_tipocobro,
+          ISNULL(med.muestrasxplaca, 1) AS muestrasxplaca,
+          ISNULL(md.uf, 0) AS uf,
+          ISNULL(md.usd, 0) AS usd,
+          ISNULL(md.mf, 0) AS mf,
+          ISNULL(tec.precio_lista, 0) AS tec_precio_lista,
+          ISNULL(tec.precio_lista_menos, 0) AS tec_precio_convenio,
+          ISNULL(tec.precio_lista_mas, 0) AS tec_precio_recargo,
+          ISNULL(tec.precio_lista_adl, 0) AS tec_precio_adl,
+          ISNULL(tec.precio_lista_us, 0) AS tec_precio_usd,
+          ISNULL(tec.vta_cal, 0) AS tec_vta_cal
+        FROM dbo.muestras_detalle md
+        LEFT JOIN dbo.mae_tecnica tec ON md.id_tecnica = tec.id_tecnica
+        LEFT JOIN dbo.mae_tipocobro tc ON tec.id_tipocobro = tc.id_tipocobro
+        LEFT JOIN dbo.mae_medios med ON md.id_medios = med.id_medios
+        WHERE md.id_caso IN (${trozo.join(',')}) AND md.estado = 'ENVIADO' AND ISNULL(md.id_facturacion, 0) = 0;
+      `);
+      for (const d of r.recordset || []) datosLinea.set(`${Number(d.id_caso)}|${Number(d.item)}`, d);
+    }
+
+    const txt = (v) => String(v ?? '').trim();
+    const casos = [];
+    for (const idCaso of idsCasos) {
+      const sp0 = casosSp.get(idCaso);
+      const dc = datosCaso.get(idCaso) || {};
+      const lineasSp = lineasPorCaso.get(idCaso) || [];
+      const base = lineasSp[0] || {};
+      const caso = {
+        id_caso: idCaso,
+        caso_adlab: txt(sp0.caso_adlab),
+        id_empresaservicio: Number(sp0.id_empresaservicio ?? idEmpresa),
+        nombre_empresaservicios: txt(sp0.nombre_empresaservicios),
+        rut_empresaservicios: dc.rut_empresaservicios || '',
+        precio_lista: dc.precio_lista || txt(sp0.precio_lista) || 'Precio lista',
+        precio_especial: dc.precio_especial || txt(sp0.precio_especial) || 'N',
+        factor_km: dc.factor_km ?? sp0.factor_km ?? 0,
+        costo_op: dc.costo_op || txt(sp0.costo_op) || 'N',
+        id_empresa: sp0.id_empresa ?? base.id_empresa,
+        nombre_empresa: dc.nombre_empresa || '',
+        id_centro: sp0.id_centro ?? base.id_centro,
+        nombre_centro: dc.nombre_centro || '',
+        id_tipoagua: dc.id_tipoagua ?? base.id_tipoagua ?? 0,
+        nombre_tipoagua: dc.nombre_tipoagua || 'N/A',
+        co_fijo: dc.co_fijo ?? 0,
+        pm_ingreso: dc.pm_ingreso || 'N',
+        id_programa: sp0.id_programa ?? base.id_programa,
+        nombre_programa: dc.nombre_programa || txt(sp0.nombre_programa),
+        id_especie: sp0.id_especie ?? base.id_especie,
+        nombre_especie: dc.nombre_especie || '',
+        id_lugaranalisis: sp0.id_lugaranalisis ?? base.id_lugaranalisis,
+        id_veterinario: base.id_veterinario,
+        cliente_entrega: dc.cliente_entrega || 'Sin Veterinario',
+        n_recepcion: dc.n_recepcion || '',
+        fecha_muestreo: dc.fecha_muestreo || txt(sp0.fecha_muestreo),
+        fecha_recepcion: txt(sp0.fecha_recepcion),
+        fecha_informe: txt(sp0.fecha_informe),
+        estado_caso: txt(sp0.estado_caso),
+        id_proyecto: base.id_proyecto ?? 0,
+        ensilaje: txt(base.ensilaje) || 'N',
+        proa: txt(base.proa) || 'N',
+        multiplex: txt(base.multiplex) || 'N',
+        apertura: txt(base.apertura) || 'N',
+        sc_ncrotaltot: dc.sc_ncrotaltot ?? 0,
+        ocompra: txt(base.ocompra),
+        ocompra_fecha: txt(base.ocompra_fecha),
+        uf_totalfac: 0,
+        lineas: []
+      };
+      for (const l of lineasSp) {
+        const dl = datosLinea.get(`${idCaso}|${Number(l.item)}`) || {};
+        caso.lineas.push({
+          item: l.item,
+          id_tecnica: l.id_tecnica,
+          nombre_tecnica: txt(l.nombre_tecnica),
+          id_tipocobro: dl.id_tipocobro ?? 2,
+          nombre_tipocobro: dl.nombre_tipocobro || 'Muestra',
+          id_organo: l.id_organo,
+          nombre_organo: txt(l.nombre_organo),
+          id_medios: l.id_medios,
+          nombre_medios: txt(l.nombre_medios),
+          muestrasxplaca: dl.muestrasxplaca ?? 1,
+          id_seccion: l.id_seccion,
+          tipoingreso: txt(l.tipoingreso) || 'INDIVIDUAL',
+          ind_nmuestras: Number(l.ind_nmuestras) || 0,
+          pol_npooles: Number(l.pol_npooles) || 0,
+          pol_npeces: Number(l.pol_npeces) || 0,
+          n_analisis: Number(l.n_analisis) || 0,
+          vtaunitario: Number(l.vtaunitario) || 0,
+          vtatotal: Number(l.vtatotal) || 0,
+          uf: dl.uf ?? 0,
+          usd: dl.usd ?? 0,
+          mf: dl.mf ?? 0,
+          sederiva: txt(l.sederiva) || 'N',
+          pack: txt(l.pack) || 'N',
+          id_pack: Number(l.id_pack) || 0,
+          tec_precio_lista: dl.tec_precio_lista ?? 0,
+          tec_precio_convenio: dl.tec_precio_convenio ?? 0,
+          tec_precio_recargo: dl.tec_precio_recargo ?? 0,
+          tec_precio_adl: dl.tec_precio_adl ?? 0,
+          tec_precio_usd: dl.tec_precio_usd ?? 0,
+          tec_vta_cal: dl.tec_vta_cal ?? 0
+        });
+        caso.uf_totalfac = round2(caso.uf_totalfac + (Number(l.vtatotal) || 0));
+      }
+      casos.push(caso);
+    }
+    return casos;
+  }
+
+  /**
+   * Paso previo de ATBPlex en SDiag-ATV normal (doble clic de fac_prefacturacion_new_v6.scx). Se valoriza por tramos según el total de
+   * pools de la RECEPCIÓN (no del rango de fechas): fac_agrupaempresacasos_entrefechas_sd_atbplex_agrupa suma los pools por
+   * recepción y técnica, consulta_listaprecio_tecnicas_porrangomuestras da los tramos y ..._sd_atbplex_detalle entrega los casos
+   * de esa recepción, a cada uno de los cuales se le guarda el precio del tramo por sus pools. Escribe en muestras_detalle.
+   */
+  async _valorizarAtbplexPorRango(pool, { id_empresaservicio, valorUf, valorUsd }) {
+    const grupos = (await pool.request()
+      .input('es', sql.Numeric(10, 0), Number(id_empresaservicio))
+      .query('EXEC dbo.fac_agrupaempresacasos_entrefechas_sd_atbplex_agrupa @xid_empresaservicio = @es;')).recordset || [];
+    let lineas = 0;
+    for (const g of grupos) {
+      const tramos = (await pool.request()
+        .input('es', sql.Numeric(10, 0), Number(id_empresaservicio))
+        .input('tec', sql.Numeric(10, 0), Number(g.id_tecnica))
+        .query('EXEC dbo.consulta_listaprecio_tecnicas_porrangomuestras @xid_empresaservicio = @es, @xid_tecnica = @tec;')).recordset || [];
+      const tramo = tramoDePrecioPorRango(tramos, g.pol_npooles);
+      // Si ningún tramo calza, ADLSOFT queda parado en el fin de la tabla y guarda precio 0.
+      const precio = tramo ? Number(tramo.valor) || 0 : 0;
+      if (!tramo) logger.warn(`[Facturación Salud] ATBPlex recepción ${g.n_recepcion}: ${g.pol_npooles} pools no calzan con ningún tramo de precio; se guarda 0.`);
+
+      const casos = (await pool.request()
+        .input('es', sql.Numeric(10, 0), Number(id_empresaservicio))
+        .input('tec', sql.Numeric(10, 0), Number(g.id_tecnica))
+        .input('rec', sql.VarChar(10), String(g.n_recepcion ?? ''))
+        .query('EXEC dbo.fac_agrupaempresacasos_entrefechas_sd_atbplex_detalle @xid_empresaservicio = @es, @xid_tecnica = @tec, @xn_recepcion = @rec;')).recordset || [];
+      for (const c of casos) {
+        const pools = Number(c.pol_npooles) || 0;
+        await pool.request()
+          .input('precio', sql.Numeric(12, 4), precio)
+          .input('n', sql.Numeric(12, 2), pools)
+          .input('total', sql.Numeric(12, 3), redondea(precio * pools, 3))
+          .input('uf', sql.Numeric(12, 2), valorUf)
+          .input('usd', sql.Numeric(12, 2), valorUsd)
+          .input('caso', sql.Numeric(10, 0), Number(c.id_caso))
+          .input('tec', sql.Numeric(10, 0), Number(c.id_tecnica))
+          .query(`
+            UPDATE dbo.muestras_detalle
+            SET vtaunitario = @precio, n_analisis = @n, vtatotal = @total, uf = @uf, usd = @usd, mf = 1
+            WHERE id_caso = @caso AND estado = 'ENVIADO' AND id_tecnica = @tec AND id_facturacion = 0;
+          `);
+        lineas++;
+      }
+    }
+    return { recepciones: grupos.length, lineas };
   }
 
   /**
@@ -634,37 +667,238 @@ class FacturacionSaludService {
   }
 
   /**
+   * Costos operacionales y de jornada que ADLSOFT agrega DESPUÉS de valorizar todos los casos (fac_prefacturacion_new_v6,
+   * Command4.Click): costo operativo (técnica 282) por caso, jornada AquaGen (técnica 955) y costo fijo por centro de Mowi.
+   * Cada paso actualiza solo la línea correspondiente de los casos procesados, y solo si aún no está facturada.
+   */
+  async _aplicarCostosOperacionales(pool, { casos, eligeprograma, id_empresaservicio, ensilaje, proa, numUf, numUsd, rango }) {
+    const progNum = Number(eligeprograma);
+    const vacia = (f) => !f || /^[\s/]*$/.test(String(f));
+    const fx = (v) => Number(v) || 0;
+    const N = sql.Numeric(10, 0);
+    const resumen = { costoOperativo: 0, jornadas: 0, mowi: 0 };
+
+    // La marca de costo operativo se reinicia en cada caso y la deja apagada un caso de Servicio Diagnóstico con PROA; la que cuenta
+    // es la del último caso. Con ensilaje marcado nunca se agrega costo operativo.
+    const ultimo = casos[casos.length - 1];
+    const costoOperativo = !ensilaje && !(Number(ultimo.id_programa) === 3 && proa);
+
+    const guardar282 = async (idCaso, unitario, cantidad) => {
+      await pool.request()
+        .input('c', N, idCaso)
+        .input('v', sql.Float, unitario)
+        .input('n', N, cantidad)
+        .input('uf', sql.Numeric(10, 2), numUf)
+        .input('usd', sql.Numeric(10, 2), numUsd)
+        .query('UPDATE dbo.muestras_detalle SET vtaunitario = @v, n_analisis = @n, uf = @uf, usd = @usd, mf = 1 WHERE id_caso = @c AND id_tecnica = 282 AND id_facturacion = 0;');
+    };
+    const spCasosDeLaVisita = async (sp, params) => {
+      const req = pool.request();
+      for (const [nombre, tipo, valor] of params) req.input(nombre, tipo, valor);
+      const r = await req.query(`EXEC dbo.${sp} ${params.map(([nombre]) => `@${nombre} = @${nombre}`).join(', ')};`);
+      return r.recordset || [];
+    };
+    const F10 = sql.VarChar(10);
+    const montoCo = (pl, factorKm) =>
+      fx(pl.co_km) * fx(factorKm) + fx(pl.co_peaje) / numUf + fx(pl.co_transbordador) / numUf + fx(pl.co_taxi) / numUf +
+      fx(pl.co_pasaje) / numUf + fx(pl.co_extra) + fx(pl.co_colacion) / numUf + fx(pl.co_alojamiento) / numUf + fx(pl.co_veterinario);
+
+    if (costoOperativo && progNum === 2) {
+      // Screening: costo operativo = crotales del caso x tarifa de la técnica 282 (pool; si es 0, individual). Con apertura no se agrega.
+      for (const caso of casos) {
+        if (String(caso.apertura ?? '').trim() === 'S') continue;
+        const precio = await (String(caso.multiplex ?? '').trim() === 'S'
+          ? this._crearRepoPrecios(pool).precioScreeningMultiplex
+          : this._crearRepoPrecios(pool).precioScreening)(caso.id_empresaservicio, caso.id_empresa, caso.id_centro, caso.id_especie, 282);
+        const r = precio[0] || {};
+        const unitario = fx(r.uf_pool) || fx(r.uf_individual);
+        const n = fx(caso.sc_ncrotaltot);
+        await pool.request()
+          .input('c', N, caso.id_caso)
+          .input('n', N, n)
+          .input('v', sql.Float, unitario)
+          .input('t', sql.Float, n * unitario)
+          .input('uf', sql.Numeric(10, 2), numUf)
+          .input('usd', sql.Numeric(10, 2), numUsd)
+          .query('UPDATE dbo.muestras_detalle SET n_analisis = @n, vtaunitario = @v, vtatotal = @t, uf = @uf, usd = @usd, mf = 1 WHERE id_caso = @c AND id_tecnica = 282 AND id_facturacion = 0;');
+        resumen.costoOperativo++;
+      }
+    } else if (costoOperativo) {
+      // Resto de programas (menos Caligus): costo de la planilla de terreno ATV repartido entre los casos de la misma visita.
+      for (const caso of casos) {
+        if (Number(caso.id_programa) === 9) continue;
+        const sinFecha = vacia(caso.fecha_muestreo);
+        const fechaPlanilla = sinFecha ? caso.fecha_recepcion : caso.fecha_muestreo;
+        const planilla = await spCasosDeLaVisita(sinFecha ? 'consulta_atv_planilla_sinfacturarxcaso_cope' : 'consulta_atv_planilla_sinfacturarxcaso', [
+          ['xid_empresaservicio', N, caso.id_empresaservicio], ['xid_lugaranalisis', N, caso.id_lugaranalisis],
+          [sinFecha ? 'xfecha_cope' : 'xfecha_muestreo', F10, fechaPlanilla], ['xid_programa', N, caso.id_programa],
+          ['xid_centro', N, caso.id_centro], ['xid_especie', N, caso.id_especie]
+        ]);
+        let unitario = 0;
+        if (planilla.length > 0) {
+          const xco = montoCo(planilla[0], caso.factor_km);
+          if (xco > 0) {
+            const visita = await spCasosDeLaVisita(sinFecha ? 'consulta_co_atv_cope' : 'consulta_co_atv', [
+              ['xid_lugaranalisis', N, caso.id_lugaranalisis], [sinFecha ? 'xfecha_cope' : 'xfecha_muestreo', F10, fechaPlanilla],
+              ['xid_programa', N, caso.id_programa], ['xid_empresaservicio', N, caso.id_empresaservicio],
+              ['xid_centro', N, caso.id_centro], ['xid_especie', N, caso.id_especie]
+            ]);
+            unitario = xco / Math.max(1, visita.length);
+          }
+        }
+        await guardar282(caso.id_caso, unitario, 1);
+        resumen.costoOperativo++;
+      }
+    }
+
+    // Jornada de muestreo de Screening para AquaGen (empresa 56): una por día en los centros 7421 y 5610 y una por día y centro en
+    // los demás; se cobra en el primer caso de cada grupo.
+    if (progNum === 2 && Number(id_empresaservicio) === 56) {
+      const cobrarJornada = async (fila) => {
+        const p = await pool.request()
+          .input('es', N, fila.id_empresaservicio).input('emp', N, fila.id_empresa).input('cen', N, fila.id_centro).input('esp', N, fila.id_especie)
+          .query('EXEC dbo.consulta_listaprecio_jornada_screening @xid_empresaservicio = @es, @xid_empresa = @emp, @xid_centro = @cen, @xid_especie = @esp;');
+        const unitario = fx(p.recordset?.[0]?.jornada);
+        await pool.request()
+          .input('c', N, fila.id_caso).input('v', sql.Float, unitario).input('t', sql.Float, unitario)
+          .input('uf', sql.Numeric(10, 2), numUf).input('usd', sql.Numeric(10, 2), numUsd)
+          .query('UPDATE dbo.muestras_detalle SET ind_nmuestras = 1, n_analisis = 1, vtaunitario = @v, vtatotal = @t, uf = @uf, usd = @usd, mf = 1 WHERE id_caso = @c AND id_tecnica = 955 AND id_facturacion = 0;');
+        resumen.jornadas++;
+      };
+      const leer = async (sp) => (await pool.request()
+        .input('fi', F10, rango.ini).input('ff', F10, rango.fin)
+        .query(`SET DATEFORMAT dmy; EXEC dbo.${sp} @xfechaini = @fi, @xfechafin = @ff;`)).recordset || [];
+      // Pangueco y Sen Sen (centros 7421 y 5610): una por fecha, sin importar el centro
+      let fechaAnterior = null;
+      for (const fila of await leer('fac_agrupaempresacasos_entrefechas_screening_JORNADA')) {
+        if (fechaAnterior !== null && fechaAnterior === fila.fecha_muestreo) continue;
+        fechaAnterior = fila.fecha_muestreo;
+        await cobrarJornada(fila);
+      }
+      // Otros centros: una por fecha y centro
+      let anterior = null;
+      for (const fila of await leer('fac_agrupaempresacasos_entrefechas_screening_JORNADA_otros_centros')) {
+        const clave = `${fila.fecha_muestreo}|${fila.id_centro}`;
+        if (clave === anterior) continue;
+        anterior = clave;
+        await cobrarJornada(fila);
+      }
+    }
+
+    // Mowi (empresa 383): costo fijo del maestro de centro (15-09-2025). ADLSOFT recorre todos los casos pendientes de Mowi; aquí
+    // solo los casos que se están valorizando.
+    if (Number(id_empresaservicio) === 383) {
+      const procesados = new Map(casos.map((c) => [Number(c.id_caso), c]));
+      const filas = (await pool.request().query('EXEC dbo.ConsultaCasosMowiCostosFijos;')).recordset || [];
+      for (const fila of filas) {
+        const caso = procesados.get(Number(fila.id_caso));
+        if (!caso) continue;
+        const sinFecha = vacia(fila.fecha_muestreo);
+        const fecha = sinFecha ? caso.fecha_recepcion : fila.fecha_muestreo;
+        const planilla = await spCasosDeLaVisita(sinFecha ? 'consulta_atv_planilla_sinfacturarxcaso_cope_CostosFijo' : 'consulta_atv_planilla_sinfacturarxcaso_CostosFijo', [
+          ['xid_empresaservicio', N, fila.id_empresaservicio], ['xid_lugaranalisis', N, fila.id_lugaranalisis],
+          [sinFecha ? 'xfecha_cope' : 'xfecha_muestreo', F10, fecha], ['xid_programa', N, fila.id_programa], ['xid_veterinario', N, fila.id_veterinario]
+        ]);
+        let unitario = 0;
+        if (planilla.length > 0) {
+          const xco = String(fila.pm_ingreso ?? '').trim() === 'S' ? montoCo(planilla[0], caso.factor_km) : fx(fila.co_fijo) + fx(planilla[0].co_veterinario);
+          if (xco > 0) {
+            const visita = await spCasosDeLaVisita(sinFecha ? 'consulta_co_atv_cope_CostosFijo' : 'consulta_co_atv_CostosFijo', [
+              ['xid_lugaranalisis', N, fila.id_lugaranalisis], [sinFecha ? 'xfecha_cope' : 'xfecha_muestreo', F10, fecha],
+              ['xid_programa', N, fila.id_programa], ['xid_empresaservicio', N, fila.id_empresaservicio], ['xid_veterinario', N, fila.id_veterinario]
+            ]);
+            unitario = xco / Math.max(1, visita.length);
+          }
+        }
+        await guardar282(fila.id_caso, unitario, 1);
+        resumen.mowi++;
+      }
+    }
+    return resumen;
+  }
+
+  /**
+   * Acceso de solo lectura a los procedimientos de precios de ADLSOFT. Cada consulta se recuerda durante la valorización
+   * (misma empresa/técnica/centro = misma respuesta), para no repetir cientos de llamadas iguales.
+   */
+  _crearRepoPrecios(pool) {
+    const memo = new Map();
+    const N = sql.Numeric(10, 0);
+    const exec = (sp, params) => {
+      const key = `${sp}|${params.map(([, , v]) => String(v)).join('|')}`;
+      if (!memo.has(key)) {
+        memo.set(key, (async () => {
+          const req = pool.request();
+          for (const [nombre, tipo, valor] of params) req.input(nombre, tipo, valor);
+          const lista = params.map(([nombre]) => `@${nombre} = @${nombre}`).join(', ');
+          const r = await req.query(`EXEC dbo.${sp} ${lista};`);
+          return r.recordset || [];
+        })());
+      }
+      return memo.get(key);
+    };
+    const p = (nombre, valor) => [nombre, N, valor];
+    return {
+      precioLista: (tec) => exec('consulta_listaprecio_unatecnica', [p('xid_tecnica', tec)]),
+      precioEspecial: (es, tec) => exec('consulta_listaprecio_unatecnica_especial', [p('xid_empresaservicio', es), p('xid_tecnica', tec)]),
+      tipoListaPva: (es) => exec('consulta_pva_tipolista', [p('xid_empresaservicio', es)]),
+      precioPva: (es, tec) => exec('consulta_listaprecio_unatecnica_pva', [p('xid_empresaservicio', es), p('xid_tecnica', tec)]),
+      precioPvaPorCentro: (es, tec, cen) => exec('consulta_listaprecio_unatecnica_pva_porcentro', [p('xid_empresaservicio', es), p('xid_tecnica', tec), p('xid_centro', cen)]),
+      precioScreening: (es, emp, cen, esp, tec) => exec('consulta_listaprecio_unatecnica_screening', [p('xid_empresaservicio', es), p('xid_empresa', emp), p('xid_centro', cen), p('xid_especie', esp), p('xid_tecnica', tec)]),
+      precioScreeningMultiplex: (es, emp, cen, esp, tec) => exec('consulta_listaprecio_unatecnica_screening_multiplex', [p('xid_empresaservicio', es), p('xid_empresa', emp), p('xid_centro', cen), p('xid_especie', esp), p('xid_tecnica', tec)]),
+      precioEnsilaje: (es, emp, cen, tec) => exec('ConsultaPrecioEnsilajeUnaEmpresa', [p('xid_empresaservicio', es), p('xid_empresa', emp), p('xid_centro', cen), p('xid_tecnica', tec)]),
+      costoOperativoEnsilaje: (la, fecha, es, cen) => exec('Consulta_CO_Ensalije', [p('xid_lugaranalisis', la), ['xfecha_muestreo', sql.VarChar(10), fecha], p('xid_empresaservicio', es), p('xid_centro', cen)]),
+      precioProa: (es, emp, cen, tec) => exec('ConsultaPrecioProaUnaEmpresa', [p('xid_empresaservicio', es), p('xid_empresa', emp), p('xid_centro', cen), p('xid_tecnica', tec)]),
+      precioPack: (pack, es, tec) => exec('consulta_listaprecio_unatecnica_pack', [p('xid_pack', pack), p('xid_empresaservicio', es), p('xid_tecnica', tec)]),
+      tipoListaCisa: (es) => exec('consulta_cisa_tipolista', [p('xid_empresaservicio', es)]),
+      precioCisa: (es, tec) => exec('consulta_listaprecio_unatecnica_cisa', [p('xid_empresaservicio', es), p('xid_tecnica', tec)]),
+      precioCisaPorCentro: (es, tec, cen) => exec('consulta_listaprecio_unatecnica_cisa_porcentro', [p('xid_empresaservicio', es), p('xid_tecnica', tec), p('xid_centro', cen)]),
+      tipoListaSrs: (es) => exec('consulta_srs_tipolista', [p('xid_empresaservicio', es)]),
+      precioSrs: (es, tec) => exec('consulta_listaprecio_unatecnica_srs', [p('xid_empresaservicio', es), p('xid_tecnica', tec)]),
+      precioSrsPorCentro: (es, tec, cen) => exec('consulta_listaprecio_unatecnica_srs_porcentro', [p('xid_empresaservicio', es), p('xid_tecnica', tec), p('xid_centro', cen)]),
+      precioMedioAmbiente: (es, emp, cen, tabla, tec) => exec('consulta_listaprecio_unatecnica_ma', [p('xid_empresaservicio', es), p('xid_empresa', emp), p('xid_centro', cen), p('xid_tablama', tabla), p('xid_tecnica', tec)]),
+      precioSamic: (es, emp, cen, tec) => exec('consulta_listaprecio_unatecnica_samic', [p('xid_empresaservicio', es), p('xid_empresa', emp), p('xid_centro', cen), p('xid_tecnica', tec)]),
+      precioProyecto: (es, proy, tec) => exec('consulta_proyecto_facturar_det', [p('xid_empresaservicio', es), p('xid_proyecto', proy), p('xid_tecnica', tec)]),
+      nIdentificaciones: (caso) => exec('consulta_cuantas_identificaciones', [p('xid_caso', caso)])
+    };
+  }
+
+  /**
    * Motor Principal de Valorización de Casos de Salud (Réplica exacta de fac_prefacturacion_new_v6.scx Command4.Click)
    */
   async valorizarCasosSalud({
     id_empresaservicio,
     eligeprograma = 4,
-    fecha_rec_ini,
-    fecha_rec_fin,
-    fecha_inf_ini,
-    fecha_inf_fin,
+    fecha_proceso_ini,
+    fecha_proceso_fin,
     ensilaje = false,
     proa = false,
-    valor_uf = 38500,
-    valor_usd = 950
+    valor_uf,
+    valor_usd,
+    uf,
+    usd
   }) {
-    const numUf = Number(valor_uf);
-    const numUsd = Number(valor_usd) || 0;
+    const numUf = Number(valor_uf ?? uf);
+    const numUsd = Number(valor_usd ?? usd) || 0;
     if (!numUf || numUf <= 0) {
-      throw new Error('Debe ingresar un Valor UF válido mayor a 0 para ejecutar la valorización.');
+      throw new Error('Debe ingresar el Valor de la U.F.');
     }
     if (Number(id_empresaservicio) === 500 && numUsd <= 0) {
       throw new Error('Para el cliente Benchmark Genetics (ID 500) es obligatorio ingresar el Valor USD (> 0).');
     }
 
-    const pool = await getConnectionSalud();
+    const pool = await this._pool();
+
+    // Paso previo de ATBPlex (solo SDiag-ATV normal): se valoriza por la recepción completa, no por el rango de fechas.
+    if (aplicaAtbplex(eligeprograma, { ensilaje, proa })) {
+      await this._valorizarAtbplexPorRango(pool, { id_empresaservicio, valorUf: numUf, valorUsd: numUsd });
+    }
+
     const casos = await this.getCasosElegiblesPorEmpresa({
       id_empresaservicio,
       eligeprograma,
-      fecha_rec_ini,
-      fecha_rec_fin,
-      fecha_inf_ini,
-      fecha_inf_fin,
+      fecha_proceso_ini,
+      fecha_proceso_fin,
       ensilaje,
       proa
     });
@@ -685,453 +919,99 @@ class FacturacionSaludService {
       reglasAplicadas[nombre] = (reglasAplicadas[nombre] || 0) + 1;
     };
 
-    // Pre-cálculo ATBPlex por rango de muestras acumuladas por recepción (Regla 1: SDiag normal)
-    const recepcionPoolsMap = new Map();
-    if (progNum === 4 && !ensilaje && !proa) {
-      for (const c of casos) {
-        if (!c.n_recepcion) continue;
-        for (const l of c.lineas) {
-          const key = `${c.n_recepcion}__${l.id_tecnica}`;
-          recepcionPoolsMap.set(key, (recepcionPoolsMap.get(key) || 0) + Number(l.pol_npooles || 0));
-        }
-      }
-    }
-
-    // Control de Jornada de Muestreo AquaGen (Regla 3.4: id_empresaservicio = 56, id_tecnica = 955)
-    const jornadasCobradasSet = new Set();
-
     let lineasValorizadasCount = 0;
     let ufTotalGeneral = 0;
 
+    const repo = this._crearRepoPrecios(pool);
+    const txtv = (v) => String(v ?? '').trim();
+    let lineasConservadas = 0;
+    let lineasExcluidas = 0;
+
     for (const caso of casos) {
       let ufTotalCaso = 0;
+      const idProg = Number(caso.id_programa);
+      // Lista de precios de la empresa -> columna de mae_tecnica. Con una lista distinta de las cuatro, ADLSOFT no valoriza el caso.
+      const columna = columnaDeLista(caso.precio_lista);
+      if (!columna) {
+        logger.warn(`[Facturación Salud] Caso ${caso.caso_adlab}: la lista de precios "${caso.precio_lista}" no es ninguna de las cuatro; no se valoriza.`);
+        continue;
+      }
+      const esProyecto = esCasoDeProyecto(caso);
+      const poolOIndv = modalidadScreening(caso);
+
+      // Screening multiplex: antes de valorizar, las técnicas 958 y 959 pasan a contar el total de pools del caso.
+      if (idProg === 2 && txtv(caso.multiplex) === 'S') {
+        const tp = await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso).query('EXEC dbo.fac_agrupaempresacasos_uno_TotalPoolesMultiplex @xid_caso = @c;');
+        const totalPools = Number(tp.recordset?.[0]?.pol_npooles) || 0;
+        await pool.request()
+          .input('c', sql.Numeric(10, 0), caso.id_caso)
+          .input('t', sql.Numeric(10, 0), totalPools)
+          .query('UPDATE dbo.muestras_detalle SET pol_npooles = @t, n_analisis = @t WHERE id_caso = @c AND (id_tecnica = 958 OR id_tecnica = 959);');
+        for (const l of caso.lineas) {
+          if (Number(l.id_tecnica) === 958 || Number(l.id_tecnica) === 959) { l.pol_npooles = totalPools; l.n_analisis = totalPools; }
+        }
+      }
 
       for (const linea of caso.lineas) {
         const idTec = Number(linea.id_tecnica);
-        let xnAnalisis = await this._calcularCantidadAnalisis(pool, caso, linea);
+        let xnAnalisis = 0;
         let xvtaUnitario = 0;
-        let reglaUsada = 'Precio Lista Estándar';
+        let xvtatotal = null;
+        let reglaUsada = '';
 
-        // --------------------------------------------------------------------
-        // REGLA 10: Derivaciones o Secciones 10 / 13 con valor pre-asignado
-        // --------------------------------------------------------------------
-        if (
-          (linea.sederiva === 'S' || Number(linea.id_seccion) === 10 || Number(linea.id_seccion) === 13) &&
-          Number(linea.vtaunitario) > 0 &&
-          Number(linea.n_analisis) > 0
-        ) {
-          xnAnalisis = Number(linea.n_analisis);
-          xvtaUnitario = Number(linea.vtaunitario);
-          reglaUsada = 'Derivación / Sección Pre-valorizada';
-        }
-        // --------------------------------------------------------------------
-        // REGLA 3.1 / 3.2 / 3.3: Costo Operativo (id_tecnica = 282)
-        // --------------------------------------------------------------------
-        else if (idTec === 282) {
-          if (progNum === 2 && caso.apertura !== 'S') {
-            // 3.2 Costo Operativo Screening por Crotales
-            xnAnalisis = Number(caso.sc_ncrotaltot || 0);
-            const scRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('esp', sql.Numeric(10, 0), caso.id_especie)
-              .input('tec', sql.Numeric(10, 0), 282)
-              .query(`EXEC dbo.consulta_listaprecio_unatecnica_screening @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_especie=@esp, @xid_tecnica=@tec`);
-            if (scRes.recordset?.length > 0) {
-              const rowSc = scRes.recordset[0];
-              xvtaUnitario = String(linea.tipoingreso).toUpperCase() === 'POOLES'
-                ? Number(rowSc.uf_pool || rowSc.uf_individual || 0)
-                : Number(rowSc.uf_individual || 0);
-            }
-            reglaUsada = 'Costo Operativo Screening por Crotales';
-          } else if (Number(caso.id_empresaservicio) === 383 && caso.pm_ingreso !== 'S' && Number(caso.co_fijo) > 0) {
-            // 3.3 Regla Especial MOWI: Costo Fijo por Centro
-            const coCasosRes = await pool.request()
-              .input('la', sql.Numeric(10, 0), caso.id_lugaranalisis)
-              .input('fm', sql.VarChar(10), caso.fecha_muestreo)
-              .input('prog', sql.Numeric(10, 0), caso.id_programa)
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('esp', sql.Numeric(10, 0), caso.id_especie)
-              .query(`EXEC dbo.consulta_co_atv @xid_lugaranalisis=@la, @xfecha_muestreo=@fm, @xid_programa=@prog, @xid_empresaservicio=@es, @xid_centro=@cen, @xid_especie=@esp`);
-            const numCasosVisita = Math.max(1, (coCasosRes.recordset || []).length);
-            xnAnalisis = 1;
-            xvtaUnitario = round2(Number(caso.co_fijo) / numCasosVisita);
-            reglaUsada = 'Costo Operativo Fijo por Centro (MOWI)';
+        if (esProyecto) {
+          // Caso de proyecto: todas sus líneas con la tarifa del proyecto (sin tarifa = 0; no cae a la lista)
+          const precio = await resolverPrecioProyecto({ caso, linea }, repo);
+          const nIdent = precio.idTipoCobro === 8 ? ((await repo.nIdentificaciones(caso.id_caso)) || []).length : 0;
+          const r = cantidadYTotal({ idTipoCobro: precio.idTipoCobro, linea, caso, xvta: precio.xvta, variante: 'proyecto', nIdentificaciones: nIdent });
+          xnAnalisis = r.nAnalisis; xvtaUnitario = r.vtaUnitario; xvtatotal = r.vtaTotal; reglaUsada = precio.regla;
+        } else if (esLineaDerivada(caso, linea)) {
+          // Derivaciones y secciones 10/13: no se valorizan de nuevo. Con valor previo entran a la factura; sin él, quedan fuera.
+          const conserva = tieneValorPrevio(linea);
+          await pool.request()
+            .input('c', sql.Numeric(10, 0), caso.id_caso)
+            .input('item', sql.Numeric(10, 0), linea.item)
+            .input('uf', sql.Numeric(10, 2), numUf)
+            .input('usd', sql.Numeric(10, 2), numUsd)
+            .input('mf', sql.Numeric(1, 0), conserva ? 1 : 0)
+            .query('UPDATE dbo.muestras_detalle SET uf = @uf, usd = @usd, mf = @mf WHERE id_caso = @c AND item = @item AND id_facturacion = 0;');
+          linea.uf = numUf; linea.usd = numUsd; linea.mf = conserva ? 1 : 0;
+          if (conserva) {
+            lineasConservadas++;
+            linea.regla_aplicada = 'Derivación / sección con valor previo (se conserva)';
+            ufTotalCaso = round2(ufTotalCaso + Number(linea.vtatotal || 0));
+            registrarRegla(linea.regla_aplicada);
           } else {
-            // 3.1 Costo Operativo por Planilla Terreno ATV (atv_planilla)
-            const atvRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('la', sql.Numeric(10, 0), caso.id_lugaranalisis)
-              .input('fm', sql.VarChar(10), caso.fecha_muestreo)
-              .input('prog', sql.Numeric(10, 0), caso.id_programa)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('esp', sql.Numeric(10, 0), caso.id_especie)
-              .query(`EXEC dbo.consulta_atv_planilla_sinfacturarxcaso @xid_empresaservicio=@es, @xid_lugaranalisis=@la, @xfecha_muestreo=@fm, @xid_programa=@prog, @xid_centro=@cen, @xid_especie=@esp`);
-            if (atvRes.recordset?.length > 0) {
-              const pl = atvRes.recordset[0];
-              const factorKm = Number(caso.factor_km || 0);
-              const xco =
-                Number(pl.co_km || 0) * factorKm +
-                Number(pl.co_peaje || 0) / numUf +
-                Number(pl.co_transbordador || 0) / numUf +
-                Number(pl.co_taxi || 0) / numUf +
-                Number(pl.co_pasaje || 0) / numUf +
-                Number(pl.co_extra || 0) +
-                Number(pl.co_colacion || 0) / numUf +
-                Number(pl.co_alojamiento || 0) / numUf +
-                Number(pl.co_veterinario || 0);
-
-              const coCasosRes = await pool.request()
-                .input('la', sql.Numeric(10, 0), caso.id_lugaranalisis)
-                .input('fm', sql.VarChar(10), caso.fecha_muestreo)
-                .input('prog', sql.Numeric(10, 0), caso.id_programa)
-                .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-                .input('cen', sql.Numeric(10, 0), caso.id_centro)
-                .input('esp', sql.Numeric(10, 0), caso.id_especie)
-                .query(`EXEC dbo.consulta_co_atv @xid_lugaranalisis=@la, @xfecha_muestreo=@fm, @xid_programa=@prog, @xid_empresaservicio=@es, @xid_centro=@cen, @xid_especie=@esp`);
-              const numCasosVisita = Math.max(1, (coCasosRes.recordset || []).length);
-              xnAnalisis = 1;
-              xvtaUnitario = round2(xco / numCasosVisita);
-              reglaUsada = 'Costo Operativo Visita Terreno ATV (Prorrateado)';
-            } else {
-              xnAnalisis = Number(linea.n_analisis || 1);
-              xvtaUnitario = Number(linea.vtaunitario || 0);
-              reglaUsada = 'Costo Operativo (Valor Manual / Sin Planilla Pendiente)';
-            }
+            lineasExcluidas++;
+            linea.regla_aplicada = 'Derivación / sección sin valor previo (queda fuera de la factura)';
+            registrarRegla(linea.regla_aplicada);
           }
+          continue;
         }
-        // --------------------------------------------------------------------
-        // REGLA 3.4: Jornada de Muestreo Screening AquaGen (id_tecnica = 955)
-        // --------------------------------------------------------------------
-        else if (idTec === 955 && Number(caso.id_empresaservicio) === 56) {
-          const isPanguecoOrSenSen = [7421, 5610].includes(Number(caso.id_centro));
-          const jornadaKey = isPanguecoOrSenSen
-            ? `${caso.fecha_muestreo}`
-            : `${caso.fecha_muestreo}__${caso.id_centro}`;
-
-          if (jornadasCobradasSet.has(jornadaKey)) {
-            xnAnalisis = 0;
-            xvtaUnitario = 0;
-            reglaUsada = 'Jornada AquaGen (Ya cobrada en caso hermano del día)';
-          } else {
-            jornadasCobradasSet.add(jornadaKey);
-            xnAnalisis = 1;
-            const jRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('esp', sql.Numeric(10, 0), caso.id_especie)
-              .input('tec', sql.Numeric(10, 0), 955)
-              .query(`EXEC dbo.consulta_listaprecio_unatecnica_screening @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_especie=@esp, @xid_tecnica=@tec`);
-            xvtaUnitario = jRes.recordset?.length > 0
-              ? Number(jRes.recordset[0].uf_individual || linea.tec_precio_lista || 0)
-              : Number(linea.tec_precio_lista || 0);
-            reglaUsada = 'Jornada Muestreo Screening (AquaGen 1 por Fecha/Centro)';
-          }
-        }
-        // --------------------------------------------------------------------
-        // REGLA 1: PVA (eligeprograma = 1) — General vs Por Centro + Agua Mar/Dulce
-        // --------------------------------------------------------------------
-        else if (progNum === 1) {
-          const tlRes = await pool.request()
-            .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-            .query(`EXEC dbo.consulta_pva_tipolista @xid_empresaservicio = @es`);
-          const tipoListaPva = String(tlRes.recordset?.[0]?.tipo_lista || 'General').trim();
-
-          let pvaRow = null;
-          if (tipoListaPva.toLowerCase().includes('centro')) {
-            const rCen = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .query(`EXEC dbo.consulta_listaprecio_unatecnica_pva_porcentro @xid_empresaservicio=@es, @xid_tecnica=@tec, @xid_centro=@cen`);
-            pvaRow = rCen.recordset?.[0];
-          }
-          if (!pvaRow) {
-            const rGen = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.consulta_listaprecio_unatecnica_pva @xid_empresaservicio=@es, @xid_tecnica=@tec`);
-            pvaRow = rGen.recordset?.[0];
-          }
-
-          if (pvaRow) {
-            const esAguaDulce = [2, 4, 15, 16, 17].includes(Number(caso.id_tipoagua));
-            xvtaUnitario = esAguaDulce
-              ? Number(pvaRow.uf_ad || pvaRow.uf_am || 0)
-              : Number(pvaRow.uf_am || pvaRow.uf_ad || 0);
-            reglaUsada = `Tarifario PVA (${tipoListaPva} · ${esAguaDulce ? 'Agua Dulce' : 'Agua Mar'})`;
-          } else {
-            const fallback = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-            xvtaUnitario = fallback.unitarioUf;
-            reglaUsada = fallback.regla;
-          }
-        }
-        // --------------------------------------------------------------------
-        // REGLA 8: Screening (eligeprograma = 2) — Simple vs Multiplex y Apertura
-        // --------------------------------------------------------------------
-        else if (progNum === 2) {
-          if (caso.multiplex === 'S') {
-            if (Number(linea.item) < 300 && idTec !== 958 && idTec !== 959) {
-              // Líneas hijas de un Multiplex se fuerzan a 0 para no cobrar doble
-              xnAnalisis = 0;
-              xvtaUnitario = 0;
-              reglaUsada = 'Screening Multiplex (Ítem Hijo Exento = 0 UF)';
-            } else {
-              const mpPriceRes = await pool.request()
-                .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-                .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-                .input('cen', sql.Numeric(10, 0), caso.id_centro)
-                .input('esp', sql.Numeric(10, 0), caso.id_especie)
-                .input('tec', sql.Numeric(10, 0), idTec)
-                .query(`EXEC dbo.consulta_listaprecio_unatecnica_screening_multiplex @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_especie=@esp, @xid_tecnica=@tec`);
-              const rowMp = mpPriceRes.recordset?.[0];
-              if (rowMp) {
-                const esPool = String(linea.tipoingreso).toUpperCase() === 'POOLES';
-                if (caso.apertura === 'S') {
-                  xvtaUnitario = esPool ? Number(rowMp.uf_pool_ap || rowMp.uf_pool || 0) : Number(rowMp.uf_individual_ap || rowMp.uf_individual || 0);
-                } else {
-                  xvtaUnitario = esPool ? Number(rowMp.uf_pool || 0) : Number(rowMp.uf_individual || 0);
-                }
-                reglaUsada = `Screening Multiplex (${caso.apertura === 'S' ? 'Con Apertura' : 'Normal'})`;
-              } else {
-                const fallback = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-                xvtaUnitario = fallback.unitarioUf;
-                reglaUsada = fallback.regla;
-              }
-            }
-          } else {
-            const scPriceRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('esp', sql.Numeric(10, 0), caso.id_especie)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.consulta_listaprecio_unatecnica_screening @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_especie=@esp, @xid_tecnica=@tec`);
-            const rowSc = scPriceRes.recordset?.[0];
-            if (rowSc) {
-              const esPool = String(linea.tipoingreso).toUpperCase() === 'POOLES';
-              if (caso.apertura === 'S') {
-                xvtaUnitario = esPool ? Number(rowSc.uf_pool_ap || rowSc.uf_pool || 0) : Number(rowSc.uf_individual_ap || rowSc.uf_individual || 0);
-              } else {
-                xvtaUnitario = esPool ? Number(rowSc.uf_pool || 0) : Number(rowSc.uf_individual || 0);
-              }
-              reglaUsada = `Screening Simple (${caso.apertura === 'S' ? 'Con Apertura' : 'Normal'})`;
-            } else {
-              const fallback = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-              xvtaUnitario = fallback.unitarioUf;
-              reglaUsada = fallback.regla;
-            }
-          }
-        }
-        // --------------------------------------------------------------------
-        // REGLA 7: Contingencia ISA / PVS / SRS (eligeprograma = 3)
-        // --------------------------------------------------------------------
-        else if (progNum === 3) {
-          const esSrs = Number(caso.id_programa) === 10;
-          const spTipo = esSrs ? 'consulta_srs_tipolista' : 'consulta_cisa_tipolista';
-          const spGen = esSrs ? 'consulta_listaprecio_unatecnica_srs' : 'consulta_listaprecio_unatecnica_cisa';
-          const spCen = esSrs ? 'consulta_listaprecio_unatecnica_srs_porcentro' : 'consulta_listaprecio_unatecnica_cisa_porcentro';
-
-          const tlRes = await pool.request()
-            .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-            .query(`EXEC dbo.${spTipo} @xid_empresaservicio = @es`);
-          const tipoLista = String(tlRes.recordset?.[0]?.tipo_lista || 'General').trim();
-
-          let rowTarifa = null;
-          if (tipoLista.toLowerCase().includes('centro')) {
-            const rCen = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .query(`EXEC dbo.${spCen} @xid_empresaservicio=@es, @xid_tecnica=@tec, @xid_centro=@cen`);
-            rowTarifa = rCen.recordset?.[0];
-          }
-          if (!rowTarifa) {
-            const rGen = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.${spGen} @xid_empresaservicio=@es, @xid_tecnica=@tec`);
-            rowTarifa = rGen.recordset?.[0];
-          }
-
-          if (rowTarifa && Number(rowTarifa.uf_pool) > 0) {
-            xvtaUnitario = Number(rowTarifa.uf_pool);
-            reglaUsada = `Tarifario ${esSrs ? 'SRS' : 'CISA/PVS'} (${tipoLista})`;
-          } else {
-            const fallback = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-            xvtaUnitario = fallback.unitarioUf;
-            reglaUsada = fallback.regla;
-          }
-        }
-        // --------------------------------------------------------------------
-        // REGLAS EN SERVICIO DIAGNÓSTICO - ATV (eligeprograma = 4) E I+D (5)
-        // --------------------------------------------------------------------
-        else if (progNum === 4 || progNum === 5) {
-          let resolved = false;
-
-          // 5. Ensilaje (Normativo vs Derivación vs No Normativo)
-          if (progNum === 4 && (ensilaje || caso.ensilaje === 'S')) {
-            const ensRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.ConsultaPrecioEnsilajeUnaEmpresa @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_tecnica=@tec`);
-            const rowEns = ensRes.recordset?.[0];
-            if (rowEns) {
-              const coEnsRes = await pool.request()
-                .input('la', sql.Numeric(10, 0), caso.id_lugaranalisis)
-                .input('fm', sql.VarChar(10), caso.fecha_muestreo)
-                .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-                .input('cen', sql.Numeric(10, 0), caso.id_centro)
-                .query(`EXEC dbo.Consulta_CO_Ensalije @xid_lugaranalisis=@la, @xfecha_muestreo=@fm, @xid_empresaservicio=@es, @xid_centro=@cen`);
-              const tieneCoOficial = (coEnsRes.recordset || []).length > 0;
-              if (tieneCoOficial) {
-                xvtaUnitario = Number(rowEns.uf_normativo || 0);
-                reglaUsada = 'Ensilaje Normativo (Con Visita Oficial)';
-              } else if (Number(caso.id_veterinario) === 33) {
-                xvtaUnitario = Number(rowEns.uf_derivacion || 0);
-                reglaUsada = 'Ensilaje Derivación (Enviado por Cliente)';
-              } else {
-                xvtaUnitario = Number(rowEns.uf_nonormativo || 0);
-                reglaUsada = 'Ensilaje No Normativo (Muestreo Terreno ADL)';
-              }
-              resolved = true;
-            }
-          }
-
-          // 6. PROA
-          if (!resolved && progNum === 4 && (proa || caso.proa === 'S')) {
-            const proaRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-              .input('cen', sql.Numeric(10, 0), caso.id_centro)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.ConsultaPrecioProaUnaEmpresa @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_tecnica=@tec`);
-            if (proaRes.recordset?.length > 0 && Number(proaRes.recordset[0].uf) > 0) {
-              xvtaUnitario = Number(proaRes.recordset[0].uf);
-              reglaUsada = 'Tarifario PROA';
-              resolved = true;
-            }
-          }
-
-          // 1. ATBPlex por Rango de Muestras acumuladas por Recepción
-          if (!resolved && progNum === 4 && !ensilaje && !proa) {
-            const rangoRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.consulta_listaprecio_tecnicas_porrangomuestras @xid_empresaservicio=@es, @xid_tecnica=@tec`);
-            if (rangoRes.recordset?.length > 0) {
-              const totalPoolsRec = recepcionPoolsMap.get(`${caso.n_recepcion}__${idTec}`) || Number(linea.pol_npooles || 0);
-              const tramo = rangoRes.recordset.find(
-                (t) => totalPoolsRec >= Number(t.rangodesde) && totalPoolsRec <= Number(t.rangohasta)
-              );
-              if (tramo && Number(tramo.valor) > 0) {
-                xvtaUnitario = Number(tramo.valor);
-                reglaUsada = `ATBPlex por Rango de Muestras (${tramo.rangodesde}-${tramo.rangohasta} pools)`;
-                resolved = true;
-              }
-            }
-          }
-
-          // 2. Proyectos (id_proyecto > 0)
-          if (!resolved && Number(caso.id_proyecto) > 0) {
-            const proyRes = await pool.request()
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('proy', sql.Numeric(10, 0), caso.id_proyecto)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.consulta_proyecto_facturar_det @xid_empresaservicio=@es, @xid_proyecto=@proy, @xid_tecnica=@tec`);
-            if (proyRes.recordset?.length > 0) {
-              const rowProy = proyRes.recordset[0];
-              const esPool = String(linea.tipoingreso).toUpperCase() === 'POOLES';
-              xvtaUnitario = esPool
-                ? Number(rowProy.uf_pool || rowProy.uf_individual || 0)
-                : Number(rowProy.uf_individual || rowProy.uf_pool || 0);
-              reglaUsada = `Tarifario por Proyecto (#${caso.id_proyecto})`;
-              resolved = true;
-            }
-          }
-
-          // 3. Packs (pack = 'S' e id_pack > 0)
-          if (!resolved && linea.pack === 'S' && Number(linea.id_pack) > 0) {
-            const packRes = await pool.request()
-              .input('pack', sql.Numeric(10, 0), linea.id_pack)
-              .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-              .input('tec', sql.Numeric(10, 0), idTec)
-              .query(`EXEC dbo.consulta_listaprecio_unatecnica_pack @xid_pack=@pack, @xid_empresaservicio=@es, @xid_tecnica=@tec`);
-            if (packRes.recordset?.length > 0 && Number(packRes.recordset[0].valor) > 0) {
-              xvtaUnitario = Number(packRes.recordset[0].valor);
-              reglaUsada = `Tarifario Pack (#${linea.id_pack})`;
-              resolved = true;
-            }
-          }
-
-          // 4. Fallback a Precio Especial / Lista Estándar
-          if (!resolved) {
-            const base = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-            xvtaUnitario = base.unitarioUf;
-            reglaUsada = base.regla;
-          }
-        }
-        // --------------------------------------------------------------------
-        // REGLA 9: SAMIC (eligeprograma = 8, id_programa = 18)
-        // --------------------------------------------------------------------
-        else if (progNum === 8) {
-          const samicRes = await pool.request()
-            .input('es', sql.Numeric(10, 0), caso.id_empresaservicio)
-            .input('emp', sql.Numeric(10, 0), caso.id_empresa)
-            .input('cen', sql.Numeric(10, 0), caso.id_centro)
-            .input('tec', sql.Numeric(10, 0), idTec)
-            .query(`EXEC dbo.consulta_listaprecio_unatecnica_samic @xid_empresaservicio=@es, @xid_empresa=@emp, @xid_centro=@cen, @xid_tecnica=@tec`);
-          if (samicRes.recordset?.length > 0 && Number(samicRes.recordset[0].uf) > 0) {
-            xvtaUnitario = Number(samicRes.recordset[0].uf);
-            reglaUsada = 'Tarifario SAMIC (Cliente/Empresa/Centro)';
-          } else {
-            const base = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-            xvtaUnitario = base.unitarioUf;
-            reglaUsada = base.regla;
-          }
-        }
-        // --------------------------------------------------------------------
-        // Susceptibilidad Caligus (eligeprograma = 9) e Investigación Lab (6)
-        // --------------------------------------------------------------------
         else {
-          if (progNum === 9 && Number(linea.tec_vta_cal) > 0) {
-            xvtaUnitario = Number(linea.tec_vta_cal);
-            reglaUsada = 'Tarifa Susceptibilidad Caligus';
-          } else {
-            const base = await this._resolverPrecioBaseOLista(pool, caso, linea, numUf, numUsd);
-            xvtaUnitario = base.unitarioUf;
-            reglaUsada = base.regla;
-          }
+          const precio = await resolverPrecioLinea({ caso, linea, columna, poolOIndv }, repo);
+          const nIdent = precio.idTipoCobro === 8 ? ((await repo.nIdentificaciones(caso.id_caso)) || []).length : 0;
+          let r = cantidadYTotal({ idTipoCobro: precio.idTipoCobro, linea, caso, xvta: precio.xvta, nIdentificaciones: nIdent });
+          r = aplicaExcepcionViabilidad(idTec, r);
+          xnAnalisis = r.nAnalisis; xvtaUnitario = r.vtaUnitario; xvtatotal = r.vtaTotal; reglaUsada = precio.regla;
         }
 
-        const xvtatotal = round2(xnAnalisis * xvtaUnitario);
+        if (xvtatotal === null) xvtatotal = round2(xnAnalisis * xvtaUnitario);
         registrarRegla(reglaUsada);
 
-        // Persistir valorización en muestras_detalle (local database)
+        // Se guarda la valorización de la línea (igual que ADLSOFT: por caso e ítem, sin tocar `valorizado`)
         await pool.request()
-          .input('id_caso', sql.Numeric(10, 0), caso.id_caso)
+          .input('c', sql.Numeric(10, 0), caso.id_caso)
           .input('item', sql.Numeric(10, 0), linea.item)
-          .input('id_tecnica', sql.Numeric(10, 0), linea.id_tecnica)
-          .input('n_analisis', sql.Numeric(10, 2), xnAnalisis)
-          .input('vtaunitario', sql.Numeric(12, 4), xvtaUnitario)
-          .input('vtatotal', sql.Numeric(12, 2), xvtatotal)
-          .input('uf', sql.Numeric(12, 2), numUf)
-          .input('usd', sql.Numeric(12, 2), numUsd)
+          .input('n', sql.Numeric(10, 0), xnAnalisis)
+          .input('vta', sql.Numeric(10, 3), xvtaUnitario)
+          .input('total', sql.Numeric(10, 3), xvtatotal)
+          .input('uf', sql.Numeric(10, 2), numUf)
+          .input('usd', sql.Numeric(10, 2), numUsd)
           .query(`
             UPDATE dbo.muestras_detalle
-            SET n_analisis = @n_analisis,
-                vtaunitario = @vtaunitario,
-                vtatotal = @vtatotal,
-                uf = @uf,
-                usd = @usd,
-                mf = 1,
-                valorizado = 'S'
-            WHERE id_caso = @id_caso AND item = @item AND id_tecnica = @id_tecnica AND ISNULL(id_facturacion, 0) = 0;
+            SET vtaunitario = @vta, n_analisis = @n, vtatotal = @total, uf = @uf, usd = @usd, mf = 1
+            WHERE id_caso = @c AND item = @item AND id_facturacion = 0;
           `);
 
         linea.n_analisis = xnAnalisis;
@@ -1146,19 +1026,54 @@ class FacturacionSaludService {
         lineasValorizadasCount++;
       }
 
-      // Actualizar muestras.uf_totalcaso y muestras.uf_totalfac
-      await pool.request()
-        .input('id_caso', sql.Numeric(10, 0), caso.id_caso)
-        .input('uf_total', sql.Numeric(12, 2), ufTotalCaso)
-        .query(`
-          UPDATE dbo.muestras
-          SET uf_totalcaso = @uf_total,
-              uf_totalfac = @uf_total
-          WHERE id_caso = @id_caso;
-        `);
-
       caso.uf_totalfac = ufTotalCaso;
-      ufTotalGeneral = round2(ufTotalGeneral + ufTotalCaso);
+    }
+
+    // Costos operacionales, jornada y costo fijo (después de valorizar todos los casos, como en ADLSOFT)
+    const costosAgregados = await this._aplicarCostosOperacionales(pool, {
+      casos, eligeprograma, id_empresaservicio, ensilaje, proa, numUf, numUsd, rango: this._rangoSpPrefactura({ fecha_proceso_ini, fecha_proceso_fin })
+    });
+    if (costosAgregados.costoOperativo) registrarRegla('Costo operativo agregado');
+    if (costosAgregados.jornadas) registrarRegla('Jornada de muestreo agregada');
+    if (costosAgregados.mowi) registrarRegla('Costo fijo Mowi agregado');
+
+    // Cierre de la valorización (igual que ADLSOFT, caso por caso): líneas de las técnicas multiplex 958/959 que quedaron con la
+    // cantidad en pools o en análisis sin completar, total de todas las líneas abiertas, marca mf de las líneas ya valorizadas
+    // (valorizado = 'S') y total del caso en muestras.uf_totalfac.
+    ufTotalGeneral = 0;
+    for (const caso of casos) {
+      await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso)
+        .query('UPDATE dbo.muestras_detalle SET n_analisis = pol_npooles, vtatotal = pol_npooles * vtaunitario WHERE id_caso = @c AND id_facturacion = 0 AND mf = 1 AND (id_tecnica = 958 OR id_tecnica = 959);');
+      const mpl = await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso)
+        .query('SELECT id_tecnica, pol_npooles, n_analisis, vtaunitario FROM dbo.muestras_detalle WHERE id_caso = @c AND id_facturacion = 0 AND (id_tecnica = 958 OR id_tecnica = 959);');
+      for (const m of mpl.recordset || []) {
+        const pol = Number(m.pol_npooles) || 0;
+        const n = Number(m.n_analisis) || 0;
+        const vta = Number(m.vtaunitario) || 0;
+        if (pol === 0) {
+          await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso).input('t', sql.Numeric(10, 0), m.id_tecnica)
+            .input('p', sql.Numeric(10, 0), n).input('v', sql.Numeric(10, 3), redondea(n * vta, 3))
+            .query('UPDATE dbo.muestras_detalle SET pol_npooles = @p, vtatotal = @v, mf = 1 WHERE id_caso = @c AND id_tecnica = @t AND id_facturacion = 0;');
+        } else if (n === 0) {
+          await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso).input('t', sql.Numeric(10, 0), m.id_tecnica)
+            .input('n', sql.Numeric(10, 0), pol).input('v', sql.Numeric(10, 3), redondea(pol * vta, 3))
+            .query('UPDATE dbo.muestras_detalle SET n_analisis = @n, vtatotal = @v, mf = 1 WHERE id_caso = @c AND id_tecnica = @t AND id_facturacion = 0;');
+        }
+      }
+      await pool.request()
+        .input('c', sql.Numeric(10, 0), caso.id_caso)
+        .input('uf', sql.Numeric(10, 2), numUf)
+        .input('usd', sql.Numeric(10, 2), numUsd)
+        .query(`
+          UPDATE dbo.muestras_detalle SET uf = @uf, usd = @usd, vtatotal = n_analisis * vtaunitario WHERE id_caso = @c AND id_facturacion = 0;
+          UPDATE dbo.muestras_detalle SET mf = 1 WHERE id_caso = @c AND id_facturacion = 0 AND valorizado = 'S';
+        `);
+      const abiertas = await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso).query('EXEC dbo.fac_agrupaempresacasos_uno @xid_caso = @c;');
+      const totalCaso = redondea((abiertas.recordset || []).reduce((a, l) => a + (Number(l.vtatotal) || 0), 0), 3);
+      await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso).input('t', sql.Numeric(10, 3), totalCaso)
+        .query('UPDATE dbo.muestras SET uf_totalfac = @t WHERE id_caso = @c;');
+      caso.uf_totalfac = totalCaso;
+      ufTotalGeneral = round2(ufTotalGeneral + totalCaso);
     }
 
     return {
@@ -1227,8 +1142,71 @@ class FacturacionSaludService {
   }
 
   /**
-   * Creación de Pre-Facturas Agrupadas según criterio (Réplica de fac_unaempresa_v5.scx Command4.Click "Crear Factura")
-   * Criterios soportados: 'Na', 'Centro', 'Veterinario', 'Centro - Veterinario', 'Tipo de Agua', 'Tipo de Agua - Veterinario'
+   * Rango de fechas que ADLSOFT pasa a los procedimientos de pre-visualización ("Fecha datos a procesar"). Esos procedimientos
+   * comparan contra muestras.fecha_informe. Como los casos a facturar ya vienen marcados, si no se indica rango se usa uno amplio.
+   */
+  _rangoSpPrefactura({ fecha_proceso_ini, fecha_proceso_fin } = {}) {
+    return {
+      ini: toDmyString(fecha_proceso_ini) || '01/01/2000',
+      fin: toDmyString(fecha_proceso_fin) || '31/12/2099'
+    };
+  }
+
+  /** Ejecuta el procedimiento de pre-visualización de ADLSOFT (solo lectura) y devuelve sus líneas. */
+  async _leerLineasPreVer(ejecutor, { id_empresaservicio, eligeprograma, criterio, ini, fin }) {
+    const sp = nombreSpPrever(eligeprograma, criterio);
+    const res = await new sql.Request(ejecutor)
+      .input('es', sql.Numeric(10, 0), Number(id_empresaservicio))
+      .input('fi', sql.VarChar(10), ini)
+      .input('ff', sql.VarChar(10), fin)
+      .query(`SET DATEFORMAT dmy; EXEC dbo.${sp} @xid_empresaservicio = @es, @xfechaini = @fi, @xfechafin = @ff;`);
+    return res.recordset || [];
+  }
+
+  /**
+   * "Pre-ver Facturación" (fac_unaempresa_v4.scx): muestra en qué pre-facturas quedarían los casos marcados, con los N° de
+   * facturación que recibirían. No escribe nada: los N° son provisorios (Mae_id + 1, +2…) hasta que se crea la factura.
+   */
+  async previsualizarPrefacturasSalud({
+    id_empresaservicio,
+    eligeprograma = 4,
+    criterio_agrupacion = 'Na',
+    casos_ids = [],
+    fecha_proceso_ini = '',
+    fecha_proceso_fin = ''
+  }) {
+    const cleanIds = (casos_ids || []).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    if (cleanIds.length === 0) throw new Error('Debe marcar al menos un caso valorizado.');
+
+    const pool = await this._pool();
+    const { ini, fin } = this._rangoSpPrefactura({ fecha_proceso_ini, fecha_proceso_fin });
+    const mae = await pool.request().query('SELECT TOP 1 id_facturacion FROM dbo.Mae_id');
+    const idBase = Number(mae.recordset?.[0]?.id_facturacion);
+    if (!Number.isFinite(idBase)) throw new Error('No se pudo leer el contador de facturación (Mae_id).');
+
+    const lineas = await this._leerLineasPreVer(pool, { id_empresaservicio, eligeprograma, criterio: criterio_agrupacion, ini, fin });
+    const { grupos, lineas: asignadas } = agruparLineasPrefactura(lineas, criterio_agrupacion, cleanIds, idBase);
+    return {
+      criterio_agrupacion,
+      ids_provisorios: true,
+      total_lineas: asignadas.length,
+      uf_total: redondea(grupos.reduce((a, g) => a + g.uf_total, 0), 2),
+      grupos
+    };
+  }
+
+  /**
+   * "Facturar" (fac_unaempresa_v4.scx): crea las pre-facturas de los casos marcados. Réplica del orden de ADLSOFT:
+   *  1. lee Mae_id.id_facturacion y arma los grupos con el procedimiento de pre-visualización;
+   *  2. marca las líneas valorizadas (mf = 1) con su N° de facturación y mf = 3;
+   *  3. fac_creandofacturas_enc / _det agregan lo marcado (mf = 3);
+   *  4. inserta facturacion_enc (factura = 0, emitido vacío, mf = 1) y las OC/HES de cada pre-factura;
+   *  5. Mae_id.id_facturacion = MAX(facturacion_enc) + 1;
+   *  6. inserta facturacion_det (una fila por LÍNEA de análisis) y deja las líneas en estado FACTURADO, mf = 0.
+   * Único añadido respecto de ADLSOFT: todo corre en una transacción, así un fallo a medias no deja líneas atrapadas en mf = 3.
+   *
+   * ordenes_compra: [{ ocompra, ocompra_fecha, referencia, tipo: 'OC'|'HES', orden, id_facturacion? }]. Sin id_facturacion, la
+   * referencia se asocia a todas las pre-facturas creadas (en ADLSOFT se tecleaban contra el N° de la pre-visualización).
    */
   async crearPrefacturasSalud({
     id_empresaservicio,
@@ -1236,10 +1214,8 @@ class FacturacionSaludService {
     criterio_agrupacion = 'Na',
     casos_ids = [],
     fecha_facturacion,
-    valor_uf = 38500,
-    valor_usd = 0,
-    id_formapago = 1,
-    id_glosa = 1,
+    id_formapago,
+    id_glosa,
     glosa = '',
     observaciones = '',
     nota = '',
@@ -1249,6 +1225,8 @@ class FacturacionSaludService {
     fecha_proceso_fin = '',
     fecha_informe_ini = '',
     fecha_informe_fin = '',
+    ordenes_compra = [],
+    // Campos antiguos del formulario (una OC y una HES): se convierten en ordenes_compra.
     ocompra = '',
     ocompra_fecha = '',
     referencia_oc = '',
@@ -1256,232 +1234,187 @@ class FacturacionSaludService {
     hes_fecha = '',
     referencia_hes = ''
   }) {
-    if (!Array.isArray(casos_ids) || casos_ids.length === 0) {
+    const cleanIds = (casos_ids || []).map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    if (cleanIds.length === 0) {
       throw new Error('Debe seleccionar al menos un caso valorizado para crear prefacturas.');
     }
+    if (!Number(id_empresaservicio)) throw new Error('Falta la empresa a facturar.');
+    const fechaFacDmy = toDmyString(fecha_facturacion);
+    if (!fechaFacDmy) throw new Error('Debe ingresar la Fecha de Facturación.');
+    if (!(Number(id_formapago) > 0)) throw new Error('Debe elegir la forma de pago.');
+    if (!(Number(id_glosa) > 0)) throw new Error('Debe elegir la glosa de la factura electrónica.');
 
-    const pool = await getConnectionSalud();
     const progConfig = getProgramaConfig(eligeprograma);
-    const numUf = Number(valor_uf) || 38500;
-    const numUsd = Number(valor_usd) || 0;
-    const fechaFacDmy = toDmyString(fecha_facturacion || new Date().toISOString().slice(0, 10));
+    const { ini, fin } = this._rangoSpPrefactura({ fecha_proceso_ini, fecha_proceso_fin });
+    // Validar la combinación programa/criterio antes de abrir la transacción.
+    nombreSpPrever(eligeprograma, criterio_agrupacion);
 
-    // Obtener información de los casos seleccionados y sus totales en muestras_detalle
-    const cleanIds = casos_ids.map((id) => Number(id)).filter((id) => !isNaN(id) && id > 0);
-    const casosQuery = `
-      SELECT
-        m.id_caso,
-        LTRIM(RTRIM(m.caso_adlab)) AS caso_adlab,
-        m.id_empresaservicio,
-        m.id_programa,
-        LTRIM(RTRIM(ISNULL(mp.nombre_programa, ''))) AS nombre_programa,
-        m.id_centro,
-        LTRIM(RTRIM(ISNULL(mc.nombre_centro, 'Sin Centro'))) AS nombre_centro,
-        ISNULL(mc.id_tipoagua, 0) AS id_tipoagua,
-        LTRIM(RTRIM(ISNULL(ta.nombre_tipoagua, 'General'))) AS nombre_tipoagua,
-        LTRIM(RTRIM(ISNULL(m.cliente_entrega, 'Sin Veterinario'))) AS cliente_entrega,
-        SUM(ISNULL(md.vtatotal, 0)) AS uf_caso
-      FROM dbo.muestras m
-      INNER JOIN dbo.muestras_detalle md ON m.id_caso = md.id_caso
-      LEFT JOIN dbo.mae_programa mp ON m.id_programa = mp.id_programa
-      LEFT JOIN dbo.mae_centro mc ON m.id_centro = mc.id_centro
-      LEFT JOIN dbo.mae_tipoagua ta ON mc.id_tipoagua = ta.id_tipoagua
-      WHERE m.id_caso IN (${cleanIds.join(',')})
-        AND md.estado = 'ENVIADO'
-        AND ISNULL(md.id_facturacion, 0) = 0
-        AND md.clasifica IN ('CLIENTE', 'COMPLEMENT')
-      GROUP BY
-        m.id_caso,
-        m.caso_adlab,
-        m.id_empresaservicio,
-        m.id_programa,
-        mp.nombre_programa,
-        m.id_centro,
-        mc.nombre_centro,
-        mc.id_tipoagua,
-        ta.nombre_tipoagua,
-        m.cliente_entrega
-      HAVING SUM(ISNULL(md.vtatotal, 0)) > 0
-      ORDER BY m.caso_adlab;
-    `;
-
-    const casosRes = await pool.request().query(casosQuery);
-    const casosRows = casosRes.recordset || [];
-    if (casosRows.length === 0) {
-      throw new Error('Los casos seleccionados no tienen monto valorizado (> 0 UF) o ya fueron facturados.');
+    const referencias = [...(ordenes_compra || [])];
+    if (String(ocompra || '').trim()) {
+      referencias.push({ tipo: 'OC', ocompra, ocompra_fecha, referencia: referencia_oc });
+    }
+    if (String(hes || '').trim()) {
+      referencias.push({ tipo: 'HES', ocompra: hes, ocompra_fecha: hes_fecha, referencia: referencia_hes });
     }
 
-    // Agrupar casos según criterio_agrupacion
-    const groupsMap = new Map();
-    for (const c of casosRows) {
-      let groupKey = 'NA';
-      let groupLabel = progConfig.nombre;
-      switch (criterio_agrupacion) {
-        case 'Centro':
-          groupKey = `CEN_${c.id_centro}`;
-          groupLabel = `Centro: ${c.nombre_centro}`;
-          break;
-        case 'Veterinario':
-          groupKey = `VET_${c.cliente_entrega}`;
-          groupLabel = `Veterinario: ${c.cliente_entrega}`;
-          break;
-        case 'Centro - Veterinario':
-          groupKey = `CENVET_${c.id_centro}__${c.cliente_entrega}`;
-          groupLabel = `${c.nombre_centro} · ${c.cliente_entrega}`;
-          break;
-        case 'Tipo de Agua':
-          groupKey = `TAGUA_${c.id_tipoagua}`;
-          groupLabel = `Agua: ${c.nombre_tipoagua}`;
-          break;
-        case 'Tipo de Agua - Veterinario':
-          groupKey = `TAGUAVET_${c.id_tipoagua}__${c.cliente_entrega}`;
-          groupLabel = `${c.nombre_tipoagua} · ${c.cliente_entrega}`;
-          break;
-        default:
-          groupKey = `PROG_${c.id_programa}`;
-          groupLabel = c.nombre_programa || progConfig.nombre;
-          break;
+    const pool = await this._pool();
+    const tx = new sql.Transaction(pool);
+    await tx.begin();
+    try {
+      // 1. Contador y grupos. UPDLOCK evita que dos usuarios tomen la misma numeración.
+      const mae = await new sql.Request(tx).query('SELECT TOP 1 id_facturacion FROM dbo.Mae_id WITH (UPDLOCK, HOLDLOCK)');
+      const idBase = Number(mae.recordset?.[0]?.id_facturacion);
+      if (!Number.isFinite(idBase)) throw new Error('No se pudo leer el contador de facturación (Mae_id).');
+
+      const lineasSp = await this._leerLineasPreVer(tx, { id_empresaservicio, eligeprograma, criterio: criterio_agrupacion, ini, fin });
+      const { grupos, lineas } = agruparLineasPrefactura(lineasSp, criterio_agrupacion, cleanIds, idBase);
+      if (lineas.length === 0) {
+        throw new Error('Los casos seleccionados no tienen líneas valorizadas pendientes de facturar (valoriza de nuevo, o revisa el rango de fechas de informe).');
+      }
+      const idsNuestros = new Set(grupos.map((g) => g.id_facturacion));
+
+      // 2. Marcar las líneas valorizadas (mf = 1) con su N° de facturación y mf = 3.
+      for (const trozo of enTrozos(lineas, 400)) {
+        const valores = trozo.map((l) => `(${l.id_facturacion},${l.id_caso},${l.id_tecnica},${l.item})`).join(',');
+        await new sql.Request(tx).query(`
+          UPDATE md
+          SET md.id_facturacion = v.idf, md.mf = 3
+          FROM dbo.muestras_detalle md
+          INNER JOIN (VALUES ${valores}) AS v (idf, idc, idt, itm)
+            ON md.id_caso = v.idc AND md.id_tecnica = v.idt AND md.item = v.itm
+          WHERE md.mf = 1;
+        `);
       }
 
-      if (!groupsMap.has(groupKey)) {
-        groupsMap.set(groupKey, {
-          groupKey,
-          groupLabel,
-          casos: [],
-          uf_totalcaso: 0
+      // 3. Lo marcado (mf = 3) lo agregan los procedimientos de ADLSOFT.
+      const encRes = await new sql.Request(tx).query('EXEC dbo.fac_creandofacturas_enc');
+      const detRes = await new sql.Request(tx).query('EXEC dbo.fac_creandofacturas_det');
+      const encTodas = encRes.recordset || [];
+      const encRows = encTodas
+        .filter((r) => idsNuestros.has(Number(r.id_facturacion)))
+        .sort((a, b) => Number(a.id_facturacion) - Number(b.id_facturacion));
+      if (encTodas.length !== encRows.length) {
+        logger.warn(`[Facturación Salud] Había ${encTodas.length - encRows.length} pre-factura(s) ajena(s) con líneas en mf = 3 (de otra sesión o de un proceso interrumpido); no se tocan.`);
+      }
+      if (encRows.length !== grupos.length) {
+        throw new Error('Las líneas de una misma pre-factura quedaron con valores de UF distintos (se valorizaron en momentos distintos). Valoriza de nuevo los casos y reintenta.');
+      }
+
+      // 4. Encabezados (como ADLSOFT: factura = 0, emitido vacío, mf = 1) y sus OC/HES.
+      const mesTxt = textoMesFacturacion(mes, ano, fechaFacDmy);
+      const glosaFinal = (String(glosa || '').trim() || progConfig.glosa_default).slice(0, 500);
+      const creadas = [];
+      for (const r of encRows) {
+        const idFac = Number(r.id_facturacion);
+        const ufTotal = redondea(r.uf_totalfac, 2);
+        const uf = Number(r.uf) || 0;
+        const usd = Number(r.usd) || 0;
+        const pesoTotal = redondea(ufTotal * uf, 0);
+        // El valor en USD solo se calcula para Benchmark Genetics (empresa 500), como en ADLSOFT.
+        const usdTotal = Number(r.id_empresaservicio) === 500 && usd > 0 ? redondea(pesoTotal / redondea(usd, 2), 2) : 0;
+        const grupo = grupos.find((g) => g.id_facturacion === idFac);
+
+        await new sql.Request(tx)
+          .input('id_facturacion', sql.Numeric(10, 0), idFac)
+          .input('id_empresaservicio', sql.Numeric(10, 0), Number(r.id_empresaservicio))
+          .input('fecha_facturacion', sql.VarChar(10), fechaFacDmy)
+          .input('uf_totalcaso', sql.Numeric(10, 3), ufTotal)
+          .input('uf_totalfac', sql.Numeric(10, 3), ufTotal)
+          .input('uf', sql.Numeric(10, 3), uf)
+          .input('facturado_por', sql.VarChar(50), String(criterio_agrupacion).slice(0, 50))
+          .input('fecha_proceso_ini', sql.VarChar(10), toDmyString(fecha_proceso_ini) || ini)
+          .input('fecha_proceso_fin', sql.VarChar(10), toDmyString(fecha_proceso_fin) || fin)
+          .input('fecha_informe_ini', sql.VarChar(10), toDmyString(fecha_informe_ini))
+          .input('fecha_informe_fin', sql.VarChar(10), toDmyString(fecha_informe_fin))
+          .input('peso_totalfac', sql.Numeric(10, 0), pesoTotal)
+          .input('id_formapago', sql.Numeric(10, 0), Number(id_formapago))
+          .input('mes', sql.VarChar(20), mesTxt)
+          .input('id_glosa', sql.Numeric(10, 0), Number(id_glosa))
+          .input('observaciones', sql.VarChar(500), String(observaciones || '').trim().slice(0, 500))
+          .input('glosa', sql.VarChar(500), glosaFinal)
+          .input('nota', sql.VarChar(500), String(nota || '').trim().slice(0, 500))
+          .input('usd', sql.Numeric(10, 2), usd)
+          .input('usd_totalfac', sql.Numeric(10, 2), usdTotal)
+          .query(`
+            INSERT INTO dbo.facturacion_enc (
+              id_facturacion, id_empresaservicio, fecha_facturacion, uf_totalotrosing, uf_totalotrosdes, uf_totalcaso, uf_totalfac,
+              uf, mf, facturado_por, fecha_proceso_ini, fecha_proceso_fin, factura, fecha_informe_ini, fecha_informe_fin,
+              peso_totalfac, id_formapago, mes, id_glosa, observaciones, glosa, emitido, ocompra, ocompra_fecha, nota, usd, usd_totalfac
+            ) VALUES (
+              @id_facturacion, @id_empresaservicio, @fecha_facturacion, 0, 0, @uf_totalcaso, @uf_totalfac,
+              @uf, 1, @facturado_por, @fecha_proceso_ini, @fecha_proceso_fin, 0, @fecha_informe_ini, @fecha_informe_fin,
+              @peso_totalfac, @id_formapago, @mes, @id_glosa, @observaciones, @glosa, '', '', '', @nota, @usd, @usd_totalfac
+            );
+          `);
+
+        creadas.push({
+          id_facturacion: idFac,
+          grupo: grupo?.etiqueta || '',
+          total_casos: grupo?.total_casos || 0,
+          total_lineas: grupo?.total_lineas || 0,
+          uf_totalfac: ufTotal,
+          peso_totalfac: pesoTotal
         });
       }
-      const grp = groupsMap.get(groupKey);
-      grp.casos.push(c);
-      grp.uf_totalcaso = round2(grp.uf_totalcaso + Number(c.uf_caso || 0));
-    }
 
-    const prefacturasCreadas = [];
-    const now = new Date();
-    const mesStr = mes || now.toLocaleString('es-CL', { month: 'long' }).toUpperCase();
-    const anoStr = ano || String(now.getFullYear());
+      for (const ref of referencias) {
+        const numero = String(ref?.ocompra ?? '').trim();
+        if (!numero) continue;
+        const tipo = String(ref.tipo || 'OC').trim().toUpperCase() === 'HES' ? 'HES' : 'OC';
+        const destino = ref.id_facturacion != null && ref.id_facturacion !== ''
+          ? [Number(ref.id_facturacion)]
+          : creadas.map((c) => c.id_facturacion);
+        for (const idDestino of destino) {
+          if (!idsNuestros.has(idDestino)) throw new Error(`La referencia ${numero} apunta a la pre-factura ${idDestino}, que no es una de las que se están creando.`);
+          await new sql.Request(tx)
+            .input('ocompra', sql.VarChar(50), numero.slice(0, 50))
+            .input('ocompra_fecha', sql.VarChar(10), toDmyString(ref.ocompra_fecha))
+            .input('referencia', sql.VarChar(50), String(ref.referencia || '').trim().slice(0, 50))
+            .input('id_facturacion', sql.Numeric(10, 0), idDestino)
+            .input('tipo', sql.VarChar(10), tipo)
+            .input('orden', sql.Numeric(10, 0), Number(ref.orden) || (tipo === 'HES' ? 2 : 1))
+            .query(`
+              INSERT INTO dbo.facturacion_ocompra (ocompra, ocompra_fecha, referencia, id_facturacion, tipo, orden)
+              VALUES (@ocompra, @ocompra_fecha, @referencia, @id_facturacion, @tipo, @orden);
+            `);
+        }
+      }
 
-    for (const grp of groupsMap.values()) {
-      // 1. Obtener siguiente id_facturacion desde Mae_id
-      const idRes = await pool.request().query(`
-        UPDATE dbo.Mae_id SET id_facturacion = ISNULL(id_facturacion, 0) + 1;
-        SELECT TOP 1 id_facturacion FROM dbo.Mae_id;
-      `);
-      const newIdFacturacion = Number(idRes.recordset?.[0]?.id_facturacion);
+      // 5. El contador queda en MAX(facturacion_enc) + 1 (facturacion_ultimoid + 1).
+      const ultimo = await new sql.Request(tx).query('EXEC dbo.facturacion_ultimoid');
+      const siguiente = Number(ultimo.recordset?.[0]?.id_facturacion) + 1;
+      if (!Number.isFinite(siguiente)) throw new Error('No se pudo leer el último N° de facturación.');
+      await new sql.Request(tx).input('n', sql.Numeric(10, 0), siguiente).query('UPDATE dbo.Mae_id SET id_facturacion = @n;');
 
-      const ufTotalFac = round2(grp.uf_totalcaso);
-      const pesoTotalFac = round0(ufTotalFac * numUf);
-      const usdTotalFac = numUsd > 0 ? round2((ufTotalFac * numUf) / numUsd) : 0;
-      const glosaFinal = (glosa || `${progConfig.glosa_default} (${grp.groupLabel})`).slice(0, 500);
-
-      // 2. Insertar encabezado en facturacion_enc
-      await pool.request()
-        .input('id_facturacion', sql.Numeric(10, 0), newIdFacturacion)
-        .input('id_empresaservicio', sql.Numeric(10, 0), Number(id_empresaservicio))
-        .input('fecha_facturacion', sql.VarChar(10), fechaFacDmy)
-        .input('uf_totalotrosing', sql.Numeric(12, 2), 0)
-        .input('uf_totalotrosdes', sql.Numeric(12, 2), 0)
-        .input('uf_totalcaso', sql.Numeric(12, 2), ufTotalFac)
-        .input('uf_totalfac', sql.Numeric(12, 2), ufTotalFac)
-        .input('uf', sql.Numeric(12, 2), numUf)
-        .input('mf', sql.Numeric(10, 0), 0)
-        .input('facturado_por', sql.VarChar(50), String(criterio_agrupacion || 'Na').slice(0, 50))
-        .input('fecha_proceso_ini', sql.VarChar(10), toDmyString(fecha_proceso_ini || fechaFacDmy))
-        .input('fecha_proceso_fin', sql.VarChar(10), toDmyString(fecha_proceso_fin || fechaFacDmy))
-        .input('factura', sql.Numeric(10, 0), newIdFacturacion)
-        .input('fecha_informe_ini', sql.VarChar(10), toDmyString(fecha_informe_ini || fechaFacDmy))
-        .input('fecha_informe_fin', sql.VarChar(10), toDmyString(fecha_informe_fin || fechaFacDmy))
-        .input('peso_totalfac', sql.Numeric(14, 0), pesoTotalFac)
-        .input('id_formapago', sql.Numeric(10, 0), Number(id_formapago) || 1)
-        .input('mes', sql.VarChar(20), String(mesStr).slice(0, 20))
-        .input('id_glosa', sql.Numeric(10, 0), Number(id_glosa) || 1)
-        .input('observaciones', sql.VarChar(500), String(observaciones || grp.groupLabel).slice(0, 500))
-        .input('glosa', sql.VarChar(500), glosaFinal)
-        .input('emitido', sql.VarChar(1), 'N')
-        .input('ocompra', sql.VarChar(12), String(ocompra || '').slice(0, 12))
-        .input('ocompra_fecha', sql.VarChar(10), toDmyString(ocompra_fecha))
-        .input('nota', sql.VarChar(500), String(nota || '').slice(0, 500))
-        .input('ano', sql.VarChar(4), String(anoStr).slice(0, 4))
-        .input('usd', sql.Numeric(12, 2), numUsd)
-        .input('usd_totalfac', sql.Numeric(12, 2), usdTotalFac)
-        .query(`
-          INSERT INTO dbo.facturacion_enc (
-            id_facturacion, id_empresaservicio, fecha_facturacion,
-            uf_totalotrosing, uf_totalotrosdes, uf_totalcaso, uf_totalfac,
-            uf, mf, facturado_por, fecha_proceso_ini, fecha_proceso_fin,
-            factura, fecha_informe_ini, fecha_informe_fin, peso_totalfac,
-            id_formapago, mes, id_glosa, observaciones, glosa, emitido,
-            ocompra, ocompra_fecha, nota, ano, usd, usd_totalfac, pdf, eliminado
-          ) VALUES (
-            @id_facturacion, @id_empresaservicio, @fecha_facturacion,
-            @uf_totalotrosing, @uf_totalotrosdes, @uf_totalcaso, @uf_totalfac,
-            @uf, @mf, @facturado_por, @fecha_proceso_ini, @fecha_proceso_fin,
-            @factura, @fecha_informe_ini, @fecha_informe_fin, @peso_totalfac,
-            @id_formapago, @mes, @id_glosa, @observaciones, @glosa, @emitido,
-            @ocompra, @ocompra_fecha, @nota, @ano, @usd, @usd_totalfac, 'N', 'N'
-          );
+      // 6. Detalle: una fila por línea de análisis. Las líneas pasan a FACTURADO y se libera la marca mf.
+      const detRows = (detRes.recordset || []).filter((d) => idsNuestros.has(Number(d.id_facturacion)));
+      for (const trozo of enTrozos(detRows, 400)) {
+        const valores = trozo.map((d) => {
+          const vt = Number(d.vtatotal);
+          if (![d.id_facturacion, d.id_caso, d.item, vt].every((x) => Number.isFinite(Number(x)))) {
+            throw new Error('Una línea del detalle de la factura tiene datos no numéricos.');
+          }
+          return `(${Number(d.id_facturacion)},${Number(d.id_caso)},${Number(d.item)},${vt})`;
+        }).join(',');
+        await new sql.Request(tx).query(`
+          INSERT INTO dbo.facturacion_det (id_facturacion, id_caso, item, vtatotal) VALUES ${valores};
         `);
-
-      // 3. Insertar detalle en facturacion_det y marcar muestras_detalle como FACTURADO
-      let itemCounter = 1;
-      for (const caso of grp.casos) {
-        await pool.request()
-          .input('id_facturacion', sql.Numeric(10, 0), newIdFacturacion)
-          .input('id_caso', sql.Numeric(10, 0), caso.id_caso)
-          .input('item', sql.Numeric(10, 0), itemCounter++)
-          .input('vtatotal', sql.Numeric(12, 2), round2(caso.uf_caso))
-          .query(`
-            INSERT INTO dbo.facturacion_det (id_facturacion, id_caso, item, vtatotal)
-            VALUES (@id_facturacion, @id_caso, @item, @vtatotal);
-
-            UPDATE dbo.muestras_detalle
-            SET id_facturacion = @id_facturacion,
-                estado = 'FACTURADO',
-                mf = 0
-            WHERE id_caso = @id_caso
-              AND estado = 'ENVIADO'
-              AND ISNULL(id_facturacion, 0) = 0
-              AND clasifica IN ('CLIENTE', 'COMPLEMENT');
-          `);
       }
+      await new sql.Request(tx).query(`
+        UPDATE dbo.muestras_detalle SET mf = 0, estado = 'FACTURADO'
+        WHERE mf = 3 AND id_facturacion IN (${[...idsNuestros].join(',')});
+      `);
 
-      // 4. Si se ingresó OC o HES, registrar en facturacion_ocompra
-      if (ocompra && String(ocompra).trim() !== '') {
-        await pool.request()
-          .input('id_facturacion', sql.Numeric(10, 0), newIdFacturacion)
-          .input('ocompra', sql.VarChar(50), String(ocompra).trim())
-          .input('ocompra_fecha', sql.VarChar(10), toDmyString(ocompra_fecha || fechaFacDmy))
-          .input('referencia', sql.VarChar(50), String(referencia_oc || 'Orden de Compra').slice(0, 50))
-          .query(`
-            INSERT INTO dbo.facturacion_ocompra (ocompra, ocompra_fecha, referencia, id_facturacion, tipo, orden, oc)
-            VALUES (@ocompra, @ocompra_fecha, @referencia, @id_facturacion, 'OC', 1, LEFT(@ocompra, 20));
-          `);
-      }
-      if (hes && String(hes).trim() !== '') {
-        await pool.request()
-          .input('id_facturacion', sql.Numeric(10, 0), newIdFacturacion)
-          .input('ocompra', sql.VarChar(50), String(hes).trim())
-          .input('ocompra_fecha', sql.VarChar(10), toDmyString(hes_fecha || fechaFacDmy))
-          .input('referencia', sql.VarChar(50), String(referencia_hes || 'HES').slice(0, 50))
-          .query(`
-            INSERT INTO dbo.facturacion_ocompra (ocompra, ocompra_fecha, referencia, id_facturacion, tipo, orden, oc)
-            VALUES (@ocompra, @ocompra_fecha, @referencia, @id_facturacion, 'HES', 2, LEFT(@ocompra, 20));
-          `);
-      }
-
-      prefacturasCreadas.push({
-        id_facturacion: newIdFacturacion,
-        grupo: grp.groupLabel,
-        total_casos: grp.casos.length,
-        uf_totalfac: ufTotalFac,
-        peso_totalfac: pesoTotalFac
-      });
+      await tx.commit();
+      return {
+        total_prefacturas_creadas: creadas.length,
+        total_lineas: detRows.length,
+        prefacturas: creadas
+      };
+    } catch (error) {
+      try { await tx.rollback(); } catch (e) { logger.error('[Facturación Salud] No se pudo revertir la transacción de creación:', e.message); }
+      throw error;
     }
-
-    return {
-      total_prefacturas_creadas: prefacturasCreadas.length,
-      prefacturas: prefacturasCreadas
-    };
   }
 
   // ==========================================================================
@@ -1795,30 +1728,176 @@ class FacturacionSaludService {
     return this.getPrefacturaSaludDetalle(idFac);
   }
 
-  /**
-   * Eliminar Prefactura y liberar casos a ENVIADO (fac_elimina_reprocesa_v2.scx)
-   */
-  async eliminarPrefacturaSalud(id_facturacion) {
+  /** Ejecuta `fn` con un ejecutor ligado a una transacción (ADLSOFT envía cada sentencia por separado; aquí van juntas). */
+  async _enTransaccion(fn) {
     const pool = await getConnectionSalud();
-    const idFac = Number(id_facturacion);
+    const tx = new sql.Transaction(pool);
+    await tx.begin();
+    try {
+      const resultado = await fn({ request: () => new sql.Request(tx) });
+      await tx.commit();
+      return resultado;
+    } catch (error) {
+      try { await tx.rollback(); } catch { /* la transacción ya estaba cerrada */ }
+      throw error;
+    }
+  }
 
-    await pool.request()
-      .input('id_facturacion', sql.Numeric(10, 0), idFac)
-      .query(`
-        UPDATE dbo.muestras_detalle
-        SET id_facturacion = 0,
-            estado = 'ENVIADO',
-            mf = 0
-        WHERE id_facturacion = @id_facturacion;
+  /** "Elimina ID Facturación" (fac_elimina_reprocesa_v2.scx): borra la factura, libera sus líneas y las guías de despacho. */
+  async eliminarPrefacturaSalud(id_facturacion) {
+    return this._enTransaccion((db) => mantencion.eliminarFacturaPorId(db, { id_facturacion, liberarGuias: true }));
+  }
 
-        DELETE FROM dbo.facturacion_ing WHERE id_facturacion = @id_facturacion;
-        DELETE FROM dbo.facturacion_des WHERE id_facturacion = @id_facturacion;
-        DELETE FROM dbo.facturacion_ocompra WHERE id_facturacion = @id_facturacion;
-        DELETE FROM dbo.facturacion_det WHERE id_facturacion = @id_facturacion;
-        DELETE FROM dbo.facturacion_enc WHERE id_facturacion = @id_facturacion;
-      `);
+  /** "Elimina Factura" por N° de factura: solo la primera factura interna que lleve ese número y sin liberar guías (como ADLSOFT). */
+  async eliminarFacturaPorNumeroSalud(factura) {
+    return this._enTransaccion((db) => mantencion.eliminarFacturaPorNumero(db, { factura }));
+  }
 
-    return { deleted: true, id_facturacion: idFac };
+  /** fac_cambiaempresafacturar_v1.scx: cambia la empresa de la factura y de todos sus casos. */
+  async cambiarEmpresaFacturaSalud({ id_facturacion, id_empresaservicio, motivo, id_usuario }) {
+    return this._enTransaccion((db) => mantencion.cambiarEmpresaFactura(db, { id_facturacion, id_empresaservicio_nueva: id_empresaservicio, motivo, id_usuario }));
+  }
+
+  /** Maestros para las pantallas de documentos: tipos, glosas por tipo de documento, formas de pago, conceptos y empresas. */
+  async getMaestrosDocumentosSalud() {
+    const pool = await getConnectionSalud();
+    const r = await pool.request().query(`
+      SELECT id_tipodocumento, LTRIM(RTRIM(nombre_tipodocumento)) AS nombre_tipodocumento, LTRIM(RTRIM(sigla)) AS sigla FROM dbo.mae_tipodocumento ORDER BY nombre_tipodocumento;
+      SELECT id_glosa, LTRIM(RTRIM(nombre_glosa)) AS nombre_glosa, id_tipodocumento FROM dbo.mae_glosa WHERE habilitado = 'S' ORDER BY nombre_glosa;
+      SELECT id_formapago, LTRIM(RTRIM(nombre_formapago)) AS nombre_formapago FROM dbo.mae_formapago WHERE habilitado = 'S' ORDER BY id_formapago;
+      SELECT id_otrosingresos, LTRIM(RTRIM(nombre_otrosingresos)) AS nombre_otrosingresos FROM dbo.mae_otrosingresos ORDER BY nombre_otrosingresos;
+      SELECT id_otrosdescuentos, LTRIM(RTRIM(nombre_otrosdescuentos)) AS nombre_otrosdescuentos FROM dbo.mae_otrosdescuentos ORDER BY nombre_otrosdescuentos;
+      EXEC dbo.maestro_empresaservicio_administracion;
+    `);
+    const rs = r.recordsets;
+    return {
+      tiposDocumento: rs[0] || [], glosas: rs[1] || [], formasPago: rs[2] || [], otrosIngresos: rs[3] || [], otrosDescuentos: rs[4] || [],
+      empresas: (rs[5] || []).map((e) => ({
+        id_empresaservicio: e.id_empresaservicio, nombre_empresaservicios: String(e.nombre_empresaservicios ?? '').trim(), rut_empresaservicios: String(e.rut_empresaservicios ?? '').trim()
+      }))
+    };
+  }
+
+  async listarCasosDeFacturaSalud(id_facturacion) { return otrasVentas.listarCasosDeFactura(await getConnectionSalud(), { id_facturacion }); }
+  async crearNotaCreditoCasosSalud(datos) { return this._enTransaccion((db) => otrasVentas.crearNotaCreditoPorCasos(db, datos)); }
+
+  /** fac_otrasventas_v2.scx: documentos de otras ventas, notas de crédito y de débito (tabla facturacion_otro). */
+  async listarOtrasVentasSalud(estado) { return otrasVentas.listarDocumentos(await getConnectionSalud(), { estado }); }
+  async buscarReferenciaOtrasVentasSalud(datos) { return otrasVentas.buscarFacturaReferencia(await getConnectionSalud(), datos); }
+  async crearOtraVentaSalud(datos) { return this._enTransaccion((db) => otrasVentas.crearDocumento(db, datos)); }
+  /** `accion` = numero | nota | fecha | glosa | uf | monto-uf */
+  async modificarOtraVentaSalud(accion, datos) {
+    const acciones = {
+      numero: otrasVentas.asignarNumeroDocumento, nota: otrasVentas.grabarNotaDocumento, fecha: otrasVentas.cambiarFechaDocumento,
+      glosa: otrasVentas.cambiarGlosaDocumento, uf: otrasVentas.cambiarUfDocumento, 'monto-uf': otrasVentas.cambiarMontoUfDocumento
+    };
+    if (!acciones[accion]) throw new Error('Acción desconocida.');
+    return this._enTransaccion((db) => acciones[accion](db, datos));
+  }
+  /** Archivos planos de otras ventas: flujo = FEA | FEE | NCE | NDE. */
+  async listarDocumentosArchivoSalud(flujo, estado) { return otrasVentas.listarParaExportar(await getConnectionSalud(), { flujo, estado }); }
+  async exportarDocumentosArchivoSalud(flujo, ids_facturacion) {
+    const r = await this._enTransaccion((db) => otrasVentas.exportarDocumentos(db, { flujo, ids_facturacion }));
+    return { ...r, contenidoAnsiBase64: exportacion.aBufferAnsi(r.contenido).toString('base64') };
+  }
+
+  /**
+   * PDF «Resumen» de una factura. Se entrega para descargar y, si hay una carpeta de documentos configurada
+   * (FACTURACION_SALUD_DOCS_DIR), también se guarda ahí en <año>/<MES>.
+   */
+  async generarPdfResumenSalud(id_facturacion) {
+    const db = await getConnectionSalud();
+    const ficha = await consulta.consultarFacturaPorId(db, { id_facturacion });
+    const datos = await pdfSalud.leerDatosResumen(db, { id_facturacion });
+    const buffer = await pdfSalud.crearPdfResumen(datos);
+    const ruta = pdfSalud.guardarPdf(buffer, {
+      carpetaBase: process.env.FACTURACION_SALUD_DOCS_DIR,
+      titulo: ficha.titulo,
+      fechaFacturacion: ficha.encabezado.fecha_facturacion
+    });
+    return { buffer, nombre: pdfSalud.nombreArchivoResumen(ficha.titulo), ruta };
+  }
+
+  /** PDF «Detalle» de una factura (mismas reglas de descarga y carpeta que el resumen). */
+  async generarPdfDetalleSalud(id_facturacion) {
+    const db = await getConnectionSalud();
+    const ficha = await consulta.consultarFacturaPorId(db, { id_facturacion });
+    const datos = await pdfSalud.leerDatosDetalle(db, { id_facturacion, usdTotalCasos: ficha.usdTotalCasos });
+    const buffer = await pdfSalud.crearPdfDetalle(datos);
+    const nombre = pdfSalud.nombreArchivoDetalle(ficha.titulo);
+    const ruta = pdfSalud.guardarPdf(buffer, {
+      carpetaBase: process.env.FACTURACION_SALUD_DOCS_DIR,
+      titulo: ficha.titulo,
+      fechaFacturacion: ficha.encabezado.fecha_facturacion,
+      nombreArchivo: nombre
+    });
+    return { buffer, nombre, ruta };
+  }
+
+  /** fac_consulta_una_factura_v4.scx: busca por ID de facturación o por N° de factura. */
+  async consultarFacturaSalud({ id_facturacion, factura }) {
+    const db = await getConnectionSalud();
+    return Number(id_facturacion) > 0
+      ? consulta.consultarFacturaPorId(db, { id_facturacion })
+      : consulta.consultarFacturaPorFolio(db, { factura });
+  }
+
+  /** "Graba Factura": sin N° de factura graba totales y UF; con N° de factura graba el número. */
+  async grabarFacturaSalud(datos) { return this._enTransaccion((db) => consulta.grabarFactura(db, datos)); }
+
+  /** fac_guiasclientes.scx: guías de despacho a clientes. */
+  async listarGuiasPendientesSalud(id_empresaservicio) { return consulta.listarGuiasPendientes(await getConnectionSalud(), { id_empresaservicio }); }
+  async calcularNetoGuiasSalud(datos) { return consulta.calcularNetoGuias(await getConnectionSalud(), datos); }
+  async reservarGuiasSalud(datos) { return this._enTransaccion((db) => consulta.reservarGuias(db, datos)); }
+  async liberarGuiasSalud(id_facturacion) { return this._enTransaccion((db) => consulta.liberarGuiasDeFactura(db, { id_facturacion })); }
+
+  /** Datos de los Excel de resumen y detalle de una factura (columnas y filas, sin generar el archivo). */
+  async datosExcelResumenSalud(id_facturacion) { return consulta.datosExcelResumen(await getConnectionSalud(), { id_facturacion }); }
+  async datosExcelDetalleSalud(id_facturacion, lote) { return consulta.datosExcelDetalle(await getConnectionSalud(), { id_facturacion, lote }); }
+
+  /** fac_electronica_exportatxt_v2.scx: facturas de casos disponibles para el archivo plano. */
+  async listarFacturasExportacionSalud(estado) {
+    return exportacion.listarFacturasParaExportar(await getConnectionSalud(), { estado });
+  }
+
+  /** Arma el archivo plano de 35 columnas de las facturas elegidas y las marca como emitidas. */
+  async exportarFacturasCasosSalud(ids_facturacion) {
+    const r = await this._enTransaccion((db) => exportacion.exportarFacturasCasos(db, { ids_facturacion }));
+    return { ...r, contenidoAnsiBase64: exportacion.aBufferAnsi(r.contenido).toString('base64') };
+  }
+
+  /** fac_electronica_modifica_exportatxt_v2.scx: datos previos a exportar. `accion` = fecha | forma-pago | nota | glosa-libre | glosa | mes. */
+  async modificarDatosExportacionSalud(accion, datos) {
+    const acciones = {
+      fecha: exportacion.grabarFechaFacturacion, 'forma-pago': exportacion.grabarFormaPago, nota: exportacion.grabarNota,
+      'glosa-libre': exportacion.grabarGlosaLibre, glosa: exportacion.grabarGlosaMaestro, mes: exportacion.grabarMes
+    };
+    if (!acciones[accion]) throw new Error('Acción desconocida.');
+    return this._enTransaccion((db) => acciones[accion](db, datos));
+  }
+
+  async listarOcHesSalud(id_facturacion) { return exportacion.listarOcHes(await getConnectionSalud(), { id_facturacion }); }
+  async agregarOcHesSalud(datos) { return this._enTransaccion((db) => exportacion.agregarOcHes(db, datos)); }
+  async modificarOcHesSalud(datos) { return this._enTransaccion((db) => exportacion.modificarOcHes(db, datos)); }
+  async eliminarOcHesSalud(datos) { return this._enTransaccion((db) => exportacion.eliminarOcHes(db, datos)); }
+  async buscarOcEnOtrasFacturasSalud(ocompra) { return exportacion.buscarOcEnOtrasFacturas(await getConnectionSalud(), { ocompra }); }
+
+  /** fac_ocompra_factura.scx: órdenes de compra asociadas (facturacion_oc). */
+  async listarOcSalud(id_facturacion) {
+    return mantencion.listarOcAsociadas(await getConnectionSalud(), { id_facturacion });
+  }
+
+  async agregarOcSalud(datos) {
+    return this._enTransaccion((db) => mantencion.agregarOc(db, datos));
+  }
+
+  async eliminarOcSalud(datos) {
+    return this._enTransaccion((db) => mantencion.eliminarOc(db, datos));
+  }
+
+  /** "Graba" de fac_facturacreada_oi_od.scx: otros ingresos / descuentos de las facturas recién creadas. */
+  async grabarOiOdSalud(facturas) {
+    return this._enTransaccion((db) => mantencion.grabarOtrosIngresosDescuentos(db, { facturas }));
   }
 
   /**
@@ -2276,7 +2355,9 @@ class FacturacionSaludService {
     else if (f === 'NCE') spName = 'fac_consulta_facturaelectronica_exporta_nc';
     else if (f === 'NDE') spName = 'fac_consulta_facturaelectronica_exporta_nd';
 
-    const result = await pool.request().query(`EXEC dbo.${spName}`);
+    const result = f === 'FEA_CASOS'
+      ? { recordset: await exportacion.consultarListadoFacturasCasos(pool, { estado: solo_pendientes ? 'NO emitidos' : 'Todos' }) }
+      : await pool.request().query(`EXEC dbo.${spName}`);
     let rows = result.recordset || [];
 
     if (solo_pendientes) {
