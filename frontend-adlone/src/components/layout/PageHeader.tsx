@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { IconInfoCircle, IconArrowLeft } from '@tabler/icons-react';
+import { IconArrowLeft } from '@tabler/icons-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const shouldStack = useMediaQuery('(max-width: 900px)');
-    const { setHelpCenterOpen, setPageBreadcrumb } = useNavStore();
+    const { setPageBreadcrumb } = useNavStore();
 
     // La ruta global (Inicio / Módulo / Submódulo) vive en la barra de ruta
     // persistente sobre el contenido (RouteBreadcrumb, ver TopBar.tsx), pero
@@ -65,16 +65,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             )}
 
             <div className={cn(
-                'flex w-full',
-                centered ? 'gap-3' : 'gap-4',
-                shouldStack ? 'flex-col items-stretch' : 'flex-row items-start justify-between'
+                'flex w-full flex-wrap justify-between',
+                centered ? 'gap-3' : 'gap-2',
+                shouldStack ? 'flex-col items-stretch' : 'flex-row items-end'
             )}>
                 <div className={cn('min-w-0', centered && 'text-center')}>
-                    <h2 className={cn('m-0 font-bold leading-tight text-foreground', isMobile ? 'text-xl' : 'text-2xl')}>
+                    <h2 className={cn('m-0 font-bold tracking-tight text-foreground', isMobile ? 'text-xl' : 'text-2xl')}>
                         {title}
                     </h2>
                     {subtitle && (
-                        <p className={cn('mt-0.5 text-muted-foreground', isMobile ? 'text-xs' : 'text-[13px]')}>
+                        <p className={cn('text-muted-foreground', isMobile && 'text-xs')}>
                             {subtitle}
                         </p>
                     )}
@@ -85,10 +85,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                     centered ? 'justify-center' : shouldStack ? 'justify-start' : 'justify-end'
                 )}>
                     {rightSection}
-                    <Button variant="ghost" size="sm" className="bg-primary/10 font-semibold text-primary hover:bg-primary/15 hover:text-primary" onClick={() => setHelpCenterOpen(true)}>
-                        <IconInfoCircle size={14} stroke={2} />
-                        Información
-                    </Button>
                 </div>
             </div>
         </div>

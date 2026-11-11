@@ -1,8 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-    IconChevronLeft,
     IconChevronRight,
-    IconChevronDown,
     IconSelector,
     IconUserCircle,
     IconExclamationMark,
@@ -19,6 +17,7 @@ import { CommandMenu } from './CommandMenu';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import logoAdl from '../../assets/images/logo-adlone.png';
 import logoSmall from '../../assets/images/logo-adlone-pequeño.png';
 
@@ -29,6 +28,65 @@ interface SidebarProps {
     onNavigate?: () => void;
     onHelpClick?: () => void;
 }
+
+// ---- Piezas visuales del menú (medidas del «shadcn-admin») ---------------------------------------
+// Botón de menú: alto 32 px, texto 14 px, ícono 16 px, gap 8 px, activo con el gris del menú.
+const BOTON_MENU =
+    'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-start text-[0.875rem] leading-5 outline-none ' +
+    'transition-[width,height,padding,background-color,color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ' +
+    'focus-visible:ring-2 focus-visible:ring-sidebar-ring active:bg-sidebar-accent active:text-sidebar-accent-foreground ' +
+    'data-[state=open]:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground ' +
+    '[&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0';
+
+interface BotonMenuProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+    activo?: boolean;
+    colapsado?: boolean;
+    grande?: boolean;
+    /** Texto del tooltip cuando el menú está contraído. */
+    etiqueta?: string;
+}
+
+function BotonMenu({ activo, colapsado, grande, etiqueta, className, ...props }: BotonMenuProps) {
+    const boton = (
+        <button
+            type="button"
+            data-active={activo ? 'true' : undefined}
+            className={cn(BOTON_MENU, grande ? 'h-12' : 'h-8', colapsado && (grande ? 'size-12 p-0 justify-center' : 'size-8 justify-center'), className)}
+            {...props}
+        />
+    );
+    if (!colapsado || !etiqueta) return boton;
+    return (
+        <Tooltip>
+            <TooltipTrigger asChild>{boton}</TooltipTrigger>
+            <TooltipContent side="right" align="center">{etiqueta}</TooltipContent>
+        </Tooltip>
+    );
+}
+
+/** Contenedor que anima su alto al abrirse/cerrarse (300 ms). */
+function Colapsable({ abierto, children }: { abierto: boolean; children: React.ReactNode }) {
+    return (
+        <div className="sb-collapse" data-open={abierto} aria-hidden={!abierto}>
+            <div>{children}</div>
+        </div>
+    );
+}
+
+function EtiquetaGrupo({ titulo, colapsado }: { titulo: string; colapsado: boolean }) {
+    return (
+        <div
+            className={cn(
+                'flex h-8 shrink-0 items-center rounded-md px-2 text-[0.75rem] font-medium text-sidebar-foreground/70 transition-[margin,opacity] duration-200 ease-linear',
+                colapsado && '-mt-8 opacity-0'
+            )}
+        >
+            {titulo}
+        </div>
+    );
+}
+
+const INSIGNIA = 'rounded-full px-1.5 py-0 text-[0.75rem]';
 
 export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarProps) {
     const { user, hasPermission, token, logout } = useAuth();
@@ -143,23 +201,15 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         const active = !activeSubmodule && activeModule === item.id;
         const Icon = item.icon;
         return (
-            <button
-                key={item.id}
-                type="button"
-                title={isCollapsed ? item.label : undefined}
-                onClick={() => handleModuleClick(item.id)}
-                className={cn(
-                    'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-                    isCollapsed ? 'justify-center' : 'w-full',
-                    active ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-                )}
-            >
-                <Icon size={18} stroke={1.75} className={cn('shrink-0', active ? 'text-primary' : 'text-muted-foreground')} />
-                {!isCollapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
-                {!isCollapsed && !!badgeCount && (
-                    <Badge variant="destructive" className="px-1.5">{badgeCount > 99 ? '99+' : badgeCount}</Badge>
-                )}
-            </button>
+            <li key={item.id} className="relative">
+                <BotonMenu activo={active} colapsado={isCollapsed} etiqueta={item.label} onClick={() => handleModuleClick(item.id)}>
+                    <Icon size={16} stroke={1.75} />
+                    {!isCollapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+                    {!isCollapsed && !!badgeCount && (
+                        <Badge variant="destructive" className={INSIGNIA}>{badgeCount > 99 ? '99+' : badgeCount}</Badge>
+                    )}
+                </BotonMenu>
+            </li>
         );
     };
 
@@ -176,27 +226,29 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         const hasSubItems = filteredLinks.length > 0;
         const isOpen = isCollapsed ? false : (forceOpen || openedModule === id);
         const isActiveParent = activeModule === id;
-
-        const parentClass = cn(
-            'flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors',
-            isCollapsed ? 'w-full justify-center' : 'w-full',
-            isActiveParent && !activeSubmodule ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
-        );
-        const parentIcon = (
-            <Icon size={18} stroke={1.75} className={cn('shrink-0', isActiveParent && !activeSubmodule ? 'text-primary' : 'text-muted-foreground')} />
-        );
+        const padreActivo = isActiveParent && !activeSubmodule;
 
         // Contraído: no hay espacio para el árbol, así que las subopciones se
         // muestran en un menú flotante a la derecha del ícono.
         if (isCollapsed && hasSubItems) {
             return (
-                <div key={id}>
+                <li key={id} className="relative">
                     <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <button type="button" title={label} className={parentClass}>
-                                {parentIcon}
-                            </button>
-                        </DropdownMenuTrigger>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <DropdownMenuTrigger asChild>
+                                    <button
+                                        type="button"
+                                        data-active={isActiveParent ? 'true' : undefined}
+                                        aria-label={label}
+                                        className={cn(BOTON_MENU, 'size-8 justify-center')}
+                                    >
+                                        <Icon size={16} stroke={1.75} />
+                                    </button>
+                                </DropdownMenuTrigger>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" align="center">{label}</TooltipContent>
+                        </Tooltip>
                         <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56">
                             <DropdownMenuLabel>{label}</DropdownMenuLabel>
                             <DropdownMenuItem onSelect={() => { setActiveModule(id); setActiveSubmodule(''); onNavigate?.(); }}>
@@ -208,7 +260,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                                 return (
                                     <DropdownMenuItem
                                         key={link.id}
-                                        className={active ? 'bg-primary/10 font-medium text-primary' : undefined}
+                                        className={active ? 'bg-sidebar-accent font-medium' : undefined}
                                         onSelect={() => {
                                             if (activeModule !== id) setActiveModule(id);
                                             handleLeafClick(link.id);
@@ -220,45 +272,48 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                             })}
                         </DropdownMenuContent>
                     </DropdownMenu>
-                </div>
+                </li>
             );
         }
 
         return (
-            <div key={id}>
-                <button
-                    type="button"
-                    title={isCollapsed ? label : undefined}
+            <li key={id} className="group/collapsible relative">
+                <BotonMenu
+                    activo={padreActivo}
+                    colapsado={isCollapsed}
+                    etiqueta={label}
+                    aria-expanded={hasSubItems ? isOpen : undefined}
                     onClick={() => handleToggleGroup(id, hasSubItems)}
-                    className={parentClass}
                 >
-                    {parentIcon}
+                    <Icon size={16} stroke={1.75} />
                     {!isCollapsed && <span className="flex-1 truncate text-left">{label}</span>}
                     {!isCollapsed && hasSubItems && (
-                        <IconChevronDown size={14} className={cn('shrink-0 text-muted-foreground transition-transform', isOpen && 'rotate-180')} />
+                        <IconChevronRight size={16} className={cn('ms-auto shrink-0 transition-transform duration-200', isOpen && 'rotate-90')} />
                     )}
-                </button>
-                {!isCollapsed && hasSubItems && isOpen && (
-                    <div className="ml-[13px] flex flex-col gap-0.5 border-l border-border py-1 pl-4">
-                        {filteredLinks.map((link) => {
-                            const active = activeSubmodule === link.id && activeModule === id;
-                            return (
-                                <button
-                                    key={link.id}
-                                    type="button"
-                                    onClick={() => { setActiveModule(id); handleLeafClick(link.id); }}
-                                    className={cn(
-                                        'truncate rounded-md px-2 py-1.5 text-left text-sm transition-colors',
-                                        active ? 'bg-primary/10 font-medium text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                                    )}
-                                >
-                                    {link.label}
-                                </button>
-                            );
-                        })}
-                    </div>
+                </BotonMenu>
+                {!isCollapsed && hasSubItems && (
+                    <Colapsable abierto={isOpen}>
+                        <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-s border-sidebar-border px-2.5 py-0.5">
+                            {filteredLinks.map((link) => {
+                                const active = activeSubmodule === link.id && activeModule === id;
+                                return (
+                                    <li key={link.id}>
+                                        <button
+                                            type="button"
+                                            tabIndex={isOpen ? 0 : -1}
+                                            data-active={active ? 'true' : undefined}
+                                            onClick={() => { setActiveModule(id); handleLeafClick(link.id); }}
+                                            className="flex min-h-7 w-full min-w-0 -translate-x-px items-center gap-2 rounded-md px-2 py-1 text-left text-[0.875rem] leading-5 text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                                        >
+                                            <span>{link.label}</span>
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    </Colapsable>
                 )}
-            </div>
+            </li>
         );
     };
 
@@ -273,30 +328,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
         return renderExpandableModule(item.id, item.label, item.icon, filteredLinks, !!item.forceOpen);
     };
 
-    const renderGroup = (title: string, mods: (DynamicModule & { forceOpen?: boolean })[]) => {
-        if (mods.length === 0) return null;
+    const renderGroup = (title: string, items: React.ReactNode[], hasItems: boolean) => {
+        if (!hasItems) return null;
         return (
-            <div className="mb-3">
-                {!isCollapsed && (
-                    <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-                )}
-                <div className="flex flex-col gap-0.5">
-                    {mods.map(renderDynamicModule)}
-                </div>
-            </div>
-        );
-    };
-
-    const renderFixedGroup = (title: string, mods: FixedModule[]) => {
-        if (mods.length === 0) return null;
-        return (
-            <div className="mb-3">
-                {!isCollapsed && (
-                    <p className="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-                )}
-                <div className="flex flex-col gap-0.5">
-                    {mods.map((m) => renderFlatItem(m))}
-                </div>
+            <div className="relative flex w-full min-w-0 flex-col p-2">
+                <EtiquetaGrupo titulo={title} colapsado={isCollapsed} />
+                <ul className="flex w-full min-w-0 flex-col gap-1">{items}</ul>
             </div>
         );
     };
@@ -306,24 +343,36 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className={cn(
-                        'flex items-center gap-2 rounded-lg p-2 text-left transition-colors hover:bg-muted',
-                        isCollapsed ? 'w-full justify-center' : 'w-full'
-                    )}
+                    className={cn(BOTON_MENU, 'h-12', isCollapsed && 'size-12 justify-center p-0')}
+                    aria-label="Menú de usuario"
                 >
-                    <Avatar className="h-8 w-8 shrink-0">
+                    <Avatar className="h-8 w-8 shrink-0 rounded-lg">
                         {user?.foto && <AvatarImage src={`${API_CONFIG.getBaseURL()}${user.foto}`} />}
-                        <AvatarFallback className="bg-muted text-muted-foreground">{user?.name?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="rounded-lg bg-muted text-muted-foreground">{user?.name?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     {!isCollapsed && (
                         <>
-                            <p className="min-w-0 flex-1 truncate text-sm font-semibold text-foreground">{user?.name}</p>
-                            <IconSelector size={16} className="shrink-0 text-muted-foreground" />
+                            <div className="grid min-w-0 flex-1 text-start leading-tight">
+                                <span className="truncate font-semibold">{user?.name}</span>
+                                <span className="truncate text-[0.75rem] text-sidebar-foreground/70">{user?.cargo || user?.email}</span>
+                            </div>
+                            <IconSelector size={16} className="ms-auto shrink-0" />
                         </>
                     )}
                 </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" side="top" className="w-56">
+            <DropdownMenuContent align="end" side={forceNotCollapsed ? 'top' : 'right'} sideOffset={4} className="w-56 min-w-56 rounded-lg">
+                <div className="flex items-center gap-2 px-1.5 py-1.5 text-start">
+                    <Avatar className="h-8 w-8 rounded-lg">
+                        {user?.foto && <AvatarImage src={`${API_CONFIG.getBaseURL()}${user.foto}`} />}
+                        <AvatarFallback className="rounded-lg bg-muted text-muted-foreground">{user?.name?.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="grid min-w-0 flex-1 leading-tight">
+                        <span className="truncate text-[0.875rem] font-semibold">{user?.name}</span>
+                        <span className="truncate text-[0.75rem] text-muted-foreground">{user?.email || user?.cargo}</span>
+                    </div>
+                </div>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem onSelect={() => { setActiveModule('perfil'); setActiveSubmodule(''); onNavigate?.(); }}>
                     <IconUserCircle size={15} /> Mi Perfil
                 </DropdownMenuItem>
@@ -339,48 +388,56 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
     );
 
     return (
-        <nav className="shadcn-scope flex h-full flex-col bg-sidebar text-sidebar-foreground">
-            <div className="relative flex h-16 shrink-0 items-center justify-center border-b border-sidebar-border px-3">
-                <button
-                    type="button"
-                    title="Ir al inicio"
-                    onClick={() => { setActiveModule('inicio'); setActiveSubmodule(''); onNavigate?.(); }}
-                    className="flex items-center justify-center rounded-lg transition-opacity hover:opacity-75"
-                >
-                    <img
-                        src={isCollapsed ? logoSmall : logoAdl}
-                        alt="ADL"
-                        className={cn('w-auto object-contain', isCollapsed ? 'h-7' : 'h-9')}
-                    />
-                </button>
+        <TooltipProvider delayDuration={0}>
+            <nav className="shadcn-scope relative flex h-full min-h-0 w-full flex-col bg-sidebar text-sidebar-foreground">
+                <div className="flex flex-col gap-2 p-2">
+                    <button
+                        type="button"
+                        title="Ir al inicio"
+                        onClick={() => { setActiveModule('inicio'); setActiveSubmodule(''); onNavigate?.(); }}
+                        className={cn(BOTON_MENU, 'h-12', isCollapsed && 'size-12 justify-center p-0')}
+                    >
+                        <img
+                            src={isCollapsed ? logoSmall : logoAdl}
+                            alt="ADL"
+                            className={cn('w-auto shrink-0 object-contain', isCollapsed ? 'h-7' : 'h-8')}
+                        />
+                    </button>
+                    <div className={cn(isCollapsed && 'flex justify-center')}>
+                        <CommandMenu isCollapsed={isCollapsed} onNavigate={onNavigate} />
+                    </div>
+                </div>
+
+                <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden">
+                    {renderGroup(
+                        'Principal',
+                        visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : item.id === 'solicitudes-clientes' ? solicitudesClientePendientes : undefined)),
+                        visibleTop.length > 0
+                    )}
+                    {renderGroup('Unidades', unidades.map(renderDynamicModule), unidades.length > 0)}
+                    {renderGroup('Gestión', gestionOp.map(renderDynamicModule), gestionOp.length > 0)}
+                    {renderGroup('Soporte', visibleBottom.map((m) => renderFlatItem(m)), visibleBottom.length > 0)}
+                </div>
+
+                <div className="flex flex-col gap-2 p-2">
+                    {userMenu}
+                </div>
+
                 {!forceNotCollapsed && (
                     <button
+                        type="button"
                         onClick={toggleSidebar}
                         aria-label={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
                         title={isCollapsed ? 'Expandir menú' : 'Contraer menú'}
-                        className="absolute right-2 flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-                    >
-                        {isCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
-                    </button>
+                        tabIndex={-1}
+                        className={cn(
+                            'absolute inset-y-0 -right-2 z-20 hidden w-4 translate-x-0 transition-all ease-linear sm:flex',
+                            'after:absolute after:inset-y-0 after:left-1/2 after:w-0.5 hover:after:bg-sidebar-border',
+                            isCollapsed ? 'cursor-e-resize' : 'cursor-w-resize'
+                        )}
+                    />
                 )}
-            </div>
-
-            <div className={cn('px-3 pb-4 pt-4', isCollapsed && 'flex justify-center px-0')}>
-                <CommandMenu isCollapsed={isCollapsed} onNavigate={onNavigate} />
-            </div>
-
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2 pt-2">
-                <div className="mb-3 flex flex-col gap-0.5">
-                    {visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : item.id === 'solicitudes-clientes' ? solicitudesClientePendientes : undefined))}
-                </div>
-                {renderGroup('UNIDADES', unidades)}
-                {renderGroup('GESTIÓN', gestionOp)}
-                {renderFixedGroup('SOPORTE', visibleBottom)}
-            </div>
-
-            <div className="border-t border-sidebar-border p-2">
-                {userMenu}
-            </div>
-        </nav>
+            </nav>
+        </TooltipProvider>
     );
 }

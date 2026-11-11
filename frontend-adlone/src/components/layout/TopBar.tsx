@@ -3,9 +3,11 @@ import { createPortal } from 'react-dom';
 import {
     IconBell,
     IconHome,
+    IconInfoCircle,
     IconMoon,
     IconSun,
 } from '@tabler/icons-react';
+import { PanelLeft } from 'lucide-react';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useNavStore } from '../../store/navStore';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -111,6 +113,25 @@ export function NotificationBell({ compact }: CompactProp) {
     );
 }
 
+// Información de la página: abre el centro de ayuda. Solo ícono, discreto, junto a la campana y el tema.
+export function InfoButton({ compact }: CompactProp) {
+    const { setHelpCenterOpen } = useNavStore();
+    return (
+        <button
+            type="button"
+            onClick={() => setHelpCenterOpen(true)}
+            aria-label="Información de esta página"
+            title="Información de esta página"
+            className={cn(
+                'flex items-center justify-center rounded-lg text-foreground transition-colors hover:bg-muted',
+                compact ? 'h-[38px] w-[38px]' : 'h-8 w-8'
+            )}
+        >
+            <IconInfoCircle size={compact ? 19 : 17} stroke={1.75} />
+        </button>
+    );
+}
+
 // Toggle de tema claro/oscuro — vive a la derecha de la ruta (RouteBreadcrumb).
 export function ThemeToggle({ compact }: CompactProp) {
     const { mode, toggleMode } = useThemeStore();
@@ -177,8 +198,8 @@ function useBreadcrumbLabels() {
 // contenido (no una barra global sobre sidebar+contenido). shadcn-scope es
 // necesario acá: sin él el botón "Inicio" no recibe el reset de botones
 // (bg/border/padding nativos del navegador) y se ve encuadrado.
-export function RouteBreadcrumb() {
-    const { resetNavigation, pageBreadcrumb } = useNavStore();
+export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
+    const { resetNavigation, pageBreadcrumb, toggleSidebar } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
     // En celular esta barra es el único lugar con campana y tema (el header
     // del logo ya no los repite), así que van en tamaño táctil y la barra se
@@ -187,10 +208,25 @@ export function RouteBreadcrumb() {
 
     return (
         <div className={cn(
-            'shadcn-scope flex shrink-0 items-center justify-between gap-2 border-b border-border px-4 md:px-6',
-            isMobile ? 'h-14' : 'h-16'
+            'shadcn-scope relative z-10 flex shrink-0 items-center justify-between gap-2 px-4 transition-shadow duration-200 md:px-6',
+            isMobile ? 'h-14' : 'h-16',
+            scrolled ? 'bg-background/80 shadow backdrop-blur-lg' : 'shadow-none'
         )}>
             <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
+                {!isMobile && (
+                    <>
+                        <button
+                            type="button"
+                            onClick={toggleSidebar}
+                            aria-label="Mostrar u ocultar el menú"
+                            title="Mostrar u ocultar el menú (Ctrl + B)"
+                            className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground shadow-sm transition-colors hover:bg-muted"
+                        >
+                            <PanelLeft className="size-4" />
+                        </button>
+                        <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
+                    </>
+                )}
                 <button type="button" onClick={() => resetNavigation()} className="flex shrink-0 items-center gap-1.5 hover:text-foreground">
                     <IconHome size={15} />
                     <span>Inicio</span>
@@ -220,6 +256,7 @@ export function RouteBreadcrumb() {
                 })}
             </div>
             <div className="flex shrink-0 items-center gap-1">
+                <InfoButton compact={isMobile} />
                 <NotificationBell compact={isMobile} />
                 <ThemeToggle compact={isMobile} />
             </div>

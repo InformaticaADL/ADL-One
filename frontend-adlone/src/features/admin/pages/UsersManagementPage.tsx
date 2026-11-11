@@ -1,34 +1,28 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     IconSearch,
-    IconPlus,
-    IconPencil,
-    IconUserOff,
-    IconUserCheck,
     IconEye,
     IconEyeOff,
-    IconColumns3,
-    IconDownload,
-    IconX,
 } from '@tabler/icons-react';
 
+import { Download, Ellipsis, Shield, UserCheck, UserPen, UserPlus, UserX } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { RowActionsMenu, type RowAction } from '@/components/ui/row-actions-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Combobox } from '@/components/ui/combobox';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import type { ColumnDef } from '@tanstack/react-table';
-import { DataTable } from '@/components/ui/data-table';
-import { DataPagination } from '@/components/ui/pagination';
+import type { ColumnDef, Table as TanTable } from '@tanstack/react-table';
+import { AdvancedDataTable, DataTableColumnHeader } from '@/components/data-table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
-import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { useTemaNeutro } from '../../../hooks/useTemaNeutro';
+import { useAuth } from '../../../contexts/AuthContext';
+import { toastAccion } from '@/lib/toastAccion';
 import { rbacService, type User, type CreateUserData, type UpdateUserData, type Role } from '../services/rbac.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
 import { useToast } from '../../../contexts/ToastContext';
@@ -56,8 +50,9 @@ const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
 // es una vista de página completa (no modal) con el cambio de contraseña
 // integrado en la edición. Navegación solo por breadcrumb.
 export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
-    const isMobile = useMediaQuery('(max-width: 768px)');
+    useTemaNeutro({ escala: true });
     const { showToast } = useToast();
+    const { user: usuarioActual } = useAuth();
 
     const [users, setUsers] = useState<User[]>([]);
     const [roles, setRoles] = useState<Role[]>([]);
@@ -65,11 +60,8 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const [loading, setLoading] = useState(false);
 
     // Lista
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'inactive'>('active');
-    const [filterRole, setFilterRole] = useState<string>('all');
-    const [mobilePage, setMobilePage] = useState(1);
-    const [mobilePageSize, setMobilePageSize] = useState(PAGE_SIZE);
+    const tabla = useRef<TanTable<User> | null>(null);
+    const [confirmBulk, setConfirmBulk] = useState<{ usuarios: User[]; limpiar: () => void } | null>(null);
     const [confirmUser, setConfirmUser] = useState<User | null>(null);
 
     // Formulario (vista de página)
@@ -119,30 +111,9 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
 
     // ---- Lista ----------------------------------------------------------
 
-    const filteredUsers = useMemo(() => {
-        const term = searchTerm.toLowerCase();
-        return users.filter((user) => {
-            const matchesSearch =
-                (user.nombre_usuario ?? '').toLowerCase().includes(term) ||
-                (user.nombre_real ?? '').toLowerCase().includes(term) ||
-                (user.correo_electronico ?? '').toLowerCase().includes(term);
-            const matchesStatus =
-                filterStatus === 'all' ||
-                (filterStatus === 'active' && user.habilitado === 'S') ||
-                (filterStatus === 'inactive' && user.habilitado === 'N');
-            const matchesRole = filterRole === 'all' || (user.roles && user.roles.includes(filterRole));
-            return matchesSearch && matchesStatus && matchesRole;
-        });
-    }, [users, searchTerm, filterStatus, filterRole]);
-
-    // Paginación de la vista móvil (tarjetas) — el desktop la maneja el propio DataTable.
-    const mobileTotalPages = Math.max(1, Math.ceil(filteredUsers.length / mobilePageSize));
-    const mobileCurrentPage = Math.min(mobilePage, mobileTotalPages);
-    const paginatedUsersMobile = filteredUsers.slice((mobileCurrentPage - 1) * mobilePageSize, mobileCurrentPage * mobilePageSize);
-
     const exportCsv = () => {
         const header = ['Usuario', 'Nombre', 'Email', 'Cargo', 'Roles', 'Estado', 'Ultimo acceso'];
-        const rows = filteredUsers.map((u) => [
+        const rows = (tabla.current?.getFilteredRowModel().rows.map((r) => r.original) ?? users).map((u) => [
             u.nombre_usuario,
             u.nombre_real,
             u.correo_electronico || '',
@@ -448,85 +419,137 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         );
     }
 
+    // ---- Acciones masivas ----------------------------------------------
+
+    const cambiarEstadoMasivo = (lista: User[], habilitar: boolean, limpiar: () => void) => {
+        const accion = Promise.allSettled(lista.map((u) => rbacService.toggleUserStatus(u.id_usuario, habilitar))).then((res) => {
+            const ok = res.filter((r) => r.status === 'fulfilled').length;
+            if (ok === 0) throw new Error('No se pudo actualizar ningún usuario');
+            return { ok, fallidos: res.length - ok };
+        });
+        limpiar();
+        toastAccion(accion, {
+            cargando: habilitar ? 'Habilitando usuarios...' : 'Deshabilitando usuarios...',
+            exito: (r) => {
+                const palabra = habilitar ? (r.ok === 1 ? 'habilitado' : 'habilitados') : (r.ok === 1 ? 'deshabilitado' : 'deshabilitados');
+                return `${r.ok} ${r.ok === 1 ? 'usuario' : 'usuarios'} ${palabra}${r.fallidos ? ` · ${r.fallidos} con error` : ''}.`;
+            },
+        });
+        accion.then(() => loadUsers()).catch(() => undefined);
+    };
+
     // ---- Render: lista --------------------------------------------------
 
-    const statusBadge = (user: User) => (
-        <Badge variant={user.habilitado === 'S' ? 'success' : 'destructive'}>
-            {user.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-        </Badge>
-    );
-
-    const rowActions = (user: User) => {
-        const actions: RowAction[] = [
-            { label: 'Editar', icon: <IconPencil size={16} />, onClick: () => openEdit(user) },
-            {
-                label: user.habilitado === 'S' ? 'Deshabilitar' : 'Habilitar',
-                icon: user.habilitado === 'S' ? <IconUserOff size={16} /> : <IconUserCheck size={16} />,
-                onClick: () => setConfirmUser(user),
-                danger: user.habilitado === 'S',
-                separatorBefore: true,
-            },
-        ];
+    const statusBadge = (user: User) => {
+        const activo = user.habilitado === 'S';
         return (
-            <div className="flex justify-end">
-                <RowActionsMenu actions={actions} label={`Acciones para ${user.nombre_real || user.nombre_usuario}`} />
-            </div>
+            <Badge variant="outline" className={cn('capitalize', activo ? 'border-teal-200 bg-teal-100/30 text-teal-900 dark:text-teal-200' : 'border-neutral-300 bg-neutral-300/40')}>
+                {activo ? 'Activo' : 'Inactivo'}
+            </Badge>
+        );
+    };
+
+    // Menú de la fila, como el de la plantilla: botón fantasma con puntos horizontales y los íconos a la derecha de cada opción.
+    const rowActions = (user: User) => {
+        const activo = user.habilitado === 'S';
+        return (
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="flex h-8 w-8 p-0 data-[state=open]:bg-muted">
+                        <Ellipsis className="h-4 w-4" />
+                        <span className="sr-only">Abrir menú de {user.nombre_real || user.nombre_usuario}</span>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-[160px]">
+                    <DropdownMenuItem onSelect={() => openEdit(user)}>
+                        Editar <span className="ms-auto"><UserPen size={16} /></span>
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => setConfirmUser(user)} className={activo ? 'text-red-500' : undefined}>
+                        {activo ? 'Deshabilitar' : 'Habilitar'} <span className="ms-auto">{activo ? <UserX size={16} /> : <UserCheck size={16} />}</span>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
         );
     };
 
     const userColumns: ColumnDef<User>[] = [
         {
+            id: 'usuario',
+            meta: { titulo: 'Usuario' },
+            enableHiding: false,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Usuario" />,
+            accessorFn: (u) => u.nombre_usuario || '',
+            sortingFn: (a, b) => localeSort(a.getValue('usuario'), b.getValue('usuario')),
+            cell: ({ row }) => <span className="ps-3">{row.original.nombre_usuario}</span>,
+        },
+        {
             id: 'nombre',
-            header: 'Usuario',
-            accessorFn: (u) => u.nombre_real || u.nombre_usuario || '',
+            meta: { titulo: 'Nombre' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
+            accessorFn: (u) => u.nombre_real || '',
             sortingFn: (a, b) => localeSort(a.getValue('nombre'), b.getValue('nombre')),
-            cell: ({ row }) => (
-                <div className="flex items-center gap-2.5">
-                    <Avatar>
-                        <AvatarFallback>{initials(row.original.nombre_real)}</AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">{row.original.nombre_real}</p>
-                        <p className="truncate text-xs text-muted-foreground">{row.original.correo_electronico || `@${row.original.nombre_usuario}`}</p>
-                    </div>
-                </div>
-            ),
+            cell: ({ row }) => <span>{row.original.nombre_real}</span>,
+        },
+        {
+            id: 'correo',
+            meta: { titulo: 'Correo', className: 'hidden md:table-cell' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Correo" />,
+            accessorFn: (u) => u.correo_electronico || '',
+            sortingFn: (a, b) => localeSort(a.getValue('correo'), b.getValue('correo')),
+            cell: ({ row }) => <span className="ps-2">{row.original.correo_electronico || '-'}</span>,
         },
         {
             id: 'cargo',
-            header: 'Cargo',
+            meta: { titulo: 'Cargo', className: 'hidden lg:table-cell' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Cargo" />,
             accessorFn: (u) => u.nombre_cargo || '',
             sortingFn: (a, b) => localeSort(a.getValue('cargo'), b.getValue('cargo')),
-            cell: ({ row }) => <span className="text-sm text-muted-foreground">{row.original.nombre_cargo || '-'}</span>,
+            cell: ({ row }) => <span className="ps-2">{row.original.nombre_cargo || '-'}</span>,
+        },
+        {
+            id: 'estado',
+            meta: { titulo: 'Estado' },
+            enableHiding: false,
+            enableSorting: false,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+            accessorFn: (u) => (u.habilitado === 'S' ? 'Activo' : 'Inactivo'),
+            filterFn: (row, id, valor: string[]) => valor.includes(row.getValue(id)),
+            cell: ({ row }) => <div className="flex space-x-2">{statusBadge(row.original)}</div>,
         },
         {
             id: 'roles',
-            header: 'Roles',
+            meta: { titulo: 'Roles' },
+            enableHiding: false,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Roles" />,
             accessorFn: (u) => (u.roles && u.roles.length > 0 ? u.roles.join(', ') : ''),
+            getUniqueValues: (u) => u.roles ?? [],
+            filterFn: (row, _id, valor: string[]) => valor.some((v) => row.original.roles?.includes(v)),
             sortingFn: (a, b) => localeSort(a.getValue('roles'), b.getValue('roles')),
             cell: ({ row }) => (
-                <div className="flex flex-wrap gap-1">
-                    {row.original.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
+                <div className="flex items-center gap-x-4">
+                    {(row.original.roles ?? []).map((rol) => (
+                        <div key={rol} className="flex items-center gap-x-2">
+                            <Shield size={16} className="text-muted-foreground" />
+                            <span className="text-sm">{rol}</span>
+                        </div>
+                    ))}
                 </div>
             ),
         },
         {
-            id: 'estado',
-            header: 'Estado',
-            accessorFn: (u) => (u.habilitado === 'S' ? 0 : 1),
-            cell: ({ row }) => statusBadge(row.original),
-        },
-        {
             id: 'ultimo_acceso',
-            header: 'Último acceso',
+            meta: { titulo: 'Último acceso', className: 'hidden xl:table-cell' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Último acceso" />,
             accessorFn: (u) => u.ultimo_acceso || '',
             sortingFn: (a, b) => localeSort(a.getValue('ultimo_acceso'), b.getValue('ultimo_acceso')),
-            cell: ({ row }) => <span className="whitespace-nowrap text-sm text-muted-foreground">{row.original.ultimo_acceso ?? 'Nunca'}</span>,
+            cell: ({ row }) => <span className="ps-2">{row.original.ultimo_acceso ?? 'Nunca'}</span>,
         },
         {
             id: 'acciones',
-            header: () => <div className="text-right">Acciones</div>,
+            enableHiding: false,
             enableSorting: false,
+            header: () => null,
             cell: ({ row }) => rowActions(row.original),
         },
     ];
@@ -538,123 +561,75 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                 subtitle="Administra accesos y roles del personal."
                 breadcrumbItems={[{ label: 'Informática', onClick: onBack }, { label: 'Usuarios' }]}
                 rightSection={
-                    <Button onClick={openCreate} className={cn(isMobile && 'w-full')}>
-                        <IconPlus size={16} /> Nuevo usuario
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" className="space-x-1" onClick={exportCsv}>
+                            <span>Exportar</span> <Download size={18} />
+                        </Button>
+                        <Button className="space-x-1" onClick={openCreate}>
+                            <span>Nuevo usuario</span> <UserPlus size={18} />
+                        </Button>
+                    </div>
                 }
             />
 
             <div className="mt-6 flex flex-col gap-4">
-                <div className="flex flex-wrap items-center gap-3">
-                    <Tabs value={filterStatus} onValueChange={(v) => { setFilterStatus(v as typeof filterStatus); setMobilePage(1); }}>
-                        <TabsList>
-                            <TabsTrigger value="all">Todos</TabsTrigger>
-                            <TabsTrigger value="active">Activos</TabsTrigger>
-                            <TabsTrigger value="inactive">Inactivos</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                    <span className="text-sm text-muted-foreground">{filteredUsers.length} resultados</span>
-                </div>
-
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="flex flex-col gap-3 sm:flex-row">
-                        <div className="relative">
-                            <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                            <Input
-                                placeholder="Buscar usuarios..."
-                                value={searchTerm}
-                                onChange={(e) => { setSearchTerm(e.target.value); setMobilePage(1); }}
-                                className="pl-8 sm:w-96"
-                            />
-                            {searchTerm && (
-                                <button
-                                    type="button"
-                                    aria-label="Limpiar búsqueda"
-                                    onClick={() => { setSearchTerm(''); setMobilePage(1); }}
-                                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                >
-                                    <IconX size={14} />
-                                </button>
-                            )}
-                        </div>
-                        <Combobox
-                            value={filterRole}
-                            onValueChange={(v) => { setFilterRole(v); setMobilePage(1); }}
-                            placeholder="Rol"
-                            searchPlaceholder="Buscar rol..."
-                            className="sm:w-48"
-                            options={[
-                                { value: 'all', label: 'Todos los roles' },
-                                ...roles.filter((r) => r.nombre_rol).map((r) => ({ value: String(r.nombre_rol), label: r.nombre_rol })),
-                            ]}
-                        />
-                    </div>
-
-                    <div className="flex gap-2">
-                        <Button variant="outline" size="sm" title="Elegir columnas visibles (próximamente)">
-                            <IconColumns3 size={15} /> Columnas
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={exportCsv}>
-                            <IconDownload size={15} /> Exportar
-                        </Button>
-                    </div>
-                </div>
-
-                {/* En escritorio la tarjeta la dibuja DataTable (para que su paginación
-                    quede fuera del borde); acá sólo queda el borde de la lista móvil. */}
-                <div className={cn('relative', isMobile && 'overflow-hidden rounded-xl border border-border bg-card')}>
-                    {loading && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-                            <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                        </div>
-                    )}
-
-                    {isMobile ? (
-                        <div className="flex flex-col divide-y divide-border">
-                            {paginatedUsersMobile.length > 0 ? paginatedUsersMobile.map((user) => (
-                                <div key={user.id_usuario} className="flex items-start gap-3 p-3">
-                                    <Avatar>
-                                        <AvatarFallback>{initials(user.nombre_real)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="min-w-0 flex-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <p className="truncate text-sm font-semibold text-foreground">{user.nombre_real}</p>
-                                            {statusBadge(user)}
-                                        </div>
-                                        <p className="truncate text-xs text-muted-foreground">{user.correo_electronico || `@${user.nombre_usuario}`}</p>
-                                        <p className="mt-1 truncate text-xs text-muted-foreground">{user.nombre_cargo || 'Sin cargo'}</p>
-                                        <div className="mt-2 flex items-center justify-between gap-2">
-                                            <div className="flex min-w-0 flex-wrap gap-1">
-                                                {user.roles?.map((rol, i) => <Badge key={i} variant="outline">{rol}</Badge>)}
-                                            </div>
-                                            {rowActions(user)}
-                                        </div>
-                                    </div>
-                                </div>
-                            )) : (
-                                <p className="p-6 text-center text-sm text-muted-foreground">No se encontraron usuarios</p>
-                            )}
-                        </div>
-                    ) : (
-                        <DataTable
-                            columns={userColumns}
-                            data={filteredUsers}
-                            pageSize={PAGE_SIZE}
-                            emptyMessage="No se encontraron usuarios"
-                        />
-                    )}
-                </div>
-
-                {isMobile && (
-                    <DataPagination
-                        page={mobileCurrentPage}
-                        pageSize={mobilePageSize}
-                        total={filteredUsers.length}
-                        onPageChange={setMobilePage}
-                        onPageSizeChange={(size) => { setMobilePageSize(size); setMobilePage(1); }}
-                    />
-                )}
+                <AdvancedDataTable
+                    columns={userColumns}
+                    data={users}
+                    getRowId={(u) => String(u.id_usuario)}
+                    cargando={loading}
+                    pageSize={PAGE_SIZE}
+                    mensajeVacio="No se encontraron usuarios"
+                    busqueda={{
+                        placeholder: 'Buscar usuarios...',
+                        texto: (u) => [u.nombre_usuario, u.nombre_real, u.correo_electronico, u.nombre_cargo].filter(Boolean).join(' '),
+                    }}
+                    filtrosIniciales={[{ id: 'estado', value: ['Activo'] }]}
+                    filtros={[
+                        { columna: 'estado', titulo: 'Estado', opciones: [{ label: 'Activo', value: 'Activo' }, { label: 'Inactivo', value: 'Inactivo' }] },
+                        { columna: 'roles', titulo: 'Rol', opciones: roles.filter((r) => r.nombre_rol).map((r) => ({ label: String(r.nombre_rol), value: String(r.nombre_rol) })) },
+                    ]}
+                    onTabla={(t) => { tabla.current = t; }}
+                    entidad={{ singular: 'usuario', plural: 'usuarios' }}
+                    accionesMasivas={(t) => {
+                        const elegidos = t.getFilteredSelectedRowModel().rows.map((r) => r.original);
+                        const aHabilitar = elegidos.filter((u) => u.habilitado !== 'S');
+                        // Nunca se deshabilita la propia cuenta desde acá: quedaría fuera del sistema.
+                        const aDeshabilitar = elegidos.filter((u) => u.habilitado === 'S' && u.id_usuario !== usuarioActual?.id);
+                        return (
+                            <>
+                                <Button variant="outline" size="sm" className="text-sm" disabled={aHabilitar.length === 0} title={aHabilitar.length ? undefined : 'Todos los elegidos ya están habilitados'}
+                                    onClick={() => cambiarEstadoMasivo(aHabilitar, true, () => t.resetRowSelection())}>
+                                    <UserCheck size={16} /> Habilitar{aHabilitar.length ? ` (${aHabilitar.length})` : ''}
+                                </Button>
+                                <Button variant="outline" size="sm" className="text-sm" disabled={aDeshabilitar.length === 0} title={aDeshabilitar.length ? undefined : 'No hay usuarios habilitados para deshabilitar'}
+                                    onClick={() => setConfirmBulk({ usuarios: aDeshabilitar, limpiar: () => t.resetRowSelection() })}>
+                                    <UserX size={16} /> Deshabilitar{aDeshabilitar.length ? ` (${aDeshabilitar.length})` : ''}
+                                </Button>
+                            </>
+                        );
+                    }}
+                />
             </div>
+
+            <Dialog open={confirmBulk !== null} onOpenChange={(open) => { if (!open) setConfirmBulk(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Deshabilitar {confirmBulk?.usuarios.length === 1 ? 'usuario' : 'usuarios'}</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        {confirmBulk?.usuarios.length === 1
+                            ? `¿Deshabilitar a "${confirmBulk.usuarios[0].nombre_real}"? No podrá acceder al sistema.`
+                            : `¿Deshabilitar a ${confirmBulk?.usuarios.length} usuarios? No podrán acceder al sistema.`}
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmBulk(null)}>Cancelar</Button>
+                        <Button variant="destructive" onClick={() => { if (confirmBulk) cambiarEstadoMasivo(confirmBulk.usuarios, false, confirmBulk.limpiar); setConfirmBulk(null); }}>
+                            Deshabilitar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={confirmUser !== null} onOpenChange={(open) => { if (!open) setConfirmUser(null); }}>
                 <DialogContent>
