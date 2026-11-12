@@ -45,7 +45,6 @@ const EMPTY_FORM: CreateUserData = {
 };
 
 const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
-
 // Piloto shadcn/ui. Lista con orden por columna y paginación; crear/editar
 // es una vista de página completa (no modal) con el cambio de contraseña
 // integrado en la edición. Navegación solo por breadcrumb.
@@ -112,15 +111,13 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     // ---- Lista ----------------------------------------------------------
 
     const exportCsv = () => {
-        const header = ['Usuario', 'Nombre', 'Email', 'Cargo', 'Roles', 'Estado', 'Ultimo acceso'];
+        const header = ['Usuario', 'Nombre', 'Email', 'Roles', 'Estado'];
         const rows = (tabla.current?.getFilteredRowModel().rows.map((r) => r.original) ?? users).map((u) => [
             u.nombre_usuario,
             u.nombre_real,
             u.correo_electronico || '',
-            u.nombre_cargo || '',
             (u.roles || []).join(' | '),
             u.habilitado === 'S' ? 'Activo' : 'Inactivo',
-            u.ultimo_acceso || 'Nunca',
         ]);
         const csv = [header, ...rows]
             .map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
@@ -443,7 +440,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
     const statusBadge = (user: User) => {
         const activo = user.habilitado === 'S';
         return (
-            <Badge variant="outline" className={cn('capitalize', activo ? 'border-teal-200 bg-teal-100/30 text-teal-900 dark:text-teal-200' : 'border-neutral-300 bg-neutral-300/40')}>
+            <Badge variant="outline" className={cn('capitalize', activo ? 'border-primary/20 bg-primary/10 text-primary' : 'border-neutral-300 bg-neutral-300/40')}>
                 {activo ? 'Activo' : 'Inactivo'}
             </Badge>
         );
@@ -481,7 +478,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             header: ({ column }) => <DataTableColumnHeader column={column} title="Usuario" />,
             accessorFn: (u) => u.nombre_usuario || '',
             sortingFn: (a, b) => localeSort(a.getValue('usuario'), b.getValue('usuario')),
-            cell: ({ row }) => <span className="ps-3">{row.original.nombre_usuario}</span>,
+            cell: ({ row }) => <span className="ps-3 font-semibold text-primary">{row.original.nombre_usuario}</span>,
         },
         {
             id: 'nombre',
@@ -498,14 +495,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
             accessorFn: (u) => u.correo_electronico || '',
             sortingFn: (a, b) => localeSort(a.getValue('correo'), b.getValue('correo')),
             cell: ({ row }) => <span className="ps-2">{row.original.correo_electronico || '-'}</span>,
-        },
-        {
-            id: 'cargo',
-            meta: { titulo: 'Cargo', className: 'hidden lg:table-cell' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Cargo" />,
-            accessorFn: (u) => u.nombre_cargo || '',
-            sortingFn: (a, b) => localeSort(a.getValue('cargo'), b.getValue('cargo')),
-            cell: ({ row }) => <span className="ps-2">{row.original.nombre_cargo || '-'}</span>,
         },
         {
             id: 'estado',
@@ -536,14 +525,6 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
                     ))}
                 </div>
             ),
-        },
-        {
-            id: 'ultimo_acceso',
-            meta: { titulo: 'Último acceso', className: 'hidden xl:table-cell' },
-            header: ({ column }) => <DataTableColumnHeader column={column} title="Último acceso" />,
-            accessorFn: (u) => u.ultimo_acceso || '',
-            sortingFn: (a, b) => localeSort(a.getValue('ultimo_acceso'), b.getValue('ultimo_acceso')),
-            cell: ({ row }) => <span className="ps-2">{row.original.ultimo_acceso ?? 'Nunca'}</span>,
         },
         {
             id: 'acciones',

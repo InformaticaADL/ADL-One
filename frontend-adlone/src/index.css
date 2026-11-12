@@ -619,9 +619,10 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
    diseño, estas variables pasan a :root y la clase deja de hacer falta.
    --------------------------------------------------------------------------- */
 html.ui-neutral {
-  --sc-primary: oklch(0.208 0.042 265.755);
+  /* Azul marino: reemplaza el casi negro solo donde se usa el color principal (botones, selección) */
+  --sc-primary: oklch(0.31 0.075 258);
   --sc-primary-foreground: oklch(0.984 0.003 247.858);
-  --sc-ring: oklch(0.704 0.04 256.788);
+  --sc-ring: oklch(0.5 0.1 258);
   --sc-destructive: oklch(0.577 0.245 27.325);
   --sc-background: oklch(1 0 0);
   --sc-foreground: oklch(0.129 0.042 264.695);
@@ -638,6 +639,8 @@ html.ui-neutral {
 }
 
 html.ui-neutral[data-theme='dark'] {
+  --sc-sidebar: var(--sc-background);
+  --sc-sidebar-accent: var(--sc-accent);
   --sc-primary: oklch(0.929 0.013 255.508);
   --sc-primary-foreground: oklch(0.208 0.042 265.755);
   --sc-ring: oklch(0.551 0.027 264.364);
@@ -668,6 +671,8 @@ html.ui-neutral[data-theme='dark'] {
 }
 
 :root {
+  /* Naranjo de la marca: solo para marcas pequeñas (elemento activo del menú) */
+  --sc-mark: #f28c28;
   --sc-sidebar-accent: #f4f4f5;
   --sc-sidebar-accent-foreground: var(--sc-foreground);
   --sc-sidebar-primary: var(--sc-primary);
@@ -678,8 +683,8 @@ html.ui-neutral[data-theme='dark'] {
   --sc-sidebar-accent: rgba(255, 255, 255, 0.07);
 }
 html.ui-neutral {
-  --sc-sidebar: var(--sc-background);
-  --sc-sidebar-accent: var(--sc-accent);
+  --sc-sidebar: oklch(0.972 0.004 250);
+  --sc-sidebar-accent: oklch(0.935 0.01 252);
   --sc-sidebar-accent-foreground: var(--sc-accent-foreground);
 }
 

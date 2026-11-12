@@ -70,7 +70,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
                 shouldStack ? 'flex-col items-stretch' : 'flex-row items-end'
             )}>
                 <div className={cn('min-w-0', centered && 'text-center')}>
-                    <h2 className={cn('m-0 font-bold tracking-tight text-foreground', isMobile ? 'text-xl' : 'text-2xl')}>
+                    <h2 className={cn('m-0 font-bold tracking-tight text-foreground in-[.ui-neutral]:text-primary', isMobile ? 'text-xl' : 'text-2xl')}>
                         {title}
                     </h2>
                     {subtitle && (

@@ -105,7 +105,7 @@ export function CommandMenu({ isCollapsed, onNavigate }: CommandMenuProps) {
                 onClick={() => setOpen(true)}
                 title="Buscar (Ctrl+K)"
                 className={cn(
-                    'relative flex items-center rounded-lg border border-transparent bg-muted text-sm text-muted-foreground shadow-none transition-colors hover:bg-muted/80',
+                    'relative flex items-center rounded-lg border border-border bg-background text-sm text-muted-foreground shadow-none transition-colors hover:bg-muted/60',
                     isCollapsed ? 'h-8 w-8 justify-center' : 'h-8 w-full pl-8 pr-2'
                 )}
             >

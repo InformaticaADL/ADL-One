@@ -170,7 +170,7 @@ export function AdvancedDataTable<TData>({
                         {table.getHeaderGroups().map((grupo) => (
                             <TableRow key={grupo.id} className="hover:bg-transparent">
                                 {grupo.headers.map((h) => (
-                                    <TableHead key={h.id} colSpan={h.colSpan} className={cn('h-10 whitespace-nowrap px-2 text-sm font-medium normal-case tracking-normal text-foreground', h.column.columnDef.meta?.className)}>
+                                    <TableHead key={h.id} colSpan={h.colSpan} className={cn('h-10 whitespace-nowrap px-2 text-[0.8125rem] font-medium normal-case tracking-normal text-muted-foreground', h.column.columnDef.meta?.className)}>
                                         {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
                                     </TableHead>
                                 ))}
@@ -190,7 +190,7 @@ export function AdvancedDataTable<TData>({
                             filas.map((fila) => (
                                 <TableRow key={fila.id} data-state={fila.getIsSelected() ? 'selected' : undefined} className="data-[state=selected]:bg-muted">
                                     {fila.getVisibleCells().map((c) => (
-                                        <TableCell key={c.id} className={cn('whitespace-nowrap p-2', c.column.columnDef.meta?.className)}>
+                                        <TableCell key={c.id} className={cn('whitespace-nowrap px-2 py-3', c.column.columnDef.meta?.className)}>
                                             {flexRender(c.column.columnDef.cell, c.getContext())}
                                         </TableCell>
                                     ))}

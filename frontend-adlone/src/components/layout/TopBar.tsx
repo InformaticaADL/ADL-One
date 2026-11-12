@@ -208,9 +208,9 @@ export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
 
     return (
         <div className={cn(
-            'shadcn-scope relative z-10 flex shrink-0 items-center justify-between gap-2 px-4 transition-shadow duration-200 md:px-6',
+            'shadcn-scope relative z-10 flex shrink-0 items-center justify-between gap-2 border-b border-border/60 px-4 transition-shadow duration-200 md:px-6',
             isMobile ? 'h-14' : 'h-16',
-            scrolled ? 'bg-background/80 shadow backdrop-blur-lg' : 'shadow-none'
+            scrolled ? 'bg-background/80 backdrop-blur-lg' : ''
         )}>
             <div className="flex min-w-0 items-center gap-1.5 text-sm text-muted-foreground">
                 {!isMobile && (

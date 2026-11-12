@@ -35,8 +35,8 @@ const BOTON_MENU =
     'peer/menu-button flex w-full items-center gap-2 overflow-hidden rounded-md p-2 text-start text-[0.875rem] leading-5 outline-none ' +
     'transition-[width,height,padding,background-color,color] hover:bg-sidebar-accent hover:text-sidebar-accent-foreground ' +
     'focus-visible:ring-2 focus-visible:ring-sidebar-ring active:bg-sidebar-accent active:text-sidebar-accent-foreground ' +
-    'data-[state=open]:bg-sidebar-accent data-[active=true]:bg-sidebar-accent data-[active=true]:font-medium data-[active=true]:text-sidebar-accent-foreground ' +
-    '[&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0';
+    'data-[state=open]:bg-sidebar-accent data-[active=true]:bg-primary/10 data-[active=true]:font-medium data-[active=true]:text-primary data-[active=true]:shadow-[inset_2px_0_0_var(--sc-mark)] ' +
+    '[&>span:last-child]:truncate [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-muted-foreground data-[active=true]:[&>svg]:text-primary';
 
 interface BotonMenuProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
     activo?: boolean;
@@ -77,7 +77,7 @@ function EtiquetaGrupo({ titulo, colapsado }: { titulo: string; colapsado: boole
     return (
         <div
             className={cn(
-                'flex h-8 shrink-0 items-center rounded-md px-2 text-[0.75rem] font-medium text-sidebar-foreground/70 transition-[margin,opacity] duration-200 ease-linear',
+                'flex h-8 shrink-0 items-center rounded-md px-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-sidebar-foreground/50 transition-[margin,opacity] duration-200 ease-linear',
                 colapsado && '-mt-8 opacity-0'
             )}
         >
@@ -205,8 +205,11 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 <BotonMenu activo={active} colapsado={isCollapsed} etiqueta={item.label} onClick={() => handleModuleClick(item.id)}>
                     <Icon size={16} stroke={1.75} />
                     {!isCollapsed && <span className="flex-1 truncate text-left">{item.label}</span>}
+                    {isCollapsed && !!badgeCount && (
+                        <span aria-label={`${badgeCount} pendientes`} className="absolute right-1.5 top-1.5 size-2 rounded-full bg-[var(--sc-mark)]" />
+                    )}
                     {!isCollapsed && !!badgeCount && (
-                        <Badge variant="destructive" className={INSIGNIA}>{badgeCount > 99 ? '99+' : badgeCount}</Badge>
+                        <Badge variant="outline" className={INSIGNIA + ' border-transparent bg-[var(--sc-mark)] text-[#2b1600]'}>{badgeCount > 99 ? '99+' : badgeCount}</Badge>
                     )}
                 </BotonMenu>
             </li>
@@ -260,7 +263,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                                 return (
                                     <DropdownMenuItem
                                         key={link.id}
-                                        className={active ? 'bg-sidebar-accent font-medium' : undefined}
+                                        className={active ? 'bg-primary/10 font-medium text-primary shadow-[inset_2px_0_0_var(--sc-mark)]' : undefined}
                                         onSelect={() => {
                                             if (activeModule !== id) setActiveModule(id);
                                             handleLeafClick(link.id);
@@ -293,7 +296,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 </BotonMenu>
                 {!isCollapsed && hasSubItems && (
                     <Colapsable abierto={isOpen}>
-                        <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-s border-sidebar-border px-2.5 py-0.5">
+                        <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-s border-sidebar-border/60 px-2.5 py-0.5">
                             {filteredLinks.map((link) => {
                                 const active = activeSubmodule === link.id && activeModule === id;
                                 return (
@@ -303,7 +306,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                                             tabIndex={isOpen ? 0 : -1}
                                             data-active={active ? 'true' : undefined}
                                             onClick={() => { setActiveModule(id); handleLeafClick(link.id); }}
-                                            className="flex min-h-7 w-full min-w-0 -translate-x-px items-center gap-2 rounded-md px-2 py-1 text-left text-[0.875rem] leading-5 text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-sidebar-accent data-[active=true]:text-sidebar-accent-foreground"
+                                            className="relative flex min-h-7 w-full min-w-0 data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:-left-[10px] data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary -translate-x-px items-center gap-2 rounded-md px-2 py-1 text-left text-[0.875rem] leading-5 text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-[inset_2px_0_0_var(--sc-mark)]"
                                         >
                                             <span>{link.label}</span>
                                         </button>
@@ -348,7 +351,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 >
                     <Avatar className="h-8 w-8 shrink-0 rounded-lg">
                         {user?.foto && <AvatarImage src={`${API_CONFIG.getBaseURL()}${user.foto}`} />}
-                        <AvatarFallback className="rounded-lg bg-muted text-muted-foreground">{user?.name?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="rounded-lg bg-muted text-muted-foreground in-[.ui-neutral]:bg-primary in-[.ui-neutral]:text-primary-foreground">{user?.name?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     {!isCollapsed && (
                         <>
@@ -365,7 +368,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                 <div className="flex items-center gap-2 px-1.5 py-1.5 text-start">
                     <Avatar className="h-8 w-8 rounded-lg">
                         {user?.foto && <AvatarImage src={`${API_CONFIG.getBaseURL()}${user.foto}`} />}
-                        <AvatarFallback className="rounded-lg bg-muted text-muted-foreground">{user?.name?.charAt(0)}</AvatarFallback>
+                        <AvatarFallback className="rounded-lg bg-muted text-muted-foreground in-[.ui-neutral]:bg-primary in-[.ui-neutral]:text-primary-foreground">{user?.name?.charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="grid min-w-0 flex-1 leading-tight">
                         <span className="truncate text-[0.875rem] font-semibold">{user?.name}</span>
@@ -419,7 +422,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                     {renderGroup('Soporte', visibleBottom.map((m) => renderFlatItem(m)), visibleBottom.length > 0)}
                 </div>
 
-                <div className="flex flex-col gap-2 p-2">
+                <div className="flex flex-col gap-2 border-t border-sidebar-border p-2">
                     {userMenu}
                 </div>
 
