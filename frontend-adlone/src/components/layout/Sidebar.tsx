@@ -92,11 +92,24 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     const enrichedDynamicModules = dynamicModules.map((m) => {
         if (m.id === 'biologia_molecular') {
+            const isFernandoB = (user?.username || '').trim().toUpperCase() === 'FERNANDOB';
+            const isInformatica = hasPermission('INF_ACCESO') || (user?.permissions || []).includes('INF_ACCESO');
+            const canAccessHistorico = isFernandoB || isInformatica;
+
+            const bmLinks: DynamicModuleLink[] = [
+                { id: 'bm-consulta', label: 'Consulta de Muestras', permission: 'BM_ACCESO' }
+            ];
+
+            if (canAccessHistorico) {
+                bmLinks.push({
+                    id: 'bm-historico',
+                    label: 'Biología Molecular Histórico'
+                });
+            }
+
             return {
                 ...m,
-                links: [
-                    { id: 'bm-consulta', label: 'Consulta de Muestras', permission: 'BM_ACCESO' }
-                ]
+                links: bmLinks
             };
         }
         return m;

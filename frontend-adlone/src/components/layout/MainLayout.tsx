@@ -49,6 +49,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         activeSubmodule === 'admin-muestreadores' ||
         activeSubmodule === 'admin-equipos-gestion' ||
         activeSubmodule === 'bm-consulta' ||
+        activeSubmodule === 'bm-historico' ||
         // Fichas de Ingreso: Explorador, Asignación Terreno y el Planificador de
         // Rutas (mapa + selector de fichas, antes scrolleaba la página completa
         // en vez de quedar contenido en sus propios paneles). El resto de los

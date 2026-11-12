@@ -36,6 +36,7 @@
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "winston": "^3.11.0",
+    "xlsx": "^0.18.5",
     "xlsx-chart": "^0.4.3"
   },
   "devDependencies": {

@@ -3,7 +3,7 @@ import { IconSearch } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavStore } from '../../store/navStore';
 import { getIconComponent } from '../../config/iconRegistry';
-import { FIXED_TOP_MODULES, hasAccess, canAccessModule, type DynamicModule } from '../../config/sidebarModules';
+import { FIXED_TOP_MODULES, hasAccess, canAccessModule, type DynamicModule, type DynamicModuleLink } from '../../config/sidebarModules';
 import { cn } from '@/lib/utils';
 import { CommandDialog, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from '@/components/ui/command';
 
@@ -30,7 +30,7 @@ const isMac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigat
 // desplegado en el árbol. Se abre con click o Ctrl/Cmd+K desde cualquier
 // parte de la app mientras el sidebar está montado.
 export function CommandMenu({ isCollapsed, onNavigate }: CommandMenuProps) {
-    const { hasPermission } = useAuth();
+    const { user, hasPermission } = useAuth();
     const { setActiveModule, setActiveSubmodule, dynamicModules: rawDynamicModules } = useNavStore();
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
     const [open, setOpen] = useState(false);
@@ -80,8 +80,33 @@ export function CommandMenu({ isCollapsed, onNavigate }: CommandMenuProps) {
             }
         };
 
-        for (const mod of dynamicModules.filter((m) => m.group === 'unidades')) pushDynamic(mod, 'Unidades');
-        for (const mod of dynamicModules.filter((m) => m.group === 'gestion')) pushDynamic(mod, 'Gestión');
+        const enrichedDynamicModules = dynamicModules.map((m) => {
+            if (m.id === 'biologia_molecular') {
+                const isFernandoB = (user?.username || '').trim().toUpperCase() === 'FERNANDOB';
+                const isInformatica = hasPermission('INF_ACCESO') || (user?.permissions || []).includes('INF_ACCESO');
+                const canAccessHistorico = isFernandoB || isInformatica;
+
+                const bmLinks: DynamicModuleLink[] = [
+                    { id: 'bm-consulta', label: 'Consulta de Muestras', permission: 'BM_ACCESO' }
+                ];
+
+                if (canAccessHistorico) {
+                    bmLinks.push({
+                        id: 'bm-historico',
+                        label: 'Biología Molecular Histórico'
+                    });
+                }
+
+                return {
+                    ...m,
+                    links: bmLinks
+                };
+            }
+            return m;
+        });
+
+        for (const mod of enrichedDynamicModules.filter((m) => m.group === 'unidades')) pushDynamic(mod, 'Unidades');
+        for (const mod of enrichedDynamicModules.filter((m) => m.group === 'gestion')) pushDynamic(mod, 'Gestión');
 
         const map = new Map<string, CommandEntry[]>();
         for (const entry of entries) {
@@ -89,7 +114,7 @@ export function CommandMenu({ isCollapsed, onNavigate }: CommandMenuProps) {
             map.get(entry.group)!.push(entry);
         }
         return Array.from(map.entries());
-    }, [dynamicModules, hasPermission]);
+    }, [dynamicModules, hasPermission, user]);
 
     const handleSelect = (entry: CommandEntry) => {
         setActiveModule(entry.moduleId);

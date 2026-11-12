@@ -24,6 +24,8 @@ const STATIC_MODULE_LABELS: Record<string, string> = {
     '': 'Inicio',
     perfil: 'Mi Perfil',
     notificaciones: 'Notificaciones',
+    'bm-historico': 'Biología Molecular Histórico',
+    'bm-consulta': 'Consulta de Muestras',
 };
 
 // Campana de notificaciones — vive en la barra de ruta (RouteBreadcrumb),
@@ -155,6 +157,13 @@ function useBreadcrumbLabels() {
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
 
     return useMemo(() => {
+        if (activeSubmodule === 'bm-historico') {
+            return {
+                moduleLabel: 'Biología Molecular Histórico',
+                submoduleLabel: null
+            };
+        }
+
         const dynMod = dynamicModules.find((m) => m.id === activeModule);
         const fixedMod = FIXED_TOP_MODULES.find((m) => m.id === activeModule);
         const moduleLabel = fixedMod?.label ?? dynMod?.label ?? STATIC_MODULE_LABELS[activeModule] ?? activeModule;

@@ -41,6 +41,8 @@ import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
 import { BiologiaMolecularPage } from '../features/biologia-molecular/pages/BiologiaMolecularPage';
+import { HistoricoBiologiaMolecularPage } from '../features/biologia-molecular/pages/HistoricoBiologiaMolecularPage';
+
 
 
 const DashboardPage = () => {
@@ -65,7 +67,7 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-solicitudes-clientes', 'admin-verificadores-solicitudes', 'informatica'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'admin-solicitudes-clientes', 'admin-verificadores-solicitudes', 'informatica'];
     // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
     // y NO dependen de los permisos de Admin. Información
 
@@ -138,6 +140,20 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
         // empresas asignadas (o por ser del grupo de respaldo) — ver rel_usuario_empresa_asignada.
         if (activeSubmodule === 'solicitudes-clientes') {
             return <SolicitudesClientesPage onBack={() => setActiveSubmodule('')} />;
+        }
+
+        if (activeSubmodule === 'bm-historico') {
+            const isFernandoB = (user?.username || '').trim().toUpperCase() === 'FERNANDOB';
+            const isInformatica = hasPermission('INF_ACCESO') || (user?.permissions || []).includes('INF_ACCESO');
+            if (!isFernandoB && !isInformatica) {
+                return (
+                    <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}>
+                        <h1>🚫 Acceso Denegado</h1>
+                        <p style={{ marginTop: '0.5rem', color: '#64748b' }}>Esta sección histórica solo puede ser consultada por el usuario FERNANDOB y personal de Informática.</p>
+                    </div>
+                );
+            }
+            return <HistoricoBiologiaMolecularPage onBack={() => setActiveSubmodule('')} />;
         }
 
         // --- 2. Lógica Específica del Módulo de Administración ---
