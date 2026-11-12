@@ -42,9 +42,21 @@ export const appendObservacion = (actual: string | null | undefined, nueva: stri
     });
     if (nuevas.length === 0) return limpia;
     const hoy = new Date();
-    const fecha = `${String(hoy.getDate()).padStart(2, '0')}/${String(hoy.getMonth() + 1).padStart(2, '0')}/${hoy.getFullYear()}`;
-    const bloque = `- [${fecha}] ${nuevas.join('\n')}`;
+    // Mismo formato que el resto de la observación: "dd.mm.aa texto", sin corchetes.
+    const fecha = `${String(hoy.getDate()).padStart(2, '0')}.${String(hoy.getMonth() + 1).padStart(2, '0')}.${String(hoy.getFullYear()).slice(2)}`;
+    // La línea que ya trae su fecha ("23.01.26 Puesta en marcha…") se agrega tal
+    // cual; solo la que no tiene ninguna lleva delante la fecha de hoy para saber
+    // cuándo se registró.
+    const bloque = nuevas.map((l) => (tieneFecha(l) ? l : `${fecha} ${l}`)).join('\n');
     return limpia ? `${limpia}\n${bloque}` : bloque;
+};
+
+const MESES_TEXTO = 'enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre';
+const RE_FECHA_TEXTO = new RegExp(`\\b(?:\\d{1,2}\\s+(?:de\\s+)?)?(?:${MESES_TEXTO})\\s+(?:de\\s+|del\\s+)?\\d{4}\\b`);
+/** La línea trae una fecha propia: 23.01.26, 12-06-2024, 16 de octubre 2023, octubre 2023… */
+const tieneFecha = (linea: string): boolean => {
+    const t = linea.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    return new RegExp(RE_FECHA_EN_LINEA.source).test(t) || RE_FECHA_TEXTO.test(t);
 };
 
 // Detecta la advertencia fija que generan ambos analizadores backend cuando

@@ -714,7 +714,7 @@ const verificacionTemperaturaService = {
         try {
             const actual = await equipoService.getEquipoById(v.id_equipo);
             const [y, mo, d] = v.fecha_verificacion.split('-');
-            const lineaObs = `- [${d}/${mo}/${y}] Verificación intermedia de temperatura (OI-FoGe-39, ficha N° ${v.id_verificacion}): `
+            const lineaObs = `${d}.${mo}.${y.slice(2)} Verificación intermedia de temperatura (OI-FoGe-39, ficha N° ${v.id_verificacion}): `
                 + `${calc.cumple ? 'Cumple' : 'NO CUMPLE'}. Error 0/15/30 °C: ${fmt1(calc.rangos[0].promedio)} / ${fmt1(calc.rangos[15].promedio)} / ${fmt1(calc.rangos[30].promedio)}.`;
             const obsActual = String(actual?.observacion || '').trim();
             const redondear1 = (n) => Math.round(Number(n) * 10) / 10;

@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { FirmaPerfilCard } from '../components/FirmaPerfilCard';
 
 interface ProfilePageProps {
     userId?: number;
@@ -348,6 +349,9 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                         </div>
                     </Card>
                 </div>
+
+                {/* Firma guardada: solo en el propio perfil. */}
+                {isOwnProfile && <FirmaPerfilCard />}
             </div>
 
             <Dialog open={opened} onOpenChange={setOpened}>

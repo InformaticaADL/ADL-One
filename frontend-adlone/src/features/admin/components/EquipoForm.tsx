@@ -14,8 +14,14 @@ import {
     IconDownload,
     IconPaperclip,
     IconGitCompare,
-    IconArrowRight
+    IconArrowRight,
+    IconFileText,
+    IconFileDescription,
+    IconFileCertificate,
+    IconClipboardCheck
 } from '@tabler/icons-react';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { FichasEquipoDialog, type TipoFichaEquipo } from './FichasEquipoDialog';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -222,6 +228,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const [loading, setLoading] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
+    // Formularios del equipo en PDF. La ficha de entrega toma lo que hay en el
+    // formulario (sirve también al crear el equipo, antes de guardarlo).
+    const [fichaAbierta, setFichaAbierta] = useState<TipoFichaEquipo | null>(null);
     const [muestreadores, setMuestreadores] = useState<any[]>([]);
     const [allEquipos, setAllEquipos] = useState<Equipo[]>([]);
     const [history, setHistory] = useState<EquipoHistorial[]>([]);
@@ -1024,6 +1033,35 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 >
                                     <IconHistory size={18} /> {isMobile ? 'Historial' : (showHistory ? 'Ocultar Historial' : 'Ver Historial')}
                                 </Button>
+                            </ProtectedContent>
+                            <ProtectedContent permission="MA_A_GEST_EQUIPO">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="outline" className={cn(isMobile && 'flex-1')}>
+                                            <IconFileText size={18} /> Fichas
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-64">
+                                        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Generar formulario en PDF</DropdownMenuLabel>
+                                        <DropdownMenuItem onClick={() => setFichaAbierta('entrega')}>
+                                            <IconFileCertificate size={16} /> Ficha de entrega (OI-FoGe-36)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setFichaAbierta('recepcion')}>
+                                            <IconClipboardCheck size={16} /> Recepción y puesta en marcha (OI-FoGe-42)
+                                        </DropdownMenuItem>
+                                        {!esCreacion && (
+                                            <>
+                                                <DropdownMenuSeparator />
+                                                <DropdownMenuItem onClick={() => setFichaAbierta('tecnica')}>
+                                                    <IconFileDescription size={16} /> Ficha técnica (OI-FoGe-22)
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => setFichaAbierta('historial')}>
+                                                    <IconHistory size={16} /> Historial por año (OI-FoGe-24)
+                                                </DropdownMenuItem>
+                                            </>
+                                        )}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             </ProtectedContent>
                             {esCreacion && (
                                 <ProtectedContent permission="EQ_UPDATE">
@@ -2237,6 +2275,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 onRefresh={() => {
                     if (onRefreshSolicitudes) onRefreshSolicitudes();
                 }}
+            />
+
+            <FichasEquipoDialog
+                tipo={fichaAbierta}
+                idEquipo={initialData?.id_equipo || null}
+                // Lo que está en pantalla, aunque no se haya guardado todavía.
+                equipo={{
+                    ...formData,
+                    valor_unitario: formData.valor_unitario === '' ? null : formData.valor_unitario,
+                    nombre_asignado: muestreadores.find((m) => String(m.id_muestreador) === String(formData.id_muestreador))?.nombre_muestreador || '',
+                }}
+                onClose={() => setFichaAbierta(null)}
             />
         </div>
     );

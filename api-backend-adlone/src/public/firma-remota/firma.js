@@ -79,6 +79,9 @@
     var canvas = $('canvas');
     var ctx = canvas.getContext('2d');
     var dibujando = false, ultimo = null, vacio = true, lim = null;
+    // Puntos de cada trazo: con ellos la firma se redibuja nítida al grabarla.
+    var trazos = [];
+    var TINTA = '#1a3a9c', GROSOR = 2.6;
 
     function prepararLienzo() {
         var dpr = window.devicePixelRatio || 1;
@@ -86,7 +89,7 @@
         canvas.width = Math.round(rect.width * dpr);
         canvas.height = Math.round(rect.height * dpr);
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#0f172a'; ctx.fillStyle = '#0f172a'; ctx.lineWidth = 2.6;
+        ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1a3a9c'; ctx.fillStyle = '#1a3a9c'; ctx.lineWidth = 2.6; // azul tinta (lápiz pasta)
         limpiar();
     }
 
@@ -101,12 +104,12 @@
     }
     function limpiar() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        vacio = true; lim = null; actualizarBotones();
+        vacio = true; lim = null; trazos = []; actualizarBotones();
     }
 
     canvas.addEventListener('pointerdown', function (e) {
         e.preventDefault(); canvas.setPointerCapture(e.pointerId);
-        dibujando = true; ultimo = punto(e); marcar(ultimo);
+        dibujando = true; ultimo = punto(e); marcar(ultimo); trazos.push([ultimo]);
         ctx.beginPath(); ctx.arc(ultimo.x, ultimo.y, 1.3, 0, Math.PI * 2); ctx.fill();
     });
     canvas.addEventListener('pointermove', function (e) {
@@ -115,6 +118,7 @@
         var p = punto(e);
         ctx.beginPath(); ctx.moveTo(ultimo.x, ultimo.y); ctx.lineTo(p.x, p.y); ctx.stroke();
         ultimo = p; marcar(p);
+        if (trazos.length) trazos[trazos.length - 1].push(p);
         if (vacio) { vacio = false; actualizarBotones(); }
     });
     ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) { canvas.addEventListener(ev, function () { dibujando = false; }); });
@@ -123,15 +127,26 @@
     $('limpiar').addEventListener('click', limpiar);
     $('acepto').addEventListener('change', actualizarBotones);
 
-    // Recorta al área firmada y limita el ancho, para que la imagen viaje liviana.
+    // La firma se redibuja desde sus trazos a alta resolución (nítida en el PDF
+    // y en azul tinta), recortada al área firmada.
     function imagenFirma() {
-        var dpr = window.devicePixelRatio || 1, m = 10;
-        var sx = Math.max(0, (lim.x0 - m) * dpr), sy = Math.max(0, (lim.y0 - m) * dpr);
-        var sw = Math.min(canvas.width - sx, (lim.x1 - lim.x0 + m * 2) * dpr), sh = Math.min(canvas.height - sy, (lim.y1 - lim.y0 + m * 2) * dpr);
-        var esc = Math.min(1, 600 / sw);
+        var m = 10;
+        var ancho = lim.x1 - lim.x0 + m * 2, alto = lim.y1 - lim.y0 + m * 2;
+        var k = Math.max(1, Math.min(4, 1600 / ancho));
         var out = document.createElement('canvas');
-        out.width = Math.max(1, Math.round(sw * esc)); out.height = Math.max(1, Math.round(sh * esc));
-        out.getContext('2d').drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+        out.width = Math.max(1, Math.round(ancho * k)); out.height = Math.max(1, Math.round(alto * k));
+        var c = out.getContext('2d');
+        c.lineCap = 'round'; c.lineJoin = 'round'; c.strokeStyle = TINTA; c.fillStyle = TINTA; c.lineWidth = GROSOR * k;
+        var X = function (p) { return (p.x - lim.x0 + m) * k; };
+        var Y = function (p) { return (p.y - lim.y0 + m) * k; };
+        trazos.forEach(function (t) {
+            if (t.length === 1) { c.beginPath(); c.arc(X(t[0]), Y(t[0]), (GROSOR * k) / 2, 0, Math.PI * 2); c.fill(); return; }
+            c.beginPath(); c.moveTo(X(t[0]), Y(t[0]));
+            for (var i = 1; i < t.length - 1; i += 1) {
+                c.quadraticCurveTo(X(t[i]), Y(t[i]), (X(t[i]) + X(t[i + 1])) / 2, (Y(t[i]) + Y(t[i + 1])) / 2);
+            }
+            c.lineTo(X(t[t.length - 1]), Y(t[t.length - 1])); c.stroke();
+        });
         return out.toDataURL('image/png');
     }
 

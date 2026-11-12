@@ -540,12 +540,15 @@ export const equipoService = {
                     INNER JOIN mae_muestreador m ON e.id_muestreador = m.id_muestreador
                     WHERE e.Estado = 'Operativo' AND m.habilitado = 'N'
                 `),
+                // Un conteo por estado: Operativos, Fuera de Servicio y Dados de Baja (pestañas).
                 pool.request().query(`
-                    SELECT COUNT(*) as cnt
+                    SELECT Estado AS estado, COUNT(*) as cnt
                     FROM mae_equipo
-                    WHERE Estado = 'Operativo'
+                    WHERE Estado IN ('Operativo', 'Fuera de Servicio', 'Dado de Baja')
+                    GROUP BY Estado
                 `)
             ]);
+            const porEstado = (e) => activeResult.recordset.find((r) => r.estado === e)?.cnt ?? 0;
 
             return {
                 data: result.recordset,
@@ -556,7 +559,9 @@ export const equipoService = {
                 expiringCount: expiringResult.recordset[0].cnt,
                 expiredCount: expiredResult.recordset[0].cnt,
                 inactiveSamplerCount: inactiveSamplerResult.recordset[0].cnt,
-                activeCount: activeResult.recordset[0].cnt,
+                activeCount: porEstado('Operativo'),
+                fueraServicioCount: porEstado('Fuera de Servicio'),
+                bajaCount: porEstado('Dado de Baja'),
                 catalogs
             };
         } catch (error) {

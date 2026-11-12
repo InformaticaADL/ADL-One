@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconFilePlus, IconSearch, IconFileTypePdf, IconPencil, IconEye, IconSignature, IconRefresh, IconLayoutColumns, IconX, IconTrash, IconThermometer, IconListDetails, IconChartBar } from '@tabler/icons-react';
+import { IconFilePlus, IconSearch, IconFileTypePdf, IconPencil, IconEye, IconSignature, IconRefresh, IconLayoutColumns, IconX, IconTrash, IconThermometer, IconListDetails, IconChartBar, IconFileDescription } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { useToast } from '../../../contexts/ToastContext';
 import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
+import { FichasEquipoDialog } from '../components/FichasEquipoDialog';
 import { verificacionTemperaturaService as api, type VerificacionResumen, type EstadoVerificacion } from '../services/verificacionTemperatura.service';
 import { ESTADO_META, fmtFecha, fmtNum, hoyYmd, nombrePeriodo } from '../utils/verificacionTemperatura';
 import { VerificacionTempEditor, MesaVerificacionTemp, EliminarFichaDialog } from '../components/verificacion-temperatura/VerificacionTempEditor';
@@ -42,6 +43,8 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
     const [abierta, setAbierta] = useState<number | null>(null);
     const [crearAbierto, setCrearAbierto] = useState(false);
     const [pdf, setPdf] = useState<{ url: string; titulo: string } | null>(null);
+    // Ficha técnica del equipo (OI-FoGe-22): incluye sus verificaciones firmadas.
+    const [fichaTecnica, setFichaTecnica] = useState<{ id: number; codigo: string } | null>(null);
     // Fichas del periodo o la hoja "Resumen" con estadística y gráficos.
     const [vista, setVista] = useState<'fichas' | 'resumen' | 'patron'>('fichas');
     // Selección para la mesa de trabajo (varios equipos a la vez).
@@ -315,6 +318,9 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                                                     <IconTrash size={16} />
                                                 </Button>
                                             )}
+                                            <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => setFichaTecnica({ id: f.id_equipo, codigo: f.codigo_equipo })} title="Ficha técnica del equipo (OI-FoGe-22)">
+                                                <IconFileDescription size={16} className="text-muted-foreground" />
+                                            </Button>
                                             {f.estado !== 'ANULADA' && (
                                                 <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => verPdf(f)} title={f.estado === 'FIRMADA' ? 'Ver PDF firmado' : 'Vista previa PDF'}>
                                                     <IconFileTypePdf size={16} className="text-red-600" />
@@ -358,6 +364,12 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             />
             <EliminarFichaDialog ficha={aEliminar} eliminando={eliminando} onConfirmar={eliminar} onCancelar={() => setAEliminar(null)} />
             <PdfViewerModal open={!!pdf} onClose={() => setPdf(null)} url={pdf?.url ?? null} title={pdf?.titulo} />
+            <FichasEquipoDialog
+                tipo={fichaTecnica ? 'tecnica' : null}
+                idEquipo={fichaTecnica?.id}
+                equipo={fichaTecnica ? { codigo: fichaTecnica.codigo } : null}
+                onClose={() => setFichaTecnica(null)}
+            />
         </div>
     );
 };

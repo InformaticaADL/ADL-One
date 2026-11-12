@@ -4,8 +4,44 @@ import { successResponse, errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
 import path from 'path';
 import fs from 'fs';
+import firmaDigitalService from '../services/firmaDigital.service.js';
+
+// Errores con status < 500 (validación, falta la migración) van con su mensaje.
+const responderError = (res, err, mensaje) => {
+    if (err.status && err.status < 500) return errorResponse(res, err.message, err.status);
+    logger.error(`${mensaje}:`, err);
+    return errorResponse(res, mensaje, err.status || 500);
+};
 
 class UserController {
+    // Firma guardada del usuario (para firmar formularios sin dibujarla cada vez).
+    async getFirma(req, res) {
+        try {
+            const firma = await firmaDigitalService.obtener('USUARIO', req.user.id);
+            return successResponse(res, { firma, disponible: await firmaDigitalService.disponible() }, 'Firma del usuario');
+        } catch (err) {
+            return responderError(res, err, 'Error al leer la firma');
+        }
+    }
+
+    async saveFirma(req, res) {
+        try {
+            await firmaDigitalService.guardar('USUARIO', req.user.id, { imagen: req.body?.firma, origen: req.body?.origen, idUsuarioRegistra: req.user.id });
+            return successResponse(res, { guardada: true }, 'Firma guardada');
+        } catch (err) {
+            return responderError(res, err, 'Error al guardar la firma');
+        }
+    }
+
+    async deleteFirma(req, res) {
+        try {
+            await firmaDigitalService.quitar('USUARIO', req.user.id);
+            return successResponse(res, { guardada: false }, 'Firma eliminada');
+        } catch (err) {
+            return responderError(res, err, 'Error al eliminar la firma');
+        }
+    }
+
     async uploadProfilePicture(req, res) {
         try {
             if (!req.file) {

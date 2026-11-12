@@ -443,16 +443,22 @@ const getContextHelp = (
                 '2. FILTROS Y ORDEN: filtra por Tipo, Sede, Estado y Responsable, y ordena por vencimiento (próximo primero), nombre, activos primero o últimas modificaciones. «Limpiar todo» quita los filtros.',
                 '3. COLUMNA ALERTA (⚠️): el equipo tiene una solicitud ACEPTADA lista para ejecutarse (traspaso, baja, extensión de vigencia…). Haz clic en el ícono para abrirla.',
                 '4. NUEVO EQUIPO: botón de la cabecera. El formulario tiene Información General, Configuración Técnica, Verificación y Estado, Datos del Inventario (marca, modelo, N° de serie, influencia significativa y justificación), Compra y Baja, y el documento de la revisión.',
-                '5. ACCIONES de cada fila (menú ⋮): Ver documento, Editar y Activar/Desactivar. Cada edición guarda una versión en el historial, que se puede comparar o restaurar desde el formulario.',
+                '5. ACCIONES de cada fila (menú ⋮): Ver documento, las fichas en PDF (ver punto 9), Editar y Poner Operativo / Fuera de Servicio. Cada edición guarda una versión en el historial, que se puede comparar o restaurar desde el formulario.',
                 '6. SUBIR Y ANALIZAR EXCEL: sube el Inventario (OI-FoGe-21) o el Resumen de verificaciones T°; el sistema detecta cuál es y lo compara con lo registrado. Verás cuáles coinciden, cuáles difieren y cuáles no existen, con una vista dividida para revisar cada uno y actualizarlo o crearlo. Las fechas del Excel tienen prioridad, aunque sean más antiguas.',
                 '7. EXPORTAR: descarga el inventario filtrado en Excel con una hoja de reportes.',
-                '8. OBSERVACIÓN: al salir del campo, las líneas con fecha (00.00.0000, 00-00-0000, 00/00/0000 o «16 de octubre de 2023») se ordenan de la más antigua a la más nueva.'
+                '8. OBSERVACIÓN: al salir del campo, las líneas con fecha (00.00.0000, 00-00-0000, 00/00/0000 o «16 de octubre de 2023») se ordenan de la más antigua a la más nueva.',
+                '9. FICHAS EN PDF (menú ⋮ de la fila o botón «Fichas» del formulario). Antes de generar se ven y se pueden ajustar los datos; generar no cambia el equipo:',
+                '   • Ficha técnica (OI-FoGe-22): los datos del equipo y las frecuencias salen solos según el tipo de equipo (termómetros patrón TPA/STP: calibración «Anual»; muestreador automático MAU y molinete MOL: mantención «Anual»; equipos con verificación trimestral y sonda caudal: calibración «No aplica (verificación trimestral)»; el resto: «No aplica»). La tabla de calibraciones y mantenciones se llena a mano con «Agregar fila» (tipo, fecha, institución, certificado, próxima y observaciones; en servicios anuales la próxima se propone a un año). El tipo de cada fila sale del equipo (TPA/STP calibración, MAU/MOL mantención). Lo que no se agregue sale en blanco para completarlo en papel. La columna FIRMA lleva dos firmas: arriba quien realiza (su firma guardada en Perfil → «Mi firma», dibujada o importada una sola vez; si no tiene, la dibuja al llenar) y abajo quien valida (se elige al Jefe Técnico o al Jefe de Terreno de Medio Ambiente y firma en el momento). Lo que no se firme queda en blanco para firmar en papel.',
+                '   • Historial por año (OI-FoGe-24): eliges el año y la hoja trae solo las líneas de la observación con fecha de ese año. Las líneas sin fecha no entran.',
+                '   • Ficha de entrega (OI-FoGe-36): se llena con los datos del equipo y su responsable; también se puede generar al crear un equipo, antes de guardarlo. Los campos vacíos salen como «N/I».',
+                '   • Recepción, puesta en marcha y verificación (OI-FoGe-42): se marcan la condición de caja y embalaje, el contenido, el interruptor, los comandos y el encendido, más la verificación y las observaciones. También se puede generar al crear un equipo. Lo que quede sin marcar sale en blanco para completarlo a mano.'
             ],
             tips: [
                 'Todos los días el sistema inactiva los equipos cuya siguiente revisión venció y vuelve a activar los que se renovaron con una fecha válida (siguiente revisión de hoy en adelante).',
                 'Gestión de Calidad recibe avisos en Notificaciones cuando un equipo está a 30 días y a 7 días de vencer; al tocar el aviso se abre el Calendario de Vencimientos.',
                 'Si ves la etiqueta roja «Inactivo» junto al responsable, asigna el equipo a otro muestreador activo lo antes posible.',
-                'Un equipo inactivo no puede asignarse a muestreos. Actívalo solo cuando su revisión esté vigente.'
+                'Un equipo inactivo no puede asignarse a muestreos. Actívalo solo cuando su revisión esté vigente.',
+                'Para que el historial por año salga completo, escribe cada observación con su fecha al inicio (ej. «26.08.25 Asignado a…»).'
             ]
         };
     }
@@ -523,6 +529,7 @@ const getContextHelp = (
                 'En el resumen, «dato del equipo» indica que ese equipo aún no tiene ficha en el sistema y se muestra lo registrado en su inventario.',
                 'Cada TP se guarda sola al registrarla, así que no se pierde aunque cierres la ventana.',
                 'Usa «Vista previa PDF» para revisar el formulario antes de firmar.',
+                'El ícono de documento de cada fila abre la Ficha técnica del equipo (OI-FoGe-22), con sus verificaciones firmadas en la tabla de calibraciones.',
                 'Al firmar, el equipo toma los nuevos errores 0/15/30 °C, su factor de corrección y la siguiente revisión a 3 meses.'
             ]
         };

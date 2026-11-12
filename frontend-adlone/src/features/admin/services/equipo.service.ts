@@ -84,6 +84,8 @@ export interface EquiposResponse {
     expiredCount?: number;
     inactiveSamplerCount?: number;
     activeCount?: number;
+    fueraServicioCount?: number;
+    bajaCount?: number;
     catalogs?: {
         tipos: string[];
         estados: string[];

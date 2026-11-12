@@ -51,5 +51,9 @@ router.get('/profile', authenticate, userController.getProfile);
 router.post('/profile-picture', authenticate, upload.single('photo'), userController.uploadProfilePicture);
 router.post('/avatar', authenticate, userController.setPredefinedAvatar);
 router.post('/change-password', authenticate, userController.changePassword);
+// Firma guardada del propio usuario (perfil).
+router.get('/firma', authenticate, userController.getFirma);
+router.put('/firma', authenticate, userController.saveFirma);
+router.delete('/firma', authenticate, userController.deleteFirma);
 
 export default router;

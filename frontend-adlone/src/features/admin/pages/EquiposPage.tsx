@@ -17,7 +17,11 @@ import {
     IconFileSpreadsheet,
     IconChevronUp,
     IconChevronDown,
-    IconCalendarEvent
+    IconCalendarEvent,
+    IconFileDescription,
+    IconHistory,
+    IconFileCertificate,
+    IconClipboardCheck
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -43,6 +47,7 @@ import { EquipoTemperaturaAnalysisModal } from '../components/EquipoTemperaturaA
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { EquipoForm } from '../components/EquipoForm';
+import { FichasEquipoDialog, type TipoFichaEquipo } from '../components/FichasEquipoDialog';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
 import { GcCalendarioVencimientosPage } from './GcCalendarioVencimientosPage';
@@ -203,6 +208,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // El documento de la revisión vigente viene en la misma fila del listado
     // (mae_equipo.documento_*), así que la columna no necesita pedir nada extra.
     const [docDescargando, setDocDescargando] = useState<number | null>(null);
+    // Formularios del equipo en PDF (OI-FoGe-22 / 24 / 36).
+    const [fichaEquipo, setFichaEquipo] = useState<{ tipo: TipoFichaEquipo; equipo: Equipo } | null>(null);
     // Document preview modal
     const [docPreview, setDocPreview] = useState<{
         equipo: Equipo;
@@ -270,6 +277,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [expiredCount, setExpiredCount] = useState(0);
     const [inactiveSamplerCount, setInactiveSamplerCount] = useState(0);
     const [activeCount, setActiveCount] = useState(0);
+    const [fueraServicioCount, setFueraServicioCount] = useState(0);
+    const [bajaCount, setBajaCount] = useState(0);
     const [filterExpired, setFilterExpired] = useState(false);
     const [filterInactiveSampler, setFilterInactiveSampler] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
@@ -296,9 +305,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // "Operativos": a diferencia de "Por vencer" (que también filtra por
     // Operativo pero acotado a un rango de fechas), este pill no trae ninguna
     // fecha ni otro filtro — solo Estado = 'Operativo'.
-    const isActivosActive = useMemo(() => {
-        return filterEstado === 'Operativo' && filterFechaDesde === '' && filterFechaHasta === '' && !filterExpired && !filterInactiveSampler;
-    }, [filterEstado, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
+    const esPestanaEstado = (estado: string) =>
+        filterEstado === estado && filterFechaDesde === '' && filterFechaHasta === '' && !filterExpired && !filterInactiveSampler;
+    const isActivosActive = esPestanaEstado('Operativo');
+    // Pestañas por estado (reemplazan a "Vencidos"): solo Estado = 'Fuera de Servicio' / 'Dado de Baja'.
+    const isFueraServicioActive = esPestanaEstado('Fuera de Servicio');
+    const isBajaActive = esPestanaEstado('Dado de Baja');
+    const verEstado = (estado: string) => {
+        setActiveView('list');
+        setFilterEstado(estado);
+        setFilterExpired(false);
+        setFilterInactiveSampler(false);
+        setFilterFechaDesde('');
+        setFilterFechaHasta('');
+        setPage(1);
+    };
 
     const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
         sedes: ['PM', 'AY', 'VI', 'PA', 'PV', 'CH', 'Terreno'],
@@ -444,6 +465,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setExpiredCount(response.expiredCount ?? 0);
                 setInactiveSamplerCount(response.inactiveSamplerCount ?? 0);
                 setActiveCount(response.activeCount ?? 0);
+                setFueraServicioCount(response.fueraServicioCount ?? 0);
+                setBajaCount(response.bajaCount ?? 0);
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
                 }
@@ -1250,8 +1273,30 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 hidden: !equipo.documento_ruta,
             },
             {
+                label: 'Ficha técnica (OI-FoGe-22)',
+                icon: <IconFileDescription size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'tecnica', equipo }),
+                separatorBefore: !!equipo.documento_ruta,
+            },
+            {
+                label: 'Historial por año (OI-FoGe-24)',
+                icon: <IconHistory size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'historial', equipo }),
+            },
+            {
+                label: 'Ficha de entrega (OI-FoGe-36)',
+                icon: <IconFileCertificate size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'entrega', equipo }),
+            },
+            {
+                label: 'Recepción y puesta en marcha (OI-FoGe-42)',
+                icon: <IconClipboardCheck size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'recepcion', equipo }),
+            },
+            {
                 label: 'Editar',
                 icon: <IconEdit size={16} />,
+                separatorBefore: true,
                 onClick: () => handleEdit(equipo),
                 disabled: !canEditEquipo,
                 hidden: !hasPermission('AI_MA_EDITAR_EQUIPO'),
@@ -1361,21 +1406,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
-                            setActiveView('list');
-                            setFilterExpired(true);
-                            setFilterEstado(null);
-                            setFilterInactiveSampler(false);
-                            setFilterFechaDesde('');
-                            setFilterFechaHasta('');
-                            setPage(1);
-                        }}
+                        onClick={() => verEstado('Fuera de Servicio')}
                         className={cn(
                             'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            filterExpired ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                            isFueraServicioActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
                         )}
                     >
-                        Vencidos{expiredCount > 0 && ` (${expiredCount})`}
+                        Fuera de Servicio{fueraServicioCount > 0 && ` (${fueraServicioCount})`}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => verEstado('Dado de Baja')}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            isBajaActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
+                    >
+                        Dado de Baja{bajaCount > 0 && ` (${bajaCount})`}
                     </button>
                     <button
                         type="button"
@@ -1837,6 +1884,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             </div>
 
             {/* --- Modals Area --- */}
+
+            <FichasEquipoDialog
+                tipo={fichaEquipo?.tipo ?? null}
+                idEquipo={fichaEquipo?.equipo.id_equipo}
+                equipo={fichaEquipo?.equipo}
+                onClose={() => setFichaEquipo(null)}
+            />
 
             {/* Review Solicitud Dialog */}
             <Dialog open={!!reviewSolicitud} onOpenChange={(open) => { if (!open) setReviewSolicitud(null); }}>

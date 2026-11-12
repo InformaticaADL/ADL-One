@@ -3,6 +3,40 @@ import { IconEraser } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+// Color de la firma: azul tinta, como un lápiz pasta.
+const TINTA_FIRMA = '#1a3a9c';
+const GROSOR = 2.2;
+// Ancho máximo de la imagen exportada: se redibuja a esta resolución para que
+// en el PDF no se vea pixelada aunque se agrande.
+const ANCHO_EXPORTADO = 1600;
+
+type Punto = { x: number; y: number };
+
+/** Dibuja los trazos con curvas suaves (en coordenadas ya escaladas). */
+const dibujarTrazos = (ctx: CanvasRenderingContext2D, trazos: Punto[][], grosor: number) => {
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = TINTA_FIRMA;
+    ctx.fillStyle = TINTA_FIRMA;
+    ctx.lineWidth = grosor;
+    for (const t of trazos) {
+        if (t.length === 1) {
+            ctx.beginPath();
+            ctx.arc(t[0].x, t[0].y, grosor / 2, 0, Math.PI * 2);
+            ctx.fill();
+            continue;
+        }
+        ctx.beginPath();
+        ctx.moveTo(t[0].x, t[0].y);
+        for (let i = 1; i < t.length - 1; i += 1) {
+            const medio = { x: (t[i].x + t[i + 1].x) / 2, y: (t[i].y + t[i + 1].y) / 2 };
+            ctx.quadraticCurveTo(t[i].x, t[i].y, medio.x, medio.y);
+        }
+        ctx.lineTo(t[t.length - 1].x, t[t.length - 1].y);
+        ctx.stroke();
+    }
+};
+
 export interface SignaturePadHandle {
     /** PNG en base64 (data URL) recortado a la firma, o null si está vacío. */
     toDataURL: () => string | null;
@@ -23,6 +57,8 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
     const dibujando = useRef(false);
     const ultimo = useRef<{ x: number; y: number } | null>(null);
     const limites = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
+    // Los puntos de cada trazo: con ellos se redibuja la firma nítida al exportar.
+    const trazos = useRef<Punto[][]>([]);
     const [vacio, setVacio] = useState(true);
 
     const ajustarTamano = () => {
@@ -36,14 +72,14 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
         ctx.scale(dpr, dpr);
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        ctx.strokeStyle = '#0f172a';
-        ctx.lineWidth = 2.2;
+        ctx.strokeStyle = TINTA_FIRMA;
+        ctx.lineWidth = GROSOR;
     };
 
     useEffect(() => {
         ajustarTamano();
         // Al cambiar el tamaño se pierde el dibujo: se limpia para no dejar un trazo deformado.
-        const onResize = () => { ajustarTamano(); limites.current = null; setVacio(true); onChange?.(true); };
+        const onResize = () => { ajustarTamano(); limites.current = null; trazos.current = []; setVacio(true); onChange?.(true); };
         window.addEventListener('resize', onResize);
         return () => window.removeEventListener('resize', onResize);
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -67,10 +103,11 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
         const p = punto(e);
         ultimo.current = p;
         marcar(p);
+        trazos.current.push([p]);
         const ctx = e.currentTarget.getContext('2d')!;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 1.1, 0, Math.PI * 2);
-        ctx.fillStyle = '#0f172a';
+        ctx.arc(p.x, p.y, GROSOR / 2, 0, Math.PI * 2);
+        ctx.fillStyle = TINTA_FIRMA;
         ctx.fill();
     };
 
@@ -84,6 +121,7 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
         ctx.stroke();
         ultimo.current = p;
         marcar(p);
+        trazos.current[trazos.current.length - 1]?.push(p);
         if (vacio) { setVacio(false); onChange?.(false); }
     };
 
@@ -94,27 +132,27 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
         if (!canvas) return;
         canvas.getContext('2d')!.clearRect(0, 0, canvas.width, canvas.height);
         limites.current = null;
+        trazos.current = [];
         setVacio(true);
         onChange?.(true);
     };
 
     useImperativeHandle(ref, () => ({
         clear,
+        // La firma se redibuja desde sus trazos a alta resolución (nítida y en
+        // azul tinta), recortada al área firmada.
         toDataURL: () => {
-            const canvas = canvasRef.current;
             const l = limites.current;
-            if (!canvas || !l || vacio) return null;
-            const dpr = window.devicePixelRatio || 1;
+            if (!l || vacio || !trazos.current.length) return null;
             const margen = 8;
-            const sx = Math.max(0, (l.minX - margen) * dpr);
-            const sy = Math.max(0, (l.minY - margen) * dpr);
-            const sw = Math.min(canvas.width - sx, (l.maxX - l.minX + margen * 2) * dpr);
-            const sh = Math.min(canvas.height - sy, (l.maxY - l.minY + margen * 2) * dpr);
-            const escala = Math.min(1, 600 / sw);
+            const ancho = l.maxX - l.minX + margen * 2;
+            const alto = l.maxY - l.minY + margen * 2;
+            const k = Math.max(1, Math.min(4, ANCHO_EXPORTADO / ancho));
             const out = document.createElement('canvas');
-            out.width = Math.max(1, Math.round(sw * escala));
-            out.height = Math.max(1, Math.round(sh * escala));
-            out.getContext('2d')!.drawImage(canvas, sx, sy, sw, sh, 0, 0, out.width, out.height);
+            out.width = Math.max(1, Math.round(ancho * k));
+            out.height = Math.max(1, Math.round(alto * k));
+            const escalados = trazos.current.map((t) => t.map((p) => ({ x: (p.x - l.minX + margen) * k, y: (p.y - l.minY + margen) * k })));
+            dibujarTrazos(out.getContext('2d')!, escalados, GROSOR * k);
             return out.toDataURL('image/png');
         },
     }));
