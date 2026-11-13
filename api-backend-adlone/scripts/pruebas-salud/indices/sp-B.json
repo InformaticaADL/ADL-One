@@ -1,0 +1,4595 @@
+{
+ "info": {
+  "s": "NTDMora\\ADLLOCAL",
+  "compat": 100,
+  "indices": 105
+ },
+ "ej": {
+  "empresa": 96,
+  "caso": 335212,
+  "fact": 74609
+ },
+ "intacta": true,
+ "salida": {
+  "actualiza_auditoria": {
+   "hash": "da39a3ee5e6b4b0d3255bfef95601890afd80709",
+   "conjuntos": 0,
+   "filas": 0,
+   "ms": 18
+  },
+  "consulta_adm1": {
+   "hash": "1a32b38a54a8b0860d4ab152184501dbd465f3de",
+   "conjuntos": 1,
+   "filas": 48606,
+   "ms": 1250
+  },
+  "Consulta_App_Agenda_AsignarCorrelativo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "Consulta_App_Ma_Normativa": {
+   "hash": "8819e91a03fa76cc47dce6fb53e62ec2bf26911e",
+   "conjuntos": 1,
+   "filas": 11,
+   "ms": 1
+  },
+  "Consulta_App_Ma_NormativaReferencia": {
+   "hash": "9df4c80525c7da9de5ab9deb709feed9f111d857",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "Consulta_App_Ma_ReferenciaAnalisis": {
+   "hash": "98ad41662b8f71eac7597cf40ae1784f4b0652c6",
+   "conjuntos": 1,
+   "filas": 18,
+   "ms": 2
+  },
+  "consulta_atv_nuevos": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 4
+  },
+  "consulta_atv_planilla": {
+   "hash": "7e2ce02c76de7ff711a61df2adf5b0c3b1029801",
+   "conjuntos": 1,
+   "filas": 18921,
+   "ms": 535
+  },
+  "consulta_atv_planilla_sinfacturar": {
+   "hash": "fc544eb88786426eb36a32a1bfb07a982e4b9fdc",
+   "conjuntos": 1,
+   "filas": 2003,
+   "ms": 66
+  },
+  "consulta_atv_planilla_sinfacturarxcaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_atv_planilla_sinfacturarxcaso_cope": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_atv_planilla_sinfacturarxcaso_cope_CostosFijo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 4
+  },
+  "consulta_atv_planilla_sinfacturarxcaso_CostosFijo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 4
+  },
+  "consulta_atv_planilla_v2": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 4
+  },
+  "consulta_auditoria_casos": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_auditoria_casos_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_bac_criopreservacion": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_bm": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_bm_enc": {
+   "hash": "9234ae5d2129d36b82595c4d237dad6adc7e2abb",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 1
+  },
+  "consulta_bm_tablact": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 18
+  },
+  "consulta_bm_tablact_cisa_spesca_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  },
+  "consulta_bm_tablact_cisa_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 35
+  },
+  "consulta_bm_tablact_isa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 29
+  },
+  "consulta_bm_tablact_psevc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "consulta_bm_tablact_psevc_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 27
+  },
+  "consulta_bm_tablact_pva": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 41
+  },
+  "consulta_cargo": {
+   "hash": "04ea55ac651e3669f1566236d95554bd6c55790e",
+   "conjuntos": 1,
+   "filas": 70,
+   "ms": 2
+  },
+  "consulta_cargo_muestreador": {
+   "hash": "79a5ebf654e92442dbd8e50e60607c5ead01f5f4",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "consulta_cargo_obsterreno": {
+   "hash": "4fade05bd1e122f411661788b4d33a11f6e54248",
+   "conjuntos": 1,
+   "filas": 15,
+   "ms": 1
+  },
+  "consulta_caso_analisis_derivado": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "consulta_casos_atrasados": {
+   "hash": "bf654c6977a1735c609ad4e17366f17ae72a43f8",
+   "conjuntos": 1,
+   "filas": 729,
+   "ms": 71
+  },
+  "consulta_casos_atrasados_solounaunidad": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 38
+  },
+  "consulta_casos_atrasados_tecnicas": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 65
+  },
+  "consulta_casos_det": {
+   "hash": "50464b84d5e21dd28f4a87a99cb7cfd8032915a3",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 15
+  },
+  "consulta_casos_det_mam": {
+   "hash": "1128bb5540fd171e1570cd61de6f522243366111",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 13
+  },
+  "consulta_casos_enc": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 12
+  },
+  "consulta_casos_enc_campos": {
+   "hash": "a92eb8e263121a461627fe3973ef16912aa0e6d9",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 3
+  },
+  "consulta_casos_enc_cotizacion": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 19
+  },
+  "consulta_casos_enc_id": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 2
+  },
+  "consulta_casos_enc_ma": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 12
+  },
+  "consulta_casos_enc_MAM_OI": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 8
+  },
+  "consulta_casos_enc_MAM_OI_sede": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 8
+  },
+  "consulta_casos_enc_sede": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 9
+  },
+  "consulta_casos_enc_sede_id": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 2
+  },
+  "consulta_casos_enc_sede_ma": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 4
+  },
+  "consulta_casos_enc_unidad": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 7
+  },
+  "consulta_casos_interface": {
+   "hash": "de9b51f30965f06ede550c1b2d5bd2a4caeed066",
+   "conjuntos": 1,
+   "filas": 48935,
+   "ms": 1581
+  },
+  "consulta_casos_interface_tecnica": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 42
+  },
+  "consulta_casos_interface_unidad": {
+   "hash": "de9b51f30965f06ede550c1b2d5bd2a4caeed066",
+   "conjuntos": 1,
+   "filas": 48935,
+   "ms": 1427
+  },
+  "consulta_casos_interface_unidad_tecnica": {
+   "hash": "8eeea7ed672c4756c56584ce40dc7a4f8f61c86f",
+   "conjuntos": 1,
+   "filas": 3357,
+   "ms": 263
+  },
+  "consulta_casos_online_unidad": {
+   "hash": "8dc3725cd6e398d2b8120ad387213659b933b225",
+   "conjuntos": 1,
+   "filas": 11,
+   "ms": 9
+  },
+  "consulta_casos_screening_villarrica_noenviados": {
+   "hash": "fd514f9533022779be74b74df5fe28f820517f8a",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 13
+  },
+  "consulta_casosporanalista": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_centro": {
+   "hash": "61cc40b0eaefed5489b73f4cd3b773321b4c2a7a",
+   "conjuntos": 1,
+   "filas": 6047,
+   "ms": 131
+  },
+  "consulta_centro_empresa": {
+   "hash": "7982e7d9227cf3ac06ee74f2c5b8af841892fe9b",
+   "conjuntos": 1,
+   "filas": 152,
+   "ms": 6
+  },
+  "consulta_centro_empresa_contacto": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 7
+  },
+  "consulta_centro_empresa_contacto_programa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_centro_empresa_gameto": {
+   "hash": "a9b5dac9ce240435534409142049a34ef4046f22",
+   "conjuntos": 1,
+   "filas": 152,
+   "ms": 8
+  },
+  "consulta_cisa_p1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 7
+  },
+  "consulta_cisa_p3_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_cisa_p4_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_cisa_tipolista": {
+   "hash": "bc3346377d37d4d59a6eeeb1d782f65360f47dfc",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_ciudad": {
+   "hash": "d6729ce37b1402b407da4d3db45f5dc1822751a4",
+   "conjuntos": 1,
+   "filas": 73,
+   "ms": 2
+  },
+  "consulta_co_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 11
+  },
+  "consulta_co_atv_cope": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 9
+  },
+  "consulta_co_atv_cope_CostosFijo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_co_atv_CostosFijo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_co_caso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "Consulta_CO_Ensalije": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_comuna": {
+   "hash": "14d9f205a24eacea3a8c41470269bfb3a3377002",
+   "conjuntos": 1,
+   "filas": 100,
+   "ms": 2
+  },
+  "consulta_comunaef": {
+   "hash": "97226f83344253699f3aa8b5471d0b6104fd8e49",
+   "conjuntos": 1,
+   "filas": 111,
+   "ms": 1
+  },
+  "consulta_contacto": {
+   "hash": "eeb132809493338fcf16f652b66169e6d77f9e09",
+   "conjuntos": 1,
+   "filas": 3337,
+   "ms": 24
+  },
+  "consulta_contacto_una_empresa": {
+   "hash": "564997fd80b95ae80e6dab45e478eb86bd6b1d06",
+   "conjuntos": 1,
+   "filas": 50,
+   "ms": 8
+  },
+  "consulta_contacto_una_empresa_facturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "Consulta_CorreoRedirecciones": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "Consulta_CorreoRedirecciones_ACTIVAR": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_ct_individuos": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_cuantas_identificaciones": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_cultivocelular": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_cumpleanos": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_comercial": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_comercial_item": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_microscopia": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_siexiste": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_siexiste_item": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_siexiste_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_siexiste_ma_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_siexiste_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_siexiste_v3": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_derivaciones_v3": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_dilucion": {
+   "hash": "a8eefda48bf819c7b96a80d3a3e3ac034fc16979",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 1
+  },
+  "consulta_direccion": {
+   "hash": "6c325846b54b6d8147c7e21df4e7fb23f35b4c6b",
+   "conjuntos": 1,
+   "filas": 516,
+   "ms": 3
+  },
+  "consulta_ef_contacto_sede": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_eliminacion": {
+   "hash": "ffe1e194dd9f56cdfc7ae043119301d5d42f49ef",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "consulta_email_contramuestra": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  },
+  "consulta_email_flavo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_email_medioambiente_facturado": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 5
+  },
+  "consulta_email_tecnica": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_emailguia_det": {
+   "hash": "d6b65064c4d47f61f212f50e84d2fc96c87231ad",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "consulta_emailguia_enc": {
+   "hash": "8804eff2432b885d6783c646b1ed34c326884ac5",
+   "conjuntos": 1,
+   "filas": 78,
+   "ms": 1
+  },
+  "consulta_empresaservicio_declaracion": {
+   "hash": "faac0e91e5cf12e855ae591b8a470d985ed4e6f7",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_enmienda_poraprobar_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_equipo_formacanal": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_equipo_medicion": {
+   "hash": "75c6c4d3af812354de58d4d3d6a95c92c66b0535",
+   "conjuntos": 1,
+   "filas": 28,
+   "ms": 1
+  },
+  "consulta_equipo_medidorcloro": {
+   "hash": "52f9b75b35c60dd98940e8adfb8e8c71873baff4",
+   "conjuntos": 1,
+   "filas": 27,
+   "ms": 1
+  },
+  "consulta_equipo_medidoroxigeno": {
+   "hash": "5fe7f719475ac2664216fb01ab02e13f05e9a2c5",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "consulta_equipo_modalidad": {
+   "hash": "2d8f17280485c8b9bc241af5b9f266e2befbc0a0",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 1
+  },
+  "consulta_equipo_muestreo": {
+   "hash": "13c911e70ecca08e93f96adb8ab298a8df7f995e",
+   "conjuntos": 1,
+   "filas": 35,
+   "ms": 1
+  },
+  "consulta_equipo_multiparametro": {
+   "hash": "d2ad5b513077ba9a46b9be1cf79082ed0ed12863",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_equipo_ph": {
+   "hash": "8338dcd59c40b5cd22f70d972bdbf082e167a0e7",
+   "conjuntos": 1,
+   "filas": 47,
+   "ms": 1
+  },
+  "consulta_es_ef": {
+   "hash": "a009a8d6be1d0ba6b1b8c539aa62820f067abc56",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_est_bmolecular_ct_2008": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "consulta_est_bmolecular_ct_2009": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 19
+  },
+  "consulta_est_bmolecular_ct_2010": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 19
+  },
+  "consulta_est_facturacionporfecha": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 203
+  },
+  "consulta_est_facturacionporfecha_investigacion": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 83
+  },
+  "consulta_est_individualizacion": {
+   "hash": "7b5ace9e973a50bab7702c16ae7fc074cc686257",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 50
+  },
+  "consulta_est_nanalisis_2008": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 19
+  },
+  "consulta_est_nanalisis_2009": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 18
+  },
+  "consulta_est_nanalisis_2010": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 17
+  },
+  "consulta_est_nanalisis_2011": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 16
+  },
+  "consulta_est_nanalisis_2012": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 18
+  },
+  "consulta_est_nanalisis_2013": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 18
+  },
+  "consulta_est_nanalisis_2014": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 18
+  },
+  "consulta_est_nanalisis_2015": {
+   "hash": "4cf2a6516816b928c76ad3d9fdd77a96e82063e7",
+   "conjuntos": 1,
+   "filas": 257407,
+   "ms": 5054
+  },
+  "consulta_est_nanalisis_2015_sem1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 36
+  },
+  "consulta_est_nanalisis_2015_sem2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 28
+  },
+  "consulta_est_nanalisis_2016_sduhalde": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 28
+  },
+  "consulta_est_nanalisis_2016_sem1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 16
+  },
+  "consulta_est_nanalisis_2016_sem2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 16
+  },
+  "consulta_est_nanalisis_2017_sem1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 16
+  },
+  "consulta_est_nanalisis_2017_sem1_sduhalde": {
+   "hash": "8cb21f3082f8b90b77e208ffe224d7673444fa51",
+   "conjuntos": 1,
+   "filas": 27632,
+   "ms": 766
+  },
+  "consulta_est_nanalisis_2017_sem2": {
+   "hash": "4dca6e757c46f2a4bb0ec8ef93f6e28999626775",
+   "conjuntos": 1,
+   "filas": 257407,
+   "ms": 5817
+  },
+  "consulta_est_nanalisis_calidad": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 148
+  },
+  "consulta_est_nanalisis_gc": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 173
+  },
+  "consulta_estado_caso": {
+   "hash": "ea9b1f06fe0eb72a5460b0866025ad5b1d07911e",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 2
+  },
+  "consulta_estado_derivacion": {
+   "hash": "207850c91570622c9bdc16686a8a4fbeea737e5b",
+   "conjuntos": 1,
+   "filas": 11,
+   "ms": 3
+  },
+  "consulta_estado_enviado": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 5
+  },
+  "consulta_etiqueta": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_etiqueta_pool": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 4
+  },
+  "consulta_facturacion_ocompra": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 4
+  },
+  "consulta_facturacion_ordendecompra": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 9
+  },
+  "consulta_facturacion_otros": {
+   "hash": "2e774affe26458257bcfe9ca46f086690ec7feb4",
+   "conjuntos": 1,
+   "filas": 2461,
+   "ms": 43
+  },
+  "consulta_facturacion_otros_factura": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  },
+  "consulta_facturacion_otros_factura_otrasventas": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 5
+  },
+  "consulta_ficha_una_empresa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_ficha_una_empresa_AquagenMultisea": {
+   "hash": "a8f9e4b3b5571ad4d39629562aa143b36d53a6da",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "Consulta_Frecuencia_Periodo": {
+   "hash": "ad47a97f0c1fee747234c154d3fd0bd64e3bf3ab",
+   "conjuntos": 1,
+   "filas": 12,
+   "ms": 1
+  },
+  "consulta_Genovariantes_resultado": {
+   "hash": "de46758ec6887618463da342b84a9acc7fb9365e",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "consulta_giro": {
+   "hash": "ec16514ca6e1abf74910824b190ea3c199570b1a",
+   "conjuntos": 1,
+   "filas": 373,
+   "ms": 2
+  },
+  "consulta_grupocontacto": {
+   "hash": "ea1b46298981d37ff757e7c2f268421d021cf2de",
+   "conjuntos": 1,
+   "filas": 253,
+   "ms": 2
+  },
+  "consulta_indv_det": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_indv_enc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_indv_informe": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_informe_centro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 14
+  },
+  "consulta_informe_necroext": {
+   "hash": "9172e1ee136f67958f9426abb257d26e6329e8ac",
+   "conjuntos": 1,
+   "filas": 161,
+   "ms": 5
+  },
+  "consulta_informe_necroint": {
+   "hash": "a6b1242eadc7befa743115f50d6fdf60ae366d6d",
+   "conjuntos": 1,
+   "filas": 194,
+   "ms": 6
+  },
+  "consulta_ingreso_tecnica_pordia": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_ingreso_tecnica_pordia_ay": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_ingreso_tecnica_pordia_ca": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_ingreso_tecnica_pordia_pm": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_ingreso_tecnica_pordia_vi": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_inspectorambiental": {
+   "hash": "12f72bfd4e8d55a7254003faa7b03d5a1b5f9300",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_inspectorambiental_declaracion": {
+   "hash": "d84fa2433eff2de81457bf0fb785525514117b4d",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_isa_fb": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 43
+  },
+  "consulta_jaula_ifat": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 11
+  },
+  "consulta_laboratorioensayo": {
+   "hash": "f7bea94a73203828856f9f176a1794b456cba202",
+   "conjuntos": 1,
+   "filas": 30,
+   "ms": 1
+  },
+  "consulta_ld_contacto_empresa_habilitado": {
+   "hash": "c2f0a0b57d9ef0f240e2489448c73ce01ee2eb63",
+   "conjuntos": 1,
+   "filas": 84,
+   "ms": 3
+  },
+  "consulta_ld_ef": {
+   "hash": "c6271a390433c622b21a78de941b36efa02d5ba9",
+   "conjuntos": 1,
+   "filas": 3645,
+   "ms": 43
+  },
+  "consulta_ld_ef_grupo": {
+   "hash": "c5554b27e993d166f512cb79ceeb556af4e681ac",
+   "conjuntos": 1,
+   "filas": 213,
+   "ms": 3
+  },
+  "consulta_ld_ef_grupo_contacto": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_ld_ef_grupo_contacto_pm": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_ld_ef_grupo_contacto_vi": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_ld_ef_grupo_pm": {
+   "hash": "ee0152cbd258161e1ea9734eb0990017ab2d71db",
+   "conjuntos": 1,
+   "filas": 150,
+   "ms": 3
+  },
+  "consulta_ld_ef_grupo_vi": {
+   "hash": "ca4458bf7d52dd58309f67fd5f07bdd5432a04e1",
+   "conjuntos": 1,
+   "filas": 77,
+   "ms": 2
+  },
+  "consulta_ld_es": {
+   "hash": "d0b42b5c0d12205aba9c7faf71b83b0c2d55316f",
+   "conjuntos": 1,
+   "filas": 45437,
+   "ms": 1096
+  },
+  "consulta_ld_es_agrupado": {
+   "hash": "28d9e8abe1a043760350a74d59bb1380400b06e9",
+   "conjuntos": 1,
+   "filas": 50,
+   "ms": 17
+  },
+  "consulta_ld_es_agrupado_pm": {
+   "hash": "293d023e4c09a554dfc12c8f8efc007063770bde",
+   "conjuntos": 1,
+   "filas": 52,
+   "ms": 16
+  },
+  "consulta_ld_es_agrupado_pm_v2": {
+   "hash": "67739dbf17b30eb922d822f6ede04602e88d3f99",
+   "conjuntos": 1,
+   "filas": 84,
+   "ms": 4
+  },
+  "consulta_ld_es_agrupado_vi": {
+   "hash": "293d023e4c09a554dfc12c8f8efc007063770bde",
+   "conjuntos": 1,
+   "filas": 52,
+   "ms": 17
+  },
+  "consulta_ld_es_pm": {
+   "hash": "4ce0647a785a3ceff945c6f04adbab36c67f13eb",
+   "conjuntos": 1,
+   "filas": 39251,
+   "ms": 932
+  },
+  "consulta_ld_es_vi": {
+   "hash": "a6f9d90d381c9728430de9744c06e487f5d494ae",
+   "conjuntos": 1,
+   "filas": 1896,
+   "ms": 68
+  },
+  "consulta_listaprecio_cliente": {
+   "hash": "136b0d73cb869e85b21c5d7554b3e9ce85c8107c",
+   "conjuntos": 1,
+   "filas": 255,
+   "ms": 24
+  },
+  "consulta_listaprecio_cliente_antibiograma": {
+   "hash": "770d1c05f7f1588acc8b631852f4527024bc398a",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 15
+  },
+  "consulta_listaprecio_cliente_identificacion": {
+   "hash": "ce3fc2faa4a3255f0d6d0185c8d663e98688422b",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 15
+  },
+  "consulta_listaprecio_cliente_unatecnica": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_jornada_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_tecnicas_porrangomuestras": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_cisa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_cisa_porcentro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_especial": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_pack": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_pva": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_pva_porcentro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_screening_multiplex": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_srs": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_listaprecio_unatecnica_srs_porcentro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_ma_datos_terreno": {
+   "hash": "850708128dc1ed4db1926e8f5a57439e77f6817f",
+   "conjuntos": 1,
+   "filas": 8563,
+   "ms": 82
+  },
+  "consulta_ma_nuevos": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 3
+  },
+  "consulta_ma_planilla": {
+   "hash": "fba909b7ae497e53b2b74c21a80d8acb53e634f2",
+   "conjuntos": 1,
+   "filas": 18921,
+   "ms": 524
+  },
+  "consulta_ma_precios_empresa_centro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_ma_tabla_empresa_centro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_actividadmuestreo": {
+   "hash": "bebfafde2988e1d7cb3f9e566b84ceb27f814882",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 1
+  },
+  "consulta_mae_agente": {
+   "hash": "de44f5d3a7803de7374454c9e0d6cdada10b8aa4",
+   "conjuntos": 1,
+   "filas": 1958,
+   "ms": 26
+  },
+  "consulta_mae_agente_proteomica": {
+   "hash": "98bbccb301decf819b41ca12f0052e7c3b70ee39",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 3
+  },
+  "consulta_mae_anegocio": {
+   "hash": "9d84454d15e87770ff53ce3982ebf281e26d200b",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "consulta_mae_atv_objetivo": {
+   "hash": "0a9892078aa32c8f896c118125b3e136993f389c",
+   "conjuntos": 1,
+   "filas": 12,
+   "ms": 2
+  },
+  "consulta_mae_barrio": {
+   "hash": "7cd5a4741e01552190ea43e6eebd28807ee09244",
+   "conjuntos": 1,
+   "filas": 83,
+   "ms": 1
+  },
+  "Consulta_mae_centro_auditoria": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "Consulta_mae_centro_casos": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "Consulta_mae_centro_programas": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 12
+  },
+  "consulta_mae_contacto": {
+   "hash": "6cf477dedd3286246eaa3b0ab93361261521c0fb",
+   "conjuntos": 1,
+   "filas": 3337,
+   "ms": 32
+  },
+  "consulta_mae_diagnostico": {
+   "hash": "cc8e709baec06bf78b2d086f8e0f33046c6966db",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "Consulta_Mae_Dispositivohidraulico": {
+   "hash": "17c7b47eb76271dd340b68e9f357e926e458ed8c",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "consulta_mae_empleado": {
+   "hash": "0f28f5a688dee6da307d288e0dacff653bc53b39",
+   "conjuntos": 1,
+   "filas": 136,
+   "ms": 3
+  },
+  "consulta_mae_empresa": {
+   "hash": "d02b409ab83c831456ad147513fa97f8312b8489",
+   "conjuntos": 1,
+   "filas": 539,
+   "ms": 3
+  },
+  "consulta_mae_especie": {
+   "hash": "a626779cda3e6b16f28ef2ae66ba491835647f5b",
+   "conjuntos": 1,
+   "filas": 18,
+   "ms": 1
+  },
+  "consulta_mae_especie_samic": {
+   "hash": "6661dd9ba2dbf070d0d8c5460346fdb25ad0a156",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 1
+  },
+  "consulta_mae_estadio_samic": {
+   "hash": "b3e10393788210b2ac82b5de71658e85e75928e0",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "Consulta_Mae_Formacanal": {
+   "hash": "ee90409fc892dcb6cc2a9d3cfa2eb8cc8a049d65",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 1
+  },
+  "consulta_mae_formapago": {
+   "hash": "37fb9196ac3885d4ca99b05daf83873b05c08b9c",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "consulta_mae_glosa": {
+   "hash": "3096ce3c84fdebb8bfdbec9544117e577ccafed3",
+   "conjuntos": 1,
+   "filas": 297,
+   "ms": 4
+  },
+  "consulta_mae_glosa_tipodocumento": {
+   "hash": "1e96313700747b0c9614a2b064592290ef4fd3da",
+   "conjuntos": 1,
+   "filas": 254,
+   "ms": 3
+  },
+  "consulta_mae_id": {
+   "hash": "6a07b60d9aa34ab7dea43d0a777c2c6a6b09c4fc",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 2
+  },
+  "consulta_mae_intensidad": {
+   "hash": "36957ff84c561d49df1904b55f15947bd6f99333",
+   "conjuntos": 1,
+   "filas": 22,
+   "ms": 1
+  },
+  "consulta_mae_medios": {
+   "hash": "2131724308e46840de4cd98ca65a4ec72332785b",
+   "conjuntos": 1,
+   "filas": 21,
+   "ms": 1
+  },
+  "Consulta_Mae_Modalidad": {
+   "hash": "e0195693d13d314c658c484ab0079ea55b4c35ab",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "consulta_mae_organo": {
+   "hash": "186aa8b288a636e664a9eccacf9da30de0ed9290",
+   "conjuntos": 1,
+   "filas": 535,
+   "ms": 3
+  },
+  "consulta_mae_organo_samic": {
+   "hash": "32429d85a21832978792dceeeba85d4880685746",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "consulta_mae_pack_det": {
+   "hash": "a593a7ecce2e10e51eccfe66c9486af99e8eb9f2",
+   "conjuntos": 1,
+   "filas": 114,
+   "ms": 2
+  },
+  "consulta_mae_pack_enc": {
+   "hash": "b493fbf36d4764cf0ab020298f89763f69386c91",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "consulta_mae_preciocisa": {
+   "hash": "4438be551d238608765a7da5d1781fe69a07662e",
+   "conjuntos": 1,
+   "filas": 101,
+   "ms": 4
+  },
+  "consulta_mae_preciocisa_centros": {
+   "hash": "81492de5d4a2195d434d35a61e6a44333c40933f",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 3
+  },
+  "consulta_mae_preciocisa_existeempresa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_preciocisadet": {
+   "hash": "208def47907ca3011dce520aecd3d40a902a63ae",
+   "conjuntos": 1,
+   "filas": 172,
+   "ms": 2
+  },
+  "consulta_mae_preciopreferencial": {
+   "hash": "fcd27535398bf0716dc6686350389bc57d9fbc38",
+   "conjuntos": 1,
+   "filas": 47,
+   "ms": 1
+  },
+  "consulta_mae_preciopreferencialdet": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_preciopva": {
+   "hash": "f331484ab835fea02388fad27149cc22f2126206",
+   "conjuntos": 1,
+   "filas": 93,
+   "ms": 2
+  },
+  "consulta_mae_preciopva_centros": {
+   "hash": "81492de5d4a2195d434d35a61e6a44333c40933f",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 3
+  },
+  "consulta_mae_preciopva_existeempresa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_preciopvadet": {
+   "hash": "6bd26fe7eb00cbbfc49ba3c27bbe9d8c23376db2",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "consulta_mae_precioscreening": {
+   "hash": "325242c128500630852a6ac107b25d83145fdf1e",
+   "conjuntos": 1,
+   "filas": 38,
+   "ms": 2
+  },
+  "consulta_mae_precioscreening_repetidos": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_precioscreeningdet": {
+   "hash": "f359850d3e4c9b51191fa44239fc66f27c781f32",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 1
+  },
+  "consulta_mae_preciosensilaje": {
+   "hash": "0b300ef5be677036ee6c9cd578255d1cdd754181",
+   "conjuntos": 1,
+   "filas": 193,
+   "ms": 4
+  },
+  "consulta_mae_preciosensilajedet": {
+   "hash": "afc2b59f5473edb6596d0ba833a728a6064ea778",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "consulta_mae_preciosma": {
+   "hash": "a70bcb094bf9b5705f25f34dd886ab1575f36abd",
+   "conjuntos": 1,
+   "filas": 869,
+   "ms": 11
+  },
+  "consulta_mae_preciosma_excel": {
+   "hash": "b7fe0307a0eddf0a06abcd7b2c78e4868ef37229",
+   "conjuntos": 1,
+   "filas": 13562,
+   "ms": 147
+  },
+  "consulta_mae_preciosmadet": {
+   "hash": "983628b06aeed39af278b525fbbc53df866d2750",
+   "conjuntos": 1,
+   "filas": 46,
+   "ms": 3
+  },
+  "consulta_mae_preciosproa": {
+   "hash": "090a9393526d562f445930ba5acc3fe3a51fe3b1",
+   "conjuntos": 1,
+   "filas": 12,
+   "ms": 2
+  },
+  "consulta_mae_preciosproadet": {
+   "hash": "6f383e3a9c6adca7a49a4d315c767cdcfd471d20",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "consulta_mae_preciosproy": {
+   "hash": "858323a5203f294fc62f87e354fbc92205138df9",
+   "conjuntos": 1,
+   "filas": 375,
+   "ms": 5
+  },
+  "consulta_mae_preciosproydet": {
+   "hash": "693ed1a6f4e0b0c805e08f1de6aa72af12bacd0b",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 2
+  },
+  "consulta_mae_preciosrs": {
+   "hash": "059e39853d9dd6bc5c95b5e0dfa4de4e79ef7439",
+   "conjuntos": 1,
+   "filas": 69,
+   "ms": 1
+  },
+  "consulta_mae_preciosrs_centros": {
+   "hash": "81492de5d4a2195d434d35a61e6a44333c40933f",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 3
+  },
+  "consulta_mae_preciosrs_existeempresa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_preciosrsdet": {
+   "hash": "8cedf33a8afa683a0654e0744cc9c5e1e7546952",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "consulta_mae_preciossamic": {
+   "hash": "60e5ef3f4c00a334c4acbc5d389d305e420cbc53",
+   "conjuntos": 1,
+   "filas": 441,
+   "ms": 8
+  },
+  "consulta_mae_preciossamicdet": {
+   "hash": "b227d0b8fd98de1834e9803718d3079a80416af3",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 2
+  },
+  "consulta_mae_preciosunproyecto": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_mae_programa": {
+   "hash": "367127d73c3ac93979a9c6158dc5b507d8b8d8fd",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "consulta_mae_programama_det": {
+   "hash": "fd87e3041f39582f5c7e87f772133bceef87cc88",
+   "conjuntos": 1,
+   "filas": 162,
+   "ms": 4
+  },
+  "consulta_mae_proyecto": {
+   "hash": "8411999643dde8c3df1e4cc797122e7a13509928",
+   "conjuntos": 1,
+   "filas": 93,
+   "ms": 2
+  },
+  "consulta_mae_tablama_habilitados": {
+   "hash": "c1c1ba1610ce81e0059b0f61cd43d70cd5f71aee",
+   "conjuntos": 1,
+   "filas": 489,
+   "ms": 4
+  },
+  "consulta_mae_tablamadet": {
+   "hash": "7420a318b67947e1aeb5e0132a17a6d4164390ec",
+   "conjuntos": 1,
+   "filas": 32,
+   "ms": 3
+  },
+  "consulta_mae_tablas_campos": {
+   "hash": "64350f5baeb1efd5adf7eb4cfd008092fc4042a5",
+   "conjuntos": 1,
+   "filas": 34,
+   "ms": 1
+  },
+  "consulta_mae_tipodescarga": {
+   "hash": "f7c60865090d5a337e2813ba9d9c84ed3fa2cb65",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 1
+  },
+  "consulta_mae_tipodocumento": {
+   "hash": "ddbd5fc646781354a5c6bf517b706ded187e8846",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "consulta_mae_tipomuestra": {
+   "hash": "ae168bc0258f861813104ba172f1224aba31e469",
+   "conjuntos": 1,
+   "filas": 144,
+   "ms": 3
+  },
+  "consulta_mae_unegocio": {
+   "hash": "b920a21a6b01055ff8b25c239fd28b6b3f3df062",
+   "conjuntos": 1,
+   "filas": 12,
+   "ms": 2
+  },
+  "consulta_maestro_genovariante_combinacion": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_maestro_tecnica_seccion": {
+   "hash": "d9c09aa5308307c495701a30bf0e80ab6413b8c0",
+   "conjuntos": 1,
+   "filas": 25,
+   "ms": 2
+  },
+  "consulta_MAM_estadistica1": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 107
+  },
+  "consulta_mam_lugarcompuesta": {
+   "hash": "1c17169ece137e2cefe276eabea5bf44e8e12cd1",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "consulta_max_pool": {
+   "hash": "e037bc72f2cdcf1c4ade01bee6b370f6257a371f",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 4
+  },
+  "consulta_mcargoadl": {
+   "hash": "0e9dd29954d0753351e86d89b3485433dceedaaf",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "consulta_mespecie": {
+   "hash": "2879a8d679a6852fe8749979175680a3edf2dace",
+   "conjuntos": 1,
+   "filas": 18,
+   "ms": 1
+  },
+  "consulta_mfuncionario": {
+   "hash": "287e25881eb91b216a1193a242e8d0379fb47b3d",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_mic_det": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_mic_enc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_microscopia": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_morfometria_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_muestreador_declaracion": {
+   "hash": "623671bdf983a3e61fd745ef18b2c4ab386bc144",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_n_antibiogramasespeciales": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 10
+  },
+  "consulta_n_antibiogramaxcaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_n_identificacionesxcaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_ne_hallazgo": {
+   "hash": "3c0d3a4c598ada63132abd88a63be8f1ed1824c5",
+   "conjuntos": 1,
+   "filas": 353,
+   "ms": 2
+  },
+  "consulta_ne_intensidad": {
+   "hash": "20f1cdc6874ed9d1809eaf45552c5196ffea5725",
+   "conjuntos": 1,
+   "filas": 816,
+   "ms": 4
+  },
+  "consulta_ne_localizacion": {
+   "hash": "ca0012fe815524e1b18c809fa4ab82664767be40",
+   "conjuntos": 1,
+   "filas": 660,
+   "ms": 4
+  },
+  "consulta_ne_organo": {
+   "hash": "71321dd37ce11fddbc6e1b346a0296620d927b33",
+   "conjuntos": 1,
+   "filas": 26,
+   "ms": 1
+  },
+  "consulta_necropsia_online": {
+   "hash": "a9cd1d8626752edd3e78e4a2813b0be16ad302e3",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "consulta_necropsia_online_sede": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_next_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 14
+  },
+  "consulta_ni_hallazgo": {
+   "hash": "c90310c479c46747345b63772039f986db25f0a3",
+   "conjuntos": 1,
+   "filas": 454,
+   "ms": 3
+  },
+  "consulta_ni_intensidad": {
+   "hash": "cc29f2d3ee4c0ee610e18353c796e2f4fc1744e4",
+   "conjuntos": 1,
+   "filas": 703,
+   "ms": 7
+  },
+  "consulta_ni_localizacion": {
+   "hash": "ba44ffbae81e67a29d4630b77ba63be55a3116c9",
+   "conjuntos": 1,
+   "filas": 565,
+   "ms": 3
+  },
+  "consulta_nint_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 14
+  },
+  "consulta_objetivomuestreo_ma": {
+   "hash": "f58ddc39361debe6682610364e85543897fefd5f",
+   "conjuntos": 1,
+   "filas": 34,
+   "ms": 1
+  },
+  "consulta_objetivomuestreo_ma_oservicios": {
+   "hash": "0ec259e3a10808c39af018147b3db30895925eea",
+   "conjuntos": 1,
+   "filas": 19,
+   "ms": 1
+  },
+  "consulta_ocompra_facturacion": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 7
+  },
+  "consulta_ocompra_facturacion_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_ocompra_facturacion_v3": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 8
+  },
+  "consulta_ot_necropsia": {
+   "hash": "baf65f1a6de0740b1b46b80a9629e902afa82f79",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 21
+  },
+  "consulta_p1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_p2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_p3": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_p4": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_pasaje": {
+   "hash": "c36e1c53ccd377a48d72914a7422d484331009fc",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 1
+  },
+  "consulta_patogenmuestreador": {
+   "hash": "1ab934cf3cd1c532ed35a27748fb51e839bdf343",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "consulta_procedimiento": {
+   "hash": "b54f39b41723cdd33d0f4715886ec19bd42cf3c4",
+   "conjuntos": 1,
+   "filas": 431,
+   "ms": 5
+  },
+  "consulta_procedimiento_sede": {
+   "hash": "4ec42ff7323781082565c48851c68f44b1696ef4",
+   "conjuntos": 1,
+   "filas": 203,
+   "ms": 3
+  },
+  "consulta_programa": {
+   "hash": "367127d73c3ac93979a9c6158dc5b507d8b8d8fd",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "consulta_programa_todos": {
+   "hash": "367127d73c3ac93979a9c6158dc5b507d8b8d8fd",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "consulta_proteomica_tecnica_agente": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_proyecto_facturar_det": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_proyecto_facturar_enc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_pva_lineacelular": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_pva_p1": {
+   "hash": "1d44d8b83fcd9127ff95157dccf1018cfc7ad5e7",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 2
+  },
+  "consulta_pva_p3": {
+   "hash": "873e1b431c1c1ef7adf4a07afa166b41a9343bc9",
+   "conjuntos": 1,
+   "filas": 64,
+   "ms": 11
+  },
+  "consulta_pva_p3_v2_n_informe": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "consulta_pva_p4": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_pva_tipolista": {
+   "hash": "5f4c0274de93a760103199190337eddd91156fa7",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_realizadopor": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_recepcion_cliente": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 45
+  },
+  "consulta_recepcion_cliente_agrupa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_recepcion_cliente_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 85
+  },
+  "consulta_recepcion_cliente_ma_der": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 29
+  },
+  "consulta_recepcion_cliente_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_recepcion_cliente_samic_valida_ATL": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 5
+  },
+  "consulta_recepcion_id_caso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_recepcioncliente": {
+   "hash": "aab7bf448bc242ffe98ac5cab0b06140d53f5b13",
+   "conjuntos": 1,
+   "filas": 294988,
+   "ms": 8310
+  },
+  "consulta_region": {
+   "hash": "c0980e5df831075c90104d0e5f355e84c0c37472",
+   "conjuntos": 1,
+   "filas": 18,
+   "ms": 1
+  },
+  "consulta_responsable_unegocio": {
+   "hash": "da3982f09444d3cf96e71ac66a83f9d1d14ce969",
+   "conjuntos": 1,
+   "filas": 19,
+   "ms": 1
+  },
+  "consulta_responsablelabensayo": {
+   "hash": "86dba76c488a473161b34b28c029ff6583fe1cad",
+   "conjuntos": 1,
+   "filas": 14,
+   "ms": 1
+  },
+  "consulta_resultado_caso_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_resultado_caso_samic_pool1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 3
+  },
+  "consulta_resultado_proteomica": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_resultado_proteomica_informe": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 3
+  },
+  "consulta_sc_constitucion_pool": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_sc_constitucion_pool_uno": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_sc_crotal": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "consulta_scconstitucionpool": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_scconstitucionpool2011": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_sceliminados": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_scree_constitucionpool": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_scree_crotal": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "consulta_scree_eliminados": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_screening_corr": {
+   "hash": "6ed57f09e67fe5f9d4be2cda2f3e0b9fe0add81b",
+   "conjuntos": 1,
+   "filas": 45,
+   "ms": 1
+  },
+  "consulta_srs_p1": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_srs_p3": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  },
+  "consulta_srs_p3_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  },
+  "consulta_srs_p3_v2_n_informe": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 19
+  },
+  "consulta_srs_p4": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 10
+  },
+  "consulta_srs_p4_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 10
+  },
+  "consulta_srs_tabla_estadio": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "consulta_srs_tipolista": {
+   "hash": "49098e9bd426cf2edbf683f58e25ab5346150692",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "consulta_subarea_medioambiente": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_supervisor_sede": {
+   "hash": "d5f0cefedabfdd63c73a4ee751435b7936972905",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "consulta_sv_bm_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 30
+  },
+  "consulta_tecnica": {
+   "hash": "493ae1201af56e335fc43ce465e36b1b035ea8e4",
+   "conjuntos": 1,
+   "filas": 1082,
+   "ms": 20
+  },
+  "consulta_tecnica_ma_ingreso": {
+   "hash": "eef237479b83b5f6a74bc2dab497d88695186b6c",
+   "conjuntos": 1,
+   "filas": 32,
+   "ms": 2
+  },
+  "consulta_tecnica_ma_ingreso_v2": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_tecnica_tipo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_tecnica_umedida": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_tecnica_virologia": {
+   "hash": "8a7be79f60811a549f8a8e36324126340737c9c3",
+   "conjuntos": 1,
+   "filas": 26,
+   "ms": 2
+  },
+  "consulta_tiene_ld": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_tipomuestra_ma": {
+   "hash": "792b02c206821612382d7ae2070796a83f4d61fd",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 2
+  },
+  "consulta_tipomuestra_medioambiente": {
+   "hash": "2ff0c5d2d439dc8ca40d602bf743ea08cbf70574",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 2
+  },
+  "consulta_tipomuestreo_medio_ambiente": {
+   "hash": "a4a86a7d26ebb3b895e172d0582eb2dd9a90062c",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "consulta_tope_tecnica": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_tope_tecnica_ay": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_tope_tecnica_ca": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_tope_tecnica_orden": {
+   "hash": "09d6dc6c4b383750f2676a17c2b0851b07721614",
+   "conjuntos": 1,
+   "filas": 258,
+   "ms": 2
+  },
+  "consulta_tope_tecnica_orden_ay": {
+   "hash": "148ec94b121b11788b01ffce276a1dbda4642ed1",
+   "conjuntos": 1,
+   "filas": 511,
+   "ms": 3
+  },
+  "consulta_tope_tecnica_orden_ca": {
+   "hash": "dd78adc8cc35554c1c2810ccc6c80d5e958e798a",
+   "conjuntos": 1,
+   "filas": 423,
+   "ms": 3
+  },
+  "consulta_tope_tecnica_orden_pm": {
+   "hash": "a0fc974f437c4a49f221145e3a232e2e3def5d49",
+   "conjuntos": 1,
+   "filas": 681,
+   "ms": 4
+  },
+  "consulta_tope_tecnica_orden_vi": {
+   "hash": "dc5415eec5a24c11ec2d6baed075edfb4a4636bb",
+   "conjuntos": 1,
+   "filas": 455,
+   "ms": 7
+  },
+  "consulta_tope_tecnica_pm": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_tope_tecnica_vi": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_topexdia": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_topexdia_ay": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_topexdia_ca": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_topexdia_pm": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_topexdia_vi": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 1
+  },
+  "consulta_ubicacion_centro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_usuario": {
+   "hash": "f5fb1a952799036bc8bf9aeaecca3398764846f2",
+   "conjuntos": 1,
+   "filas": 403,
+   "ms": 4
+  },
+  "consulta_vacaciones_det": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_vacaciones_enc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_vacaciones_suma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_version": {
+   "hash": "6f201f748f096b409e86571a9df4d3fca4eb97ec",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 0
+  },
+  "consulta_vir_diagnostico": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "consulta_vir_lineacelular": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_vir_monitoreo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "consulta_virus": {
+   "hash": "60b0846271bf0ac40aa1ba7ae3f92c076adf5bd1",
+   "conjuntos": 1,
+   "filas": 10,
+   "ms": 1
+  },
+  "ConsultaCasosMowiCostosFijos": {
+   "hash": "794c736370047761f5e59e95abe1e98837f13be8",
+   "conjuntos": 1,
+   "filas": 192,
+   "ms": 83
+  },
+  "ConsultaCeparioWeb_UnCaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 18
+  },
+  "ConsultaPrecioEnsilajeUnaEmpresa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "ConsultaPrecioProaUnaEmpresa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "ConsultaREC_enmiendaUnaRecepcion": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "ConsultaVigenciaCertificadores": {
+   "hash": "e66f5d9d0a1bb7265f48dd2f8295165404c919da",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 1
+  },
+  "fac_agrega_antibiograma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 15
+  },
+  "fac_agrupaempresa": {
+   "hash": "6433ba652569f8f7e0b21498736775f738fd3480",
+   "conjuntos": 1,
+   "filas": 92,
+   "ms": 56
+  },
+  "fac_agrupaempresa_entrefechas": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 37
+  },
+  "fac_agrupaempresa_entrefechas_caligus": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 34
+  },
+  "fac_agrupaempresa_entrefechas_cisa_pvs": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 43
+  },
+  "fac_agrupaempresa_entrefechas_general": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 34
+  },
+  "fac_agrupaempresa_entrefechas_id": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 39
+  },
+  "fac_agrupaempresa_entrefechas_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 34
+  },
+  "fac_agrupaempresa_entrefechas_ma": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 46
+  },
+  "fac_agrupaempresa_entrefechas_pva": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 15
+  },
+  "fac_agrupaempresa_entrefechas_samic": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 36
+  },
+  "fac_agrupaempresa_entrefechas_screening": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 42
+  },
+  "fac_agrupaempresa_entrefechas_screening_recalcular_co": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 38
+  },
+  "fac_agrupaempresa_entrefechas_sd_atv": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 45
+  },
+  "fac_agrupaempresa_entrefechas_sd_atv_ensilaje": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 37
+  },
+  "fac_agrupaempresa_entrefechas_sd_atv_proa": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 40
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 40
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_cisa_pvs": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 42
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_id": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 40
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 33
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_ma": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 32
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_pva": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 25
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 49
+  },
+  "fac_agrupaempresa_entrefechas_unaempresa_sd_atv": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 31
+  },
+  "fac_agrupaempresa_unaempresa": {
+   "hash": "2e76c0f677bbb07220e1442f1948b362de6c82d2",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 34
+  },
+  "fac_agrupaempresacasos": {
+   "hash": "ed98035e6656bf0e4989f359cd02d8b9dc205c08",
+   "conjuntos": 1,
+   "filas": 355,
+   "ms": 68
+  },
+  "fac_agrupaempresacasos_entrefechas": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 4
+  },
+  "fac_agrupaempresacasos_entrefechas_caligus": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 37
+  },
+  "fac_agrupaempresacasos_entrefechas_caligus_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_agrupaempresacasos_entrefechas_cisa_pvs": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 57
+  },
+  "fac_agrupaempresacasos_entrefechas_cisa_pvs_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_agrupaempresacasos_entrefechas_id": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 40
+  },
+  "fac_agrupaempresacasos_entrefechas_id_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_agrupaempresacasos_entrefechas_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 37
+  },
+  "fac_agrupaempresacasos_entrefechas_il_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_agrupaempresacasos_entrefechas_ma": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 59
+  },
+  "fac_agrupaempresacasos_entrefechas_ma_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_agrupaempresacasos_entrefechas_pva": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 39
+  },
+  "fac_agrupaempresacasos_entrefechas_pva_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_agrupaempresacasos_entrefechas_samic": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 49
+  },
+  "fac_agrupaempresacasos_entrefechas_samic_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_agrupaempresacasos_entrefechas_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 46
+  },
+  "fac_agrupaempresacasos_entrefechas_screening_JORNADA": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 17
+  },
+  "fac_agrupaempresacasos_entrefechas_screening_JORNADA_otros_centros": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 19
+  },
+  "fac_agrupaempresacasos_entrefechas_screening_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_agrupaempresacasos_entrefechas_screening_porfacturar_recalcular_co": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 35
+  },
+  "fac_agrupaempresacasos_entrefechas_screening_recalcular_co": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 38
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atbplex_agrupa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 12
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atbplex_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 10
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atv": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 56
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atv_ensilaje": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 53
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atv_porfacturar": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atv_porfacturar_ensilaje": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_agrupaempresacasos_entrefechas_sd_atv_proa": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 66
+  },
+  "fac_agrupaempresacasos_uno": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 16
+  },
+  "fac_agrupaempresacasos_uno_noche": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 15
+  },
+  "fac_agrupaempresacasos_uno_recalcular_co": {
+   "hash": "628a381e45f05a6a0bf72a2e38147fe49443a425",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 13
+  },
+  "fac_agrupaempresacasos_uno_recepcion": {
+   "hash": "9ccac855f94a4aca6587730292fffb8c18971f06",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 13
+  },
+  "fac_agrupaempresacasos_uno_TotalPoolesMultiplex": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 7
+  },
+  "fac_cambiaempresafacturar_det": {
+   "hash": "d063aa11f465da7ed07b2837b744d9f5136fd54c",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 7
+  },
+  "fac_cambiaempresafacturar_enc": {
+   "hash": "fda99b23be27eef1a7d835cb8f82c1dddc07518c",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 4
+  },
+  "fac_completar_derivaciones": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 133
+  },
+  "fac_completar_derivaciones_medioambiente": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 65
+  },
+  "fac_consulta_casossincobrar": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 190
+  },
+  "fac_consulta_casossincobrar_ma": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 214
+  },
+  "fac_consulta_casossincobrar_sede": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 91
+  },
+  "fac_consulta_casossincobrar_sede_pve": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 81
+  },
+  "fac_consulta_creandofacturas_enc": {
+   "hash": "a3d8483344b124dc28adf3612a747c239a642fe4",
+   "conjuntos": 1,
+   "filas": 37991,
+   "ms": 414
+  },
+  "fac_consulta_derivaciones": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 34
+  },
+  "fac_consulta_facturacion_general": {
+   "hash": "3925f6bc7beb53f2c892e36a30bd6b2a3262e6f7",
+   "conjuntos": 1,
+   "filas": 11528,
+   "ms": 285
+  },
+  "fac_consulta_facturacion_ingresos": {
+   "hash": "79ecfecaae3c56513a9dacb47fd1f1f887693451",
+   "conjuntos": 1,
+   "filas": 266028,
+   "ms": 10566
+  },
+  "fac_consulta_facturacion1": {
+   "hash": "3925f6bc7beb53f2c892e36a30bd6b2a3262e6f7",
+   "conjuntos": 1,
+   "filas": 11528,
+   "ms": 299
+  },
+  "fac_consulta_facturacion2": {
+   "hash": "23e6a901eb0ed3f1eb3a3d40c4b2d52b5641b5d0",
+   "conjuntos": 1,
+   "filas": 1181,
+   "ms": 153
+  },
+  "fac_consulta_facturacion3": {
+   "hash": "9d917a190ea6953e2e483c0b078c5da11426ce64",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 18
+  },
+  "fac_consulta_facturacion4": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 9
+  },
+  "fac_consulta_facturacion5": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 4
+  },
+  "fac_consulta_facturaelectronica_exporta": {
+   "hash": "b1e54b58d32f2997017cda70a87231c7b50834dc",
+   "conjuntos": 1,
+   "filas": 5750,
+   "ms": 2148
+  },
+  "fac_consulta_facturaelectronica_exporta_fea": {
+   "hash": "1b2b31a1ac7efcc3924f782ba4903c9eed2068e9",
+   "conjuntos": 1,
+   "filas": 1986,
+   "ms": 89
+  },
+  "fac_consulta_facturaelectronica_exporta_fee": {
+   "hash": "e97e753dd703a8057045202a4418398de3f5d0c0",
+   "conjuntos": 1,
+   "filas": 81,
+   "ms": 17
+  },
+  "fac_consulta_facturaelectronica_exporta_nc": {
+   "hash": "3f9e2a12b2a98f888305cee719d7be61262b1012",
+   "conjuntos": 1,
+   "filas": 393,
+   "ms": 36
+  },
+  "fac_consulta_facturaelectronica_exporta_nd": {
+   "hash": "65270abcd03f3f13da8e8f7ae5f39f52eef8923c",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 13
+  },
+  "fac_consulta_fechas_proceso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 31
+  },
+  "fac_consulta_fechas_proceso_empresas": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 69
+  },
+  "fac_consulta_ninternos": {
+   "hash": "64fda9d934ed827de73810b22f430cfac75d9087",
+   "conjuntos": 1,
+   "filas": 324,
+   "ms": 8
+  },
+  "fac_consulta_oc_asociada": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  },
+  "fac_consulta_una_factura_des": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 4
+  },
+  "fac_consulta_una_factura_enc": {
+   "hash": "e8f716febe19a2b7d1060fed5de84bd346d483e4",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 9
+  },
+  "fac_consulta_una_factura_enc_factura": {
+   "hash": "d4eaad91ace6aa1d2d07c5038ef98ed1374b2f00",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 4
+  },
+  "fac_consulta_una_factura_ing": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 3
+  },
+  "fac_consulta_uncaso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 45
+  },
+  "fac_creandofacturas_det": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 17
+  },
+  "fac_creandofacturas_enc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_det_centro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 190
+  },
+  "fac_det_centro_veterinario": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 191
+  },
+  "fac_det_na": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 196
+  },
+  "fac_det_tagua": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 227
+  },
+  "fac_det_tagua_veterinario": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 226
+  },
+  "fac_det_veterinario": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 185
+  },
+  "fac_excel_detalle": {
+   "hash": "efcc4501511bcc1ebc629e1ba19a54de09844fc6",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 20
+  },
+  "fac_excel_detalle_general": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 237
+  },
+  "fac_excel_detalle_jornada": {
+   "hash": "efcc4501511bcc1ebc629e1ba19a54de09844fc6",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 21
+  },
+  "fac_excel_detalle_lote": {
+   "hash": "169a9c24ad22b9dbfda6f5cc85a2cbdf3fef19bb",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 19
+  },
+  "fac_excel_detalle_nc": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 160
+  },
+  "fac_excel_detalle_SIN_AGRUPAR_POR_CENTRO": {
+   "hash": "9a359559793f23d0c5b7397be5e43462d9fceffc",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 22
+  },
+  "fac_excel_exporta0": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 212
+  },
+  "fac_excel_exporta0_GC": {
+   "error": "Conversion failed when converting date and/or time from character string.",
+   "ms": 250
+  },
+  "fac_excel_exporta0_GC_recepcion": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 182
+  },
+  "fac_excel_exporta0_GC_recepcion_OCompra": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "fac_excel_exporta0_GC_respaldo": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 1654
+  },
+  "fac_excel_exporta1": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 218
+  },
+  "fac_excel_exporta2": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 280
+  },
+  "fac_excel_exporta3": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 345
+  },
+  "fac_excel_exporta4": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 103
+  },
+  "fac_excel_resumen": {
+   "hash": "3e34c799dd00388188f553277712799ab5b7fcdc",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 12
+  },
+  "fac_excel_resumen_general": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 132
+  },
+  "fac_id_proceso": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 71
+  },
+  "fac_maestro_tecnica": {
+   "hash": "3b48d952d80245c53a88b212b41fc0cb11964810",
+   "conjuntos": 1,
+   "filas": 1082,
+   "ms": 33
+  },
+  "fac_ocompra_factura_consulta": {
+   "hash": "facc7624d76aef4ef8ecd6ca424a230e3b71add8",
+   "conjuntos": 1,
+   "filas": 1481,
+   "ms": 38
+  },
+  "fac_prever_programa": {
+   "hash": "2f1216b14170014fdf5440dbfc9e02855df25a83",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 92
+  },
+  "fac_prever_programa_caligus_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_caligus_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_caligus_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_caligus_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_cisa_pvs_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_cisa_pvs_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_cisa_pvs_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_cisa_pvs_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_id_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 31
+  },
+  "fac_prever_programa_id_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 32
+  },
+  "fac_prever_programa_id_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 30
+  },
+  "fac_prever_programa_id_tagua_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 32
+  },
+  "fac_prever_programa_id_taguaveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 30
+  },
+  "fac_prever_programa_id_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_il_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_il_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_il_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_il_tagua_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_il_taguaveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_il_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_ma_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_ma_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 27
+  },
+  "fac_prever_programa_ma_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_ma_tagua_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_ma_taguaveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_ma_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_op_centro_id": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_op_centro_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 19
+  },
+  "fac_prever_programa_op_centro_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_op_centro_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_op_centro_sd_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_op_centroveterinario_id": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_op_centroveterinario_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_op_centroveterinario_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_op_centroveterinario_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_op_centroveterinario_sd_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_op_na_id": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_na_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "fac_prever_programa_op_na_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_na_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_op_na_sd_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "fac_prever_programa_op_tagua_id": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_op_tagua_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_op_tagua_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_tagua_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_tagua_sd_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_taguaveterinario_id": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_taguaveterinario_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "fac_prever_programa_op_taguaveterinario_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_taguaveterinario_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_taguaveterinario_sd_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_op_veterinario_id": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_op_veterinario_il": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_op_veterinario_ma": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_op_veterinario_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_op_veterinario_sd_atv": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_po_centro_caligus": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "fac_prever_programa_po_centro_cisa_pvs": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_po_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 20
+  },
+  "fac_prever_programa_po_centro_pva": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_po_centro_pva_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 27
+  },
+  "fac_prever_programa_po_centro_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 32
+  },
+  "fac_prever_programa_po_centro_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 28
+  },
+  "fac_prever_programa_po_centro_veterinario_caligus": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 28
+  },
+  "fac_prever_programa_po_centro_veterinario_cisa_pvs": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 31
+  },
+  "fac_prever_programa_po_centro_veterinario_pva": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 27
+  },
+  "fac_prever_programa_po_centro_veterinario_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_po_centro_veterinario_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_po_na_caligus": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_po_na_cisa_pvs": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_po_na_pva": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_po_na_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_po_na_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_po_veterinario_caligus": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 21
+  },
+  "fac_prever_programa_po_veterinario_cisa_pvs": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 22
+  },
+  "fac_prever_programa_po_veterinario_pva": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_po_veterinario_samic": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_po_veterinario_screening": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 23
+  },
+  "fac_prever_programa_pva_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_pva_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_pva_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_pva_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 28
+  },
+  "fac_prever_programa_samic_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_samic_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_samic_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_samic_tagua_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 27
+  },
+  "fac_prever_programa_samic_taguaveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_samic_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 28
+  },
+  "fac_prever_programa_screening_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_screening_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_screening_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_screening_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_sd_atv_centro_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_sd_atv_centroveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_sd_atv_na_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 24
+  },
+  "fac_prever_programa_sd_atv_tagua_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_prever_programa_sd_atv_taguaveterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 26
+  },
+  "fac_prever_programa_sd_atv_veterinario_detalle": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 25
+  },
+  "fac_report_detalle_unaempresa": {
+   "hash": "7c3366fc5ceaa154078df14c50ecc95787c4f803",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 18
+  },
+  "fac_res_centro": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 137
+  },
+  "fac_res_centro_veterinario": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 134
+  },
+  "fac_res_po_na": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 121
+  },
+  "fac_res_tagua": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 188
+  },
+  "fac_res_tagua_veterinario": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 187
+  },
+  "fac_res_veterinario": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 64
+  },
+  "fac_reversa_casos_factura": {
+   "hash": "918a2a9761990501dcef66925cf34d7d776de706",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 10
+  },
+  "fac_TotalOtrosDescuentos": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 196
+  },
+  "fac_TotalOtrosIngresos": {
+   "error": "The conversion of a varchar data type to a datetime data type resulted in an out-of-range value.",
+   "ms": 203
+  },
+  "fac_ultimo_id": {
+   "hash": "c84c3099ccf2dac4843441385d289a80e8889302",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 2
+  },
+  "Facturacion_EliminaCasoDePrefactura_ENC": {
+   "hash": "f43fc2550ac65138247c63691ee69767ac7ea654",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 10
+  },
+  "Facturacion_ID_muestras_detalle": {
+   "hash": "27deb9b8034681e0973d80f5a6fee1f69bedb589",
+   "conjuntos": 1,
+   "filas": 723,
+   "ms": 8
+  },
+  "facturacion_ultimoid": {
+   "hash": "c84c3099ccf2dac4843441385d289a80e8889302",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 7
+  },
+  "maestro_agente": {
+   "hash": "83a1e01c7cc23ffd456f1c6a12c7d1922cf7ec5f",
+   "conjuntos": 1,
+   "filas": 1567,
+   "ms": 15
+  },
+  "maestro_alimento_Patogen_SmoltMiter": {
+   "hash": "99c98d8ba476a1f9e85abca9fbc5ccec348fe6e7",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_anegocio": {
+   "hash": "9d84454d15e87770ff53ce3982ebf281e26d200b",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "maestro_antibiotico": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "maestro_atv_objetivo": {
+   "hash": "61d7c544ba3406ba645f58cd213f7eb4764acef9",
+   "conjuntos": 1,
+   "filas": 12,
+   "ms": 1
+  },
+  "maestro_campos_e": {
+   "hash": "331750c2449a0960266e04dd4b99573a29a694fb",
+   "conjuntos": 1,
+   "filas": 84,
+   "ms": 1
+  },
+  "maestro_cargo": {
+   "hash": "04ea55ac651e3669f1566236d95554bd6c55790e",
+   "conjuntos": 1,
+   "filas": 70,
+   "ms": 1
+  },
+  "maestro_cargoadl": {
+   "hash": "23672990eac3a235d7df10a17cf596ff054c7f2e",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "maestro_centro": {
+   "hash": "89ef21bd43f11d0365b2a5ae7f9646f6758d6b85",
+   "conjuntos": 1,
+   "filas": 8445,
+   "ms": 214
+  },
+  "maestro_centro_empresa": {
+   "hash": "25512444e6945b9d5c59fc1a7b0ea551c7ba7f24",
+   "conjuntos": 1,
+   "filas": 152,
+   "ms": 6
+  },
+  "maestro_ciudad": {
+   "hash": "d6729ce37b1402b407da4d3db45f5dc1822751a4",
+   "conjuntos": 1,
+   "filas": 73,
+   "ms": 1
+  },
+  "maestro_comuna": {
+   "hash": "14d9f205a24eacea3a8c41470269bfb3a3377002",
+   "conjuntos": 1,
+   "filas": 100,
+   "ms": 1
+  },
+  "maestro_comunaef": {
+   "hash": "97226f83344253699f3aa8b5471d0b6104fd8e49",
+   "conjuntos": 1,
+   "filas": 111,
+   "ms": 1
+  },
+  "maestro_condicionpago": {
+   "hash": "1193a021265fe5aa4f1e9a532989565a7f7b616f",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "maestro_correccionmot": {
+   "hash": "648406ba5345723f4d18ce0b89e9535c300cf7ba",
+   "conjuntos": 1,
+   "filas": 23,
+   "ms": 1
+  },
+  "maestro_dilucion": {
+   "hash": "38ca2ae5e46fc62f3800a99cd5d09f2449124f21",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 1
+  },
+  "maestro_direccion": {
+   "hash": "6c325846b54b6d8147c7e21df4e7fb23f35b4c6b",
+   "conjuntos": 1,
+   "filas": 516,
+   "ms": 2
+  },
+  "maestro_eliminacion": {
+   "hash": "46622124e6768d94bd5109d978f8e60034a6595e",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "maestro_empleado": {
+   "hash": "f4648b64da818ae3baa187d169db15df248e8a2c",
+   "conjuntos": 1,
+   "filas": 136,
+   "ms": 5
+  },
+  "maestro_empleado_seccion_sede": {
+   "hash": "27e041bff1273c513bcf3bfdfe43ca212f1dc571",
+   "conjuntos": 1,
+   "filas": 58,
+   "ms": 1
+  },
+  "maestro_empleado_sede_seccion": {
+   "hash": "4f23600439f7526e2ba8d3c95293a610a414ba81",
+   "conjuntos": 1,
+   "filas": 25,
+   "ms": 2
+  },
+  "maestro_empresa": {
+   "hash": "87d0e969f1edcf5d9335aa722c5077c548b76633",
+   "conjuntos": 1,
+   "filas": 539,
+   "ms": 4
+  },
+  "maestro_empresaservicio": {
+   "hash": "c51541858bad5d41d25e52a3eadc4874ed8f251d",
+   "conjuntos": 1,
+   "filas": 524,
+   "ms": 11
+  },
+  "maestro_empresaservicio_administracion": {
+   "hash": "008ee0da3f1e2f4b89a5b2eb7c0d48fa8e973813",
+   "conjuntos": 1,
+   "filas": 682,
+   "ms": 18
+  },
+  "maestro_empresaservicio_v2": {
+   "hash": "3c5dd15e3ce2bac1440c778af4506b6408e1e30f",
+   "conjuntos": 1,
+   "filas": 524,
+   "ms": 23
+  },
+  "maestro_empresaservicio_v3": {
+   "hash": "5cc323d3c485e52d2c4611464d72a761632a525d",
+   "conjuntos": 1,
+   "filas": 539,
+   "ms": 24
+  },
+  "maestro_enmienda": {
+   "hash": "37710c1107fcecbb3c12f9b3e67d626a7830be9e",
+   "conjuntos": 1,
+   "filas": 17,
+   "ms": 1
+  },
+  "maestro_enmiendamot": {
+   "hash": "449d51cf12c0c345a398c70c64b2eda06f72a907",
+   "conjuntos": 1,
+   "filas": 22,
+   "ms": 1
+  },
+  "maestro_equipo_formacanal": {
+   "hash": "3d919581bb4a2767ca03edfd2f664bdf19b38f51",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "maestro_equipo_laboratorio": {
+   "hash": "e9a44d20b780d90aa0f1f167a1beac9451ba0638",
+   "conjuntos": 1,
+   "filas": 666,
+   "ms": 8
+  },
+  "maestro_equipo_medicion": {
+   "hash": "3b4dd125938bfa1b0d2958c9ab0840661035b4aa",
+   "conjuntos": 1,
+   "filas": 158,
+   "ms": 2
+  },
+  "maestro_equipo_medida_sigla": {
+   "hash": "966ea8dba1b582980fd4dbe2161350832c895667",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_equipo_medida_textual": {
+   "hash": "1a65cb18f3e22d3f91fd6500a44c2b32c0772740",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_equipo_medidorcloro": {
+   "hash": "fae127c7a0099ca95f03bbf169664b277b4f249a",
+   "conjuntos": 1,
+   "filas": 51,
+   "ms": 1
+  },
+  "maestro_equipo_medidoroxigeno": {
+   "hash": "c7602e6cc02237c80f41aef2d69d129c97373165",
+   "conjuntos": 1,
+   "filas": 55,
+   "ms": 1
+  },
+  "maestro_equipo_modalidad": {
+   "hash": "ef0f91e404c95bef48c6ce7e24774891e219a6e0",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "maestro_equipo_muestreo": {
+   "hash": "f4278aa4588c1fca6c595a40086052e9f662d980",
+   "conjuntos": 1,
+   "filas": 114,
+   "ms": 1
+  },
+  "maestro_equipo_multiparametro": {
+   "hash": "e28ca0bb46321b8afc0e0a6929018bb9738cd4bc",
+   "conjuntos": 1,
+   "filas": 45,
+   "ms": 1
+  },
+  "maestro_equipo_nombre": {
+   "hash": "d9bfa90d1a4948374800ab951a87166892916324",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_equipo_ph": {
+   "hash": "3271b801a3c46737fd95c6734e287ca86d179708",
+   "conjuntos": 1,
+   "filas": 380,
+   "ms": 12
+  },
+  "maestro_equipo_quemide": {
+   "hash": "a25d5a9b5e3e9040a7f2b647f368b229e722d1ea",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_equipo_sigla": {
+   "hash": "ccf1abbb26c4c77a869724941d08bb9ac3c2419c",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "maestro_equipo_tipoequipo": {
+   "hash": "c9028ee115b571288e5865eb9e66d71e2e2fae29",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "maestro_especie": {
+   "hash": "2879a8d679a6852fe8749979175680a3edf2dace",
+   "conjuntos": 1,
+   "filas": 18,
+   "ms": 1
+  },
+  "maestro_estadio": {
+   "hash": "6d1eb62be3ed593fbf01dee664bef37509789448",
+   "conjuntos": 1,
+   "filas": 80,
+   "ms": 1
+  },
+  "maestro_estadio_mix": {
+   "hash": "b633b5697de03f6fd5724bec3655503e74497961",
+   "conjuntos": 1,
+   "filas": 24,
+   "ms": 1
+  },
+  "maestro_estadoinforme": {
+   "hash": "768c1d4c1d57d5ad7c4b68f89ebc02cdb13121ff",
+   "conjuntos": 1,
+   "filas": 10,
+   "ms": 1
+  },
+  "maestro_feriado": {
+   "hash": "2d44b942db629ff7e7f1d025cd01430093b5fe6a",
+   "conjuntos": 1,
+   "filas": 40,
+   "ms": 1
+  },
+  "maestro_formapago": {
+   "hash": "0aa14a4c338776551d0452aa23d8415e1aeedc0f",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "maestro_funcionario": {
+   "hash": "fb6a886eaa72b0d76ca9c0a7d4c1cde2c26299aa",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_genovariante_combinaciones": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 0
+  },
+  "maestro_giro": {
+   "hash": "ec16514ca6e1abf74910824b190ea3c199570b1a",
+   "conjuntos": 1,
+   "filas": 373,
+   "ms": 2
+  },
+  "maestro_glosa": {
+   "hash": "3096ce3c84fdebb8bfdbec9544117e577ccafed3",
+   "conjuntos": 1,
+   "filas": 297,
+   "ms": 3
+  },
+  "maestro_grupocontacto": {
+   "hash": "3910d44132a0c044d4c5a8a64c671a1c1f455db0",
+   "conjuntos": 1,
+   "filas": 253,
+   "ms": 2
+  },
+  "maestro_intensidad": {
+   "hash": "57ce3d0e013404b7819640e95bdcbfa5585b555a",
+   "conjuntos": 1,
+   "filas": 22,
+   "ms": 1
+  },
+  "maestro_laboratorioensayo": {
+   "hash": "4998e8cd53534654588b5993691e7768c8ffbfc2",
+   "conjuntos": 1,
+   "filas": 31,
+   "ms": 1
+  },
+  "maestro_lugaranalisis": {
+   "hash": "f5b9965ada805e977becc7fcf59ce5c672433397",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 0
+  },
+  "maestro_lugaranalisis_completo": {
+   "hash": "514becdc4b8f6b2e79d9b26bf3237701934b9509",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "maestro_medios": {
+   "hash": "6fa0dd73f1e7f85a8c574e66358eb49cda2d0800",
+   "conjuntos": 1,
+   "filas": 21,
+   "ms": 1
+  },
+  "maestro_ne_hallazgo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "maestro_ne_intensidad": {
+   "hash": "9c58f14515a0d0fc14af0da0b269e91d560ce3f8",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "maestro_ne_localizacion": {
+   "hash": "d05d8b82f0f17241f390b82a1c9824dc65cafe85",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_ne_organo": {
+   "hash": "1bb77000dcff1aef58773972eea362e90de986f6",
+   "conjuntos": 1,
+   "filas": 26,
+   "ms": 1
+  },
+  "maestro_ni_hallazgo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "maestro_ni_intensidad": {
+   "hash": "8752baff5b2556f3941bc91dac7884d8af1af35d",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_ni_localizacion": {
+   "hash": "68043f0d0ae2585a63192d119ad5946b7dbb9344",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_ni_organo": {
+   "hash": "9f017aa44b4cc90e756b325bbc4773bd5410b779",
+   "conjuntos": 1,
+   "filas": 28,
+   "ms": 1
+  },
+  "maestro_objetivomuestreo_ma": {
+   "hash": "0e653503b5adce1e44732cf11bded124f816d1c6",
+   "conjuntos": 1,
+   "filas": 36,
+   "ms": 1
+  },
+  "maestro_organo": {
+   "hash": "fb782b9837d064ad292f48ce126f63c965288a02",
+   "conjuntos": 1,
+   "filas": 535,
+   "ms": 4
+  },
+  "maestro_organo_ma": {
+   "hash": "3fe0f9af5733f273121d6c5df5c7127e182309bc",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "maestro_otrosdescuentos": {
+   "hash": "0406003a7d4e0aa9cf96d198b7c7f200f194349d",
+   "conjuntos": 1,
+   "filas": 234,
+   "ms": 2
+  },
+  "maestro_otrosingresos": {
+   "hash": "4c389d35a495c14d91406093ee0d1ff811861b5a",
+   "conjuntos": 1,
+   "filas": 156,
+   "ms": 1
+  },
+  "maestro_pack_agrupado": {
+   "hash": "b493fbf36d4764cf0ab020298f89763f69386c91",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_preciostecnicasrango": {
+   "hash": "31460903602aa0ec18ec70de6c4b79ff0077f60c",
+   "conjuntos": 1,
+   "filas": 232,
+   "ms": 3
+  },
+  "maestro_programa": {
+   "hash": "2ae3185266fafa8e59efaca5ce64f01fd9bce3f6",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "maestro_programa_alternativo": {
+   "hash": "4b6796659923d13fe4a0ca3074f0f1681ea411ca",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 1
+  },
+  "maestro_programa_alternativo_ma": {
+   "hash": "d95545b9b0278f4c597187f4138e6065ad2fb440",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_programa_caligus": {
+   "hash": "837822e31848d2c66a0660e49a48b885504aa872",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 0
+  },
+  "maestro_programa_comercial": {
+   "hash": "ea37c1ae5708cfac58d962c606611360515eeb12",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "maestro_programa_ConsultaFacturacionComercial_Laboratorio": {
+   "hash": "dc24362d14c1b1e6372b1791daf59f26c8bd8bb5",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 1
+  },
+  "maestro_programa_ld": {
+   "hash": "2ae3185266fafa8e59efaca5ce64f01fd9bce3f6",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 1
+  },
+  "maestro_programa_ma": {
+   "hash": "d95545b9b0278f4c597187f4138e6065ad2fb440",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 0
+  },
+  "maestro_programa_ma_anavales": {
+   "hash": "1327da4f4933c9809cf14f9b4b1c28934704a8a4",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 0
+  },
+  "maestro_programa_ma_oservicios": {
+   "hash": "d421aafeb2452be898bc26c2a2250b25c096e0cb",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 0
+  },
+  "maestro_programa_ma_riles": {
+   "hash": "48b33d617f80b39dc8f37b4b25eaa4f27a173751",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 0
+  },
+  "maestro_programa_medioambiente": {
+   "hash": "4a50892e197d92e7edf303e609a8bcc892f2ed5c",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "maestro_programa_medioambiente_ingreso": {
+   "hash": "a8f7e840f06d21035f95efadcaacffc986c1f380",
+   "conjuntos": 1,
+   "filas": 9,
+   "ms": 0
+  },
+  "maestro_programa_medioambiente_nombrecorto": {
+   "hash": "30a080f1001a7cf44c8ea4bbff82bf70b7d3c15e",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "maestro_proyecto": {
+   "hash": "301a1bc7ba08108cefc23d1a6c3478c3314bb65b",
+   "conjuntos": 1,
+   "filas": 93,
+   "ms": 2
+  },
+  "maestro_proyecto_vigente": {
+   "hash": "ba334f1639058d7bd31cf9e7295acbf21fba504b",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 1
+  },
+  "maestro_region": {
+   "hash": "c0980e5df831075c90104d0e5f355e84c0c37472",
+   "conjuntos": 1,
+   "filas": 18,
+   "ms": 1
+  },
+  "maestro_responsablelabensayo": {
+   "hash": "86dba76c488a473161b34b28c029ff6583fe1cad",
+   "conjuntos": 1,
+   "filas": 14,
+   "ms": 1
+  },
+  "maestro_seccion": {
+   "hash": "6e3d9af2ca4f52d8a11e7555c9ca0afb52b1ac0a",
+   "conjuntos": 1,
+   "filas": 22,
+   "ms": 1
+  },
+  "maestro_seccion_ma": {
+   "hash": "a6562e838067f93163c1d5fc607d4d2bae5e28d3",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_seccion_samic": {
+   "hash": "eef98d59f91fe0f997b37a5ee98adc8bf11b4bb4",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_spesca_det": {
+   "hash": "82fb5eac01a4efc844d1761c9a380e132065822a",
+   "conjuntos": 1,
+   "filas": 826,
+   "ms": 4
+  },
+  "maestro_spesca_enc": {
+   "hash": "f7a6b7d467db5b182c1ec5c6c7345b2b3b278f67",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "maestro_spesca_periodo": {
+   "hash": "ad182d153c1ae9310d7797542d57ddbdab038bf5",
+   "conjuntos": 1,
+   "filas": 52,
+   "ms": 1
+  },
+  "maestro_spesca_programa_periodo": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 1
+  },
+  "maestro_subarea": {
+   "hash": "155854a55c932cbdb185254ce774024bb12ac94e",
+   "conjuntos": 1,
+   "filas": 16,
+   "ms": 1
+  },
+  "maestro_supervisor": {
+   "hash": "d5f0cefedabfdd63c73a4ee751435b7936972905",
+   "conjuntos": 1,
+   "filas": 5,
+   "ms": 1
+  },
+  "maestro_supervisor_sede": {
+   "hash": "f360f2724866ada858d467f1891ff1c083d35003",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_tabla_medioambiente": {
+   "hash": "791a1cd803875aec42bf1cad86e7f7668ab831c0",
+   "conjuntos": 1,
+   "filas": 714,
+   "ms": 14
+  },
+  "maestro_tabla_medioambiente_nombrecorto": {
+   "hash": "1c8e400046e3a1b098791415cbd804bbd2fee487",
+   "conjuntos": 1,
+   "filas": 489,
+   "ms": 4
+  },
+  "maestro_tablamaec_det": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 2
+  },
+  "maestro_tablamaec_enc": {
+   "hash": "91f2e38bbdc98e99c338a35583a7f2443e71d4f4",
+   "conjuntos": 1,
+   "filas": 1003,
+   "ms": 13
+  },
+  "maestro_tecnica": {
+   "hash": "27e261774f6e6bb4f7c140235992f96e49214484",
+   "conjuntos": 1,
+   "filas": 1082,
+   "ms": 50
+  },
+  "maestro_tecnica_caligus": {
+   "hash": "018b97e64d7e612128b13b6a4212980cee163edc",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 2
+  },
+  "maestro_tecnica_habilitada": {
+   "hash": "ed5d13fd34be90938d4c184f25e4c82c0b21b9ff",
+   "conjuntos": 1,
+   "filas": 775,
+   "ms": 19
+  },
+  "maestro_tecnica_habilitada_ordennombretecnica": {
+   "hash": "ed5d13fd34be90938d4c184f25e4c82c0b21b9ff",
+   "conjuntos": 1,
+   "filas": 775,
+   "ms": 21
+  },
+  "maestro_tecnica_habilitada_rango": {
+   "hash": "46e3a090954963f5411ac6e2f1d61074117048e8",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 3
+  },
+  "maestro_tecnica_habilitada_sernapesca": {
+   "hash": "0494bb9e2e00c44c26ecb9076ec9b5d143166b33",
+   "conjuntos": 1,
+   "filas": 775,
+   "ms": 10
+  },
+  "maestro_tecnica_ma": {
+   "hash": "daa81ff88cb88de4728f324e4bef9251dca42b27",
+   "conjuntos": 1,
+   "filas": 496,
+   "ms": 25
+  },
+  "maestro_tecnica_orden_ensilaje": {
+   "hash": "6ba2d62d14234af58c10c514cda66161f0befcca",
+   "conjuntos": 1,
+   "filas": 4,
+   "ms": 3
+  },
+  "maestro_tecnica_orden_proa": {
+   "hash": "245a0a83952ae90c56e9027bccaf115aa71907b9",
+   "conjuntos": 1,
+   "filas": 315,
+   "ms": 15
+  },
+  "maestro_tecnica_orden_samic": {
+   "hash": "552b936e2e611261cf73a2b9072efb12144adea9",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 3
+  },
+  "maestro_tecnica_orden_tecnica": {
+   "hash": "e5fd59db9433e7f83e0500af8290771db8352ac4",
+   "conjuntos": 1,
+   "filas": 586,
+   "ms": 24
+  },
+  "maestro_tecnica_orden_tecnica_ma": {
+   "hash": "4266ada8667434e924a4c6d728218e5df64d51b5",
+   "conjuntos": 1,
+   "filas": 496,
+   "ms": 15
+  },
+  "maestro_tecnica_orden_tecnica_porseccion": {
+   "hash": "ec3b81e9b028dd872599923855b7c8bbeea340c3",
+   "conjuntos": 1,
+   "filas": 25,
+   "ms": 3
+  },
+  "maestro_tecnica_samic": {
+   "hash": "06f540411fd0e155f7cc2c750d2c144ead036299",
+   "conjuntos": 1,
+   "filas": 6,
+   "ms": 2
+  },
+  "maestro_tecnicavirologia": {
+   "hash": "b71d386854819e826f92058904f9ac8e5110e660",
+   "conjuntos": 1,
+   "filas": 26,
+   "ms": 1
+  },
+  "maestro_tipoagua": {
+   "hash": "0d2deb2c53ea06a69665ad51f8847638e9a63e4f",
+   "conjuntos": 1,
+   "filas": 16,
+   "ms": 2
+  },
+  "maestro_tipocobro": {
+   "hash": "fc8f7d770bd9428e4af12400d5efa608db3da9b5",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "maestro_tipocultivo_PatoGen_SmoltMiter": {
+   "hash": "6606740d7dfb9ce98baf398cb394a4f5b20aeae7",
+   "conjuntos": 1,
+   "filas": 3,
+   "ms": 1
+  },
+  "maestro_tipodocumento": {
+   "hash": "ae5bde7e061914ddc9470762bf19ef1ffd7be1ae",
+   "conjuntos": 1,
+   "filas": 8,
+   "ms": 1
+  },
+  "Maestro_Tipoentrega": {
+   "hash": "bedf471c4092f1e344731a2f83b9ffca6865f851",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_tipomuestra": {
+   "hash": "5184d626bfbe9b0e157b3b653d51dfcdcede0601",
+   "conjuntos": 1,
+   "filas": 144,
+   "ms": 7
+  },
+  "maestro_tipomuestra_ma": {
+   "hash": "792b02c206821612382d7ae2070796a83f4d61fd",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 1
+  },
+  "maestro_tipomuestra_medio_ambiente": {
+   "hash": "7a3516f78dbad646cac3590b41c834bc0c526d91",
+   "conjuntos": 1,
+   "filas": 23,
+   "ms": 1
+  },
+  "maestro_tipomuestra_PatoGen_LiceAdvisor": {
+   "hash": "23c6010e8fbea5e39d1c36ef7743df2d21c8f49f",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_tipomuestra_PatoGen_SmoltMiter": {
+   "hash": "e87914efe629c0b7598cb012a74954b92d1afaa6",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_tipomuestra_salmonicultura": {
+   "hash": "d3c08684bd3fa0183ce45cbd8be2b527d6455334",
+   "conjuntos": 1,
+   "filas": 142,
+   "ms": 2
+  },
+  "maestro_tipomuestra_samic": {
+   "hash": "06af5937c427e93992506e40858a6e44c107968f",
+   "conjuntos": 1,
+   "filas": 2,
+   "ms": 1
+  },
+  "maestro_tipomuestreo": {
+   "hash": "6d73d4a4fbd76032f4f842dde7d134a34a41a735",
+   "conjuntos": 1,
+   "filas": 23,
+   "ms": 1
+  },
+  "maestro_tipomuestreo_medio_ambiente": {
+   "hash": "1eb89c9d7a45183c3cd9ca5bcdc567b5b5d7e34b",
+   "conjuntos": 1,
+   "filas": 11,
+   "ms": 1
+  },
+  "maestro_tipomuestreo_salmonicultura": {
+   "hash": "8ab665f737f1e368e33605a6abb50ed3b84d548b",
+   "conjuntos": 1,
+   "filas": 13,
+   "ms": 1
+  },
+  "maestro_tipomuestreosp": {
+   "hash": "37b6af93b8a47ab10400f8ddd9e23374b574ecee",
+   "conjuntos": 1,
+   "filas": 31,
+   "ms": 1
+  },
+  "maestro_tipotecnica": {
+   "hash": "e1a20259d0c09346117f5b78bfb917e05a0864e4",
+   "conjuntos": 1,
+   "filas": 7,
+   "ms": 1
+  },
+  "maestro_umedida": {
+   "hash": "5c7857800078b56b2d071da888cc745afeed2f89",
+   "conjuntos": 1,
+   "filas": 34,
+   "ms": 1
+  },
+  "maestro_unaempresaservicio_gd": {
+   "hash": "cf495d2be9c20b680fc5d90f1b9816e4125bc782",
+   "conjuntos": 1,
+   "filas": 1,
+   "ms": 1
+  },
+  "maestro_unegocio": {
+   "hash": "8633b37b2df864c6637c703cba28da28201d0340",
+   "conjuntos": 1,
+   "filas": 12,
+   "ms": 2
+  },
+  "maestro_usuario": {
+   "hash": "e353764002b7467c48f7c0869a73d1f1583a7247",
+   "conjuntos": 1,
+   "filas": 210,
+   "ms": 5
+  },
+  "maestro_veterinario": {
+   "hash": "309f8d5555665790ffca2c626bd3a59d4e9a49cd",
+   "conjuntos": 1,
+   "filas": 141,
+   "ms": 2
+  },
+  "maestro_veterinario_certificado": {
+   "hash": "cd0a56702c04f972195d69318b161e253cb78f08",
+   "conjuntos": 1,
+   "filas": 99,
+   "ms": 1
+  },
+  "maestro_veterinario_inspectorambiental": {
+   "hash": "d71159e5a99a11d6be196251d200f5451fba263e",
+   "conjuntos": 1,
+   "filas": 25,
+   "ms": 1
+  },
+  "maestro_veterinario_todos": {
+   "hash": "60e58cd4263f79b98780768e2d9edd2e870d5444",
+   "conjuntos": 1,
+   "filas": 276,
+   "ms": 2
+  },
+  "maestro_virus": {
+   "hash": "0d63360b69977afec6eae51b2783d63e5127639b",
+   "conjuntos": 1,
+   "filas": 10,
+   "ms": 1
+  },
+  "maestro_zonageografica": {
+   "hash": "0f08ebbafad7301aa11a9bd7d37ec8721fb32cd2",
+   "conjuntos": 1,
+   "filas": 1437,
+   "ms": 10
+  },
+  "maestro_zonasernapesca": {
+   "hash": "c8216f59c63745d30b087303b19862a543ed1aaa",
+   "conjuntos": 1,
+   "filas": 53,
+   "ms": 6
+  },
+  "OtrasVentasImprimeIDOtrosCobros": {
+   "hash": "aada1dedcc5762d69961d676a7124453eddb9cf5",
+   "conjuntos": 1,
+   "filas": 0,
+   "ms": 6
+  }
+ }
+}

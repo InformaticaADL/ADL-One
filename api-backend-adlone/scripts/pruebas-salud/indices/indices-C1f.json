@@ -1,0 +1,49 @@
+{
+ "etiqueta": "C1f",
+ "resultados": [
+  {
+   "fase": "1. Pantallas y listados (3 vueltas: resumen, prefacturas, ficha de factura, listado de exportacion, DTE, otras ventas)",
+   "segundos": 8.9,
+   "consultas": 34,
+   "cpu_sql_ms": 26182,
+   "lecturas_logicas": 376899
+  },
+  {
+   "fase": "2. Elegibilidad: empresas con casos por facturar de los 6 programas",
+   "segundos": 0.4,
+   "consultas": 13,
+   "cpu_sql_ms": 291,
+   "lecturas_logicas": 122100,
+   "empresas": 72
+  },
+  {
+   "fase": "3. Valorizar una empresa grande (Australis Mar: 95 casos, 280 lineas)",
+   "segundos": 3.6,
+   "consultas": 1463,
+   "cpu_sql_ms": 2076,
+   "lecturas_logicas": 825367,
+   "casos": 123,
+   "lineas": 353
+  },
+  {
+   "fase": "4. Ciclo de una prefactura: eliminar, valorizar y crear (3 casos)",
+   "segundos": 0.6,
+   "consultas": 76,
+   "cpu_sql_ms": 538,
+   "lecturas_logicas": 127458
+  },
+  {
+   "fase": "5. Operaciones sobre esa factura: grabar totales, grabar folio, PDF resumen, nota de credito parcial y eliminar",
+   "segundos": 0.5,
+   "consultas": 30,
+   "cpu_sql_ms": 562,
+   "lecturas_logicas": 75489
+  }
+ ],
+ "total": {
+  "segundos": 14,
+  "consultas": 1616,
+  "cpu_sql_ms": 29649,
+  "lecturas_logicas": 1527313
+ }
+}
