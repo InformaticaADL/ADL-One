@@ -1,6 +1,6 @@
 import React from 'react';
 import { IconAlertCircle, IconHome } from '@tabler/icons-react';
-import '../features/auth/Login.css'; // Reuse login styles for background
+import { AuthLayout, claseTarjetaAcceso, LogoAcceso } from '../features/auth/components/AuthLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 
@@ -25,10 +25,11 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
     };
 
     return (
-        <div className="login-page">
-            <div className="login-container mx-auto max-w-[420px]">
-                <Card className="shadcn-scope login-card rounded-[20px] p-6">
+        <AuthLayout>
+            <div className="mx-auto w-full">
+                <Card className={`shadcn-scope ${claseTarjetaAcceso} px-6`}>
                     <div className="flex flex-col items-center gap-4">
+                        <LogoAcceso />
                         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-destructive/10 text-destructive">
                             <IconAlertCircle size={48} />
                         </div>
@@ -52,7 +53,7 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
                     </div>
                 </Card>
             </div>
-        </div>
+        </AuthLayout>
     );
 };
 

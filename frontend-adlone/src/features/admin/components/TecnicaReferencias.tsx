@@ -1,8 +1,8 @@
+import { EstadoPill } from '@/components/ui/estado-pill';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { IconCheck, IconEdit, IconPlus, IconPower } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -254,9 +254,7 @@ export const TecnicaReferencias: React.FC<Props> = ({ idTecnica }) => {
                                             : '—'}
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={r.habilitado === 'S' ? 'default' : 'outline'}>
-                                            {r.habilitado === 'S' ? 'Habilitada' : 'Deshabilitada'}
-                                        </Badge>
+                                        <EstadoPill tono={r.habilitado === 'S' ? 'ok' : 'off'}>{r.habilitado === 'S' ? 'Habilitada' : 'Deshabilitada'}</EstadoPill>
                                     </TableCell>
                                     <TableCell className="text-right">
                                         <div className="flex justify-end gap-1">

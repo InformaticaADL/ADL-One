@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-    IconLock,
+    IconLogin,
     IconMail,
     IconArrowLeft,
     IconAlertCircle,
@@ -10,9 +10,10 @@ import {
     IconX,
 } from '@tabler/icons-react';
 import type { LoginCredentials } from '../types/index';
-import logoAdl from '../../../assets/images/logo-adlone.png';
 import apiClient from '../../../config/axios.config';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { claseCampoAcceso, claseContenidoAcceso, claseEncabezadoAcceso, claseTarjetaAcceso, claseTituloAcceso, LogoAcceso } from './AuthLayout';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -89,10 +90,15 @@ export const LoginForm = ({ onSubmit, isLoading = false, recoveryHint = null, on
     };
 
     return (
-        <Card className="shadcn-scope w-full rounded-2xl bg-card/95 p-6 shadow-lg backdrop-blur">
-            <div className="flex flex-col gap-6">
+        <Card className={cn('shadcn-scope', claseTarjetaAcceso)}>
+            <CardHeader className={claseEncabezadoAcceso}>
+                <LogoAcceso />
+                <CardTitle className={claseTituloAcceso}>Iniciar sesión</CardTitle>
+                <CardDescription>Ingresa tu usuario y contraseña para continuar.</CardDescription>
+            </CardHeader>
+            <CardContent className={claseContenidoAcceso}>
                 {logoutReason && (
-                    <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
+                    <div className="mb-4 flex items-start gap-2 rounded-lg border border-warning/30 bg-warning/10 p-3 text-sm text-foreground">
                         <IconAlertCircle size={18} className="mt-0.5 shrink-0 text-warning" />
                         <p className="flex-1">{logoutReason}</p>
                         <button type="button" aria-label="Cerrar" onClick={() => setLogoutReason(null)} className="shrink-0 text-muted-foreground hover:text-foreground">
@@ -101,74 +107,67 @@ export const LoginForm = ({ onSubmit, isLoading = false, recoveryHint = null, on
                     </div>
                 )}
 
-                <div className="flex flex-col items-center">
-                    <img src={logoAdl} className="mb-6 w-[260px]" alt="ADL" />
-                    <h1 className="m-0 text-2xl font-bold text-foreground">Bienvenido</h1>
-                    <p className="text-center text-[13px] text-muted-foreground">Ingresa tus credenciales para continuar</p>
-                </div>
-
-                <form onSubmit={handleSubmit}>
-                    <div className="flex flex-col gap-4">
-                        <Field label="Usuario *">
-                            <div className="relative">
-                                <IconMail size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="ej: jperez"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    autoComplete="username"
-                                    disabled={isLoading}
-                                    className="h-11 pl-10"
-                                />
-                            </div>
-                        </Field>
-
-                        <Field label="Contraseña *">
-                            <div className="relative">
-                                <IconLock size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    type={passwordVisible ? 'text' : 'password'}
-                                    placeholder="••••••••"
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    autoComplete="current-password"
-                                    disabled={isLoading}
-                                    className="h-11 pl-10 pr-10"
-                                />
-                                <button
-                                    type="button"
-                                    aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
-                                    onClick={() => setPasswordVisible((v) => !v)}
-                                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                >
-                                    {passwordVisible ? <IconEyeOff size={16} /> : <IconEye size={16} />}
-                                </button>
-                            </div>
-                        </Field>
-
-                        <div className="flex items-center justify-between">
-                            <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
-                                <Checkbox checked={rememberMe} onCheckedChange={(v) => setRememberMe(v === true)} disabled={isLoading} />
-                                Recuérdame
-                            </label>
-                            <button
-                                type="button"
-                                onClick={() => setShowForgotModal(true)}
-                                className="text-sm font-medium text-primary hover:underline"
-                            >
-                                ¿Olvidaste tu contraseña?
-                            </button>
-                        </div>
-
-                        <Button type="submit" size="lg" disabled={isLoading} className="mt-2 w-full">
-                            {isLoading ? (
-                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                            ) : null}
-                            {isLoading ? 'Ingresando...' : 'Ingresar'}
-                        </Button>
+                <form onSubmit={handleSubmit} className="grid gap-3">
+                    <div className="grid gap-2">
+                        <Label htmlFor="login-usuario">Usuario</Label>
+                        <Input
+                            id="login-usuario"
+                            placeholder="ej: jperez"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            autoComplete="username"
+                            disabled={isLoading}
+                            className={claseCampoAcceso}
+                        />
                     </div>
+
+                    <div className="relative grid gap-2">
+                        <Label htmlFor="login-clave">Contraseña</Label>
+                        <div className="relative">
+                            <Input
+                                id="login-clave"
+                                type={passwordVisible ? 'text' : 'password'}
+                                placeholder="••••••••"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                autoComplete="current-password"
+                                disabled={isLoading}
+                                className={cn(claseCampoAcceso, 'pr-10')}
+                            />
+                            <Button
+                                type="button"
+                                size="icon-xs"
+                                variant="ghost"
+                                disabled={isLoading}
+                                aria-label={passwordVisible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                                onClick={() => setPasswordVisible((v) => !v)}
+                                className="absolute right-1 top-1/2 -translate-y-1/2 text-muted-foreground"
+                            >
+                                {passwordVisible ? <IconEye size={18} /> : <IconEyeOff size={18} />}
+                            </Button>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setShowForgotModal(true)}
+                            className="absolute -top-0.5 right-0 text-sm font-medium text-muted-foreground hover:opacity-75"
+                        >
+                            ¿Olvidaste tu contraseña?
+                        </button>
+                    </div>
+
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
+                        <Checkbox checked={rememberMe} onCheckedChange={(v) => setRememberMe(v === true)} disabled={isLoading} />
+                        Recuérdame
+                    </label>
+
+                    <Button type="submit" disabled={isLoading} className="mt-2 w-full">
+                        {isLoading
+                            ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
+                            : <IconLogin size={16} />}
+                        {isLoading ? 'Ingresando...' : 'Ingresar'}
+                    </Button>
                 </form>
-            </div>
+            </CardContent>
 
             <Dialog open={!!recoveryHint} onOpenChange={(open) => !open && closeRecoveryHint()}>
                 <DialogContent className="max-w-[460px]">

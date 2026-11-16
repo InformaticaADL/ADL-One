@@ -196,7 +196,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                                             : <Badge variant={f.cumple === 'S' ? 'success' : 'destructive'}>{f.cumple === 'S' ? 'Cumple' : 'No cumple'}</Badge>}
                                     </TableCell>
                                     <TableCell><Badge variant={meta.badge}>{meta.label}</Badge></TableCell>
-                                    <TableCell className="max-w-[160px] truncate text-sm">{f.muestreador_nombre || '—'}</TableCell>
+                                    <TableCell className="whitespace-normal break-words text-sm">{f.muestreador_nombre || '—'}</TableCell>
                                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                         <div className="flex justify-end gap-1">
                                             <Button size="sm" variant={f.estado === 'PENDIENTE_FIRMA' ? 'default' : 'outline'} onClick={() => setAbierta(f.id_verificacion)}>

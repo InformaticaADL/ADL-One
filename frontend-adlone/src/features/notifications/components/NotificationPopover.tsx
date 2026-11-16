@@ -6,6 +6,7 @@ import {
     IconCircleCheck,
     IconCircleX,
     IconChevronRight,
+    IconChecks,
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
@@ -14,7 +15,6 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import dayjs from 'dayjs';
@@ -133,12 +133,13 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
         }
     };
 
-    const getIcon = (tipo: string) => {
+    // Cada tipo lleva su ícono dentro de un círculo del mismo color, para que se distinga de un vistazo.
+    const estiloDe = (tipo: string) => {
         switch (tipo) {
-            case 'SUCCESS': return <IconCircleCheck size={16} className="text-success" />;
-            case 'WARNING': return <IconAlertTriangle size={16} className="text-warning" />;
-            case 'ERROR': return <IconCircleX size={16} className="text-destructive" />;
-            default: return <IconInfoCircle size={16} className="text-primary" />;
+            case 'SUCCESS': return { Icono: IconCircleCheck, clase: 'bg-success/10 text-success' };
+            case 'WARNING': return { Icono: IconAlertTriangle, clase: 'bg-warning/10 text-warning' };
+            case 'ERROR': return { Icono: IconCircleX, clase: 'bg-destructive/10 text-destructive' };
+            default: return { Icono: IconInfoCircle, clase: 'bg-primary/10 text-primary' };
         }
     };
 
@@ -151,83 +152,98 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
         setActiveSubmodule('');
     };
 
+    const nuevas = unreadNotifications.length;
+
     return (
         <Popover open={opened} onOpenChange={(next) => { if (!next) onClose(); }}>
             <PopoverAnchor>
                 <div className="w-full">{children}</div>
             </PopoverAnchor>
+            {/* La campana vive en el extremo derecho de la barra: el panel se abre hacia abajo, alineado a su borde derecho. */}
             <PopoverContent
-                align={isMobile ? 'end' : 'start'}
-                side={isMobile ? 'bottom' : 'right'}
-                sideOffset={isMobile ? 8 : 4}
-                className={cn('shadcn-scope flex flex-col p-0', isMobile ? 'w-[calc(100vw-20px)] max-w-[340px]' : 'w-[350px]')}
+                align="end"
+                side="bottom"
+                sideOffset={8}
+                className={cn('shadcn-scope flex flex-col overflow-hidden p-0', isMobile ? 'w-[calc(100vw-16px)] max-w-[380px]' : 'w-[380px]')}
             >
-                <div className="p-4">
-                    <div className="mb-2 flex items-center justify-between gap-2">
-                        <span className="text-[13px] font-bold text-foreground">Notificaciones Recientes</span>
-                        <div className="flex items-center gap-1.5">
-                            {unreadNotifications.length > 0 && (
-                                <Badge variant="destructive">{unreadNotifications.length} nuevas</Badge>
-                            )}
-                            {unreadNotifications.length > 0 && (
-                                <Button variant="ghost" size="sm" className="h-[22px] px-1.5 text-[11px] text-muted-foreground" onClick={markAllAsRead}>
-                                    Marcar todas como leídas
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-                    <hr className="my-2 border-t border-border" />
-
-                    <div className="max-h-[400px] overflow-y-auto">
-                        {notifications.length === 0 ? (
-                            <div className="py-8 text-center">
-                                <IconBell size={32} strokeWidth={1} className="mx-auto text-border" />
-                                <div className="mt-2 text-xs text-muted-foreground">No tienes notificaciones pendientes</div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col gap-1">
-                                {recentNotifications.map((notif) => (
-                                    <button
-                                        key={notif.id_notificacion}
-                                        type="button"
-                                        onPointerDown={(e) => e.preventDefault()}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            handleItemClick(notif);
-                                        }}
-                                        className={cn(
-                                            'block w-full rounded-lg p-2 text-left transition-colors hover:bg-muted',
-                                            notif.leido ? 'bg-transparent' : 'bg-primary/5'
-                                        )}
-                                    >
-                                        <div className="flex items-start gap-2">
-                                            <div className="pt-0.5">{getIcon(notif.tipo)}</div>
-                                            <div className="min-w-0 flex-1">
-                                                <div className={cn('truncate text-xs font-bold', notif.leido ? 'text-muted-foreground' : 'text-foreground')}>
-                                                    {formatTitle(notif.titulo)}
-                                                </div>
-                                                <div className="mb-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">
-                                                    {notif.mensaje}
-                                                </div>
-                                                <div className="text-[10px] font-medium text-primary">
-                                                    {dayjs(notif.fecha).fromNow()}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
+                <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-foreground">Notificaciones</span>
+                        {nuevas > 0 && (
+                            <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold leading-4 text-primary">
+                                {nuevas} {nuevas === 1 ? 'nueva' : 'nuevas'}
+                            </span>
                         )}
                     </div>
+                    {nuevas > 0 && (
+                        <button
+                            type="button"
+                            onClick={markAllAsRead}
+                            className="flex items-center gap-1 whitespace-nowrap text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                        >
+                            <IconChecks size={14} />
+                            Marcar todas como leídas
+                        </button>
+                    )}
                 </div>
 
-                <hr className="border-t border-border" />
-                <div className="p-2">
+                <div className="max-h-[420px] overflow-y-auto">
+                    {notifications.length === 0 ? (
+                        <div className="px-4 py-10 text-center">
+                            <IconBell size={32} strokeWidth={1} className="mx-auto text-border" />
+                            <div className="mt-2 text-xs text-muted-foreground">No tienes notificaciones pendientes</div>
+                        </div>
+                    ) : (
+                        <ul className="m-0 list-none divide-y divide-border p-0">
+                            {recentNotifications.map((notif) => {
+                                const { Icono, clase } = estiloDe(notif.tipo);
+                                return (
+                                    <li key={notif.id_notificacion}>
+                                        <button
+                                            type="button"
+                                            onPointerDown={(e) => e.preventDefault()}
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleItemClick(notif);
+                                            }}
+                                            className={cn(
+                                                'flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted',
+                                                !notif.leido && 'bg-primary/[0.04]'
+                                            )}
+                                        >
+                                            <span className={cn('mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full', clase)}>
+                                                <Icono size={16} />
+                                            </span>
+                                            <span className="min-w-0 flex-1">
+                                                <span className={cn('line-clamp-2 block text-[13px] leading-snug', notif.leido ? 'font-medium text-muted-foreground' : 'font-semibold text-foreground')}>
+                                                    {formatTitle(notif.titulo)}
+                                                </span>
+                                                {notif.mensaje && (
+                                                    <span className="mt-0.5 line-clamp-2 block whitespace-pre-line text-xs leading-snug text-muted-foreground">
+                                                        {notif.mensaje}
+                                                    </span>
+                                                )}
+                                                <span className="mt-1 block text-[11px] text-muted-foreground/80">
+                                                    {dayjs(notif.fecha).fromNow()}
+                                                </span>
+                                            </span>
+                                            {!notif.leido && (
+                                                <span aria-label="Sin leer" className="mt-2 h-2 w-2 shrink-0 rounded-full bg-primary" />
+                                            )}
+                                        </button>
+                                    </li>
+                                );
+                            })}
+                        </ul>
+                    )}
+                </div>
+
+                <div className="border-t border-border bg-muted/30 p-1.5">
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="w-full justify-between"
+                        className="w-full justify-center gap-1 text-primary hover:text-primary"
                         onPointerDown={(e) => e.preventDefault()}
                         onClick={(e) => {
                             e.preventDefault();

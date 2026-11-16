@@ -49,7 +49,7 @@ const FacturacionSaludModule: React.FC = () => {
     };
 
     return (
-        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:px-8 md:pb-12">
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <div className="mb-6 flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">

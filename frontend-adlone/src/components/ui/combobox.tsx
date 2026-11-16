@@ -26,6 +26,8 @@ interface ComboboxProps {
   wrapOptions?: boolean;
   /** Si es true, el valor seleccionado se muestra completo (varias líneas) en vez de cortarse. */
   wrapSelected?: boolean;
+  /** Acción al pie de la lista (ej. «Crear nuevo…»). Cierra la lista al usarla. */
+  footerAction?: { label: string; onClick: () => void };
 }
 
 // Select con buscador integrado — estándar del proyecto para todo select con
@@ -46,6 +48,7 @@ export function Combobox({
   contentClassName,
   wrapOptions = false,
   wrapSelected = false,
+  footerAction,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
   const [search, setSearch] = React.useState('');
@@ -120,6 +123,18 @@ export function Combobox({
             ))
           )}
         </div>
+        {footerAction && (
+          <div className="border-t border-border p-1">
+            <button
+              type="button"
+              onClick={() => { setOpen(false); footerAction.onClick(); }}
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-sm font-medium text-primary outline-none hover:bg-muted"
+            >
+              <span aria-hidden="true" className="w-4 text-center">+</span>
+              {footerAction.label}
+            </button>
+          </div>
+        )}
       </PopoverContent>
     </Popover>
   );

@@ -445,7 +445,7 @@ function Field({ label, className, children }: { label: string; className?: stri
 
 const FacturacionConfiguracion: React.FC = () => {
     return (
-        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:pb-12">
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <h2 className="mb-1 text-lg font-bold tracking-tight text-foreground md:text-[22px]">Configuración</h2>
             <p className="mb-5 text-sm text-muted-foreground">Valor UF y datos de facturación por cliente.</p>
             <Tabs defaultValue="uf">

@@ -282,7 +282,7 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
     };
 
     return (
-        <div className="shadcn-scope flex h-full min-h-0 flex-col [&>*]:shrink-0">
+        <div className="shadcn-scope flex h-full min-h-0 flex-col p-4 md:p-6 [&>*]:shrink-0">
             <PageHeader
                 title="Biología Molecular"
                 subtitle="Consulta detallada de muestras y resultados por rango de fecha"
@@ -430,10 +430,10 @@ export const BiologiaMolecularPage: React.FC<Props> = ({ onBack }) => {
                                     <TableRow key={`${row.caso_adlab}-${row.agente}-${row.pool}-${idx}`}>
                                         <TableCell className="whitespace-nowrap font-medium tabular-nums">{row.caso_adlab}</TableCell>
                                         <TableCell className="whitespace-nowrap tabular-nums text-muted-foreground">{formatDateOnly(row.fecha_recepcion)}</TableCell>
-                                        <TableCell className="max-w-[200px] truncate" title={row.nombre_centro}>{row.nombre_centro || '-'}</TableCell>
-                                        <TableCell className="max-w-[160px] truncate text-muted-foreground" title={row.programa}>{row.programa || '-'}</TableCell>
-                                        <TableCell className="max-w-[140px] truncate text-muted-foreground" title={row.matriz}>{row.matriz || '-'}</TableCell>
-                                        <TableCell className="max-w-[220px] truncate font-medium text-primary" title={row.agente}>{row.agente || '-'}</TableCell>
+                                        <TableCell className="whitespace-normal break-words" title={row.nombre_centro}>{row.nombre_centro || '-'}</TableCell>
+                                        <TableCell className="whitespace-normal break-words text-muted-foreground" title={row.programa}>{row.programa || '-'}</TableCell>
+                                        <TableCell className="whitespace-normal break-words text-muted-foreground" title={row.matriz}>{row.matriz || '-'}</TableCell>
+                                        <TableCell className="whitespace-normal break-words font-medium text-primary" title={row.agente}>{row.agente || '-'}</TableCell>
                                         <TableCell className="text-center tabular-nums">{row.pool ?? '-'}</TableCell>
                                         <TableCell className="text-center tabular-nums">
                                             {row.ct !== null && row.ct !== undefined && row.ct !== ''

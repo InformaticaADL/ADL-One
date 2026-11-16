@@ -23,7 +23,7 @@ interface MainLayoutProps {
 
 export const MainLayout = ({ children }: MainLayoutProps) => {
     // Diseño del «shadcn-admin» (paleta neutra con el azul de ADL ONE) en todo el sistema.
-    useTemaNeutro();
+    useTemaNeutro({ escala: true });
     // Mismo umbral que usaba el breakpoint 'lg' (1200px) de la versión Mantine:
     // por debajo, la navegación pasa a panel deslizante en vez de columna fija.
     const isCompact = useMediaQuery('(max-width: 1200px)');
@@ -251,7 +251,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 flexDirection: 'column',
                                 minHeight: 0,
                                 overflowY: isFullHeightModule ? 'hidden' : 'auto',
-                                padding: isFullHeightModule ? 0 : (isCompact ? 8 : 16),
+                                padding: (isFullHeightModule && !esListadoConScrollPropio) ? 0 : (isCompact ? 8 : 16),
                                 paddingBottom: 0,
                             }}
                         >

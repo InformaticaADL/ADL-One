@@ -1,3 +1,4 @@
+import { EstadoPill } from '@/components/ui/estado-pill';
 import React, { useEffect, useMemo, useState } from 'react';
 import { IconSearch, IconScale } from '@tabler/icons-react';
 import { Input } from '@/components/ui/input';
@@ -157,9 +158,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
             <PageHeader
                 title="Técnicas por Normativa"
                 subtitle="Vista unificada: a qué normativa y tabla de referencia pertenece cada técnica."
-                onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Informática', onClick: onBack },
                     { label: 'Maestros Hub', onClick: onBack },
                     { label: 'Técnicas por Normativa' }
                 ]}
@@ -228,7 +227,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
                 ) : modo === 'tecnica' ? (
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow className="bg-muted/40 hover:bg-muted/40">
                                 <TableHead>Técnica</TableHead>
                                 <TableHead>Pertenece a (normativa · tabla)</TableHead>
                             </TableRow>
@@ -253,7 +252,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
                 ) : (
                     <Table>
                         <TableHeader>
-                            <TableRow>
+                            <TableRow className="bg-muted/40 hover:bg-muted/40">
                                 <TableHead>Técnica</TableHead>
                                 <TableHead>Normativa</TableHead>
                                 <TableHead>Tabla</TableHead>
@@ -271,7 +270,7 @@ export const ReferenciasNormativasView: React.FC<Props> = ({ onBack }) => {
                                     <TableCell className="text-right tabular-nums">{f.desde}</TableCell>
                                     <TableCell className="text-right tabular-nums">{f.hasta}</TableCell>
                                     <TableCell>
-                                        <Badge variant={f.habilitada ? 'default' : 'outline'}>{f.habilitada ? 'Habilitada' : 'Deshabilitada'}</Badge>
+                                        <EstadoPill tono={f.habilitada ? 'ok' : 'off'}>{f.habilitada ? 'Habilitada' : 'Deshabilitada'}</EstadoPill>
                                     </TableCell>
                                 </TableRow>
                             ))}

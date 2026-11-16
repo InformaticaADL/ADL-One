@@ -42,7 +42,7 @@ const STATUS_LABEL: Record<string, string> = {
     REALIZADA: 'Realizada', RECHAZADA: 'Rechazada', CANCELADA: 'Cancelada',
 };
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 const STATUS_BADGE: Record<string, BadgeVariant> = {
     PENDIENTE: 'warning', EN_REVISION: 'default', ACEPTADA: 'success',

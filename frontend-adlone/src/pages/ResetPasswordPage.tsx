@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { IconLock, IconAlertCircle, IconCheck, IconArrowLeft, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconAlertCircle, IconCheck, IconArrowLeft, IconEye, IconEyeOff } from '@tabler/icons-react';
 import apiClient from '../config/axios.config';
 import { useToast } from '../contexts/ToastContext';
-import logoAdl from '../assets/images/logo-adlone.png';
-import { Card } from '@/components/ui/card';
+import { AuthLayout, claseCampoAcceso, claseContenidoAcceso, claseEncabezadoAcceso, claseTarjetaAcceso, claseTituloAcceso, LogoAcceso } from '../features/auth/components/AuthLayout';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
@@ -73,20 +73,17 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
     const passwordsMismatch = !!password2 && password !== password2;
 
     return (
-        <div className="login-page">
-            <div className="login-container">
-                <Card className="shadcn-scope w-full rounded-2xl bg-card/95 p-6 shadow-lg backdrop-blur">
-                    <div className="flex flex-col gap-6">
-                        <div className="flex flex-col items-center">
-                            <img src={logoAdl} className="mb-6 w-[260px]" alt="ADL" />
-                            <h2 className="m-0 text-2xl font-bold text-foreground">Restablecer contraseña</h2>
-                            {nombreUsuario && (
-                                <p className="text-center text-[13px] text-muted-foreground">
-                                    para <strong>{nombreUsuario}</strong>
-                                </p>
-                            )}
-                        </div>
-
+        <AuthLayout>
+            <Card className={`shadcn-scope ${claseTarjetaAcceso}`}>
+                <CardHeader className={claseEncabezadoAcceso}>
+                    <LogoAcceso />
+                    <CardTitle className={claseTituloAcceso}>Restablecer contraseña</CardTitle>
+                    {nombreUsuario && (
+                        <CardDescription>para <strong>{nombreUsuario}</strong></CardDescription>
+                    )}
+                </CardHeader>
+                <CardContent className={claseContenidoAcceso}>
+                    <div className="flex flex-col gap-4">
                         {validating && (
                             <div className="flex justify-center p-8">
                                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -150,16 +147,16 @@ export const ResetPasswordPage = ({ onDone }: Props) => {
                             </div>
                         )}
                     </div>
-                </Card>
-            </div>
-        </div>
+                </CardContent>
+            </Card>
+        </AuthLayout>
     );
 };
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div>
-            <span className="mb-1.5 block text-[13px] font-semibold text-foreground">{label}</span>
+            <span className="mb-2 block text-sm font-medium leading-none text-foreground">{label}</span>
             {children}
         </div>
     );
@@ -169,7 +166,6 @@ function PasswordField({ placeholder, value, onChange, disabled, invalid }: { pl
     const [visible, setVisible] = useState(false);
     return (
         <div className="relative">
-            <IconLock size={18} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <Input
                 type={visible ? 'text' : 'password'}
                 placeholder={placeholder}
@@ -177,7 +173,7 @@ function PasswordField({ placeholder, value, onChange, disabled, invalid }: { pl
                 onChange={(e) => onChange(e.target.value)}
                 disabled={disabled}
                 autoComplete="new-password"
-                className={`h-11 pl-10 pr-10 ${invalid ? 'border-destructive' : ''}`}
+                className={`${claseCampoAcceso} pr-10 ${invalid ? 'border-destructive' : ''}`}
             />
             <button
                 type="button"

@@ -193,7 +193,7 @@ export const RolesPage: React.FC<Props> = ({ onBack }) => {
                                                 <span className={role.estado ? 'text-sm font-medium text-foreground' : 'text-sm text-muted-foreground'}>{role.nombre_rol}</span>
                                             </div>
                                         </TableCell>
-                                        <TableCell className="max-w-sm truncate text-sm text-muted-foreground">{role.descripcion || 'Sin descripción'}</TableCell>
+                                        <TableCell className="whitespace-normal break-words text-sm text-muted-foreground">{role.descripcion || 'Sin descripción'}</TableCell>
                                         <TableCell><Badge variant={role.estado ? 'success' : 'destructive'}>{role.estado ? 'Activo' : 'Inactivo'}</Badge></TableCell>
                                         <TableCell>
                                             <div className="flex justify-end gap-2">

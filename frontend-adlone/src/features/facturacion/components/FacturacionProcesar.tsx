@@ -319,7 +319,7 @@ const FacturacionProcesar: React.FC = () => {
     };
 
     return (
-        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:pb-12">
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <h2 className="mb-1 text-lg font-bold tracking-tight text-foreground md:text-[22px]">Procesar Facturación</h2>
             <p className="mb-6 text-sm text-muted-foreground">Selecciona casos con informe cerrado, agrúpalos y genera las pre-facturas.</p>
 
@@ -391,8 +391,8 @@ const FacturacionProcesar: React.FC = () => {
                                                     {c.n_caso}
                                                     {c.es_visita && <span className="ml-2 text-xs text-muted-foreground">· {c.puntos} puntos</span>}
                                                 </TableCell>
-                                                <TableCell className="max-w-[220px] truncate">{c.empresaservicio_nombre}</TableCell>
-                                                <TableCell className="max-w-[180px] truncate">{c.centro_nombre}</TableCell>
+                                                <TableCell className="whitespace-normal break-words">{c.empresaservicio_nombre}</TableCell>
+                                                <TableCell className="whitespace-normal break-words">{c.centro_nombre}</TableCell>
                                                 <TableCell>{c.fecha_informe ? new Date(c.fecha_informe).toLocaleDateString('es-CL') : '—'}</TableCell>
                                                 <TableCell className="text-right tabular-nums">{Number(c.precio_uf).toFixed(2)} UF</TableCell>
                                             </TableRow>

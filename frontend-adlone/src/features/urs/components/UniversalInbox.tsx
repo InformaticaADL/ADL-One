@@ -32,7 +32,7 @@ interface Request {
     unread_count?: number;
 }
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 const STATUS_LABEL: Record<string, string> = {
     PENDIENTE: 'Pendiente', EN_REVISION: 'En revisión', ACEPTADA: 'Aceptada',

@@ -1638,12 +1638,12 @@ const FacturacionCotizaciones: React.FC = () => {
                                         onClick={() => abrirDetalle(r)}
                                     >
                                         <TableCell>{r.tiene_mensaje_nuevo ? <span className="block h-2 w-2 rounded-full bg-primary" /> : null}</TableCell>
-                                        <TableCell className="max-w-[220px] truncate">{r.nombre_cliente}</TableCell>
-                                        <TableCell className="max-w-[260px] truncate">{r.titulo || <span className="font-normal text-muted-foreground">—</span>}</TableCell>
+                                        <TableCell className="whitespace-normal break-words">{r.nombre_cliente}</TableCell>
+                                        <TableCell className="whitespace-normal break-words">{r.titulo || <span className="font-normal text-muted-foreground">—</span>}</TableCell>
                                         <TableCell>
                                             <Badge variant={ESTADO_BADGE_VARIANT[r.estado_unificado] || 'secondary'}>{r.estado_label}</Badge>
                                         </TableCell>
-                                        <TableCell className="max-w-[280px] truncate font-normal">
+                                        <TableCell className="whitespace-normal break-words font-normal">
                                             {r.ultimo_mensaje_texto ? (
                                                 <span>
                                                     <span className="text-[11.5px] text-muted-foreground">{r.ultimo_mensaje_autor === 'ADL_ONE' ? 'Tú: ' : 'Cliente: '}</span>

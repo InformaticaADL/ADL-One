@@ -1,3 +1,4 @@
+import { formatearFecha } from '@/lib/fechas';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
     IconPlus,
@@ -52,7 +53,7 @@ import { useNavStore } from '../../../store/navStore';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 const getStatusBadgeVariant = (status: string): BadgeVariant => {
     const s = (status || '').toUpperCase().trim();
@@ -1266,7 +1267,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     return (
         // En teléfono la página scrollea completa (ver isFullHeightModule en
         // MainLayout): fijar la cabecera dejaba la lista en una franja mínima.
-        <div className={cn('shadcn-scope adl-fade-in w-full', !isMobile && 'flex h-full min-h-0 flex-col')}>
+        <div className={cn('shadcn-scope adl-fade-in w-full p-4 md:p-6', !isMobile && 'flex h-full min-h-0 flex-col')}>
             {/* Desde tablet: encabezado, pestañas y filtros quedan fijos arriba. */}
             <div className={cn('flex flex-col gap-4 px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
                 <PageHeader
@@ -1936,7 +1937,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             <div>
                                                 <p className="text-sm font-semibold text-foreground">Reporte de Pérdida / Extravío</p>
                                                 <p className="text-sm text-muted-foreground">
-                                                    Indica {reviewSolicitud.datos_json?.tipo_perdida} ocurrido el {reviewSolicitud.datos_json?.fecha_incidente}.
+                                                    Indica {reviewSolicitud.datos_json?.tipo_perdida} ocurrido el {formatearFecha(reviewSolicitud.datos_json?.fecha_incidente)}.
                                                 </p>
                                             </div>
                                         </div>

@@ -28,11 +28,9 @@ import { adminExportService } from '../services/admin.service';
 import { EquipoCatalogoView } from '../components/EquipoCatalogoView';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
 
 // Grupos con sentido operativo (laboratorios/áreas técnicas vs. gestión y
 // soporte) en vez de un grid plano — deja que la lista escale a más áreas
@@ -44,9 +42,8 @@ interface AdminArea {
     icon: Icon;
     permission: string | string[];
     description?: string;
-    /** Sin página real todavía (DashboardPage no la enruta) — se muestra
-     * atenuada, sin acción, con badge "Próximamente" en vez de sacarla del
-     * menú. Por defecto true (toda área nueva se asume habilitada). */
+    /** false = sin página real todavía (DashboardPage no la enruta): queda OCULTA del menú, ni siquiera se muestra como «Próximamente».
+     * Para que aparezca cuando exista su página, se quita el `enabled: false` de esa línea. Por defecto true (toda área nueva se asume habilitada). */
     enabled?: boolean;
 }
 
@@ -120,7 +117,7 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
         .map(group => ({
             ...group,
             areas: group.areas.filter(area =>
-                canAccessArea(area) && (!q || area.label.toLowerCase().includes(q) || area.description?.toLowerCase().includes(q))
+                area.enabled !== false && canAccessArea(area) && (!q || area.label.toLowerCase().includes(q) || area.description?.toLowerCase().includes(q))
             ),
         }))
         .filter(group => group.areas.length > 0),
@@ -205,31 +202,25 @@ export const AdminInfoHub: React.FC<Props> = ({ onNavigate }) => {
                                 <Card className="divide-y divide-border overflow-hidden p-0">
                                     {group.areas.map((area) => {
                                         const Icon = area.icon;
-                                        const disabled = area.enabled === false;
                                         return (
                                             <button
                                                 key={area.id}
                                                 type="button"
-                                                disabled={disabled}
                                                 onClick={() => onNavigate(area.id)}
-                                                className={cn(
-                                                    'flex w-full items-center gap-3 px-4 py-3 text-left transition-colors',
-                                                    disabled ? 'cursor-not-allowed opacity-60' : 'hover:bg-muted'
-                                                )}
+                                                className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
                                             >
-                                                <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', disabled ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary')}>
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                                                     <Icon size={19} stroke={1.75} />
                                                 </div>
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
                                                         {area.label}
-                                                        {disabled && <Badge variant="outline" className="font-normal normal-case">Próximamente</Badge>}
                                                     </div>
                                                     {area.description && (
                                                         <p className="truncate text-xs text-muted-foreground">{area.description}</p>
                                                     )}
                                                 </div>
-                                                {!disabled && <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />}
+                                                <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />
                                             </button>
                                         );
                                     })}

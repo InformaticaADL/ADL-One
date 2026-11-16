@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
 import { LoginForm } from '../features/auth/components/LoginForm';
-import '../features/auth/Login.css'; // Import the original CSS
+import { AuthLayout } from '../features/auth/components/AuthLayout';
 
 const LoginPage = () => {
     const { login } = useAuth();
@@ -29,11 +29,9 @@ const LoginPage = () => {
     };
 
     return (
-        <div className="login-page">
-            <div className="login-container">
-                <LoginForm onSubmit={handleLoginSubmit} isLoading={loading} recoveryHint={recoveryHint} onRecoveryClose={() => setRecoveryHint(null)} />
-            </div>
-        </div>
+        <AuthLayout>
+            <LoginForm onSubmit={handleLoginSubmit} isLoading={loading} recoveryHint={recoveryHint} onRecoveryClose={() => setRecoveryHint(null)} />
+        </AuthLayout>
     );
 };
 

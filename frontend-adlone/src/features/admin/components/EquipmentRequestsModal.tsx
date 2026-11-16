@@ -1,3 +1,4 @@
+import { formatearFecha } from '@/lib/fechas';
 import React, { useState, useEffect } from 'react';
 import {
     IconCalendar,
@@ -164,7 +165,7 @@ export const EquipmentRequestsModal: React.FC<EquipmentRequestsModalProps> = ({
                             <IconCalendar size={12} className="text-primary" />
                             <span className="text-xs font-semibold text-foreground">Nueva Vigencia:</span>
                             <Badge variant="outline">
-                                {d.nueva_vigencia_solicitada || d.vigencia_propuesta || d.fecha_vigencia || d.vigencia}
+                                {formatearFecha(d.nueva_vigencia_solicitada || d.vigencia_propuesta || d.fecha_vigencia || d.vigencia)}
                             </Badge>
                         </div>
                     )}

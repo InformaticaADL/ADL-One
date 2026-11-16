@@ -1,3 +1,4 @@
+import { formatearFechaHora } from '@/lib/fechas';
 import React, { useState, useEffect, useMemo } from 'react';
 import {
     IconSearch,
@@ -306,7 +307,7 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">{editingUser.nombre_real}</p>
                             <p className="truncate text-xs text-muted-foreground">
-                                @{editingUser.nombre_usuario} · Último acceso: {editingUser.ultimo_acceso ?? 'Nunca'}
+                                @{editingUser.nombre_usuario} · Último acceso: {formatearFechaHora(editingUser.ultimo_acceso) || 'Nunca'}
                             </p>
                         </div>
                         <Badge variant={editingUser.habilitado === 'S' ? 'success' : 'destructive'}>
@@ -515,7 +516,7 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
             header: 'Último acceso',
             accessorFn: (u) => u.ultimo_acceso || '',
             sortingFn: (a, b) => localeSort(a.getValue('ultimo_acceso'), b.getValue('ultimo_acceso')),
-            cell: ({ row }) => <span className="whitespace-nowrap text-sm text-muted-foreground">{row.original.ultimo_acceso ?? 'Nunca'}</span>,
+            cell: ({ row }) => <span className="whitespace-nowrap text-sm text-muted-foreground">{formatearFechaHora(row.original.ultimo_acceso) || 'Nunca'}</span>,
         },
         {
             id: 'acciones',

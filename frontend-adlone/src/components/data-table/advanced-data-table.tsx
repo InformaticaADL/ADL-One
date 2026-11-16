@@ -14,7 +14,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from '@tanstack/react-table';
-import { X } from 'lucide-react';
+import { SearchX, X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -168,7 +168,7 @@ export function AdvancedDataTable<TData>({
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((grupo) => (
-                            <TableRow key={grupo.id} className="hover:bg-transparent">
+                            <TableRow key={grupo.id} className="bg-muted/40 hover:bg-muted/40">
                                 {grupo.headers.map((h) => (
                                     <TableHead key={h.id} colSpan={h.colSpan} className={cn('h-10 whitespace-nowrap px-2 text-[0.8125rem] font-medium normal-case tracking-normal text-muted-foreground', h.column.columnDef.meta?.className)}>
                                         {h.isPlaceholder ? null : flexRender(h.column.columnDef.header, h.getContext())}
@@ -198,7 +198,17 @@ export function AdvancedDataTable<TData>({
                             ))
                         ) : (
                             <TableRow className="hover:bg-transparent">
-                                <TableCell colSpan={visibles} className="h-24 text-center text-muted-foreground">{mensajeVacio}</TableCell>
+                                <TableCell colSpan={visibles} className="h-48 text-center">
+                                    <div className="mx-auto flex max-w-xs flex-col items-center gap-2 text-muted-foreground">
+                                        <SearchX className="size-8 opacity-60" aria-hidden="true" />
+                                        <p className="text-sm">{mensajeVacio}</p>
+                                        {filtrado && (
+                                            <Button variant="outline" size="sm" onClick={() => { table.resetColumnFilters(true); table.setGlobalFilter(''); setColumnFilters([]); }}>
+                                                Restablecer filtros
+                                            </Button>
+                                        )}
+                                    </div>
+                                </TableCell>
                             </TableRow>
                         )}
                     </TableBody>

@@ -1,3 +1,5 @@
+import { EstadoPill } from '@/components/ui/estado-pill';
+import { useConfirmacion } from '@/components/ui/confirm-dialog';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,12 +9,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Combobox } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Table, TableHeader, TableBody, TableRow, SortableTableHead, TableHead, TableCell } from '@/components/ui/table';
-import { DataPagination } from '@/components/ui/pagination';
-import { RowActionsMenu } from '@/components/ui/row-actions-menu';
+import { Ellipsis } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { AdvancedDataTable, DataTableColumnHeader } from '@/components/data-table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { PageHeader } from '../../../components/layout/PageHeader';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { useTableSort } from '../../../hooks/useTableSort';
 import {
     IconEdit,
     IconTrash,
@@ -42,6 +45,7 @@ interface MaestroConfig {
     label: string;
     tableName: string;
     idName: string;
+    description?: string;
     displayColumn?: string;
     summaryColumns?: string[];
     statusColumn?: string;
@@ -52,6 +56,7 @@ interface MaestroConfig {
             idColumn: string;
             displayColumn: string;
             noCreate?: boolean;
+            autofill?: boolean;
         }
     };
     /** Campos con opciones fijas (lista desplegable en vez de texto libre). */
@@ -93,6 +98,7 @@ const AlertBox: React.FC<{ variant: 'error' | 'warning'; icon?: React.ReactNode;
 
 export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }) => {
     const { showToast } = useToast();
+    const { confirmar, dialogo: dialogoConfirmacion } = useConfirmacion();
     const [data, setData] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [fetchError, setFetchError] = useState<string | null>(null);
@@ -100,7 +106,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
     const [formData, setFormData] = useState<any>({});
     const [editingItem, setEditingItem] = useState<any | null>(null);
     const [saving, setSaving] = useState(false);
-    const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+    const [formInicial, setFormInicial] = useState<any>(null);
     const [statusFilter, setStatusFilter] = useState<string>('all');
     const [dynamicFilters, setDynamicFilters] = useState<{[key: string]: string}>({});
     const [view, setView] = useState<'list' | 'form'>('list');
@@ -219,34 +225,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [config]);
 
-    const filteredData = useMemo(() => {
-        let filtered = data;
-
-        // Apply status filter
-        if (statusFilter !== 'all') {
-            filtered = filtered.filter(item => {
-                const status = item[config.statusColumn || 'habilitado'] || item.activo || item.estado || 'S';
-                const isActive = status === 'S' || status === 'V' || status === 1 || status === true;
-                return statusFilter === 'active' ? isActive : !isActive;
-            });
-        }
-
-        // Apply dynamic filters (FK relations, dependancies)
-        Object.entries(dynamicFilters).forEach(([col, val]) => {
-            if (val) {
-                filtered = filtered.filter(item => String(item[col]) === val);
-            }
-        });
-
-        // Apply search term filter
-        if (!searchTerm) return filtered;
-        const s = searchTerm.toLowerCase();
-        return filtered.filter(item =>
-            Object.values(item).some(val =>
-                String(val).toLowerCase().includes(s)
-            )
-        );
-    }, [data, searchTerm, statusFilter, dynamicFilters, config]);
 
     // Get columns to show in the main table based on config or discovery
     const mainTableColumns = useMemo(() => {
@@ -278,44 +256,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
         return explicit ? dataKeys.includes(explicit) : knownStatusCols.some(c => dataKeys.includes(c));
     }, [data, config]);
 
-    const sortAccessors = useMemo(() => {
-        const acc: Record<string, (row: any) => string | number | null | undefined> = {};
-        mainTableColumns.forEach((col: string) => {
-            acc[col] = (row: any) => {
-                const v = row[col];
-                if (v === null || v === undefined || v === '') return null;
-                if (typeof v === 'number') return v;
-                if (typeof v === 'boolean') return v ? 1 : 0;
-                return String(v);
-            };
-        });
-        if (hasStatusColumn) {
-            acc.__estado = (row: any) => {
-                const status = row[config.statusColumn || 'habilitado'] || row.activo || row.estado || 'S';
-                const isActive = status === 'S' || status === 'V' || status === 1 || status === true;
-                return isActive ? 0 : 1;
-            };
-        }
-        return acc;
-    }, [mainTableColumns, hasStatusColumn, config]);
-
-    const { sorted: sortedData, sort, toggleSort } = useTableSort(filteredData, sortAccessors);
-
-    const paginatedData = useMemo(() => {
-        const start = (page - 1) * itemsPerPage;
-        return sortedData.slice(start, start + itemsPerPage);
-    }, [sortedData, page]);
-
-    const sortProps = (col: string) => ({
-        active: sort.key === col,
-        direction: sort.direction,
-        onSort: () => { toggleSort(col); setPage(1); },
-    });
-
-    // Reset page when search changes
-    useEffect(() => {
-        setPage(1);
-    }, [searchTerm, statusFilter]);
 
     const handleOpenModal = (item: any = null) => {
         setEditingItem(item);
@@ -324,9 +264,10 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
             // Convert all values to strings so Select components find their values
             const normalized: any = {};
             Object.entries(item).forEach(([k, v]) => {
-                normalized[k] = v === null || v === undefined ? '' : String(v);
+                normalized[k] = v === null || v === undefined ? '' : String(v).trim();
             });
             setFormData(normalized);
+            setFormInicial(normalized);
         } else {
             const defaults: any = {};
             if (config.statusColumn) defaults[config.statusColumn] = 'S';
@@ -340,6 +281,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                 defaults['orden'] = String(maxOrden + 1);
             }
             setFormData(defaults);
+            setFormInicial(defaults);
         }
         setView('form');
     };
@@ -442,12 +384,12 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
         // MA-03: advertencia previa al deshabilitar (registros podrían estar en uso por fichas activas)
         if (!isNowActive) {
             const displayName = config.displayColumn ? item[config.displayColumn] : `#${idValue}`;
-            const ok = window.confirm(
-                `¿Deshabilitar "${displayName}"?\n\n` +
-                `Atención: si este registro está en uso por fichas activas, podría afectar su visualización. ` +
-                `Las fichas existentes mantendrán el valor pero ya no podrá seleccionarse para nuevas fichas.\n\n` +
-                `¿Desea continuar?`
-            );
+            const ok = await confirmar({
+                titulo: `Deshabilitar "${displayName}"`,
+                mensaje: 'Si este registro está en uso por fichas activas, podría afectar su visualización. Las fichas existentes mantendrán el valor, pero ya no podrá seleccionarse para fichas nuevas.',
+                textoConfirmar: 'Deshabilitar',
+                peligro: true,
+            });
             if (!ok) return;
         }
 
@@ -462,6 +404,13 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
 
 
     // Helper to format technical keys to readable headers
+    // Nombre legible de un campo de relación: sin el prefijo id_ y con las palabras pegadas separadas.
+    const etiquetaCampo = (col: string) => {
+        const conocidas: Record<string, string> = { empresaservicio: 'Empresa de servicio', empresaservicios: 'Empresa de servicio', tipomuestra: 'Tipo de muestra', tipoequipo: 'Tipo de equipo', equipocatalogo: 'Equipo del catálogo' };
+        const base = col.replace(/^id_/i, '').toLowerCase();
+        return conocidas[base] ?? formatHeader(base);
+    };
+
     const formatHeader = (key: string) => {
         return key
             .replace(/_/g, ' ')
@@ -503,7 +452,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
         if (fijas) {
             return (
                 <div key={col}>
-                    <Label className="mb-1 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{formatHeader(col)}</Label>
                     <Combobox
                         className="border-l-[3px] border-l-sky-400"
                         placeholder={`Seleccione ${formatHeader(col)}...`}
@@ -538,22 +487,24 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
             return (
                 <div key={col} className="flex flex-nowrap items-end gap-1.5">
                     <div className="flex-1">
-                        <Label className="mb-1 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{etiquetaCampo(col)}</Label>
                         <Combobox
-                            className="border-l-[3px] border-l-sky-400"
-                            placeholder={`Seleccione ${formatHeader(col)}...`}
+                            placeholder={`Seleccione ${etiquetaCampo(col).toLowerCase()}...`}
                             searchPlaceholder="Buscar..."
+                            footerAction={lookup.noCreate ? undefined : { label: `Crear ${etiquetaCampo(col).toLowerCase()} nuevo...`, onClick: () => openQuickFk(col, lookup) }}
                             emptyText="Sin opciones disponibles"
                             options={comboOptions}
                             value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
                             onValueChange={(v) => {
                                 const updatedForm = { ...formData, [col]: v };
-                                if (v) {
+                                // Solo los maestros que lo piden (equipos) copian columnas del registro elegido; en el resto
+                                // (ej. contactos) elegir una empresa no debe tocar el email, el teléfono ni el estado.
+                                if (v && lookup.autofill) {
                                     const selectedOpt = options.find(opt => String(opt[lookup.idColumn]) === String(v));
                                     if (selectedOpt) {
                                         // Autofill other matching or similar fields in the form
                                         Object.keys(formData).forEach(formKey => {
-                                            if (formKey === col) return; // don't overwrite the selected id column itself
+                                            if (formKey === col || formKey.toLowerCase() === 'habilitado') return; // ni la columna elegida ni el estado
 
                                             // Try exact match or fuzzy match (e.g. tipoequipo vs tipo_equipo)
                                             const cleanFormKey = formKey.toLowerCase().replace(/_/g, '');
@@ -582,18 +533,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                             }}
                         />
                     </div>
-                    {!lookup.noCreate && (
-                        <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="mb-0.5 h-9 w-9 text-success"
-                            title={`Crear nuevo en ${lookup.tableName}`}
-                            onClick={() => openQuickFk(col, lookup)}
-                        >
-                            <IconPlus size={18} />
-                        </Button>
-                    )}
                 </div>
             );
         }
@@ -630,7 +569,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
 
             return (
                 <div key={col}>
-                    <Label className="mb-1.5 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{formatHeader(col)}</Label>
                     {previewUrl && (
                         <div className="mb-2 inline-block rounded-lg border border-border bg-muted/40 p-2">
                             <img
@@ -671,11 +610,11 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
             const isCurrentlyTrue = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1' || raw === 'SI' || raw === 'Si' || raw === 'si' || raw === 'SÍ' || raw === 'sí';
             return (
                 <div key={col}>
-                    <Label className="mb-1 block text-[13px] font-semibold text-primary">{formatHeader(col)}</Label>
+                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{formatHeader(col)}</Label>
                     <Combobox
                         options={[
-                            { value: 'true', label: '✅ Sí' },
-                            { value: 'false', label: '❌ No' },
+                            { value: 'true', label: 'Sí' },
+                            { value: 'false', label: 'No' },
                         ]}
                         value={isCurrentlyTrue ? 'true' : 'false'}
                         onValueChange={(v) => {
@@ -730,12 +669,11 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
             }
             return (
                 <div key={col}>
-                    <Label className="mb-1 block text-[13px]">{formatHeader(col)}</Label>
+                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{formatHeader(col)}</Label>
                     <div className="relative">
                         {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
                         <Input
-                            placeholder={col}
-                            type="date"
+                                                        type="date"
                             value={val}
                             onChange={(e) => setFormData({ ...formData, [col]: e.currentTarget.value })}
                             className={icon ? 'pl-8' : undefined}
@@ -747,12 +685,11 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
 
         return (
             <div key={col}>
-                <Label className="mb-1 block text-[13px]">{formatHeader(col)}</Label>
+                <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{formatHeader(col)}{col === config.displayColumn && <span className="text-destructive"> *</span>}</Label>
                 <div className="relative">
                     {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground">{icon}</span>}
                     <Input
-                        placeholder={col}
-                        value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
+                                                value={formData[col] === null || formData[col] === undefined ? '' : String(formData[col])}
                         onChange={(e) => {
                             const newVal = e.currentTarget.value;
                             const updatedForm = { ...formData, [col]: newVal };
@@ -774,9 +711,8 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
             <DialogContent className="max-w-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <IconBadge color="green" size={28}><IconPlus size={16} /></IconBadge>
                         <span className="text-[13px] font-semibold">
-                            Crear nuevo en <Badge variant="outline" className="font-mono">{quickFk?.lookup.tableName}</Badge>
+                            Crear nuevo registro
                         </span>
                     </DialogTitle>
                 </DialogHeader>
@@ -799,7 +735,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                                         if (isImg) {
                                             return (
                                                 <div key={col}>
-                                                    <Label className="mb-1 block text-xs font-semibold text-primary">{formatHeader(col)}</Label>
+                                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">{formatHeader(col)}</Label>
                                                     <input
                                                         id={`quickfk-file-${col}`}
                                                         type="file"
@@ -834,7 +770,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                                                 <div key={col}>
                                                     <Label className="mb-1 block text-xs font-semibold">{formatHeader(col)}</Label>
                                                     <Combobox
-                                                        options={[{ value: '1', label: '✅ Sí / Habilitado' }, { value: '0', label: '❌ No / Deshabilitado' }]}
+                                                        options={[{ value: '1', label: 'Sí' }, { value: '0', label: 'No' }]}
                                                         value={quickFkFormData[col] !== undefined ? String(quickFkFormData[col]) : '1'}
                                                         onValueChange={(v) => setQuickFkFormData((p: any) => ({ ...p, [col]: v }))}
                                                     />
@@ -845,8 +781,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                                             <div key={col}>
                                                 <Label className={cn('mb-1 block text-xs font-semibold', col === quickFk.lookup.displayColumn && 'text-primary')}>{formatHeader(col)}</Label>
                                                 <Input
-                                                    placeholder={col}
-                                                    value={quickFkFormData[col] || ''}
+                                                                                                        value={quickFkFormData[col] || ''}
                                                     onChange={(e) => setQuickFkFormData((p: any) => ({ ...p, [col]: e.currentTarget.value }))}
                                                 />
                                             </div>
@@ -887,6 +822,16 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
         </Dialog>
     );
 
+    const sucio = JSON.stringify(formData) !== JSON.stringify(formInicial ?? {});
+    const salirDelFormulario = async () => {
+        if (sucio && !(await confirmar({ titulo: 'Cambios sin guardar', mensaje: 'Si sales ahora se pierden los cambios que hiciste.', textoConfirmar: 'Salir sin guardar', textoCancelar: 'Seguir editando', peligro: true }))) return;
+        setView('list');
+    };
+    const estadoDe = (item: any) => {
+        const st = item[config.statusColumn || 'habilitado'] || item.activo || item.estado || 'S';
+        return st === 'S' || st === 'V' || st === 1 || st === true;
+    };
+
     if (view === 'form') {
         // Fields declared as "summary" go to General tab; the rest go to Detalle tab
         const primaryFields = config.summaryColumns || (config.displayColumn ? [config.displayColumn] : []);
@@ -905,9 +850,8 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
         const generalFields = renderableColumns.filter(col => allPrimary.length === 0 || allPrimary.includes(col));
         const advancedFields = renderableColumns.filter(col => allPrimary.length > 0 && !allPrimary.includes(col));
 
-        const generalPanel = (
-            <div className="flex flex-col gap-6">
-                {/* Estado */}
+        const bloqueEstado = (
+            <>
                 {config.statusColumn && (() => {
                     const statusCol = config.statusColumn!;
                     const raw = formData[statusCol];
@@ -919,15 +863,11 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                     const isOn = raw === true || raw === 1 || raw === 'true' || raw === 'S' || raw === '1';
                     return (
                         <div>
-                            <div className="mb-1 flex items-center gap-2">
-                                <IconBadge color="blue" size={28}><IconSettings size={16} /></IconBadge>
-                                <h5 className="m-0 text-base font-semibold">Estado del Registro</h5>
-                            </div>
                             <Combobox
                                 className="max-w-[300px]"
                                 options={[
-                                    { value: 'on', label: '✅ Habilitado / Activo' },
-                                    { value: 'off', label: '🚫 Deshabilitado / Inactivo' }
+                                    { value: 'on', label: 'Activo' },
+                                    { value: 'off', label: 'Deshabilitado' }
                                 ]}
                                 value={isOn ? 'on' : 'off'}
                                 onValueChange={(v) => {
@@ -941,14 +881,13 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                         </div>
                     );
                 })()}
-
-                {/* Dependency selectors (clientes, componentes) */}
+            </>
+        );
+        const bloqueDependencia = (
+            <>
                 {config.dependsOn === 'clientes' && (
                     <div>
-                        <div className="mb-2 flex items-center gap-2">
-                            <IconBadge color="teal" size={28}><IconBuilding size={16} /></IconBadge>
-                            <h5 className="m-0 text-base font-semibold">Cliente Asociado</h5>
-                        </div>
+                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Cliente asociado</Label>
                         <div className="flex items-end gap-2">
                             <Combobox
                                 className="max-w-[400px] flex-1"
@@ -967,10 +906,7 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
 
                 {config.dependsOn === 'componentes' && (
                     <div>
-                        <div className="mb-2 flex items-center gap-2">
-                            <IconBadge color="green" size={28}><IconBuilding size={16} /></IconBadge>
-                            <h5 className="m-0 text-base font-semibold">Componente Asociado</h5>
-                        </div>
+                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Componente asociado</Label>
                         <div className="flex items-end gap-2">
                             <Combobox
                                 className="max-w-[400px] flex-1"
@@ -986,126 +922,88 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                         </div>
                     </div>
                 )}
+            </>
+        );
+        const hayDependencia = config.dependsOn === 'clientes' || config.dependsOn === 'componentes';
 
-                <div className="border-t border-border" />
-
-                {/* Main fields */}
-                <div>
-                    <div className="mb-1 flex items-center gap-2">
-                        <IconBadge color="blue" size={28}><IconSettings size={16} /></IconBadge>
-                        <h5 className="m-0 text-base font-semibold">Atributos de {config.label}</h5>
+        const generalPanel = (
+            <div className="flex flex-col gap-6">
+                {config.statusColumn && (
+                    <div>
+                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado del registro</Label>
+                        {bloqueEstado}
                     </div>
-                    <p className="mb-5 block text-[13px] text-muted-foreground">Complete los campos para registrar la información.</p>
-                    <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-                        {generalFields.map((col: string) => renderField(col))}
-                    </div>
+                )}
+                {hayDependencia && <div>{bloqueDependencia}</div>}
+                {(config.statusColumn || hayDependencia) && <div className="border-t border-border" />}
+                <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+                    {generalFields.map((col: string) => renderField(col))}
                 </div>
-
-                {advancedFields.length === 0 && (
-                    <div className="flex justify-end">
-                        <Button type="button" onClick={() => setConfirmSaveOpen(true)} disabled={saving}>
-                            <IconCheck size={18} /> {saving ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Crear Registro'}
-                        </Button>
-                    </div>
-                )}
-
-                {advancedFields.length > 0 && (
-                    <div className="flex justify-end">
-                        <Button type="button" variant="outline" onClick={() => setActiveFormTab('advanced')}>
-                            Ver Datos Detallados <IconArrowRight size={16} />
-                        </Button>
-                    </div>
-                )}
             </div>
         );
 
         const advancedPanel = (
-            <div className="flex flex-col gap-6">
-                <div>
-                    <div className="mb-1 flex items-center gap-2">
-                        <IconBadge color="grape" size={28}><IconActivity size={16} /></IconBadge>
-                        <h5 className="m-0 text-base font-semibold">Configuración Detallada</h5>
-                    </div>
-                    <p className="mb-5 block text-[13px] text-muted-foreground">Campos adicionales y configuración avanzada del registro.</p>
-                    <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
-                        {advancedFields.map((col: string) => renderField(col))}
-                    </div>
-                </div>
-
-                <div className="border-t border-border" />
-                <div className="flex justify-end">
-                    <Button type="button" onClick={() => setConfirmSaveOpen(true)} disabled={saving}>
-                        <IconCheck size={18} /> {saving ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Crear Registro'}
-                    </Button>
-                </div>
+            <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                {advancedFields.map((col: string) => renderField(col))}
             </div>
         );
 
         return (
-            <div className="shadcn-scope animate-in fade-in slide-in-from-bottom-2 duration-300">
-                {/* Header bar */}
-                <div className="p-4 pb-0">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex flex-col gap-1">
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                className="h-auto w-fit p-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-                                onClick={() => setView('list')}
-                            >
-                                <IconArrowLeft size={16} /> Volver al Listado
-                            </Button>
-                            <div className="flex items-center gap-2">
-                                <IconBadge color="blue" size={44}>
-                                    {editingItem ? <IconEdit size={22} /> : <IconPlus size={22} />}
-                                </IconBadge>
-                                <div>
-                                    <p className="block text-xs font-medium text-muted-foreground">
-                                        {editingItem ? 'Editando registro' : 'Nuevo Registro'} — {config.tableName}
-                                    </p>
-                                    <h3 className="m-0 text-xl font-semibold text-primary">
-                                        {editingItem && config.displayColumn
-                                            ? (editingItem[config.displayColumn] || config.label)
-                                            : config.label}
-                                    </h3>
-                                </div>
-                            </div>
-                        </div>
+            <div className="shadcn-scope">
+                {dialogoConfirmacion}
+                <div className="p-4 md:p-6">
+                    <PageHeader
+                        title={editingItem && config.displayColumn ? (editingItem[config.displayColumn] || config.label) : config.label}
+                        subtitle={(editingItem ? 'Editando registro' : 'Nuevo registro') + ' · ' + config.label}
+                        breadcrumbItems={[
+                            { label: 'Maestros Hub', onClick: onBack },
+                            { label: config.label, onClick: salirDelFormulario },
+                            { label: editingItem ? 'Editar' : 'Nuevo' },
+                        ]}
+                    />
 
-                        <div className="mt-6 flex gap-2">
-                            <Button type="button" variant="outline" onClick={() => setView('list')}>
-                                Cancelar
-                            </Button>
-                            <Button type="button" onClick={() => setConfirmSaveOpen(true)} disabled={saving}>
-                                <IconCheck size={18} /> {saving ? 'Guardando...' : editingItem ? 'Guardar Cambios' : 'Crear Registro'}
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="p-4 py-6">
-                    <Card>
+                    <Card className="mt-6">
                         <CardContent className="p-5">
                             <Tabs value={activeFormTab} onValueChange={setActiveFormTab}>
-                                <TabsList>
-                                    <TabsTrigger value="general" className="gap-1.5"><IconSettings size={16} /> Información General</TabsTrigger>
-                                    {advancedFields.length > 0 && (
-                                        <TabsTrigger value="advanced" className="gap-1.5"><IconActivity size={16} /> Datos Detallados</TabsTrigger>
-                                    )}
-                                    {extraTab && editingItem && (
-                                        <TabsTrigger value="extra" className="gap-1.5">{extraTab.icon} {extraTab.label}</TabsTrigger>
-                                    )}
+                                <TabsList className="h-auto w-full justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
+                                    {[
+                                        { v: 'general', t: 'Información general', show: true },
+                                        { v: 'advanced', t: 'Datos detallados', show: advancedFields.length > 0 },
+                                        { v: 'extra', t: extraTab ? extraTab.label : '', show: !!(extraTab && editingItem) },
+                                    ].filter((p) => p.show).map((p) => (
+                                        <TabsTrigger key={p.v} value={p.v}
+                                            className="-mb-px rounded-none border-b-2 border-transparent px-4 py-2.5 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none">
+                                            {p.t}
+                                        </TabsTrigger>
+                                    ))}
                                 </TabsList>
-                                <TabsContent value="general">{generalPanel}</TabsContent>
+                                <TabsContent value="general" className="mt-5">{generalPanel}</TabsContent>
                                 {advancedFields.length > 0 && (
-                                    <TabsContent value="advanced">{advancedPanel}</TabsContent>
+                                    <TabsContent value="advanced" className="mt-5">{advancedPanel}</TabsContent>
                                 )}
                                 {extraTab && editingItem && (
-                                    <TabsContent value="extra">{extraTab.render(editingItem)}</TabsContent>
+                                    <TabsContent value="extra" className="mt-5">{extraTab.render(editingItem)}</TabsContent>
                                 )}
                             </Tabs>
                         </CardContent>
                     </Card>
+                </div>
+
+                <div className="sticky bottom-0 z-10 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:px-6">
+                    <div className="mx-auto flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className={cn('size-1.5 rounded-full', sucio ? 'bg-[var(--sc-mark)]' : 'bg-muted-foreground/40')} />
+                            {sucio ? 'Cambios sin guardar' : 'Sin cambios'}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button type="button" variant="outline" onClick={salirDelFormulario} disabled={saving}>
+                                {editingItem ? 'Descartar' : 'Cancelar'}
+                            </Button>
+                            <Button type="button" onClick={handleSave} disabled={saving || (!!editingItem && !sucio)}>
+                                {saving ? 'Guardando...' : editingItem ? 'Guardar cambios' : 'Crear registro'}
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Quick Create Modal */}
@@ -1113,7 +1011,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                     <DialogContent className="max-w-md">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-2">
-                                <IconBadge color="green" size={28}><IconPlus size={18} /></IconBadge>
                                 Creación Rápida: {quickCreateType === 'clientes' ? 'Nuevo Cliente' : 'Nuevo Componente'}
                             </DialogTitle>
                         </DialogHeader>
@@ -1184,31 +1081,6 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                     </DialogContent>
                 </Dialog>
 
-                {/* Confirm Save Modal */}
-                <Dialog open={confirmSaveOpen} onOpenChange={(open) => { if (!open && !saving) setConfirmSaveOpen(false); }}>
-                    <DialogContent className="max-w-sm">
-                        <DialogHeader>
-                            <DialogTitle className="text-primary">Confirmación de Guardado</DialogTitle>
-                        </DialogHeader>
-                        <p className="block text-[13px]">
-                            ¿Está seguro que desea {editingItem ? 'actualizar' : 'crear'} este registro en {config.label}?
-                        </p>
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setConfirmSaveOpen(false)} disabled={saving}>Cancelar</Button>
-                            <Button
-                                type="button"
-                                onClick={() => {
-                                    setConfirmSaveOpen(false);
-                                    handleSave();
-                                }}
-                                disabled={saving}
-                            >
-                                {saving ? 'Guardando...' : 'Confirmar'}
-                            </Button>
-                        </DialogFooter>
-                    </DialogContent>
-                </Dialog>
-
                 {/* ── QUICK-CREATE FK MODAL ── */}
                 {quickFkModal}
 
@@ -1218,316 +1090,178 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
 
 
 
-    return (
-        <div className="shadcn-scope flex flex-col gap-4">
-            <div className="flex flex-wrap justify-between gap-3">
+    // ---- Listado (misma tabla, filtros y paginación que la página de Usuarios) ----
 
-                {fetchError && (
+    const boolNombres = ['envia_', 'es_', 'oculto', 'visible', 'activo', 'active', 'enabled', 'is_', 'tiene_', 'permite_', 'transaccional'];
+    const esColumnaBool = (col: string, raw: any) => typeof raw === 'boolean' || boolNombres.some((p) => col.toLowerCase().includes(p));
+
+    // Texto visible de una celda: resuelve el nombre de las relaciones (empresa, cargo...) en lugar del id.
+    const textoCelda = (item: any, col: string): string => {
+        const raw = item[col];
+        if (raw === null || raw === undefined || raw === '') return '';
+        if (esColumnaBool(col, raw)) return raw === true || raw === 1 ? 'Sí' : 'No';
+        if (config.lookups && config.lookups[col]) {
+            const lk = config.lookups[col];
+            const found = (lookupData[col] || []).find((o) => String(o[lk.idColumn]) === String(raw));
+            if (found) return String(found[lk.displayColumn]);
+        } else if (col === 'id_empresa' && config.dependsOn === 'clientes') {
+            const found = dependencyData.find((c) => String(c.id || c.id_empresa) === String(raw));
+            if (found) return String(found.nombre || found.nombre_empresa);
+        } else if (col === 'id_tipomuestra' && config.dependsOn === 'componentes') {
+            const found = dependencyData.find((c) => String(c.id || c.id_tipomuestra) === String(raw));
+            if (found) return String(found.nombre || found.nombre_tipomuestra);
+        }
+        return String(raw).trim();
+    };
+
+    const camposBusqueda = [config.displayColumn, ...mainTableColumns].filter((c, i, l): c is string => !!c && l.indexOf(c) === i && c !== config.idName);
+    const textoBusqueda = camposBusqueda.length
+        ? 'Buscar por ' + camposBusqueda.slice(0, 3).map((c) => etiquetaCampo(c).toLowerCase()).join(', ') + (camposBusqueda.length > 3 ? '…' : '')
+        : 'Buscar...';
+
+    const opcionesDe = (col: string) => {
+        const nombres = new Set<string>();
+        data.forEach((item) => { const t = textoCelda(item, col); if (t) nombres.add(t); });
+        return [...nombres].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' })).map((t) => ({ label: t, value: t }));
+    };
+
+    const columnasMaestro: ColumnDef<any>[] = [
+        ...mainTableColumns.map((col: string): ColumnDef<any> => {
+            const esNombre = col === config.displayColumn;
+            const filtrable = !!(config.lookups && config.lookups[col]) || (col === 'id_empresa' && config.dependsOn === 'clientes') || (col === 'id_tipomuestra' && config.dependsOn === 'componentes');
+            return {
+                id: col,
+                meta: { titulo: etiquetaCampo(col) },
+                header: ({ column }) => <DataTableColumnHeader column={column} title={etiquetaCampo(col)} />,
+                accessorFn: (item) => textoCelda(item, col),
+                sortingFn: (a, b) => (a.getValue(col) as string).localeCompare(b.getValue(col) as string, 'es', { numeric: true, sensitivity: 'base' }),
+                ...(filtrable ? { filterFn: (row: any, id: string, valor: string[]) => valor.includes(row.getValue(id)) } : {}),
+                cell: ({ row }) => {
+                    const raw = row.original[col];
+                    const texto = textoCelda(row.original, col);
+                    if (!texto) return <span className="ps-2 text-muted-foreground">{/descrip|observ/i.test(col) ? 'Sin observaciones' : '—'}</span>;
+                    if (esColumnaBool(col, raw)) {
+                        const si = texto === 'Sí';
+                        return (
+                            <span className={cn('ps-2 inline-flex items-center gap-2 text-sm', !si && 'text-muted-foreground')}>
+                                <span className={cn('size-1.5 rounded-full', si ? 'bg-foreground' : 'bg-muted-foreground/50')} />
+                                {texto}
+                            </span>
+                        );
+                    }
+                    return <span className={cn('ps-2 block text-sm', esNombre ? 'font-medium' : 'max-w-[260px] truncate')} title={texto}>{texto}</span>;
+                },
+            };
+        }),
+        ...(hasStatusColumn ? [{
+            id: 'estado',
+            meta: { titulo: 'Estado' },
+            enableHiding: false,
+            enableSorting: false,
+            header: ({ column }: any) => <DataTableColumnHeader column={column} title="Estado" />,
+            accessorFn: (item: any) => (estadoDe(item) ? 'Activo' : 'Inactivo'),
+            filterFn: (row: any, id: string, valor: string[]) => valor.includes(row.getValue(id)),
+            cell: ({ row }: any) => {
+                const activo = estadoDe(row.original);
+                return <EstadoPill tono={activo ? 'ok' : 'off'}>{activo ? 'Activo' : 'Inactivo'}</EstadoPill>;
+            },
+        } as ColumnDef<any>] : []),
+        {
+            id: 'acciones',
+            enableHiding: false,
+            enableSorting: false,
+            header: () => null,
+            cell: ({ row }) => {
+                const activo = estadoDe(row.original);
+                return (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="flex h-8 w-8 p-0 data-[state=open]:bg-muted">
+                                <Ellipsis className="h-4 w-4" />
+                                <span className="sr-only">Abrir menú de la fila</span>
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-[160px]">
+                            <DropdownMenuItem onSelect={() => handleOpenModal(row.original)}>
+                                Editar <span className="ms-auto"><IconEdit size={16} /></span>
+                            </DropdownMenuItem>
+                            {hasStatusColumn && (
+                                <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem onSelect={() => handleToggleStatus(row.original)} className={activo ? 'text-red-500' : undefined}>
+                                        {activo ? 'Deshabilitar' : 'Habilitar'} <span className="ms-auto">{activo ? <IconTrash size={16} /> : <IconCheck size={16} />}</span>
+                                    </DropdownMenuItem>
+                                </>
+                            )}
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                );
+            },
+        },
+    ];
+
+    const filtrosMaestro = [
+        ...(hasStatusColumn ? [{ columna: 'estado', titulo: 'Estado', opciones: [{ label: 'Activo', value: 'Activo' }, { label: 'Inactivo', value: 'Inactivo' }] }] : []),
+        ...mainTableColumns
+            .filter((col: string) => (config.lookups && config.lookups[col]) || (col === 'id_empresa' && config.dependsOn === 'clientes') || (col === 'id_tipomuestra' && config.dependsOn === 'componentes'))
+            .map((col: string) => ({ columna: col, titulo: etiquetaCampo(col), opciones: opcionesDe(col) })),
+    ];
+
+    return (
+        <div className="shadcn-scope w-full p-4 md:p-6">
+            {dialogoConfirmacion}
+            <PageHeader
+                title={config.label}
+                subtitle={config.description}
+                breadcrumbItems={[{ label: 'Maestros Hub', onClick: onBack }, { label: config.label }]}
+                rightSection={
+                    <Button type="button" className="space-x-1" onClick={() => handleOpenModal()} disabled={needsDependency}>
+                        <span>Añadir {config.label}</span> <IconPlus size={18} />
+                    </Button>
+                }
+            />
+
+            {fetchError && (
+                <div className="mt-4">
                     <AlertBox variant="error" icon={<IconAlertCircle size={16} className="mt-0.5 shrink-0" />}>
                         {fetchError}
                     </AlertBox>
-                )}
-                <Button type="button" variant="outline" onClick={onBack}>
-                    <IconArrowLeft size={16} /> Volver al Panel
-                </Button>
-                <Button type="button" onClick={() => handleOpenModal()} disabled={needsDependency}>
-                    <IconPlus size={20} /> Añadir {config.label}
-                </Button>
-            </div>
-
-            {needsDependency && (
-                <AlertBox variant="warning" icon={<IconAlertTriangle size={16} className="mt-0.5 shrink-0" />}>
-                    <span className="font-semibold">Atención: </span>
-                    Necesita crear primero registros en el maestro <strong>{config.dependsOn}</strong> antes de poder añadir nuevos {config.label}.
-                </AlertBox>
+                </div>
             )}
 
-            {/* ── MAESTRO INFO PANEL ─────────────────────────────────────── */}
-            <Card className="border-primary/20 bg-primary/5">
-                <CardContent className="p-3">
-                    <div className="mb-1.5 flex items-center gap-2">
-                        <IconBadge color="blue" size={20}><IconSettings size={12} /></IconBadge>
-                        <span className="text-xs font-semibold text-primary">Información del Maestro</span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-4">
-                        {/* Tabla */}
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">Tabla:</span>
-                            <Badge variant="outline" className="font-mono">{config.tableName}</Badge>
-                        </div>
-                        {/* ID */}
-                        <div className="flex items-center gap-1">
-                            <span className="text-xs text-muted-foreground">ID:</span>
-                            <Badge variant="outline" className="font-mono">{config.idName}</Badge>
-                        </div>
-                        {/* Status column */}
-                        {config.statusColumn && (
-                            <div className="flex items-center gap-1">
-                                <span className="text-xs text-muted-foreground">Estado:</span>
-                                <Badge variant="outline" className="font-mono">{config.statusColumn}</Badge>
-                            </div>
-                        )}
-                        {/* Lookups / FK relations */}
-                        {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => (
-                            <div key={field} className="flex items-center gap-1">
-                                <Badge variant="outline" className="font-mono">{field}</Badge>
-                                <span className="text-xs text-muted-foreground">→</span>
-                                <Badge variant="outline" className="font-mono">{lookup.tableName}.{lookup.displayColumn}</Badge>
-                            </div>
-                        ))}
-                        {/* Dependency */}
-                        {config.dependsOn && (
-                            <div className="flex items-center gap-1">
-                                <span className="text-xs text-muted-foreground">Depende de:</span>
-                                <Badge variant="outline">{config.dependsOn}</Badge>
-                            </div>
-                        )}
-                        {/* Total records */}
-                        {data.length > 0 && (
-                            <div className="flex items-center gap-1">
-                                <span className="text-xs text-muted-foreground">Registros:</span>
-                                <Badge variant="outline">{data.length}</Badge>
-                            </div>
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
+            {needsDependency && (
+                <div className="mt-4">
+                    <AlertBox variant="warning" icon={<IconAlertTriangle size={16} className="mt-0.5 shrink-0" />}>
+                        <span className="font-semibold">Atención: </span>
+                        Necesita crear primero registros en el maestro <strong>{config.dependsOn}</strong> antes de poder añadir nuevos {config.label}.
+                    </AlertBox>
+                </div>
+            )}
 
-            <Card>
-                <CardContent className="flex flex-col gap-4 p-5">
-                    <div className="flex flex-wrap justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl font-semibold">{config.label}</span>
-                            <Badge variant="outline">{config.tableName}</Badge>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            <Combobox
-                                className="w-[190px]"
-                                placeholder="Estado"
-                                options={[
-                                    { value: 'all', label: 'Todos los estados' },
-                                    { value: 'active', label: 'Solo Activos' },
-                                    { value: 'inactive', label: 'Solo Inactivos' }
-                                ]}
-                                value={statusFilter}
-                                onValueChange={(v) => setStatusFilter(v || 'all')}
-                            />
+            <div className="mt-6 flex flex-col gap-4">
+                <AdvancedDataTable
+                    key={config.id + ':' + mainTableColumns.length + ':' + (hasStatusColumn ? 's' : 'n')}
+                    columns={columnasMaestro}
+                    data={data}
+                    getRowId={(item) => String(item[config.idName])}
+                    cargando={loading}
+                    pageSize={10}
+                    mensajeVacio="No se encontraron registros"
+                    busqueda={{
+                        placeholder: textoBusqueda,
+                        texto: (item) => {
+                            const propios = Object.entries(item)
+                                .filter(([k]) => k !== config.idName && !k.toLowerCase().startsWith('id_'))
+                                .map(([, v]) => String(v ?? ''));
+                            const nombres = mainTableColumns.map((c: string) => textoCelda(item, c));
+                            return [...propios, ...nombres].join(' ');
+                        },
+                    }}
+                    filtros={filtrosMaestro}
+                />
+            </div>
 
-                            {/* Dynamic filters based on FK lookups */}
-                            {config.lookups && Object.entries(config.lookups).map(([field, lookup]) => {
-                                if (!lookup) return null;
-                                const options = lookupData[field] || [];
-                                const comboOptions = (() => {
-                                    const seen = new Set<string>();
-                                    const opts = options
-                                        .map(opt => ({
-                                            value: String(opt[lookup.idColumn]),
-                                            label: String(opt[lookup.displayColumn])
-                                        }))
-                                        .filter(opt => {
-                                            if (!opt.value || opt.value === 'undefined' || opt.value === 'null') return false;
-                                            if (seen.has(opt.value)) return false;
-                                            seen.add(opt.value);
-                                            return true;
-                                        });
-                                    return [{ value: '', label: `Todos` }, ...opts];
-                                })();
-                                return (
-                                    <Combobox
-                                        key={`filter-${field}`}
-                                        className="w-[200px]"
-                                        placeholder={`Filtrar por ${formatHeader(field)}`}
-                                        searchPlaceholder="Buscar..."
-                                        options={comboOptions}
-                                        value={dynamicFilters[field] || ''}
-                                        onValueChange={(v) => setDynamicFilters(prev => ({ ...prev, [field]: v || '' }))}
-                                    />
-                                );
-                            })}
-
-                            {/* Dynamic filters based on hierarchical dependencies */}
-                            {config.dependsOn === 'clientes' && (
-                                <Combobox
-                                    className="w-[200px]"
-                                    placeholder="Filtrar por Cliente"
-                                    searchPlaceholder="Buscar..."
-                                    options={[{ value: '', label: 'Todos' }, ...dependencyData.map(c => ({
-                                        value: String(c.id || c.id_empresa),
-                                        label: String(c.nombre || c.nombre_empresa)
-                                    }))]}
-                                    value={dynamicFilters['id_empresa'] || ''}
-                                    onValueChange={(v) => setDynamicFilters(prev => ({ ...prev, id_empresa: v || '' }))}
-                                />
-                            )}
-
-                            {config.dependsOn === 'componentes' && (
-                                <Combobox
-                                    className="w-[200px]"
-                                    placeholder="Filtrar por Componente"
-                                    searchPlaceholder="Buscar..."
-                                    options={[{ value: '', label: 'Todos' }, ...dependencyData.map(c => ({
-                                        value: String(c.id || c.id_tipomuestra),
-                                        label: String(c.nombre || c.nombre_tipomuestra)
-                                    }))]}
-                                    value={dynamicFilters['id_tipomuestra'] || ''}
-                                    onValueChange={(v) => setDynamicFilters(prev => ({ ...prev, id_tipomuestra: v || '' }))}
-                                />
-                            )}
-
-                            <div className="relative w-[250px]">
-                                <IconSearch size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Buscar..."
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.currentTarget.value)}
-                                    className="pl-8"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="overflow-hidden rounded-lg border border-border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-20">ID</TableHead>
-
-                                    {/* Granular columns */}
-                                    {mainTableColumns.map((col: string) => (
-                                        <SortableTableHead key={col} {...sortProps(col)}>{formatHeader(col)}</SortableTableHead>
-                                    ))}
-
-                                    {hasStatusColumn && <SortableTableHead className="w-28" {...sortProps('__estado')}>Estado</SortableTableHead>}
-                                    <TableHead className="w-16 text-right">Acciones</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={mainTableColumns.length + 3} className="py-8 text-center">
-                                            <div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                            <p className="mt-2 block text-[13px]">Cargando datos...</p>
-                                        </TableCell>
-                                    </TableRow>
-                                ) : filteredData.length === 0 ? (
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableCell colSpan={mainTableColumns.length + 3} className="py-8 text-center text-sm text-muted-foreground">
-                                            No se encontraron registros
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    paginatedData.map((item) => {
-                                        const status = item[config.statusColumn || 'habilitado'] || item.activo || item.estado || 'S';
-                                        const isActive = status === 'S' || status === 'V' || status === 1 || status === true;
-
-                                        return (
-                                            <TableRow key={item[config.idName]}>
-                                                <TableCell>
-                                                    <span className="text-xs font-medium text-muted-foreground">{item[config.idName]}</span>
-                                                </TableCell>
-
-                                                {/* Granular data cells */}
-                                                {mainTableColumns.map((col: string) => {
-                                                    const raw = item[col];
-
-                                                    // Only treat as boolean if column NAME suggests it, not just any 0/1 value
-                                                    const boolNamePatterns = ['envia_', 'es_', 'oculto', 'visible', 'activo', 'active', 'enabled', 'is_', 'tiene_', 'permite_', 'transaccional'];
-                                                    const isBoolCol = typeof raw === 'boolean' || boolNamePatterns.some(p => col.toLowerCase().includes(p));
-                                                    const isNullValue = raw === null || raw === undefined || raw === '';
-                                                    const isDescCol = /descrip|observ/i.test(col);
-                                                    let displayValue: React.ReactNode = isNullValue
-                                                        ? <span className="text-xs italic text-muted-foreground">{isDescCol ? 'Sin observaciones' : 'null'}</span>
-                                                        : String(raw);
-
-                                                    if (isBoolCol && raw !== null && raw !== undefined) {
-                                                        const isTrue = raw === true || raw === 1;
-                                                        displayValue = (
-                                                            <Badge variant={isTrue ? 'success' : 'secondary'}>
-                                                                {isTrue ? '✅ Sí' : '❌ No'}
-                                                            </Badge>
-                                                        );
-                                                    }
-
-                                                    // Resolve Lookup names if available
-                                                    if (!isBoolCol && config.lookups && config.lookups[col]) {
-                                                        const lookup = config.lookups[col];
-                                                        const options = lookupData[col] || [];
-                                                        const found = options.find(opt => String(opt[lookup.idColumn]) === String(raw));
-                                                        if (found) displayValue = String(found[lookup.displayColumn]);
-                                                    } else if (!isBoolCol && col === 'id_empresa' && (config.dependsOn === 'clientes')) {
-                                                        const found = dependencyData.find(c => String(c.id || c.id_empresa) === String(raw));
-                                                        if (found) displayValue = String(found.nombre || found.nombre_empresa);
-                                                    } else if (!isBoolCol && col === 'id_tipomuestra' && (config.dependsOn === 'componentes')) {
-                                                        const found = dependencyData.find(c => String(c.id || c.id_tipomuestra) === String(raw));
-                                                        if (found) displayValue = String(found.nombre || found.nombre_tipomuestra);
-                                                    }
-
-                                                    const isNameCol = col === config.displayColumn;
-                                                    return (
-                                                        <TableCell key={col} style={isNameCol ? { minWidth: 220 } : undefined}>
-                                                            <span
-                                                                className={cn(
-                                                                    'text-[13px]',
-                                                                    isNameCol
-                                                                        ? 'font-semibold whitespace-normal break-words'
-                                                                        : 'block max-w-[250px] truncate font-normal'
-                                                                )}
-                                                            >
-                                                                {displayValue}
-                                                            </span>
-                                                        </TableCell>
-                                                    );
-                                                })}
-
-                                                {hasStatusColumn && (
-                                                    <TableCell>
-                                                        <Badge variant={isActive ? 'success' : 'destructive'}>
-                                                            {isActive ? 'Activo' : 'Inactivo'}
-                                                        </Badge>
-                                                    </TableCell>
-                                                )}
-
-                                                <TableCell className="text-right">
-                                                    <RowActionsMenu
-                                                        actions={[
-                                                            {
-                                                                label: 'Editar',
-                                                                icon: <IconEdit size={16} />,
-                                                                onClick: () => handleOpenModal(item),
-                                                            },
-                                                            {
-                                                                label: isActive ? 'Deshabilitar' : 'Habilitar',
-                                                                icon: isActive ? <IconTrash size={16} /> : <IconCheck size={16} />,
-                                                                onClick: () => handleToggleStatus(item),
-                                                                danger: isActive,
-                                                                separatorBefore: true,
-                                                                hidden: !hasStatusColumn,
-                                                            },
-                                                        ]}
-                                                    />
-                                                </TableCell>
-                                            </TableRow>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                </CardContent>
-            </Card>
-
-            <DataPagination
-                page={page}
-                pageSize={itemsPerPage}
-                total={sortedData.length}
-                onPageChange={setPage}
-                onPageSizeChange={(size) => { setItemsPerPage(size); setPage(1); }}
-            />
-
-            {/* ── QUICK-CREATE FK MODAL (list view) ── */}
             {quickFkModal}
         </div>
-
     );
 };

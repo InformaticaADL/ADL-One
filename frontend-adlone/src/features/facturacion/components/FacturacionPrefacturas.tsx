@@ -419,7 +419,7 @@ const FacturacionPrefacturas: React.FC = () => {
     const seleccionables = data.filter((p) => EMITIBLES.includes(p.estado));
 
     return (
-        <div className="shadcn-scope w-full p-4 pb-10 md:p-6 md:pb-12">
+        <div className="shadcn-scope w-full p-4 md:p-6">
             <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                 <div>
                     <h2 className="text-lg font-bold tracking-tight text-foreground md:text-[22px]">Pre-Facturas</h2>
@@ -498,7 +498,7 @@ const FacturacionPrefacturas: React.FC = () => {
                                             />
                                         </TableCell>
                                         <TableCell className="font-semibold">{r.numero_id}</TableCell>
-                                        <TableCell className="max-w-[220px] truncate">{r.nombre_empresaservicios}</TableCell>
+                                        <TableCell className="whitespace-normal break-words">{r.nombre_empresaservicios}</TableCell>
                                         <TableCell>{r.agrupacion_valor || (r.agrupacion_tipo === 'SIN_AGRUPACION' ? 'Sin agrupación' : r.agrupacion_tipo)}</TableCell>
                                         <TableCell className="text-right">{r.cantidad_casos}</TableCell>
                                         <TableCell className="text-right">
@@ -732,7 +732,7 @@ const FacturacionPrefacturas: React.FC = () => {
                                                     {c.correlativo_caso}
                                                     {c.puntos > 1 && <span className="ml-2 text-xs text-muted-foreground">· {c.puntos} puntos</span>}
                                                 </TableCell>
-                                                <TableCell className="max-w-[200px] truncate">{c.nombre_centro}</TableCell>
+                                                <TableCell className="whitespace-normal break-words">{c.nombre_centro}</TableCell>
                                                 <TableCell className="text-right tabular-nums">{fmtUf(c.precio_venta_uf)}</TableCell>
                                                 {puedeCorregir && unidadesCasos(detalle.casos).length > 1 && (
                                                     <TableCell>

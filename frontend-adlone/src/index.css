@@ -112,6 +112,7 @@
   --color-card: var(--sc-card);
   --color-card-foreground: var(--sc-card-foreground);
   --color-primary: var(--sc-primary);
+  --color-brand: var(--sc-brand);
   --color-primary-foreground: var(--sc-primary-foreground);
   --color-secondary: var(--sc-secondary);
   --color-secondary-foreground: var(--sc-secondary-foreground);
@@ -122,6 +123,7 @@
   --color-destructive: var(--sc-destructive);
   --color-destructive-foreground: var(--sc-destructive-foreground);
   --color-success: var(--sc-success);
+  --color-info: var(--sc-info);
   --color-success-foreground: var(--sc-success-foreground);
   --color-warning: var(--sc-warning);
   --color-warning-foreground: var(--sc-warning-foreground);
@@ -204,6 +206,8 @@
   --sc-warning-foreground: #ffffff;
   --sc-border: #e4e4e7;
   --sc-ring: #1677ff;
+  --sc-brand: var(--sc-primary);
+  --sc-info: #1677ff;
   --sc-radius: 0.75rem;
   /* Rail levemente distinto del fondo/card — el detalle clásico de los
      bloques de sidebar de shadcn/ui (sidebar-07 y similares), donde el nav
@@ -234,6 +238,7 @@
   --sc-warning-foreground: #1a1a1a;
   --sc-border: rgba(255, 255, 255, 0.12);
   --sc-ring: #1677ff;
+  --sc-brand: var(--sc-primary);
   --sc-sidebar: #101012;
   --sc-sidebar-foreground: var(--sc-foreground);
   --sc-sidebar-border: var(--sc-border);
@@ -591,22 +596,22 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
    clase y conserva su tamaño original.
    ────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  .shadcn-scope .text-\[10px\]   { font-size: 9px; }
-  .shadcn-scope .text-\[10\.5px\] { font-size: 9.5px; }
-  .shadcn-scope .text-\[11px\]   { font-size: 10px; }
-  .shadcn-scope .text-\[11\.5px\] { font-size: 10.5px; }
-  .shadcn-scope .text-\[12px\]   { font-size: 11px; }
-  .shadcn-scope .text-\[12\.5px\] { font-size: 11.5px; }
-  .shadcn-scope .text-\[13px\]   { font-size: 12px; }
-  .shadcn-scope .text-\[13\.5px\] { font-size: 12.5px; }
-  .shadcn-scope .text-\[14px\]   { font-size: 12.5px; }
-  .shadcn-scope .text-\[15px\]   { font-size: 13.5px; }
-  .shadcn-scope .text-\[17px\]   { font-size: 15px; }
-  .shadcn-scope .text-\[21px\]   { font-size: 18px; }
-  .shadcn-scope .text-\[22px\]   { font-size: 18.5px; }
-  .shadcn-scope .text-\[32px\]   { font-size: 26px; }
-  .shadcn-scope .text-\[40px\]   { font-size: 32px; }
-  .shadcn-scope .text-\[64px\]   { font-size: 50px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[10px\]   { font-size: 9px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[10\.5px\] { font-size: 9.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[11px\]   { font-size: 10px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[11\.5px\] { font-size: 10.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[12px\]   { font-size: 11px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[12\.5px\] { font-size: 11.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[13px\]   { font-size: 12px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[13\.5px\] { font-size: 12.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[14px\]   { font-size: 12.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[15px\]   { font-size: 13.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[17px\]   { font-size: 15px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[21px\]   { font-size: 18px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[22px\]   { font-size: 18.5px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[32px\]   { font-size: 26px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[40px\]   { font-size: 32px; }
+  html:not(.ui-escala-plantilla) .shadcn-scope .text-\[64px\]   { font-size: 50px; }
 }
 
 /* ---------------------------------------------------------------------------
@@ -619,7 +624,8 @@ html::-webkit-scrollbar, body::-webkit-scrollbar {
    diseño, estas variables pasan a :root y la clase deja de hacer falta.
    --------------------------------------------------------------------------- */
 html.ui-neutral {
-  /* Azul marino: reemplaza el casi negro solo donde se usa el color principal (botones, selección) */
+  /* Azul de la marca como color principal (botones, selección, enlaces): marino.
+     Grises con un leve tinte azulado, bordes finos y radio de 0,625 rem. */
   --sc-primary: oklch(0.31 0.075 258);
   --sc-primary-foreground: oklch(0.984 0.003 247.858);
   --sc-ring: oklch(0.5 0.1 258);
@@ -636,6 +642,11 @@ html.ui-neutral {
   --sc-accent-foreground: oklch(0.208 0.042 265.755);
   --sc-border: oklch(0.929 0.013 255.508);
   --sc-radius: 0.625rem;
+  --sc-brand: var(--sc-primary);
+  /* Colores de estado: sobrios, para píldoras con tinte suave (verde, ámbar, azul; el rojo es el destructivo). */
+  --sc-success: oklch(0.5 0.12 155);
+  --sc-warning: oklch(0.55 0.12 72);
+  --sc-info: oklch(0.5 0.15 255);
 }
 
 html.ui-neutral[data-theme='dark'] {
@@ -656,6 +667,9 @@ html.ui-neutral[data-theme='dark'] {
   --sc-accent: oklch(0.279 0.041 260.031);
   --sc-accent-foreground: oklch(0.984 0.003 247.858);
   --sc-border: oklch(1 0 0 / 10%);
+  --sc-success: oklch(0.78 0.14 155);
+  --sc-warning: oklch(0.82 0.13 80);
+  --sc-info: oklch(0.76 0.11 255);
 }
 
 /* ---------------------------------------------------------------------------

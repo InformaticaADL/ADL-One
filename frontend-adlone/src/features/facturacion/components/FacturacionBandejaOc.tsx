@@ -245,7 +245,7 @@ const FacturacionBandejaOc: React.FC = () => {
                                         </span>
                                     )}
                                 </TableCell>
-                                <TableCell className="max-w-[220px] truncate">{r.nombre_empresaservicios || '—'}</TableCell>
+                                <TableCell className="whitespace-normal break-words">{r.nombre_empresaservicios || '—'}</TableCell>
                                 <TableCell>
                                     {r.numero_oc_sugerido ? (
                                         <span>

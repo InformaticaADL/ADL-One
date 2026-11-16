@@ -1,3 +1,4 @@
+import { EstadoPill } from '@/components/ui/estado-pill';
 import React, { useState, useEffect } from 'react';
 import {
     IconCheck,
@@ -24,6 +25,11 @@ import { Combobox } from '@/components/ui/combobox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { Ellipsis } from 'lucide-react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { AdvancedDataTable, DataTableColumnHeader } from '@/components/data-table';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { useConfirmacion } from '@/components/ui/confirm-dialog';
 
 interface EmpresaServicioFormViewProps {
     onBack: () => void;
@@ -31,6 +37,8 @@ interface EmpresaServicioFormViewProps {
 
 export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = ({ onBack }) => {
     const { showToast } = useToast();
+    const { confirmar, dialogo: dialogoConfirmacion } = useConfirmacion();
+    const [formInicial, setFormInicial] = useState<any>(null);
     const [view, setView] = useState<'list' | 'form'>('list');
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
@@ -237,6 +245,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
         setFormData({
             habilitado: 'S'
         });
+        setFormInicial({ habilitado: 'S' });
         setErrors({});
         setView('form');
     };
@@ -244,6 +253,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
     const handleEdit = (item: any) => {
         setEditingId(item.id_empresaservicio);
         setFormData({ ...item });
+        setFormInicial({ ...item });
         setErrors({});
         setView('form');
     };
@@ -341,45 +351,48 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
         return matchesSearch && matchesStatus && matchesUser;
     });
 
-    const renderTextField = (col: string, icon: React.ReactNode) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const renderTextField = (col: string, _icon?: React.ReactNode) => {
         const isMandatory = MANDATORY_FIELDS.includes(col);
         return (
             <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
-                <div className="relative">
-                    <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2">{icon}</span>
-                    <Input
-                        placeholder={col}
-                        className={cn('pl-8', errors[col] && 'border-destructive focus-visible:ring-destructive')}
-                        value={formData[col] || ''}
-                        onChange={(e) => handleFieldChange(col, e.target.value)}
-                    />
-                </div>
+                <Input
+                    className={cn(errors[col] && 'border-destructive focus-visible:ring-destructive')}
+                    value={formData[col] || ''}
+                    onChange={(e) => handleFieldChange(col, e.target.value)}
+                />
             </FormField>
         );
     };
 
+    const sucio = JSON.stringify(formData) !== JSON.stringify(formInicial ?? {});
+    const salirDelFormulario = async () => {
+        if (sucio && !(await confirmar({ titulo: 'Cambios sin guardar', mensaje: 'Si sales ahora se pierden los cambios que hiciste.', textoConfirmar: 'Salir sin guardar', textoCancelar: 'Seguir editando', peligro: true }))) return;
+        setView('list');
+    };
+
     if (view === 'form') {
         return (
-            <div className="shadcn-scope">
+            <div className="shadcn-scope w-full p-4 md:p-6">
+                {dialogoConfirmacion}
                 <PageHeader
-                    title={editingId ? "Editar Empresa de Servicio" : "Crear Nueva Empresa"}
+                    title={editingId ? "Editar empresa de servicio" : "Nueva empresa de servicio"}
                     subtitle="Complete los datos de la empresa para habilitar sus servicios en el sistema."
-                    onBack={() => setView('list')}
                     breadcrumbItems={[
-                        { label: 'Fichas de Ingreso', onClick: onBack },
-                        { label: 'Empresas de Servicio', onClick: () => setView('list') },
+                        { label: 'Maestros Hub', onClick: onBack },
+                        { label: 'Empresas de Servicio', onClick: salirDelFormulario },
                         { label: editingId ? 'Editar' : 'Nueva' }
                     ]}
                 />
 
-                <div className="px-4 py-6">
+                <div className="mt-6">
                     <Card className="p-5">
                         <Tabs value={activeTab} onValueChange={setActiveTab}>
-                            <TabsList className="mb-6 flex-wrap">
-                                <TabsTrigger value="general"><IconBuilding size={16} className="mr-1.5" />Identificación y Ubicación</TabsTrigger>
-                                <TabsTrigger value="contacto"><IconMail size={16} className="mr-1.5" />Contacto y Facturación</TabsTrigger>
-                                <TabsTrigger value="legal"><IconUser size={16} className="mr-1.5" />Legal y Configuración</TabsTrigger>
-                                <TabsTrigger value="avanzado"><IconSettings size={16} className="mr-1.5" />Avanzado</TabsTrigger>
+                            <TabsList className="mb-6 h-auto w-full flex-wrap justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
+                                <TabsTrigger value="general" className="-mb-px rounded-none border-b-2 border-transparent px-4 py-2.5 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none">Identificación y Ubicación</TabsTrigger>
+                                <TabsTrigger value="contacto" className="-mb-px rounded-none border-b-2 border-transparent px-4 py-2.5 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none">Contacto y Facturación</TabsTrigger>
+                                <TabsTrigger value="legal" className="-mb-px rounded-none border-b-2 border-transparent px-4 py-2.5 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none">Legal y Configuración</TabsTrigger>
+                                <TabsTrigger value="avanzado" className="-mb-px rounded-none border-b-2 border-transparent px-4 py-2.5 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none">Avanzado</TabsTrigger>
                             </TabsList>
 
                             <TabsContent value="general">
@@ -406,7 +419,6 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                         })}
                                     </div>
 
-                                    <hr className="border-t border-border" />
 
                                     <SectionHeading icon={<IconMapPin size={18} />} color="#1864ab" title="Ubicación y Direcciones" subtitle="Dirección casa matriz y sucursales comerciales." />
 
@@ -414,13 +426,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                         {sections.ubicacion.map(col => renderTextField(col, <IconMapPin size={16} className="text-muted-foreground" />))}
                                     </div>
 
-                                    <hr className="border-t border-border" />
 
-                                    <div className="flex justify-end">
-                                        <Button onClick={() => setActiveTab('contacto')}>
-                                            Siguiente: Contacto <IconArrowRight size={16} />
-                                        </Button>
-                                    </div>
                                 </div>
                             </TabsContent>
 
@@ -437,13 +443,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                         ))}
                                     </div>
 
-                                    <hr className="border-t border-border" />
 
-                                    <div className="flex justify-end">
-                                        <Button onClick={() => setActiveTab('legal')}>
-                                            Siguiente: Legal <IconArrowRight size={16} />
-                                        </Button>
-                                    </div>
                                 </div>
                             </TabsContent>
 
@@ -455,7 +455,6 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                         {sections.legal.map(col => renderTextField(col, <IconUser size={16} className="text-muted-foreground" />))}
                                     </div>
 
-                                    <hr className="border-t border-border" />
 
                                     <SectionHeading icon={<IconBuilding size={18} />} color="#868e96" title="Configuración del Sistema" subtitle="Datos operativos y de login asociados." />
 
@@ -467,7 +466,6 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                                     <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
                                                         <Combobox
                                                             options={users}
-                                                            placeholder={col}
                                                             searchPlaceholder="Buscar usuario..."
                                                             value={formData[col] ? String(formData[col]) : ''}
                                                             onValueChange={(val) => handleFieldChange(col, val)}
@@ -480,8 +478,8 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                                     <FormField key={col} label={formatHeader(col)} required={isMandatory} error={errors[col]}>
                                                         <Combobox
                                                             options={[
-                                                                { value: 'S', label: 'Sí / Activo' },
-                                                                { value: 'N', label: 'No / Inactivo' }
+                                                                { value: 'S', label: 'Sí' },
+                                                                { value: 'N', label: 'No' }
                                                             ]}
                                                             placeholder="Seleccione"
                                                             value={formData[col] || (col === 'habilitado' ? 'S' : 'N')}
@@ -493,13 +491,8 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                             return (
                                                 <FormField key={col} label={formatHeader(col)} error={errors[col]}>
                                                     <div className="relative">
-                                                        <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2">
-                                                            <IconSettings size={16} className="text-muted-foreground" />
-                                                        </span>
-                                                        <Input
-                                                            placeholder={col}
-                                                            className="pl-8"
-                                                            value={formData[col] || ''}
+                                                                                                                <Input
+                                                                                                                        value={formData[col] || ''}
                                                             onChange={(e) => handleFieldChange(col, e.target.value)}
                                                         />
                                                     </div>
@@ -508,13 +501,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                         })}
                                     </div>
 
-                                    <hr className="border-t border-border" />
 
-                                    <div className="flex justify-end">
-                                        <Button onClick={() => setActiveTab('avanzado')}>
-                                            Siguiente: Avanzado <IconArrowRight size={16} />
-                                        </Button>
-                                    </div>
                                 </div>
                             </TabsContent>
 
@@ -564,158 +551,139 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                         })}
                                     </div>
 
-                                    <hr className="border-t border-border" />
 
-                                    <div className="flex justify-end gap-3">
-                                        <Button variant="outline" onClick={() => setView('list')}>
-                                            Cancelar
-                                        </Button>
-                                        <Button
-                                            className="bg-[#0b7285] text-white hover:bg-[#0b7285]/90"
-                                            onClick={handleSubmit}
-                                            disabled={loading || !isFormComplete()}
-                                        >
-                                            {loading ? <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <IconCheck size={20} />}
-                                            {editingId ? 'Guardar Cambios' : 'Crear Empresa'}
-                                        </Button>
-                                    </div>
                                 </div>
                             </TabsContent>
                         </Tabs>
                     </Card>
                 </div>
+
+                <div className="sticky bottom-0 z-10 -mx-4 mt-6 border-t border-border bg-background/95 px-4 py-3 backdrop-blur md:-mx-6 md:px-6">
+                    <div className="mx-auto flex items-center justify-between gap-3">
+                        <span className="inline-flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className={cn('size-1.5 rounded-full', sucio ? 'bg-[var(--sc-mark)]' : 'bg-muted-foreground/40')} />
+                            {sucio ? 'Cambios sin guardar' : 'Sin cambios'}
+                        </span>
+                        <div className="flex gap-2">
+                            <Button variant="outline" onClick={salirDelFormulario} disabled={loading}>
+                                {editingId ? 'Descartar' : 'Cancelar'}
+                            </Button>
+                            <Button onClick={handleSubmit} disabled={loading || !isFormComplete() || (!!editingId && !sucio)}>
+                                {loading ? 'Guardando...' : editingId ? 'Guardar cambios' : 'Crear empresa'}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
             </div>
         );
     }
 
+    const nombreResponsable = (login?: string) => (login ? (users.find((u) => u.value === login)?.label ?? login) : '');
+    const estaActiva = (item: any) => item.habilitado === 'S';
+
+    const columnas: ColumnDef<any>[] = [
+        {
+            id: 'nombre',
+            meta: { titulo: 'Nombre' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Nombre" />,
+            accessorFn: (item) => item.nombre_empresaservicios || '',
+            sortingFn: (x, y) => String(x.getValue('nombre')).localeCompare(String(y.getValue('nombre')), 'es', { sensitivity: 'base' }),
+            cell: ({ row }) => <span className="ps-2 text-sm font-medium">{row.original.nombre_empresaservicios}</span>,
+        },
+        {
+            id: 'contacto',
+            meta: { titulo: 'Contacto' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Contacto" />,
+            accessorFn: (item) => item.contacto_empresaservicios || '',
+            cell: ({ row }) => <span className="ps-2 text-sm">{row.original.contacto_empresaservicios || '—'}</span>,
+        },
+        {
+            id: 'email',
+            meta: { titulo: 'Email', className: 'hidden md:table-cell' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Email" />,
+            accessorFn: (item) => item.email_empresaservicios || item.email_contacto || '',
+            cell: ({ row }) => <span className="ps-2 text-sm text-muted-foreground">{row.original.email_empresaservicios || row.original.email_contacto || '—'}</span>,
+        },
+        {
+            id: 'responsable',
+            meta: { titulo: 'Responsable', className: 'hidden lg:table-cell' },
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Responsable" />,
+            accessorFn: (item) => nombreResponsable(item.usr_login),
+            filterFn: (row, id, valor: string[]) => valor.includes(row.getValue(id)),
+            cell: ({ row }) => <span className="ps-2 text-sm">{nombreResponsable(row.original.usr_login) || '—'}</span>,
+        },
+        {
+            id: 'estado',
+            meta: { titulo: 'Estado' },
+            enableHiding: false,
+            enableSorting: false,
+            header: ({ column }) => <DataTableColumnHeader column={column} title="Estado" />,
+            accessorFn: (item) => (estaActiva(item) ? 'Activo' : 'Inactivo'),
+            filterFn: (row, id, valor: string[]) => valor.includes(row.getValue(id)),
+            cell: ({ row }) => {
+                const activo = estaActiva(row.original);
+                return <EstadoPill tono={activo ? 'ok' : 'off'}>{activo ? 'Activo' : 'Inactivo'}</EstadoPill>;
+            },
+        },
+        {
+            id: 'acciones',
+            enableHiding: false,
+            enableSorting: false,
+            header: () => null,
+            cell: ({ row }) => (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="flex h-8 w-8 p-0 data-[state=open]:bg-muted">
+                            <Ellipsis className="h-4 w-4" />
+                            <span className="sr-only">Abrir menú de la fila</span>
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-[160px]">
+                        <DropdownMenuItem onSelect={() => handleEdit(row.original)}>
+                            Editar <span className="ms-auto"><IconEdit size={16} /></span>
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            ),
+        },
+    ];
+
+    const responsablesUsados = [...new Set(data.map((d) => nombreResponsable(d.usr_login)).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'es', { sensitivity: 'base' }));
+
     return (
-        <div className="shadcn-scope">
+        <div className="shadcn-scope w-full p-4 md:p-6">
+            {dialogoConfirmacion}
             <PageHeader
-                title="Gestión de Empresas de Servicio"
+                title="Empresas de Servicio"
                 subtitle="Administre el catálogo de proveedores de servicios de muestreo y terreno."
-                onBack={onBack}
                 breadcrumbItems={[
-                    { label: 'Fichas de Ingreso', onClick: onBack },
+                    { label: 'Maestros Hub', onClick: onBack },
                     { label: 'Empresas de Servicio' }
                 ]}
                 rightSection={
-                    <Button className="bg-[#0b7285] text-white hover:bg-[#0b7285]/90" onClick={handleCreate}>
-                        <IconPlus size={18} /> Nueva Empresa
+                    <Button className="space-x-1" onClick={handleCreate}>
+                        <span>Nueva empresa</span> <IconPlus size={18} />
                     </Button>
                 }
             />
 
-            <div className="px-4 py-6">
-                <Card className="p-5">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-wrap items-end justify-between gap-3">
-                            <div className="flex flex-1 flex-wrap items-end gap-4">
-                                <FormField label="Búsqueda Rápida">
-                                    <div className="relative w-[300px]">
-                                        <IconSearch size={16} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                        <Input
-                                            className="pl-8"
-                                            placeholder="Nombre, RUT, Email..."
-                                            value={searchTerm}
-                                            onChange={(e) => setSearchTerm(e.target.value)}
-                                        />
-                                    </div>
-                                </FormField>
-
-                                <FormField label="Filtrar por Estado">
-                                    <div className="inline-flex rounded-md border border-border bg-muted p-0.5">
-                                        {[
-                                            { label: 'Todos', value: 'ALL' },
-                                            { label: 'Activos', value: 'S' },
-                                            { label: 'Inactivos', value: 'N' },
-                                        ].map((opt) => (
-                                            <button
-                                                key={opt.value}
-                                                type="button"
-                                                onClick={() => setStatusFilter(opt.value)}
-                                                className={cn(
-                                                    'rounded-[5px] px-3 py-1 text-sm font-medium transition-colors',
-                                                    statusFilter === opt.value ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
-                                                )}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </FormField>
-
-                                <FormField label="Responsable">
-                                    <div className="w-[250px]">
-                                        <Combobox
-                                            options={users}
-                                            placeholder="Todos los responsables"
-                                            searchPlaceholder="Buscar responsable..."
-                                            value={userFilter ?? ''}
-                                            onValueChange={(v) => setUserFilter(v || null)}
-                                        />
-                                    </div>
-                                </FormField>
-                            </div>
-
-                            <Badge className="px-2.5 py-1 text-[13px]">Total: {filteredData.length}</Badge>
-                        </div>
-
-                        <hr className="border-t border-border" />
-
-                        <div className="relative overflow-hidden rounded-lg">
-                            {loading && (
-                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
-                                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-                                </div>
-                            )}
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="hover:bg-transparent">
-                                        <TableHead>Nombre</TableHead>
-                                        <TableHead>Contacto</TableHead>
-                                        <TableHead>Email</TableHead>
-                                        <TableHead className="text-center">Estado</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredData.length === 0 ? (
-                                        <TableRow className="hover:bg-transparent">
-                                            <TableCell colSpan={5} className="py-10 text-center text-sm text-muted-foreground">
-                                                No se encontraron empresas
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        filteredData.map((item) => (
-                                            <TableRow key={item.id_empresaservicio}>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2 whitespace-nowrap">
-                                                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-[#098f83]/10 text-accent-cyan">
-                                                            <IconBuilding size={14} />
-                                                        </div>
-                                                        <span className="text-[13px] font-semibold">{item.nombre_empresaservicios}</span>
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="whitespace-nowrap text-[13px]">{item.contacto_empresaservicios || '-'}</TableCell>
-                                                <TableCell className="whitespace-nowrap text-[13px] text-muted-foreground">{item.email_empresaservicios || item.email_contacto || '-'}</TableCell>
-                                                <TableCell className="text-center">
-                                                    <Badge variant={item.habilitado === 'S' ? 'success' : 'destructive'}>
-                                                        {item.habilitado === 'S' ? 'Activo' : 'Inactivo'}
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => handleEdit(item)}>
-                                                        <IconEdit size={16} />
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </div>
-                </Card>
+            <div className="mt-6 flex flex-col gap-4">
+                <AdvancedDataTable
+                    columns={columnas}
+                    data={data}
+                    getRowId={(item) => String(item.id_empresaservicio)}
+                    cargando={loading}
+                    pageSize={10}
+                    mensajeVacio="No se encontraron empresas"
+                    busqueda={{
+                        placeholder: 'Buscar por nombre, RUT, contacto o email...',
+                        texto: (item) => [item.nombre_empresaservicios, item.rut_empresaservicios, item.contacto_empresaservicios, item.email_empresaservicios, item.email_contacto, item.nombre_fantasia, item.sigla, nombreResponsable(item.usr_login)].filter(Boolean).join(' '),
+                    }}
+                    filtros={[
+                        { columna: 'estado', titulo: 'Estado', opciones: [{ label: 'Activo', value: 'Activo' }, { label: 'Inactivo', value: 'Inactivo' }] },
+                        { columna: 'responsable', titulo: 'Responsable', opciones: responsablesUsados.map((n) => ({ label: n, value: n })) },
+                    ]}
+                />
             </div>
         </div>
     );
@@ -724,25 +692,21 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 function FormField({ label, required, error, children }: { label: string; required?: boolean; error?: string; children: React.ReactNode }) {
     return (
         <div>
-            <span className={cn('mb-1 block text-xs', required ? 'font-semibold text-primary' : 'text-muted-foreground')}>
-                {label}{required ? ' *' : ''}
+            <span className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                {label}{required && <span className="text-destructive"> *</span>}
             </span>
             {children}
-            {error && <span className="mt-0.5 block text-[11px] text-destructive">{error}</span>}
+            {error && <span className="mt-1 block text-xs text-destructive">{error}</span>}
         </div>
     );
 }
 
-function SectionHeading({ icon, color, title, subtitle }: { icon: React.ReactNode; color: string; title: string; subtitle: string }) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function SectionHeading({ title, subtitle }: { icon?: React.ReactNode; color?: string; title: string; subtitle: string }) {
     return (
         <div>
-            <div className="mb-1 flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg" style={{ backgroundColor: `${color}1f`, color }}>
-                    {icon}
-                </div>
-                <h4 className="m-0 text-base font-semibold">{title}</h4>
-            </div>
-            <p className="text-[13px] text-muted-foreground">{subtitle}</p>
+            <h4 className="m-0 text-sm font-semibold">{title}</h4>
+            <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
         </div>
     );
 }

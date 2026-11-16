@@ -415,7 +415,7 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
     ) : (
         // En teléfono la página scrollea completa (ver isFullHeightModule en
         // MainLayout): fijar la cabecera dejaba la lista en una franja mínima.
-        <div className={cn('shadcn-scope w-full', !isMobile && 'flex h-full min-h-0 flex-col')}>
+        <div className={cn('shadcn-scope w-full p-4 md:p-6', !isMobile && 'flex h-full min-h-0 flex-col')}>
             {/* Desde tablet: encabezado y filtros quedan fijos arriba. */}
             <div className={cn('px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
                 <PageHeader

@@ -1,3 +1,4 @@
+import { useTemaNeutro } from '../../../hooks/useTemaNeutro';
 import React, { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -68,6 +69,8 @@ interface MaestroConfig {
             idColumn: string;
             displayColumn: string;
             noCreate?: boolean;
+            /** Al elegir una opción, copia al formulario las columnas del registro elegido que se llamen igual (solo equipos). */
+            autofill?: boolean;
         };
     };
     fixedOptions?: { [fieldName: string]: { value: string; label: string }[] };
@@ -78,6 +81,7 @@ interface Props {
 }
 
 export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
+    useTemaNeutro({ escala: true });
     const [selectedMaestro, setSelectedMaestro] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<string>('general');
     const [hubSearch, setHubSearch] = useState('');
@@ -417,9 +421,9 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             summaryColumns: ['codigo', 'nombre', 'tipoequipo', 'sede', 'id_muestreador'],
             lookups: {
                 id_muestreador: { tableName: 'mae_muestreador', idColumn: 'id_muestreador', displayColumn: 'nombre_muestreador' },
-                id_equipocatalogo: { tableName: 'mae_equipo_catalogo', idColumn: 'id_equipocatalogo', displayColumn: 'nombre' },
-                tipoequipo: { tableName: 'mae_equipo_catalogo', idColumn: 'tipo_equipo', displayColumn: 'tipo_equipo' },
-                nombre: { tableName: 'mae_equipo_catalogo', idColumn: 'nombre', displayColumn: 'nombre' },
+                id_equipocatalogo: { tableName: 'mae_equipo_catalogo', idColumn: 'id_equipocatalogo', displayColumn: 'nombre', autofill: true },
+                tipoequipo: { tableName: 'mae_equipo_catalogo', idColumn: 'tipo_equipo', displayColumn: 'tipo_equipo', autofill: true },
+                nombre: { tableName: 'mae_equipo_catalogo', idColumn: 'nombre', displayColumn: 'nombre', autofill: true },
                 sede: { tableName: 'mae_lugaranalisis', idColumn: 'sigla', displayColumn: 'sigla' },
                 Estado: { tableName: 'mae_estado_equipo', idColumn: 'nombre', displayColumn: 'nombre' }
             }
@@ -705,21 +709,12 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                         onClick={() => setSelectedMaestro(m.id)}
                         className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted"
                     >
-                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
                             {m.icon}
                         </div>
                         <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-semibold text-foreground">{m.label}</p>
                             <p className="truncate text-xs text-muted-foreground">{m.description}</p>
-                        </div>
-                        <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
-                            <Badge variant="outline" className="font-mono normal-case">{m.tableName}</Badge>
-                            {m.lookups && Object.keys(m.lookups).length > 0 && (
-                                <Badge variant="outline">
-                                    {Object.keys(m.lookups).length} relaci{Object.keys(m.lookups).length === 1 ? 'ón' : 'ones'}
-                                </Badge>
-                            )}
-                            {m.dependsOn && <Badge variant="outline">Jerárquico</Badge>}
                         </div>
                         <IconChevronRight size={16} className="shrink-0 text-muted-foreground" />
                     </button>
@@ -754,14 +749,14 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
                     placeholder="Buscar maestro por nombre o descripción..."
                     value={hubSearch}
                     onChange={(e) => setHubSearch(e.target.value)}
-                    className="h-11 pl-9"
+                    className="h-9 pl-9"
                 />
             </div>
 
             <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as MaestroArea)} className="mt-8">
-                <TabsList className={cn(tabDefs.length > 0 && 'flex-wrap')}>
+                <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-none border-b border-border bg-transparent p-0">
                     {tabDefs.map((t) => (
-                        <TabsTrigger key={t.key} value={t.key} className="gap-1.5">
+                        <TabsTrigger key={t.key} value={t.key} className="-mb-px gap-1.5 rounded-none border-b-2 border-transparent px-4 py-2.5 text-muted-foreground shadow-none data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:font-semibold data-[state=active]:text-foreground data-[state=active]:shadow-none">
                             {t.icon} {t.label}
                         </TabsTrigger>
                     ))}

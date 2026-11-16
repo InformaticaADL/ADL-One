@@ -199,8 +199,25 @@ function useBreadcrumbLabels() {
 // necesario acá: sin él el botón "Inicio" no recibe el reset de botones
 // (bg/border/padding nativos del navegador) y se ve encuadrado.
 export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
-    const { resetNavigation, pageBreadcrumb, toggleSidebar } = useNavStore();
+    const { resetNavigation, pageBreadcrumb, toggleSidebar, activeSubmodule, setActiveSubmodule } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
+
+    // Muchas páginas empiezan su propio breadcrumbItems con el nombre del módulo («Admin. Info», «Admin. Información»), que esta barra ya
+    // muestra: sin esto salía duplicado («Inicio / Admin. Info / Admin. Info / Informática»). Si la página repite el módulo, se descarta
+    // ese tramo y su onClick pasa al tramo del módulo, así «Admin. Info» es un enlace y vuelve a donde la página decía.
+    const normalizar = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    const primero = pageBreadcrumb[0];
+    const repiteModulo = !!primero && !!moduleLabel && (() => {
+        const a = normalizar(primero.label), b = normalizar(moduleLabel);
+        return a === b || a.startsWith(b) || b.startsWith(a);
+    })();
+    const tramosDeLaPagina = repiteModulo ? pageBreadcrumb.slice(1) : pageBreadcrumb;
+    // El módulo es un enlace cuando hay algo más abajo: lleva a la portada del módulo (la que ven al elegirlo, sin submódulo). Si la página
+    // dio su propio onClick para el módulo, se usa ese.
+    const alModulo = repiteModulo && primero?.onClick
+        ? primero.onClick
+        : (activeSubmodule ? () => setActiveSubmodule('') : undefined);
+    const moduloEsEnlace = !!alModulo && (pageBreadcrumb.length > 0 || !!submoduleLabel);
     // En celular esta barra es el único lugar con campana y tema (el header
     // del logo ya no los repite), así que van en tamaño táctil y la barra se
     // achica un poco para no comerse el alto útil del contenido.
@@ -232,15 +249,19 @@ export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
                     <span>Inicio</span>
                 </button>
                 <span className="shrink-0 text-border">/</span>
-                <span className={cn('truncate', pageBreadcrumb.length === 0 && 'font-medium text-foreground')}>{moduleLabel || 'Inicio'}</span>
+                {moduloEsEnlace ? (
+                    <button type="button" onClick={alModulo} className="truncate hover:text-foreground">{moduleLabel || 'Inicio'}</button>
+                ) : (
+                    <span className={cn('truncate', pageBreadcrumb.length === 0 && 'font-medium text-foreground')}>{moduleLabel || 'Inicio'}</span>
+                )}
                 {submoduleLabel && pageBreadcrumb.length === 0 && (
                     <>
                         <span className="shrink-0 text-border">/</span>
                         <span className="truncate font-medium text-foreground">{submoduleLabel}</span>
                     </>
                 )}
-                {pageBreadcrumb.map((item, idx) => {
-                    const isLast = idx === pageBreadcrumb.length - 1;
+                {tramosDeLaPagina.map((item, idx) => {
+                    const isLast = idx === tramosDeLaPagina.length - 1;
                     return (
                         <Fragment key={`${item.label}-${idx}`}>
                             <span className="shrink-0 text-border">/</span>
