@@ -439,6 +439,9 @@ class FacturacionSaludService {
     }
 
     const txt = (v) => String(v ?? '').trim();
+    // Algunos procedimientos (SAMIC) devuelven la misma columna dos veces (id_centro, id_empresa…) y el driver las junta en una lista [6745, 6745]:
+    // convertida a número daba NaN y la tarifa SAMIC no se encontraba (las líneas quedaban en 0). Se toma el primer valor.
+    const uno = (v) => (Array.isArray(v) ? v[0] : v);
     const casos = [];
     for (const idCaso of idsCasos) {
       const sp0 = casosSp.get(idCaso);
@@ -455,19 +458,19 @@ class FacturacionSaludService {
         precio_especial: dc.precio_especial || txt(sp0.precio_especial) || 'N',
         factor_km: dc.factor_km ?? sp0.factor_km ?? 0,
         costo_op: dc.costo_op || txt(sp0.costo_op) || 'N',
-        id_empresa: sp0.id_empresa ?? base.id_empresa,
+        id_empresa: uno(sp0.id_empresa ?? base.id_empresa),
         nombre_empresa: dc.nombre_empresa || '',
-        id_centro: sp0.id_centro ?? base.id_centro,
+        id_centro: uno(sp0.id_centro ?? base.id_centro),
         nombre_centro: dc.nombre_centro || '',
         id_tipoagua: dc.id_tipoagua ?? base.id_tipoagua ?? 0,
         nombre_tipoagua: dc.nombre_tipoagua || 'N/A',
         co_fijo: dc.co_fijo ?? 0,
         pm_ingreso: dc.pm_ingreso || 'N',
-        id_programa: sp0.id_programa ?? base.id_programa,
+        id_programa: uno(sp0.id_programa ?? base.id_programa),
         nombre_programa: dc.nombre_programa || txt(sp0.nombre_programa),
-        id_especie: sp0.id_especie ?? base.id_especie,
+        id_especie: uno(sp0.id_especie ?? base.id_especie),
         nombre_especie: dc.nombre_especie || '',
-        id_lugaranalisis: sp0.id_lugaranalisis ?? base.id_lugaranalisis,
+        id_lugaranalisis: uno(sp0.id_lugaranalisis ?? base.id_lugaranalisis),
         id_veterinario: base.id_veterinario,
         cliente_entrega: dc.cliente_entrega || 'Sin Veterinario',
         n_recepcion: dc.n_recepcion || '',
@@ -913,6 +916,21 @@ class FacturacionSaludService {
       };
     }
 
+    // Limpieza previa de ADLSOFT («Procesar», fac_prefacturacion_new_v6): desmarca los análisis que quedaron tomados, rellena con 'N' los
+    // indicadores en blanco y suelta las líneas anuladas. ADLSOFT lo hace sobre TODA la base; aquí se acota a los casos de esta corrida, que
+    // son los únicos que se valorizan (lo demás no se toca). Así quedan las mismas marcas que deja ADLSOFT en estos casos.
+    for (const trozo of enTrozos(casos.map((c) => Number(c.id_caso)).filter(Number.isFinite), 400)) {
+      const lista = trozo.join(',');
+      await pool.request().query(`
+        UPDATE dbo.muestras_detalle SET mf = 0 WHERE id_caso IN (${lista}) AND ISNULL(id_facturacion, 0) = 0 AND (mf = 1 OR mf = 3) AND id_tecnica <> ${ID_TECNICA_ATBPLEX};
+        UPDATE dbo.muestras_detalle SET valorizado = 'N' WHERE id_caso IN (${lista}) AND (valorizado IS NULL OR LTRIM(RTRIM(valorizado)) = '');
+        UPDATE dbo.muestras_detalle SET mf = 0 WHERE id_caso IN (${lista}) AND estado = 'ANULA' AND mf <> 0;
+        UPDATE dbo.muestras SET ensilaje = 'N' WHERE id_caso IN (${lista}) AND (ensilaje IS NULL OR LTRIM(RTRIM(ensilaje)) = '');
+        UPDATE dbo.muestras SET proa = 'N' WHERE id_caso IN (${lista}) AND (proa IS NULL OR LTRIM(RTRIM(proa)) = '');
+        UPDATE dbo.muestras SET samic = 'N' WHERE id_caso IN (${lista}) AND (samic IS NULL OR LTRIM(RTRIM(samic)) = '');
+      `);
+    }
+
     const progNum = Number(eligeprograma);
     const reglasAplicadas = {};
     const registrarRegla = (nombre) => {
@@ -1066,7 +1084,7 @@ class FacturacionSaludService {
         .input('usd', sql.Numeric(10, 2), numUsd)
         .query(`
           UPDATE dbo.muestras_detalle SET uf = @uf, usd = @usd, vtatotal = n_analisis * vtaunitario WHERE id_caso = @c AND id_facturacion = 0;
-          UPDATE dbo.muestras_detalle SET mf = 1 WHERE id_caso = @c AND id_facturacion = 0 AND valorizado = 'S';
+          UPDATE dbo.muestras_detalle SET mf = 1 WHERE id_caso = @c AND id_facturacion = 0 AND valorizado = 'S' AND ISNULL(estado, '') <> 'ANULA';
         `);
       const abiertas = await pool.request().input('c', sql.Numeric(10, 0), caso.id_caso).query('EXEC dbo.fac_agrupaempresacasos_uno @xid_caso = @c;');
       const totalCaso = redondea((abiertas.recordset || []).reduce((a, l) => a + (Number(l.vtatotal) || 0), 0), 3);

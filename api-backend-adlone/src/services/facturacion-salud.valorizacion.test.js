@@ -175,6 +175,18 @@ test('Servicio Diagnóstico: orden ensilaje > PROA > pack > precio especial > li
   assert.deepEqual([proa.xvta, proa.sinCostoOperativo], [0.9, true]);
   const proaSinFila = await resolverPrecioLinea({ caso: sd({ proa: 'S' }), linea: linea(), columna: col }, repoBase());
   assert.deepEqual([proaSinFila.xvta, proaSinFila.sinCostoOperativo], [1, true]);
+  // Sin tarifa PROA, una empresa con precio especial paga el especial (así lo cobró ADLSOFT el 16-11-2026); sin fila especial, la lista
+  const proaEspecial = await resolverPrecioLinea({ caso: sd({ proa: 'S', precio_especial: 'S' }), linea: linea(), columna: col }, repoBase({ precioEspecial: async () => [{ precio_especial: 0.53, id_tipocobro: 3 }] }));
+  assert.deepEqual([proaEspecial.xvta, proaEspecial.sinCostoOperativo], [0.53, true]);
+  const proaEspecialSinFila = await resolverPrecioLinea({ caso: sd({ proa: 'S', precio_especial: 'S' }), linea: linea(), columna: col }, repoBase());
+  assert.deepEqual([proaEspecialSinFila.xvta, proaEspecialSinFila.sinCostoOperativo], [1, true]);
+  // Sin tarifa PROA y con pack en la línea, manda el precio del pack (0,45) sobre el especial (0,53)
+  const proaPack = await resolverPrecioLinea({ caso: sd({ proa: 'S', precio_especial: 'S' }), linea: linea({ pack: 'S', id_pack: 4 }), columna: col },
+    repoBase({ precioPack: async () => [{ valor: 0.45, id_tipocobro: 3 }], precioEspecial: async () => [{ precio_especial: 0.53, id_tipocobro: 3 }] }));
+  assert.deepEqual([proaPack.xvta, proaPack.sinCostoOperativo], [0.45, true]);
+  // Con tarifa PROA, manda la PROA aunque la empresa tenga precio especial
+  const proaConTarifa = await resolverPrecioLinea({ caso: sd({ proa: 'S', precio_especial: 'S' }), linea: linea(), columna: col }, repoBase({ precioProa: async () => [{ uf: 0.9, id_tipocobro: 3 }], precioEspecial: async () => [{ precio_especial: 0.53, id_tipocobro: 3 }] }));
+  assert.equal(proaConTarifa.xvta, 0.9);
 });
 
 test('Servicio Diagnóstico con ensilaje: normativo, derivación (veterinario 33) o no normativo', async () => {

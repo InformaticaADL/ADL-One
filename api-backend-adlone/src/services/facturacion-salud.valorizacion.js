@@ -184,7 +184,14 @@ export async function resolverPrecioLinea({ caso, linea, columna, poolOIndv }, r
       if (txt(caso.proa) === 'S') {
         const r = fila(await repo.precioProa(es, empresa, centro, tec));
         if (r) return { xvta: num(r.uf), idTipoCobro: num(r.id_tipocobro), regla: 'Tarifa PROA', sinCostoOperativo: true };
-        return { ...(await delaLista('PROA sin tarifa: precio de lista')), sinCostoOperativo: true };
+        // Sin tarifa PROA, ADLSOFT cobró el precio del pack si la línea trae uno (el 16-11-2026: 20 líneas de Camanchaca, 702 y 703, a 0,45 en vez
+        // de 0,53) y, si no, el precio especial de la empresa (si lo tiene) y recién después la lista: en el historial 2025-2026, 6.700 líneas de
+        // casos PROA de empresas con precio especial están al precio especial; el 16-11-2026 pasó igual.
+        if (txt(linea.pack) === 'S') {
+          const rp = fila(await repo.precioPack(num(linea.id_pack), es, tec));
+          if (rp) return { xvta: num(rp.valor), idTipoCobro: num(rp.id_tipocobro), regla: `Pack ${linea.id_pack} (PROA sin tarifa)`, sinCostoOperativo: true };
+        }
+        return { ...(await especialOLista('PROA sin tarifa: precio especial', 'PROA sin tarifa: precio de lista')), sinCostoOperativo: true };
       }
       if (txt(linea.pack) === 'S') {
         const r = fila(await repo.precioPack(num(linea.id_pack), es, tec));
