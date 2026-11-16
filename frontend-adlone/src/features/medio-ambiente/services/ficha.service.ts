@@ -67,8 +67,8 @@ export const fichaService = {
         return response.data;
     },
     // Agrupa fichas que ya existen (misma empresa y centro) como una sola visita.
-    agrupar: async (ids: number[], nota?: string) => {
-        const response = await apiClient.post('/api/fichas/agrupar', { ids, nota });
+    agrupar: async (ids: number[], nota?: string, conservarOrden?: boolean) => {
+        const response = await apiClient.post('/api/fichas/agrupar', { ids, nota, conservarOrden });
         return response.data;
     },
     desagrupar: async (idGrupo: number) => {

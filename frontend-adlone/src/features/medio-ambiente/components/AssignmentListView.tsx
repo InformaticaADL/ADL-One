@@ -1,3 +1,11 @@
+import { useConfirmacion } from '@/components/ui/confirm-dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { toast as sonnerToast } from 'sonner';
+import { IconX } from '@tabler/icons-react';
+import { AgendaMuestreadores, type VisitaAgenda } from './AgendaMuestreadores';
+import { CrearVisitaDialog } from './CrearVisitaDialog';
+import { useMediaQuery } from '../../../hooks/useMediaQuery';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import React, { useState, useEffect, useMemo } from 'react';
 import { fichaService } from '../services/ficha.service';
 import { catalogosService } from '../services/catalogos.service';
@@ -36,7 +44,7 @@ interface Props {
     onViewAssignment: (id: number) => void;
 }
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 interface CorrelativoInfo {
     frecuencia_correlativo: string;
@@ -75,6 +83,7 @@ const idDeFicha = (row: any): number => Number(row?.id_fichaingresoservicio || r
 const estaBloqueada = (f: any) => String(f?.estado_ficha || f?.nombre_estadomuestreo || '').toUpperCase().includes('COORDINAC');
 
 export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssignment }) => {
+    const { confirmar, dialogo: dialogoConfirmacion } = useConfirmacion();
     const { showToast } = useToast();
     const { user, hasPermission } = useAuth();
     const { getCatalogo } = useCatalogos();
@@ -98,6 +107,12 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const setDateTo = (v: string) => setAsignacion({ dateTo: v });
 
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
+    const [chip, setChip] = useState<'todas' | 'sueltas' | 'compuestas' | 'aviso'>('todas');
+    const [agendaClave, setAgendaClave] = useState(0);
+    const [agendaSheet, setAgendaSheet] = useState(false);
+    const [crearVisitaOpen, setCrearVisitaOpen] = useState(false);
+    const [agendarAlCrear, setAgendarAlCrear] = useState(false);
+    const agendaAncha = useMediaQuery('(min-width: 1280px)');
     const [quickSearch, setQuickSearch] = useState('');
 
     const [currentPage, setCurrentPage] = useState(1);
@@ -115,6 +130,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     const [muestreadorRet, setMuestreadorRet] = useState<string | null>(null);
     const [mismoResponsable, setMismoResponsable] = useState(true);
     const [observacion, setObservacion] = useState('');
+    const [verNota, setVerNota] = useState(false);
     const [saving, setSaving] = useState(false);
 
     const [gruposPorPagina, setGruposPorPagina] = useState(10);
@@ -200,6 +216,11 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
     const muestreadorOptions = useMemo(
         () => muestreadores.map((m: any) => ({ value: String(m.id_muestreador), label: m.nombre_muestreador })),
+        [muestreadores]
+    );
+
+    const agendaMuestreadores = useMemo(
+        () => muestreadores.map((m: any) => ({ id: Number(m.id_muestreador), nombre: String(m.nombre_muestreador || '') })).filter((m) => m.id > 0 && m.nombre),
         [muestreadores]
     );
 
@@ -304,9 +325,26 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         return mapa;
     }, [fichas]);
 
+    // Filtros rápidos: fichas sueltas (se pueden agrupar), compuestas (retiro aparte) y con aviso (algo impide agendarlas ya).
+    const tieneAviso = (f: any) => {
+        if (estaBloqueada(f)) return true;
+        const v = Number(f.id_grupo) ? visitas.get(Number(f.id_grupo)) : undefined;
+        return !!v && !v.asignable;
+    };
+    const pasaChip = (f: any) =>
+        chip === 'todas' ? true
+            : chip === 'sueltas' ? !Number(f.id_grupo)
+                : chip === 'compuestas' ? requiereRetiroAparte(f)
+                    : tieneAviso(f);
+    const conteoChip = {
+        sueltas: filteredFichas.filter((f) => !Number(f.id_grupo)).length,
+        compuestas: filteredFichas.filter(requiereRetiroAparte).length,
+        aviso: filteredFichas.filter(tieneAviso).length,
+    };
+
     const grupos = useMemo<Grupo[]>(() => {
         const mapa = new Map<string, Grupo>();
-        filteredFichas.forEach((f) => {
+        filteredFichas.filter(pasaChip).forEach((f) => {
             const centro = String(f.centro || f.nombre_centro || 'Sin centro').trim();
             const key = String(f.id_centro ?? centro);
             if (!mapa.has(key)) {
@@ -338,7 +376,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         // Primero los centros con más trabajo por agendar: es donde el agendado en bloque rinde.
         lista.sort((a, b) => b.asignables.length - a.asignables.length || a.centro.localeCompare(b.centro));
         return lista;
-    }, [filteredFichas, visitas]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filteredFichas, visitas, chip]);
 
     const gruposPaginados = useMemo(() => {
         const start = (currentPage - 1) * gruposPorPagina;
@@ -352,6 +391,24 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
     );
 
     const hayCompuestas = useMemo(() => fichasSeleccionadas.some(requiereRetiroAparte), [fichasSeleccionadas]);
+    // Detalle de la selección para la barra inferior: las visitas con sus puntos, y las fichas sueltas.
+    const detalleSeleccion = useMemo(() => {
+        const porVisita = new Map<number, any[]>();
+        const sueltas: any[] = [];
+        fichasSeleccionadas.forEach((f) => {
+            const g = Number(f.id_grupo) || 0;
+            if (g) porVisita.set(g, [...(porVisita.get(g) || []), f]);
+            else sueltas.push(f);
+        });
+        return { visitas: [...porVisita.entries()], sueltas };
+    }, [fichasSeleccionadas]);
+    // Quitar un punto de una visita quita la visita completa: una visita solo se agenda entera.
+    const quitarDeSeleccion = (f: any) => {
+        const g = Number(f.id_grupo) || 0;
+        const ids = g ? idsDeVisita(g) : [idDeFicha(f)];
+        setSeleccion((prev) => { const sig = new Set(prev); ids.forEach((i) => sig.delete(i)); return sig; });
+    };
+
     const compuestasCount = useMemo(() => fichasSeleccionadas.filter(requiereRetiroAparte).length, [fichasSeleccionadas]);
 
     const idsDeVisita = (idGrupo: number): number[] => (visitas.get(idGrupo)?.miembros || []).map(idDeFicha);
@@ -412,9 +469,10 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
     const getStatusVariant = (status: string): BadgeVariant => {
         const s = (status || '').toUpperCase();
-        if (s.includes('COORDINACIÓN')) return 'destructive';
+        if (s.includes('COORDINACIÓN')) return 'warning';
         if (s.includes('PROGRAMACIÓN')) return 'secondary';
-        if (s.includes('EN PROCESO') || s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return 'success';
+        if (s.includes('EN PROCESO')) return 'info';
+        if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return 'success';
         if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return 'warning';
         if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('ANULADA')) return 'destructive';
         return 'outline';
@@ -439,22 +497,33 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         return new Set(fichasSeleccionadas.map((f) => String(f.id_centro))).size === 1;
     }, [fichasSeleccionadas, gruposElegidos]);
 
-    const agruparSeleccion = async () => {
+    // mantener = true: se agrupa y se sigue con las mismas fichas seleccionadas (para agendarlas enseguida como visita).
+    const agruparSeleccion = async (mantener = false): Promise<boolean> => {
         setSaving(true);
         try {
             await fichaService.agrupar(fichasSeleccionadas.map(idDeFicha));
             showToast({ type: 'success', message: sumaAVisita ? 'Punto agregado a la visita' : `${fichasSeleccionadas.length} puntos agrupados como una sola visita` });
-            setSeleccion(new Set());
+            if (!mantener) setSeleccion(new Set());
             await recargarFichas();
+            return true;
         } catch (error: any) {
             showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudieron agrupar las fichas' });
+            return false;
         } finally {
             setSaving(false);
         }
     };
 
+    // Fichas sueltas del mismo centro: antes de agendarlas se avisa que el técnico las vería como servicios distintos.
+    const [avisoVisita, setAvisoVisita] = useState(false);
+    const debeAvisarVisita = puedeAgrupar && gruposElegidos.size === 0;
+    const pedirAsignar = () => {
+        if (debeAvisarVisita) setAvisoVisita(true);
+        else abrirAsignar();
+    };
+
     const deshacerVisita = async (idGrupo: number) => {
-        if (!window.confirm('¿Deshacer esta visita? Las fichas quedan sueltas, sin ningún otro cambio.')) return;
+        if (!(await confirmar({ titulo: 'Deshacer visita', mensaje: 'Las fichas quedan sueltas, sin ningún otro cambio.', textoConfirmar: 'Deshacer visita' }))) return;
         try {
             await fichaService.desagrupar(idGrupo);
             showToast({ type: 'success', message: 'Visita deshecha' });
@@ -472,10 +541,103 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         setMuestreadorRet(null);
         setMismoResponsable(true);
         setObservacion('');
+        setVerNota(false);
         setAsignarOpen(true);
     };
 
+    // Desde la agenda: se abre «Agendar y asignar» con el día y el muestreador elegidos; falta confirmar.
+    const abrirAsignarPara = (idMuestreador: number, fechaYmd: string) => {
+        abrirAsignar();
+        setFechaInstalacion(fechaYmd);
+        setMuestreadorInst(String(idMuestreador));
+    };
+
+    // Arrastrar puntos de la lista hacia la agenda: si lo que se arrastra no estaba marcado, pasa a ser la selección.
+    const iniciarArrastre = (e: React.DragEvent, ids: number[]) => {
+        if (!ids.some((i) => seleccion.has(i))) setSeleccion(new Set(ids));
+        e.dataTransfer.setData('text/adl-asignar', ids.join(','));
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    // Mover una visita ya agendada a otro muestreador y/o día (misma operación que reagendar desde el detalle).
+    const moverVisita = async (v: VisitaAgenda, idMuestreador: number, fechaYmd: string) => {
+        const d = new Date();
+        const hoy = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const dmy = (f: string) => f.split('-').reverse().join('-');
+        if (fechaYmd < hoy) { showToast({ type: 'error', message: 'No se permiten fechas anteriores a hoy' }); return; }
+        if (!v.movible) { showToast({ type: 'warning', message: 'Esta visita no se puede mover desde aquí (ya está ejecutada o su retiro cae otro día). Reagéndala desde el detalle de la ficha.' }); return; }
+        const nombre = (id: number) => agendaMuestreadores.find((m) => m.id === id)?.nombre || `Muestreador ${id}`;
+        const aplicar = (idMu: number, fecha: string) => fichaService.batchUpdateAgenda({
+            assignments: v.filas.map((r: any) => ({
+                id: r.id_agenda,
+                fecha,
+                fechaRetiro: fecha,
+                idMuestreadorInstalacion: idMu,
+                idMuestreadorRetiro: idMu,
+                idFichaIngresoServicio: Number(r.id),
+                frecuenciaCorrelativo: r.correlativo || 'PorAsignar',
+            })),
+            user: user ? { id: user.id } : { id: 0 },
+            observaciones: 'Reasignación desde la agenda de muestreadores.',
+        });
+        setSaving(true);
+        try {
+            await aplicar(idMuestreador, fechaYmd);
+            setAgendaClave((n) => n + 1);
+            // Se mueve al instante; durante unos segundos se puede volver atrás.
+            sonnerToast.success(`${v.centro} pasó a ${nombre(idMuestreador)} · ${dmy(fechaYmd)}`, {
+                duration: 8000,
+                action: {
+                    label: 'Deshacer',
+                    onClick: async () => {
+                        try {
+                            await aplicar(v.mu, v.fecha);
+                            setAgendaClave((n) => n + 1);
+                            showToast({ type: 'success', message: 'Movimiento deshecho' });
+                        } catch (error: any) {
+                            showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudo deshacer el movimiento' });
+                        }
+                    },
+                },
+            });
+        } catch (error: any) {
+            showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudo mover la visita' });
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const agendarAqui = async (idMuestreador: number, fechaYmd: string) => {
+        if (hayCompuestas) {
+            showToast({ type: 'warning', message: 'La selección incluye muestreos compuestos: falta la fecha de retiro.' });
+            abrirAsignarPara(idMuestreador, fechaYmd);
+            return;
+        }
+        await agendarSeleccion({ fechaInstalacion: fechaYmd, fechaRetiro: '', muestreadorInst: String(idMuestreador), muestreadorRet: null, mismoResponsable: true, observacion: '' });
+    };
+
+    const confirmarCrearVisita = async ({ orden, nota, agendar }: { orden: number[]; nota?: string; agendar: boolean }) => {
+        try {
+            await fichaService.agrupar(orden, nota, true);
+            showToast({ type: 'success', message: `${orden.length} puntos agrupados como una sola visita` });
+            await recargarFichas();
+            setCrearVisitaOpen(false);
+            if (agendar) abrirAsignar();
+            else setSeleccion(new Set());
+        } catch (error: any) {
+            showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudo crear la visita' });
+            throw error;
+        }
+    };
+
+    type DatosAgendado = { fechaInstalacion: string; fechaRetiro: string; muestreadorInst: string | null; muestreadorRet: string | null; mismoResponsable: boolean; observacion: string };
+
     const confirmarAsignacion = async () => {
+        await agendarSeleccion({ fechaInstalacion, fechaRetiro, muestreadorInst, muestreadorRet, mismoResponsable, observacion });
+    };
+
+    // Agenda de una vez lo marcado con el día y el responsable indicados (los datos llegan como parámetros, sin pasar por el panel).
+    const agendarSeleccion = async ({ fechaInstalacion, fechaRetiro, muestreadorInst, muestreadorRet, mismoResponsable, observacion }: DatosAgendado) => {
         if (!fechaInstalacion) {
             showToast({ type: 'warning', message: 'Debe indicar la fecha de muestreo' });
             return;
@@ -571,6 +733,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
             setAsignarOpen(false);
             setSeleccion(new Set());
+            setAgendaClave((n) => n + 1);
 
             const refreshed = await fichaService.getForAssignment();
             let data = [];
@@ -589,6 +752,37 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
         // Columna de alto completo: encabezado y filtros quedan fijos arriba
         // ([&>*]:shrink-0) y la tarjeta de la lista toma el resto con su propio scroll.
         <div className="shadcn-scope relative flex h-full min-h-0 flex-col [&>*]:shrink-0">
+            {dialogoConfirmacion}
+            <CrearVisitaDialog
+                open={crearVisitaOpen}
+                onOpenChange={setCrearVisitaOpen}
+                puntos={fichasSeleccionadas.map((f) => ({ id: idDeFicha(f), titulo: f.ma_punto_muestreo || `Ficha #${idDeFicha(f)}`, detalle: `Ficha ${f.fichaingresoservicio || idDeFicha(f)}` }))}
+                descripcion={String(fichasSeleccionadas[0]?.centro || fichasSeleccionadas[0]?.nombre_centro || '')}
+                permiteAgendar
+                agendarInicial={agendarAlCrear}
+                onConfirmar={confirmarCrearVisita}
+            />
+            <Dialog open={avisoVisita} onOpenChange={setAvisoVisita}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Estas fichas son del mismo centro</DialogTitle>
+                        <DialogDescription>
+                            Si las agendas por separado, el técnico las verá como {fichasSeleccionadas.length} servicios distintos, con un FoMa y firmas por cada uno.
+                            Como una visita, las ve juntas y firma una sola vez.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+                        <Button
+                            disabled={saving}
+                            onClick={() => { setAvisoVisita(false); setAgendarAlCrear(true); setCrearVisitaOpen(true); }}
+                        >
+                            Crear visita y agendar
+                        </Button>
+                        <Button variant="outline" onClick={() => { setAvisoVisita(false); abrirAsignar(); }}>Agendar por separado</Button>
+                        <Button variant="ghost" onClick={() => setAvisoVisita(false)}>Volver</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
             <PageHeader
                 title="Planificación y Asignación"
                 subtitle="Gestión de recursos y programación de muestreos"
@@ -602,6 +796,12 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                         <span className="text-xs text-muted-foreground">
                             {filteredFichas.length} fichas en {grupos.length} centro{grupos.length !== 1 ? 's' : ''}
                         </span>
+
+                        {!agendaAncha && (
+                            <Button variant="outline" onClick={() => setAgendaSheet(true)}>
+                                <IconCalendarStats size={16} /> Agenda
+                            </Button>
+                        )}
 
                         <Sheet open={filtersSheetOpen} onOpenChange={setFiltersSheetOpen}>
                             <SheetTrigger asChild>
@@ -686,7 +886,8 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 la paginación fuera de vista al subir los centros por página). Con min-h-0
                 la tarjeta mide su contenido mientras entra y se encoge cuando no: ahí
                 scrollea el listado por dentro y la paginación queda fija abajo. */}
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+            <div className="flex min-h-0 flex-col">
             <Card className="flex min-h-0 flex-col p-0">
                 <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
                     <div className="relative w-full max-w-sm">
@@ -698,8 +899,18 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                             onChange={(e) => { setQuickSearch(e.target.value); setCurrentPage(1); }}
                         />
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <IconLayoutList size={14} /> Agrupado por centro
+                    <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtros rápidos">
+                        {([
+                            { id: 'todas', t: 'Todas', n: filteredFichas.length },
+                            { id: 'sueltas', t: 'Sueltas', n: conteoChip.sueltas },
+                            { id: 'compuestas', t: 'Compuestas', n: conteoChip.compuestas },
+                            { id: 'aviso', t: 'Con aviso', n: conteoChip.aviso },
+                        ] as const).map((o) => (
+                            <Button key={o.id} size="sm" variant={chip === o.id ? 'default' : 'outline'} aria-pressed={chip === o.id}
+                                onClick={() => { setChip(o.id); setCurrentPage(1); }}>
+                                {o.t} <span className="ms-1 tabular-nums opacity-80">{o.n}</span>
+                            </Button>
+                        ))}
                     </div>
                 </div>
 
@@ -724,7 +935,11 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
 
                                 return (
                                     <div key={g.key}>
-                                        <div className="flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-2.5">
+                                        <div
+                                            className={cn('flex items-center gap-3 border-b border-border bg-muted/40 px-4 py-2.5', puedeAsignar && g.asignables.length > 0 && 'cursor-grab')}
+                                            draggable={puedeAsignar && g.asignables.length > 0}
+                                            onDragStart={(e) => iniciarArrastre(e, g.asignables.map(idDeFicha))}
+                                        >
                                             {puedeAsignar && (
                                                 <Checkbox
                                                     checked={estadoGrupo(g)}
@@ -769,7 +984,11 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                             return (
                                                 <React.Fragment key={String(id)}>
                                                 {primeroDeVisita && visita && (
-                                                    <div className="flex items-center gap-3 border-b border-border/60 bg-primary/5 px-4 py-2">
+                                                    <div
+                                                        className={cn('flex items-center gap-3 border-b border-border/60 bg-primary/5 px-4 py-2', puedeAsignar && visita.asignable && 'cursor-grab')}
+                                                        draggable={puedeAsignar && visita.asignable}
+                                                        onDragStart={(e) => iniciarArrastre(e, idsDeVisita(idVisita))}
+                                                    >
                                                         {puedeAsignar && (
                                                             <Checkbox
                                                                 checked={estadoVisita(idVisita)}
@@ -798,8 +1017,11 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                 <div
                                                     className={cn(
                                                         'flex items-center gap-3 border-b border-border/60 px-4 py-2.5 transition-colors hover:bg-muted/40',
-                                                        seleccion.has(id) && 'bg-primary/5'
+                                                        seleccion.has(id) && 'bg-primary/5',
+                                                        puedeAsignar && asignable && 'cursor-grab'
                                                     )}
+                                                    draggable={puedeAsignar && asignable}
+                                                    onDragStart={(e) => iniciarArrastre(e, idVisita ? idsDeVisita(idVisita) : [id])}
                                                 >
                                                     {puedeAsignar && (
                                                         <Checkbox
@@ -868,13 +1090,77 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 onPageSizeChange={(size) => { setGruposPorPagina(size); setCurrentPage(1); }}
             />
             </div>
+            {agendaAncha && (
+                <div className="flex min-h-0 flex-col overflow-y-auto">
+                    <AgendaMuestreadores
+                        muestreadores={agendaMuestreadores}
+                        hayAsignacion={puedeAsignar && seleccion.size > 0}
+                        onElegirDia={agendarAqui}
+                        onMoverVisita={moverVisita}
+                        recarga={agendaClave}
+                    />
+                </div>
+            )}
+            </div>
+
+            <Sheet open={agendaSheet && !agendaAncha} onOpenChange={setAgendaSheet}>
+                <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto sm:max-w-2xl">
+                    <SheetHeader>
+                        <SheetTitle>Agenda de muestreadores</SheetTitle>
+                    </SheetHeader>
+                    <AgendaMuestreadores
+                        muestreadores={agendaMuestreadores}
+                        hayAsignacion={puedeAsignar && seleccion.size > 0}
+                        onElegirDia={(m, f) => { setAgendaSheet(false); agendarAqui(m, f); }}
+                        onMoverVisita={moverVisita}
+                        recarga={agendaClave}
+                    />
+                </SheetContent>
+            </Sheet>
 
             {puedeAsignar && seleccion.size > 0 && (
                 <div className="pointer-events-none absolute inset-x-0 bottom-6 z-20 flex justify-center">
                     <div className="pointer-events-auto flex items-center gap-4 rounded-xl bg-foreground py-2.5 pl-5 pr-2.5 shadow-lg">
-                        <span className="whitespace-nowrap text-sm font-medium text-background">
-                            {seleccion.size} punto{seleccion.size !== 1 ? 's' : ''} seleccionado{seleccion.size !== 1 ? 's' : ''}
-                        </span>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <button type="button" className="inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-background hover:underline">
+                                    {seleccion.size} punto{seleccion.size !== 1 ? 's' : ''} seleccionado{seleccion.size !== 1 ? 's' : ''}
+                                    <IconChevronDown size={14} />
+                                </button>
+                            </PopoverTrigger>
+                            <PopoverContent side="top" align="start" className="w-96 p-0">
+                                <div className="border-b border-border px-3 py-2 text-sm font-semibold">Selección</div>
+                                <div className="max-h-72 overflow-y-auto">
+                                    {detalleSeleccion.visitas.map(([idG, puntos]) => (
+                                        <div key={idG} className="border-b border-border/60 last:border-b-0">
+                                            <div className="flex items-center gap-2 bg-primary/5 px-3 py-1.5 text-xs font-semibold text-primary">
+                                                <IconLink size={13} />
+                                                Visita de {puntos.length} punto{puntos.length !== 1 ? 's' : ''}
+                                                {visitas.get(idG)?.servicio ? ` · servicio ${visitas.get(idG)?.servicio}` : ''}
+                                                <Button variant="ghost" size="icon-xs" className="ms-auto" aria-label="Quitar la visita de la selección" title="Quitar la visita completa" onClick={() => quitarDeSeleccion(puntos[0])}>
+                                                    <IconX size={13} />
+                                                </Button>
+                                            </div>
+                                            {puntos.map((f) => (
+                                                <div key={idDeFicha(f)} className="px-3 py-1.5 ps-8">
+                                                    <p className="m-0 truncate text-sm font-medium">{f.ma_punto_muestreo || `Ficha #${idDeFicha(f)}`}</p>
+                                                    <p className="m-0 truncate text-xs text-muted-foreground">{f.centro || f.nombre_centro} · ficha {f.fichaingresoservicio || idDeFicha(f)}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ))}
+                                    {detalleSeleccion.sueltas.map((f) => (
+                                        <div key={idDeFicha(f)} className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5 last:border-b-0">
+                                            <div className="min-w-0 flex-1">
+                                                <p className="m-0 truncate text-sm font-medium">{f.ma_punto_muestreo || `Ficha #${idDeFicha(f)}`}</p>
+                                                <p className="m-0 truncate text-xs text-muted-foreground">{f.centro || f.nombre_centro} · ficha {f.fichaingresoservicio || idDeFicha(f)}</p>
+                                            </div>
+                                            <Button variant="ghost" size="icon-xs" aria-label="Quitar de la selección" onClick={() => quitarDeSeleccion(f)}><IconX size={13} /></Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </PopoverContent>
+                        </Popover>
                         <span className="h-5 w-px bg-background/25" />
                         <Button
                             variant="ghost"
@@ -889,14 +1175,14 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                 variant="ghost"
                                 size="sm"
                                 className="text-background/70 hover:bg-background/10 hover:text-background"
-                                onClick={agruparSeleccion}
+                                onClick={() => { if (sumaAVisita) agruparSeleccion(); else { setAgendarAlCrear(false); setCrearVisitaOpen(true); } }}
                                 disabled={saving}
                                 title={sumaAVisita ? 'Suma las fichas sueltas a la visita elegida como un punto más (con su propio precio y datos).' : 'Une estos puntos como una sola visita: se agendan juntos y comparten el aviso.'}
                             >
-                                <IconLink size={15} /> {sumaAVisita ? 'Agregar a la visita' : 'Agrupar como una visita'}
+                                <IconLink size={15} /> {sumaAVisita ? 'Agregar a la visita' : 'Crear visita'}
                             </Button>
                         )}
-                        <Button size="sm" onClick={abrirAsignar}>
+                        <Button size="sm" onClick={pedirAsignar}>
                             <IconCalendarStats size={15} /> Agendar y asignar
                         </Button>
                     </div>
@@ -994,15 +1280,21 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                             </section>
                         )}
 
-                        <section className="flex flex-col gap-2">
-                            <Label>Observación <span className="font-normal text-muted-foreground">(opcional)</span></Label>
-                            <Textarea
-                                rows={3}
-                                value={observacion}
-                                onChange={(e) => setObservacion(e.target.value)}
-                                placeholder="Se incluye en la notificación al responsable"
-                            />
-                        </section>
+                        {verNota || observacion ? (
+                            <section className="flex flex-col gap-2">
+                                <Label>Nota para el responsable <span className="font-normal text-muted-foreground">(opcional)</span></Label>
+                                <Textarea
+                                    rows={3}
+                                    value={observacion}
+                                    onChange={(e) => setObservacion(e.target.value)}
+                                    placeholder="Se incluye en el correo y el aviso que recibe el responsable"
+                                />
+                            </section>
+                        ) : (
+                            <Button type="button" variant="ghost" size="sm" className="w-fit px-0 text-muted-foreground" onClick={() => setVerNota(true)}>
+                                + Agregar nota para el responsable
+                            </Button>
+                        )}
                     </div>
 
                     <SheetFooter className="border-t border-border px-6 py-4">

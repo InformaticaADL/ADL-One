@@ -31,7 +31,7 @@ interface Props {
     onBack: () => void;
 }
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 interface ConfirmDialogState {
     title: string;

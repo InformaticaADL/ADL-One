@@ -87,7 +87,7 @@ function Row({ children, className }: { children: React.ReactNode; className?: s
 // Extremely Fast Input Wrapper to isolate typing updates.
 // Uses startTransition for the parent callback so AntecedentesForm (30+ states)
 // only re-renders at low priority — the local input state updates immediately.
-const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, size, className, ...props }: any) => {
+const TextInput = React.memo(({ value: parentValue, onChange, label, description, error, errorFlotante, size, className, ...props }: any) => {
     const [localValue, setLocalValue] = useState(parentValue || '');
 
     // Sincronizar desde arriba sólo si difiere
@@ -104,7 +104,7 @@ const TextInput = React.memo(({ value: parentValue, onChange, label, description
     };
 
     return (
-        <div className={cn('min-w-0', size ? FIELD_SIZE_CLASS[size as FieldSize] : 'w-full', className)}>
+        <div className={cn('min-w-0', errorFlotante && 'relative', size ? FIELD_SIZE_CLASS[size as FieldSize] : 'w-full', className)}>
             {label && <div className="mb-1.5">{typeof label === 'string' ? <span className="text-[13px] font-medium">{label}</span> : label}</div>}
             <Input
                 value={localValue}
@@ -112,7 +112,8 @@ const TextInput = React.memo(({ value: parentValue, onChange, label, description
                 className={cn(error && 'border-destructive focus-visible:ring-destructive')}
                 {...props}
             />
-            {error && <p className="mt-1 text-[11px] text-destructive">{error}</p>}
+            {/* errorFlotante: el aviso se dibuja debajo sin ocupar lugar, así el campo no se corre del resto de la fila al escribir. */}
+            {error && <p className={cn("text-[11px] text-destructive", errorFlotante ? "absolute left-0 top-full z-10 mt-0.5 whitespace-nowrap" : "mt-1")}>{error}</p>}
             {description && <p className="mt-1 text-[11px] text-muted-foreground">{description}</p>}
         </div>
     );
@@ -272,8 +273,16 @@ function SectionNav({ items, active, onNavigate, isMobile }: { items: SectionNav
     );
 }
 
-export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData?: any, onValidationChange?: (isValid: boolean, missing?: string[]) => void }>((props, ref) => {
-    const { initialData, onValidationChange } = props;
+export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
+    initialData?: any,
+    onValidationChange?: (isValid: boolean, missing?: string[]) => void,
+    /** Visita con varios puntos: el nombre del punto, la zona/UTM y la referencia de Google Maps se piden en la pestaña «Puntos». */
+    ocultarPunto?: boolean,
+    /** Modo por pasos: se muestra un solo bloque a la vez (lo elige `pasoActivo`) y el índice lateral lo reemplaza la lista de pasos de la pantalla. Los demás bloques siguen montados, así no se pierde lo escrito. */
+    modoPasos?: boolean,
+    pasoActivo?: 'ident' | 'servicio' | 'clasif' | 'operativo',
+}>((props, ref) => {
+    const { initialData, onValidationChange, ocultarPunto = false, modoPasos = false, pasoActivo = 'ident' } = props;
     const { hasPermission } = useAuth();
     const catalogos = useCachedCatalogos();
     const { showToast } = useToast();
@@ -480,13 +489,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 { label: 'Objetivo del Muestreo',  value: selectedObjetivo },
                 { label: 'Responsable Muestreo',   value: responsableMuestreo },
                 { label: 'Cargo',                  value: cargoResponsable },
-                { label: 'Punto de Muestreo',      value: puntoMuestreo },
+                ...(ocultarPunto ? [] : [{ label: 'Punto de Muestreo', value: puntoMuestreo }]),
                 { label: 'Frecuencia Periodo',     value: periodo },
                 { label: 'Cant. Frecuencia',       value: frecuencia },
                 { label: 'Factor',                 value: factor },
                 { label: 'Total Servicios',        value: totalServicios },
                 // Bloque 3
-                { label: 'Zona UTM',               value: zona },
+                ...(ocultarPunto ? [] : [{ label: 'Zona UTM', value: zona }]),
                 { label: 'Instrumento Legal',      value: selectedInstrumento },
                 { label: 'Componente Ambiental',   value: selectedComponente },
                 { label: 'Sub-Área',               value: selectedSubArea },
@@ -511,7 +520,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 required.push({ label: 'N° Instrumento', value: nroInstrumento });
             }
 
-            if (zona && !isNA(zona, zonasUTMList)) {
+            if (!ocultarPunto && zona && !isNA(zona, zonasUTMList)) {
                 required.push({ label: 'UTM Norte', value: utmNorte });
                 required.push({ label: 'UTM Este',  value: utmEste });
             }
@@ -554,7 +563,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         onValidationChange,
         // Listas de catálogos usadas por isNA para detectar "No Aplica" por ID de BD —
         // deben estar aquí para que el efecto se re-ejecute cuando los catálogos cargan.
-        zonasUTMList, modalidades, formasCanal, dispositivos
+        zonasUTMList, modalidades, formasCanal, dispositivos, ocultarPunto
     ]);
 
     // Initial Data Hydration
@@ -1035,18 +1044,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
     );
 
     const block2Complete = useMemo(
-        () => [selectedObjetivo, responsableMuestreo, cargoResponsable, puntoMuestreo, periodo, frecuencia, factor, totalServicios].every(isFieldSet),
-        [selectedObjetivo, responsableMuestreo, cargoResponsable, puntoMuestreo, periodo, frecuencia, factor, totalServicios]
+        () => [selectedObjetivo, responsableMuestreo, cargoResponsable, ...(ocultarPunto ? [] : [puntoMuestreo]), periodo, frecuencia, factor, totalServicios].every(isFieldSet),
+        [selectedObjetivo, responsableMuestreo, cargoResponsable, puntoMuestreo, periodo, frecuencia, factor, totalServicios, ocultarPunto]
     );
 
     const block3Complete = useMemo(() => {
-        const req = [zona, selectedInstrumento, selectedComponente, selectedSubArea, glosa];
-        if (zona && !isNoAplicaValue(zona, zonasUTMData)) req.push(utmNorte, utmEste);
+        const req = [...(ocultarPunto ? [] : [zona]), selectedInstrumento, selectedComponente, selectedSubArea, glosa];
+        if (!ocultarPunto && zona && !isNoAplicaValue(zona, zonasUTMData)) req.push(utmNorte, utmEste);
         const instLow = (selectedInstrumento || '').toLowerCase();
         if (instLow === 'otro') req.push(nroInstrumento);
         else if (instLow !== 'no aplica' && selectedInstrumento) req.push(nroInstrumento, anioInstrumento);
         return req.every(isFieldSet);
-    }, [zona, utmNorte, utmEste, zonasUTMData, selectedInstrumento, selectedComponente, selectedSubArea, glosa, nroInstrumento, anioInstrumento]);
+    }, [zona, utmNorte, utmEste, zonasUTMData, selectedInstrumento, selectedComponente, selectedSubArea, glosa, nroInstrumento, anioInstrumento, ocultarPunto]);
 
     const block4Complete = useMemo(() => {
         const req = [selectedTipoMuestreo, selectedTipoMuestra, selectedActividad, selectedTipoDescarga, medicionCaudal];
@@ -1086,7 +1095,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                 { label: 'Objetivo del Muestreo', filled: fv('selectedObjetivo', selectedObjetivo) },
                 { label: 'Responsable Muestreo',  filled: fv('responsableMuestreo', responsableMuestreo) },
                 { label: 'Cargo',                 filled: fv('cargoResponsable', cargoResponsable) },
-                { label: 'Punto de Muestreo',     filled: fv('puntoMuestreo', puntoMuestreo) },
+                ...(ocultarPunto ? [] : [{ label: 'Punto de Muestreo', filled: fv('puntoMuestreo', puntoMuestreo) }]),
                 { label: 'Frecuencia Periodo',    filled: fv('periodo', periodo) },
                 { label: 'Cant. Frecuencia',      filled: fv('frecuencia', frecuencia) },
                 { label: 'Factor',                filled: fv('factor', factor) },
@@ -1096,8 +1105,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
         {
             id: 'clasif', label: 'Clasificación Técnica', icon: IconCertificate, complete: block3Complete,
             fields: [
-                { label: 'Zona UTM',             filled: fv('zona', zona) },
-                ...(!isNoAplicaValue(zona, zonasUTMData) ? [
+                ...(ocultarPunto ? [] : [{ label: 'Zona UTM', filled: fv('zona', zona) }]),
+                ...(!ocultarPunto && !isNoAplicaValue(zona, zonasUTMData) ? [
                     { label: 'UTM Norte', filled: fv('utmNorte', utmNorte) },
                     { label: 'UTM Este',  filled: fv('utmEste', utmEste) },
                 ] : []),
@@ -1169,10 +1178,10 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
 
     return (
         <div className="shadcn-scope flex w-full flex-col gap-4 md:flex-row md:items-start md:gap-6">
-            <SectionNav items={sectionNavItems} active={activeSection} onNavigate={scrollToSection} isMobile={isMobile} />
+            {!modoPasos && <SectionNav items={sectionNavItems} active={activeSection} onNavigate={scrollToSection} isMobile={isMobile} />}
 
             <div className="flex min-w-0 flex-1 flex-col" style={{ gap: isMobile ? 16 : 24 }}>
-            <div ref={(el) => { sectionRefs.current.ident = el; }} id="ficha-sec-ident">
+            <div ref={(el) => { sectionRefs.current.ident = el; }} id="ficha-sec-ident" className={modoPasos && pasoActivo !== 'ident' ? 'hidden' : undefined}>
             <Block>
                 <BlockTitle icon={IconBuilding} color="var(--sc-primary)">Identificación y Ubicación</BlockTitle>
 
@@ -1272,7 +1281,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             </div>
 
             {/* Sección 2: Datos del Servicio */}
-            <div ref={(el) => { sectionRefs.current.servicio = el; }} id="ficha-sec-servicio">
+            <div ref={(el) => { sectionRefs.current.servicio = el; }} id="ficha-sec-servicio" className={modoPasos && pasoActivo !== 'servicio' ? 'hidden' : undefined}>
             <Block>
                 <BlockTitle icon={IconAdjustmentsHorizontal} color="#9c36b5">Datos del Servicio y Frecuencia</BlockTitle>
 
@@ -1302,12 +1311,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(v: string | null) => { setCargoResponsable(v || ''); markDirty('cargoResponsable'); }}
                         disabled={responsableMuestreo === 'ADL'}
                     />
-                    <TextInput
-                        size="md"
-                        label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
-                        value={puntoMuestreo}
-                        onChange={(e: any) => { setPuntoMuestreo(e.target.value); markDirty('puntoMuestreo'); }}
-                    />
+                    {!ocultarPunto && (
+                        <TextInput
+                            size="md"
+                            label={<FieldLabel label="Punto de Muestreo *" help="Nombre o código que identifica el punto exacto donde se tomará la muestra dentro del centro. Ejemplos: Efluente Final, Punto 1, PM-01." />}
+                            value={puntoMuestreo}
+                            onChange={(e: any) => { setPuntoMuestreo(e.target.value); markDirty('puntoMuestreo'); }}
+                        />
+                    )}
                 </Row>
 
                 <Divider />
@@ -1320,7 +1331,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         value={periodo}
                         onChange={(v: string | null) => { handlePeriodoChange(v); markDirty('periodo'); markDirty('frecuencia'); markDirty('factor'); markDirty('totalServicios'); }}
                         onDropdownOpen={() => {
-                            if (!puntoMuestreo.trim()) showToast({ type: 'warning', message: 'Debe ingresar el Punto de Muestreo' });
+                            if (!ocultarPunto && !puntoMuestreo.trim()) showToast({ type: 'warning', message: 'Debe ingresar el Punto de Muestreo' });
                         }}
                     />
                     <TextInput
@@ -1353,11 +1364,12 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             </div>
 
             {/* Sección 3: Clasificación Técnica */}
-            <div ref={(el) => { sectionRefs.current.clasif = el; }} id="ficha-sec-clasif">
+            <div ref={(el) => { sectionRefs.current.clasif = el; }} id="ficha-sec-clasif" className={modoPasos && pasoActivo !== 'clasif' ? 'hidden' : undefined}>
             <Block>
                 <BlockTitle icon={IconCertificate} color="#0d9488">Clasificación Técnica y Geográfica</BlockTitle>
 
                 <Row className="mb-4">
+                    {!ocultarPunto && (<>
                     <Select
                         size="xs"
                         label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
@@ -1379,6 +1391,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         onChange={(e: any) => { setUtmEste(e.target.value); markDirty('utmEste'); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
+                    </>)}
                     <Select
                         size="md"
                         label={<FieldLabel label="Instrumento Ambiental *" help="Marco regulatorio o norma legal que obliga a realizar este muestreo. Ejemplos: RCA (Resolución de Calificación Ambiental), DS90, D.S. 46. Seleccione 'No aplica' si no existe obligación regulatoria." />}
@@ -1398,7 +1411,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         }}
                     />
                     <TextInput
-                        size="xs"
+                        size="md"
                         // F-01f: con "Otro" el número/año NO son obligatorios (solo "Otro" + texto libre)
                         label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Número Instrumento' : 'Número Instrumento *'} help="Número o código identificador del instrumento ambiental (ej: número de RCA, decreto o resolución). Solo se aceptan números salvo cuando el instrumento es 'Otro'." />}
                         placeholder={selectedInstrumento?.toLowerCase() === 'otro' ? 'Texto libre (ej: Resolución SISS 2122/2023)' : 'Solo número (ej: 123)'}
@@ -1426,7 +1439,8 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         }}
                     />
                     <TextInput
-                        size="xs"
+                        size="md"
+                        errorFlotante
                         // F-01f: con "Otro" el año tampoco es obligatorio
                         label={<FieldLabel label={selectedInstrumento?.toLowerCase() === 'otro' ? 'Año Instrumento' : 'Año Instrumento *'} help="Año de emisión o vigencia del instrumento ambiental. Debe ser un año de 4 dígitos entre 1900 y el año actual." />}
                         placeholder="YYYY (ej: 2024)"
@@ -1494,7 +1508,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
             </div>
 
             {/* Sección 4: Detalles Operativos */}
-            <div ref={(el) => { sectionRefs.current.operativo = el; }} id="ficha-sec-operativo">
+            <div ref={(el) => { sectionRefs.current.operativo = el; }} id="ficha-sec-operativo" className={modoPasos && pasoActivo !== 'operativo' ? 'hidden' : undefined}>
             <Block>
                 <BlockTitle icon={IconClock} color="#e8590c">Detalles Operativos y Descarga</BlockTitle>
 
@@ -1556,6 +1570,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                     />
                 </Row>
 
+                {!ocultarPunto && (
                 <div className="mb-4 flex flex-col gap-1.5">
                     {/* El texto de ayuda va fuera de la fila: dentro del TextInput
                         empujaba su borde inferior y el botón —alineado con items-end—
@@ -1623,6 +1638,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, { initialData
                         <InlineAlert type="warning" icon={<IconAlertTriangle size={16} />}>{verifyError}</InlineAlert>
                     )}
                 </div>
+                )}
 
                 <Divider label="Hidráulica y Caudal" />
 

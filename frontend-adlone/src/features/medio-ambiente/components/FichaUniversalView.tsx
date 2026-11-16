@@ -41,7 +41,7 @@ interface Props {
     onCambiarFicha?: (id: number) => void;
 }
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 // F-36: Textarea con estado local — actualiza al padre via startTransition para evitar lag por re-render del componente grande.
 const DeferredTextarea = React.memo(({ value, onChange, placeholder, minRows }: {
@@ -70,11 +70,12 @@ const DeferredTextarea = React.memo(({ value, onChange, placeholder, minRows }: 
 const getStatusProps = (status: string): { variant: BadgeVariant; label: string } => {
     const s = (status || '').toUpperCase();
     if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { variant: 'destructive', label: s };
-    if (s.includes('COORDINACIÓN')) return { variant: 'default', label: s };
+    if (s.includes('COORDINACIÓN')) return { variant: 'info', label: s };
     if (s.includes('PROGRAMACIÓN')) return { variant: 'secondary', label: s };
     if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { variant: 'warning', label: 'PENDIENTE TÉCNICA' };
     if (s.includes('ASIGNAR')) return { variant: 'warning', label: s };
-    if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { variant: 'success', label: s };
+    if (s.includes('EN PROCESO')) return { variant: 'info', label: s };
+    if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return { variant: 'success', label: s };
     return { variant: 'outline', label: s || 'SIN ESTADO' };
 };
 

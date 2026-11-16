@@ -41,7 +41,7 @@ interface Props {
 
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#6b7280', '#ec4899', '#14b8a6'];
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 const toneVariant: Record<string, BadgeVariant> = {
     green: 'success', teal: 'success', lime: 'success', red: 'destructive', blue: 'default',
@@ -452,7 +452,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
 // no necesita distinguir — se pliegan a "default" (neutro).
 const ALERT_VARIANT: Record<BadgeVariant, 'default' | 'success' | 'warning' | 'destructive'> = {
     default: 'default', secondary: 'default', outline: 'default',
-    success: 'success', warning: 'warning', destructive: 'destructive',
+    success: 'success', warning: 'warning', info: 'default', destructive: 'destructive',
 };
 
 function InlineAlert({ variant, title, message }: { variant: BadgeVariant; title: string; message: string }) {

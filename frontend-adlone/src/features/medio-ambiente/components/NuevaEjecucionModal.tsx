@@ -23,7 +23,7 @@ interface NuevaEjecucionModalProps {
     onSuccess: () => void;
 }
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 const STATUS_VARIANT: Record<string, BadgeVariant> = {
     DISPONIBLE: 'success',

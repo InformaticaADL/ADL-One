@@ -69,7 +69,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { StatCard } from '../../../components/common/StatCard';
 import { NuevaEjecucionModal } from './NuevaEjecucionModal';
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 interface RutasListViewProps {
     onBackToMenu: () => void;

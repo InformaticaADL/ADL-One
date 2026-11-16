@@ -175,7 +175,7 @@ class FichaIngresoController {
 
     async agrupar(req, res) {
         try {
-            const result = await fichaService.agruparFichas({ ids: req.body?.ids, user: req.user, nota: req.body?.nota });
+            const result = await fichaService.agruparFichas({ ids: req.body?.ids, user: req.user, nota: req.body?.nota, conservarOrden: !!req.body?.conservarOrden });
             notificarCalendarioActualizado();
             return successResponse(res, result, 'Fichas agrupadas');
         } catch (err) {

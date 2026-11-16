@@ -2865,8 +2865,10 @@ class FichaIngresoService {
     }
 
     // Agrupa fichas que ya existen (misma empresa y mismo centro, ninguna en otro grupo).
-    async agruparFichas({ ids, user, nota }) {
-        const lista = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))].sort((a, b) => a - b);
+    async agruparFichas({ ids, user, nota, conservarOrden = false }) {
+        const unicos = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+        // Por defecto los puntos quedan por número de ficha; con conservarOrden se respeta el orden en que llegan (el que eligió el usuario).
+        const lista = conservarOrden ? unicos : unicos.sort((a, b) => a - b);
         if (lista.length < 2) throw this._errorDatos('Seleccione al menos dos fichas para agrupar.');
 
         const pool = await getConnection();

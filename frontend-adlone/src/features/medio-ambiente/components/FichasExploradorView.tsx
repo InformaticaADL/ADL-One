@@ -17,6 +17,9 @@ import { DataPagination } from '@/components/ui/pagination';
 import { RowActionsMenu } from '@/components/ui/row-actions-menu';
 import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@/components/ui/sheet';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { CrearVisitaDialog } from './CrearVisitaDialog';
+import { useToast } from '../../../contexts/ToastContext';
 import {
     IconDownload,
     IconEye,
@@ -25,6 +28,7 @@ import {
     IconFilter,
     IconChevronDown,
     IconChevronRight,
+    IconLink,
 } from '@tabler/icons-react';
 
 interface Props {
@@ -32,7 +36,7 @@ interface Props {
     onViewDetail: (id: number) => void;
 }
 
-type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'destructive';
+type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
 type SortKey = 'id' | 'estado' | 'fecha' | 'empresaFacturar' | 'empresaServicio' | 'objetivo';
 
@@ -64,6 +68,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const [itemsPerPage, setItemsPerPage] = useState(10);
     const [loading, setLoading] = useState(true);
     const [fichas, setFichas] = useState<any[]>([]);
+    const [recarga, setRecarga] = useState(0);
     const [showExportModal, setShowExportModal] = useState(false);
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
 
@@ -93,7 +98,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
             }
         };
         loadFichas();
-    }, []);
+    }, [recarga]);
 
     useEffect(() => {
         setPage(1);
@@ -179,11 +184,12 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const getStatusProps = (status: string): { variant: BadgeVariant; label: string } => {
         const s = (status || '').toUpperCase();
         if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { variant: 'destructive', label: s };
-        if (s.includes('COORDINACIÓN')) return { variant: 'default', label: s };
+        if (s.includes('COORDINACIÓN')) return { variant: 'info', label: s };
         if (s.includes('PROGRAMACIÓN')) return { variant: 'secondary', label: s };
         if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { variant: 'warning', label: 'PENDIENTE TÉCNICA' };
         if (s.includes('ASIGNAR')) return { variant: 'warning', label: s };
-        if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO') || s.includes('EN PROCESO')) return { variant: 'success', label: s };
+        if (s.includes('EN PROCESO')) return { variant: 'info', label: s };
+        if (s.includes('VIGENTE') || s.includes('APROBADA') || s.includes('EJECUTADO')) return { variant: 'success', label: s };
         return { variant: 'outline', label: s || 'SIN ESTADO' };
     };
 
@@ -197,6 +203,50 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     };
     const { sorted: sortedFichas, sort, toggleSort } = useTableSort(filteredFichas, sortAccessors);
     const sortProps = (key: SortKey) => ({ active: sort.key === key, direction: sort.direction, onSort: () => { toggleSort(key); setPage(1); } });
+
+    // ── Crear visita: fichas puntuales sueltas del mismo centro y empresa se agrupan como puntos de una sola visita.
+    const { showToast } = useToast();
+    const puedeCrearVisita = hasPermission('FI_CREAR') || hasPermission('FI_GEST_ASIG');
+    const idDe = (x: any) => Number(x.id_fichaingresoservicio || x.fichaingresoservicio);
+    const llaveLugar = (x: any) => String(x.centro || '').trim() + '|' + String(x.empresa_facturar || '').trim();
+    const [seleccion, setSeleccion] = useState<Set<number>>(new Set());
+    const [idsVisita, setIdsVisita] = useState<number[] | null>(null);
+
+    const fichasSeleccionadas = useMemo(() => fichas.filter((x) => seleccion.has(idDe(x))), [fichas, seleccion]);
+    const mismoLugar = new Set(fichasSeleccionadas.map(llaveLugar)).size <= 1;
+    const puedeCrear = puedeCrearVisita && fichasSeleccionadas.length >= 2 && mismoLugar;
+
+    // Sugerencia: puntuales sueltas, del mismo centro y fecha, de la última semana en adelante.
+    const sugerencia = useMemo(() => {
+        const limite = new Date(); limite.setHours(0, 0, 0, 0); limite.setDate(limite.getDate() - 7);
+        const grupos = new Map<string, any[]>();
+        fichas.forEach((x) => {
+            if (Number(x.id_grupo)) return;
+            if (!String(x.tipo_fichaingresoservicio || '').toLowerCase().includes('puntual')) return;
+            const p = String(x.fecha || '').split('/');
+            if (p.length !== 3) return;
+            if (new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0])) < limite) return;
+            const k = llaveLugar(x) + '|' + x.fecha;
+            grupos.set(k, [...(grupos.get(k) || []), x]);
+        });
+        let mejor: any[] = [];
+        grupos.forEach((g) => { if (g.length > mejor.length) mejor = g; });
+        return mejor.length >= 2 ? { fichas: mejor, centro: mejor[0].centro, fecha: mejor[0].fecha } : null;
+    }, [fichas]);
+
+    const abrirCrearVisita = (ids: number[]) => setIdsVisita([...ids].sort((a, b) => a - b));
+    const confirmarCrearVisita = async ({ orden, nota }: { orden: number[]; nota?: string; agendar: boolean }) => {
+        try {
+            await fichaService.agrupar(orden, nota, true);
+            showToast({ type: 'success', message: orden.length + ' puntos agrupados como una sola visita' });
+            setIdsVisita(null); setSeleccion(new Set()); setRecarga((n) => n + 1);
+        } catch (error: any) {
+            showToast({ type: 'error', message: error?.response?.data?.message || 'No se pudo crear la visita' });
+            throw error;
+        }
+    };
+    const fichasDeVisita = (idsVisita || []).map((id) => fichas.find((x) => idDe(x) === id)).filter(Boolean) as any[];
+    const ejecutadas = fichasDeVisita.filter((x) => /EJECUTAD|COMPLET/.test(String(x.estado_ficha || '').toUpperCase())).length;
 
     const panelFilterCount = [searchId, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, dateFrom, dateTo].filter(Boolean).length;
 
@@ -372,6 +422,17 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                 overflow-y-auto acá, que scrollearía la página entera en vez de la
                 tabla. */}
             <div className="flex min-h-0 flex-1 flex-col">
+            {puedeCrearVisita && sugerencia && seleccion.size === 0 && (
+                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-primary/10 px-4 py-3 text-sm">
+                    <span className="size-1.5 shrink-0 rounded-full bg-[var(--sc-mark)]" />
+                    <span>
+                        <strong>{sugerencia.fichas.length} fichas puntuales</strong> de {sugerencia.centro} del {sugerencia.fecha} están sueltas. Puedes crearlas como <strong>una sola visita</strong>.
+                    </span>
+                    <Button size="sm" className="ms-auto" onClick={() => { setSeleccion(new Set(sugerencia.fichas.map(idDe))); abrirCrearVisita(sugerencia.fichas.map(idDe)); }}>
+                        Crear visita
+                    </Button>
+                </div>
+            )}
             <Card className="flex min-h-0 flex-col p-0">
                 <div className="relative flex min-h-0 flex-col overflow-hidden rounded-xl">
                     {loading && (
@@ -384,6 +445,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                             al scrollear el listado. */}
                         <TableHeader>
                             <TableRow className="hover:bg-transparent">
+                                {puedeCrearVisita && <TableHead className="w-10"><span className="sr-only">Seleccionar</span></TableHead>}
                                 <SortableTableHead {...sortProps('id')} className="w-20">ID</SortableTableHead>
                                 <SortableTableHead {...sortProps('estado')} className="text-center">Estado</SortableTableHead>
                                 <SortableTableHead {...sortProps('fecha')}>Fecha</SortableTableHead>
@@ -397,7 +459,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                         <TableBody>
                             {paginatedFichas.length === 0 ? (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={8} className="py-10 text-center text-sm text-muted-foreground">
+                                    <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
                                         {loading ? 'Cargando...' : 'No se encontraron fichas.'}
                                     </TableCell>
                                 </TableRow>
@@ -432,6 +494,17 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                     return (
                                         <React.Fragment key={String(idFicha)}>
                                         <TableRow className={esVisita ? 'cursor-pointer' : undefined} onClick={esVisita ? () => toggleVisita(idVisita) : undefined}>
+                                            {puedeCrearVisita && (
+                                                <TableCell onClick={(e) => e.stopPropagation()}>
+                                                    {!esVisita && (
+                                                        <Checkbox
+                                                            checked={seleccion.has(idDe(ficha))}
+                                                            onCheckedChange={(v) => setSeleccion((prev) => { const sig = new Set(prev); if (v) sig.add(idDe(ficha)); else sig.delete(idDe(ficha)); return sig; })}
+                                                            aria-label={'Seleccionar la ficha ' + (ficha.fichaingresoservicio || '')}
+                                                        />
+                                                    )}
+                                                </TableCell>
+                                            )}
                                             <TableCell className="font-semibold text-primary">
                                                 {esVisita ? (
                                                     <span className="flex items-center gap-1.5">
@@ -445,10 +518,10 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                                 <Badge variant={status.variant}>{status.label}</Badge>
                                             </TableCell>
                                             <TableCell className="whitespace-nowrap">{ficha.fecha || '-'}</TableCell>
-                                            <TableCell className="max-w-[160px] truncate" title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</TableCell>
-                                            <TableCell className="max-w-[160px] truncate" title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</TableCell>
-                                            <TableCell className="max-w-[160px] truncate" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
-                                            <TableCell className="max-w-[140px] truncate" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
+                                            <TableCell className="whitespace-normal break-words" title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</TableCell>
+                                            <TableCell className="whitespace-normal break-words" title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</TableCell>
+                                            <TableCell className="whitespace-normal break-words" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
+                                            <TableCell className="whitespace-normal break-words" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
                                             {/* La columna PDF se quitó: su descarga vive acá, junto a
                                                 "Ver ficha", en el menú de acciones estándar. */}
                                             <TableCell className="text-right">
@@ -464,13 +537,14 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                             const idP = p.id_fichaingresoservicio || p.fichaingresoservicio;
                                             return (
                                                 <TableRow key={`${idFicha}-p${idP}`} className="bg-muted/30">
+                                                    {puedeCrearVisita && <TableCell />}
                                                     <TableCell className="pl-9 text-sm text-primary">{p.fichaingresoservicio || '-'}</TableCell>
                                                     <TableCell className="text-center"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
                                                     <TableCell colSpan={4} className="text-sm">
                                                         <span className="font-medium text-foreground">Punto {i + 1}:</span>{' '}
                                                         <span className="text-muted-foreground">{p.grupo_punto || 'sin nombre'}</span>
                                                     </TableCell>
-                                                    <TableCell className="max-w-[140px] truncate" title={p.base_operaciones}>{p.base_operaciones || ''}</TableCell>
+                                                    <TableCell className="whitespace-normal break-words" title={p.base_operaciones}>{p.base_operaciones || ''}</TableCell>
                                                     <TableCell className="text-right"><RowActionsMenu actions={accionesDe(p)} /></TableCell>
                                                 </TableRow>
                                             );
@@ -492,6 +566,27 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                 onPageSizeChange={(size) => { setItemsPerPage(size); setPage(1); }}
             />
             </div>
+
+            {seleccion.size > 0 && (
+                <div className="sticky bottom-3 z-10 mt-3 flex flex-wrap items-center gap-3 rounded-lg bg-primary px-4 py-2.5 text-sm text-primary-foreground shadow-lg">
+                    <span><strong>{seleccion.size}</strong> fichas seleccionadas · {seleccion.size < 2 ? 'marca al menos 2 para crear una visita' : mismoLugar ? 'mismo centro y empresa' : 'son de centros o empresas distintos'}</span>
+                    <span className="ms-auto flex gap-2">
+                        <Button size="sm" variant="ghost" className="text-primary-foreground hover:bg-white/10 hover:text-primary-foreground" onClick={() => setSeleccion(new Set())}>Limpiar</Button>
+                        <Button size="sm" variant="secondary" disabled={!puedeCrear} onClick={() => abrirCrearVisita([...seleccion])}>
+                            <IconLink size={15} /> Crear visita
+                        </Button>
+                    </span>
+                </div>
+            )}
+
+            <CrearVisitaDialog
+                open={idsVisita !== null}
+                onOpenChange={(o) => { if (!o) setIdsVisita(null); }}
+                puntos={fichasDeVisita.map((x) => ({ id: idDe(x), titulo: 'Ficha ' + (x.fichaingresoservicio || idDe(x)), detalle: (x.estado_ficha || 'Sin estado') + ' · ' + (x.fecha || '') }))}
+                descripcion={String(fichasDeVisita[0]?.centro || '')}
+                aviso={ejecutadas > 0 ? (<><strong>{ejecutadas} {ejecutadas === 1 ? 'punto ya está' : 'puntos ya están'} ejecutados.</strong> Se agrupan para ADL ONE y para facturación, pero sus firmas y documentos ya salieron por separado y no se rehacen.</>) : undefined}
+                onConfirmar={confirmarCrearVisita}
+            />
         </div>
     );
 };
