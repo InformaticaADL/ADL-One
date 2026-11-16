@@ -45,8 +45,6 @@ const opcionesMes = () => {
     });
 };
 
-/** Las glosas con estos códigos llevan el mes y el año en el texto de la factura (regla de ADLSOFT). */
-const glosaLlevaMes = (id: number) => id >= 14 && id <= 22;
 
 /** Datos que se piden al crear las facturas: fecha, forma de pago, glosa, nota y órdenes de compra. Quien lo usa lo vuelve a montar (con `key`) cada vez que se abre, para empezar en blanco. */
 const CrearFacturasDialog: React.FC<Props> = ({ abierto, onCerrar, empresa, grupos, criterio, uf, idFormaPagoEmpresa, maestros, creando, onConfirmar }) => {
@@ -64,7 +62,9 @@ const CrearFacturasDialog: React.FC<Props> = ({ abierto, onCerrar, empresa, grup
     const meses = useMemo(() => opcionesMes(), []);
 
     const nombreGlosa = glosas.find((g) => g.value === glosaId)?.label ?? '';
-    const lleva = glosaLlevaMes(Number(glosaId));
+    // ADLSOFT agrega siempre «, MES AÑO» al texto de la glosa (solo lo omite en Medio Ambiente, que no se factura desde este módulo):
+    // el 16-11-2026 lo hizo también con las glosas 43 y 225, no solo con las 14 a 22.
+    const lleva = !!glosaId;
     const textoGlosa = lleva && mes ? `${nombreGlosa}, ${mes}` : nombreGlosa;
     const completo = !!fecha && !!formaPago && !!glosaId && (!lleva || !!mes);
 
