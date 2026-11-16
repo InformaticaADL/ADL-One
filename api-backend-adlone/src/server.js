@@ -195,8 +195,13 @@ io.on('connection', (socket) => {
 
 import { initScheduler } from './utils/scheduler.js';
 
-// Initialize Scheduler
-initScheduler();
+// Initialize Scheduler. Con DISABLE_SCHEDULER=1 (instancia local de pruebas contra la base real) no se arrancan las tareas
+// automáticas: duplicarían los avisos, vencimientos y sondeos que ya hace la instancia de producción.
+if (process.env.DISABLE_SCHEDULER === '1') {
+    logger.warn('Scheduler DESACTIVADO (DISABLE_SCHEDULER=1): esta instancia no ejecuta tareas automáticas.');
+} else {
+    initScheduler();
+}
 
 const PORT = process.env.PORT || 4000;
 const HOST = process.env.HOST || '0.0.0.0';
