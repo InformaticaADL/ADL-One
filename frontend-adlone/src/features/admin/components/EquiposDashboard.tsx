@@ -167,7 +167,7 @@ const Legend: React.FC<{ items: [string, string][] }> = ({ items }) => (
 // ── Banner de filtro activo ──
 const FilterBanner: React.FC<{ filter: KpiFilter; count: number; total: number; onClear: () => void }> = ({ filter, count, total, onClear }) => {
     const labels: Record<KpiFilter, string> = {
-        all: '', activos: 'Activos', vencidos: 'Vencidos', por_vencer: 'Por vencer (30d)', sin_asignar: 'Sin asignar'
+        all: '', activos: 'Operativos', vencidos: 'Vencidos', por_vencer: 'Por vencer (30d)', sin_asignar: 'Sin asignar'
     };
     const colors: Record<KpiFilter, string> = {
         all: '', activos: '#10b981', vencidos: '#f43f5e', por_vencer: '#f59e0b', sin_asignar: '#64748b'
@@ -194,7 +194,7 @@ export const EquiposDashboard: React.FC<Props> = ({
 
     const equiposFiltered = useMemo(() => {
         switch (activeFilter) {
-            case 'activos':     return equipos.filter(e => e.estado === 'Activo');
+            case 'activos':     return equipos.filter(e => (e.estado_equipo || (e.estado === 'Activo' ? 'Operativo' : '')) === 'Operativo');
             case 'vencidos':    return equipos.filter(e => estadoVig(e) === 'vencido');
             case 'por_vencer':  return equipos.filter(e => estadoVig(e) === 'por_vencer');
             case 'sin_asignar': return equipos.filter(e => !e.id_muestreador);
@@ -503,7 +503,7 @@ export const EquiposDashboard: React.FC<Props> = ({
             {/* KPI STRIP */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
                 <KpiCard label="Total Equipos"    value={total}         badgeVariant="acc"  desc="en inventario"     accentColor="#6366f1" sparkPoints={sparkTotal}  onClick={() => handleKpiToggle('all')}         active={activeFilter === 'all'}/>
-                <KpiCard label="Activos"          value={activeCount}   badge={`${((activeCount/total)*100).toFixed(1)}%`}     badgeVariant="ok"   desc="del inventario"   accentColor="#10b981" sparkPoints={sparkActivo} onClick={() => handleKpiToggle('activos')}     active={activeFilter === 'activos'}/>
+                <KpiCard label="Operativos"       value={activeCount}   badge={`${((activeCount/total)*100).toFixed(1)}%`}     badgeVariant="ok"   desc="del inventario"   accentColor="#10b981" sparkPoints={sparkActivo} onClick={() => handleKpiToggle('activos')}     active={activeFilter === 'activos'}/>
                 <KpiCard label="Vencidos"         value={expiredCount}  badge={`${((expiredCount/total)*100).toFixed(1)}%`}    badgeVariant="err"  desc="requieren accion" accentColor="#f43f5e" sparkPoints={sparkErr}    onClick={() => handleKpiToggle('vencidos')}    active={activeFilter === 'vencidos'}/>
                 <KpiCard label="Por Vencer (30d)" value={expiringCount} badge={`${((expiringCount/total)*100).toFixed(1)}%`}   badgeVariant="warn" desc="atencion proxima"  accentColor="#f59e0b" sparkPoints={sparkWarn}  onClick={() => handleKpiToggle('por_vencer')}  active={activeFilter === 'por_vencer'}/>
                 <KpiCard label="Sin Asignar"      value={sinAsignar}    badge={`${((sinAsignar/total)*100).toFixed(1)}%`}      badgeVariant="neu"  desc="sin muestreador"  accentColor="#64748b"                            onClick={() => handleKpiToggle('sin_asignar')} active={activeFilter === 'sin_asignar'}/>

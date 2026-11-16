@@ -84,8 +84,10 @@ export const EquipoDetalleLectura: React.FC<Props> = ({ equipo: e, onBack, aviso
                     <p className="truncate text-lg font-bold leading-tight" title={e.codigo}>{e.codigo}</p>
                     <p className="truncate text-sm text-muted-foreground" title={e.nombre}>{e.nombre}</p>
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        <Badge variant={activo ? 'success' : 'secondary'}>{e.estado}</Badge>
-                        {e.estado_equipo && <Badge variant={/baja/i.test(e.estado_equipo) ? 'destructive' : /fuera/i.test(e.estado_equipo) ? 'warning' : 'outline'}>{e.estado_equipo}</Badge>}
+                        {/* Un solo estado: el del inventario (Operativo / Fuera de Servicio / Dado de Baja). */}
+                        {e.estado_equipo
+                            ? <Badge variant={/baja/i.test(e.estado_equipo) ? 'destructive' : /fuera/i.test(e.estado_equipo) ? 'warning' : 'success'}>{e.estado_equipo}</Badge>
+                            : <Badge variant={activo ? 'success' : 'secondary'}>{e.estado}</Badge>}
                         <Badge variant="outline">Solo lectura</Badge>
                     </div>
                 </div>
@@ -132,8 +134,7 @@ export const EquipoDetalleLectura: React.FC<Props> = ({ equipo: e, onBack, aviso
                     ['FC 0 / 15 / 30', [e.fc0, e.fc15, e.fc30].some((x) => x !== null && x !== undefined) ? [e.fc0, e.fc15, e.fc30].map(fmtNum).join(' / ') : ''],
                 ]} />
                 <Seccion titulo="Estado y responsable" campos={[
-                    ['Estado', e.estado],
-                    ['Estado operativo', e.estado_equipo],
+                    ['Estado', e.estado_equipo || e.estado],
                     ['Responsable', e.nombre_asignado ? `${e.nombre_asignado}${e.habilitado_muestreador === 'N' ? ' (Inactivo)' : ''}` : ''],
                     ['Equipo asociado', e.equipo_asociado && e.equipo_asociado !== '0' ? e.equipo_asociado : 'No Aplica'],
                 ]} />
@@ -142,6 +143,13 @@ export const EquipoDetalleLectura: React.FC<Props> = ({ equipo: e, onBack, aviso
                     ['Unidad de medida', [e.unidad_medida_textual, e.unidad_medida_sigla ? `(${e.unidad_medida_sigla})` : ''].filter(Boolean).join(' ')],
                     ['Visible para muestreadores', siNo(e.visible_muestreador)],
                     ['Incluir en informe', siNo(e.informe)],
+                ]} />
+                <Seccion titulo="Inventario" campos={[
+                    ['Marca', e.marca],
+                    ['Modelo', e.modelo],
+                    ['N° de serie', e.n_serie],
+                    ['Influencia significativa', e.influencia_significativa],
+                    ['Justificación', e.justificacion_influencia],
                 ]} />
                 <Seccion titulo="Compra y baja" campos={[
                     ['Proveedor', e.proveedor],

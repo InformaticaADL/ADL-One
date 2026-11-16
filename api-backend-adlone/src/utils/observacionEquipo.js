@@ -86,3 +86,64 @@ export const ordenarObservacion = (texto) => {
     });
     return conFecha.map((x) => x.l).join('\n');
 };
+
+// Fecha al comienzo de la línea (la que se quita del texto en el historial,
+// porque ya va en la columna FECHA): "26.08.25 ", "31.01.25Verificación",
+// "12-06-24 - ", "16 de octubre 2023 ", "octubre 2023: ".
+const RE_FECHA_INICIAL = new RegExp(
+    `^\\s*(?:\\d{1,2}\\s?[./-]\\s?\\d{1,2}\\s?[./-]\\s?(?:\\d{4}|\\d{2})(?!\\d)|\\d{1,2}\\s+(?:de\\s+)?(?:${NOMBRES_MES})\\s+(?:de\\s+|del\\s+)?\\d{4}|(?:${NOMBRES_MES})\\s+(?:de\\s+|del\\s+)?\\d{4})\\s*[-–:,.]?\\s*`,
+    'i',
+);
+
+// Fecha al final de la línea: "Ingreso a inventario y puesta en marcha 09-08-23",
+// "Bodega Puerto Montt 26.12.22.", "... (16 de octubre 2023)".
+const RE_FECHA_FINAL = new RegExp(
+    `\\s*[-–:,(]?\\s*(?:\\d{1,2}\\s?[./-]\\s?\\d{1,2}\\s?[./-]\\s?(?:\\d{4}|\\d{2})|\\d{1,2}\\s+(?:de\\s+)?(?:${NOMBRES_MES})\\s+(?:de\\s+|del\\s+)?\\d{4}|(?:${NOMBRES_MES})\\s+(?:de\\s+|del\\s+)?\\d{4})\\s*\\)?\\s*\\.?\\s*$`,
+    'i',
+);
+
+/**
+ * Líneas de la observación con su fecha (aaaammdd), para el historial del
+ * equipo (OI-FoGe-24). Cada línea toma la primera fecha de su texto o, si no
+ * trae, la del prefijo "- [dd/mm/aaaa]" con que la registró el sistema. Las
+ * líneas sin ninguna fecha (notas generales) no tienen año y quedan fuera.
+ * `texto` sale sin el prefijo y sin la fecha inicial. Con `quitarFechaFinal`
+ * (hoja del historial) también sale sin la fecha del final si es la misma
+ * de la columna FECHA.
+ */
+export const lineasObservacionConFecha = (observacion, { quitarFechaFinal = false } = {}) => {
+    if (!observacion) return [];
+    return String(observacion).split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((linea, orden) => {
+            const fecha = fechaLineaObservacion(linea);
+            if (!fecha) return null;
+            const sinPrefijo = linea.replace(RE_PREFIJO, '');
+            // Se quita la fecha inicial solo si es la misma que se usó (si no,
+            // es parte del texto y debe quedar).
+            const m = sinTildes(sinPrefijo).match(RE_FECHA_INICIAL);
+            let texto = sinPrefijo;
+            if (m && primeraFecha(sinPrefijo.slice(0, m[0].length)) === fecha) {
+                texto = sinPrefijo.slice(m[0].length);
+            }
+            if (quitarFechaFinal) {
+                const f = sinTildes(texto).match(RE_FECHA_FINAL);
+                if (f && f.index > 0 && primeraFecha(texto.slice(f.index)) === fecha) {
+                    texto = texto.slice(0, f.index);
+                }
+            }
+            texto = texto.trim() || sinPrefijo.trim();
+            // `original`: la línea tal como está escrita en la observación.
+            return { fecha, anio: Math.floor(fecha / 10000), texto, original: linea, orden };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.fecha - b.fecha || a.orden - b.orden);
+};
+
+/** aaaammdd → "dd/mm/aaaa". */
+export const fechaNumATexto = (n) => {
+    if (!n) return '';
+    const s = String(n);
+    return `${s.slice(6, 8)}/${s.slice(4, 6)}/${s.slice(0, 4)}`;
+};

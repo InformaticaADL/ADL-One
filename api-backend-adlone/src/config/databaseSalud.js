@@ -34,12 +34,28 @@ if (!HOSTS_LOCALES.includes(rawHost.toLowerCase())) {
 // Con una instancia con nombre (DB_SALUD_INSTANCE, por ejemplo ADLLOCAL) se busca por nombre y no por puerto
 const instanciaSalud = (process.env.DB_SALUD_INSTANCE || '').trim();
 
+const useWindowsAuth = process.env.DB_SALUD_WINDOWS_AUTH === 'true';
+
 const configSalud = {
   server: rawHost,
   ...(instanciaSalud ? {} : { port: parseInt(process.env.DB_SALUD_PORT, 10) || 1433 }),
   database: process.env.DB_SALUD_DATABASE || 'LaboratorioADL',
-  user: process.env.DB_SALUD_USER || 'sa',
-  password: process.env.DB_SALUD_PASSWORD,
+  // Si es Windows Auth se usa autenticación NTLM (no se pasan user/password a nivel raíz).
+  ...(useWindowsAuth
+    ? {
+        authentication: {
+          type: 'ntlm',
+          options: {
+            domain:   process.env.DB_SALUD_DOMAIN   || '',
+            userName: process.env.DB_SALUD_USER      || '',
+            password: process.env.DB_SALUD_PASSWORD  || '',
+          },
+        },
+      }
+    : {
+        user:     process.env.DB_SALUD_USER     || 'sa',
+        password: process.env.DB_SALUD_PASSWORD || '',
+      }),
   options: {
     encrypt: process.env.DB_SALUD_ENCRYPT !== undefined
       ? process.env.DB_SALUD_ENCRYPT !== 'false'

@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
+import { normalizarEstadoEquipo } from '../utils/estadoEquipo.js';
 
 // Quita tildes, pasa a mayúsculas y colapsa espacios — usado tanto para
 // encabezados de columna como para comparar valores de texto. Exportado
@@ -80,6 +81,8 @@ const HEADER_KEYWORDS = {
     marca: ['MARCA'],
     modelo: ['MODELO'],
     serie: ['SERIE'],
+    influencia_significativa: ['INFLUENCIA SIGNIFICATIVA', 'INFLUENCIA'],
+    justificacion_influencia: ['JUSTIFICACION'],
     ubicacion: ['SEDE'],
     estado_equipo: ['ESTADO'],
     observacion: ['OBSERVACION'],
@@ -107,7 +110,9 @@ const HEADER_KEYWORDS = {
 };
 
 // Campos que se comparan contra la BD para decidir "coincide" vs "difiere".
-// (marca/modelo/serie quedan fuera: son solo referencia, mae_equipo no las tiene)
+// Los de inventario (marca, modelo, serie, influencia) se suman solo si la BD
+// ya tiene esas columnas (migrations/add_equipo_datos_inventario.sql).
+const CAMPOS_INVENTARIO = ['marca', 'modelo', 'n_serie', 'influencia_significativa', 'justificacion_influencia'];
 const CAMPOS_COMPARABLES = [
     'nombre', 'tipo', 'ubicacion', 'estado', 'sigla', 'correlativo',
     'tiene_fc', 'error0', 'error15', 'error30', 'equipo_asociado',
@@ -129,7 +134,17 @@ const ETIQUETAS_CAMPO = {
     observacion: 'Observación', id_muestreador: 'Responsable',
     proveedor: 'Proveedor', fecha_compra: 'Fecha de Compra', documento_compra: 'Documento',
     n_documento_compra: 'N° Documento', valor_unitario: 'Valor Unitario', fecha_baja: 'Fecha Dado de Baja',
+    marca: 'Marca', modelo: 'Modelo', n_serie: 'N° de Serie',
+    influencia_significativa: 'Influencia Significativa', justificacion_influencia: 'Justificación',
 };
+
+// "ALTA" / "alta" → "Alta" (el inventario mezcla mayúsculas).
+const capitalizar = (v) => {
+    if (v === null || v === undefined) return null;
+    const t = String(v).trim();
+    return t ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : null;
+};
+const textoONull = (v) => (v === null || v === undefined || String(v).trim() === '' ? null : String(v).trim());
 
 const CAMPOS_SI_NO = ['tiene_fc', 'visible_muestreador', 'informe'];
 const CAMPOS_NUMERICOS = ['correlativo', 'error0', 'error15', 'error30', 'id_muestreador', 'valor_unitario'];
@@ -293,7 +308,9 @@ class EquipoExcelImportService {
                 // una columna separada para esto. "Fuera de Servicio" cuenta como
                 // Inactivo igual que "Dado de Baja" (mismo criterio que ahora aplica
                 // también equipo.service.js al crear/editar).
-                const estadoTexto = normalize(valoresCrudos.estado_equipo);
+                // Variantes de la planilla ("Operativa", "De Baja"…) → uno de los 3 estados oficiales.
+                const estadoEquipo = normalizarEstadoEquipo(valoresCrudos.estado_equipo);
+                const estadoTexto = normalize(estadoEquipo);
                 const estado = (estadoTexto.includes('BAJA') || estadoTexto.includes('FUERA DE SERVICIO')) ? 'Inactivo' : 'Activo';
 
                 const parsedRow = {
@@ -302,7 +319,7 @@ class EquipoExcelImportService {
                     nombre: valoresCrudos.nombre,
                     ubicacion: valoresCrudos.ubicacion,
                     estado,
-                    estado_equipo: valoresCrudos.estado_equipo,
+                    estado_equipo: estadoEquipo,
                     responsable_nombre: valoresCrudos.responsable_nombre,
                     observacion: valoresCrudos.observacion,
                     ultima_verificacion: ultimaVerificacion,
@@ -317,6 +334,11 @@ class EquipoExcelImportService {
                     valor_unitario: Number.isFinite(Number(valoresCrudos.valor_unitario)) && valoresCrudos.valor_unitario !== null
                         ? Number(valoresCrudos.valor_unitario) : null,
                     fecha_baja: toYYYYMMDD(valoresCrudos.fecha_baja),
+                    marca: textoONull(valoresCrudos.marca),
+                    modelo: textoONull(valoresCrudos.modelo),
+                    n_serie: textoONull(valoresCrudos.serie),
+                    influencia_significativa: capitalizar(valoresCrudos.influencia_significativa),
+                    justificacion_influencia: textoONull(valoresCrudos.justificacion_influencia),
                     referencia: {
                         marca: valoresCrudos.marca,
                         modelo: valoresCrudos.modelo,
@@ -376,6 +398,10 @@ class EquipoExcelImportService {
                 .map((c) => [normalize(c.nombre), c])
         );
 
+        // Con la migración aplicada, getEquipos ya trae estas columnas.
+        const conInventario = (equiposDB || []).some((e) => Object.prototype.hasOwnProperty.call(e, 'marca'));
+        const comparables = conInventario ? [...CAMPOS_COMPARABLES, ...CAMPOS_INVENTARIO] : CAMPOS_COMPARABLES;
+
         const items = parsedRows.map((row) => {
             const warnings = [];
 
@@ -414,6 +440,11 @@ class EquipoExcelImportService {
                 n_documento_compra: row.n_documento_compra,
                 valor_unitario: row.valor_unitario,
                 fecha_baja: row.fecha_baja,
+                marca: row.marca,
+                modelo: row.modelo,
+                n_serie: row.n_serie,
+                influencia_significativa: row.influencia_significativa,
+                justificacion_influencia: row.justificacion_influencia,
             };
 
             if (!row.codigo) {
@@ -453,7 +484,7 @@ class EquipoExcelImportService {
             }
 
             const diffs = [];
-            for (const campo of CAMPOS_COMPARABLES) {
+            for (const campo of comparables) {
                 const valorExcel = excelData[campo];
                 const valorBD = equipoDB[campo];
                 if (!sonEquivalentes(campo, valorExcel, valorBD)) {

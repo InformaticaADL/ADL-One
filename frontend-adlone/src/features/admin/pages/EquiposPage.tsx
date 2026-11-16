@@ -18,7 +18,11 @@ import {
     IconFileSpreadsheet,
     IconChevronUp,
     IconChevronDown,
-    IconCalendarEvent
+    IconCalendarEvent,
+    IconFileDescription,
+    IconHistory,
+    IconFileCertificate,
+    IconClipboardCheck
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -44,6 +48,7 @@ import { EquipoTemperaturaAnalysisModal } from '../components/EquipoTemperaturaA
 import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { EquipoForm } from '../components/EquipoForm';
+import { FichasEquipoDialog, type TipoFichaEquipo } from '../components/FichasEquipoDialog';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
 import { GcCalendarioVencimientosPage } from './GcCalendarioVencimientosPage';
@@ -74,6 +79,15 @@ const getStatusBadgeVariant = (status: string): BadgeVariant => {
 interface Props {
     onBack: () => void;
 }
+
+// Estado del equipo (columna ESTADO del inventario): Operativo, Fuera de
+// Servicio o Dado de Baja. Activo/Inactivo (habilitado) es interno y se deriva.
+const ESTADOS_EQUIPO = ['Operativo', 'Fuera de Servicio', 'Dado de Baja'];
+const estadoDe = (e: Pick<Equipo, 'estado' | 'estado_equipo'>) =>
+    e.estado_equipo || (e.estado === 'Activo' ? 'Operativo' : 'Fuera de Servicio');
+const esOperativo = (e: Pick<Equipo, 'estado' | 'estado_equipo'>) => estadoDe(e) === 'Operativo';
+const varianteEstado = (estado: string): 'success' | 'warning' | 'destructive' =>
+    estado === 'Operativo' ? 'success' : /baja/i.test(estado) ? 'destructive' : 'warning';
 
 const parseDate = (dateStr?: string): Date | null => {
     if (!dateStr) return null;
@@ -149,6 +163,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setTimeout(volver, 220);
     };
     const [selectedEquipo, setSelectedEquipo] = useState<Equipo | null>(null);
+    // Ficha abierta como ventana emergente desde el calendario (sin salir de la vista).
+    const [fichaPopup, setFichaPopup] = useState<Equipo | null>(null);
+    // Se incrementa al guardar desde la ventana para que el calendario se recargue.
+    const [recargaCalendario, setRecargaCalendario] = useState(0);
     const [solicitudesRealizadas, setSolicitudesRealizadas] = useState<any[]>([]);
 
     // Modals State
@@ -191,6 +209,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     // El documento de la revisión vigente viene en la misma fila del listado
     // (mae_equipo.documento_*), así que la columna no necesita pedir nada extra.
     const [docDescargando, setDocDescargando] = useState<number | null>(null);
+    // Formularios del equipo en PDF (OI-FoGe-22 / 24 / 36).
+    const [fichaEquipo, setFichaEquipo] = useState<{ tipo: TipoFichaEquipo; equipo: Equipo } | null>(null);
     // Document preview modal
     const [docPreview, setDocPreview] = useState<{
         equipo: Equipo;
@@ -217,9 +237,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [localSearchTerm, setLocalSearchTerm] = useState('');
 
     const associatedActiveEquipos = useMemo(() => {
-        if (!equipoStatusPending || equipoStatusPending.estado !== 'Activo') return [];
+        if (!equipoStatusPending || !esOperativo(equipoStatusPending)) return [];
         return allEquipos.filter(e =>
-            e.estado === 'Activo' &&
+            esOperativo(e) &&
             String(e.equipo_asociado).trim().toLowerCase() === String(equipoStatusPending.codigo).trim().toLowerCase() &&
             e.id_equipo !== equipoStatusPending.id_equipo
         );
@@ -231,7 +251,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         const codigo = fullEquipo?.codigo || equipoBajaPending.datos_json?.codigo;
         if (!codigo) return [];
         return allEquipos.filter(e =>
-            e.estado === 'Activo' &&
+            esOperativo(e) &&
             String(e.equipo_asociado).trim().toLowerCase() === String(codigo).trim().toLowerCase() &&
             String(e.id_equipo) !== String(equipoBajaPending.id)
         );
@@ -258,6 +278,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [expiredCount, setExpiredCount] = useState(0);
     const [inactiveSamplerCount, setInactiveSamplerCount] = useState(0);
     const [activeCount, setActiveCount] = useState(0);
+    const [fueraServicioCount, setFueraServicioCount] = useState(0);
+    const [bajaCount, setBajaCount] = useState(0);
     const [filterExpired, setFilterExpired] = useState(false);
     const [filterInactiveSampler, setFilterInactiveSampler] = useState(false);
     const [muestreadorList, setMuestreadorList] = useState<any[]>([]);
@@ -281,17 +303,29 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         return filterFechaDesde === todayStr && filterFechaHasta === in30Str && !filterExpired && !filterInactiveSampler;
     }, [filterFechaDesde, filterFechaHasta, todayStr, in30Str, filterExpired, filterInactiveSampler]);
 
-    // "Activos": a diferencia de "Por vencer" (que también filtra por estado
-    // Activo pero acotado a un rango de fechas), este pill no trae ninguna
-    // fecha ni otro filtro — solo habilitado = 'S'.
-    const isActivosActive = useMemo(() => {
-        return filterEstado === 'Activo' && filterFechaDesde === '' && filterFechaHasta === '' && !filterExpired && !filterInactiveSampler;
-    }, [filterEstado, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
+    // "Operativos": a diferencia de "Por vencer" (que también filtra por
+    // Operativo pero acotado a un rango de fechas), este pill no trae ninguna
+    // fecha ni otro filtro — solo Estado = 'Operativo'.
+    const esPestanaEstado = (estado: string) =>
+        filterEstado === estado && filterFechaDesde === '' && filterFechaHasta === '' && !filterExpired && !filterInactiveSampler;
+    const isActivosActive = esPestanaEstado('Operativo');
+    // Pestañas por estado (reemplazan a "Vencidos"): solo Estado = 'Fuera de Servicio' / 'Dado de Baja'.
+    const isFueraServicioActive = esPestanaEstado('Fuera de Servicio');
+    const isBajaActive = esPestanaEstado('Dado de Baja');
+    const verEstado = (estado: string) => {
+        setActiveView('list');
+        setFilterEstado(estado);
+        setFilterExpired(false);
+        setFilterInactiveSampler(false);
+        setFilterFechaDesde('');
+        setFilterFechaHasta('');
+        setPage(1);
+    };
 
     const [catalogs, setCatalogs] = useState<{ sedes: string[], tipos: string[], estados: string[] }>({
         sedes: ['PM', 'AY', 'VI', 'PA', 'PV', 'CH', 'Terreno'],
         tipos: ['Medidor de pH y Temperatura', 'Medidor de Oxígeno', 'Conductímetro', 'Turbidímetro', 'Multiparamétrico'],
-        estados: ['Activo', 'Inactivo']
+        estados: ESTADOS_EQUIPO
     });
 
     const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb, setActiveSubmodule } = useNavStore();
@@ -432,6 +466,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setExpiredCount(response.expiredCount ?? 0);
                 setInactiveSamplerCount(response.inactiveSamplerCount ?? 0);
                 setActiveCount(response.activeCount ?? 0);
+                setFueraServicioCount(response.fueraServicioCount ?? 0);
+                setBajaCount(response.bajaCount ?? 0);
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
                 }
@@ -506,7 +542,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }
     };
 
-    const handleEdit = (equipo: Equipo) => {
+    // Avisa si el equipo tiene una solicitud pendiente (al abrir su ficha).
+    const avisarSolicitudPendiente = (equipo: Equipo) => {
         const pending = solicitudesRealizadas.find(sol => {
             if (sol.estado !== 'PENDIENTE') return false;
             const datos = sol.datos_json || {};
@@ -528,8 +565,17 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 duration: 5000
             });
         }
+    };
+
+    const handleEdit = (equipo: Equipo) => {
+        avisarSolicitudPendiente(equipo);
         setSelectedEquipo(equipo);
         abrirFormulario();
+    };
+
+    const abrirFichaPopup = (equipo: Equipo) => {
+        avisarSolicitudPendiente(equipo);
+        setFichaPopup(equipo);
     };
 
     const handleToggleStatus = async (equipo: Equipo) => {
@@ -538,19 +584,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setShowStatusConfirmModal(true);
     };
 
+    const pendienteOperativo = !!equipoStatusPending && esOperativo(equipoStatusPending);
+
     const confirmToggleStatus = async () => {
         if (!equipoStatusPending) return;
         setProcessingAction(true);
         try {
-            const newStatus = equipoStatusPending.estado?.toLowerCase() === 'activo' ? 'Inactivo' : 'Activo';
+            // Operativo ↔ Fuera de Servicio (la baja definitiva va por solicitud de baja).
+            const nuevoEstado = esOperativo(equipoStatusPending) ? 'Fuera de Servicio' : 'Operativo';
             const response = await equipoService.getEquipoById(equipoStatusPending.id_equipo);
             const latestData = response.success ? response.data : equipoStatusPending;
             await equipoService.updateEquipo(equipoStatusPending.id_equipo, {
                 ...latestData,
-                estado: newStatus,
+                estado_equipo: nuevoEstado,
+                estado: nuevoEstado === 'Operativo' ? 'Activo' : 'Inactivo',
                 observacion: statusObservation
             });
-            showToast({ type: 'success', message: `Equipo puesto como ${newStatus}` });
+            showToast({ type: 'success', message: `Equipo puesto como ${nuevoEstado}` });
             setShowStatusConfirmModal(false);
             setEquipoStatusPending(null);
             fetchData();
@@ -694,6 +744,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 await adminService.updateEquipo(idEquipo, {
                     vigencia: resolutionDate,
                     estado: 'Activo',
+                    estado_equipo: 'Operativo',
                     observacion: `Reactivación aprobada: ${resolutionFeedback}`
                 });
             }
@@ -724,6 +775,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             await equipoService.updateEquipo(equipoAltaPending.originalId, {
                 ...current,
                 estado: isVigenciaOnly ? (current.estado || 'Activo') : 'Activo',
+                ...(isVigenciaOnly ? {} : { estado_equipo: 'Operativo' }),
                 vigencia: reactivationVigencia
             });
 
@@ -863,6 +915,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 await equipoService.updateEquipo(item.id, {
                     ...current,
                     estado: 'Activo',
+                    estado_equipo: 'Operativo',
                     vigencia: item.vigencia || current.vigencia
                 });
             }
@@ -999,7 +1052,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const handleClickEstado = () => {
         const next = ciclarValor(catalogs.estados, filterEstado);
         setFilterEstado(next);
-        if (next !== 'Activo') {
+        if (next !== 'Operativo') {
             setFilterExpired(false);
             setFilterInactiveSampler(false);
         }
@@ -1221,14 +1274,36 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 hidden: !equipo.documento_ruta,
             },
             {
+                label: 'Ficha técnica (OI-FoGe-22)',
+                icon: <IconFileDescription size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'tecnica', equipo }),
+                separatorBefore: !!equipo.documento_ruta,
+            },
+            {
+                label: 'Historial por año (OI-FoGe-24)',
+                icon: <IconHistory size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'historial', equipo }),
+            },
+            {
+                label: 'Ficha de entrega (OI-FoGe-36)',
+                icon: <IconFileCertificate size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'entrega', equipo }),
+            },
+            {
+                label: 'Recepción y puesta en marcha (OI-FoGe-42)',
+                icon: <IconClipboardCheck size={16} />,
+                onClick: () => setFichaEquipo({ tipo: 'recepcion', equipo }),
+            },
+            {
                 label: 'Editar',
                 icon: <IconEdit size={16} />,
+                separatorBefore: true,
                 onClick: () => handleEdit(equipo),
                 disabled: !canEditEquipo,
                 hidden: !hasPermission('AI_MA_EDITAR_EQUIPO'),
             },
             {
-                label: isInactive ? 'Activar' : 'Desactivar',
+                label: isInactive ? 'Poner Operativo' : 'Poner Fuera de Servicio',
                 icon: <IconPower size={16} />,
                 onClick: () => handleToggleStatus(equipo),
                 disabled: !canEditEquipo,
@@ -1253,13 +1328,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setFilterFechaHasta('');
         setFilterEstado(null);
         if (filter === 'activos') {
-            setFilterEstado('Activo');
+            setFilterEstado('Operativo');
         } else if (filter === 'vencidos') {
             setFilterExpired(true);
         } else if (filter === 'por_vencer') {
             setFilterFechaDesde(todayStr);
             setFilterFechaHasta(in30Str);
-            setFilterEstado('Activo');
+            setFilterEstado('Operativo');
         }
         // 'all' y 'sin_asignar' van a la lista sin filtros especiales
     };
@@ -1318,7 +1393,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setActiveView('list');
                             setFilterFechaDesde(todayStr);
                             setFilterFechaHasta(in30Str);
-                            setFilterEstado('Activo');
+                            setFilterEstado('Operativo');
                             setFilterExpired(false);
                             setFilterInactiveSampler(false);
                             setPage(1);
@@ -1332,28 +1407,30 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </button>
                     <button
                         type="button"
-                        onClick={() => {
-                            setActiveView('list');
-                            setFilterExpired(true);
-                            setFilterEstado(null);
-                            setFilterInactiveSampler(false);
-                            setFilterFechaDesde('');
-                            setFilterFechaHasta('');
-                            setPage(1);
-                        }}
+                        onClick={() => verEstado('Fuera de Servicio')}
                         className={cn(
                             'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            filterExpired ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                            isFueraServicioActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
                         )}
                     >
-                        Vencidos{expiredCount > 0 && ` (${expiredCount})`}
+                        Fuera de Servicio{fueraServicioCount > 0 && ` (${fueraServicioCount})`}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => verEstado('Dado de Baja')}
+                        className={cn(
+                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
+                            isBajaActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
+                        )}
+                    >
+                        Dado de Baja{bajaCount > 0 && ` (${bajaCount})`}
                     </button>
                     <button
                         type="button"
                         onClick={() => {
                             setActiveView('list');
                             setFilterInactiveSampler(true);
-                            setFilterEstado('Activo');
+                            setFilterEstado('Operativo');
                             setFilterExpired(false);
                             setFilterFechaDesde('');
                             setFilterFechaHasta('');
@@ -1370,7 +1447,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         type="button"
                         onClick={() => {
                             setActiveView('list');
-                            setFilterEstado('Activo');
+                            setFilterEstado('Operativo');
                             setFilterExpired(false);
                             setFilterInactiveSampler(false);
                             setFilterFechaDesde('');
@@ -1382,7 +1459,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             isActivosActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
                         )}
                     >
-                        Activos{activeCount > 0 && ` (${activeCount})`}
+                        Operativos{activeCount > 0 && ` (${activeCount})`}
                     </button>
                     {/* Tab: Dashboard */}
                     <button
@@ -1481,7 +1558,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         onValueChange={(v) => {
                                             const nextEstado = v === 'all' ? null : v;
                                             setFilterEstado(nextEstado);
-                                            if (nextEstado !== 'Activo') {
+                                            if (nextEstado !== 'Operativo') {
                                                 setFilterExpired(false);
                                                 setFilterInactiveSampler(false);
                                             }
@@ -1596,7 +1673,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             {/* Vista Calendario de Vencimientos */}
             {activeView === 'calendario' && (
                 <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
-                    <GcCalendarioVencimientosPage onBack={() => setActiveView('general')} hideHeader onEditEquipo={handleEdit} />
+                    <GcCalendarioVencimientosPage onBack={() => setActiveView('general')} hideHeader onEditEquipo={abrirFichaPopup} recargar={recargaCalendario} />
                 </div>
             )}
 
@@ -1620,7 +1697,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 <p className="p-6 text-center text-sm text-muted-foreground">No se encontraron equipos.</p>
                             ) : (
                                 sortedEquipos.map(equipo => {
-                                    const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
+                                    const isInactive = !esOperativo(equipo);
                                     const pendingRequests = getPendingRequestsForEquipo(equipo.id_equipo);
                                     const hasAccepted = pendingRequests.some(req => req.estado === 'ACEPTADA');
                                     const expired = isExpiredOrSoon(equipo);
@@ -1648,7 +1725,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                             <IconAlertTriangle size={16} />
                                                         </Button>
                                                     )}
-                                                    <Badge variant={isInactive ? 'destructive' : 'success'}>{equipo.estado}</Badge>
+                                                    <Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge>
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -1740,7 +1817,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     </TableRow>
                                 ) : (
                                     sortedEquipos.map(equipo => {
-                                        const isInactive = equipo.estado?.toLowerCase() === 'inactivo';
+                                        const isInactive = !esOperativo(equipo);
                                         const pendingRequests = getPendingRequestsForEquipo(equipo.id_equipo);
                                         const hasAccepted = pendingRequests.some(req => req.estado === 'ACEPTADA');
 
@@ -1773,7 +1850,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 </TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.tipo}>{equipo.tipo}</TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.ubicacion}>{equipo.ubicacion}</TableCell>
-                                                <TableCell><Badge variant={isInactive ? 'destructive' : 'success'}>{equipo.estado}</Badge></TableCell>
+                                                <TableCell><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge></TableCell>
                                                 <TableCell className="truncate">
                                                     <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
                                                         {equipo.vigencia}
@@ -1808,6 +1885,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             </div>
 
             {/* --- Modals Area --- */}
+
+            <FichasEquipoDialog
+                tipo={fichaEquipo?.tipo ?? null}
+                idEquipo={fichaEquipo?.equipo.id_equipo}
+                equipo={fichaEquipo?.equipo}
+                onClose={() => setFichaEquipo(null)}
+            />
 
             {/* Review Solicitud Dialog */}
             <Dialog open={!!reviewSolicitud} onOpenChange={(open) => { if (!open) setReviewSolicitud(null); }}>
@@ -2131,12 +2215,12 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             <Dialog open={showStatusConfirmModal} onOpenChange={setShowStatusConfirmModal}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{equipoStatusPending?.estado === 'Activo' ? 'Desactivar Equipo' : 'Activar Equipo'}</DialogTitle>
+                        <DialogTitle>{pendienteOperativo ? 'Poner Fuera de Servicio' : 'Poner Operativo'}</DialogTitle>
                     </DialogHeader>
                     <div className="flex flex-col items-center gap-4">
-                        <IconPower size={48} className={equipoStatusPending?.estado === 'Activo' ? 'text-destructive' : 'text-success'} />
+                        <IconPower size={48} className={pendienteOperativo ? 'text-destructive' : 'text-success'} />
                         <p className="text-center text-sm text-foreground">
-                            ¿Cambiar estado de <b>{equipoStatusPending?.nombre}</b> a {equipoStatusPending?.estado === 'Activo' ? 'Inactivo' : 'Activo'}?
+                            ¿Cambiar estado de <b>{equipoStatusPending?.nombre}</b> a {pendienteOperativo ? 'Fuera de Servicio' : 'Operativo'}?
                         </p>
 
                         {associatedActiveEquipos.length > 0 && (
@@ -2146,7 +2230,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                     <div className="min-w-0 flex-1">
                                         <p className="text-sm font-semibold text-foreground">Equipo Asociado Activo</p>
                                         <p className="mb-2 text-xs text-muted-foreground">
-                                            <strong>Advertencia:</strong> Este equipo se encuentra configurado como el equipo asociado de los siguientes equipos activos. Al desactivarlo, quedará inactivo para ellos:
+                                            <strong>Advertencia:</strong> Este equipo se encuentra configurado como el equipo asociado de los siguientes equipos operativos. Al ponerlo fuera de servicio, quedará fuera de servicio para ellos:
                                         </p>
                                         <ul className="max-h-[100px] list-disc overflow-y-auto pl-4 text-xs text-foreground">
                                             {associatedActiveEquipos.map(e => (
@@ -2160,23 +2244,23 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                         <div className="w-full">
                             <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-                                Motivo del cambio{equipoStatusPending?.estado === 'Activo' ? ' *' : ''}
+                                Motivo del cambio{pendienteOperativo ? ' *' : ''}
                             </Label>
                             <Textarea
                                 value={statusObservation}
                                 onChange={(e) => setStatusObservation(e.target.value)}
-                                placeholder={equipoStatusPending?.estado === 'Activo' ? "Describa el motivo de la desactivación (obligatorio)..." : "Observaciones..."}
+                                placeholder={pendienteOperativo ? "Describa por qué queda fuera de servicio (obligatorio)..." : "Observaciones..."}
                             />
                         </div>
                     </div>
                     <DialogFooter className="sm:justify-stretch">
                         <Button variant="outline" className="flex-1" onClick={() => setShowStatusConfirmModal(false)}>Cancelar</Button>
                         <Button
-                            className={cn('flex-1', equipoStatusPending?.estado === 'Activo'
+                            className={cn('flex-1', pendienteOperativo
                                 ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90'
                                 : 'bg-success text-success-foreground hover:bg-success/90')}
                             onClick={confirmToggleStatus}
-                            disabled={processingAction || (equipoStatusPending?.estado === 'Activo' && !statusObservation.trim())}
+                            disabled={processingAction || (pendienteOperativo && !statusObservation.trim())}
                         >
                             {processingAction && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
                             Confirmar
@@ -2366,6 +2450,35 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             Descargar
                         </Button>
                     </div>
+                </DialogContent>
+            </Dialog>
+
+            {/* Ficha del equipo como ventana emergente (desde el calendario). No se
+                cierra al hacer clic afuera, para no perder cambios sin guardar. */}
+            <Dialog open={!!fichaPopup} onOpenChange={(o) => { if (!o) setFichaPopup(null); }}>
+                <DialogContent
+                    className="max-h-[94vh] w-[96vw] max-w-[1400px] overflow-y-auto p-0"
+                    onInteractOutside={(e) => e.preventDefault()}
+                    aria-describedby={undefined}
+                >
+                    <DialogTitle className="sr-only">Ficha del equipo {fichaPopup?.codigo}</DialogTitle>
+                    {fichaPopup && (
+                        <div className="p-4 md:p-6">
+                            <EquipoForm
+                                key={fichaPopup.id_equipo}
+                                initialData={fichaPopup}
+                                onCancel={() => setFichaPopup(null)}
+                                onSave={() => {
+                                    setFichaPopup(null);
+                                    fetchData();
+                                    loadSolicitudes();
+                                    setRecargaCalendario((n) => n + 1);
+                                }}
+                                pendingRequests={getPendingRequestsForEquipo(fichaPopup.id_equipo)}
+                                onRefreshSolicitudes={() => { loadSolicitudes(); fetchData(); setRecargaCalendario((n) => n + 1); }}
+                            />
+                        </div>
+                    )}
                 </DialogContent>
             </Dialog>
 

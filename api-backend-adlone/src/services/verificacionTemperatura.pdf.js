@@ -102,7 +102,7 @@ export const generarPdfVerificacion = (v) => new Promise((resolve, reject) => {
             celda(doc, xH, y, H, 26, 'Unidad\nNo Aplica', { size: 6, align: 'left' });
             celda(doc, xG, y + 26, G + H, 18, 'Versión 03', { bold: true, size: 8.5 });
             celda(doc, xG, y + 44, G, hH - 44, 'Fecha Vigencia\n20/06/2016', { size: 6 });
-            celda(doc, xH, y + 44, H, hH - 44, 'Fecha Revisión\n26/12/2023', { size: 6 });
+            celda(doc, xH, y + 44, H, hH - 44, 'Fecha Revisión\n26/10/2026', { size: 6 });
             y += hH;
             // B7:H8 — "CODIGO:" a la izquierda y el nombre del formulario a la derecha.
             celda(doc, xB, y, W, 22, '');

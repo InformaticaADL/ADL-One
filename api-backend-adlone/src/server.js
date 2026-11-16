@@ -69,6 +69,9 @@ const corsOptions = {
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    // Nombre del PDF generado (formularios de equipo): el navegador solo deja
+    // leer las cabeceras que se exponen.
+    exposedHeaders: ['X-Nombre-Archivo', 'Content-Disposition'],
     credentials: true,
 };
 

@@ -1,6 +1,7 @@
 import express from 'express';
 import { adminController } from '../controllers/admin.controller.js';
 import { equipoController } from '../controllers/equipo.controller.js';
+import { fichasEquipoController as fichasEquipo } from '../controllers/fichasEquipo.controller.js';
 import solicitudController from '../controllers/solicitud.controller.js';
 import gemUsuariosController from '../controllers/gemUsuarios.controller.js';
 
@@ -180,6 +181,26 @@ router.post('/equipos/check-expiration', verifyToken, verifyPermission('MA_A_GES
 router.post('/equipos/documentos/archivo', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), subirDocumentoEquipo, equipoController.subirArchivoDocumento);
 router.get('/equipos/historial/:idHistorial/documento', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.descargarDocumentoHistorial);
 router.get('/equipos/:id/documento', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.descargarDocumentoEquipo);
+
+// --- FORMULARIOS DEL EQUIPO (PDF) ---
+// OI-FoGe-22 ficha técnica, OI-FoGe-24 historial por año, OI-FoGe-36 ficha de
+// entrega. Solo leen: también los usa Verificación de Temperatura.
+const permisoFichas = [verifyToken, verifyPermission(['MA_A_GEST_EQUIPO', 'GC_VERIF_TEMP'])];
+router.post('/equipos/fichas/entrega/pdf', ...permisoFichas, fichasEquipo.entregaPdf);
+router.post('/equipos/fichas/recepcion/pdf', ...permisoFichas, fichasEquipo.recepcionPdf);
+router.get('/equipos/:id/fichas/historial', ...permisoFichas, fichasEquipo.historialAnios);
+router.get('/equipos/:id/fichas/historial/pdf', ...permisoFichas, fichasEquipo.historialPdf);
+router.post('/equipos/:id/fichas/historial/observacion', ...permisoFichas, fichasEquipo.historialObservacion);
+router.get('/equipos/:id/fichas/tecnica', ...permisoFichas, fichasEquipo.tecnicaDatos);
+router.get('/equipos/:id/fichas/recepcion', ...permisoFichas, fichasEquipo.recepcionDatos);
+router.post('/equipos/:id/fichas/tecnica/pdf', ...permisoFichas, fichasEquipo.tecnicaPdf);
+// Fichas guardadas.
+router.post('/equipos/fichas/entrega/guardar', ...permisoFichas, fichasEquipo.entregaGuardar);
+router.post('/equipos/fichas/recepcion/guardar', ...permisoFichas, fichasEquipo.recepcionGuardar);
+router.get('/equipos/fichas/guardadas/:idFicha/pdf', ...permisoFichas, fichasEquipo.guardadaPdf);
+router.post('/equipos/:id/fichas/tecnica/guardar', ...permisoFichas, fichasEquipo.tecnicaGuardar);
+router.post('/equipos/:id/fichas/historial/guardar', ...permisoFichas, fichasEquipo.historialGuardar);
+router.get('/equipos/:id/fichas/guardadas', ...permisoFichas, fichasEquipo.guardadasListar);
 
 // --- SOLICITUDES ---
 router.get('/equipos/:id/solicitudes', verifyToken, verifyPermission('EQ_VER_SOLICITUD'), solicitudController.getSolicitudesByEquipo);
