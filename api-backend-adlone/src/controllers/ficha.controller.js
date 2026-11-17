@@ -249,6 +249,12 @@ class FichaIngresoController {
                 return errorResponse(res, 'Ficha no encontrada', 404);
             }
 
+            // Los valores (UF) solo los ve quien tiene FI_EXP_VER_UF (Comercial, Informática, Gerencia Técnica). A los demás (Coordinación, Técnica…)
+            // no se les envían: ocultarlos solo en la pantalla no basta, se podían leer desde el navegador.
+            if (!(req.user?.permissions || []).includes('FI_EXP_VER_UF') && Array.isArray(result.detalles)) {
+                result.detalles = result.detalles.map((d) => ({ ...d, uf_individual: 0 }));
+            }
+
             return successResponse(res, result, 'Ficha recuperada exitosamente');
         } catch (err) {
             logger.error('Error in getById ficha controller:', err);
@@ -307,6 +313,46 @@ class FichaIngresoController {
         } catch (err) {
             logger.error('Error in aprobarVisita controller:', err);
             return errorResponse(res, err.statusCode ? err.message : 'Error al aprobar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
+    // «Editar visita»: antecedentes comunes y/o análisis y precio de cada punto
+    async actualizarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { antecedentes, analisisPorFicha, observaciones } = req.body || {};
+            const result = await fichaService.actualizarVisita(id, { antecedentes, analisisPorFicha, observaciones }, req.user || { id: 0 });
+            return successResponse(res, result, 'Visita actualizada');
+        } catch (err) {
+            logger.error('Error in actualizarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al actualizar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
+    // Edita nombre, zona, coordenadas y mapa de los puntos de una visita (solo esos campos)
+    async actualizarPuntosVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await fichaService.actualizarPuntosVisita(id, req.body?.puntos, req.user || { id: 0 });
+            return successResponse(res, result, 'Puntos actualizados');
+        } catch (err) {
+            logger.error('Error in actualizarPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al actualizar los puntos', err.statusCode || 500, err.message);
+        }
+    }
+
+    // Devuelve a Comercial todos los puntos de la visita de la ficha (etapa técnica o de coordinación)
+    async rechazarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones } = req.body;
+            const etapa = req.params.etapa === 'coordinacion' ? 'coordinacion' : 'tecnica';
+            const userData = req.user || { id: 0 };
+            const result = await fichaService.rechazarVisita(id, { observaciones, etapa }, userData);
+            return successResponse(res, result, 'Visita devuelta a Comercial');
+        } catch (err) {
+            logger.error('Error in rechazarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al devolver la visita', err.statusCode || 500, err.message);
         }
     }
 

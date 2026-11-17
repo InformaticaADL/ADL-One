@@ -51,7 +51,11 @@ module.exports = {
       // el wrapper correctamente.
       name: "adl-one-frontend",
       script: "cmd.exe",
-      args: ["/c", "http-server dist -p 5174 -a 0.0.0.0"],
+      // -c-1: sin caché. Por defecto http-server manda `Cache-Control: max-age=3600`
+      // y el navegador conservaba index.html hasta una hora tras cada despliegue,
+      // dejando a los usuarios con la versión vieja. Los .js/.css llevan hash en el
+      // nombre, así que no pierden nada; solo se vuelve a consultar al servidor.
+      args: ["/c", "http-server dist -p 5174 -a 0.0.0.0 -c-1"],
       cwd: "../frontend-adlone",
 
       instances: 1,

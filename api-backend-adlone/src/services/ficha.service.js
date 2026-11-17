@@ -919,6 +919,10 @@ class FichaIngresoService {
                 coordenadas = (String(ant.utmNorte || '').trim() || String(ant.utmEste || '').trim()) ? `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S` : ant.zona; // sin coordenadas: solo la zona
             } else if (ant.zona === 'No aplica') { coordenadas = 'No aplica'; }
 
+            // Edición de una visita: soloAntecedentes = no toca los análisis ni el costo operativo; soloAnalisis = no toca el encabezado ni la agenda.
+            const soloAnalisis = data.soloAnalisis === true;
+            const soloAntecedentes = data.soloAntecedentes === true;
+            if (!soloAnalisis) {
             // 2. UPDATE ENCABEZADO (Antecedentes)
             const request = new sql.Request(transaction);
             request.input('id', sql.Numeric(10, 0), id);
@@ -1008,6 +1012,8 @@ class FichaIngresoService {
                 WHERE id_fichaingresoservicio = @id
             `);
 
+            }
+            if (!soloAntecedentes) {
             // 3. UPDATE DETALLE (Analysis Upsert/Soft Delete)
             let itemCounter = 1;
 
@@ -1186,6 +1192,8 @@ class FichaIngresoService {
             }
 
 
+            }
+            if (!soloAnalisis) {
             // 4. SMART SYNC AGENDA
             // ---------------------------------------------------------
             // 4.1 Get current Agenda Logic
@@ -1371,6 +1379,7 @@ class FichaIngresoService {
 
             logger.info(`Regenerated ${corrCounter - 1} correlativos for ficha ${id}`);
 
+            }
             // 5. HISTORY
             await this.logHistorial(transaction, {
                 idFicha: id,
@@ -2272,7 +2281,212 @@ class FichaIngresoService {
         return { aprobados, fallidos, total: ids.length };
     }
 
-    async rejectFicha(id, { observaciones }, user) {
+    // Devuelve a Comercial de una vez TODOS los puntos de la visita de la ficha `id` que están pendientes en esa etapa (técnica o coordinación), con el
+    // mismo motivo. Es el rechazo de la visita completa: antes solo se podía rechazar un punto y los demás quedaban esperando. Un solo aviso (el
+    // de la ficha desde la que se rechaza). Una ficha que no es parte de un grupo se rechaza sola.
+    async rechazarVisita(id, { observaciones, etapa }, user) {
+        if (!String(observaciones || '').trim()) throw this._errorDatos('Para devolver la visita debe indicar el motivo.');
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const ids = grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)];
+        const estados = (await pool.request().query(
+            `SELECT id_fichaingresoservicio, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
+        )).recordset;
+        const valida = etapa === 'coordinacion' ? [1] : [0, 3, 4];
+        const pendientes = estados.filter((e) => valida.includes(Number(e.id_validaciontecnica))).map((e) => Number(e.id_fichaingresoservicio));
+        pendientes.sort((a, b) => (a === Number(id) ? -1 : b === Number(id) ? 1 : a - b));
+        if (pendientes.length === 0) throw this._errorDatos('Ningún punto de la visita está pendiente en esta etapa.');
+        const rechazados = [];
+        const fallidos = [];
+        const rechazarUno = (idPunto, i) => (etapa === 'coordinacion'
+            ? this.reviewCoordinacion(idPunto, { observaciones, sinNotificar: i > 0 }, user)
+            : this.rejectFicha(idPunto, { observaciones, sinNotificar: i > 0 }, user));
+        logger.info(`[rechazarVisita] etapa ${etapa}: ficha ${id}, grupo con ${ids.length} puntos, pendientes en esta etapa: ${pendientes.join(', ')}`);
+        for (let i = 0; i < pendientes.length; i++) {
+            try {
+                try {
+                    await rechazarUno(pendientes[i], i);
+                } catch (e1) {
+                    if (e1.statusCode) throw e1;
+                    logger.warn(`[rechazarVisita] ficha ${pendientes[i]} falló (${e1.message}); se reintenta una vez`);
+                    await new Promise((r) => setTimeout(r, 500));
+                    await rechazarUno(pendientes[i], i);
+                }
+                rechazados.push(pendientes[i]);
+            } catch (e) {
+                logger.error(`[rechazarVisita] no se pudo devolver la ficha ${pendientes[i]} (etapa ${etapa}): ${e.message}`, { stack: e.stack });
+                fallidos.push({ id: pendientes[i], error: e.message });
+            }
+        }
+        logger.info(`[rechazarVisita] etapa ${etapa}: devueltos ${rechazados.join(', ') || '-'}; fallidos ${fallidos.map((f) => f.id).join(', ') || '-'}`);
+        return { rechazados, fallidos, total: ids.length };
+    }
+
+    // Toda edición de una visita la devuelve a validación técnica (igual que editar una ficha suelta): los puntos que estaban rechazados o esperando
+    // coordinación vuelven a «Pendiente Técnica». Los que ya están ahí no cambian. Devuelve los ids que se movieron.
+    async _reenviarVisitaATecnica(transaction, ids, user, motivo) {
+        const lista = ids.map(Number).filter((n) => Number.isFinite(n));
+        if (lista.length === 0) return [];
+        const afectados = (await new sql.Request(transaction).query(
+            `SELECT id_fichaingresoservicio id, estado_ficha FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${lista.join(',')}) AND id_validaciontecnica IN (1, 2, 4)`
+        )).recordset;
+        for (const a of afectados) {
+            await new sql.Request(transaction).input('id', sql.Numeric(10, 0), a.id)
+                .query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 3, estado_ficha = 'PENDIENTE TÉCNICA' WHERE id_fichaingresoservicio = @id");
+            await this.logHistorial(transaction, { idFicha: a.id, idUsuario: user?.id || 0, accion: 'REENVIO_A_TECNICA', estadoAnterior: String(a.estado_ficha || ''), estadoNuevo: 'Pendiente Técnica', observacion: motivo });
+        }
+        return afectados.map((a) => Number(a.id));
+    }
+
+    // Edita una visita desde «Editar visita»: `antecedentes` (lo común a todos los puntos; cada punto conserva su nombre, zona, coordenadas y mapa) y/o
+    // `analisisPorFicha` ([{ id, analisis, costoOperativo }], los análisis y el precio de cada punto). Cada ficha se guarda por separado (una falla no
+    // deshace las demás: se informa cuáles no se pudieron guardar). Al final los puntos vuelven a validación técnica.
+    async actualizarVisita(id, { antecedentes = null, analisisPorFicha = null, observaciones = '' }, user) {
+        const hayAnalisis = Array.isArray(analisisPorFicha) && analisisPorFicha.length > 0;
+        if (!antecedentes && !hayAnalisis) throw this._errorDatos('No hay nada que guardar.');
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const ids = grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)];
+        const filas = (await pool.request().query(
+            `SELECT id_fichaingresoservicio id, ma_punto_muestreo, ma_coordenadas, referencia_googlemaps, ubicacion_lat, ubicacion_lon, id_validaciontecnica v
+             FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
+        )).recordset;
+        const bloqueadas = filas.filter((f) => ![0, 1, 2, 3, 4].includes(Number(f.v))).map((f) => f.id);
+        if (bloqueadas.length > 0) throw this._errorDatos(`No se puede editar la visita: las fichas ${bloqueadas.join(', ')} ya están en otra etapa.`);
+        if (hayAnalisis) {
+            for (const a of analisisPorFicha) {
+                if (!ids.includes(Number(a.id))) throw this._errorDatos(`La ficha ${a.id} no pertenece a esta visita.`);
+                if (!Array.isArray(a.analisis) || a.analisis.length === 0) throw this._errorDatos(`La ficha ${a.id} quedaría sin análisis.`);
+            }
+        }
+        const actualizados = [];
+        const fallidos = [];
+        const guardar = async (idFicha, datos) => {
+            try {
+                try {
+                    await this.updateFicha(idFicha, { ...datos, observaciones }, user);
+                } catch (e1) {
+                    if (e1.statusCode) throw e1;
+                    logger.warn(`[actualizarVisita] ficha ${idFicha} falló (${e1.message}); se reintenta una vez`);
+                    await new Promise((r) => setTimeout(r, 500));
+                    await this.updateFicha(idFicha, { ...datos, observaciones }, user);
+                }
+                return true;
+            } catch (e) {
+                logger.error(`[actualizarVisita] no se pudo guardar la ficha ${idFicha}: ${e.message}`, { stack: e.stack });
+                fallidos.push({ id: idFicha, error: e.message });
+                return false;
+            }
+        };
+        if (antecedentes) {
+            for (const f of filas) {
+                const m = String(f.ma_coordenadas || '').match(/^(.*?) UTM (\d*)E (\d*)S/);
+                const propios = {
+                    puntoMuestreo: f.ma_punto_muestreo || '',
+                    zona: m ? m[1] : String(f.ma_coordenadas || ''),
+                    utmNorte: m ? m[2] : '',
+                    utmEste: m ? m[3] : '',
+                    refGoogle: f.referencia_googlemaps || '',
+                    ubicacion_lat: f.ubicacion_lat ?? null,
+                    ubicacion_lon: f.ubicacion_lon ?? null,
+                };
+                if (await guardar(Number(f.id), { antecedentes: { ...antecedentes, ...propios }, analisis: [], soloAntecedentes: true })) actualizados.push(Number(f.id));
+            }
+        }
+        if (hayAnalisis) {
+            for (const a of analisisPorFicha) {
+                if (await guardar(Number(a.id), { antecedentes: {}, analisis: a.analisis, costoOperativo: a.costoOperativo, soloAnalisis: true })) actualizados.push(Number(a.id));
+            }
+        }
+        // Una edición vuelve la visita a validación técnica (solo los puntos que se guardaron bien)
+        const tx = new sql.Transaction(pool);
+        await tx.begin();
+        let reenviados = [];
+        try {
+            reenviados = await this._reenviarVisitaATecnica(tx, [...new Set(actualizados)], user, 'Visita editada: vuelve a validación técnica');
+            await tx.commit();
+        } catch (e) {
+            try { await tx.rollback(); } catch (_) { /* nada */ }
+            logger.error(`[actualizarVisita] no se pudo reenviar a técnica: ${e.message}`);
+        }
+        return { actualizados: [...new Set(actualizados)], fallidos, reenviados, total: ids.length };
+    }
+
+    // Edita SOLO los datos propios de cada punto de una visita (nombre, zona, coordenadas y enlace al mapa). No toca análisis, precios ni los demás
+    // antecedentes: así se puede corregir un punto sin reescribir la ficha entera. Cada punto debe pertenecer a la misma visita que `id` y estar en
+    // un estado que permita editar. Deja una línea en el historial de cada ficha que cambió.
+    async actualizarPuntosVisita(id, puntos, user) {
+        if (!Array.isArray(puntos) || puntos.length === 0) throw this._errorDatos('No hay puntos que actualizar.');
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const permitidos = new Set(grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)]);
+        const limpio = (v, max) => String(v ?? '').trim().slice(0, max);
+        const cambios = puntos.map((p) => ({
+            id: Number(p.id),
+            punto: limpio(p.punto, 200),
+            zona: limpio(p.zona, 50),
+            utmNorte: limpio(p.utmNorte, 20),
+            utmEste: limpio(p.utmEste, 20),
+            refGoogle: limpio(p.refGoogle, 500),
+        }));
+        for (const c of cambios) {
+            if (!permitidos.has(c.id)) throw this._errorDatos(`La ficha ${c.id} no pertenece a esta visita.`);
+            if (!c.punto) throw this._errorDatos(`La ficha ${c.id} no puede quedar sin nombre de punto.`);
+        }
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            const modificados = [];
+            for (const c of cambios) {
+                const actual = (await new sql.Request(transaction).input('id', sql.Numeric(10, 0), c.id).query(
+                    'SELECT ma_punto_muestreo, ma_coordenadas, referencia_googlemaps, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @id'
+                )).recordset[0];
+                if (!actual) throw this._errorDatos(`La ficha ${c.id} no existe.`);
+                if (![0, 1, 2, 3, 4].includes(Number(actual.id_validaciontecnica))) throw this._errorDatos(`La ficha ${c.id} ya no se puede editar (está en otra etapa).`);
+                // Mismo formato que al crear la ficha: «zona UTM {norte}E {este}S»; sin coordenadas solo la zona; «No aplica» tal cual.
+                let coordenadas = null;
+                if (c.zona && c.zona.toLowerCase() !== 'no aplica') coordenadas = (c.utmNorte || c.utmEste) ? `${c.zona} UTM ${c.utmNorte}E ${c.utmEste}S` : c.zona;
+                else if (c.zona) coordenadas = 'No aplica';
+                const puntoActual = String(actual.ma_punto_muestreo || '').trim();
+                const coordActual = String(actual.ma_coordenadas || '');
+                // «No Aplica» y «No aplica» son lo mismo: no cuenta como cambio
+                if (coordenadas && coordActual.toLowerCase() === String(coordenadas).toLowerCase()) coordenadas = coordActual;
+                const refActual = String(actual.referencia_googlemaps || '').trim();
+                if (puntoActual === c.punto && coordActual === String(coordenadas || '') && refActual === c.refGoogle) continue;
+                await new sql.Request(transaction)
+                    .input('id', sql.Numeric(10, 0), c.id)
+                    .input('punto', sql.VarChar(200), c.punto)
+                    .input('coord', sql.VarChar(50), coordenadas)
+                    .input('ref', sql.VarChar(500), c.refGoogle || null)
+                    .query('UPDATE App_Ma_FichaIngresoServicio_ENC SET ma_punto_muestreo = @punto, ma_coordenadas = @coord, referencia_googlemaps = @ref WHERE id_fichaingresoservicio = @id');
+                const que = [];
+                if (puntoActual !== c.punto) que.push(`punto «${puntoActual}» → «${c.punto}»`);
+                if (coordActual !== String(coordenadas || '')) que.push(`ubicación «${coordActual || '-'}» → «${coordenadas || '-'}»`);
+                if (refActual !== c.refGoogle) que.push('enlace al mapa');
+                await this.logHistorial(transaction, { idFicha: c.id, idUsuario: user?.id || 0, accion: 'EDICION_PUNTO', estadoAnterior: '', estadoNuevo: '', observacion: `Edición del punto de la visita: ${que.join('; ')}` });
+                modificados.push(c.id);
+            }
+            await transaction.commit();
+            let reenviados = [];
+            if (modificados.length > 0) {
+                const tx2 = new sql.Transaction(pool);
+                await tx2.begin();
+                try {
+                    reenviados = await this._reenviarVisitaATecnica(tx2, [...permitidos], user, 'Puntos de la visita editados: vuelve a validación técnica');
+                    await tx2.commit();
+                } catch (e2) {
+                    try { await tx2.rollback(); } catch (_) { /* nada */ }
+                    logger.error('[actualizarPuntosVisita] no se pudo reenviar a técnica: ' + e2.message);
+                }
+            }
+            return { modificados, reenviados, total: cambios.length };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+    async rejectFicha(id, { observaciones, sinNotificar = false }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
@@ -2313,7 +2527,7 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Jefatura Técnica';
 
-            this.getFichaContextForNotification(id, notifUser, 'Ficha Rechazada por Área Técnica', pool).then(baseContext => {
+            if (!sinNotificar) this.getFichaContextForNotification(id, notifUser, 'Ficha Rechazada por Área Técnica', pool).then(baseContext => {
                 unsService.trigger('FICHA_RECHAZADA_TECNICA', {
                     ...baseContext,
                     id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
@@ -2426,7 +2640,7 @@ class FichaIngresoService {
         }
     }
 
-    async reviewCoordinacion(id, { observaciones }, user) {
+    async reviewCoordinacion(id, { observaciones, sinNotificar = false }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -2471,7 +2685,7 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Coordinación';
 
-            this.getFichaContextForNotification(id, notifUser, 'Ficha Devuelta a Revisión por Coordinación', pool).then(baseContext => {
+            if (!sinNotificar) this.getFichaContextForNotification(id, notifUser, 'Ficha Devuelta a Revisión por Coordinación', pool).then(baseContext => {
                 unsService.trigger('FICHA_RECHAZADA_COORDINACION', {
                     ...baseContext,
                     id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
