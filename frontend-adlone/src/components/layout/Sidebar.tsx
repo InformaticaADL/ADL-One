@@ -104,6 +104,9 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
 
     const isCollapsed = forceNotCollapsed ? false : sidebarCollapsed;
+    // El menú de módulos se pide al servidor una vez por sesión: mientras llega se muestran líneas de relleno, en vez de que los grupos
+    // «aparezcan» de golpe y empujen todo lo demás.
+    const [menuCargando, setMenuCargando] = useState(() => !!token && dynamicModules.length === 0);
     const [openedModule, setOpenedModule] = useState<string | null>(activeModule);
 
     // Notebooks con escalado de Windows alto (125-150%) le reportan al
@@ -134,6 +137,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                 }
             } catch {
                 // Silently fail — sidebar will show static modules only
+            } finally {
+                setMenuCargando(false);
             }
         };
         fetchMenu();
@@ -412,12 +417,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                         type="button"
                         title="Ir al inicio"
                         onClick={() => { setActiveModule('inicio'); setActiveSubmodule(''); onNavigate?.(); }}
-                        className={cn(BOTON_MENU, 'h-12', isCollapsed && 'size-12 justify-center p-0')}
+                        className={cn(BOTON_MENU, 'h-14', isCollapsed && 'size-8 justify-center p-0')}
                     >
                         <img
                             src={isCollapsed ? logoSmall : logoAdl}
                             alt="ADL"
-                            className={cn('w-auto shrink-0 object-contain', isCollapsed ? 'h-7' : 'h-8')}
+                            className={cn('shrink-0 object-contain', isCollapsed ? 'size-8' : 'h-11 w-auto')}
                         />
                     </button>
                     <div className={cn(isCollapsed && 'flex justify-center')}>
@@ -430,6 +435,12 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                         'Principal',
                         visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : item.id === 'solicitudes-clientes' ? solicitudesClientePendientes : undefined)),
                         visibleTop.length > 0
+                    )}
+                    {menuCargando && unidades.length === 0 && gestionOp.length === 0 && (
+                        <div className="flex w-full flex-col gap-1 p-2" aria-hidden="true">
+                            {!isCollapsed && <div className="mb-1 h-4 w-16 animate-pulse rounded bg-sidebar-accent" />}
+                            {[0, 1, 2, 3].map((i) => <div key={i} className={cn('h-8 animate-pulse rounded-md bg-sidebar-accent', isCollapsed ? 'w-8' : 'w-full')} />)}
+                        </div>
                     )}
                     {renderGroup('Unidades', unidades.map(renderDynamicModule), unidades.length > 0)}
                     {renderGroup('Gestión', gestionOp.map(renderDynamicModule), gestionOp.length > 0)}

@@ -112,6 +112,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (response.data && response.data.success) {
                 const { token, user } = response.data.data;
 
+                // Al iniciar sesión siempre se parte en Inicio: la ubicación guardada (módulo, ficha abierta…) es de la sesión anterior.
+                useNavStore.getState().resetNavigation();
+
                 // Atómicamente actualizar token y usuario
                 setAuthState({ token, user });
 

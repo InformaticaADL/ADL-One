@@ -19,6 +19,14 @@ const AppContent = () => {
         || window.location.hash.startsWith('#/reset-password');
   });
 
+  // Al abrir ADL ONE en una pestaña o navegador nuevos se empieza en Inicio, aunque la sesión siga guardada ("Recuérdame"). Recargar con
+  // F5 conserva la ubicación: la marca vive en sessionStorage, que sobrevive al F5 pero no a cerrar la pestaña.
+  useEffect(() => {
+    if (sessionStorage.getItem('adl-inicio-hecho')) return;
+    sessionStorage.setItem('adl-inicio-hecho', '1');
+    useNavStore.getState().resetNavigation();
+  }, []);
+
   // Deep-link desde correos: /?ficha=:id -> abre el detalle de la ficha,
   // /?vista=calendario -> abre el Calendario de Servicios,
   // /?vista=ejecutados -> abre el listado de Muestreos Ejecutados.

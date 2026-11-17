@@ -6,6 +6,13 @@
   <link rel="icon" type="image/png" href="/LG.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>ADL One</title>
+  <script>
+    // Tema (claro/oscuro) antes del primer pintado: sin esto la página salía clara un instante y luego cambiaba al oscuro.
+    try {
+      var guardado = JSON.parse(localStorage.getItem("adl-theme-storage") || "null");
+      document.documentElement.dataset.theme = guardado && guardado.state && guardado.state.mode === "dark" ? "dark" : "light";
+    } catch (e) { document.documentElement.dataset.theme = "light"; }
+  </script>
 </head>
 
 <body>

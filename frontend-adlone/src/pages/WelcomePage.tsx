@@ -123,6 +123,11 @@ export const WelcomePage: React.FC = () => {
     ].filter((a) => hasPermission(a.permiso as any));
 
     const op = resumen?.operacion;
+    // Lo que se verá según los permisos (se sabe de inmediato): mientras llegan los datos se reserva el lugar con relleno, para que las
+    // tarjetas no aparezcan de golpe empujando el resto hacia abajo.
+    const verOperacion = hasPermission(['MA_CALENDARIO_ACCESO', 'MA_COORDINACION_ACCESO', 'FI_ASIG_GRUPO']);
+    const cantidadTarjetas = [hasPermission('FI_CREAR'), hasPermission(['FI_APROBAR_TEC', 'FI_RECHAZAR_TEC']), hasPermission(['FI_APROBAR_COO', 'FI_RECHAZAR_COO']), hasPermission('FI_ASIG_GRUPO')].filter(Boolean).length;
+    const Relleno = ({ alto }: { alto: number }) => <div aria-hidden="true" className="animate-pulse rounded-xl border border-border bg-muted/40" style={{ height: alto }} />;
     const sinNada = !cargando && resumen && !resumen.comercial && !resumen.tecnica && !resumen.coordinacion && !resumen.programar && !resumen.operacion;
     const novedades = [...notificaciones].sort((a, b) => String(b.fecha).localeCompare(String(a.fecha))).slice(0, 5);
     const fecha = new Date().toLocaleDateString('es-CL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
@@ -149,6 +154,12 @@ export const WelcomePage: React.FC = () => {
 
             <div className="flex flex-col gap-8 px-6 py-8 md:px-10">
                 {/* La operación de hoy */}
+                {cargando && verOperacion && (
+                    <section aria-busy="true">
+                        <h2 className="mb-3 mt-0 text-lg font-bold tracking-tight">La operación de hoy</h2>
+                        <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}><Relleno alto={104} /><Relleno alto={104} /></div>
+                    </section>
+                )}
                 {op && (
                     <section>
                         <h2 className="mb-3 mt-0 text-lg font-bold tracking-tight">La operación de hoy</h2>
@@ -168,6 +179,14 @@ export const WelcomePage: React.FC = () => {
                 )}
 
                 {/* Lo que te toca */}
+                {cargando && cantidadTarjetas > 0 && (
+                    <section aria-busy="true">
+                        <h2 className="mb-3 mt-0 text-lg font-bold tracking-tight">Requiere tu atención</h2>
+                        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+                            {Array.from({ length: cantidadTarjetas }).map((_, i) => <Relleno key={i} alto={250} />)}
+                        </div>
+                    </section>
+                )}
                 {(resumen?.comercial || resumen?.tecnica || resumen?.coordinacion || resumen?.programar) && (
                     <section>
                         <h2 className="mb-3 mt-0 text-lg font-bold tracking-tight">Requiere tu atención</h2>
@@ -231,7 +250,7 @@ export const WelcomePage: React.FC = () => {
                     </section>
                 )}
 
-                <div className={cn('grid gap-4', novedades.length > 0 && 'lg:grid-cols-2')}>
+                <div className="grid gap-4 lg:grid-cols-2">
                     {/* Mesa de ayuda */}
                     <Card className="flex flex-col gap-3 rounded-xl p-5">
                         <div className="flex items-center gap-3">
@@ -249,10 +268,11 @@ export const WelcomePage: React.FC = () => {
                         </div>
                     </Card>
 
-                    {/* Novedades */}
-                    {novedades.length > 0 && (
+                    {/* Novedades (la tarjeta siempre está, para que el resto no cambie de lugar cuando llegan los avisos) */}
+                    {(
                         <Card className="rounded-xl p-5">
                             <h3 className="mb-3 mt-0 flex items-center gap-2 text-base font-bold"><IconBell size={18} />Novedades</h3>
+                            {novedades.length === 0 && <p className="m-0 text-sm text-muted-foreground">No hay avisos nuevos.</p>}
                             <ul className="m-0 flex list-none flex-col gap-2 p-0">
                                 {novedades.map((n) => (
                                     <li key={n.id_notificacion} className="flex items-start gap-2.5 text-[13px]">

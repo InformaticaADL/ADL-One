@@ -1,4 +1,4 @@
-import { StrictMode, useEffect } from 'react'
+import { StrictMode, useLayoutEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import 'dayjs/locale/es'
 import './index.css'
@@ -10,7 +10,7 @@ function Root() {
   const mode = useThemeStore((s) => s.mode);
 
   // Refleja el modo en <html data-theme>, que lee index.css (--app-*, --sc-*).
-  useEffect(() => {
+  useLayoutEffect(() => {
     document.documentElement.dataset.theme = mode;
   }, [mode]);
 

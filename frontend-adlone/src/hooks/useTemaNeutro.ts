@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useLayoutEffect } from 'react';
 
 /**
  * Diseño del «shadcn-admin». La paleta neutra (clase `ui-neutral`) la activa el layout para todo el sistema; la escala
@@ -19,7 +19,9 @@ function activar(clase: string) {
 
 export function useTemaNeutro(opciones: { escala?: boolean } = {}) {
     const escala = !!opciones.escala;
-    useEffect(() => {
+    // useLayoutEffect: las clases se ponen antes del primer pintado. Con useEffect la pantalla salía primero con la paleta y la escala
+    // antiguas y «saltaba» (colores y tamaños) un instante después.
+    useLayoutEffect(() => {
         const quitarTema = activar('ui-neutral');
         const quitarEscala = escala ? activar('ui-escala-plantilla') : undefined;
         return () => { quitarTema(); quitarEscala?.(); };
