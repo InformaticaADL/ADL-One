@@ -9,6 +9,7 @@ import {
 } from '@tabler/icons-react';
 
 import { Download, Ellipsis, Shield, UserCheck, UserPen, UserPlus, UserX } from 'lucide-react';
+import { Radio } from '@/components/ui/radio';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -340,7 +341,7 @@ export const UsersManagementPage: React.FC<Props> = ({ onBack }) => {
         const activoEdicion = editingUser?.habilitado === 'S';
         const opcionClave = (activa: boolean, onClick: () => void, titulo: string, detalle: string) => (
             <label className={cn('flex cursor-pointer items-start gap-3 rounded-lg border p-3.5 transition-colors', activa ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50')}>
-                <input type="radio" name="modo-clave" checked={activa} onChange={onClick} className="mt-1 accent-[var(--sc-primary)]" />
+                <Radio checked={activa} onChange={onClick} className="mt-0.5" />
                 <span>
                     <span className="block text-sm font-medium">{titulo}</span>
                     <span className="block text-sm text-muted-foreground">{detalle}</span>

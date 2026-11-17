@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
+import { Radio } from '@/components/ui/radio';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from '@/components/ui/combobox';
@@ -236,14 +237,16 @@ export const AgregarParametrosDialog: React.FC<Props> = ({ open, onOpenChange, t
                 {variosPuntos && (
                     <div className="border-t border-border bg-warning/10 px-5 py-3">
                         <p className="m-0 mb-1 text-sm font-semibold text-foreground">¿Dónde se agregan?</p>
-                        <label className="flex cursor-pointer items-center gap-2 py-0.5 text-sm"><input type="radio" name="donde" className="accent-primary" checked={donde === 'todos'} onChange={() => setDonde('todos')} /> 1. Todos los puntos</label>
-                        <label className="flex cursor-pointer items-center gap-2 py-0.5 text-sm"><input type="radio" name="donde" className="accent-primary" checked={donde === 'pers'} onChange={() => setDonde('pers')} /> 2. Personalizado</label>
+                        <div role="radiogroup" aria-label="Dónde se agregan" className="flex flex-col">
+                            <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-background/60"><Radio checked={donde === 'todos'} onChange={() => setDonde('todos')} /> 1. Todos los puntos</label>
+                            <label className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-background/60"><Radio checked={donde === 'pers'} onChange={() => setDonde('pers')} /> 2. Personalizado</label>
+                        </div>
                         {donde === 'pers' && (
-                            <div className="ml-6 mt-1">
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
+                            <div className="ml-5 mt-1">
+                                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 sm:grid-cols-3">
                                     {puntos.map((p) => (
-                                        <label key={p.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                                            <Checkbox checked={puntosElegidos.has(p.id)} onCheckedChange={(v) => setPuntosElegidos((prev) => { const s = new Set(prev); if (v === true) s.add(p.id); else s.delete(p.id); return s; })} />
+                                        <label key={p.id} className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 text-sm hover:bg-background/60">
+                                            <Checkbox className="size-5 [&_svg]:size-4" checked={puntosElegidos.has(p.id)} onCheckedChange={(v) => setPuntosElegidos((prev) => { const s = new Set(prev); if (v === true) s.add(p.id); else s.delete(p.id); return s; })} />
                                             {p.nombre || 'sin nombre'}
                                         </label>
                                     ))}

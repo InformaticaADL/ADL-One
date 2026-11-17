@@ -429,7 +429,9 @@ export const catalogosService = {
         request.input('para', sql.VarChar(20), para);
         filtro = " AND ISNULL(NULLIF(LTRIM(RTRIM(aplica_a)), ''), 'ambos') IN ('ambos', @para)";
       }
-      const result = await request.query(`SELECT id_motivocancelacion, nombre_motivo, aplica_a FROM mae_motivocancelacion WHERE habilitado = 'S'${filtro} ORDER BY orden, id_motivocancelacion`);
+      // Para cancelar una FICHA completa, los motivos propios de ficha (duplicada, creada por error) van primero; luego los generales.
+      const primeroLosDeFicha = para === 'ficha' ? "CASE WHEN LTRIM(RTRIM(aplica_a)) = 'ficha' THEN 0 ELSE 1 END, " : '';
+      const result = await request.query(`SELECT id_motivocancelacion, nombre_motivo, aplica_a FROM mae_motivocancelacion WHERE habilitado = 'S'${filtro} ORDER BY ${primeroLosDeFicha}orden, id_motivocancelacion`);
       return result.recordset;
     } catch (error) {
       logger.error('Error in getMotivosCancelacion service:', error);

@@ -4,6 +4,7 @@ import {
     IconMail, IconWorldUpload, IconCheck, IconRefresh,
 } from '@tabler/icons-react';
 
+import { Radio } from '@/components/ui/radio';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -432,13 +433,7 @@ const FacturacionProcesar: React.FC = () => {
                                     agrupacionTipo === opt.value ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted/50'
                                 )}
                             >
-                                <input
-                                    type="radio"
-                                    name="agrupacionTipo"
-                                    className="mt-1 h-4 w-4 accent-[var(--sc-primary)]"
-                                    checked={agrupacionTipo === opt.value}
-                                    onChange={() => setAgrupacionTipo(opt.value)}
-                                />
+                                <Radio className="mt-0.5" checked={agrupacionTipo === opt.value} onChange={() => setAgrupacionTipo(opt.value)} />
                                 <span>
                                     <span className="block text-sm font-semibold text-foreground">{opt.title}</span>
                                     <span className="block text-xs text-muted-foreground">{opt.desc}</span>

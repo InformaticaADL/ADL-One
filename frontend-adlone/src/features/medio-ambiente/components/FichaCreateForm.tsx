@@ -29,6 +29,7 @@ import {
     type PuntoFila,
 } from '../utils/analisisVisita';
 
+import { Radio } from '@/components/ui/radio';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -722,8 +723,8 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                                     <span className="mb-2 block text-[13px] font-semibold">Observaciones</span>
                                     <div role="radiogroup" aria-label="Observaciones" className="mb-3 flex flex-wrap gap-x-6 gap-y-1">
                                         {[{ v: false, t: 'Sin observaciones' }, { v: true, t: 'Añadir observación' }].map((o) => (
-                                            <label key={o.t} className="flex cursor-pointer items-center gap-2 text-sm">
-                                                <input type="radio" name="obs-modo" className="h-4 w-4 accent-[var(--primary)]" checked={conObs === o.v} onChange={() => setConObs(o.v)} />
+                                            <label key={o.t} className="flex cursor-pointer items-center gap-2.5 text-sm">
+                                                <Radio checked={conObs === o.v} onChange={() => setConObs(o.v)} />
                                                 {o.t}
                                             </label>
                                         ))}

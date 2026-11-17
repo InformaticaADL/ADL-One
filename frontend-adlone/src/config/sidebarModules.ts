@@ -2,7 +2,6 @@ import {
     IconMessageCircle,
     IconFileInvoice,
     IconClipboardList,
-    IconBuilding,
 } from '@tabler/icons-react';
 
 export interface DynamicModuleLink {
@@ -52,8 +51,8 @@ export function canAccessModule(module: DynamicModule, hasPermission: (p: string
 // Módulos con iconos de Tabler, fijos (no vienen del menú dinámico del backend).
 export const FIXED_TOP_MODULES: FixedModule[] = [
     { label: 'Solicitudes', icon: IconClipboardList, id: 'solicitudes' },
-    // Solicitudes que los clientes hacen desde el portal (WebClientesV2). Cada persona ve solo las de sus empresas asignadas.
-    { label: 'Solicitudes de clientes', icon: IconBuilding, id: 'solicitudes-clientes' },
+    // «Solicitudes de clientes» ya no está en el menú: esa bandeja vive en ADL WEB GO (/solicitudes), donde el personal de ADL con el módulo
+    // «Solicitudes» las atiende. La pantalla y los avisos (notificaciones) siguen funcionando mientras dure la transición.
     { label: 'Chat / Mensajes', icon: IconMessageCircle, id: 'chat' },
     {
         label: 'Facturación', icon: IconFileInvoice, id: 'facturacion', permission: 'FAC_ACCESO',
