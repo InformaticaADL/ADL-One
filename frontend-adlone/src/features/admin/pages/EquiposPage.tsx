@@ -1735,7 +1735,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             {/* Vista Plan: carga de revisiones por mes, sede y tipo de control */}
             {activeView === 'plan' && (
                 <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
-                    <EquiposPlanificacion reglas={reglasControl} />
+                    <EquiposPlanificacion reglas={reglasControl} onEditEquipo={abrirFichaPopup} />
                 </div>
             )}
 
