@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle, IconTrash, IconEye, IconEyeOff } from '@tabler/icons-react';
+import { IconUser, IconMail, IconShieldCheck, IconId, IconUserCircle, IconCamera, IconBriefcase, IconLock, IconMessageCircle, IconTrash, IconEye, IconEyeOff, IconUserCog, IconTool, IconPalette, IconBell, IconSun, IconMoon, IconHelp } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { generalChatService } from '../../../services/general-chat.service';
 import type { UserProfile } from '../../../services/general-chat.service';
@@ -8,7 +8,12 @@ import API_CONFIG from '../../../config/api.config';
 import { useToast } from '../../../contexts/ToastContext';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { useThemeStore } from '../../../store/themeStore';
+import { useNavStore } from '../../../store/navStore';
+import { AyudaContenido } from '../../../components/common/HelpCenter';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -26,6 +31,26 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
     const { showToast } = useToast();
     const fileInputRef = React.useRef<HTMLInputElement>(null);
     const [opened, setOpened] = React.useState(false);
+    // Configuración (mi propio perfil): sección activa y preferencias locales
+    const [seccion, setSeccion] = React.useState<'perfil' | 'cuenta' | 'apariencia' | 'notificaciones' | 'ayuda'>('perfil');
+    // Al venir de «Ayuda» (botón Información) o de «Configuración» (menú del perfil) se abre la sección pedida.
+    const perfilSeccionPedida = useNavStore((st) => st.perfilSeccion);
+    const clearPerfilSeccion = useNavStore((st) => st.clearPerfilSeccion);
+    React.useEffect(() => {
+        if (perfilSeccionPedida) { setSeccion(perfilSeccionPedida); clearPerfilSeccion(); }
+    }, [perfilSeccionPedida, clearPerfilSeccion]);
+    const { mode: modoTema, setMode: setModoTema } = useThemeStore();
+    const setPageBreadcrumb = useNavStore((st) => st.setPageBreadcrumb);
+    // Ruta: Inicio / Configuración / <sección>  (solo en mi propio perfil)
+    React.useEffect(() => {
+        if (userId && userId !== user?.id) return;
+        const titulos = { perfil: 'Perfil', cuenta: 'Cuenta', apariencia: 'Apariencia', notificaciones: 'Notificaciones', ayuda: 'Ayuda' } as const;
+        setPageBreadcrumb([{ label: 'Configuración', onClick: () => setSeccion('perfil') }, { label: titulos[seccion] }]);
+        return () => setPageBreadcrumb([]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [seccion]);
+    const [avisoEmergente, setAvisoEmergente] = React.useState(() => localStorage.getItem('adl-pref-aviso-emergente') !== 'no');
+    const cambiarAvisoEmergente = (v: boolean) => { setAvisoEmergente(v); localStorage.setItem('adl-pref-aviso-emergente', v ? 'si' : 'no'); };
     const [passwordOpened, setPasswordOpened] = React.useState(false);
     const isMobile = useMediaQuery('(max-width: 768px)');
 
@@ -242,6 +267,159 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
 
     return (
         <div className="shadcn-scope w-full max-w-full p-4">
+            {isOwnProfile ? (
+                <div className="flex flex-col">
+                    <div className="space-y-0.5">
+                        <h1 className="m-0 text-2xl font-bold tracking-tight md:text-3xl">Configuración</h1>
+                        <p className="m-0 text-muted-foreground">Administra tu perfil y tu cuenta, y elige cómo ves ADL ONE.</p>
+                    </div>
+                    <Separator className="my-4 lg:my-6" />
+                    <div className="flex flex-1 flex-col space-y-2 lg:flex-row lg:space-x-12 lg:space-y-0">
+                        <aside className="top-0 lg:sticky lg:w-1/5">
+                            <nav className="flex space-x-2 overflow-x-auto py-1 lg:flex-col lg:space-x-0 lg:space-y-1">
+                                {([
+                                    { id: 'perfil', titulo: 'Perfil', icono: <IconUserCog size={18} /> },
+                                    { id: 'cuenta', titulo: 'Cuenta', icono: <IconTool size={18} /> },
+                                    { id: 'apariencia', titulo: 'Apariencia', icono: <IconPalette size={18} /> },
+                                    { id: 'notificaciones', titulo: 'Notificaciones', icono: <IconBell size={18} /> },
+                                    { id: 'ayuda', titulo: 'Ayuda', icono: <IconHelp size={18} /> },
+                                ] as const).map((it) => (
+                                    <button
+                                        key={it.id}
+                                        type="button"
+                                        onClick={() => setSeccion(it.id)}
+                                        aria-current={seccion === it.id ? 'page' : undefined}
+                                        className={cn(buttonVariants({ variant: 'ghost' }), seccion === it.id ? 'bg-muted hover:bg-accent' : 'hover:bg-accent hover:underline', 'justify-start')}
+                                    >
+                                        <span className="me-2">{it.icono}</span>{it.titulo}
+                                    </button>
+                                ))}
+                            </nav>
+                        </aside>
+
+                        <div className="flex w-full p-1">
+                            <div className="flex flex-1 flex-col">
+                                {(() => {
+                                    const info = {
+                                        perfil: { t: 'Perfil', d: 'Así te ven los demás en ADL ONE.' },
+                                        cuenta: { t: 'Cuenta', d: 'Tu acceso y tus roles en el sistema.' },
+                                        apariencia: { t: 'Apariencia', d: 'Elige el tema de la aplicación.' },
+                                        notificaciones: { t: 'Notificaciones', d: 'Cómo quieres que te avisemos.' },
+                                        ayuda: { t: 'Ayuda', d: 'Cómo se usa ADL ONE y a quién pedir ayuda.' },
+                                    }[seccion];
+                                    return (
+                                        <div className="flex-none">
+                                            <h3 className="m-0 text-lg font-medium">{info.t}</h3>
+                                            <p className="m-0 text-sm text-muted-foreground">{info.d}</p>
+                                        </div>
+                                    );
+                                })()}
+                                <Separator className="my-4 flex-none" />
+                                <div className={cn('w-full pb-12', seccion === 'ayuda' ? 'lg:max-w-3xl' : 'lg:max-w-xl')}>
+                                    {seccion === 'perfil' && (
+                                        <div className="flex flex-col gap-6">
+                                            <div className="flex items-center gap-4">
+                                                <div className="relative">
+                                                    <Avatar onClick={handleAvatarClick} className="h-20 w-20 cursor-pointer border-2 border-border bg-primary text-2xl font-bold text-primary-foreground">
+                                                        {profilePicUrl && <AvatarImage src={profilePicUrl} />}
+                                                        <AvatarFallback className="bg-primary text-primary-foreground">{profileData?.nombre?.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                    <button type="button" onClick={handleAvatarClick} aria-label="Cambiar foto" className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border-2 border-background bg-primary text-primary-foreground">
+                                                        <IconCamera size={14} />
+                                                    </button>
+                                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileChange} />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <p className="m-0 truncate text-lg font-semibold">{profileData?.nombre}</p>
+                                                    {profileData?.nombre_usuario && <p className="m-0 text-sm text-muted-foreground">@{profileData.nombre_usuario}</p>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-4">
+                                                <ProfileRow icon={<IconUser size={16} />} label="Nombre completo" value={profileData?.nombre} isMobile={isMobile} />
+                                                <hr className="border-t border-dotted border-border" />
+                                                <ProfileRow icon={<IconMail size={16} />} label="Correo electrónico" value={profileData?.email || 'No especificado'} isMobile={isMobile} breakAll />
+                                                <hr className="border-t border-dotted border-border" />
+                                                <ProfileRow icon={<IconUserCircle size={16} />} label="Nombre de usuario" value={profileData?.nombre_usuario || 'No especificado'} isMobile={isMobile} />
+                                                <hr className="border-t border-dotted border-border" />
+                                                <ProfileRow icon={<IconBriefcase size={16} />} label="Cargo" value={profileData?.cargo || 'No especificado'} isMobile={isMobile} />
+                                            </div>
+                                            <Separator />
+                                            <FirmaPerfilCard />
+                                        </div>
+                                    )}
+
+                                    {seccion === 'cuenta' && (
+                                        <div className="flex flex-col gap-6">
+                                            <div>
+                                                <p className="mb-2 text-sm font-medium">Contraseña</p>
+                                                <p className="mb-3 mt-0 text-sm text-muted-foreground">Cámbiala si crees que otra persona la conoce.</p>
+                                                <Button variant="outline" onClick={() => setPasswordOpened(true)}><IconLock size={16} /> Cambiar contraseña</Button>
+                                            </div>
+                                            <Separator />
+                                            <div>
+                                                <p className="mb-2 text-sm font-medium">Roles asignados</p>
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {profileData?.roles?.split(', ').map((role: string, idx: number) => <Badge key={idx}>{role}</Badge>)}
+                                                </div>
+                                                <p className="mb-0 mt-2 text-xs text-muted-foreground">Los roles los define el administrador; determinan qué ves en el menú.</p>
+                                            </div>
+                                            <Separator />
+                                            <div>
+                                                <p className="mb-1 text-sm font-medium">ID de usuario</p>
+                                                <p className="m-0 text-sm text-muted-foreground">#{profileData?.id_usuario}</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {seccion === 'apariencia' && (
+                                        <div className="flex flex-col gap-4">
+                                            <div>
+                                                <p className="mb-1 text-sm font-medium">Tema</p>
+                                                <p className="m-0 text-sm text-muted-foreground">Elige entre el tema claro y el oscuro.</p>
+                                            </div>
+                                            <div className="grid max-w-md grid-cols-2 gap-6 pt-2">
+                                                {([{ id: 'light', titulo: 'Claro', icono: <IconSun size={16} />, fondo: 'bg-[#ecedef]', barra: 'bg-white', linea: 'bg-[#ecedef]' },
+                                                   { id: 'dark', titulo: 'Oscuro', icono: <IconMoon size={16} />, fondo: 'bg-slate-950', barra: 'bg-slate-800', linea: 'bg-slate-400' }] as const).map((t) => (
+                                                    <button key={t.id} type="button" onClick={() => setModoTema(t.id)} aria-pressed={modoTema === t.id} className="text-left">
+                                                        <div className={cn('items-center rounded-md border-2 p-1', modoTema === t.id ? 'border-primary' : 'border-muted hover:border-accent')}>
+                                                            <div className={cn('space-y-2 rounded-sm p-2', t.fondo)}>
+                                                                <div className={cn('space-y-2 rounded-md p-2 shadow-xs', t.barra)}>
+                                                                    <div className={cn('h-2 w-[80px] rounded-lg', t.linea)} />
+                                                                    <div className={cn('h-2 w-[100px] rounded-lg', t.linea)} />
+                                                                </div>
+                                                                <div className={cn('flex items-center space-x-2 rounded-md p-2 shadow-xs', t.barra)}>
+                                                                    <div className={cn('h-4 w-4 rounded-full', t.linea)} />
+                                                                    <div className={cn('h-2 w-[100px] rounded-lg', t.linea)} />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <span className="mt-2 flex items-center justify-center gap-1.5 text-sm font-normal">{t.icono}{t.titulo}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {seccion === 'ayuda' && <AyudaContenido />}
+
+                                    {seccion === 'notificaciones' && (
+                                        <div className="flex flex-col gap-4">
+                                            <div className="flex items-center justify-between gap-4 rounded-lg border border-border p-4">
+                                                <div>
+                                                    <p className="m-0 text-sm font-medium">Aviso emergente</p>
+                                                    <p className="m-0 text-xs text-muted-foreground">Muestra un globo junto a la campana cuando llega una notificación nueva.</p>
+                                                </div>
+                                                <Switch checked={avisoEmergente} onCheckedChange={cambiarAvisoEmergente} aria-label="Aviso emergente de notificaciones" />
+                                            </div>
+                                            <p className="m-0 text-xs text-muted-foreground">Esta preferencia se guarda solo en este navegador. Las notificaciones siempre quedan disponibles en la campana.</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : (
             <div className="flex flex-col gap-6">
                 <Card className="relative overflow-hidden border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-6">
                     <div className={cn('relative z-10 flex items-center gap-6 text-center', isMobile ? 'flex-col' : 'flex-row')}>
@@ -353,6 +531,7 @@ export const ProfilePage: React.FC<ProfilePageProps> = ({ userId, onStartChat })
                 {/* Firma guardada: solo en el propio perfil. */}
                 {isOwnProfile && <FirmaPerfilCard />}
             </div>
+            )}
 
             <Dialog open={opened} onOpenChange={setOpened}>
                 <DialogContent className="max-w-[480px]">

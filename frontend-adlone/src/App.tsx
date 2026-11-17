@@ -66,7 +66,7 @@ const AppContent = () => {
           width: 40,
           height: 40,
           border: '3px solid #e0e0e0',
-          borderTopColor: '#228be6',
+          borderTopColor: 'var(--sc-primary)',
           borderRadius: '50%',
           animation: 'spin 0.8s linear infinite',
         }} />

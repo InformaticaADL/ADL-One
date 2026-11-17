@@ -117,6 +117,7 @@ export function CommandMenu({ isCollapsed, onNavigate }: CommandMenuProps) {
     }, [dynamicModules, hasPermission, user]);
 
     const handleSelect = (entry: CommandEntry) => {
+        if (entry.submoduleId === 'ma-fichas-ingreso') { const nav = useNavStore.getState(); nav.setFichasMode('menu'); nav.setSelectedFicha(null, null); }
         setActiveModule(entry.moduleId);
         setActiveSubmodule(entry.submoduleId);
         setOpen(false);

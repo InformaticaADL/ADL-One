@@ -90,9 +90,9 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
 
     const getStatusIcon = (status: string) => {
         switch (status) {
-            case 'READY': return <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.12)"><IconCheck size={16} /></IconWrap>;
-            case 'WARNING': return <IconWrap color="#f08c00" bg="rgba(240,140,0,0.12)"><IconAlertTriangle size={16} /></IconWrap>;
-            case 'ERROR': return <IconWrap color="#e03131" bg="rgba(224,49,49,0.12)"><IconX size={16} /></IconWrap>;
+            case 'READY': return <IconWrap color="var(--sc-success)" bg="color-mix(in srgb, var(--sc-success) 12%, transparent)"><IconCheck size={16} /></IconWrap>;
+            case 'WARNING': return <IconWrap color="var(--sc-warning)" bg="color-mix(in srgb, var(--sc-warning) 12%, transparent)"><IconAlertTriangle size={16} /></IconWrap>;
+            case 'ERROR': return <IconWrap color="var(--sc-destructive)" bg="color-mix(in srgb, var(--sc-destructive) 12%, transparent)"><IconX size={16} /></IconWrap>;
             default: return null;
         }
     };
@@ -224,11 +224,11 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                 ls.status === 'loading' ? (
                                                     <div className="mx-auto h-4 w-4 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                                                 ) : ls.status === 'ok' ? (
-                                                    <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.12)" size={22} title={`Lat: ${ls.lat?.toFixed(5)} · Lon: ${ls.lon?.toFixed(5)}`}><IconCheck size={12} /></IconWrap>
+                                                    <IconWrap color="var(--sc-success)" bg="color-mix(in srgb, var(--sc-success) 12%, transparent)" size={22} title={`Lat: ${ls.lat?.toFixed(5)} · Lon: ${ls.lon?.toFixed(5)}`}><IconCheck size={12} /></IconWrap>
                                                 ) : ls.status === 'warn' ? (
-                                                    <IconWrap color="#f08c00" bg="rgba(240,140,0,0.12)" size={22} title="Link válido pero sin coordenadas extraíbles. Se guardará sin ubicación de ruta."><IconAlertTriangle size={12} /></IconWrap>
+                                                    <IconWrap color="var(--sc-warning)" bg="color-mix(in srgb, var(--sc-warning) 12%, transparent)" size={22} title="Link válido pero sin coordenadas extraíbles. Se guardará sin ubicación de ruta."><IconAlertTriangle size={12} /></IconWrap>
                                                 ) : (
-                                                    <IconWrap color="#e03131" bg="rgba(224,49,49,0.12)" size={22} title="Link inválido."><IconX size={12} /></IconWrap>
+                                                    <IconWrap color="var(--sc-destructive)" bg="color-mix(in srgb, var(--sc-destructive) 12%, transparent)" size={22} title="Link inválido."><IconX size={12} /></IconWrap>
                                                 )
                                             )}
                                         </TableCell>
@@ -237,8 +237,8 @@ export const BulkReviewGrid: React.FC<Props> = ({ items, selectedIndices, onSele
                                                 <Popover>
                                                     <PopoverTrigger asChild>
                                                         <Button variant="ghost" size="icon" className="relative h-8 w-8">
-                                                            <IconInfoCircle size={20} color={hasErrors ? '#e03131' : '#f08c00'} />
-                                                            <span className={cn('absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white', hasErrors ? 'bg-destructive' : 'bg-[#f08c00]')}>
+                                                            <IconInfoCircle size={20} color={hasErrors ? 'var(--sc-destructive)' : 'var(--sc-warning)'} />
+                                                            <span className={cn('absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold text-white', hasErrors ? 'bg-destructive' : 'bg-warning')}>
                                                                 {problemCount}
                                                             </span>
                                                         </Button>

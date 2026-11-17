@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { tinte } from '@/lib/colors';
 import { adminService } from '../../../services/admin.service';
 import { FichaUniversalView } from '../components/FichaUniversalView';
 import { Button } from '@/components/ui/button';
@@ -380,7 +381,7 @@ export const CalendarioReplicaPage: React.FC<Props> = ({ onBack }) => {
                                                         key={eIdx}
                                                         onClick={() => setSelectedFichaId(ev.id_fichaingresoservicio)}
                                                         className="cursor-pointer rounded-xl p-3"
-                                                        style={{ borderLeft: `6px solid ${colors.text}`, background: `linear-gradient(to right, ${colors.bg}0A, var(--sc-card))` }}
+                                                        style={{ borderLeft: `6px solid ${colors.text}`, background: `linear-gradient(to right, ${tinte(colors.bg, 4)}, var(--sc-card))` }}
                                                     >
                                                         <div className="flex flex-col gap-2">
                                                             <div className="flex flex-nowrap justify-between">

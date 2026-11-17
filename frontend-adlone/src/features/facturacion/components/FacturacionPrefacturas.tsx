@@ -5,6 +5,7 @@ import {
     IconPencil, IconBan, IconTrash, IconChevronDown, IconAlertTriangle,
 } from '@tabler/icons-react';
 
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -462,11 +463,9 @@ const FacturacionPrefacturas: React.FC = () => {
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
                                     <TableHead className="w-10">
-                                        <input
-                                            type="checkbox"
-                                            className="h-4 w-4 rounded border-border"
+                                        <Checkbox
                                             checked={paginated.filter((p) => EMITIBLES.includes(p.estado)).length > 0 && paginated.filter((p) => EMITIBLES.includes(p.estado)).every((p) => selectedIds.includes(p.id_prefactura))}
-                                            onChange={() => {
+                                            onCheckedChange={() => {
                                                 const ids = paginated.filter((p) => EMITIBLES.includes(p.estado)).map((p) => p.id_prefactura);
                                                 const allSel = ids.every((id) => selectedIds.includes(id));
                                                 setSelectedIds((prev) => allSel ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]);
@@ -488,12 +487,10 @@ const FacturacionPrefacturas: React.FC = () => {
                                 {paginated.map((r) => (
                                     <TableRow key={r.id_prefactura} className="cursor-pointer" onClick={() => abrirDetalle(r.id_prefactura)}>
                                         <TableCell onClick={(e) => e.stopPropagation()}>
-                                            <input
-                                                type="checkbox"
-                                                className="h-4 w-4 rounded border-border"
+                                            <Checkbox
                                                 disabled={!EMITIBLES.includes(r.estado)}
                                                 checked={selectedIds.includes(r.id_prefactura)}
-                                                onChange={() => setSelectedIds((prev) => prev.includes(r.id_prefactura) ? prev.filter((id) => id !== r.id_prefactura) : [...prev, r.id_prefactura])}
+                                                onCheckedChange={() => setSelectedIds((prev) => prev.includes(r.id_prefactura) ? prev.filter((id) => id !== r.id_prefactura) : [...prev, r.id_prefactura])}
                                                 aria-label={`Seleccionar pre-factura ${r.numero_id}`}
                                             />
                                         </TableCell>

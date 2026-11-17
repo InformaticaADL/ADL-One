@@ -82,19 +82,19 @@ const Sel: React.FC<{ etiqueta: string; valor: string; onCambio: (v: string) => 
 );
 
 const REGISTRO: Record<Registro, { label: string; color: string; badge: 'success' | 'warning' | 'outline' | 'secondary' }> = {
-    FIRMADA: { label: 'Firmada', color: '#16a34a', badge: 'success' },
-    PENDIENTE_FIRMA: { label: 'Pendiente de firma', color: '#f59e0b', badge: 'warning' },
-    BORRADOR: { label: 'En borrador', color: '#6366f1', badge: 'outline' },
-    SIN_FICHA: { label: 'Sin ficha del periodo', color: '#94a3b8', badge: 'secondary' },
+    FIRMADA: { label: 'Firmada', color: 'var(--sc-success)', badge: 'success' },
+    PENDIENTE_FIRMA: { label: 'Pendiente de firma', color: 'var(--sc-warning)', badge: 'warning' },
+    BORRADOR: { label: 'En borrador', color: 'var(--sc-primary)', badge: 'outline' },
+    SIN_FICHA: { label: 'Sin ficha del periodo', color: 'var(--sc-muted-foreground)', badge: 'secondary' },
 };
 const RESULTADO: Record<Resultado, { label: string; color: string }> = {
-    CUMPLE: { label: 'Cumple', color: '#16a34a' },
-    NO_CUMPLE: { label: 'No cumple', color: '#ef4444' },
-    SIN_DATO: { label: 'Sin dato', color: '#94a3b8' },
+    CUMPLE: { label: 'Cumple', color: 'var(--sc-success)' },
+    NO_CUMPLE: { label: 'No cumple', color: 'var(--sc-destructive)' },
+    SIN_DATO: { label: 'Sin dato', color: 'var(--sc-muted-foreground)' },
 };
 const ANTIGUEDADES: Antiguedad[] = ['≤ 3 meses', '3 a 6 meses', '6 a 12 meses', '> 12 meses', 'Sin registro'];
 const COLOR_ANT: Record<Antiguedad, string> = {
-    '≤ 3 meses': '#16a34a', '3 a 6 meses': '#84cc16', '6 a 12 meses': '#f59e0b', '> 12 meses': '#ef4444', 'Sin registro': '#94a3b8',
+    '≤ 3 meses': 'var(--sc-success)', '3 a 6 meses': '#84cc16', '6 a 12 meses': 'var(--sc-warning)', '> 12 meses': 'var(--sc-destructive)', 'Sin registro': 'var(--sc-muted-foreground)',
 };
 
 // Error redondeado a una décima (los cálculos traen ruido de punto flotante).
@@ -515,7 +515,7 @@ export const ResumenVerificacionTemp: React.FC<{ periodo: string; onAbrirFicha: 
                                     onClick={(d) => { const b = (d.payload as { bin?: string } | undefined)?.bin; if (b) alternarFiltro({ tipo: 'bin', valor: b, punto }); }}>
                                     {dBins.map((d) => {
                                         const activo = filtro?.tipo === 'bin' && filtro.punto === punto && filtro.valor === d.bin;
-                                        return <Cell key={d.bin} fill={d.fuera ? '#ef4444' : '#6366f1'} fillOpacity={filtro?.tipo === 'bin' && !activo ? 0.35 : 0.85} />;
+                                        return <Cell key={d.bin} fill={d.fuera ? 'var(--sc-destructive)' : 'var(--sc-primary)'} fillOpacity={filtro?.tipo === 'bin' && !activo ? 0.35 : 0.85} />;
                                     })}
                                     <LabelList dataKey="equipos" position="top" style={{ fontSize: 10, fill: 'var(--muted-foreground)' }} formatter={(v: unknown) => (Number(v) ? String(v) : '')} />
                                 </Bar>
@@ -537,7 +537,7 @@ export const ResumenVerificacionTemp: React.FC<{ periodo: string; onAbrirFicha: 
                                         if (fila?.e.id_verificacion) onAbrirFicha(fila.e.id_verificacion);
                                         else if (fila) setBusqueda(fila.e.codigo);
                                     }}>
-                                    {dTop.map((d) => <Cell key={d.codigo} fill={d.valor > TOLERANCIA ? '#ef4444' : '#f59e0b'} fillOpacity={0.85} />)}
+                                    {dTop.map((d) => <Cell key={d.codigo} fill={d.valor > TOLERANCIA ? 'var(--sc-destructive)' : 'var(--sc-warning)'} fillOpacity={0.85} />)}
                                     <LabelList dataKey="valor" position="right" style={{ fontSize: 10, fill: 'var(--muted-foreground)' }} formatter={(v: unknown) => fmtNum(Number(v))} />
                                 </Bar>
                             </BarChart>
@@ -555,9 +555,9 @@ export const ResumenVerificacionTemp: React.FC<{ periodo: string; onAbrirFicha: 
                                 <YAxis yAxisId="p" orientation="right" domain={[0, 100]} tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} unit="%" width={36} />
                                 <Tooltip content={<TooltipCaja />} />
                                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                                <Line yAxisId="n" type="monotone" dataKey="Fichas" stroke="#94a3b8" strokeWidth={2} dot={{ r: 3 }} />
-                                <Line yAxisId="n" type="monotone" dataKey="Firmadas" stroke="#16a34a" strokeWidth={2} dot={{ r: 3 }} />
-                                <Line yAxisId="p" type="monotone" dataKey="% cumple" stroke="#6366f1" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls />
+                                <Line yAxisId="n" type="monotone" dataKey="Fichas" stroke="var(--sc-muted-foreground)" strokeWidth={2} dot={{ r: 3 }} />
+                                <Line yAxisId="n" type="monotone" dataKey="Firmadas" stroke="var(--sc-success)" strokeWidth={2} dot={{ r: 3 }} />
+                                <Line yAxisId="p" type="monotone" dataKey="% cumple" stroke="var(--sc-primary)" strokeWidth={2} strokeDasharray="5 4" dot={{ r: 3 }} connectNulls />
                             </LineChart>
                         </ResponsiveContainer>
                     ) : (

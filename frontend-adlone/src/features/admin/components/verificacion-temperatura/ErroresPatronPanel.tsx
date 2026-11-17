@@ -52,9 +52,9 @@ const desdeRegistro = (r: ErrorPatronRegistro): Fila => ({
 
 // Un color por temperatura, el mismo en los tres patrones.
 const PUNTOS = [
-    { k: 'error0', l: '0 °C', color: '#0ea5e9' },
-    { k: 'error15', l: '15 °C', color: '#10b981' },
-    { k: 'error30', l: '30 °C', color: '#f59e0b' },
+    { k: 'error0', l: '0 °C', color: 'var(--sc-primary)' },
+    { k: 'error15', l: '15 °C', color: 'var(--sc-success)' },
+    { k: 'error30', l: '30 °C', color: 'var(--sc-warning)' },
 ] as const;
 
 const mensajeError = (err: unknown, porDefecto: string) =>

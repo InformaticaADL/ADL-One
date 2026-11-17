@@ -495,7 +495,7 @@ export const MuestreadorForm: React.FC<Props> = ({
             {pendingRequests.length > 0 && (
                 <div className="fixed bottom-5 right-5 z-[100]">
                     <Button
-                        className="rounded-full bg-[#e8590c] text-white shadow-lg hover:bg-[#e8590c]/90"
+                        className="rounded-full bg-warning text-white shadow-lg hover:bg-warning/90"
                         size="lg"
                         onClick={onViewRequests}
                     >

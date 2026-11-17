@@ -1,4 +1,5 @@
 ﻿import React, { useMemo, useState } from 'react';
+import { tinte } from '@/lib/colors';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, Cell, PieChart, Pie,
@@ -68,13 +69,13 @@ const KpiCard: React.FC<{
         <div
             onClick={onClick}
             className={`relative overflow-hidden rounded-[10px] border bg-card p-4 shadow-sm flex flex-col gap-2 transition-all duration-150 select-none ${onClick ? 'cursor-pointer hover:shadow-md active:scale-[0.98]' : ''} ${active ? '' : 'border-border'}`}
-            style={active ? { borderColor: accentColor, boxShadow: `0 0 0 1.5px ${accentColor}55, 0 4px 14px ${accentColor}1a` } : undefined}
+            style={active ? { borderColor: accentColor, boxShadow: `0 0 0 1.5px ${tinte(accentColor, 33)}, 0 4px 14px ${tinte(accentColor, 10)}` } : undefined}
         >
             <div className="absolute inset-x-0 top-0 h-[3px] rounded-t-[10px]" style={{ background: accentColor }} />
-            {active && <div className="absolute inset-0 rounded-[10px]" style={{ background: `${accentColor}08` }}/>}
+            {active && <div className="absolute inset-0 rounded-[10px]" style={{ background: `${tinte(accentColor, 3)}` }}/>}
             <div className="relative text-[10.5px] font-semibold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
                 <span>{label}</span>
-                {active && <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full" style={{ background: `${accentColor}22`, color: accentColor }}>Activo</span>}
+                {active && <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full" style={{ background: `${tinte(accentColor, 13)}`, color: accentColor }}>Activo</span>}
             </div>
             <div className="relative flex items-end justify-between gap-2">
                 <span className="text-[30px] font-bold leading-none tracking-tight tabular-nums">{value}</span>
@@ -170,11 +171,11 @@ const FilterBanner: React.FC<{ filter: KpiFilter; count: number; total: number; 
         all: '', activos: 'Operativos', vencidos: 'Vencidos', por_vencer: 'Por vencer (30d)', sin_asignar: 'Sin asignar'
     };
     const colors: Record<KpiFilter, string> = {
-        all: '', activos: '#10b981', vencidos: '#f43f5e', por_vencer: '#f59e0b', sin_asignar: '#64748b'
+        all: '', activos: 'var(--sc-success)', vencidos: 'var(--sc-destructive)', por_vencer: 'var(--sc-warning)', sin_asignar: 'var(--sc-muted-foreground)'
     };
     if (filter === 'all') return null;
     return (
-        <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[11.5px]" style={{ borderColor: `${colors[filter]}44`, background: `${colors[filter]}0d` }}>
+        <div className="flex items-center gap-2 rounded-lg border px-3 py-2 text-[11.5px]" style={{ borderColor: `${tinte(colors[filter], 27)}`, background: `${tinte(colors[filter], 5)}` }}>
             <span className="w-2 h-2 rounded-full shrink-0" style={{ background: colors[filter] }}/>
             <span className="text-foreground font-medium">Filtrando: <span style={{ color: colors[filter] }}>{labels[filter]}</span></span>
             <span className="text-muted-foreground">— mostrando {count} de {total} equipos en los graficos</span>
@@ -230,11 +231,11 @@ export const EquiposDashboard: React.FC<Props> = ({
             counts[estadoVig(e)]++;
         });
         return [
-            { name: 'Vigente',    value: counts.vigente,    fill: '#10b981' },
-            { name: 'Por vencer', value: counts.por_vencer, fill: '#f59e0b' },
-            { name: 'Vencido',    value: counts.vencido,    fill: '#f43f5e' },
-            { name: 'Sin fecha',  value: counts.sin_fecha,  fill: '#64748b' },
-            { name: 'Retirado',   value: counts.retirado,   fill: '#cbd5e1' },
+            { name: 'Vigente',    value: counts.vigente,    fill: 'var(--sc-success)' },
+            { name: 'Por vencer', value: counts.por_vencer, fill: 'var(--sc-warning)' },
+            { name: 'Vencido',    value: counts.vencido,    fill: 'var(--sc-destructive)' },
+            { name: 'Sin fecha',  value: counts.sin_fecha,  fill: 'var(--sc-muted-foreground)' },
+            { name: 'Retirado',   value: counts.retirado,   fill: 'var(--sc-muted-foreground)' },
         ].filter(d => d.value > 0);
     }, [equiposFiltered]);
 
@@ -345,15 +346,15 @@ export const EquiposDashboard: React.FC<Props> = ({
     }, [equiposFiltered]);
 
     const scatterColor = (estado: string) =>
-        estado === 'vencido' ? '#f43f5e' : estado === 'por_vencer' ? '#f59e0b' : '#10b981';
+        estado === 'vencido' ? 'var(--sc-destructive)' : estado === 'por_vencer' ? 'var(--sc-warning)' : 'var(--sc-success)';
 
     // ── Con FC vs Sin FC ──
     const fcDonutData = useMemo(() => {
         const conFC = equiposFiltered.filter(e => e.tiene_fc === 'S').length;
         const t = equiposFiltered.length;
         return [
-            { name: 'Con FC', value: conFC,      fill: '#6366f1' },
-            { name: 'Sin FC', value: t - conFC,  fill: '#64748b' },
+            { name: 'Con FC', value: conFC,      fill: 'var(--sc-primary)' },
+            { name: 'Sin FC', value: t - conFC,  fill: 'var(--sc-muted-foreground)' },
         ].filter(d => d.value > 0);
     }, [equiposFiltered]);
 
@@ -502,11 +503,11 @@ export const EquiposDashboard: React.FC<Props> = ({
 
             {/* KPI STRIP */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
-                <KpiCard label="Total Equipos"    value={total}         badgeVariant="acc"  desc="en inventario"     accentColor="#6366f1" sparkPoints={sparkTotal}  onClick={() => handleKpiToggle('all')}         active={activeFilter === 'all'}/>
-                <KpiCard label="Operativos"       value={activeCount}   badge={`${((activeCount/total)*100).toFixed(1)}%`}     badgeVariant="ok"   desc="del inventario"   accentColor="#10b981" sparkPoints={sparkActivo} onClick={() => handleKpiToggle('activos')}     active={activeFilter === 'activos'}/>
-                <KpiCard label="Vencidos"         value={expiredCount}  badge={`${((expiredCount/total)*100).toFixed(1)}%`}    badgeVariant="err"  desc="requieren accion" accentColor="#f43f5e" sparkPoints={sparkErr}    onClick={() => handleKpiToggle('vencidos')}    active={activeFilter === 'vencidos'}/>
-                <KpiCard label="Por Vencer (30d)" value={expiringCount} badge={`${((expiringCount/total)*100).toFixed(1)}%`}   badgeVariant="warn" desc="atencion proxima"  accentColor="#f59e0b" sparkPoints={sparkWarn}  onClick={() => handleKpiToggle('por_vencer')}  active={activeFilter === 'por_vencer'}/>
-                <KpiCard label="Sin Asignar"      value={sinAsignar}    badge={`${((sinAsignar/total)*100).toFixed(1)}%`}      badgeVariant="neu"  desc="sin muestreador"  accentColor="#64748b"                            onClick={() => handleKpiToggle('sin_asignar')} active={activeFilter === 'sin_asignar'}/>
+                <KpiCard label="Total Equipos"    value={total}         badgeVariant="acc"  desc="en inventario"     accentColor="var(--sc-primary)" sparkPoints={sparkTotal}  onClick={() => handleKpiToggle('all')}         active={activeFilter === 'all'}/>
+                <KpiCard label="Operativos"       value={activeCount}   badge={`${((activeCount/total)*100).toFixed(1)}%`}     badgeVariant="ok"   desc="del inventario"   accentColor="var(--sc-success)" sparkPoints={sparkActivo} onClick={() => handleKpiToggle('activos')}     active={activeFilter === 'activos'}/>
+                <KpiCard label="Vencidos"         value={expiredCount}  badge={`${((expiredCount/total)*100).toFixed(1)}%`}    badgeVariant="err"  desc="requieren accion" accentColor="var(--sc-destructive)" sparkPoints={sparkErr}    onClick={() => handleKpiToggle('vencidos')}    active={activeFilter === 'vencidos'}/>
+                <KpiCard label="Por Vencer (30d)" value={expiringCount} badge={`${((expiringCount/total)*100).toFixed(1)}%`}   badgeVariant="warn" desc="atencion proxima"  accentColor="var(--sc-warning)" sparkPoints={sparkWarn}  onClick={() => handleKpiToggle('por_vencer')}  active={activeFilter === 'por_vencer'}/>
+                <KpiCard label="Sin Asignar"      value={sinAsignar}    badge={`${((sinAsignar/total)*100).toFixed(1)}%`}      badgeVariant="neu"  desc="sin muestreador"  accentColor="var(--sc-muted-foreground)"                            onClick={() => handleKpiToggle('sin_asignar')} active={activeFilter === 'sin_asignar'}/>
             </div>
 
             {/* Banner de filtro activo */}
@@ -541,7 +542,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} allowDecimals={false}/>
                                 <YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 10.5, fill: 'var(--foreground)' }} axisLine={false} tickLine={false}/>
                                 <Tooltip content={<CustomTooltip />}/>
-                                <Bar dataKey="value" name="Vencidos" fill="#f43f5e" fillOpacity={0.85} radius={[0,4,4,0]} maxBarSize={16}>
+                                <Bar dataKey="value" name="Vencidos" fill="var(--sc-destructive)" fillOpacity={0.85} radius={[0,4,4,0]} maxBarSize={16}>
                                     <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: 'var(--muted-foreground)' }}/>
                                 </Bar>
                             </BarChart>
@@ -559,7 +560,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 <XAxis type="number" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} allowDecimals={false}/>
                                 <YAxis type="category" dataKey="name" width={80} tick={{ fontSize: 10.5, fill: 'var(--foreground)' }} axisLine={false} tickLine={false}/>
                                 <Tooltip content={<CustomTooltip />}/>
-                                <Bar dataKey="value" name="Sin asignar" fill="#64748b" fillOpacity={0.8} radius={[0,4,4,0]} maxBarSize={16}>
+                                <Bar dataKey="value" name="Sin asignar" fill="var(--sc-muted-foreground)" fillOpacity={0.8} radius={[0,4,4,0]} maxBarSize={16}>
                                     <LabelList dataKey="value" position="right" style={{ fontSize: 10, fill: 'var(--muted-foreground)' }}/>
                                 </Bar>
                             </BarChart>
@@ -619,7 +620,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                             <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--foreground)' }} axisLine={false} tickLine={false} angle={-25} textAnchor="end"/>
                             <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false}/>
                             <Tooltip content={<CustomTooltip />} />
-                            <Bar dataKey="value" name="Equipos" fill="#6366f1" fillOpacity={0.85} radius={[4,4,0,0]} maxBarSize={32}/>
+                            <Bar dataKey="value" name="Equipos" fill="var(--sc-primary)" fillOpacity={0.85} radius={[4,4,0,0]} maxBarSize={32}/>
                         </BarChart>
                     </ResponsiveContainer>
                 </Card>
@@ -632,25 +633,25 @@ export const EquiposDashboard: React.FC<Props> = ({
                         <AreaChart data={vencimientosMes} margin={{ left: 0, right: 8, top: 10, bottom: 0 }}>
                             <defs>
                                 <linearGradient id="gErr"  x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%"   stopColor="#f43f5e" stopOpacity={0.22}/><stop offset="100%" stopColor="#f43f5e" stopOpacity={0}/>
+                                    <stop offset="0%"   stopColor="var(--sc-destructive)" stopOpacity={0.22}/><stop offset="100%" stopColor="var(--sc-destructive)" stopOpacity={0}/>
                                 </linearGradient>
                                 <linearGradient id="gWarn" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%"   stopColor="#f59e0b" stopOpacity={0.18}/><stop offset="100%" stopColor="#f59e0b" stopOpacity={0}/>
+                                    <stop offset="0%"   stopColor="var(--sc-warning)" stopOpacity={0.18}/><stop offset="100%" stopColor="var(--sc-warning)" stopOpacity={0}/>
                                 </linearGradient>
                                 <linearGradient id="gOk"   x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%"   stopColor="#6366f1" stopOpacity={0.18}/><stop offset="100%" stopColor="#6366f1" stopOpacity={0}/>
+                                    <stop offset="0%"   stopColor="var(--sc-primary)" stopOpacity={0.18}/><stop offset="100%" stopColor="var(--sc-primary)" stopOpacity={0}/>
                                 </linearGradient>
                             </defs>
                             <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.35}/>
                             <XAxis dataKey="mes" tick={{ fontSize: 10.5, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false}/>
                             <YAxis tick={{ fontSize: 11, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} width={22} allowDecimals={false}/>
                             <Tooltip content={<VencimientosTooltip />} cursor={{ stroke: 'var(--muted-foreground)', strokeWidth: 1, strokeDasharray: '5 4' }}/>
-                            <Area type="monotone" dataKey="vencidos"   name="Vencidos"       stroke="#f43f5e" strokeWidth={2} fill="url(#gErr)"  dot={false} activeDot={{ r: 5, fill: '#f43f5e', stroke: 'var(--background)', strokeWidth: 2 }}/>
-                            <Area type="monotone" dataKey="por_vencer" name="Por vencer"     stroke="#f59e0b" strokeWidth={2} fill="url(#gWarn)" dot={false} activeDot={{ r: 5, fill: '#f59e0b', stroke: 'var(--background)', strokeWidth: 2 }}/>
-                            <Area type="monotone" dataKey="vigentes"   name="Prox. vigentes" stroke="#6366f1" strokeWidth={2} fill="url(#gOk)"   dot={false} activeDot={{ r: 5, fill: '#6366f1', stroke: 'var(--background)', strokeWidth: 2 }}/>
+                            <Area type="monotone" dataKey="vencidos"   name="Vencidos"       stroke="var(--sc-destructive)" strokeWidth={2} fill="url(#gErr)"  dot={false} activeDot={{ r: 5, fill: 'var(--sc-destructive)', stroke: 'var(--background)', strokeWidth: 2 }}/>
+                            <Area type="monotone" dataKey="por_vencer" name="Por vencer"     stroke="var(--sc-warning)" strokeWidth={2} fill="url(#gWarn)" dot={false} activeDot={{ r: 5, fill: 'var(--sc-warning)', stroke: 'var(--background)', strokeWidth: 2 }}/>
+                            <Area type="monotone" dataKey="vigentes"   name="Prox. vigentes" stroke="var(--sc-primary)" strokeWidth={2} fill="url(#gOk)"   dot={false} activeDot={{ r: 5, fill: 'var(--sc-primary)', stroke: 'var(--background)', strokeWidth: 2 }}/>
                         </AreaChart>
                     </ResponsiveContainer>
-                    <Legend items={[['#f43f5e','Vencidos'],['#f59e0b','Por vencer'],['#6366f1','Prox. vigentes']]}/>
+                    <Legend items={[['var(--sc-destructive)','Vencidos'],['var(--sc-warning)','Por vencer'],['var(--sc-primary)','Prox. vigentes']]}/>
                 </Card>
 
                 <Card title="Proximos a Vencer" subtitle={descProximos}>
@@ -717,13 +718,13 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 <ReferenceLine x={0} stroke="var(--muted-foreground)" strokeWidth={1} strokeOpacity={0.5}/>
                                 <Tooltip content={<CustomTooltip />}/>
                                 <Bar dataKey="fc0"  name="FC 0°C"  maxBarSize={9} radius={[0,2,2,0]}>
-                                    {fcEquipos.map((e, i) => <Cell key={i} fill={e.fc0  >= 0 ? '#10b981' : '#f43f5e'} fillOpacity={0.85}/>)}
+                                    {fcEquipos.map((e, i) => <Cell key={i} fill={e.fc0  >= 0 ? 'var(--sc-success)' : 'var(--sc-destructive)'} fillOpacity={0.85}/>)}
                                 </Bar>
                                 <Bar dataKey="fc15" name="FC 15°C" maxBarSize={9} radius={[0,2,2,0]}>
-                                    {fcEquipos.map((e, i) => <Cell key={i} fill={e.fc15 >= 0 ? '#6366f1' : '#f59e0b'} fillOpacity={0.85}/>)}
+                                    {fcEquipos.map((e, i) => <Cell key={i} fill={e.fc15 >= 0 ? 'var(--sc-primary)' : 'var(--sc-warning)'} fillOpacity={0.85}/>)}
                                 </Bar>
                                 <Bar dataKey="fc30" name="FC 30°C" maxBarSize={9} radius={[0,2,2,0]}>
-                                    {fcEquipos.map((e, i) => <Cell key={i} fill={e.fc30 >= 0 ? '#0ea5e9' : '#a855f7'} fillOpacity={0.85}/>)}
+                                    {fcEquipos.map((e, i) => <Cell key={i} fill={e.fc30 >= 0 ? 'var(--sc-primary)' : '#a855f7'} fillOpacity={0.85}/>)}
                                 </Bar>
                             </BarChart>
                         </ResponsiveContainer>
@@ -740,7 +741,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                     ) : (() => {
                         const pts = ['Error 0°C','Error 15°C','Error 30°C'] as const;
                         const ptLabels = ['0°C','15°C','30°C'];
-                        const ptColors = ['#10b981','#6366f1','#f59e0b'];
+                        const ptColors = ['var(--sc-success)','var(--sc-primary)','var(--sc-warning)'];
                         const allAbsVals = errorPorTipo.flatMap(r => pts.map(p => Math.abs(r[p])));
                         const maxAbs = Math.max(...allAbsVals, 0.01);
                         const cellBg = (val: number) => {
@@ -776,8 +777,8 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 </tbody>
                             </table>
                             <div className="mt-3 flex items-center gap-4 text-[10px] text-muted-foreground">
-                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(16,185,129,0.5)' }}/>Error positivo</div>
-                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'rgba(244,63,94,0.5)' }}/>Error negativo</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'color-mix(in srgb, var(--sc-success) 50%, transparent)' }}/>Error positivo</div>
+                                <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm" style={{ background: 'color-mix(in srgb, var(--sc-destructive) 50%, transparent)' }}/>Error negativo</div>
                             </div>
                         </div>
                         );
@@ -799,7 +800,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 <Tooltip content={<CustomTooltip />}/>
                                 <Bar dataKey="value" name="Equipos" radius={[4,4,0,0]} maxBarSize={28}>
                                     {porAntiguedad.map((_, i) => (
-                                        <Cell key={i} fill="#6366f1" fillOpacity={0.3 + (i / Math.max(porAntiguedad.length - 1, 1)) * 0.6}/>
+                                        <Cell key={i} fill="var(--sc-primary)" fillOpacity={0.3 + (i / Math.max(porAntiguedad.length - 1, 1)) * 0.6}/>
                                     ))}
                                 </Bar>
                             </BarChart>
@@ -817,8 +818,8 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 <CartesianGrid stroke="var(--border)" strokeOpacity={0.35}/>
                                 <XAxis type="number" dataKey="x" name="Dias desde ultima verificacion" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} label={{ value: 'Dias desde ultima verificacion', position: 'insideBottom', offset: -4, fontSize: 9, fill: 'var(--muted-foreground)' }}/>
                                 <YAxis type="number" dataKey="y" name="Dias hasta vencimiento" tick={{ fontSize: 10, fill: 'var(--muted-foreground)' }} axisLine={false} tickLine={false} width={32}/>
-                                <ReferenceLine y={0}  stroke="#f43f5e" strokeWidth={1} strokeDasharray="4 3" opacity={0.6}/>
-                                <ReferenceLine y={30} stroke="#f59e0b" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}/>
+                                <ReferenceLine y={0}  stroke="var(--sc-destructive)" strokeWidth={1} strokeDasharray="4 3" opacity={0.6}/>
+                                <ReferenceLine y={30} stroke="var(--sc-warning)" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}/>
                                 <ZAxis range={[30, 30]}/>
                                 <Tooltip content={<ScatterTooltip />} cursor={{ strokeDasharray: '3 3' }}/>
                                 <Scatter data={cicloDatos} shape={(props: any) => {
@@ -827,7 +828,7 @@ export const EquiposDashboard: React.FC<Props> = ({
                                 }}/>
                             </ScatterChart>
                         </ResponsiveContainer>
-                        <Legend items={[['#10b981','Vigente'],['#f59e0b','Por vencer'],['#f43f5e','Vencido']]}/>
+                        <Legend items={[['var(--sc-success)','Vigente'],['var(--sc-warning)','Por vencer'],['var(--sc-destructive)','Vencido']]}/>
                         </>
                     )}
                 </Card>

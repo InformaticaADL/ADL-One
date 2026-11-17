@@ -68,16 +68,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
         ? (isGroup ? `${typingUsers.map((t) => t.name).filter(Boolean).join(', ')} escribiendo…` : 'escribiendo…') : '';
 
     return (
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background">
-            <div className="flex items-center gap-3 border-b border-border px-4 py-2.5">
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <div className="mb-1 flex flex-none items-center gap-3 bg-card p-4 shadow-sm">
                 {isMobile && (
                     <Button variant="ghost" size="icon" aria-label="Volver" onClick={onBack}>
                         <IconArrowLeft size={20} />
                     </Button>
                 )}
-                <ChatAvatar name={conversation.nombre_display} foto={conversation.foto_display} size={40} group={isGroup} onClick={openHeader} />
+                <ChatAvatar name={conversation.nombre_display} foto={conversation.foto_display} size={isMobile ? 36 : 44} group={isGroup} onClick={openHeader} />
                 <div className="min-w-0 flex-1 cursor-pointer" onClick={openHeader}>
-                    <div className="truncate text-[15px] font-bold leading-tight text-foreground">{conversation.nombre_display || 'Chat'}</div>
+                    <div className="truncate text-sm font-medium leading-tight text-foreground lg:text-base">{conversation.nombre_display || 'Chat'}</div>
                     <div className="text-xs text-muted-foreground">{isGroup ? `${conversation.total_miembros} miembros` : 'Conversación directa'}</div>
                 </div>
                 <DropdownMenu>
@@ -106,7 +106,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 </DropdownMenu>
             </div>
 
-            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto bg-muted/40 px-6 py-4" ref={scrollRef}>
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-4" ref={scrollRef}>
                 {loading && messages.length === 0 ? (
                     <div className="flex flex-1 items-center justify-center">
                         <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -126,23 +126,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                             if (m.tipo_mensaje === 'SISTEMA') {
                                 return (
                                     <div key={m.id_mensaje} className="contents">
-                                        {showDay && (
-                                            <div className="my-2 self-center rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
-                                                {thisDay}
-                                            </div>
-                                        )}
-                                        <div className="my-0.5 self-center rounded-full bg-accent px-3 py-1 text-xs text-accent-foreground">{m.mensaje}</div>
+                                        {showDay && <div className="my-1 text-center text-xs text-muted-foreground">{thisDay}</div>}
+                                        <div className="my-0.5 self-center rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">{m.mensaje}</div>
                                     </div>
                                 );
                             }
                             return (
                                 <div key={m.id_mensaje} className="contents">
-                                    {showDay && (
-                                        <div className="my-2 self-center rounded-full border border-border bg-card px-3 py-1 text-[11px] font-semibold uppercase text-muted-foreground">
-                                            {thisDay}
-                                        </div>
-                                    )}
-                                    <div className={`flex max-w-[72%] flex-col ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
+                                    {showDay && <div className="my-1 text-center text-xs text-muted-foreground">{thisDay}</div>}
+                                    <div className={`flex max-w-72 flex-col gap-1 ${mine ? 'self-end items-end' : 'self-start items-start'}`}>
                                         {isGroup && !mine && <span className="mb-0.5 ml-1 text-xs font-semibold text-primary">{m.nombre_emisor}</span>}
                                         {m.id_mensaje_padre && !m.padre_eliminado && (
                                             <div className="mb-1 rounded border-l-2 border-primary bg-accent px-2 py-0.5 text-xs">
@@ -151,7 +143,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                             </div>
                                         )}
                                         {m.eliminado ? (
-                                            <div className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${mine ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm border border-border bg-card text-foreground'}`}>
+                                            <div className={`whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed shadow-sm ${mine ? 'rounded-[16px_16px_0_16px] bg-primary/90 text-primary-foreground' : 'rounded-[16px_16px_16px_0] bg-muted text-foreground'}`}>
                                                 <span className="inline-flex items-center gap-1 italic opacity-70"><IconBan size={16} /> Mensaje eliminado</span>
                                             </div>
                                         ) : m.tipo_mensaje === 'ARCHIVO' && m.archivo_ruta ? (
@@ -168,11 +160,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                                                 </AttachmentContent>
                                             </Attachment>
                                         ) : (
-                                            <div className={`whitespace-pre-wrap break-words rounded-xl px-3 py-2 text-sm leading-relaxed ${mine ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm border border-border bg-card text-foreground'}`}>
+                                            <div className={`whitespace-pre-wrap break-words px-3 py-2 text-sm leading-relaxed shadow-sm ${mine ? 'rounded-[16px_16px_0_16px] bg-primary/90 text-primary-foreground' : 'rounded-[16px_16px_16px_0] bg-muted text-foreground'}`}>
                                                 {m.mensaje}
                                             </div>
                                         )}
-                                        <div className="mt-0.5 ml-1 mr-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                                        <div className="mx-1 flex items-center gap-1.5 text-xs font-light italic text-muted-foreground">
                                             <span>{timeLabel(m.fecha)}</span>
                                             {m.editado && !m.eliminado && <span>· editado</span>}
                                             {mine && !m.eliminado && (
@@ -197,13 +189,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                 )}
             </div>
 
-            <div className="flex items-end gap-2 border-t border-border px-4 py-2.5">
+            <div className="flex flex-none gap-2 px-4 pb-4 pt-2">
+              <div className="flex flex-1 items-end gap-2 rounded-md border border-input bg-card px-2 py-1 focus-within:ring-1 focus-within:ring-ring">
                 <input ref={fileRef} type="file" hidden onChange={handleFile} />
-                <Button variant="ghost" size="icon" title="Adjuntar archivo" aria-label="Adjuntar archivo" onClick={() => fileRef.current?.click()}>
-                    <IconPaperclip size={20} />
+                <Button variant="ghost" size="icon" className="h-8 rounded-md" title="Adjuntar archivo" aria-label="Adjuntar archivo" onClick={() => fileRef.current?.click()}>
+                    <IconPaperclip size={20} className="text-muted-foreground" />
                 </Button>
                 <Textarea
-                    className="max-h-32 min-h-9 flex-1 resize-none py-2"
+                    className="max-h-32 min-h-8 flex-1 resize-none border-0 bg-transparent px-0 py-1.5 shadow-none focus-visible:ring-0"
                     rows={1}
                     value={text}
                     placeholder="Escribe un mensaje..."
@@ -211,9 +204,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({
                     onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }}
                     onBlur={onTypingStop}
                 />
-                <Button size="icon" aria-label="Enviar" onClick={send} disabled={!text.trim()}>
-                    <IconSend size={18} />
-                </Button>
+              </div>
+              <Button aria-label="Enviar" onClick={send} disabled={!text.trim()} className="h-auto self-stretch">
+                  <IconSend size={18} /> <span className="hidden sm:inline">Enviar</span>
+              </Button>
             </div>
             {dialog}
         </div>

@@ -1,4 +1,5 @@
 import { EstadoPill } from '@/components/ui/estado-pill';
+import { tinte } from '@/lib/colors';
 import { useConfirmacion } from '@/components/ui/confirm-dialog';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
@@ -82,7 +83,7 @@ const IconBadge: React.FC<{ children: React.ReactNode; color?: string; size?: nu
     return (
         <div
             className="flex shrink-0 items-center justify-center rounded-lg"
-            style={{ width: size, height: size, backgroundColor: `${hex}1a`, color: hex }}
+            style={{ width: size, height: size, backgroundColor: `${tinte(hex, 10)}`, color: hex }}
         >
             {children}
         </div>

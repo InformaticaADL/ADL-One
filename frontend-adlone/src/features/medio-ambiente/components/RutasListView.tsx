@@ -13,7 +13,7 @@ L.Icon.Default.mergeOptions({ iconRetinaUrl, iconUrl, shadowUrl });
 const createNumberedIcon = (number: number) =>
     L.divIcon({
         className: 'custom-numbered-marker',
-        html: `<div style="background:#7950f2;color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${number}</div>`,
+        html: `<div style="background:var(--sc-primary);color:white;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)">${number}</div>`,
         iconSize: [28, 28], iconAnchor: [14, 14], popupAnchor: [0, -14]
     });
 
@@ -853,8 +853,8 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                                 <MapContainer center={viewRoutePositions[0] ?? [-38.5, -72.5]} zoom={8} style={{ height: '100%', width: '100%' }} zoomControl>
                                                     <BaseTiles />
                                                     <FitBounds positions={viewRoutePositions} />
-                                                    {viewOsrmRoute.length > 1 && <Polyline positions={viewOsrmRoute} pathOptions={{ color: '#7950f2', weight: 4, opacity: 0.75, dashArray: '8,4' }} />}
-                                                    {viewOsrmRoute.length === 0 && viewRoutePositions.length > 1 && <Polyline positions={viewRoutePositions} pathOptions={{ color: '#7950f2', weight: 3, opacity: 0.5 }} />}
+                                                    {viewOsrmRoute.length > 1 && <Polyline positions={viewOsrmRoute} pathOptions={{ color: 'var(--sc-primary)', weight: 4, opacity: 0.75, dashArray: '8,4' }} />}
+                                                    {viewOsrmRoute.length === 0 && viewRoutePositions.length > 1 && <Polyline positions={viewRoutePositions} pathOptions={{ color: 'var(--sc-primary)', weight: 3, opacity: 0.5 }} />}
                                                     {viewTarget.fichas.filter((f: any) => f.lat !== null).map((f: any, idx: number) => (
                                                         <Marker key={f.id_fichaingresoservicio} position={[f.lat, f.lng]} icon={createNumberedIcon(f.orden ?? idx + 1)}>
                                                             <Popup>
@@ -876,7 +876,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                                         className={cn('rounded-md border p-2', f.lat !== null ? 'border-border' : 'border-destructive/40 bg-destructive/5')}
                                                     >
                                                         <div className="flex flex-nowrap gap-2">
-                                                            <div className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white', f.lat !== null ? 'bg-[#7048e8]' : 'bg-destructive')}>
+                                                            <div className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-white', f.lat !== null ? 'bg-primary' : 'bg-destructive')}>
                                                                 <span className="text-[10px] font-bold text-white">{f.orden ?? idx + 1}</span>
                                                             </div>
                                                             <div className="min-w-0 flex-1">
@@ -896,7 +896,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                             {(viewTarget.fichas && viewTarget.fichas.length > 0) ? viewTarget.fichas.map((f: any, idx: number) => (
                                                 <div key={f.id_fichaingresoservicio ?? idx} className="rounded-md border border-border p-2.5">
                                                     <div className="flex flex-nowrap gap-2">
-                                                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#7048e8] text-white">
+                                                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-white">
                                                             <span className="text-[10px] font-bold text-white">{f.orden ?? idx + 1}</span>
                                                         </div>
                                                         <div className="flex flex-1 flex-col gap-0.5">
@@ -948,7 +948,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setGrupoTarget(null)}>Cancelar</Button>
                         <Button
-                            className="bg-[#0c8599] text-white hover:bg-[#0c8599]/90"
+                            className="bg-primary text-white hover:bg-primary/90"
                             onClick={handleGuardarGrupo}
                             disabled={grupoSaving}
                         >
@@ -1021,7 +1021,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setClonarTarget(null)}>Cancelar</Button>
                         <Button
-                            className="bg-[#e8590c] text-white hover:bg-[#e8590c]/90"
+                            className="bg-warning text-white hover:bg-warning/90"
                             onClick={handleClonarConfirm}
                             disabled={clonarConfirming || !clonarNombre.trim()}
                         >
@@ -1162,7 +1162,7 @@ export const RutasListView: React.FC<RutasListViewProps> = ({ onBackToMenu, onNu
                                     <DialogFooter>
                                         <Button variant="outline" onClick={() => setEjecucionGrupoTarget(null)}>Cancelar</Button>
                                         <Button
-                                            className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
+                                            className="bg-success text-white hover:bg-success/90"
                                             onClick={handleEjecutarGrupo}
                                             disabled={!grupoExecFecha || !grupoExecMuestInst || grupoExecLoadingMuest}
                                         >

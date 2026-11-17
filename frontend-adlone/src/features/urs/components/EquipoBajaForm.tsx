@@ -51,7 +51,7 @@ const EquipoBajaForm: React.FC<EquipoBajaFormProps> = ({ onDataChange }) => {
     }, [equipoId, motivo, fecha, observaciones, equipos]);
 
     return (
-        <Card className="p-4 bg-[rgba(224,49,49,0.05)]">
+        <Card className="p-4 bg-[color-mix(in_srgb,var(--sc-destructive)_5%,transparent)]">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-accent-red">

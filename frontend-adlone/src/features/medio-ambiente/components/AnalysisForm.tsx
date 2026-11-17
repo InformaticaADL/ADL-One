@@ -650,7 +650,7 @@ export const AnalysisForm: React.FC<AnalysisFormProps> = ({ savedAnalysis, onSav
                         )}
 
                         <Button
-                            className="mt-auto h-11 bg-[#0d9488] text-white hover:bg-[#0d9488]/90"
+                            className="mt-auto h-11 bg-primary text-white hover:bg-primary/90"
                             onClick={handleSaveAnalysis}
                             disabled={
                                 selectedAnalysis.size === 0 || !tipoMuestra ||

@@ -83,7 +83,7 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
     }, [equipoId, fechaRevision, siguienteVerif, justificacion, selectedEquipoRaw]);
 
     return (
-        <Card className="p-4 bg-[rgba(156,54,181,0.06)]">
+        <Card className="p-4 bg-[color-mix(in_srgb,var(--sc-primary)_6%,transparent)]">
             <div className="flex flex-col gap-4">
                 <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold uppercase text-accent-violet">
@@ -104,7 +104,7 @@ const VigenciaExtensionForm: React.FC<VigenciaExtensionFormProps> = ({ onDataCha
                 </Field>
 
                 {selectedEquipoRaw?.vigencia && (
-                    <div className="rounded-lg bg-[rgba(156,54,181,0.1)] p-2.5">
+                    <div className="rounded-lg bg-[color-mix(in_srgb,var(--sc-primary)_10%,transparent)] p-2.5">
                         <span className="block text-[11px] font-bold uppercase text-accent-violet">Vigencia actual</span>
                         <span className="text-sm font-bold text-accent-violet">
                             {(() => {

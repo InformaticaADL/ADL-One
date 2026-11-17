@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import {
     IconChevronRight,
     IconSelector,
-    IconUserCircle,
-    IconExclamationMark,
+    IconSettings,
     IconLogout,
 } from '@tabler/icons-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -26,7 +25,6 @@ const FIXED_BOTTOM_MODULES: FixedModule[] = [];
 interface SidebarProps {
     forceNotCollapsed?: boolean;
     onNavigate?: () => void;
-    onHelpClick?: () => void;
 }
 
 // ---- Piezas visuales del menú (medidas del «shadcn-admin») ---------------------------------------
@@ -77,7 +75,7 @@ function EtiquetaGrupo({ titulo, colapsado }: { titulo: string; colapsado: boole
     return (
         <div
             className={cn(
-                'flex h-8 shrink-0 items-center rounded-md px-2 text-[0.6875rem] font-semibold uppercase tracking-wider text-sidebar-foreground/50 transition-[margin,opacity] duration-200 ease-linear',
+                'flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium text-sidebar-foreground/70 transition-[margin,opacity] duration-200 ease-linear',
                 colapsado && '-mt-8 opacity-0'
             )}
         >
@@ -88,7 +86,7 @@ function EtiquetaGrupo({ titulo, colapsado }: { titulo: string; colapsado: boole
 
 const INSIGNIA = 'rounded-full px-1.5 py-0 text-[0.75rem]';
 
-export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarProps) {
+export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
     const { user, hasPermission, token, logout } = useAuth();
     const {
         activeModule,
@@ -180,6 +178,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
     };
 
     const handleLeafClick = (leafId: string) => {
+        // Elegir «Fichas de Ingreso» en el menú siempre abre el menú de la sección, nunca la ficha o el listado donde se había quedado.
+        if (leafId === 'ma-fichas-ingreso') { const nav = useNavStore.getState(); nav.setFichasMode('menu'); nav.setSelectedFicha(null, null); }
         setActiveSubmodule(leafId);
         onNavigate?.();
     };
@@ -198,7 +198,11 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
 
     // Los módulos dinámicos ya vienen filtrados del backend según los permisos,
     // excepto si el usuario es admin o el backend los manda de más. Usamos canAccessModule por doble seguridad.
-    const visibleModules = enrichedDynamicModules.filter((m) => canAccessModule(m, hasPermission));
+    // Un módulo sin ningún enlace al que se pueda entrar (p. ej. Comercial, Informática) no lleva a nada: se oculta. Admin. Info no tiene
+    // enlaces propios, pero su portada es un hub, así que se mantiene.
+    const MODULOS_CON_PORTADA = new Set(['admin_informacion']);
+    const tieneAlgoAdentro = (m: DynamicModule) => MODULOS_CON_PORTADA.has(m.id) || (m.links || []).some((l: DynamicModuleLink) => hasAccess(l.permission, hasPermission));
+    const visibleModules = enrichedDynamicModules.filter((m) => canAccessModule(m, hasPermission) && tieneAlgoAdentro(m));
 
     // Unidades: Filtrar módulos visibles según permisos
     const unidades = visibleModules.filter((m) => m.group === 'unidades');
@@ -359,7 +363,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
             <DropdownMenuTrigger asChild>
                 <button
                     type="button"
-                    className={cn(BOTON_MENU, 'h-12', isCollapsed && 'size-12 justify-center p-0')}
+                    className={cn(BOTON_MENU, 'h-12 data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground', isCollapsed && 'size-12 justify-center p-0')}
                     aria-label="Menú de usuario"
                 >
                     <Avatar className="h-8 w-8 shrink-0 rounded-lg">
@@ -389,11 +393,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate, onHelpClick }: SidebarP
                     </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={() => { setActiveModule('perfil'); setActiveSubmodule(''); onNavigate?.(); }}>
-                    <IconUserCircle size={15} /> Mi Perfil
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => { onHelpClick?.(); onNavigate?.(); }}>
-                    <IconExclamationMark size={15} /> Ayuda
+                <DropdownMenuItem onSelect={() => { useNavStore.getState().abrirConfiguracion('perfil'); onNavigate?.(); }}>
+                    <IconSettings size={15} /> Configuración
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem danger onSelect={() => logout()}>

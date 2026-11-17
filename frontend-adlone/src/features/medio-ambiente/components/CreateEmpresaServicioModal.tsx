@@ -146,7 +146,7 @@ export const CreateEmpresaServicioModal: React.FC<CreateEmpresaServicioModalProp
                             </Button>
                             <Button
                                 type="submit"
-                                style={{ backgroundColor: '#0b7285' }}
+                                style={{ backgroundColor: 'var(--sc-primary)' }}
                                 disabled={loading}
                             >
                                 {loading ? (

@@ -243,7 +243,7 @@ export const AgregarParametrosDialog: React.FC<Props> = ({ open, onOpenChange, t
                                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 sm:grid-cols-3">
                                     {puntos.map((p) => (
                                         <label key={p.id} className="flex cursor-pointer items-center gap-2 text-sm">
-                                            <input type="checkbox" className="accent-primary" checked={puntosElegidos.has(p.id)} onChange={(e) => setPuntosElegidos((prev) => { const s = new Set(prev); if (e.target.checked) s.add(p.id); else s.delete(p.id); return s; })} />
+                                            <Checkbox checked={puntosElegidos.has(p.id)} onCheckedChange={(v) => setPuntosElegidos((prev) => { const s = new Set(prev); if (v === true) s.add(p.id); else s.delete(p.id); return s; })} />
                                             {p.nombre || 'sin nombre'}
                                         </label>
                                     ))}

@@ -537,7 +537,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                     <ProtectedContent permission="FI_GEST_ASIG">
                         <Button
                             size="lg"
-                            className="bg-[#9c36b5] text-white hover:bg-[#9c36b5]/90"
+                            className="bg-primary text-white hover:bg-primary/90"
                             onClick={handleSaveAssignment}
                             disabled={saving}
                         >
@@ -582,7 +582,7 @@ export const AssignmentDetailView: React.FC<Props> = ({ fichaId, onBack }) => {
                                 {isPuntual && (
                                     <>
                                         {metricSep}
-                                        <Metric label="Tipo"><Badge className="bg-[#9c36b5] text-white">Puntual</Badge></Metric>
+                                        <Metric label="Tipo"><Badge className="bg-primary text-white">Puntual</Badge></Metric>
                                     </>
                                 )}
                             </div>

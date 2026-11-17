@@ -149,7 +149,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             <div
                 className={cn(
                     'w-full max-w-[600px] cursor-pointer rounded-2xl border-2 border-dashed p-10 text-center transition-colors',
-                    hovering ? 'border-[#4dabf7] bg-primary/10' : 'border-border bg-muted/50'
+                    hovering ? 'border-primary bg-primary/10' : 'border-border bg-muted/50'
                 )}
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={() => setHovering(true)}
@@ -174,7 +174,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                 size="lg"
                 disabled={files.length === 0}
                 onClick={handleUploadAndParse}
-                className="bg-[#9c36b5] text-white hover:bg-[#9c36b5]/90"
+                className="bg-primary text-white hover:bg-primary/90"
             >
                 <IconDatabaseExport size={20} />
                 Procesar Archivos ({files.length})
@@ -202,7 +202,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                 <div className="mt-6 flex flex-col items-center gap-6 py-6">
                     <span className="text-base font-semibold">Extrayendo y mapeando datos...</span>
                     <span className="text-[13px] text-muted-foreground">Esto puede tomar unos minutos dependiendo de la cantidad de archivos.</span>
-                    <ProgressBar percent={progress} colorClassName="bg-[#9c36b5]" />
+                    <ProgressBar percent={progress} colorClassName="bg-primary" />
                 </div>
             );
         }
@@ -228,7 +228,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
                             Cancelar
                         </Button>
                         <Button
-                            className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
+                            className="bg-success text-white hover:bg-success/90"
                             onClick={handleCommit}
                             disabled={selectedIndices.length === 0 || isCommitting}
                         >
@@ -267,7 +267,7 @@ export const BulkFichaCreator: React.FC<Props> = ({ onBack, onSuccess }) => {
             return (
                 <div className="mt-6 flex flex-col items-center gap-6 py-6">
                     <span className="text-base font-semibold">Guardando fichas en la base de datos...</span>
-                    <ProgressBar percent={100} colorClassName="bg-[#2f9e44]" />
+                    <ProgressBar percent={100} colorClassName="bg-success" />
                 </div>
             );
         }

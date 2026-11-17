@@ -1,3 +1,4 @@
+import React from 'react';
 import {
     IconChevronRight,
     IconInfoCircle,
@@ -7,26 +8,22 @@ import {
     IconMessageCircle
 } from '@tabler/icons-react';
 import { useNavStore } from '../../store/navStore';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-// Círculo de ícono liviano — reemplaza al ThemeIcon de Mantine, usado por
-// todo este panel para las viñetas de "paso a paso" y consejos.
-function IconCircle({ children, color, size = 24 }: { children: React.ReactNode; color: string; size?: number }) {
+// Círculo de ícono: usa los colores del tema (primary, warning, success), no colores fijos.
+type Tono = 'primary' | 'warning' | 'success' | 'muted';
+const TONOS: Record<Tono, string> = {
+    primary: 'bg-primary/10 text-primary',
+    warning: 'bg-warning/10 text-warning',
+    success: 'bg-success/10 text-success',
+    muted: 'bg-muted text-muted-foreground',
+};
+function IconCircle({ children, tono, size = 24 }: { children: React.ReactNode; tono: Tono; size?: number }) {
     return (
-        <div style={{
-            flexShrink: 0, width: size, height: size, borderRadius: '50%',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: `${color}1a`, color,
-        }}>
+        <div className={'flex shrink-0 items-center justify-center rounded-full ' + TONOS[tono]} style={{ width: size, height: size }}>
             {children}
         </div>
     );
-}
-
-interface HelpCenterProps {
-    opened: boolean;
-    onClose: () => void;
 }
 
 interface HelpContent {
@@ -1011,152 +1008,137 @@ const getContextHelp = (
     };
 };
 
-export const HelpCenter = ({ opened, onClose }: HelpCenterProps) => {
-    const { activeModule, activeSubmodule, fichasMode, helpCenterIsGlobal } = useNavStore();
-    const help = getContextHelp(activeModule, activeSubmodule, fichasMode, helpCenterIsGlobal);
+/** Un tema de ayuda: qué es, qué hace, paso a paso y consejos. */
+function TemaAyuda({ help }: { help: HelpContent }) {
+    return (
+        <div className="flex flex-col gap-4">
+            <div className="flex flex-nowrap items-center gap-4">
+                <IconCircle tono="primary" size={56}>
+                    <IconInfoCircle size={28} stroke={2} />
+                </IconCircle>
+                <div className="flex-1">
+                    <h3 className="m-0 text-xl font-extrabold tracking-tight text-foreground">{help.title}</h3>
+                </div>
+            </div>
+
+            <div className="mt-2 flex flex-col gap-5">
+                <div>
+                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">¿Qué es?</span>
+                    <p className="m-0 text-[13.5px] leading-relaxed text-foreground">{help.queEs}</p>
+                </div>
+                <div>
+                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">¿Qué hace?</span>
+                    <p className="m-0 text-[13.5px] leading-relaxed text-foreground">{help.queHace}</p>
+                </div>
+            </div>
+
+            <div className="mt-2">
+                <span className="mb-3 block text-[11px] font-extrabold uppercase tracking-wide text-warning">Paso a paso: ¿cómo funciona?</span>
+                <div className="flex flex-col gap-2">
+                    {help.comoFunciona.map((item, index) => (
+                        <div key={index} className="flex flex-nowrap items-start gap-3 rounded-2xl border border-border bg-muted/40 p-3">
+                            <IconCircle tono="warning" size={24}><IconChevronRight size={14} stroke={2.5} /></IconCircle>
+                            <p className="m-0 mt-0.5 flex-1 text-[13.5px] leading-snug text-foreground">{item}</p>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {help.tips && help.tips.length > 0 && (
+                <div className="mt-2">
+                    <span className="mb-3 block text-[11px] font-extrabold uppercase tracking-wide text-success">Consejos útiles</span>
+                    <div className="flex flex-col gap-2">
+                        {help.tips.map((tip, index) => (
+                            <div key={index} className="flex flex-nowrap items-start gap-3 rounded-2xl border border-success/25 bg-success/10 p-3">
+                                <IconCircle tono="success" size={24}><IconBulb size={14} /></IconCircle>
+                                <p className="m-0 mt-0.5 flex-1 text-[13.5px] italic leading-snug text-foreground">{tip}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Página de Ayuda (Configuración > Ayuda). Muestra la ayuda de la pantalla desde la que se pidió, la guía general de ADL ONE y el
+ * contacto de soporte. Antes era un modal; ahora es una sección de la página de Configuración.
+ */
+export const AyudaContenido = () => {
+    const { helpContext } = useNavStore();
+    const [pestana, setPestana] = React.useState<'seccion' | 'general'>('seccion');
+    const delContexto = helpContext ? getContextHelp(helpContext.module, helpContext.submodule, helpContext.fichasMode, false) : null;
+    const general = getContextHelp('', '', 'menu', true);
+    const mostrar = pestana === 'seccion' && delContexto ? delContexto : general;
 
     return (
-        <Dialog open={opened} onOpenChange={(next) => !next && onClose()}>
-            <DialogContent className="max-w-[720px] rounded-3xl">
-                <DialogHeader>
-                    <div className="flex items-center gap-4">
-                        <IconCircle color="#1c7ed6" size={48}>
-                            <IconBook2 size={24} stroke={1.5} />
-                        </IconCircle>
-                        <div>
-                            <DialogTitle className="text-lg font-extrabold tracking-tight">
-                                Centro de Ayuda
-                            </DialogTitle>
-                            <p className="mt-1 text-xs font-semibold text-muted-foreground">
-                                ADL ONE — Manual de Usuario
-                            </p>
+        <div className="flex flex-col gap-6">
+            <div className="flex items-center gap-4">
+                <IconCircle tono="primary" size={48}><IconBook2 size={24} stroke={1.5} /></IconCircle>
+                <div>
+                    <p className="m-0 text-base font-extrabold tracking-tight">Centro de Ayuda</p>
+                    <p className="m-0 text-xs font-semibold text-muted-foreground">ADL ONE · Manual de usuario</p>
+                </div>
+            </div>
+
+            <div className="inline-flex w-fit rounded-lg bg-muted p-1" role="tablist">
+                {([['seccion', 'Esta sección'], ['general', 'Guía general']] as const).map(([id, titulo]) => (
+                    <button
+                        key={id}
+                        type="button"
+                        role="tab"
+                        aria-selected={pestana === id}
+                        disabled={id === 'seccion' && !delContexto}
+                        onClick={() => setPestana(id)}
+                        className={'rounded-md px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ' + (pestana === id ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                    >
+                        {titulo}
+                    </button>
+                ))}
+            </div>
+            {!delContexto && <p className="m-0 -mt-3 text-xs text-muted-foreground">Abre la ayuda desde una pantalla (botón «Información») para ver su explicación aquí.</p>}
+
+            {mostrar ? <TemaAyuda help={mostrar} /> : (
+                <div className="rounded-xl border border-border p-8 text-center">
+                    <IconCircle tono="muted" size={48}><IconBook2 size={24} /></IconCircle>
+                    <p className="mt-3 text-sm text-muted-foreground">No hay contenido de ayuda disponible.</p>
+                </div>
+            )}
+
+            <div>
+                <div className="mb-4 flex items-center gap-3">
+                    <div className="h-px flex-1 bg-border" />
+                    <span className="text-[11px] font-semibold text-muted-foreground">CONTACTO SOPORTE</span>
+                    <div className="h-px flex-1 bg-border" />
+                </div>
+                <div className="flex flex-wrap gap-4">
+                    <div className="min-w-[200px] flex-1 rounded-[20px] border border-border bg-muted/40 p-4 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                            <IconCircle tono="primary" size={40}><IconMail size={20} /></IconCircle>
+                            <div>
+                                <span className="block text-sm font-semibold text-foreground">Correo soporte</span>
+                                <span className="text-[11px] text-muted-foreground">informatica@adldiagnostic.cl</span>
+                            </div>
+                            <Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary" asChild>
+                                <a href="mailto:informatica@adldiagnostic.cl">Enviar</a>
+                            </Button>
                         </div>
                     </div>
-                </DialogHeader>
-
-                <div className="max-h-[72vh] overflow-y-auto pb-2 pt-2">
-                    {help ? (
-                        <div className="flex flex-col gap-4">
-
-                            {/* ── Header de sección ── */}
-                            <div className="flex flex-nowrap items-center gap-4">
-                                <IconCircle color="#1c7ed6" size={56}>
-                                    <IconInfoCircle size={28} stroke={2} />
-                                </IconCircle>
-                                <div className="flex-1">
-                                    <span className="block text-[11px] font-extrabold uppercase tracking-wide text-primary">
-                                        Módulo Activo
-                                    </span>
-                                    <h3 className="mt-1 text-xl font-extrabold tracking-tight text-foreground">
-                                        {help.title}
-                                    </h3>
-                                </div>
+                    <div className="min-w-[200px] flex-1 rounded-[20px] border border-border bg-muted/40 p-4 text-center">
+                        <div className="flex flex-col items-center gap-2">
+                            <IconCircle tono="success" size={40}><IconMessageCircle size={20} /></IconCircle>
+                            <div>
+                                <span className="block text-sm font-semibold text-foreground">WhatsApp</span>
+                                <span className="text-[11px] text-muted-foreground">+56 9 5721 8268</span>
                             </div>
-
-                            {/* ── ¿Qué es? y ¿Qué hace? ── */}
-                            <div className="mt-2 flex flex-col gap-5">
-                                <div>
-                                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">
-                                        ¿Qué es?
-                                    </span>
-                                    <p className="text-[13.5px] leading-relaxed text-foreground">{help.queEs}</p>
-                                </div>
-
-                                <div>
-                                    <span className="mb-1.5 block text-[11px] font-extrabold uppercase tracking-wide text-primary">
-                                        ¿Qué hace?
-                                    </span>
-                                    <p className="text-[13.5px] leading-relaxed text-foreground">{help.queHace}</p>
-                                </div>
-                            </div>
-
-                            {/* ── Paso a Paso ── */}
-                            <div className="mt-2">
-                                <span className="mb-3 block text-[11px] font-extrabold uppercase tracking-wide text-warning">
-                                    Paso a Paso — ¿Cómo funciona?
-                                </span>
-                                <div className="flex flex-col gap-2">
-                                    {help.comoFunciona.map((item, index) => (
-                                        <div key={index} className="flex flex-nowrap items-start gap-3 rounded-2xl border border-border bg-muted/40 p-3">
-                                            <IconCircle color="#e8590c" size={24}>
-                                                <IconChevronRight size={14} stroke={2.5} />
-                                            </IconCircle>
-                                            <p className="mt-0.5 flex-1 text-[13.5px] leading-snug text-foreground">{item}</p>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* ── Consejos ── */}
-                            {help.tips && help.tips.length > 0 && (
-                                <div className="mt-2">
-                                    <span className="mb-3 block text-[11px] font-extrabold uppercase tracking-wide text-success">
-                                        Consejos útiles
-                                    </span>
-                                    <div className="flex flex-col gap-2">
-                                        {help.tips.map((tip, index) => (
-                                            <div key={index} className="flex flex-nowrap items-start gap-3 rounded-2xl border border-success/25 bg-success/10 p-3">
-                                                <IconCircle color="#2f9e44" size={24}>
-                                                    <IconBulb size={14} />
-                                                </IconCircle>
-                                                <p className="mt-0.5 flex-1 text-[13.5px] italic leading-snug text-foreground">{tip}</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ── Tarjetas de Contacto TI (Solo Global) ── */}
-                            {helpCenterIsGlobal && (
-                                <div className="mt-6">
-                                    <div className="mb-4 flex items-center gap-3">
-                                        <div className="h-px flex-1 bg-border" />
-                                        <span className="text-[11px] font-semibold text-muted-foreground">CONTACTO SOPORTE</span>
-                                        <div className="h-px flex-1 bg-border" />
-                                    </div>
-                                    <div className="flex gap-4">
-                                        <div className="flex-1 rounded-[20px] border border-border bg-muted/40 p-4 text-center">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <IconCircle color="#1c7ed6" size={40}><IconMail size={20} /></IconCircle>
-                                                <div>
-                                                    <span className="block text-sm font-semibold text-foreground">Correo Soporte</span>
-                                                    <span className="text-[11px] text-muted-foreground">informatica@adldiagnostic.cl</span>
-                                                </div>
-                                                <Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary" asChild>
-                                                    <a href="mailto:informatica@adldiagnostic.cl">Enviar</a>
-                                                </Button>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex-1 rounded-[20px] border border-border bg-muted/40 p-4 text-center">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <IconCircle color="#2f9e44" size={40}><IconMessageCircle size={20} /></IconCircle>
-                                                <div>
-                                                    <span className="block text-sm font-semibold text-foreground">WhatsApp</span>
-                                                    <span className="text-[11px] text-muted-foreground">+56 9 5721 8268</span>
-                                                </div>
-                                                <Button variant="ghost" size="sm" className="w-full text-success hover:text-success" asChild>
-                                                    <a href="https://wa.me/56957218268" target="_blank" rel="noreferrer">Chat</a>
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
+                            <Button variant="ghost" size="sm" className="w-full text-success hover:text-success" asChild>
+                                <a href="https://wa.me/56957218268" target="_blank" rel="noreferrer">Chat</a>
+                            </Button>
                         </div>
-                    ) : (
-                        <div className="rounded-xl border border-border p-8 text-center">
-                            <IconCircle color="#868e96" size={48}>
-                                <IconBook2 size={24} />
-                            </IconCircle>
-                            <p className="mt-3 text-sm text-muted-foreground">
-                                No hay contenido de ayuda disponible para esta sección.
-                            </p>
-                        </div>
-                    )}
+                    </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+            </div>
+        </div>
     );
 };

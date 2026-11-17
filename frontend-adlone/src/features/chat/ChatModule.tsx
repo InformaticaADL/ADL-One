@@ -282,7 +282,7 @@ const ChatModule: React.FC = () => {
     if (loading && conversations.length === 0) {
         return (
             <div className="shadcn-scope flex h-full flex-col p-4 md:p-6">
-                <PageHeader title="Chat" subtitle="Mensajes y conversaciones." breadcrumbItems={[{ label: 'Dashboard' }, { label: 'Chat' }]} />
+                <PageHeader title="Chat" subtitle="Mensajes y conversaciones." breadcrumbItems={[{ label: 'Chat' }]} />
                 <div className="flex flex-1 items-center justify-center">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
@@ -292,9 +292,9 @@ const ChatModule: React.FC = () => {
 
     return (
         <div className="shadcn-scope flex h-full flex-col p-4 md:p-6">
-            <PageHeader title="Chat" subtitle="Mensajes y conversaciones." breadcrumbItems={[{ label: 'Dashboard' }, { label: 'Chat' }]} />
+            <PageHeader title="Chat" subtitle="Mensajes y conversaciones." breadcrumbItems={[{ label: 'Chat' }]} />
 
-            <div className="flex min-h-0 flex-1 overflow-hidden rounded-xl border border-border bg-card">
+            <div className="flex min-h-0 flex-1 gap-6">
                 {(!isMobile || !activeConversation) && (
                     <ChatSidebar
                         conversations={conversations}
@@ -335,12 +335,16 @@ const ChatModule: React.FC = () => {
                         />
                     )
                 ) : !isMobile && (
-                    <div className="flex flex-1 flex-col items-center justify-center gap-1.5 bg-background text-center">
-                        <div className="mb-3 grid h-[104px] w-[104px] place-items-center rounded-2xl bg-accent text-primary">
-                            <IconMessageCircle size={44} />
+                    <div className="flex flex-1 flex-col items-center justify-center rounded-xl border border-border bg-card text-center shadow-sm">
+                        <div className="flex flex-col items-center space-y-6">
+                            <div className="flex size-16 items-center justify-center rounded-full border-2 border-border">
+                                <IconMessageCircle className="size-8" />
+                            </div>
+                            <div className="space-y-2 text-center">
+                                <h2 className="m-0 text-xl font-semibold">Tus mensajes</h2>
+                                <p className="m-0 text-sm text-muted-foreground">Elige una conversación o busca un contacto para empezar a chatear.</p>
+                            </div>
                         </div>
-                        <h2 className="m-0 text-lg font-bold text-foreground">Chat General ADL One</h2>
-                        <p className="m-0 text-sm text-muted-foreground">Selecciona una conversación o busca un contacto para comenzar</p>
                     </div>
                 )}
             </div>

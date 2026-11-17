@@ -62,7 +62,7 @@ const tipoArchivo = (nombre = '', mime = '') => {
     const n = (nombre || '').toLowerCase();
     if (m.includes('pdf') || n.endsWith('.pdf')) return { Icono: IconFileTypePdf, color: '#c93a3a', fondo: '#fdf0f0', etiqueta: 'PDF' };
     if (m.includes('image') || /\.(jpe?g|png|gif|webp)$/.test(n)) return { Icono: IconPhoto, color: '#9333ea', fondo: '#f3eafd', etiqueta: 'Imagen' };
-    if (m.includes('spreadsheet') || m.includes('ms-excel') || /\.(xlsx?|csv)$/.test(n)) return { Icono: IconFileSpreadsheet, color: '#16a34a', fondo: '#eafaf0', etiqueta: 'Excel' };
+    if (m.includes('spreadsheet') || m.includes('ms-excel') || /\.(xlsx?|csv)$/.test(n)) return { Icono: IconFileSpreadsheet, color: 'var(--sc-success)', fondo: '#eafaf0', etiqueta: 'Excel' };
     if (m.includes('word') || /\.(docx?)$/.test(n)) return { Icono: IconFileTypeDoc, color: '#2563eb', fondo: '#eaf1fd', etiqueta: 'Word' };
     return { Icono: IconFile, color: '#615d59', fondo: '#f1f1f1', etiqueta: 'Archivo' };
 };

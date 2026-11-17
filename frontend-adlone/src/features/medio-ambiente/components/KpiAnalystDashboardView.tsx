@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { tinte } from '@/lib/colors';
 import {
     Area,
     AreaChart,
@@ -150,10 +151,10 @@ const renderWidget = (widget: any) => {
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <BarChart {...commonProps}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
-                        <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
                         <Tooltip cursor={{ fill: 'var(--sc-muted)' }} contentStyle={tooltipStyle} />
-                        <Bar dataKey={widget.yKeys?.[0]} radius={[6, 6, 0, 0]} fill="#0ea5e9" />
+                        <Bar dataKey={widget.yKeys?.[0]} radius={[6, 6, 0, 0]} fill="var(--sc-primary)" />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
@@ -166,8 +167,8 @@ const renderWidget = (widget: any) => {
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <BarChart {...commonProps}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
-                        <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
                         <Tooltip cursor={{ fill: 'var(--sc-muted)' }} contentStyle={tooltipStyle} />
                         {(widget.yKeys || []).map((key: string, index: number) => (
                             <Bar
@@ -190,10 +191,10 @@ const renderWidget = (widget: any) => {
                 <ResponsiveContainer width="100%" height="100%" minWidth={0} debounce={1}>
                     <AreaChart {...commonProps}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
-                        <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                        <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                        <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
                         <Tooltip contentStyle={tooltipStyle} />
-                        <Area type="monotone" dataKey={widget.yKeys?.[0]} stroke="#3b82f6" fill="#3b82f6" fillOpacity={0.15} strokeWidth={3} />
+                        <Area type="monotone" dataKey={widget.yKeys?.[0]} stroke="var(--sc-primary)" fill="var(--sc-primary)" fillOpacity={0.15} strokeWidth={3} />
                     </AreaChart>
                 </ResponsiveContainer>
             </div>
@@ -206,18 +207,18 @@ const renderWidget = (widget: any) => {
                 <AreaChart {...commonProps}>
                     <defs>
                         <linearGradient id={`gradient-${widget.id}`} x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0.05} />
+                            <stop offset="5%" stopColor="var(--sc-success)" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="var(--sc-success)" stopOpacity={0.05} />
                         </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--sc-border)" />
-                    <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+                    <XAxis dataKey={widget.xKey} tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11, fill: 'var(--sc-muted-foreground)' }} axisLine={false} tickLine={false} />
                     <Tooltip contentStyle={tooltipStyle} />
                     <Area
                         type="monotone"
                         dataKey={widget.yKeys?.[0]}
-                        stroke="#10b981"
+                        stroke="var(--sc-success)"
                         fill={`url(#gradient-${widget.id})`}
                         strokeWidth={3}
                     />
@@ -329,7 +330,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
             <div className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(320px,1fr))] gap-4">
                 <DashCard>
                     <div className="mb-6 flex items-center gap-3">
-                        <IconCircle color="#e03131"><IconAlertTriangle size={24} /></IconCircle>
+                        <IconCircle color="var(--sc-destructive)"><IconAlertTriangle size={24} /></IconCircle>
                         <h5 className="m-0 text-base font-semibold">Alertas del Analista</h5>
                     </div>
                     <div className="flex flex-col gap-3">
@@ -341,7 +342,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
 
                 <DashCard>
                     <div className="mb-6 flex items-center gap-3">
-                        <IconCircle color="#9c36b5"><IconSparkles size={24} /></IconCircle>
+                        <IconCircle color="var(--sc-primary)"><IconSparkles size={24} /></IconCircle>
                         <h5 className="m-0 text-base font-semibold">Insights Estratégicos</h5>
                     </div>
                     <div className="flex flex-col gap-2.5">
@@ -421,7 +422,7 @@ export const KpiAnalystDashboardView = ({ onBack }: Props) => {
                     {infoModal && (
                         <>
                             <DialogHeader className="mb-2 flex-row items-center gap-4 space-y-0">
-                                <IconCircle color="#1677ff" size={56}><IconInfoCircle size={28} /></IconCircle>
+                                <IconCircle color="var(--sc-primary)" size={56}><IconInfoCircle size={28} /></IconCircle>
                                 <div>
                                     <span className="block text-[11px] font-extrabold uppercase tracking-wide text-primary">Explicación Detallada</span>
                                     <h4 className="m-0 text-lg font-semibold">{infoModal.title}</h4>
@@ -468,7 +469,7 @@ function IconCircle({ children, color, size = 44 }: { children: React.ReactNode;
     return (
         <div
             className="flex shrink-0 items-center justify-center rounded-full"
-            style={{ width: size, height: size, backgroundColor: `${color}1f`, color }}
+            style={{ width: size, height: size, backgroundColor: `${tinte(color, 12)}`, color }}
         >
             {children}
         </div>

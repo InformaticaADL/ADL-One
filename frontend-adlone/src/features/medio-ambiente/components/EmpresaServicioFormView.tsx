@@ -397,7 +397,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 
                             <TabsContent value="general">
                                 <div className="flex flex-col gap-6">
-                                    <SectionHeading icon={<IconBuilding size={18} />} color="#0b7285" title="Identificación de la Empresa" subtitle="Datos legales, RUT y nombres comerciales de la prestadora." />
+                                    <SectionHeading icon={<IconBuilding size={18} />} color="var(--sc-primary)" title="Identificación de la Empresa" subtitle="Datos legales, RUT y nombres comerciales de la prestadora." />
 
                                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
                                         {sections.identificacion.map(col => {
@@ -420,7 +420,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
                                     </div>
 
 
-                                    <SectionHeading icon={<IconMapPin size={18} />} color="#1864ab" title="Ubicación y Direcciones" subtitle="Dirección casa matriz y sucursales comerciales." />
+                                    <SectionHeading icon={<IconMapPin size={18} />} color="var(--sc-primary)" title="Ubicación y Direcciones" subtitle="Dirección casa matriz y sucursales comerciales." />
 
                                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
                                         {sections.ubicacion.map(col => renderTextField(col, <IconMapPin size={16} className="text-muted-foreground" />))}
@@ -432,7 +432,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 
                             <TabsContent value="contacto">
                                 <div className="flex flex-col gap-6">
-                                    <SectionHeading icon={<IconMail size={18} />} color="#1864ab" title="Información de Contacto y Facturación" subtitle="Canales de comunicación directa y facturación electrónica." />
+                                    <SectionHeading icon={<IconMail size={18} />} color="var(--sc-primary)" title="Información de Contacto y Facturación" subtitle="Canales de comunicación directa y facturación electrónica." />
 
                                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
                                         {sections.contacto.map(col => renderTextField(
@@ -449,14 +449,14 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 
                             <TabsContent value="legal">
                                 <div className="flex flex-col gap-6">
-                                    <SectionHeading icon={<IconUser size={18} />} color="#e8590c" title="Representante Legal" subtitle="Información del representante ante el sistema." />
+                                    <SectionHeading icon={<IconUser size={18} />} color="var(--sc-warning)" title="Representante Legal" subtitle="Información del representante ante el sistema." />
 
                                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
                                         {sections.legal.map(col => renderTextField(col, <IconUser size={16} className="text-muted-foreground" />))}
                                     </div>
 
 
-                                    <SectionHeading icon={<IconBuilding size={18} />} color="#868e96" title="Configuración del Sistema" subtitle="Datos operativos y de login asociados." />
+                                    <SectionHeading icon={<IconBuilding size={18} />} color="var(--sc-muted-foreground)" title="Configuración del Sistema" subtitle="Datos operativos y de login asociados." />
 
                                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
                                         {sections.config.map(col => {
@@ -507,7 +507,7 @@ export const EmpresaServicioFormView: React.FC<EmpresaServicioFormViewProps> = (
 
                             <TabsContent value="avanzado">
                                 <div className="flex flex-col gap-6">
-                                    <SectionHeading icon={<IconSettings size={18} />} color="#e03131" title="Configuración Avanzada e IDs" subtitle="Identificadores técnicos y parámetros de integración con otros módulos." />
+                                    <SectionHeading icon={<IconSettings size={18} />} color="var(--sc-destructive)" title="Configuración Avanzada e IDs" subtitle="Identificadores técnicos y parámetros de integración con otros módulos." />
 
                                     <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-5">
                                         {sections.avanzado.map(col => {

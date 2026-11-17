@@ -36,8 +36,8 @@ export const AuthLayout: React.FC<{ children: React.ReactNode }> = ({ children }
         style={{ backgroundImage: `url(${fondoLogin})` }}
     >
         {/* Los dos círculos suaves del fondo original. */}
-        <div aria-hidden="true" className="pointer-events-none absolute -right-[300px] -top-[300px] h-[600px] w-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37, 99, 235, 0.1) 0%, transparent 70%)' }} />
-        <div aria-hidden="true" className="pointer-events-none absolute -bottom-[300px] -left-[300px] h-[600px] w-[600px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(16, 185, 129, 0.05) 0%, transparent 70%)' }} />
+        <div aria-hidden="true" className="pointer-events-none absolute -right-[300px] -top-[300px] h-[600px] w-[600px] rounded-full" style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--sc-primary) 10%, transparent) 0%, transparent 70%)' }} />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-[300px] -left-[300px] h-[600px] w-[600px] rounded-full" style={{ background: 'radial-gradient(circle, color-mix(in srgb, var(--sc-success) 5%, transparent) 0%, transparent 70%)' }} />
 
         <div className="relative z-10 mx-auto flex w-[24rem] max-w-full flex-col justify-center gap-2 py-8">
             {children}

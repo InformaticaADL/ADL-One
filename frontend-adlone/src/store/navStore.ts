@@ -16,9 +16,16 @@ interface NavState {
     hiddenNotifications: string[]; // Persistent dismissed notifications
     maArea: 'comercial' | 'tecnica' | 'coordinacion' | null; // Deprecated, will be removed fully in Phase 2
     fichasMode: 'menu' | 'create_ficha' | 'create_choice' | 'create_manual' | 'create_bulk' | 'list_fichas' | 'detail_ficha' | 'list_assign' | 'detail_assign' | 'calendar' | 'list_ejecutados' | 'dashboard' | 'kpi_dashboard' | 'route_planner' | 'route_planner_map' | 'manage_empresas';
-    helpCenterOpen: boolean; // Global HelpCenter modal state
+    helpCenterOpen: boolean; // (heredado) ya no hay modal: pedir la ayuda lleva a Configuración > Ayuda
     helpCenterIsGlobal: boolean;
     setHelpCenterOpen: (open: boolean, isGlobal?: boolean) => void;
+    // La Ayuda vive en Configuración. Al abrirla se guarda desde qué pantalla se pidió para mostrar la ayuda de ESA sección.
+    helpContext: { module: string; submodule: string; fichasMode: string } | null;
+    // Sección de Configuración a mostrar al entrar (la consume la página y la limpia).
+    perfilSeccion: 'perfil' | 'cuenta' | 'apariencia' | 'notificaciones' | 'ayuda' | null;
+    abrirAyuda: () => void;
+    abrirConfiguracion: (seccion?: 'perfil' | 'cuenta' | 'apariencia' | 'notificaciones' | 'ayuda') => void;
+    clearPerfilSeccion: () => void;
     setActiveModule: (moduleId: string) => void;
     setActiveSubmodule: (submoduleId: string) => void;
     setDrawerOpen: (isOpen: boolean) => void;
@@ -79,7 +86,24 @@ export const useNavStore = create<NavState>()(
             fichasMode: 'menu',
             helpCenterOpen: false,
             helpCenterIsGlobal: false,
-            setHelpCenterOpen: (open, isGlobal = false) => set({ helpCenterOpen: open, helpCenterIsGlobal: isGlobal }),
+            helpContext: null,
+            perfilSeccion: null,
+            // Compatibilidad: quien antes abría el modal ahora abre la página de Ayuda.
+            setHelpCenterOpen: (open, isGlobal = false) => {
+                if (open) useNavStore.getState().abrirAyuda();
+                set({ helpCenterOpen: false, helpCenterIsGlobal: isGlobal });
+            },
+            abrirAyuda: () => set((state) => ({
+                helpContext: state.activeModule === 'perfil'
+                    ? state.helpContext
+                    : { module: state.activeModule, submodule: state.activeSubmodule, fichasMode: state.fichasMode },
+                perfilSeccion: 'ayuda',
+                activeModule: 'perfil',
+                activeSubmodule: '',
+                drawerOpen: false,
+            })),
+            abrirConfiguracion: (seccion = 'perfil') => set({ perfilSeccion: seccion, activeModule: 'perfil', activeSubmodule: '', drawerOpen: false }),
+            clearPerfilSeccion: () => set({ perfilSeccion: null }),
             setActiveModule: (moduleId) => set({ activeModule: moduleId }),
             setActiveSubmodule: (submoduleId) => set((state) => ({
                 previousSubmodule: state.activeSubmodule !== submoduleId ? state.activeSubmodule : state.previousSubmodule,

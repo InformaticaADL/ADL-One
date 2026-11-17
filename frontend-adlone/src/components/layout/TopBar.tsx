@@ -24,7 +24,7 @@ interface CompactProp {
 
 const STATIC_MODULE_LABELS: Record<string, string> = {
     '': 'Inicio',
-    perfil: 'Mi Perfil',
+    perfil: 'Configuración',
     notificaciones: 'Notificaciones',
     'bm-historico': 'Biología Molecular Histórico',
     'bm-consulta': 'Consulta de Muestras',
@@ -57,7 +57,7 @@ export function NotificationBell({ compact }: CompactProp) {
         }
         if (unreadCount > prevUnreadCount.current && unreadCount > 0 && !notifOpen) {
             // eslint-disable-next-line react-hooks/set-state-in-effect
-            setShowBubble(true);
+            if (localStorage.getItem('adl-pref-aviso-emergente') !== 'no') setShowBubble(true);
             const timer = setTimeout(() => setShowBubble(false), 5000);
             return () => clearTimeout(timer);
         }
@@ -83,19 +83,18 @@ export function NotificationBell({ compact }: CompactProp) {
                     title="Notificaciones"
                     onClick={() => { setNotifOpen((v) => !v); setShowBubble(false); }}
                     className={cn(
-                        'flex items-center justify-center rounded-lg transition-colors',
-                        compact ? 'h-[38px] w-[38px]' : 'h-8 w-8',
+                        'relative flex items-center justify-center rounded-lg transition-colors',
+                        compact ? 'h-11 w-11' : 'h-10 w-10',
                         notifOpen ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted'
                     )}
                 >
-                    <span className="relative inline-flex">
-                        <IconBell size={compact ? 19 : 17} stroke={1.75} />
-                        {unreadCount > 0 && (
-                            <Badge variant="destructive" className="absolute -right-1.5 -top-1.5 h-4 min-w-4 justify-center rounded-full px-1 py-0 text-[10px] leading-none">
-                                {unreadCount > 99 ? '99+' : unreadCount}
-                            </Badge>
-                        )}
-                    </span>
+                    <IconBell size={compact ? 24 : 22} stroke={1.75} />
+                    {unreadCount > 0 && (
+                        // El contador va en la esquina del botón, con borde del color del fondo, para que no tape la campana.
+                        <Badge variant="destructive" className="pointer-events-none absolute -right-2 -top-2 h-5 min-w-5 justify-center rounded-full border-2 border-background px-1.5 py-0 text-[11px] font-bold leading-none">
+                            {unreadCount > 99 ? '99+' : unreadCount}
+                        </Badge>
+                    )}
                 </button>
             </NotificationPopover>
 
@@ -137,7 +136,7 @@ export function InfoButton({ compact }: CompactProp) {
 // Toggle de tema claro/oscuro — vive a la derecha de la ruta (RouteBreadcrumb).
 export function ThemeToggle({ compact }: CompactProp) {
     const { mode, toggleMode } = useThemeStore();
-    const size = compact ? 19 : 17;
+    const size = compact ? 24 : 22;
 
     return (
         <button
@@ -146,7 +145,7 @@ export function ThemeToggle({ compact }: CompactProp) {
             title={mode === 'dark' ? 'Cambiar a claro' : 'Cambiar a oscuro'}
             className={cn(
                 'relative flex items-center justify-center overflow-hidden rounded-lg text-foreground transition-colors hover:bg-muted',
-                compact ? 'h-[38px] w-[38px]' : 'h-8 w-8'
+                compact ? 'h-11 w-11' : 'h-10 w-10'
             )}
         >
             <IconSun
@@ -227,6 +226,8 @@ export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
         ? primero.onClick
         : (activeSubmodule ? () => setActiveSubmodule('') : undefined);
     const moduloEsEnlace = !!alModulo && (pageBreadcrumb.length > 0 || !!submoduleLabel);
+    // En la portada la ruta es solo «Inicio» (no «Inicio / Inicio»).
+    const enInicio = pageBreadcrumb.length === 0 && !submoduleLabel && (!moduleLabel || normalizar(moduleLabel) === 'inicio');
     // En celular esta barra es el único lugar con campana y tema (el header
     // del logo ya no los repite), así que van en tamaño táctil y la barra se
     // achica un poco para no comerse el alto útil del contenido.
@@ -253,12 +254,12 @@ export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
                         <span className="mx-1 h-6 w-px shrink-0 bg-border" aria-hidden="true" />
                     </>
                 )}
-                <button type="button" onClick={() => resetNavigation()} className="flex shrink-0 items-center gap-1.5 hover:text-foreground">
+                <button type="button" onClick={() => resetNavigation()} className={cn('flex shrink-0 items-center gap-1.5 hover:text-foreground', enInicio && 'font-medium text-foreground')}>
                     <IconHome size={15} />
                     <span>Inicio</span>
                 </button>
-                <span className="shrink-0 text-border">/</span>
-                {moduloEsEnlace ? (
+                {!enInicio && <span className="shrink-0 text-border">/</span>}
+                {enInicio ? null : moduloEsEnlace ? (
                     <button type="button" onClick={alModulo} className="truncate hover:text-foreground">{moduleLabel || 'Inicio'}</button>
                 ) : (
                     <span className={cn('truncate', pageBreadcrumb.length === 0 && 'font-medium text-foreground')}>{moduleLabel || 'Inicio'}</span>
@@ -286,7 +287,6 @@ export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
                 })}
             </div>
             <div className="flex shrink-0 items-center gap-1">
-                <InfoButton compact={isMobile} />
                 <NotificationBell compact={isMobile} />
                 <ThemeToggle compact={isMobile} />
             </div>

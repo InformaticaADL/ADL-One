@@ -299,7 +299,7 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                                                 className={cn(
                                                     'p-3 transition-opacity',
                                                     isSelected ? 'opacity-100' : 'opacity-50',
-                                                    sinDisponibles ? 'border-[#e8590c] bg-[#e8590c]/5' : isSelected && 'border-[#4dabf7]'
+                                                    sinDisponibles ? 'border-warning bg-warning/5' : isSelected && 'border-primary'
                                                 )}
                                             >
                                                 <div className="flex flex-nowrap items-start gap-2.5">
@@ -308,7 +308,7 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                                                         onCheckedChange={() => toggleFicha(f.id_fichaingresoservicio)}
                                                         className="mt-1"
                                                     />
-                                                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#9c36b5] text-[10px] font-bold text-white">
+                                                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white">
                                                         {f.orden}
                                                     </div>
                                                     <div className="flex min-w-0 flex-1 flex-col gap-0.5">
@@ -355,7 +355,7 @@ export const NuevaEjecucionModal: React.FC<NuevaEjecucionModalProps> = ({
                         <div className="flex justify-end gap-2">
                             <Button variant="outline" onClick={onClose} disabled={submitting}>Cancelar</Button>
                             <Button
-                                className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
+                                className="bg-success text-white hover:bg-success/90"
                                 onClick={handleSubmit}
                                 disabled={submitting || selectedCount === 0 || !fecha || !muestreadorInst}
                             >

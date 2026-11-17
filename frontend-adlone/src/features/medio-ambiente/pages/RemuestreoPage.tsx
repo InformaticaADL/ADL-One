@@ -8,6 +8,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useCachedCatalogos } from '../hooks/useCachedCatalogos';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { mapToAntecedentes } from '../utils/fichaMapping';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -252,12 +253,11 @@ const RemuestreoPageContent: React.FC = () => {
                             {otrosPuntos.map(p => (
                                 <li key={p.id}>
                                     <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={puntosExtra.has(p.id)}
-                                            onChange={(e) => setPuntosExtra(prev => {
+                                            onCheckedChange={(v) => setPuntosExtra(prev => {
                                                 const sig = new Set(prev);
-                                                if (e.target.checked) sig.add(p.id); else sig.delete(p.id);
+                                                if (v === true) sig.add(p.id); else sig.delete(p.id);
                                                 return sig;
                                             })}
                                         />

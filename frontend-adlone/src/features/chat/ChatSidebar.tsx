@@ -99,11 +99,11 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                 key={conv.id_conversacion}
                 type="button"
                 onClick={() => onSelect(conv)}
-                className={`relative flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${active ? 'bg-accent' : 'hover:bg-muted'}`}
+                className={`relative flex w-full items-center gap-3 rounded-md px-2 py-2.5 text-left transition-colors ${active ? 'bg-muted' : 'hover:bg-secondary/75'}`}
             >
                 {active && <span className="absolute left-0.5 top-1/2 h-8 w-1 -translate-y-1/2 rounded-full bg-primary" />}
                 <span className="relative shrink-0">
-                    <ChatAvatar name={conv.nombre_display} foto={conv.foto_display} size={40} group={group} />
+                    <ChatAvatar name={conv.nombre_display} foto={conv.foto_display} size={36} group={group} />
                     {unread && <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-destructive" />}
                 </span>
                 <span className="min-w-0 flex-1">
@@ -163,9 +163,9 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
     }[view];
 
     return (
-        <div className={`flex min-h-0 flex-col overflow-hidden border-r border-border bg-card ${isMobile ? 'w-full' : 'w-[360px] shrink-0'}`}>
+        <div className={`flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card shadow-sm ${isMobile ? 'w-full' : 'w-56 shrink-0 lg:w-72 2xl:w-80'}`}>
             <div className="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
-                <h1 className="text-xl font-bold text-foreground">Mensajes</h1>
+                <h1 className="m-0 flex items-center gap-2 text-2xl font-bold tracking-tight text-foreground"><IconMessages size={22} />Mensajes</h1>
                 <Button size="icon" className="h-8 w-8 rounded-full" title="Nuevo grupo" aria-label="Nuevo grupo" onClick={onCreateGroup}>
                     <IconPlus size={16} />
                 </Button>
@@ -189,7 +189,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
                     <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
                         placeholder="Buscar conversaciones..."
-                        className="pl-8"
+                        className="rounded-md pl-8"
                         value={search}
                         onFocus={() => setShowResults(true)}
                         onChange={(e) => handleSearch(e.target.value)}

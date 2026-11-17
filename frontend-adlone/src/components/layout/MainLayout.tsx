@@ -6,7 +6,6 @@ import { Sidebar } from './Sidebar';
 import { NavigationProgress } from './NavigationProgress';
 import { useTemaNeutro } from '../../hooks/useTemaNeutro';
 import { RouteBreadcrumb } from './TopBar';
-import { HelpCenter } from '../common/HelpCenter';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
 import { useNotificationStore } from '../../store/notificationStore';
@@ -35,8 +34,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
         sidebarCollapsed,
         resetNavigation,
         toggleSidebar,
-        helpCenterOpen,
-        setHelpCenterOpen,
     } = useNavStore();
     const [opened, setOpened] = useState(false);
     const close = () => setOpened(false);
@@ -210,7 +207,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                     <Sidebar
                         forceNotCollapsed={isCompact}
                         onNavigate={close}
-                        onHelpClick={() => setHelpCenterOpen(true, true)}
                     />
                 </div>
 
@@ -260,7 +256,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                         </div>
                         <ScrollButtons viewportRef={viewportRef} />
 
-                        <HelpCenter opened={helpCenterOpen} onClose={() => setHelpCenterOpen(false)} />
                     </div>
                 </div>
             </div>

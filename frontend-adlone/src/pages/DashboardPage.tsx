@@ -149,7 +149,7 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
                 return (
                     <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}>
                         <h1>🚫 Acceso Denegado</h1>
-                        <p style={{ marginTop: '0.5rem', color: '#64748b' }}>Esta sección histórica solo puede ser consultada por el usuario FERNANDOB y personal de Informática.</p>
+                        <p style={{ marginTop: '0.5rem', color: 'var(--sc-muted-foreground)' }}>Esta sección histórica solo puede ser consultada por el usuario FERNANDOB y personal de Informática.</p>
                     </div>
                 );
             }

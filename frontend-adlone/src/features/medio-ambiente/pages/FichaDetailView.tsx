@@ -610,7 +610,7 @@ export const FichaDetailView = () => {
                             Cancelar
                         </Button>
                         <Button
-                            className="bg-[#0c8599] text-white hover:bg-[#0c8599]/90"
+                            className="bg-primary text-white hover:bg-primary/90"
                             disabled={realizadoLoading || !oiNumero.trim()}
                             onClick={handleConfirmRealizado}
                         >
@@ -728,9 +728,9 @@ export const FichaDetailView = () => {
                                                     <div className="flex flex-col gap-2">
                                                         <KV label="Fecha Muestreo" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
                                                         <KV label="Hora Muestreo" value={fmt(ficha?.ma_muestreo_horai)} />
-                                                        <KV label="Temperatura" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
-                                                        <KV label="Temperatura corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
-                                                        <KV label="pH" value={fmt(ficha?.ma_phi)} color="#d9480f" />
+                                                        <KV label="Temperatura" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="var(--sc-warning)" />
+                                                        <KV label="Temperatura corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="var(--sc-warning)" />
+                                                        <KV label="pH" value={fmt(ficha?.ma_phi)} color="var(--sc-warning)" />
                                                         {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
                                                         {ficha?.totalizador_final && <KV label="Totalizador Término" value={`${fmt(ficha?.totalizador_final)} m³`} />}
                                                     </div>
@@ -744,9 +744,9 @@ export const FichaDetailView = () => {
                                                         <div className="flex flex-col gap-2">
                                                             <KV label="Fecha Inicio" value={parseFechaStr(ficha?.ma_muestreo_fechai)} />
                                                             <KV label="Hora Inicio" value={fmt(ficha?.ma_muestreo_horai)} />
-                                                            <KV label="Temp. Inicio" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="#d9480f" />
-                                                            <KV label="Temp. Inicio corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="#d9480f" />
-                                                            <KV label="pH Inicio" value={fmt(ficha?.ma_phi)} color="#d9480f" />
+                                                            <KV label="Temp. Inicio" value={`${fmt(ficha?.ma_temperaturai)} °C`} color="var(--sc-warning)" />
+                                                            <KV label="Temp. Inicio corregida" value={`${fmt(ficha?.temperatura_corregidai)} °C`} color="var(--sc-warning)" />
+                                                            <KV label="pH Inicio" value={fmt(ficha?.ma_phi)} color="var(--sc-warning)" />
                                                             {ficha?.totalizador_inicio && <KV label="Totalizador Inicio" value={`${fmt(ficha?.totalizador_inicio)} m³`} />}
                                                         </div>
                                                     </div>
@@ -757,9 +757,9 @@ export const FichaDetailView = () => {
                                                         <div className="flex flex-col gap-2">
                                                             <KV label="Fecha Término" value={parseFechaStr(ficha?.ma_muestreo_fechat)} />
                                                             <KV label="Hora Término" value={fmt(ficha?.ma_muestreo_horat)} />
-                                                            <KV label="Temp. Término" value={`${fmt(ficha?.ma_temperaturat)} °C`} color="#1864ab" />
-                                                            <KV label="Temp. Término corregida" value={`${fmt(ficha?.temperatura_corregidat)} °C`} color="#1864ab" />
-                                                            <KV label="pH Término" value={fmt(ficha?.ma_pht)} color="#1864ab" />
+                                                            <KV label="Temp. Término" value={`${fmt(ficha?.ma_temperaturat)} °C`} color="var(--sc-primary)" />
+                                                            <KV label="Temp. Término corregida" value={`${fmt(ficha?.temperatura_corregidat)} °C`} color="var(--sc-primary)" />
+                                                            <KV label="pH Término" value={fmt(ficha?.ma_pht)} color="var(--sc-primary)" />
                                                             {ficha?.totalizador_final && <KV label="Totalizador Final" value={`${fmt(ficha?.totalizador_final)} m³`} />}
                                                         </div>
                                                     </div>
@@ -775,9 +775,9 @@ export const FichaDetailView = () => {
                                                     <div className="flex flex-col gap-2">
                                                         <KV label="Fecha Compuesta" value={parseFechaStr(ficha?.ma_fecha_compuesta)} />
                                                         <KV label="Hora Compuesta" value={fmt(ficha?.ma_hora_compuesta)} />
-                                                        <KV label="Temp. Compuesta" value={`${fmt(ficha?.ma_temperatura_compuesta)} °C`} color="#0c8599" />
-                                                        <KV label="Temp. Compuesta corregida" value={`${fmt(ficha?.temperatura_corregidacompuesta)} °C`} color="#0c8599" />
-                                                        <KV label="pH Compuesto" value={fmt(ficha?.ma_ph_compuesta)} color="#0c8599" />
+                                                        <KV label="Temp. Compuesta" value={`${fmt(ficha?.ma_temperatura_compuesta)} °C`} color="var(--sc-primary)" />
+                                                        <KV label="Temp. Compuesta corregida" value={`${fmt(ficha?.temperatura_corregidacompuesta)} °C`} color="var(--sc-primary)" />
+                                                        <KV label="pH Compuesto" value={fmt(ficha?.ma_ph_compuesta)} color="var(--sc-primary)" />
                                                         <div className="flex justify-between">
                                                             <span className="text-[13px] font-semibold text-muted-foreground">VDD</span>
                                                             <span className="text-[15px] font-semibold text-primary">{fmt(ficha?.vdd)} m³/h</span>
@@ -802,7 +802,7 @@ export const FichaDetailView = () => {
                                             <div className="overflow-auto rounded-lg border border-border">
                                                 <Table>
                                                     <TableHeader>
-                                                        <TableRow className="bg-[#0c8599]/5 hover:bg-[#0c8599]/5">
+                                                        <TableRow className="bg-primary/5 hover:bg-primary/5">
                                                             <TableHead>Parámetro</TableHead>
                                                             <TableHead className="text-center">Valor</TableHead>
                                                             {showUf && <TableHead className="text-center">UF</TableHead>}
@@ -850,7 +850,7 @@ export const FichaDetailView = () => {
                                                             <TableRow key={i}>
                                                                 <TableCell className="font-semibold">{item.parametro}</TableCell>
                                                                 <TableCell>
-                                                                    <span className="text-xs" style={{ color: item.id_laboratorioensayo_2 > 0 ? '#d9480f' : '#1864ab' }}>
+                                                                    <span className="text-xs" style={{ color: item.id_laboratorioensayo_2 > 0 ? 'var(--sc-warning)' : 'var(--sc-primary)' }}>
                                                                         {item.nombre_laboratorioensayo || '—'}
                                                                     </span>
                                                                 </TableCell>
@@ -977,7 +977,7 @@ export const FichaDetailView = () => {
                                                     <Card key={`foma-${index}`} className="p-3">
                                                         <div className="flex flex-nowrap justify-between">
                                                             <div className="flex flex-nowrap items-center gap-2">
-                                                                <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)"><IconFileText size={18} /></IconWrap>
+                                                                <IconWrap color="var(--sc-destructive)" bg="color-mix(in srgb, var(--sc-destructive) 10%, transparent)"><IconFileText size={18} /></IconWrap>
                                                                 <div>
                                                                     <span className="block text-[13px] font-semibold">{doc.label}</span>
                                                                     <span className="text-xs text-muted-foreground">{doc.nombre}</span>
@@ -1029,7 +1029,7 @@ export const FichaDetailView = () => {
                                                             <div className="cursor-pointer p-2" onClick={() => toggleDoc(doc.nombre)}>
                                                                 <div className="flex flex-nowrap justify-between">
                                                                     <div className="flex flex-nowrap items-center gap-2">
-                                                                        <IconWrap color="#1864ab" bg="rgba(22,119,255,0.1)"><IconFileText size={18} /></IconWrap>
+                                                                        <IconWrap color="var(--sc-primary)" bg="color-mix(in srgb, var(--sc-primary) 10%, transparent)"><IconFileText size={18} /></IconWrap>
                                                                         <div>
                                                                             <div className="flex items-center gap-2">
                                                                                 <span className="text-[13px] font-semibold">{doc.label}</span>
@@ -1174,7 +1174,7 @@ export const FichaDetailView = () => {
                 <DialogContent className="max-w-[520px]">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2 text-primary">
-                            <IconWrap color="#1864ab" bg="rgba(22,119,255,0.1)" size={28}><IconSend size={16} /></IconWrap>
+                            <IconWrap color="var(--sc-primary)" bg="color-mix(in srgb, var(--sc-primary) 10%, transparent)" size={28}><IconSend size={16} /></IconWrap>
                             Gestión de Reenvío de Documentos
                         </DialogTitle>
                     </DialogHeader>
@@ -1182,7 +1182,7 @@ export const FichaDetailView = () => {
                         <div className="flex flex-col gap-4">
                             {resendSuccess ? (
                                 <div className="flex flex-col items-center gap-4 py-8">
-                                    <IconWrap color="#2f9e44" bg="rgba(47,158,68,0.15)" size={80}><IconCheck size={40} /></IconWrap>
+                                    <IconWrap color="var(--sc-success)" bg="color-mix(in srgb, var(--sc-success) 15%, transparent)" size={80}><IconCheck size={40} /></IconWrap>
                                     <h3 className="m-0 text-center text-xl font-semibold">¡Documento Enviado!</h3>
                                     <span className="text-center text-muted-foreground">El documento ha sido despachado exitosamente.</span>
                                     <Button variant="outline" className="mt-4" onClick={() => setResendModalOpen(false)}>
@@ -1219,7 +1219,7 @@ export const FichaDetailView = () => {
 
                                         <Card className="bg-muted/40 p-3">
                                             <div className="flex flex-nowrap items-center gap-2">
-                                                <IconWrap color="#e03131" bg="rgba(224,49,49,0.1)" size={36}><IconFileText size={20} /></IconWrap>
+                                                <IconWrap color="var(--sc-destructive)" bg="color-mix(in srgb, var(--sc-destructive) 10%, transparent)" size={36}><IconFileText size={20} /></IconWrap>
                                                 <div className="min-w-0 flex-1">
                                                     <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-[13px]">Archivo Adjunto</span>
                                                     <span className="block overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
@@ -1234,7 +1234,7 @@ export const FichaDetailView = () => {
                                         <div className="flex justify-end gap-2">
                                             <Button variant="outline" disabled={resendLoading} onClick={() => setResendModalOpen(false)}>Cancelar</Button>
                                             <Button
-                                                className="bg-[#2f9e44] text-white hover:bg-[#2f9e44]/90"
+                                                className="bg-success text-white hover:bg-success/90"
                                                 disabled={resendLoading}
                                                 onClick={handleResend}
                                             >
