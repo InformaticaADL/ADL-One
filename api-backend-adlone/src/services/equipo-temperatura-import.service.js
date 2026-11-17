@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
+import { resolverModalidad, calcularSiguiente, MODALIDADES } from '../utils/reglasControlEquipo.js';
 import { lineasNuevasObservacion, normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador, mapaMuestreadoresPorNombre, anotarResponsables, esVerificacionMasAntigua } from './equipo-excel-import.service.js';
 
 // Columnas del "Resumen Verificaciones Intermedias T°". Los puntos de Error
@@ -27,20 +28,20 @@ const HEADER_KEYWORDS = {
 // analizador de Inventario (mae_equipo.sede) — mismo criterio de comparación:
 // solo aparece como diferencia si no coincide con lo que ya tiene el equipo.
 const CAMPOS_COMPARABLES = [
-    'ubicacion', 'error0', 'error15', 'error30', 'tiene_fc', 'ultima_verificacion',
+    'ubicacion', 'error0', 'error15', 'error30', 'tiene_fc', 'ultima_verificacion', 'siguiente_verificacion',
     'estado_equipo', 'observacion', 'equipo_asociado', 'id_muestreador',
 ];
 
 const ETIQUETAS_CAMPO = {
     ubicacion: 'Sede / Ubicación',
     error0: 'Error 0', error15: 'Error 15', error30: 'Error 30',
-    tiene_fc: 'Tiene Factor de Corrección', ultima_verificacion: 'Última Verificación',
+    tiene_fc: 'Tiene Factor de Corrección', ultima_verificacion: 'Última Verificación', siguiente_verificacion: 'Siguiente Revisión',
     estado_equipo: 'Estado Operativo', observacion: 'Observación',
     equipo_asociado: 'Equipo Asociado', id_muestreador: 'Responsable',
 };
 
 const CAMPOS_NUMERICOS = ['error0', 'error15', 'error30', 'id_muestreador'];
-const CAMPOS_FECHA = ['ultima_verificacion'];
+const CAMPOS_FECHA = ['ultima_verificacion', 'siguiente_verificacion'];
 const CAMPOS_SI_NO = ['tiene_fc'];
 
 const filaVacia = (valores) => Object.values(valores).every((v) => v === null || v === '' || v === undefined);
@@ -212,6 +213,25 @@ class EquipoTemperaturaImportService {
                     diffs: [],
                     warnings: [...warnings, 'No existe ningún equipo con este código en el sistema.'],
                 };
+            }
+
+            // La fecha del Excel es la de la verificación (cuándo se hizo). Según el control
+            // del equipo (reglasControlEquipo.js) se guarda como Última y la Siguiente se
+            // calcula con su frecuencia: 3 meses la verificación trimestral de T°, 12 meses la
+            // calibración anual de los termómetros patrón. Si el equipo lleva otro control
+            // (mantención anual, contrastación semestral) o no vence, esta fecha no le
+            // corresponde y no se toca: solo se avisa.
+            const modalidad = resolverModalidad(equipoDB.nombre, equipoDB.modalidad_control) || 'VERIFICACION_TRIMESTRAL';
+            if (excelData.ultima_verificacion) {
+                if (modalidad === 'VERIFICACION_TRIMESTRAL' || modalidad === 'CALIBRACION_ANUAL') {
+                    excelData.siguiente_verificacion = calcularSiguiente(excelData.ultima_verificacion, modalidad);
+                    if (excelData.siguiente_verificacion && excelData.siguiente_verificacion < new Date().toISOString().slice(0, 10)) {
+                        warnings.push(`Con la fecha del Excel (${excelData.ultima_verificacion}) la Siguiente revisión (${MODALIDADES[modalidad].corto}) quedaría el ${excelData.siguiente_verificacion}, que ya venció; el equipo seguirá vencido hasta registrar una verificación más reciente.`);
+                    }
+                } else {
+                    warnings.push(`La fecha de verificación del Excel (${excelData.ultima_verificacion}) no se aplica: este equipo lleva ${MODALIDADES[modalidad].nombre}, no verificación trimestral de T°.`);
+                    excelData.ultima_verificacion = null;
+                }
             }
 
             // El Excel tiene prioridad: aunque su verificación sea más antigua que

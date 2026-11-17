@@ -3,7 +3,8 @@ import sql from 'mssql';
 import logger from '../utils/logger.js';
 import { ordenarObservacion } from '../utils/observacionEquipo.js';
 import { normalizarEstadoEquipo, ESTADOS_EQUIPO } from '../utils/estadoEquipo.js';
-import { resolverModalidad, MODALIDADES, FAMILIAS } from '../utils/reglasControlEquipo.js';
+import { resolverModalidad, familiaDeEquipo, MODALIDADES, FAMILIAS } from '../utils/reglasControlEquipo.js';
+import { excluirSinVencimiento } from '../utils/sinVencimientoSql.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
@@ -231,6 +232,18 @@ const estadoVigenciaCase = (a) => `CASE
                         ELSE 'vigente'
                     END`;
 const VIGENCIAS_FILTRO = ['vencido', 'por_vencer', 'vigente', 'sin_fecha', 'sin_vencimiento'];
+
+// El código de un equipo no se repite (el correlativo es único por tipo y sede, ver hoja NMCL
+// del inventario). Se revisa al crear, dentro de la misma transacción, y vale aunque el otro
+// equipo esté dado de baja: un código dado de baja no se reutiliza.
+const asegurarCodigoUnico = async (transaction, codigo) => {
+    const c = String(codigo ?? '').trim();
+    if (!c) return;
+    const r = await new sql.Request(transaction)
+        .input('codigo', sql.VarChar(200), c)
+        .query('SELECT TOP 1 id_equipo FROM mae_equipo WHERE LTRIM(RTRIM(codigo)) = @codigo');
+    if (r.recordset.length) throw new Error(`El código ${c} ya existe en el inventario. Los códigos no se repiten, ni siquiera con equipos dados de baja.`);
+};
 
 export const equipoService = {
     /**
@@ -654,7 +667,7 @@ export const equipoService = {
             SELECT
                 e.id_equipo, e.codigo, e.nombre, e.tipoequipo AS tipo, e.sede AS ubicacion,
                 CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END AS estado,
-                e.Estado AS estado_equipo,
+                e.Estado AS estado_equipo,${modalidadColumnsExist ? ' e.modalidad_control,' : ''}
                 e.id_muestreador, m.nombre_muestreador AS nombre_asignado, m.habilitado AS habilitado_muestreador,
                 FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') AS vigencia,
                 CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) AS ultima_verificacion,
@@ -943,6 +956,7 @@ export const equipoService = {
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
+            await asegurarCodigoUnico(transaction, data.codigo);
             // 1. Generate new ID manually (Pattern from ficha.service.js)
             const idResult = await transaction.request()
                 .query('SELECT ISNULL(MAX(id_equipo), 0) + 1 as NewId FROM mae_equipo');
@@ -1059,9 +1073,14 @@ export const equipoService = {
 
             const results = [];
 
+            const codigosDelLote = new Set();
             for (const data of equiposData) {
                 currentId++;
                 aplicarModalidad(data);
+                const codigoLote = String(data.codigo ?? '').trim().toLowerCase();
+                if (codigoLote && codigosDelLote.has(codigoLote)) throw new Error(`El código ${data.codigo} está repetido dentro del lote.`);
+                codigosDelLote.add(codigoLote);
+                await asegurarCodigoUnico(transaction, data.codigo);
                 const request = new sql.Request(transaction);
 
                 // Bind all inputs
@@ -1720,11 +1739,13 @@ export const equipoService = {
             // Actually, usually expiry means "up to and including". So if vigencia is TODAY, it is still valid. 
             // It expires tomorrow. So find where vigencia < TODAY.
             const findReq = new sql.Request(transaction);
+            // Los complementos (modalidad SIN_VENCIMIENTO) nunca se inactivan por fecha.
+            const sinVencimientoCond = await excluirSinVencimiento(pool);
             const findQuery = `
                 SELECT id_equipo, nombre, codigo 
                 FROM mae_equipo 
                 WHERE habilitado = 'S' 
-                AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
+                AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)${sinVencimientoCond}
             `;
             const findRes = await findReq.query(findQuery);
             const expiredEquipos = findRes.recordset;
@@ -1971,6 +1992,8 @@ export const equipoService = {
                 { header: 'TIPO', key: 'tipo', width: 20 },
                 { header: 'UBICACIÓN', key: 'ubicacion', width: 25 },
                 { header: 'VIGENCIA', key: 'vigencia', width: 15 },
+                { header: 'CONTROL DE FECHAS', key: 'control_fechas', width: 30 },
+                { header: 'FAMILIA', key: 'familia', width: 26 },
                 { header: 'FECHA CREACIÓN', key: 'fecha_creacion', width: 15 },
                 { header: 'ASIGNADO A', key: 'nombre_asignado', width: 25 },
                 { header: 'SIGLA', key: 'sigla', width: 10 },
@@ -1994,6 +2017,8 @@ export const equipoService = {
             ];
             
             data.forEach((row, index) => {
+                row.control_fechas = MODALIDADES[row.modalidad_control]?.nombre || '';
+                row.familia = familiaDeEquipo(row.nombre);
                 const newRow = wsData.addRow(row);
                 // Alternating row colors (Light blue-ish / White)
                 if (index % 2 !== 0) {

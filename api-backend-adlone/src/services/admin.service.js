@@ -1,5 +1,6 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
+import { excluirSinVencimiento } from '../utils/sinVencimientoSql.js';
 import fichaService from './ficha.service.js';
 import PDFDocument from 'pdfkit-table';
 import fs from 'fs';
@@ -668,6 +669,7 @@ export const adminService = {
     getDashboardStats: async () => {
         try {
             const pool = await getConnection();
+            const sinVenc = await excluirSinVencimiento(pool);
 
             const settled = await Promise.allSettled([
                 pool.request().query(`
@@ -733,7 +735,7 @@ export const adminService = {
                     SELECT COUNT(*) as count
                     FROM mae_equipo
                     WHERE habilitado = 'S'
-                    AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() as DATE)
+                    AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() as DATE)${sinVenc}
                 `),
                 pool.request().query(`
                     SELECT COUNT(*) as count

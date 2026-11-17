@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    FAMILIAS, reglaDeEquipo, resolverModalidad, sumarMeses, calcularSiguiente, normalizarNombreEquipo, catalogoReglas, MODALIDADES,
+    FAMILIAS, familiaDeEquipo, reglaDeEquipo, resolverModalidad, sumarMeses, calcularSiguiente, normalizarNombreEquipo, catalogoReglas, MODALIDADES,
 } from './reglasControlEquipo.js';
 
 test('normaliza tildes, mayúsculas y espacios', () => {
@@ -71,4 +71,10 @@ test('las familias cubren cada nombre con regla, sin repetir', () => {
     const enFamilias = Object.values(FAMILIAS).flat();
     assert.equal(new Set(enFamilias).size, enFamilias.length);
     assert.deepEqual([...enFamilias].sort(), Object.keys(catalogoReglas().equipos).sort());
+});
+
+test('familiaDeEquipo ignora tildes y mayúsculas', () => {
+    assert.equal(familiaDeEquipo('Medidor pH Portátil'), 'pH / Temperatura');
+    assert.equal(familiaDeEquipo('BATERIA'), 'Energía y soporte');
+    assert.equal(familiaDeEquipo('algo raro'), '');
 });

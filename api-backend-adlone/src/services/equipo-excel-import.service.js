@@ -4,6 +4,7 @@ import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
 import { normalizarEstadoEquipo } from '../utils/estadoEquipo.js';
 import { reglaDeEquipo } from '../utils/reglasControlEquipo.js';
+import { advertenciaActivacion } from '../utils/activacionEquipo.js';
 
 // Quita tildes, pasa a mayúsculas y colapsa espacios — usado tanto para
 // encabezados de columna como para comparar valores de texto. Exportado
@@ -538,6 +539,11 @@ class EquipoExcelImportService {
             if (esVerificacionMasAntigua(excelData.ultima_verificacion, equipoDB.ultima_verificacion)) {
                 warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); al actualizar se usan las fechas del Excel.`);
             }
+
+            // Si el Excel lo trae Activo y el sistema lo tiene Inactivo pero las fechas no
+            // cambian (o siguen vencidas), actualizar el estado no basta: se avisa primero.
+            const avisoActivacion = advertenciaActivacion(excelData, equipoDB, new Date().toISOString().slice(0, 10));
+            if (avisoActivacion) warnings.unshift(avisoActivacion);
 
             const diffs = [];
             for (const campo of comparables) {

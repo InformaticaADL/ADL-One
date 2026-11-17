@@ -49,7 +49,7 @@ const LOTE_KEY = 'equipo_temperatura_lote_pendiente';
 // Campos leídos del Resumen de verificaciones T°, en el orden en que se muestran en "Datos del Excel".
 const ETIQUETAS_EXCEL: Record<string, string> = {
     codigo: 'Código', ubicacion: 'Sede', error0: 'Error 0', error15: 'Error 15', error30: 'Error 30',
-    tiene_fc: 'Factor de corrección', ultima_verificacion: 'Última verificación', estado_equipo: 'Estado operativo',
+    tiene_fc: 'Factor de corrección', ultima_verificacion: 'Última verificación', siguiente_verificacion: 'Siguiente revisión (calculada)', estado_equipo: 'Estado operativo',
     id_muestreador: 'Responsable (id)', equipo_asociado: 'Equipo asociado', observacion: 'Observación',
 };
 
@@ -72,6 +72,13 @@ const buildUpdatePayload = (item: AnalisisTemperaturaItem) => {
     if (d.error30 !== undefined && d.error30 !== null) payload.error30 = d.error30;
     if (d.tiene_fc) payload.tiene_fc = d.tiene_fc;
     if (d.ultima_verificacion) payload.ultima_verificacion = d.ultima_verificacion;
+    if (d.siguiente_verificacion) {
+        // La Siguiente se calcula en el análisis según el control del equipo (trimestral 3
+        // meses, patrón 12). vigencia la sigue, salvo que ya esté vencida: updateEquipo
+        // rechaza el update completo con una vigencia anterior a hoy.
+        payload.siguiente_verificacion = d.siguiente_verificacion;
+        if (d.siguiente_verificacion >= new Date().toISOString().slice(0, 10)) payload.vigencia = d.siguiente_verificacion;
+    }
     if (d.estado_equipo) payload.estado_equipo = d.estado_equipo;
     if (d.observacion) {
         // Si el equipo ya tenía una observación (ej. la cargada desde el inventario

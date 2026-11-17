@@ -111,6 +111,12 @@ export const resolverModalidad = (nombre, pedida) => {
     return regla.permitidas.includes(p) ? p : regla.defecto;
 };
 
+/** Familia a la que pertenece un nombre de equipo, o '' si no tiene. */
+export const familiaDeEquipo = (nombre) => {
+    const n = normalizarNombreEquipo(nombre);
+    return Object.entries(FAMILIAS).find(([, nombres]) => nombres.includes(n))?.[0] ?? '';
+};
+
 export const mesesDeModalidad = (modalidad) => MODALIDADES[modalidad]?.meses ?? null;
 
 const pad = (n) => String(n).padStart(2, '0');

@@ -15,6 +15,7 @@ import {
     IconX,
     IconEraser,
     IconLayoutDashboard,
+    IconChartHistogram,
     IconFilter,
     IconPaperclip,
     IconFileSpreadsheet,
@@ -54,6 +55,7 @@ import { FichasEquipoDialog, type TipoFichaEquipo } from '../components/FichasEq
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
 import type { ReglasControl } from '../utils/reglasControlEquipo';
+import { EquiposPlanificacion } from '../components/EquiposPlanificacion';
 import { GcCalendarioVencimientosPage } from './GcCalendarioVencimientosPage';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -205,7 +207,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resultadoAutoEquipos, setResultadoAutoEquipos] = useState<AnalisisExcelResponse | null>(null);
     const [resultadoAutoTemperatura, setResultadoAutoTemperatura] = useState<AnalisisTemperaturaResponse | null>(null);
     const fileInputAutoRef = useRef<HTMLInputElement>(null);
-    const [activeView, setActiveView] = useState<'general' | 'list' | 'dashboard' | 'calendario'>('general');
+    const [activeView, setActiveView] = useState<'general' | 'list' | 'dashboard' | 'calendario' | 'plan'>('general');
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
@@ -1470,6 +1472,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     <button type="button" aria-pressed={activeView === 'dashboard'} onClick={() => { setActiveView('dashboard'); handleClearFilters(); }} className={tab(activeView === 'dashboard')}>
                         <IconLayoutDashboard size={14} /> Dashboard
                     </button>
+                    <button type="button" aria-pressed={activeView === 'plan'} onClick={() => { setActiveView('plan'); handleClearFilters(); }} className={tab(activeView === 'plan')}>
+                        <IconChartHistogram size={14} /> Plan
+                    </button>
                     <button type="button" aria-pressed={activeView === 'calendario'} onClick={() => { setActiveView('calendario'); handleClearFilters(); }} className={tab(activeView === 'calendario')}>
                         <IconCalendarEvent size={14} /> Calendario
                     </button>
@@ -1481,7 +1486,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     {/* Búsqueda, orden y filtros solo valen para el listado: el Dashboard y el
                         Calendario van aparte y no los usan. */}
-                    <div className={cn('flex w-full flex-wrap items-center gap-2 md:w-auto', (activeView === 'dashboard' || activeView === 'calendario') && 'hidden')}>
+                    <div className={cn('flex w-full flex-wrap items-center gap-2 md:w-auto', (activeView === 'dashboard' || activeView === 'calendario' || activeView === 'plan') && 'hidden')}>
                     <div className="relative w-full sm:w-auto">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -1727,6 +1732,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 </div>
             )}
 
+            {/* Vista Plan: carga de revisiones por mes, sede y tipo de control */}
+            {activeView === 'plan' && (
+                <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
+                    <EquiposPlanificacion reglas={reglasControl} />
+                </div>
+            )}
+
             {/* Vista Calendario de Vencimientos */}
             {activeView === 'calendario' && (
                 <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
@@ -1740,7 +1752,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 página). Con `min-h-0` y shrink por defecto, la tarjeta mide su contenido
                 mientras entra y se encoge cuando no: ahí scrollea la tabla por dentro y
                 la paginación, que es shrink-0, queda fija abajo. */}
-            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1', (activeView === 'dashboard' || activeView === 'calendario') && 'hidden')}>
+            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1', (activeView === 'dashboard' || activeView === 'calendario' || activeView === 'plan') && 'hidden')}>
                 <div ref={listaRef} className="relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
@@ -1910,8 +1922,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 <TableCell><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge></TableCell>
                                                 <TableCell className="truncate">
                                                     <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
-                                                        {equipo.vigencia}
+                                                        {equipo.vigencia || (equipo.modalidad_control === 'SIN_VENCIMIENTO' ? '—' : '')}
                                                     </span>
+                                                    {equipo.modalidad_control && (
+                                                        <span className="block truncate text-xs text-muted-foreground" title={reglasControl?.modalidades?.[equipo.modalidad_control]?.nombre}>
+                                                            {reglasControl?.modalidades?.[equipo.modalidad_control]?.corto ?? ''}
+                                                        </span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     {equipo.nombre_asignado ? (

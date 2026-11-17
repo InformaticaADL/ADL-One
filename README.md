@@ -812,6 +812,10 @@ frontend-adlone/
   - Botonera de pestañas rediseñada con el mismo estilo segmentado de los demás listados; Dashboard y Calendario quedan aparte y no usan la búsqueda ni los filtros.
   - Título del panel y botón de limpiar alineados con el resto de las secciones.
   - El Calendario de Vencimientos y el Dashboard tratan a los complementos como "Sin vencimiento".
+  - Nueva pestaña **Plan** (`EquiposPlanificacion.tsx`): revisiones que vencen por mes y sede según el tipo de control, con las atrasadas aparte.
+  - La columna Vigencia muestra bajo la fecha el tipo de control de cada equipo.
+- **Tareas automáticas y consistencia**: la inactivación diaria, los avisos de vencimiento y el contador del panel excluyen a los complementos "sin vencimiento" (`sinVencimientoSql.js`). Al crear un equipo el código no puede repetirse (tampoco con equipos dados de baja ni dentro de un mismo lote). El Excel de exportación suma las columnas "Control de fechas" y "Familia".
+- **Importador de Excel**: si el Excel trae un equipo Activo y el sistema lo tiene Inactivo por vigencia vencida sin fechas nuevas, el análisis muestra una alerta explicando por qué no se mantendría activo (`activacionEquipo.js`).
 
 ---
 

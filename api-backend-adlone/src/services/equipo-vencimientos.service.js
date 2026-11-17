@@ -2,6 +2,7 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from './uns.service.js';
 import logger from '../utils/logger.js';
+import { excluirSinVencimiento } from '../utils/sinVencimientoSql.js';
 
 // Avisos de vencimiento de equipos para Gestión de Calidad, como notificaciones
 // recientes (campana). Dos tramos: 30 y 7 días antes de la Siguiente revisión.
@@ -45,6 +46,8 @@ export const equipoVencimientosService = {
         if (!usuarios.length) return { enviadas: 0 };
 
         // Solo equipos en uso: activos y operativos (no dados de baja ni fuera de servicio).
+        // Los complementos (baterías, botellas…) no vencen: no se avisa de ellos.
+        const sinVenc = await excluirSinVencimiento(pool, 'e');
         const equipos = (await pool.request().query(`
             SELECT e.id_equipo, LTRIM(RTRIM(e.codigo)) AS codigo, e.nombre, e.sede,
                    CAST(e.Siguiente_verificacion AS DATE) AS siguiente,
@@ -53,7 +56,7 @@ export const equipoVencimientosService = {
             WHERE e.habilitado = 'S'
               AND ISNULL(e.Estado, '') LIKE '%operativo%'
               AND e.Siguiente_verificacion IS NOT NULL
-              AND DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) BETWEEN 0 AND 30
+              AND DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) BETWEEN 0 AND 30${sinVenc}
             ORDER BY e.Siguiente_verificacion, e.codigo
         `)).recordset;
         if (!equipos.length) return { enviadas: 0 };
