@@ -6,7 +6,8 @@
  * El valor de un punto y el total de la visita SIEMPRE son la suma de lo que hay en los parámetros: el reparto rápido
  * solo sirve para partir de un valor, después todo se edita libremente.
  *
- * El costo operativo es uno por visita y se suma aparte; el backend lo reparte entre las fichas (createFichaGrupo).
+ * El costo operativo es uno por visita y se trata como un parámetro más: entra al reparto rápido junto con los demás y el
+ * backend lo reparte en partes iguales entre las fichas (createFichaGrupo).
  */
 
 /** Laboratorio 3 queda oculto hasta que exista la columna en la base (hoy solo hay id_laboratorioensayo e _2). */
@@ -96,13 +97,36 @@ export function repartirEnPunto(params: ParametroVisita[], punto: IdPunto, cente
     partir(Math.max(0, centesimas), aqui.length).forEach((c, i) => { aqui[i].u[punto] = c; });
 }
 
+/** Parte del costo operativo que lleva el punto en la posición `i`: el backend lo reparte en partes iguales entre las fichas. */
+export const parteDelCostoOperativo = (costoOperativo: number, cantidadDePuntos: number, i: number): number =>
+    partir(Math.max(0, costoOperativo), cantidadDePuntos)[i] ?? 0;
+
+/** Valor de la ficha de un punto = sus parámetros + su parte del costo operativo (lo que realmente se cobra por ese punto). */
+export const valorDelPuntoConCosto = (params: ParametroVisita[], puntos: IdPunto[], punto: IdPunto, costoOperativo: number): number =>
+    totalDelPunto(params, punto) + parteDelCostoOperativo(costoOperativo, puntos.length, Math.max(0, puntos.indexOf(punto)));
+
 /**
- * Reparto rápido de toda la visita. 'visita': el valor se divide entre los puntos y cada punto entre sus parámetros
- * (el costo operativo NO entra: se suma aparte). 'punto': cada punto recibe ese valor.
+ * Reparto rápido de toda la visita. El costo operativo se trata como un parámetro más: entra al reparto en partes iguales
+ * junto con los parámetros de cada punto. 'visita': el valor es el total de la visita (se divide entre todas las líneas:
+ * cada parámetro de cada punto y el costo operativo). 'punto': cada punto recibe ese valor, repartido entre sus parámetros
+ * y su parte del costo operativo. Modifica los precios de `params` y DEVUELVE el nuevo costo operativo (centésimas).
  */
-export function repartirVisita(params: ParametroVisita[], puntos: IdPunto[], modo: ModoReparto): void {
-    const porPunto = modo.tipo === 'visita' ? partir(Math.max(0, modo.valor), puntos.length) : puntos.map(() => Math.max(0, modo.valor));
-    puntos.forEach((id, i) => repartirEnPunto(params, id, porPunto[i]));
+export function repartirVisita(params: ParametroVisita[], puntos: IdPunto[], modo: ModoReparto): number {
+    const valor = Math.max(0, modo.valor);
+    if (modo.tipo === 'visita') {
+        const celdas = puntos.flatMap((id) => params.filter((p) => estaEn(p, id)).map((p) => ({ p, id })));
+        const partes = partir(valor, celdas.length + 1);
+        celdas.forEach(({ p, id }, i) => { p.u[id] = partes[i]; });
+        return partes[celdas.length];
+    }
+    let costo = 0;
+    for (const id of puntos) {
+        const aqui = params.filter((p) => estaEn(p, id));
+        const partes = partir(valor, aqui.length + 1);
+        aqui.forEach((p, i) => { p.u[id] = partes[i]; });
+        costo += partes[aqui.length];
+    }
+    return costo;
 }
 
 // ─── Cambios de puntos y parámetros ──────────────────────────────────────────────────────────────────
@@ -368,8 +392,9 @@ export function problemasDePuntos(puntos: PuntoFila[], zonaNoAplica: (zona: stri
         const k = nombre.toLowerCase();
         if (vistos.has(k)) r.push(`El punto «${nombre}» está repetido.`);
         vistos.set(k, i);
-        if (!p.zona) r.push(`«${nombre}»: falta la zona UTM.`);
-        else if (!zonaNoAplica(p.zona) && (!p.utmNorte.trim() || !p.utmEste.trim())) r.push(`«${nombre}»: faltan las coordenadas UTM.`);
+        // La zona UTM y las coordenadas son opcionales: zona vacía = «no tengo la información» (se completa después);
+        // «No aplica» = el punto no lleva zona. Si se escribe una coordenada debe venir la otra.
+        if (p.zona && !zonaNoAplica(p.zona) && !!p.utmNorte.trim() !== !!p.utmEste.trim()) r.push(`«${nombre}»: complete UTM Norte y UTM Este, o deje ambas vacías.`);
     });
     return r;
 }

@@ -9,6 +9,7 @@ import { getNotificationSocket } from '../../../store/notificationStore';
 import { useFichasFiltersStore } from '../store/fichasFiltersStore';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { FichaUniversalView } from '../components/FichaUniversalView';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,7 @@ import {
     IconChevronRight,
     IconFilter,
     IconSearch,
+    IconX,
     IconDeviceFloppy,
     IconAlertCircle
 } from '@tabler/icons-react';
@@ -70,6 +72,7 @@ interface FichaEvento {
     email_cliente?: string;
     base_operaciones?: string;
     id_grupo?: number | null;
+    punto_muestreo?: string;
 }
 
 interface CalendarEvent extends FichaEvento {
@@ -108,8 +111,37 @@ interface UpdateAgendaPayload {
     user: { id: number; usuario: string };
 }
 
-const STATUS_HEX: Record<string, string> = { orange: '#e8590c', green: '#2f9e44', red: '#e03131' };
-const STATUS_VARIANT: Record<string, 'warning' | 'success' | 'destructive'> = { orange: 'warning', green: 'success', red: 'destructive' };
+// Estados sobre los colores del tema: pendiente = warning, realizada = success, NO realizada = destructive, cancelada = gris (muted).
+// (Los nombres de las claves son históricos: 'red' es «cancelada» y 'violet' es «no realizada».)
+const STATUS_HEX: Record<string, string> = { orange: 'var(--sc-warning)', green: 'var(--sc-success)', red: 'var(--sc-muted-foreground)', violet: 'var(--sc-destructive)' };
+const STATUS_VARIANT: Record<string, 'warning' | 'success' | 'destructive' | 'secondary'> = { orange: 'warning', green: 'success', red: 'secondary', violet: 'destructive' };
+
+// Estado de un servicio (funciones puras: se usan también para filtrar).
+const evCancelado = (ev: { estado_caso?: string; motivo_cancelacion?: string }) => {
+    const x = (ev.estado_caso || ev.motivo_cancelacion || '').toUpperCase();
+    return x.includes('CANCELAD') || x.includes('ANULAD');
+};
+const evEjecutado = (ev: { id_estadomuestreo?: number | null; realizado_por_gem?: string | null; tipo_evento?: string; instalacion_completado?: string | null; retiro_completado?: string | null; estado_caso?: string }) => {
+    if (ev.id_estadomuestreo === 3) return true;
+    if (ev.realizado_por_gem) return true;
+    if (ev.tipo_evento === 'INICIO' && ev.instalacion_completado === 'S') return true;
+    if (ev.tipo_evento === 'RETIRO' && ev.retiro_completado === 'S') return true;
+    const x = (ev.estado_caso || '').toUpperCase();
+    return x.includes('EJECUTADO') || x.includes('REALIZADO') || x.includes('COMPLETADO');
+};
+// «No realizada»: la fecha ya pasó y no se ejecutó ni se canceló.
+const evNoRealizado = (ev: { event_dia: number; event_mes: number; event_ano: number } & Parameters<typeof evEjecutado>[0] & Parameters<typeof evCancelado>[0]) => {
+    if (evCancelado(ev) || evEjecutado(ev)) return false;
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+    return new Date(ev.event_ano, ev.event_mes - 1, ev.event_dia) < hoy;
+};
+const ESTADOS_FILTRO = [
+    { value: 'pendiente', label: 'Pendiente' },
+    { value: 'realizada', label: 'Realizada' },
+    { value: 'no_realizada', label: 'No realizada' },
+    { value: 'cancelada', label: 'Cancelada' },
+];
+const estadoClave = (ev: Parameters<typeof evNoRealizado>[0]) => (evCancelado(ev) ? 'cancelada' : evEjecutado(ev) ? 'realizada' : evNoRealizado(ev) ? 'no_realizada' : 'pendiente');
 
 const StaticField = ({ label, value }: { label: string; value: any }) => (
     <div>
@@ -141,17 +173,33 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     const [fichas, setFichas] = useState<FichaEvento[]>([]);
     // Filtros persistidos fuera del componente (ver fichasFiltersStore): esta vista
     // vuelve a montarse limpia al volver desde el menú, perdiendo un useState local.
-    const { selectedEmpresa, selectedMuestreador, selectedCentro, searchTerm } = useFichasFiltersStore((s) => s.calendario);
+    const { selectedEmpresa, selectedMuestreador, selectedCentro, selectedPrograma, selectedEstado, searchTerm } = useFichasFiltersStore((s) => s.calendario);
+    const resetCalendarioFiltros = useFichasFiltersStore((s) => s.resetCalendario);
     const setCalendarioFiltros = useFichasFiltersStore((s) => s.setCalendario);
     const setSelectedEmpresa = (v: string) => setCalendarioFiltros({ selectedEmpresa: v });
     const setSelectedMuestreador = (v: string) => setCalendarioFiltros({ selectedMuestreador: v });
     const setSelectedCentro = (v: string) => setCalendarioFiltros({ selectedCentro: v });
     const setSearchTerm = (v: string) => setCalendarioFiltros({ searchTerm: v });
+    const setSelectedPrograma = (v: string) => setCalendarioFiltros({ selectedPrograma: v });
+    const setSelectedEstado = (v: string) => setCalendarioFiltros({ selectedEstado: v });
     const [viewMode, setViewMode] = useState<'month' | 'day' | 'week' | 'year'>('month');
     const [showFilters, setShowFilters] = useState(false);
+    // Semana: por día (columnas de día con sus muestreadores) o por muestreador (una fila por muestreador).
+    const [semanaPor, setSemanaPor] = useState<'dias' | 'muestreadores'>('dias');
+    // Reprogramar una visita completa (nueva fecha y muestreador)
+    const [showReagendar, setShowReagendar] = useState(false);
+    const [reagFecha, setReagFecha] = useState('');
+    const [reagMuestreador, setReagMuestreador] = useState('');
     const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
     const [detailFichaId, setDetailFichaId] = useState<number | null>(null);
     const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+    const [showQuitarAsig, setShowQuitarAsig] = useState(false);
+    // Visita (varios puntos del mismo grupo, día y servicio) abierta como un todo, y sus acciones.
+    const [visita, setVisita] = useState<CalendarEvent[] | null>(null);
+    const [showQuitarVisita, setShowQuitarVisita] = useState(false);
+    const [showCancelVisita, setShowCancelVisita] = useState(false);
+    // Si no es null, el diálogo «cancelar» afecta solo a ese punto de la visita (no a toda).
+    const [soloPunto, setSoloPunto] = useState<CalendarEvent | null>(null);
     const [cancelReason, setCancelReason] = useState('');
 
     const [isEditingDate, setIsEditingDate] = useState(false);
@@ -195,6 +243,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
+            // Las listas de los selectores (Combobox) se dibujan en un portal FUERA del panel: elegir una opción no es un «clic afuera».
+            const alvo = event.target as HTMLElement | null;
+            if (alvo?.closest?.('[data-radix-popper-content-wrapper], [data-radix-portal], [role="listbox"], [role="dialog"]')) return;
             if (showFilters && filterPanelRef.current && !filterPanelRef.current.contains(event.target as Node)) {
                 setShowFilters(false);
             }
@@ -327,6 +378,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             if (selectedEmpresa && ev.empresa_servicio !== selectedEmpresa) return false;
             if (selectedMuestreador && ev.muestreador !== selectedMuestreador) return false;
             if (selectedCentro && ev.centro !== selectedCentro) return false;
+            if (selectedPrograma && (ev.objetivo || '') !== selectedPrograma) return false;
+            if (selectedEstado && estadoClave(ev) !== selectedEstado) return false;
             if (searchTerm) {
                 const search = searchTerm.toLowerCase();
                 return (ev.empresa_servicio || '').toLowerCase().includes(search) ||
@@ -337,7 +390,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
             }
             return true;
         });
-    }, [allEvents, selectedEmpresa, selectedMuestreador, selectedCentro, searchTerm]);
+    }, [allEvents, selectedEmpresa, selectedMuestreador, selectedCentro, selectedPrograma, selectedEstado, searchTerm]);
+    const programas = useMemo(() => Array.from(new Set(allEvents.map((e) => (e.objetivo || '').trim()))).filter(Boolean).sort(), [allEvents]);
+    const filtrosActivos = [searchTerm, selectedEmpresa, selectedMuestreador, selectedCentro, selectedPrograma, selectedEstado].filter(Boolean).length;
 
     const empresas = useMemo(() => Array.from(new Set(allEvents.map(e => (e.empresa_servicio || '').trim()))).filter(Boolean).sort(), [allEvents]);
     const muestreadores = useMemo(() => Array.from(new Set(allEvents.map(e => (e.muestreador || '').trim()))).filter(Boolean).sort(), [allEvents]);
@@ -350,13 +405,31 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     useEffect(() => {
         setPuntosVisita([]);
         setPuntosACancelar(new Set());
-        if (!showCancelConfirm || !selectedEvent?.id_agenda) return;
+        if (!(showCancelConfirm || showQuitarAsig) || !selectedEvent?.id_agenda) return;
         let cancelado = false;
         fichaService.getPuntosVisita(Number(selectedEvent.id_agenda))
             .then(lista => { if (!cancelado) setPuntosVisita(lista); })
             .catch(() => { /* sin la lista se cancela solo este punto, como siempre */ });
         return () => { cancelado = true; };
-    }, [showCancelConfirm, selectedEvent?.id_agenda]);
+    }, [showCancelConfirm, showQuitarAsig, selectedEvent?.id_agenda]);
+
+    // Visita abierta: se relee la agenda cada 30 s y el modal refleja lo que los muestreadores van ejecutando.
+    useEffect(() => {
+        if (!visita) return;
+        const t = setInterval(() => { loadData(true); }, 30000);
+        return () => clearInterval(t);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [!!visita, loadData]);
+    useEffect(() => {
+        if (!visita) return;
+        const ids = new Set(visita.map((v) => Number(v.id_agenda)));
+        const tipo = visita[0].tipo_evento;
+        const frescos = allEvents.filter((e) => ids.has(Number(e.id_agenda)) && e.tipo_evento === tipo);
+        const firma = (l: CalendarEvent[]) => JSON.stringify(l.map((e) => [e.id_agenda, e.estado_caso, e.motivo_cancelacion, e.instalacion_completado, e.retiro_completado, e.id_estadomuestreo, e.realizado_por_gem, e.muestreador, e.fecha]));
+        if (frescos.length === 0) { if (allEvents.length > 0) setVisita(null); return; }
+        if (firma(frescos) !== firma(visita)) setVisita(frescos);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [allEvents]);
 
     const cancellationOptions = useMemo(() =>
         cancellationReasons.map(r => ({ value: String(r.id_motivocancelacion), label: r.nombre_motivo })),
@@ -399,9 +472,10 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         return s.includes('EJECUTADO') || s.includes('REALIZADO') || s.includes('COMPLETADO');
     }, []);
 
-    const getStatusColor = useCallback((ev: CalendarEvent): 'orange' | 'green' | 'red' => {
+    const getStatusColor = useCallback((ev: CalendarEvent): 'orange' | 'green' | 'red' | 'violet' => {
         if (isCancelledEvent(ev)) return 'red';
         if (isExecutedEvent(ev)) return 'green';
+        if (evNoRealizado(ev)) return 'violet';
         return 'orange';
     }, [isCancelledEvent, isExecutedEvent]);
 
@@ -548,6 +622,123 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
         return <FichaUniversalView fichaId={detailFichaId} onBack={() => setDetailFichaId(null)} onCambiarFicha={(id) => setDetailFichaId(id)} />;
     }
 
+    // Fichas sueltas (sin visita) del mismo centro, mismo día y mismo muestreador que se pueden unir en una sola visita.
+    const [agrupando, setAgrupando] = useState(false);
+    const sueltasParaAgrupar = (evs: CalendarEvent[]): CalendarEvent[][] => {
+        const mapa = new Map<string, CalendarEvent[]>();
+        evs.forEach((ev) => {
+            if (ev.id_grupo != null || isCancelledEvent(ev) || isExecutedEvent(ev)) return;
+            const k = `${(ev.centro || '').trim()}|${(ev.empresa_servicio || '').trim()}|${ev.tipo_evento}`;
+            mapa.set(k, [...(mapa.get(k) || []), ev]);
+        });
+        return [...mapa.values()].filter((g) => new Set(g.map((x) => Number(x.id))).size >= 2);
+    };
+    const agruparSueltas = async (grupo: CalendarEvent[]) => {
+        setAgrupando(true);
+        try {
+            const ids = [...new Set(grupo.map((x) => Number(x.id)))].sort((a, b) => a - b);
+            await fichaService.agrupar(ids, undefined, true);
+            showToast({ type: 'success', message: `${ids.length} puntos agrupados como una sola visita` });
+            lastFetchRef.current = '';
+            loadData();
+        } catch (err: any) {
+            showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudieron agrupar las fichas.' });
+        } finally {
+            setAgrupando(false);
+        }
+    };
+
+    // Resumen de un conjunto de eventos en VISITAS (una visita = un servicio: varios puntos juntos o una ficha suelta).
+    // Una visita está realizada cuando todos sus puntos vigentes se ejecutaron.
+    const resumenDeEventos = (evs: CalendarEvent[]) => {
+        const unicos = (f: (e: CalendarEvent) => string | undefined) => new Set(evs.map((e) => (f(e) || '').trim()).filter(Boolean)).size;
+        const bloques = agruparPorVisita(evs);
+        const vigentes = bloques.filter((b) => b.some((e) => !isCancelledEvent(e)));
+        const realizadas = vigentes.filter((b) => b.filter((e) => !isCancelledEvent(e)).every((e) => isExecutedEvent(e))).length;
+        const noRealizadas = vigentes.filter((b) => b.filter((e) => !isCancelledEvent(e)).some((e) => !isExecutedEvent(e)) && b.some((e) => evNoRealizado(e))).length;
+        const r = { muestreadores: unicos((e) => e.muestreador), empresas: unicos((e) => e.empresa_servicio), centros: unicos((e) => e.centro), visitas: bloques.length, hechos: realizadas, vigentes: vigentes.length, noRealizadas, detalle: '' };
+        r.detalle = `${r.visitas} ${r.visitas === 1 ? 'visita' : 'visitas'}\n${r.muestreadores} muestreadores · ${r.empresas} empresas · ${r.centros} centros\n${r.hechos} de ${r.vigentes} visitas realizadas${r.noRealizadas ? ` · ${r.noRealizadas} no realizadas` : ''}`;
+        return r;
+    };
+
+    // Una visita con varios puntos se ve como UNA tarjeta: lo común una vez y los puntos como etiquetas. Al hacer clic se abre la visita completa.
+    const TarjetaVisita = ({ bloque }: { bloque: CalendarEvent[] }) => {
+        const base = bloque[0];
+        const cancelados = bloque.filter((x) => isCancelledEvent(x)).length;
+        const ejecutados = bloque.filter((x) => !isCancelledEvent(x) && isExecutedEvent(x)).length;
+        const pendientes = bloque.length - cancelados - ejecutados;
+        const noReal = pendientes > 0 && bloque.some((e) => evNoRealizado(e));
+        const color = cancelados === bloque.length ? 'red' : (pendientes === 0 ? 'green' : noReal ? 'violet' : 'orange');
+        const MAX = 6;
+        const hechos = ejecutados;
+        const total = bloque.length - cancelados;
+        return (
+            <button
+                type="button"
+                title="Abrir la visita completa"
+                onClick={() => {
+                    if (!hasPermission('FI_CAL_DETALLE')) { showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' }); return; }
+                    setVisita(bloque);
+                }}
+                className="flex w-full flex-col gap-1 rounded-md border border-border bg-card p-2 text-left transition-colors hover:border-primary hover:bg-primary/5"
+                style={{ borderLeft: `4px solid ${STATUS_HEX[color]}` }}
+            >
+                <div className="flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-black uppercase tracking-wide text-primary">Visita · {bloque.length} puntos{base.tipo_evento === 'RETIRO' ? ' · retiro' : ''}</span>
+                    <Badge variant={STATUS_VARIANT[color]} className="shrink-0 px-1 py-0 text-[10px] leading-[14px]">
+                        {cancelados === bloque.length ? 'CANCEL.' : pendientes === 0 ? 'REALIZADA' : noReal ? 'NO REALIZADA' : ejecutados > 0 ? `${ejecutados} de ${total} REALIZ.` : 'AGENDADA'}
+                    </Badge>
+                </div>
+                <span className="block truncate text-[15px] font-extrabold leading-tight" title={base.centro}>{base.centro}</span>
+                <span className="block truncate text-xs font-medium text-muted-foreground" title={base.empresa_servicio}>{base.empresa_servicio}</span>
+                {base.objetivo && <span className="w-fit max-w-full truncate rounded bg-primary/10 px-1.5 py-0 text-[10px] font-semibold text-primary" title="Programa (objetivo del muestreo)">{base.objetivo}</span>}
+                {total > 0 && (
+                    <div className="h-1 w-full overflow-hidden rounded bg-muted" title={`${hechos} de ${total} puntos ejecutados`}>
+                        <div className="h-full bg-success" style={{ width: `${Math.round((hechos / total) * 100)}%` }} />
+                    </div>
+                )}
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                    {bloque.slice(0, MAX).map((ev) => (
+                        <span key={`${ev.id}-${ev.tipo_evento}`} className={cn('max-w-[120px] truncate rounded border border-border bg-muted/60 px-1.5 py-0 text-[10px]', isCancelledEvent(ev) && 'line-through opacity-60')} title={ev.punto_muestreo || ev.correlativo}>
+                            {ev.punto_muestreo || ev.correlativo}
+                        </span>
+                    ))}
+                    {bloque.length > MAX && <span className="rounded px-1 text-[10px] text-muted-foreground">+{bloque.length - MAX} más</span>}
+                </div>
+            </button>
+        );
+    };
+
+    // Línea delgada para la vista semanal: centro, programa y estado (pendiente / realizada). El detalle está al hacer clic.
+    const FilaDelgada = ({ bloque }: { bloque: CalendarEvent[] }) => {
+        const base = bloque[0];
+        const cancelados = bloque.filter((x) => isCancelledEvent(x)).length;
+        const ejecutados = bloque.filter((x) => !isCancelledEvent(x) && isExecutedEvent(x)).length;
+        const total = bloque.length - cancelados;
+        const noReal = bloque.some((e) => evNoRealizado(e));
+        const color = cancelados === bloque.length ? 'red' : (ejecutados === total ? 'green' : noReal ? 'violet' : 'orange');
+        const estado = cancelados === bloque.length ? 'Cancelada' : ejecutados === total ? 'Realizada' : noReal ? 'No realizada' : ejecutados > 0 ? `${ejecutados}/${total} realizadas` : 'Pendiente';
+        const abrir = () => {
+            if (!hasPermission('FI_CAL_DETALLE')) { showToast({ type: 'warning', message: 'No tiene permisos para ver el detalle de este muestreo.' }); return; }
+            if (bloque.length > 1) setVisita(bloque); else setSelectedEvent(base);
+        };
+        return (
+            <button
+                type="button"
+                onClick={abrir}
+                title={`${base.centro} · ${base.empresa_servicio}${bloque.length > 1 ? ` · visita de ${bloque.length} puntos` : ''}`}
+                className="flex w-full flex-col gap-0.5 rounded border border-border bg-background px-1.5 py-1 text-left hover:border-primary hover:bg-primary/5"
+                style={{ borderLeft: `3px solid ${STATUS_HEX[color]}` }}
+            >
+                <span className="block break-words text-[11px] font-bold leading-tight">{base.centro}{bloque.length > 1 ? ` · ${bloque.length} pts` : ''}</span>
+                <span className="flex items-center justify-between gap-1 leading-tight">
+                    <span className="min-w-0 truncate text-[10px] text-muted-foreground" title={base.objetivo || ''}>{base.objetivo || '—'}</span>
+                    <span className="shrink-0 text-[10px] font-semibold" style={{ color: STATUS_HEX[color] }}>{estado}</span>
+                </span>
+            </button>
+        );
+    };
+
     const EventCard = ({ ev, compact }: { ev: CalendarEvent; compact?: boolean }) => {
         const statusColor = getStatusColor(ev);
         const cancelled = isCancelledEvent(ev);
@@ -565,7 +756,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 className={cn('cursor-pointer rounded-md border border-border bg-card', compact ? 'p-1.5' : 'p-2', cancelled && 'opacity-65')}
                 style={{
                     borderLeft: `4px solid ${STATUS_HEX[statusColor]}`,
-                    backgroundColor: cancelled ? 'rgba(224,49,49,0.06)' : undefined
+                    backgroundColor: cancelled ? 'color-mix(in srgb, var(--sc-muted-foreground) 10%, transparent)' : undefined
                 }}
             >
                 <div className="mb-0.5 flex items-center justify-between gap-2">
@@ -579,7 +770,12 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         {cancelled ? (compact ? 'C' : 'CANCEL.') : (isPuntualEvent(ev) ? (compact ? 'P' : 'PUNT.') : (compact ? ev.tipo_evento.charAt(0) : ev.tipo_evento))}
                     </Badge>
                 </div>
-                <span className="block truncate text-xs font-bold" title={ev.empresa_servicio}>
+                {ev.punto_muestreo ? (
+                    <span className="block truncate text-xs font-bold" title={`Punto de muestreo: ${ev.punto_muestreo}`}>
+                        Punto: {ev.punto_muestreo}
+                    </span>
+                ) : null}
+                <span className={cn('block truncate', ev.punto_muestreo ? 'text-[11px] font-medium' : 'text-xs font-bold')} title={ev.empresa_servicio}>
                     {ev.empresa_servicio}
                 </span>
                 <span className="block truncate text-muted-foreground" style={{ fontSize: compact ? 9 : 10 }}>
@@ -642,15 +838,39 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         <Button
                             variant={showFilters ? 'default' : 'outline'}
                             size="icon"
-                            className="h-11 w-11 rounded-full"
+                            className="relative h-11 w-11 rounded-full"
                             title="Filtros Avanzados"
                             onClick={() => setShowFilters(!showFilters)}
                         >
                             <IconFilter size={20} />
+                            {filtrosActivos > 0 && <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">{filtrosActivos}</span>}
                         </Button>
                     </div>
                 }
             />
+
+            {filtrosActivos > 0 && (
+                <div className="mb-3 flex flex-wrap items-center gap-1.5" aria-label="Filtros aplicados">
+                    <span className="text-xs font-semibold text-muted-foreground">Filtrando por:</span>
+                    {([
+                        searchTerm && ['Búsqueda', searchTerm, () => setSearchTerm('')],
+                        selectedEmpresa && ['Empresa', selectedEmpresa, () => setSelectedEmpresa('')],
+                        selectedMuestreador && ['Muestreador', selectedMuestreador, () => setSelectedMuestreador('')],
+                        selectedCentro && ['Centro', selectedCentro, () => setSelectedCentro('')],
+                        selectedPrograma && ['Programa', selectedPrograma, () => setSelectedPrograma('')],
+                        selectedEstado && ['Estado', ESTADOS_FILTRO.find((e) => e.value === selectedEstado)?.label || selectedEstado, () => setSelectedEstado('')],
+                    ].filter(Boolean) as [string, string, () => void][]).map(([etiqueta, valor, quitar]) => (
+                        <span key={etiqueta} className="inline-flex max-w-[260px] items-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-0.5 pl-2.5 pr-1 text-xs">
+                            <span className="text-muted-foreground">{etiqueta}:</span>
+                            <strong className="truncate" title={valor}>{valor}</strong>
+                            <button type="button" aria-label={`Quitar el filtro ${etiqueta}`} title="Quitar este filtro" onClick={quitar} className="rounded-full p-0.5 hover:bg-primary/20">
+                                <IconX size={12} />
+                            </button>
+                        </span>
+                    ))}
+                    {filtrosActivos > 1 && <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={resetCalendarioFiltros}>Limpiar todos</Button>}
+                </div>
+            )}
 
             {showFilters && (
                 <div ref={filterPanelRef} className="mb-4 rounded-[10px] border border-border p-4">
@@ -674,6 +894,12 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                         </Field>
                         <Field label="Centro / Fuente">
                             <Combobox placeholder="Todos" options={centros.map(c => ({ value: c, label: c }))} value={selectedCentro} onValueChange={(v) => setSelectedCentro(v || '')} />
+                        </Field>
+                        <Field label="Programa">
+                            <Combobox placeholder="Todos" options={programas.map(pr => ({ value: pr, label: pr }))} value={selectedPrograma} onValueChange={(v) => setSelectedPrograma(v || '')} />
+                        </Field>
+                        <Field label="Estado">
+                            <Combobox placeholder="Todos" options={ESTADOS_FILTRO} value={selectedEstado} onValueChange={(v) => setSelectedEstado(v || '')} />
                         </Field>
                     </div>
                 </div>
@@ -726,14 +952,17 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                 <Badge variant="secondary">{events.length}</Badge>
                                             </div>
                                             <div className="flex flex-col gap-1.5">
+                                                {sueltasParaAgrupar(events).map((grupo) => (
+                                                    <div key={`sueltas-${grupo[0].id}`} className="flex flex-col gap-1.5 rounded-md border border-primary/40 bg-primary/5 p-2 text-[11.5px]">
+                                                        <span><strong>{grupo.length} fichas sueltas</strong> de {grupo[0].centro} el mismo día con el mismo muestreador. Pueden ser <strong>una sola visita</strong>.</span>
+                                                        <ProtectedContent permission={['FI_CREAR', 'FI_GEST_ASIG']}>
+                                                            <Button size="sm" variant="secondary" disabled={agrupando} onClick={() => agruparSueltas(grupo)}>Agrupar como visita de {grupo.length} puntos</Button>
+                                                        </ProtectedContent>
+                                                    </div>
+                                                ))}
                                                 {agruparPorVisita(events.sort((a, b) => a.correlativo.localeCompare(b.correlativo))).map((bloque) => (
                                                     bloque.length > 1 ? (
-                                                        <div key={`visita-${bloque[0].id_grupo}-${bloque[0].tipo_evento}-${bloque[0].id}`} className="flex flex-col gap-1.5 rounded-md border border-dashed border-primary/50 p-1.5">
-                                                            <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                                                                Visita de {bloque.length} puntos · {bloque[0].tipo_evento === 'RETIRO' ? 'retiro' : 'muestreo'}
-                                                            </span>
-                                                            {bloque.map((ev) => <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} />)}
-                                                        </div>
+                                                        <TarjetaVisita key={`visita-${bloque[0].id_grupo}-${bloque[0].tipo_evento}-${bloque[0].id}`} bloque={bloque} />
                                                     ) : (
                                                         <EventCard key={`${bloque[0].id}-${bloque[0].tipo_evento}`} ev={bloque[0]} />
                                                     )
@@ -763,6 +992,16 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                             </div>
                         )}
 
+                        {(() => {
+                            const delMes = filteredEvents.filter((ev) => ev.event_mes === currentMonth.getMonth() + 1 && ev.event_ano === currentMonth.getFullYear());
+                            if (delMes.length === 0) return null;
+                            const r = resumenDeEventos(delMes);
+                            return (
+                                <p className="mb-2 mt-0 text-xs text-muted-foreground">
+                                    <strong className="text-foreground">{capitalizedMonth}:</strong> {r.visitas} {r.visitas === 1 ? 'visita' : 'visitas'} · {r.muestreadores} muestreadores con trabajo · {r.empresas} empresas · {r.centros} centros · {r.hechos} de {r.vigentes} visitas realizadas{r.noRealizadas > 0 && <strong style={{ color: STATUS_HEX.violet }}> · {r.noRealizadas} no realizadas</strong>}
+                                </p>
+                            );
+                        })()}
                         <div className="mb-2 grid grid-cols-7" style={{ gap: isCompact ? 4 : 5 }}>
                             {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map(d => (
                                 <span key={d} className="text-center font-extrabold uppercase text-muted-foreground" style={{ fontSize: isCompact ? 10 : 12 }}>{d}</span>
@@ -791,7 +1030,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                             padding: isCompact ? 2 : 4,
                                             // 6 filas de celdas: cada píxel de alto se multiplica por 6.
                                             // A 120px la vista de mes no entraba en pantalla.
-                                            height: isMobile ? 56 : (isCompact ? 76 : 88),
+                                            height: isMobile ? 56 : (isCompact ? 96 : 104),
                                         }}
                                     >
                                         {day && (
@@ -811,24 +1050,26 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                         </div>
                                                     )}
                                                 </div>
-                                                {!isMobile && (
-                                                    <div className="mt-1 flex flex-col gap-0.5">
-                                                        {bloques.slice(0, maxBadges).map((bloque, eidx) => (
-                                                            <Badge
-                                                                key={eidx}
-                                                                variant={STATUS_VARIANT[getStatusColor(bloque[0])]}
-                                                                className="w-full justify-center truncate px-0.5 py-0 text-center leading-[1.4]"
-                                                                style={{ fontSize: isCompact ? 10 : 8 }}
-                                                                title={bloque.length > 1 ? bloque.map((b) => b.correlativo).join(' · ') : undefined}
-                                                            >
-                                                                {bloque.length > 1 ? `Visita · ${bloque.length}` : bloque[0].correlativo}
-                                                            </Badge>
-                                                        ))}
-                                                        {bloques.length > maxBadges && (
-                                                            <span className="text-center text-[10px] text-muted-foreground">+{bloques.length - maxBadges}</span>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                {!isMobile && events.length > 0 && (() => {
+                                                    const resumen = resumenDeEventos(events);
+                                                    return (
+                                                        <div className="mt-0.5 flex flex-col gap-px leading-tight" title={resumen.detalle}>
+                                                            <span className="font-bold text-primary" style={{ fontSize: isCompact ? 10 : 11 }}>
+                                                                {resumen.visitas} {resumen.visitas === 1 ? 'visita' : 'visitas'}
+                                                                {resumen.noRealizadas > 0 && <span style={{ color: STATUS_HEX.violet }}> · {resumen.noRealizadas} sin realizar</span>}
+                                                            </span>
+                                                            <span className="text-muted-foreground" style={{ fontSize: isCompact ? 9.5 : 10.5 }}>
+                                                                {resumen.muestreadores} {resumen.muestreadores === 1 ? 'muestreador' : 'muestreadores'}
+                                                            </span>
+                                                            <span className="text-muted-foreground" style={{ fontSize: isCompact ? 9.5 : 10.5 }}>
+                                                                {resumen.centros} {resumen.centros === 1 ? 'centro' : 'centros'}
+                                                            </span>
+                                                            <div className="mt-0.5 h-1 w-full overflow-hidden rounded bg-muted" title={`${resumen.hechos} de ${resumen.vigentes} visitas realizadas`}>
+                                                                <div className="h-full bg-success" style={{ width: `${resumen.vigentes ? Math.round((resumen.hechos / resumen.vigentes) * 100) : 0}%` }} />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </>
                                         )}
                                     </div>
@@ -839,8 +1080,78 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 )}
 
                 {viewMode === 'week' && (
+                    <div className="flex justify-end pb-1">
+                        <Tabs value={semanaPor} onValueChange={(v) => setSemanaPor(v as 'dias' | 'muestreadores')}>
+                            <TabsList>
+                                <TabsTrigger value="dias">Por día</TabsTrigger>
+                                <TabsTrigger value="muestreadores">Por muestreador</TabsTrigger>
+                            </TabsList>
+                        </Tabs>
+                    </div>
+                )}
+
+                {viewMode === 'week' && semanaPor === 'muestreadores' && (() => {
+                    const enSemana = weekDays.map((d) => filteredEvents.filter((ev) => ev.event_dia === d.getDate() && ev.event_mes === d.getMonth() + 1 && ev.event_ano === d.getFullYear()));
+                    const nombres = Array.from(new Set(enSemana.flat().map((e) => e.muestreador || 'Sin asignar'))).sort((a, b) => a.localeCompare(b));
+                    if (nombres.length === 0) {
+                        return (
+                            <div className="flex flex-col items-center gap-2 py-16">
+                                <IconCalendar size={44} className="text-muted-foreground" />
+                                <span className="text-sm font-medium text-muted-foreground">No hay visitas esta semana</span>
+                            </div>
+                        );
+                    }
+                    return (
+                        <div className="overflow-x-auto py-2">
+                            <table className="w-full min-w-[980px] border-collapse text-xs">
+                                <thead>
+                                    <tr>
+                                        <th className="sticky left-0 z-10 w-44 border-b border-border bg-background px-2 py-1.5 text-left font-semibold text-muted-foreground">Muestreador</th>
+                                        {weekDays.map((d, i) => {
+                                            const esHoy = d.toDateString() === new Date().toDateString();
+                                            return (
+                                                <th key={i} className={cn('border-b border-border px-2 py-1.5 text-center font-semibold', esHoy ? 'bg-accent text-primary' : 'text-muted-foreground')}>
+                                                    {d.toLocaleString('es-ES', { weekday: 'short' }).toUpperCase()} {d.getDate()}
+                                                </th>
+                                            );
+                                        })}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {nombres.map((nombre) => {
+                                        const propios = enSemana.flat().filter((e) => (e.muestreador || 'Sin asignar') === nombre);
+                                        const rs = resumenDeEventos(propios);
+                                        return (
+                                            <tr key={nombre} className="align-top">
+                                                <td className="sticky left-0 z-10 border-b border-border bg-background px-2 py-1.5">
+                                                    <div className="text-[13px] font-semibold leading-tight">{nombre}</div>
+                                                    <div className="text-[10px] text-muted-foreground">{rs.visitas} {rs.visitas === 1 ? 'visita' : 'visitas'} · {rs.centros} {rs.centros === 1 ? 'centro' : 'centros'}</div>
+                                                    {rs.noRealizadas > 0 && <div className="text-[10px] font-semibold" style={{ color: STATUS_HEX.violet }}>{rs.noRealizadas} sin realizar</div>}
+                                                </td>
+                                                {enSemana.map((evsDia, i) => {
+                                                    const delMu = evsDia.filter((e) => (e.muestreador || 'Sin asignar') === nombre);
+                                                    return (
+                                                        <td key={i} className="border-b border-l border-border p-1">
+                                                            <div className="flex flex-col gap-1">
+                                                                {agruparPorVisita(delMu.sort((a, b) => a.correlativo.localeCompare(b.correlativo))).map((bloque) => (
+                                                                    <FilaDelgada key={`m-${bloque[0].id_grupo ?? bloque[0].id}-${bloque[0].tipo_evento}-${bloque[0].id}`} bloque={bloque} />
+                                                                ))}
+                                                            </div>
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    );
+                })()}
+
+                {viewMode === 'week' && semanaPor === 'dias' && (
                     <div className="py-2">
-                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))' }}>
+                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
                             {weekDays.map((date, idx) => {
                                 const d = date.getDate();
                                 const m = date.getMonth() + 1;
@@ -857,9 +1168,28 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                             <span className={cn('block text-lg font-black', isToday ? 'text-primary' : 'text-foreground')}>{d}</span>
                                         </div>
                                         <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
-                                            {dayEvents.sort((a, b) => a.correlativo.localeCompare(b.correlativo)).map((ev) => (
-                                                <EventCard key={`${ev.id}-${ev.tipo_evento}`} ev={ev} compact />
-                                            ))}
+                                            {Object.entries(dayEvents.reduce<Record<string, CalendarEvent[]>>((acc, ev) => { const k = ev.muestreador || 'Sin asignar'; (acc[k] = acc[k] || []).push(ev); return acc; }, {}))
+                                                .sort(([a], [b]) => a.localeCompare(b))
+                                                .map(([nombre, evs]) => {
+                                                    const bloquesM = agruparPorVisita(evs.sort((a, b) => a.correlativo.localeCompare(b.correlativo)));
+                                                    const centrosM = Array.from(new Set(evs.map((e) => (e.centro || '').trim()).filter(Boolean)));
+                                                    return (
+                                                        <details key={nombre} className="group rounded-md border border-border bg-card">
+                                                            <summary className="flex cursor-pointer list-none flex-col gap-0.5 p-1.5 hover:bg-primary/5">
+                                                                <span className="flex items-center justify-between gap-1 text-xs font-bold">
+                                                                    <span className="truncate" title={nombre}>{nombre}</span>
+                                                                    <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px]">{bloquesM.length} {bloquesM.length === 1 ? 'visita' : 'visitas'} · {evs.length} pts</Badge>
+                                                                </span>
+                                                                <span className="truncate text-[10px] text-muted-foreground" title={centrosM.join(' · ')}>{centrosM.join(' · ') || 'Sin centro'}</span>
+                                                            </summary>
+                                                            <div className="flex flex-col gap-1.5 border-t border-border p-1.5">
+                                                                {bloquesM.map((bloque) => (
+                                                                    <FilaDelgada key={`v-${bloque[0].id_grupo ?? bloque[0].id}-${bloque[0].tipo_evento}-${bloque[0].id}`} bloque={bloque} />
+                                                                ))}
+                                                            </div>
+                                                        </details>
+                                                    );
+                                                })}
                                         </div>
                                     </div>
                                 );
@@ -868,54 +1198,99 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                     </div>
                 )}
 
-                {viewMode === 'year' && (
-                    <div className="py-2">
-                        <div className="grid gap-5" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
-                            {Array.from({ length: 12 }).map((_, mIdx) => {
-                                const mDate = new Date(currentMonth.getFullYear(), mIdx, 1);
-                                const mName = mDate.toLocaleString('es-ES', { month: 'long' });
-                                const mCaps = mName.charAt(0).toUpperCase() + mName.slice(1);
-                                const mEvents = filteredEvents.filter(ev => ev.event_mes === mIdx + 1 && ev.event_ano === currentMonth.getFullYear());
-
-                                return (
-                                    <div
-                                        key={mIdx}
-                                        onClick={() => { setCurrentMonth(mDate); setViewMode('month'); }}
-                                        className="h-[200px] cursor-pointer rounded-lg border border-border p-4"
-                                    >
-                                        <div className="mb-4 flex items-center justify-between">
-                                            <span className="text-[15px] font-semibold">{mCaps}</span>
-                                            <Badge variant="secondary">{mEvents.length}</Badge>
+                {viewMode === 'year' && (() => {
+                    const anio = currentMonth.getFullYear();
+                    const delAnio = filteredEvents.filter((ev) => ev.event_ano === anio);
+                    const tot = resumenDeEventos(delAnio);
+                    const hoy = new Date();
+                    // Intensidad según los servicios del día (visitas y fichas sueltas cuentan una vez).
+                    const nivel = (n: number) => (n === 0 ? 'bg-muted/40' : n === 1 ? 'bg-primary/25' : n <= 3 ? 'bg-primary/55' : 'bg-primary');
+                    return (
+                        <div className="py-2">
+                            {delAnio.length > 0 && (
+                                <p className="mb-3 mt-0 text-xs text-muted-foreground">
+                                    <strong className="text-foreground">{anio}:</strong> {tot.visitas} visitas · {tot.muestreadores} muestreadores · {tot.empresas} empresas · {tot.centros} centros · {tot.hechos} de {tot.vigentes} visitas realizadas{tot.noRealizadas > 0 && <strong style={{ color: STATUS_HEX.violet }}> · {tot.noRealizadas} no realizadas</strong>}
+                                </p>
+                            )}
+                            <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))' }}>
+                                {Array.from({ length: 12 }).map((_, mIdx) => {
+                                    const mDate = new Date(anio, mIdx, 1);
+                                    const mName = mDate.toLocaleString('es-ES', { month: 'long' });
+                                    const mCaps = mName.charAt(0).toUpperCase() + mName.slice(1);
+                                    const mEvents = delAnio.filter((ev) => ev.event_mes === mIdx + 1);
+                                    const r = resumenDeEventos(mEvents);
+                                    const diasMes = new Date(anio, mIdx + 1, 0).getDate();
+                                    const offset = (mDate.getDay() + 6) % 7; // lunes = 0
+                                    const esMesActual = hoy.getFullYear() === anio && hoy.getMonth() === mIdx;
+                                    const serviciosDelDia = (d: number) => agruparPorVisita(mEvents.filter((e) => e.event_dia === d));
+                                    return (
+                                        <div
+                                            key={mIdx}
+                                            onClick={() => { setCurrentMonth(mDate); setViewMode('month'); }}
+                                            className={cn('cursor-pointer rounded-lg border bg-card p-3 transition-colors hover:border-primary hover:bg-primary/5', esMesActual ? 'border-primary' : 'border-border')}
+                                            title={r.visitas ? r.detalle : 'Sin visitas este mes'}
+                                        >
+                                            <div className="mb-1.5 flex items-center justify-between">
+                                                <span className="text-sm font-bold">{mCaps}</span>
+                                                {r.visitas > 0
+                                                    ? <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">{r.visitas} {r.visitas === 1 ? 'visita' : 'visitas'}</Badge>
+                                                    : <span className="text-[10px] text-muted-foreground">sin visitas</span>}
+                                            </div>
+                                            <div className="mb-0.5 grid grid-cols-7 gap-[2px] text-center text-[8px] font-semibold text-muted-foreground">
+                                                {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((l, i) => <span key={i}>{l}</span>)}
+                                            </div>
+                                            <div className="grid grid-cols-7 gap-[2px]">
+                                                {Array.from({ length: offset }).map((__, i) => <div key={`o${i}`} className="h-3" />)}
+                                                {Array.from({ length: diasMes }).map((__, dIdx) => {
+                                                    const d = dIdx + 1;
+                                                    const sv = serviciosDelDia(d);
+                                                    const esHoy = esMesActual && hoy.getDate() === d;
+                                                    return (
+                                                        <div
+                                                            key={d}
+                                                            className={cn('flex h-3 items-center justify-center rounded-[2px] text-[7px] leading-none', nivel(sv.length), sv.length >= 4 ? 'text-primary-foreground' : 'text-muted-foreground', esHoy && 'ring-1 ring-foreground')}
+                                                            title={sv.length ? `${d}: ${sv.length} ${sv.length === 1 ? 'visita' : 'visitas'}` : `${d}: sin visitas`}
+                                                        >
+                                                            {d}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            {r.visitas > 0 && (
+                                                <div className="mt-2 flex flex-col gap-0.5 text-[10.5px] leading-tight">
+                                                    <span className="font-semibold text-foreground">{r.visitas} {r.visitas === 1 ? 'visita' : 'visitas'} · {r.muestreadores} {r.muestreadores === 1 ? 'muestreador' : 'muestreadores'}</span>
+                                                    <span className="text-muted-foreground">{r.centros} {r.centros === 1 ? 'centro' : 'centros'} · {r.empresas} {r.empresas === 1 ? 'empresa' : 'empresas'}</span>
+                                                    <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded bg-muted" title={`${r.hechos} de ${r.vigentes} visitas realizadas`}>
+                                                        <div className="h-full bg-success" style={{ width: `${r.vigentes ? Math.round((r.hechos / r.vigentes) * 100) : 0}%` }} />
+                                                    </div>
+                                                    <span className="text-muted-foreground">{r.hechos} de {r.vigentes} realizadas{r.noRealizadas > 0 && <span style={{ color: STATUS_HEX.violet }}> · {r.noRealizadas} sin realizar</span>}</span>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div className="grid grid-cols-7 gap-[3px]">
-                                            {Array.from({ length: 31 }).map((__, dIdx) => {
-                                                const hasEvent = mEvents.some(e => e.event_dia === dIdx + 1);
-                                                return (
-                                                    <div
-                                                        key={dIdx}
-                                                        className={cn('h-2.5 rounded-sm', hasEvent ? 'border border-[#00508a] bg-primary' : 'bg-muted/40')}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                    );
+                                })}
+                            </div>
                         </div>
-                    </div>
-                )}
+                    );
+                })()}
             </div>
 
             <Dialog open={!!selectedEvent} onOpenChange={(open) => { if (!open) setSelectedEvent(null); }}>
                 <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[720px]">
                     <DialogHeader>
                         <div className="flex items-center justify-between pr-6">
-                            <DialogTitle>Resumen de Muestreo - {selectedEvent?.correlativo}</DialogTitle>
+                            <DialogTitle>{selectedEvent?.punto_muestreo ? `Punto «${selectedEvent.punto_muestreo}»` : 'Resumen de Muestreo'} · {selectedEvent?.correlativo}</DialogTitle>
                             {selectedEvent && <Badge variant={STATUS_VARIANT[getStatusColor(selectedEvent)]} className="text-[13px]">{selectedEvent.estado_caso}</Badge>}
                         </div>
                     </DialogHeader>
                     {selectedEvent && (
                         <div className="flex flex-col gap-4">
+                            {evNoRealizado(selectedEvent) && (
+                                <div className="rounded-lg border p-2 text-[13px]" style={{ borderColor: STATUS_HEX.violet, backgroundColor: 'color-mix(in srgb, var(--sc-destructive) 8%, transparent)' }}>
+                                    <strong style={{ color: STATUS_HEX.violet }}>No realizada en su fecha.</strong>{' '}
+                                    <span className="text-muted-foreground">Cambia la fecha y el muestreador más abajo para reagendarla, usa «Quitar asignación» para dejarla pendiente de coordinar, o cancélala.</span>
+                                </div>
+                            )}
                             {selectedEvent.es_remuestreo === 'S' && (
                                 <div className="rounded-lg border border-primary bg-accent p-2">
                                     <div className="flex items-center gap-2">
@@ -1004,9 +1379,14 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
                                 <div className="flex gap-2">
                                     {selectedEvent && !isCancelledEvent(selectedEvent) && !isExecutedEvent(selectedEvent) && (
+                                        <>
+                                        <ProtectedContent permission={['FI_GEST_ASIG', 'MA_CALENDARIO_CANCELAR']}>
+                                            <Button variant="outline" onClick={() => setShowQuitarAsig(true)} title="Vuelve a dejarlo pendiente de coordinar (sin cancelar)">Quitar asignación</Button>
+                                        </ProtectedContent>
                                         <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
                                             <Button variant="destructive" onClick={() => setShowCancelConfirm(true)}>Cancelar Muestreo</Button>
                                         </ProtectedContent>
+                                        </>
                                     )}
                                     <ProtectedContent permission={['MA_CALENDARIO_REAGENDAR', 'MA_CALENDARIO_REASIGNAR']}>
                                         <Button
@@ -1061,6 +1441,346 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 </DialogContent>
             </Dialog>
 
+            {/* ── Visita completa: lo común una sola vez y la lista de sus puntos ── */}
+            <Dialog open={!!visita && !showQuitarVisita && !showCancelVisita} onOpenChange={(o) => { if (!o) setVisita(null); }}>
+                <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[720px]">
+                    {visita && (() => {
+                        const base = visita[0];
+                        const cancelados = visita.filter((x) => isCancelledEvent(x));
+                        const hechos = visita.filter((x) => !isCancelledEvent(x) && isExecutedEvent(x));
+                        const activos = visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x));
+                        const vigentes = visita.length - cancelados.length;
+                        const pct = vigentes > 0 ? Math.round((hechos.length / vigentes) * 100) : 0;
+                        const fechaDe = (v?: string) => (v && !String(v).startsWith('1900') ? String(v).slice(0, 10).split('-').reverse().join('-') : '—');
+                        const esRetiro = base.tipo_evento === 'RETIRO';
+                        const etiquetaEstado = (ev: CalendarEvent) => (isCancelledEvent(ev) ? 'Cancelado' : isExecutedEvent(ev) ? (isPuntualEvent(ev) ? 'Realizado' : (ev.tipo_evento === 'RETIRO' ? 'Retirado' : 'Instalado')) : evNoRealizado(ev) ? 'No realizado' : 'Agendado');
+                        const visitaNoRealizada = activos.length > 0 && activos.some((x) => evNoRealizado(x));
+                        return (
+                            <>
+                                <DialogHeader>
+                                    <div className="flex items-start justify-between gap-3 pr-6">
+                                        <div className="min-w-0">
+                                            <DialogTitle className="truncate text-xl font-extrabold leading-tight">{base.centro}</DialogTitle>
+                                            <p className="m-0 truncate text-sm text-muted-foreground">{base.empresa_servicio}</p>
+                                        </div>
+                                        <div className="flex shrink-0 flex-wrap justify-end gap-1">
+                                            {base.objetivo && <Badge variant="info" title="Programa (objetivo del muestreo)">{base.objetivo}</Badge>}
+                                            {base.subarea && <Badge variant="secondary">{base.subarea}</Badge>}
+                                            {base.tipo_ficha && <Badge variant="outline">{base.tipo_ficha}{esRetiro ? ' · retiro' : ''}</Badge>}
+                                        </div>
+                                    </div>
+                                </DialogHeader>
+                                <div className="flex flex-col gap-4">
+                                    {visitaNoRealizada && (
+                                        <div className="rounded-lg border p-3 text-[13px]" style={{ borderColor: STATUS_HEX.violet, backgroundColor: 'color-mix(in srgb, var(--sc-destructive) 8%, transparent)' }}>
+                                            <p className="m-0 font-semibold" style={{ color: STATUS_HEX.violet }}>
+                                                Esta visita no se realizó en su fecha ({String(base.tipo_evento === 'RETIRO' ? (base.fecha_retiro || base.fecha) : base.fecha || '').slice(0, 10).split('-').reverse().join('-')}).
+                                            </p>
+                                            <p className="mb-2 mt-1 text-muted-foreground">Elige qué hacer con los {activos.length} {activos.length === 1 ? 'punto que falta' : 'puntos que faltan'}:</p>
+                                            <div className="flex flex-wrap gap-2">
+                                                <ProtectedContent permission={['FI_GEST_ASIG', 'MA_CALENDARIO_REAGENDAR']}>
+                                                    <Button size="sm" onClick={() => { setReagFecha(''); setReagMuestreador(base.id_muestreador ? String(base.id_muestreador) : ''); setShowReagendar(true); }}>Reagendar y reasignar</Button>
+                                                </ProtectedContent>
+                                                <ProtectedContent permission={['FI_GEST_ASIG', 'MA_CALENDARIO_CANCELAR']}>
+                                                    <Button size="sm" variant="outline" onClick={() => setShowQuitarVisita(true)}>Dejar pendiente de coordinar</Button>
+                                                </ProtectedContent>
+                                                <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
+                                                    <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => { setSoloPunto(null); setShowCancelVisita(true); }}>Cancelar la visita</Button>
+                                                </ProtectedContent>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="rounded-lg border border-border bg-muted/40 p-3">
+                                        <div className="mb-1.5 flex items-center justify-between text-sm">
+                                            <span className="font-semibold">{hechos.length} de {vigentes} {vigentes === 1 ? 'punto ejecutado' : 'puntos ejecutados'}</span>
+                                            <span className="text-xs text-muted-foreground">
+                                                {activos.length > 0 ? `${activos.length} por ejecutar` : (vigentes > 0 ? 'Visita completa' : 'Visita cancelada')}
+                                                {cancelados.length > 0 ? ` · ${cancelados.length} cancelado${cancelados.length > 1 ? 's' : ''}` : ''}
+                                                {' · se actualiza sola'}
+                                            </span>
+                                        </div>
+                                        <div className="h-2 w-full overflow-hidden rounded bg-muted">
+                                            <div className="h-full bg-success transition-all" style={{ width: `${pct}%` }} />
+                                        </div>
+                                    </div>
+                                    <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+                                        <StaticField label="Muestreador" value={base.muestreador || 'Sin Asignar'} />
+                                        {!isPuntualEvent(base) && <StaticField label={esRetiro ? 'Muestreador instalación' : 'Muestreador retiro'} value={(esRetiro ? base.muestreador : base.muestreador_retiro) || '—'} />}
+                                        <StaticField label={isPuntualEvent(base) ? 'Fecha de muestreo' : 'Instalación'} value={fechaDe(base.fecha)} />
+                                        {!isPuntualEvent(base) && <StaticField label="Retiro" value={fechaDe(base.fecha_retiro)} />}
+                                        <StaticField label="Base de operaciones" value={base.base_operaciones} />
+                                        <StaticField label="Contacto" value={base.contacto || ''} />
+                                        <StaticField label="E-mail contacto" value={base.correo_contacto || ''} />
+                                    </div>
+                                    <StaticField label="Glosa / Tabla" value={base.glosa} />
+                                    <SectionDivider>Puntos de la visita</SectionDivider>
+                                    <div className="overflow-hidden rounded-lg border border-border">
+                                        <table className="w-full border-collapse text-[13px]">
+                                            <thead>
+                                                <tr className="bg-muted/40 text-left text-xs font-medium text-muted-foreground">
+                                                    <th className="px-3 py-2">Punto de muestreo</th>
+                                                    <th className="px-3 py-2">Servicio</th>
+                                                    <th className="px-3 py-2">Estado</th>
+                                                    <th className="px-3 py-2 text-right">Acciones</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {visita.map((ev) => {
+                                                    const color = getStatusColor(ev);
+                                                    const activo = !isCancelledEvent(ev) && !isExecutedEvent(ev);
+                                                    return (
+                                                        <tr key={`${ev.id}-${ev.tipo_evento}`} className="border-t border-border">
+                                                            <td className={cn('px-3 py-1.5 font-medium', isCancelledEvent(ev) && 'line-through opacity-60')}>{ev.punto_muestreo || `Ficha ${ev.ficha_correlativo || ev.id}`}</td>
+                                                            <td className="px-3 py-1.5 text-muted-foreground">{ev.correlativo}</td>
+                                                            <td className="px-3 py-1.5">
+                                                                <Badge variant={STATUS_VARIANT[color]}>{etiquetaEstado(ev)}</Badge>
+                                                                {isCancelledEvent(ev) && ev.motivo_cancelacion && <span className="mt-0.5 block text-[11px] text-destructive" title={ev.motivo_cancelacion}>{ev.motivo_cancelacion}</span>}
+                                                            </td>
+                                                            <td className="px-3 py-1.5 text-right">
+                                                                <div className="flex justify-end gap-1">
+                                                                    <Button size="sm" variant="ghost" onClick={() => { setSelectedEvent(ev); }}>Ver punto</Button>
+                                                                    {activo && (
+                                                                        <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
+                                                                            <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => { setSoloPunto(ev); setShowCancelVisita(true); }}>Cancelar punto</Button>
+                                                                        </ProtectedContent>
+                                                                    )}
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    {hechos.length > 0 && activos.length > 0 && (
+                                        <p className="m-0 text-xs text-muted-foreground">Los puntos ya ejecutados no se pueden cancelar ni desagendar; las acciones de la visita afectan solo a los {activos.length} que faltan.</p>
+                                    )}
+                                </div>
+                                <DialogFooter className="gap-2 sm:justify-between">
+                                    <Button variant="outline" onClick={() => setVisita(null)}>Cerrar</Button>
+                                    <div className="flex gap-2">
+                                        {activos.length > 0 && (
+                                            <ProtectedContent permission={['FI_GEST_ASIG', 'MA_CALENDARIO_CANCELAR']}>
+                                                <Button variant="outline" onClick={() => setShowQuitarVisita(true)} title="Vuelve a dejar los puntos que faltan pendientes de coordinar (sin cancelar)">Quitar asignación de la visita</Button>
+                                            </ProtectedContent>
+                                        )}
+                                        {activos.length > 0 && (
+                                            <ProtectedContent permission="MA_CALENDARIO_CANCELAR">
+                                                <Button variant="destructive" onClick={() => { setSoloPunto(null); setShowCancelVisita(true); }}>Cancelar la visita</Button>
+                                            </ProtectedContent>
+                                        )}
+                                    </div>
+                                </DialogFooter>
+                            </>
+                        );
+                    })()}
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showReagendar} onOpenChange={setShowReagendar}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Reagendar y reasignar la visita</DialogTitle></DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-[13px]">Se mueven a la nueva fecha y al muestreador elegido los puntos que faltan por realizar ({visita ? visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x)).length : 0}). Los ya realizados no se tocan.</p>
+                        <div>
+                            <span className="mb-1 block text-xs">Nuevo muestreador *</span>
+                            <Combobox placeholder="Seleccione..." options={muestreadorOptions} value={reagMuestreador} onValueChange={setReagMuestreador} />
+                        </div>
+                        <div>
+                            <span className="mb-1 block text-xs">Nueva fecha *</span>
+                            <DatePicker value={reagFecha} onChange={(v) => { if (v && v < todayStr) return; setReagFecha(v); }} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowReagendar(false)}>Volver</Button>
+                        <Button
+                            disabled={!reagFecha || !reagMuestreador || isSavingEvent}
+                            onClick={async () => {
+                                if (!visita) return;
+                                setIsSavingEvent(true);
+                                try {
+                                    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                                    const nuevoMu = Number(reagMuestreador);
+                                    const asignaciones = visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x)).map((ev) => {
+                                        const f0 = String(ev.fecha || '').slice(0, 10);
+                                        const f1 = String(ev.fecha_retiro || '').slice(0, 10);
+                                        const hayRetiro = !!f1 && !f1.startsWith('1900');
+                                        const brecha = hayRetiro && f0 ? new Date(f1 + 'T00:00:00').getTime() - new Date(f0 + 'T00:00:00').getTime() : 0;
+                                        const instalador = Number(ev.id_muestreador) || 0;
+                                        const retirador = Number(ev.id_muestreador2 || ev.id_muestreador) || 0;
+                                        if (ev.tipo_evento === 'RETIRO') {
+                                            return { id: ev.id_agenda, fecha: f0, fechaRetiro: reagFecha, idMuestreadorInstalacion: instalador, idMuestreadorRetiro: nuevoMu, idFichaIngresoServicio: Number(ev.id), frecuenciaCorrelativo: ev.correlativo };
+                                        }
+                                        const nuevoRetiro = isPuntualEvent(ev) || !hayRetiro || brecha < 0 ? reagFecha : ymd(new Date(new Date(reagFecha + 'T00:00:00').getTime() + brecha));
+                                        return { id: ev.id_agenda, fecha: reagFecha, fechaRetiro: nuevoRetiro, idMuestreadorInstalacion: nuevoMu, idMuestreadorRetiro: isPuntualEvent(ev) ? nuevoMu : retirador, idFichaIngresoServicio: Number(ev.id), frecuenciaCorrelativo: ev.correlativo };
+                                    });
+                                    const res = await fichaService.batchUpdateAgenda({ assignments: asignaciones, user: { id: user?.id || 0 }, observaciones: 'Reagendada desde el calendario (visita no realizada en su fecha).' } as any);
+                                    showToast({ type: 'success', message: res?.message || 'Visita reagendada.' });
+                                    lastFetchRef.current = '';
+                                    setShowReagendar(false);
+                                    setVisita(null);
+                                    loadData(true);
+                                } catch (err: any) {
+                                    showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo reagendar la visita.' });
+                                } finally {
+                                    setIsSavingEvent(false);
+                                }
+                            }}
+                        >
+                            {isSavingEvent && <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />}
+                            Reagendar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showQuitarVisita} onOpenChange={setShowQuitarVisita}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Quitar la asignación de la visita</DialogTitle></DialogHeader>
+                    <p className="text-[13px]">
+                        Los {visita ? visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x)).length : 0} puntos pendientes de la visita vuelven a quedar <strong>pendientes de coordinar</strong>, sin responsable ni fecha.
+                        No es una cancelación y se pueden agendar de nuevo.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowQuitarVisita(false)}>No, volver</Button>
+                        <Button
+                            disabled={isSavingEvent}
+                            onClick={async () => {
+                                if (!visita) return;
+                                setIsSavingEvent(true);
+                                try {
+                                    const ids = visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x)).map((x) => Number(x.id_agenda));
+                                    const res = await fichaService.quitarAsignacion(ids);
+                                    showToast({ type: 'success', message: res?.message || 'Asignación quitada.' });
+                                    lastFetchRef.current = '';
+                                    setShowQuitarVisita(false);
+                                    setVisita(null);
+                                    loadData();
+                                } catch (err: any) {
+                                    showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo quitar la asignación.' });
+                                } finally {
+                                    setIsSavingEvent(false);
+                                }
+                            }}
+                        >
+                            {isSavingEvent && <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />}
+                            Sí, quitar la asignación
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showCancelVisita} onOpenChange={(o) => { setShowCancelVisita(o); if (!o) setSoloPunto(null); }}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>{soloPunto ? `Cancelar el punto «${soloPunto.punto_muestreo || soloPunto.correlativo}»` : 'Cancelar la visita completa'}</DialogTitle></DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-[13px]">
+                            {soloPunto ? 'Se cancela solo este punto; el resto de la visita sigue como está.' : `Se cancelan los ${visita ? visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x)).length : 0} puntos pendientes de la visita con el mismo motivo.`} Esta acción es irreversible.
+                        </p>
+                        <div>
+                            <span className="mb-1 block text-xs">Motivo de Cancelación *</span>
+                            <Combobox placeholder="Seleccione un motivo..." options={cancellationOptions} value={selectedReasonId ? String(selectedReasonId) : ''} onValueChange={(val) => setSelectedReasonId(Number(val) || '')} />
+                        </div>
+                        <div>
+                            <span className="mb-1 block text-xs">Observaciones adicionales *</span>
+                            <Input placeholder="Ingrese detalle del motivo..." value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCancelVisita(false)}>No, volver</Button>
+                        <Button
+                            variant="destructive"
+                            disabled={!cancelReason.trim() || !selectedReasonId || isSavingEvent}
+                            onClick={async () => {
+                                if (!visita) return;
+                                setIsSavingEvent(true);
+                                try {
+                                    const activos = soloPunto ? [soloPunto] : visita.filter((x) => !isCancelledEvent(x) && !isExecutedEvent(x));
+                                    const [primero, ...resto] = activos;
+                                    const res = await fichaService.cancelAgendaSampling(
+                                        primero.id_agenda, primero.id, { id: user?.id || 0, usuario: user?.name || '' },
+                                        cancelReason, Number(selectedReasonId), resto.map((x) => Number(x.id_agenda))
+                                    );
+                                    const fallidos: { punto: string | null }[] = res?.data?.fallidos ?? [];
+                                    const total: number = res?.data?.cancelados?.length ?? 1;
+                                    showToast(fallidos.length > 0
+                                        ? { type: 'warning', message: `Se cancelaron ${total} punto(s), pero no se pudo cancelar: ${fallidos.map(f => f.punto || 'un punto').join(', ')}.` }
+                                        : { type: 'success', message: soloPunto ? 'Punto cancelado.' : `Se cancelaron ${total} puntos de la visita.` });
+                                    lastFetchRef.current = '';
+                                    setShowCancelVisita(false);
+                                    if (!soloPunto) setVisita(null); // al cancelar un solo punto la visita sigue abierta y se refresca
+                                    setSoloPunto(null);
+                                    setCancelReason('');
+                                    setSelectedReasonId('');
+                                    loadData();
+                                } catch (err: any) {
+                                    showToast({ type: 'error', message: err?.response?.data?.message || 'Error al cancelar la visita.' });
+                                } finally {
+                                    setIsSavingEvent(false);
+                                }
+                            }}
+                        >
+                            {isSavingEvent && <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />}
+                            {soloPunto ? 'Sí, cancelar el punto' : 'Sí, cancelar la visita'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={showQuitarAsig} onOpenChange={setShowQuitarAsig}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Quitar la asignación</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-[13px]">
+                            El muestreo vuelve a quedar <strong>pendiente de coordinar</strong>, sin responsable ni fecha, y se puede agendar de nuevo.
+                            No es una cancelación: no queda ningún motivo registrado.
+                        </p>
+                        {puntosVisita.length > 0 && (
+                            <label className="flex items-start gap-2 rounded-md border border-border p-3 text-[13px]">
+                                <Checkbox
+                                    className="mt-0.5"
+                                    checked={puntosACancelar.size === puntosVisita.length}
+                                    onCheckedChange={(v) => setPuntosACancelar(v === true ? new Set(puntosVisita.map(p => p.id_agenda)) : new Set())}
+                                />
+                                <span>
+                                    Quitar también la asignación de los otros {puntosVisita.length} {puntosVisita.length === 1 ? 'punto' : 'puntos'} de esta visita
+                                    <span className="block text-xs text-muted-foreground">{puntosVisita.map(p => p.punto || `Ficha ${p.id_ficha}`).join(', ')}</span>
+                                </span>
+                            </label>
+                        )}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowQuitarAsig(false)}>No, volver</Button>
+                        <Button
+                            disabled={isSavingEvent}
+                            onClick={async () => {
+                                if (!selectedEvent) return;
+                                setIsSavingEvent(true);
+                                try {
+                                    const res = await fichaService.quitarAsignacion([Number(selectedEvent.id_agenda), ...puntosACancelar]);
+                                    showToast({ type: 'success', message: res?.message || 'Asignación quitada.' });
+                                    setPuntosVisita([]);
+                                    setPuntosACancelar(new Set());
+                                    lastFetchRef.current = '';
+                                    setShowQuitarAsig(false);
+                                    setSelectedEvent(null);
+                                    loadData();
+                                } catch (err: any) {
+                                    showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo quitar la asignación.' });
+                                } finally {
+                                    setIsSavingEvent(false);
+                                }
+                            }}
+                        >
+                            {isSavingEvent && <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />}
+                            Sí, quitar la asignación
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
                 <DialogContent>
                     <DialogHeader>
@@ -1089,12 +1809,11 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                     {puntosVisita.map(p => (
                                         <li key={p.id_agenda}>
                                             <label className="flex cursor-pointer items-center gap-2 text-[13px]">
-                                                <input
-                                                    type="checkbox"
+                                                <Checkbox
                                                     checked={puntosACancelar.has(p.id_agenda)}
-                                                    onChange={(e) => setPuntosACancelar(prev => {
+                                                    onCheckedChange={(v) => setPuntosACancelar(prev => {
                                                         const sig = new Set(prev);
-                                                        if (e.target.checked) sig.add(p.id_agenda); else sig.delete(p.id_agenda);
+                                                        if (v === true) sig.add(p.id_agenda); else sig.delete(p.id_agenda);
                                                         return sig;
                                                     })}
                                                 />

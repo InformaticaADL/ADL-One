@@ -290,6 +290,11 @@ export const catalogosService = {
             return response.data.data;
         });
     },
+    // Motivos con que se puede cancelar una ficha completa (los «ambos» y los propios de la ficha).
+    getMotivosCancelacionFicha: async (): Promise<any[]> => {
+        const response = await axiosInstance.get('/motivos-cancelacion', { params: { para: 'ficha' } });
+        return response.data.data;
+    },
     getEstadosMuestreo: async (): Promise<any[]> => {
         return deduplicatedRequest('estados-muestreo', async () => {
             const response = await axiosInstance.get('/estados-muestreo');

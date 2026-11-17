@@ -37,6 +37,10 @@ export interface CalendarioFiltros {
     selectedEmpresa: string;
     selectedMuestreador: string;
     selectedCentro: string;
+    /** Programa = objetivo del muestreo (Certificación ASC, Agua Potable…). */
+    selectedPrograma: string;
+    /** pendiente | realizada | no_realizada | cancelada */
+    selectedEstado: string;
     searchTerm: string;
 }
 
@@ -53,7 +57,7 @@ const asignacionDefaults: AsignacionFiltros = {
 };
 
 const calendarioDefaults: CalendarioFiltros = {
-    selectedEmpresa: '', selectedMuestreador: '', selectedCentro: '', searchTerm: '',
+    selectedEmpresa: '', selectedMuestreador: '', selectedCentro: '', selectedPrograma: '', selectedEstado: '', searchTerm: '',
 };
 
 interface FichasFiltersState {

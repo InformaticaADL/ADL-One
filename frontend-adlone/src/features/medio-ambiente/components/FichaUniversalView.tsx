@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
+import { PuntosVisitaTabla, MatrizPrecioVisita, useDatosVisita } from './PuntosVisitaPanel';
 import { fichaService } from '../services/ficha.service';
 import { ObservationTimeline } from './ObservationTimeline';
 import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
@@ -13,11 +14,16 @@ import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { mapToAntecedentes } from '../utils/fichaMapping';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
+import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Combobox } from '@/components/ui/combobox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { catalogosService } from '../services/catalogos.service';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
@@ -31,7 +37,8 @@ import {
     IconCheck,
     IconRotate,
     IconMessageDots,
-    IconFileDownload
+    IconFileDownload,
+    IconListDetails
 } from '@tabler/icons-react';
 
 interface Props {
@@ -40,6 +47,29 @@ interface Props {
     // Si se entrega, en una visita con varios puntos se muestra el selector de punto y se aprueba toda la visita de una vez.
     onCambiarFicha?: (id: number) => void;
 }
+
+type ModoObs = 'sin' | 'texto' | null;
+
+// Observación de una validación: o se marca «Sin observaciones» o se elige «Ingresar observación» y aparece el campo.
+const SelectorObservacion = ({ modo, onModo, texto, onTexto, placeholder, permiteSin = true }: {
+    modo: ModoObs; onModo: (m: ModoObs) => void; texto: string; onTexto: (t: string) => void; placeholder: string; permiteSin?: boolean;
+}) => (
+    <div className="flex flex-col gap-2">
+        <div className="flex flex-wrap gap-x-6 gap-y-1.5">
+            {permiteSin && (
+                <label className="flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
+                    <Checkbox checked={modo === 'sin'} onCheckedChange={(v) => onModo(v === true ? 'sin' : null)} />
+                    Sin observaciones
+                </label>
+            )}
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
+                <Checkbox checked={modo === 'texto'} onCheckedChange={(v) => onModo(v === true ? 'texto' : null)} />
+                Ingresar observación
+            </label>
+        </div>
+        {modo === 'texto' && <DeferredTextarea placeholder={placeholder} value={texto} onChange={onTexto} minRows={3} />}
+    </div>
+);
 
 type BadgeVariant = 'default' | 'secondary' | 'outline' | 'success' | 'warning' | 'info' | 'destructive';
 
@@ -143,11 +173,26 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     const antecedentesRef = useRef<AntecedentesFormHandle>(null);
     const mappedInitialDataRef = useRef<any>(null);
     const [showCancelModal, setShowCancelModal] = useState(false);
+    // Cancelar la ficha completa (p. ej. una ficha creada dos veces)
+    const [showCancelarFicha, setShowCancelarFicha] = useState(false);
+    const [motivosFicha, setMotivosFicha] = useState<any[]>([]);
+    const [motivoFichaId, setMotivoFichaId] = useState('');
+    const [obsCancelarFicha, setObsCancelarFicha] = useState('');
+    const [cancelandoFicha, setCancelandoFicha] = useState(false);
+    useEffect(() => {
+        if (!showCancelarFicha) return;
+        setMotivoFichaId(''); setObsCancelarFicha('');
+        catalogosService.getMotivosCancelacionFicha().then((m) => setMotivosFicha(m || [])).catch(() => setMotivosFicha([]));
+    }, [showCancelarFicha]);
 
     // Observations for actions
     const [newObservation, setNewObservation] = useState(''); // Comercial
     const [tecnicaObs, setTecnicaObs] = useState(''); // Técnica
     const [coordinacionObs, setCoordinacionObs] = useState(''); // Coordinación
+    // Cómo se declara la observación de la validación: «sin observaciones» o con texto (nada elegido = falta decidir)
+    const [modoObsTec, setModoObsTec] = useState<ModoObs>(null);
+    const [modoObsCoord, setModoObsCoord] = useState<ModoObs>(null);
+    const textoObs = (modo: ModoObs, texto: string) => (modo === 'sin' ? 'Sin observaciones.' : texto.trim());
 
     const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [confirmAction, setConfirmAction] = useState<{
@@ -166,6 +211,20 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         return () => { cancelado = true; };
     }, [fichaId]);
     const esVisita = !!grupo && grupo.total > 1;
+    // Datos de todos los puntos de la visita (se leen una vez y los usan la pestaña de puntos y la de análisis y precio).
+    const datosVisita = useDatosVisita(esVisita && grupo ? grupo.puntos : []);
+    // Pestaña de análisis de una visita: «todos» (matriz con el precio de cada punto) o el detalle de un punto.
+    const [analisisModo, setAnalisisModo] = useState<'todos' | 'punto'>('todos');
+    const visitaYaAbierta = useRef<number | null>(null);
+    useEffect(() => {
+        const idGrupo = (grupo as any)?.id_grupo ?? null;
+        if (esVisita && idGrupo !== visitaYaAbierta.current) {
+            visitaYaAbierta.current = idGrupo ?? -1;
+            setAnalisisModo('todos');
+            setVisitedTabs((prev) => ({ ...prev, puntos: true } as any));
+        }
+        if (!esVisita) visitaYaAbierta.current = null;
+    }, [esVisita, grupo]);
 
     const timelineCreationData = useMemo(() => {
         if (!data) return undefined;
@@ -287,16 +346,20 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
     // Tech & Coord Actions
     const handleActionClick = (type: 'approve_tech' | 'reject_tech' | 'approve_coord' | 'reject_coord') => {
-        if (type === 'reject_tech' && !tecnicaObs.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación para rechazar' });
+        const esTec = type === 'approve_tech' || type === 'reject_tech';
+        const modo = esTec ? modoObsTec : modoObsCoord;
+        const texto = esTec ? tecnicaObs : coordinacionObs;
+        const rechaza = type === 'reject_tech' || type === 'reject_coord';
+        if (!modo) {
+            showToast({ type: 'warning', message: rechaza ? 'Marque «Ingresar observación» y explique el motivo.' : 'Elija «Sin observaciones» o «Ingresar observación» antes de continuar.' });
             return;
         }
-        if (type === 'approve_coord' && !coordinacionObs.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación para aceptar' });
+        if (rechaza && modo === 'sin') {
+            showToast({ type: 'warning', message: 'Para solicitar una corrección debe ingresar una observación con el motivo.' });
             return;
         }
-        if (type === 'reject_coord' && !coordinacionObs.trim()) {
-            showToast({ type: 'warning', message: 'Debe ingresar una observación para solicitar revisión' });
+        if (modo === 'texto' && !texto.trim()) {
+            showToast({ type: 'warning', message: 'Escriba la observación o marque «Sin observaciones».' });
             return;
         }
 
@@ -353,35 +416,36 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
             switch (confirmAction.type) {
                 case 'approve_tech':
                     if (esVisita && aprobarTodaLaVisita) {
-                        const r = (await fichaService.aprobarVisita(fichaId, 'tecnica', { observaciones: tecnicaObs, user: { id: user?.id || 0 } }))?.data;
+                        const r = (await fichaService.aprobarVisita(fichaId, 'tecnica', { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'ACEPTADA técnicamente');
                     } else {
-                        await fichaService.approve(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
+                        await fichaService.approve(fichaId, { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } });
                         showToast({ type: 'success', message: 'Ficha ACEPTADA técnicamente' });
                     }
                     break;
                 case 'reject_tech':
-                    await fichaService.reject(fichaId, { observaciones: tecnicaObs, user: { id: user?.id || 0 } });
+                    await fichaService.reject(fichaId, { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } });
                     showToast({ type: 'info', message: 'Revisión solicitada a Comercial' });
                     break;
                 case 'approve_coord':
                     if (esVisita && aprobarTodaLaVisita) {
-                        const r = (await fichaService.aprobarVisita(fichaId, 'coordinacion', { observaciones: coordinacionObs, user: { id: user?.id || 0 } }))?.data;
+                        const r = (await fichaService.aprobarVisita(fichaId, 'coordinacion', { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'APROBADA para programación');
                     } else {
-                        await fichaService.approveCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
+                        await fichaService.approveCoordinacion(fichaId, { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } });
                         showToast({ type: 'success', message: 'Ficha APROBADA para programación' });
                     }
                     break;
                 case 'reject_coord':
-                    await fichaService.reviewCoordinacion(fichaId, { observaciones: coordinacionObs, user: { id: user?.id || 0 } });
+                    await fichaService.reviewCoordinacion(fichaId, { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } });
                     showToast({ type: 'info', message: 'Ficha devuelta a Comercial' });
                     break;
             }
             onBack();
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            showToast({ type: 'error', message: 'Error al procesar la ficha' });
+            // Se muestra el motivo que da el servidor (por ejemplo, «falta la firma del observador»), no un error genérico.
+            showToast({ type: 'error', message: error?.response?.data?.message || 'Error al procesar la ficha' });
         } finally {
             setActionLoading(false);
             setShowConfirmModal(false);
@@ -392,6 +456,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         return (
             <div className="flex h-[400px] items-center justify-center">
                 <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+        );
+    }
+
+    // La ficha no se pudo leer (por ejemplo, fue eliminada y alguien abrió un aviso o un enlace antiguo): se avisa en vez de romper la pantalla.
+    if (!data) {
+        return (
+            <div className="flex h-[400px] flex-col items-center justify-center gap-3 text-center">
+                <p className="m-0 text-lg font-semibold">Esta ficha ya no existe</p>
+                <p className="m-0 max-w-md text-sm text-muted-foreground">No se pudo cargar la ficha N° {fichaId}. Puede haber sido eliminada o cancelada. Si abriste un aviso antiguo, ya no hay nada que ver aquí.</p>
+                <Button variant="outline" onClick={onBack}>Volver</Button>
             </div>
         );
     }
@@ -417,12 +492,16 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     return (
         <div className="shadcn-scope">
             <PageHeader
-                title={`Ficha N° ${data?.fichaingresoservicio || '-'}${(data?.es_remuestreo === 'S' || data?.es_remuestreo === true || data?.es_remuestreo === 1) ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
-                subtitle={isEditing ? 'Modo Edición' : 'Visor Universal de Ficha'}
+                title={esVisita
+                    ? `Visita · ${data?.nombre_centro || 'Sin centro'}`
+                    : `Ficha N° ${data?.fichaingresoservicio || '-'}${(data?.es_remuestreo === 'S' || data?.es_remuestreo === true || data?.es_remuestreo === 1) ? ` (REMUESTREO DE LA FICHA N° ${data?.id_ficha_original})` : ''}`}
+                subtitle={isEditing ? 'Modo Edición' : (esVisita
+                    ? `${grupo!.total} puntos · ${data?.nombre_empresaservicios || data?.nombre_empresa || ''}`
+                    : [data?.nombre_empresaservicios || data?.nombre_empresa, data?.nombre_centro].filter(Boolean).join(' · ') || 'Ficha de ingreso')}
                 onBack={onBack}
                 breadcrumbItems={[
                     { label: 'Fichas de Ingreso', onClick: onBack },
-                    { label: isEditing ? 'Editar Ficha' : 'Ver Ficha' }
+                    { label: isEditing ? 'Editar Ficha' : (esVisita ? 'Visita' : 'Ficha') }
                 ]}
                 rightSection={
                     <div className="flex flex-wrap items-center gap-2.5">
@@ -444,6 +523,18 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                 </Button>
                             )
                         )}
+                        {!isEditing && ![7, 8].includes(Number(data?.id_validaciontecnica)) && !esVisita && (
+                            <ProtectedContent permission={['FI_EDITAR', 'MA_CALENDARIO_CANCELAR']}>
+                                <Button
+                                    variant="outline"
+                                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    title="Cancelar la ficha con un motivo (por ejemplo, si está duplicada). No se borra nada."
+                                    onClick={() => setShowCancelarFicha(true)}
+                                >
+                                    <IconX size={18} /> Cancelar ficha
+                                </Button>
+                            </ProtectedContent>
+                        )}
                         <ProtectedContent permission="FI_EXPORTAR_CFI">
                             <Button
                                 variant="outline"
@@ -457,27 +548,6 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     </div>
                 }
             />
-
-            {esVisita && onCambiarFicha && (
-                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
-                    <span className="font-medium text-foreground">Visita con {grupo!.total} puntos</span>
-                    <Select
-                        value={String(fichaId)}
-                        onValueChange={(v) => { if (Number(v) !== Number(fichaId)) onCambiarFicha(Number(v)); }}
-                    >
-                        <SelectTrigger className="h-8 w-[340px] max-w-full" aria-label="Punto de la visita">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {grupo!.puntos.map((p, i) => (
-                                <SelectItem key={p.id_fichaingresoservicio} value={String(p.id_fichaingresoservicio)}>
-                                    Punto {i + 1}{p.punto ? ` · ${p.punto}` : ''}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-            )}
 
             <Card className="p-0">
                 <div style={{ padding: `${isMobile ? 16 : 24}px ${panelPad}px 0` }}>
@@ -512,8 +582,13 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             <TabsTrigger value="antecedentes" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                                 <IconClipboardList size={tabIconSize} />{isVerySmall ? 'Antec.' : 'Antecedentes'}
                             </TabsTrigger>
+                            {esVisita && !isEditing && onCambiarFicha && (
+                                <TabsTrigger value="puntos" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                                    <IconListDetails size={tabIconSize} />Puntos
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger value="analisis" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-                                <IconFlask size={tabIconSize} />Análisis
+                                <IconFlask size={tabIconSize} />{esVisita ? 'Análisis y precio' : 'Análisis'}
                             </TabsTrigger>
                             <TabsTrigger value="observaciones" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                                 <IconHistory size={tabIconSize} />{isVerySmall ? 'Historial/Valid.' : 'Validación e Historial'}
@@ -526,6 +601,14 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                         usuario se movía a otra pestaña — Guardar quedaba sin efecto desde Análisis u
                         Observaciones porque el ref ya era null. Se mantiene montado y solo se oculta
                         con CSS mientras no es la pestaña activa. */}
+                    {esVisita && !isEditing && onCambiarFicha && (
+                        <TabsContent value="puntos" className="mt-0">
+                            <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
+                                <PuntosVisitaTabla puntos={grupo!.puntos} activoId={fichaId} onCambiar={onCambiarFicha} datos={datosVisita} />
+                            </div>
+                        </TabsContent>
+                    )}
+
                     <TabsContent value="antecedentes" className="mt-0 data-[state=inactive]:hidden" forceMount>
                         <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px`, minHeight: '70vh' }}>
                             {isEditing ? (
@@ -581,6 +664,41 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                         <StaticField label="Instrumento" value={data.instrumento_ambiental} />
                                     </FieldGrid>
 
+                                    {(() => {
+                                        const coord = String(data.ma_coordenadas || '').trim();
+                                        const m = coord.match(/^(.*?) UTM (\d*)E (\d*)S/);
+                                        const zona = m ? m[1] : coord;
+                                        const noCaudal = !data.medicion_caudal || /no\s*aplica/i.test(String(data.medicion_caudal));
+                                        const medida = (n: any, u: any) => [n, u].filter((x) => x !== undefined && x !== null && String(x).trim() !== '').join(' ');
+                                        return (
+                                            <>
+                                                <SectionDivider>Muestreo</SectionDivider>
+                                                <FieldGrid min={180}>
+                                                    <StaticField label="Tipo de muestra" value={data.nombre_tipomuestra_ma} />
+                                                    <StaticField label="Tipo de descarga" value={data.nombre_tipodescarga} />
+                                                    {String(data.tipo_fichaingresoservicio || '').toLowerCase() !== 'puntual' && (
+                                                        <StaticField label="Duración del muestreo" value={data.ma_duracion_muestreo ? `${data.ma_duracion_muestreo} h` : ''} />
+                                                    )}
+                                                </FieldGrid>
+
+                                                <SectionDivider>Ubicación del punto</SectionDivider>
+                                                <FieldGrid min={180}>
+                                                    <StaticField label="Zona UTM" value={zona || 'Sin zona'} />
+                                                    <StaticField label="UTM Norte" value={m?.[2] || '—'} />
+                                                    <StaticField label="UTM Este" value={m?.[3] || '—'} />
+                                                </FieldGrid>
+
+                                                <SectionDivider>Medición de caudal</SectionDivider>
+                                                <FieldGrid min={180}>
+                                                    <StaticField label="Medición de caudal" value={data.medicion_caudal || 'No aplica'} />
+                                                    {!noCaudal && <StaticField label="Modalidad" value={data.nombre_modalidad} />}
+                                                    {!noCaudal && <StaticField label="Forma del canal" value={data.nombre_formacanal ? medida(data.nombre_formacanal, '') + (data.formacanal_medida ? ` · ${medida(data.formacanal_medida, data.nombre_um_formacanal)}` : '') : '—'} />}
+                                                    {!noCaudal && <StaticField label="Dispositivo hidráulico" value={data.nombre_dispositivohidraulico ? medida(data.nombre_dispositivohidraulico, '') + (data.dispositivohidraulico_medida ? ` · ${medida(data.dispositivohidraulico_medida, data.nombre_um_dispositivohidraulico)}` : '') : '—'} />}
+                                                </FieldGrid>
+                                            </>
+                                        );
+                                    })()}
+
                                     <FieldGrid min={160}>
                                         <StaticField label="Responsable" value={data.responsablemuestreo} />
                                         <StaticField label="Cargo" value={data.nombre_cargo} />
@@ -633,7 +751,25 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
                     <TabsContent value="analisis" className="mt-0">
                         <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
-                            {isEditing ? (
+                            {esVisita && !isEditing && onCambiarFicha && (
+                                <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                                    <span className="mr-1 text-xs font-medium text-muted-foreground">Ver:</span>
+                                    <Button size="sm" variant={analisisModo === 'todos' ? 'default' : 'outline'} onClick={() => setAnalisisModo('todos')}>Todos los puntos</Button>
+                                    {grupo!.puntos.map((pt, i) => (
+                                        <Button
+                                            key={pt.id_fichaingresoservicio}
+                                            size="sm"
+                                            variant={analisisModo === 'punto' && Number(pt.id_fichaingresoservicio) === Number(fichaId) ? 'default' : 'outline'}
+                                            onClick={() => { setAnalisisModo('punto'); if (Number(pt.id_fichaingresoservicio) !== Number(fichaId)) onCambiarFicha(Number(pt.id_fichaingresoservicio)); }}
+                                        >
+                                            {pt.punto || `Punto ${i + 1}`}
+                                        </Button>
+                                    ))}
+                                </div>
+                            )}
+                            {esVisita && !isEditing && analisisModo === 'todos' ? (
+                                <MatrizPrecioVisita puntos={grupo!.puntos} datos={datosVisita} />
+                            ) : isEditing ? (
                                 <AnalysisForm
                                     savedAnalysis={analysisList}
                                     onSavedAnalysisChange={setAnalysisList}
@@ -720,12 +856,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             <h5 className="m-0 text-sm font-semibold text-primary">Gestión Técnica: Validación</h5>
                                         </div>
                                         <span className="my-1 mb-2 block text-xs text-primary">
-                                            Ingrese sus observaciones técnicas antes de aprobar o solicitar revisión.
+                                            Para aprobar, elija «Sin observaciones» o escriba una. Para pedir una corrección es obligatorio explicar el motivo.
                                         </span>
-                                        <DeferredTextarea placeholder="Ingrese sus observaciones técnicas aquí..." value={tecnicaObs} onChange={setTecnicaObs} minRows={3} />
+                                        <SelectorObservacion modo={modoObsTec} onModo={setModoObsTec} texto={tecnicaObs} onTexto={setTecnicaObs} placeholder="Ingrese sus observaciones técnicas aquí..." />
+                                        {!allTabsVisited && (
+                                            <p className="mb-0 mt-3 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
+                                                Para aprobar, revise antes las pestañas que faltan: {[!visitedTabs.antecedentes && 'Antecedentes', !visitedTabs.analisis && 'Análisis', !visitedTabs.observaciones && 'Observaciones'].filter(Boolean).join(', ')}.
+                                            </p>
+                                        )}
                                         {esVisita && (
                                             <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
-                                                <input type="checkbox" checked={aprobarTodaLaVisita} onChange={(e) => setAprobarTodaLaVisita(e.target.checked)} />
+                                                <Checkbox checked={aprobarTodaLaVisita} onCheckedChange={(v) => setAprobarTodaLaVisita(v === true)} />
                                                 Aprobar los {grupo!.total} puntos de la visita de una vez
                                             </label>
                                         )}
@@ -757,10 +898,15 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                         <span className="my-1 mb-2 block text-xs text-violet-600">
                                             Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.
                                         </span>
-                                        <DeferredTextarea placeholder="Ingrese las observaciones de coordinación aquí..." value={coordinacionObs} onChange={setCoordinacionObs} minRows={3} />
+                                        <SelectorObservacion modo={modoObsCoord} onModo={setModoObsCoord} texto={coordinacionObs} onTexto={setCoordinacionObs} placeholder="Ingrese las observaciones de coordinación aquí..." />
+                                        {!allTabsVisited && (
+                                            <p className="mb-0 mt-3 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
+                                                Para aprobar, revise antes las pestañas que faltan: {[!visitedTabs.antecedentes && 'Antecedentes', !visitedTabs.analisis && 'Análisis', !visitedTabs.observaciones && 'Observaciones'].filter(Boolean).join(', ')}.
+                                            </p>
+                                        )}
                                         {esVisita && (
                                             <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
-                                                <input type="checkbox" checked={aprobarTodaLaVisita} onChange={(e) => setAprobarTodaLaVisita(e.target.checked)} />
+                                                <Checkbox checked={aprobarTodaLaVisita} onCheckedChange={(v) => setAprobarTodaLaVisita(v === true)} />
                                                 Aprobar los {grupo!.total} puntos de la visita de una vez
                                             </label>
                                         )}
@@ -792,6 +938,54 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     </TabsContent>
                 </Tabs>
             </Card>
+
+            <Dialog open={showCancelarFicha} onOpenChange={setShowCancelarFicha}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Cancelar la ficha {data?.fichaingresoservicio ? `N° ${data.fichaingresoservicio}` : ''}</DialogTitle></DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <p className="text-[13px]">
+                            La ficha queda como <strong>CANCELADA</strong> y sale de las bandejas de Área Técnica, Coordinación y Asignación. No se borra:
+                            queda el motivo y quién la canceló en su historial. Esta acción es irreversible.
+                        </p>
+                        <div>
+                            <span className="mb-1 block text-xs">Motivo *</span>
+                            <Combobox
+                                placeholder="Seleccione un motivo..."
+                                options={motivosFicha.map((m) => ({ value: String(m.id_motivocancelacion), label: m.nombre_motivo }))}
+                                value={motivoFichaId}
+                                onValueChange={setMotivoFichaId}
+                            />
+                        </div>
+                        <div>
+                            <span className="mb-1 block text-xs">Observación * <span className="text-muted-foreground">(por ejemplo: «duplicada de la ficha N° …»)</span></span>
+                            <Input placeholder="Detalle de la cancelación..." value={obsCancelarFicha} onChange={(e) => setObsCancelarFicha(e.target.value)} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setShowCancelarFicha(false)}>No, volver</Button>
+                        <Button
+                            variant="destructive"
+                            disabled={!motivoFichaId || !obsCancelarFicha.trim() || cancelandoFicha}
+                            onClick={async () => {
+                                setCancelandoFicha(true);
+                                try {
+                                    await fichaService.cancelarFicha(Number(fichaId), Number(motivoFichaId), obsCancelarFicha.trim());
+                                    showToast({ type: 'success', message: 'Ficha cancelada correctamente.' });
+                                    setShowCancelarFicha(false);
+                                    await loadData();
+                                } catch (err: any) {
+                                    showToast({ type: 'error', message: err?.response?.data?.message || 'No se pudo cancelar la ficha.' });
+                                } finally {
+                                    setCancelandoFicha(false);
+                                }
+                            }}
+                        >
+                            {cancelandoFicha && <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />}
+                            Sí, cancelar la ficha
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <ConfirmModal
                 isOpen={showCancelModal}

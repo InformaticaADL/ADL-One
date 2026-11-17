@@ -449,9 +449,9 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                 <SortableTableHead {...sortProps('id')} className="w-20">ID</SortableTableHead>
                                 <SortableTableHead {...sortProps('estado')} className="text-center">Estado</SortableTableHead>
                                 <SortableTableHead {...sortProps('fecha')}>Fecha</SortableTableHead>
-                                <SortableTableHead {...sortProps('empresaFacturar')}>Facturar a</SortableTableHead>
-                                <SortableTableHead {...sortProps('empresaServicio')}>E. Servicio</SortableTableHead>
-                                <SortableTableHead {...sortProps('objetivo')}>Objetivo</SortableTableHead>
+                                <SortableTableHead {...sortProps('empresaServicio')}>Empresa de servicio</SortableTableHead>
+                                <TableHead>Centro</TableHead>
+                                <SortableTableHead {...sortProps('objetivo')}>Programa</SortableTableHead>
                                 <TableHead>Base Operaciones</TableHead>
                                 <TableHead className="w-16 text-right">Acciones</TableHead>
                             </TableRow>
@@ -515,40 +515,66 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                                 ) : (ficha.fichaingresoservicio || '-')}
                                             </TableCell>
                                             <TableCell className="text-center">
-                                                <Badge variant={status.variant}>{status.label}</Badge>
+                                                {(() => {
+                                                    if (!esVisita) return <Badge variant={status.variant}>{status.label}</Badge>;
+                                                    // Visita: si todos sus puntos están igual, ese estado; si no, «Mixto» con el desglose.
+                                                    const cuenta = new Map<string, { n: number; props: ReturnType<typeof getStatusProps> }>();
+                                                    puntos.forEach((q) => { const sp = getStatusProps(q.estado_ficha); const c = cuenta.get(sp.label) || { n: 0, props: sp }; c.n++; cuenta.set(sp.label, c); });
+                                                    if (cuenta.size === 1) return <Badge variant={status.variant}>{status.label}</Badge>;
+                                                    const desglose = [...cuenta.entries()].map(([l, c]) => `${c.n} ${l}`).join(' · ');
+                                                    return <Badge variant="secondary" title={desglose}>Mixto</Badge>;
+                                                })()}
                                             </TableCell>
                                             <TableCell className="whitespace-nowrap">{ficha.fecha || '-'}</TableCell>
-                                            <TableCell className="whitespace-normal break-words" title={ficha.empresa_facturar}>{ficha.empresa_facturar || '-'}</TableCell>
-                                            <TableCell className="whitespace-normal break-words" title={ficha.empresa_servicio}>{ficha.empresa_servicio || '-'}</TableCell>
+                                            <TableCell className="whitespace-normal break-words" title={ficha.empresa_servicio}>
+                                                <span className="block font-medium">{ficha.empresa_servicio || '-'}</span>
+                                                {ficha.empresa_facturar && ficha.empresa_facturar !== ficha.empresa_servicio && (
+                                                    <span className="block text-xs text-muted-foreground">Factura a: {ficha.empresa_facturar}</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="whitespace-normal break-words font-medium" title={ficha.centro}>{ficha.centro || '-'}</TableCell>
                                             <TableCell className="whitespace-normal break-words" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
                                             <TableCell className="whitespace-normal break-words" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
                                             {/* La columna PDF se quitó: su descarga vive acá, junto a
                                                 "Ver ficha", en el menú de acciones estándar. */}
                                             <TableCell className="text-right">
                                                 {esVisita ? (
-                                                    <span className="text-xs text-muted-foreground">{abierta ? 'Ocultar puntos' : 'Ver puntos'}</span>
+                                                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                                        <Button size="sm" variant="outline" onClick={() => onViewDetail(idDe(ficha))}>Ver visita</Button>
+                                                        <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={abierta ? 'Ocultar los puntos' : 'Ver los puntos'} title={abierta ? 'Ocultar los puntos' : 'Ver los puntos'} onClick={() => toggleVisita(idVisita)}>
+                                                            {abierta ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
+                                                        </Button>
+                                                    </div>
                                                 ) : (
                                                     <RowActionsMenu actions={accionesDe(ficha)} />
                                                 )}
                                             </TableCell>
                                         </TableRow>
-                                        {abierta && puntos.map((p, i) => {
-                                            const st = getStatusProps(p.estado_ficha);
-                                            const idP = p.id_fichaingresoservicio || p.fichaingresoservicio;
-                                            return (
-                                                <TableRow key={`${idFicha}-p${idP}`} className="bg-muted/30">
-                                                    {puedeCrearVisita && <TableCell />}
-                                                    <TableCell className="pl-9 text-sm text-primary">{p.fichaingresoservicio || '-'}</TableCell>
-                                                    <TableCell className="text-center"><Badge variant={st.variant}>{st.label}</Badge></TableCell>
-                                                    <TableCell colSpan={4} className="text-sm">
-                                                        <span className="font-medium text-foreground">Punto {i + 1}:</span>{' '}
-                                                        <span className="text-muted-foreground">{p.grupo_punto || 'sin nombre'}</span>
-                                                    </TableCell>
-                                                    <TableCell className="whitespace-normal break-words" title={p.base_operaciones}>{p.base_operaciones || ''}</TableCell>
-                                                    <TableCell className="text-right"><RowActionsMenu actions={accionesDe(p)} /></TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
+                                        {abierta && (
+                                            <TableRow className="bg-muted/30 hover:bg-muted/30">
+                                                <TableCell colSpan={puedeCrearVisita ? 9 : 8} className="py-2.5 pl-9">
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {puntos.map((p, i) => {
+                                                            const st = getStatusProps(p.estado_ficha);
+                                                            const idP = p.id_fichaingresoservicio || p.fichaingresoservicio;
+                                                            return (
+                                                                <button
+                                                                    key={`${idFicha}-p${idP}`}
+                                                                    type="button"
+                                                                    onClick={() => onViewDetail(Number(idP))}
+                                                                    title={`Ficha ${p.fichaingresoservicio || idP} · ${st.label}`}
+                                                                    className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs hover:border-primary hover:bg-primary/5"
+                                                                >
+                                                                    <span className="font-semibold text-primary">{i + 1}</span>
+                                                                    <span className="font-medium">{p.grupo_punto || 'sin nombre'}</span>
+                                                                    <Badge variant={st.variant} className="px-1.5 py-0 text-[10px]">{st.label}</Badge>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )}
                                         </React.Fragment>
                                     );
                                 })

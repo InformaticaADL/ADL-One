@@ -5,10 +5,10 @@ import { cn } from '@/lib/utils';
 import {
     estaEn,
     formatoUF,
+    parteDelCostoOperativo,
     seEnvia,
-    sumaDeLosPuntos,
     totalDeLaVisita,
-    totalDelPunto,
+    valorDelPuntoConCosto,
     type ParametroVisita,
     type PuntoFila,
 } from '../utils/analisisVisita';
@@ -16,7 +16,7 @@ import {
 interface Props {
     puntos: PuntoFila[];
     parametros: ParametroVisita[];
-    /** Centésimas de UF; se suma aparte, una sola vez. */
+    /** Centésimas de UF; una línea más de la visita: cada punto lleva una parte igual. */
     costoOperativo: number;
     nombreLaboratorio: (id: number) => string;
     nombreTipoEntrega: (id: number) => string;
@@ -69,7 +69,7 @@ export const ResumenVisita: React.FC<Props> = ({ puntos, parametros, costoOperat
                                     </td>
                                     <td className={cn(celda, 'text-right tabular-nums')}>{terreno.length}</td>
                                     <td className={cn(celda, 'text-right tabular-nums')}>{lab.length}</td>
-                                    <td className={cn(celda, 'text-right tabular-nums')}>{formatoUF(totalDelPunto(enviables, p.id))} UF</td>
+                                    <td className={cn(celda, 'text-right tabular-nums')}>{formatoUF(valorDelPuntoConCosto(enviables, ids, p.id, costoOperativo))} UF</td>
                                 </tr>
                                 {abierto && (
                                     <tr>
@@ -107,6 +107,10 @@ export const ResumenVisita: React.FC<Props> = ({ puntos, parametros, costoOperat
                                                     )}
                                                 </div>
                                             </div>
+                                            <div className="mt-3 flex justify-between gap-3 border-t border-border pt-2 text-[13px]">
+                                                <span>Costo operativo (parte de este punto)</span>
+                                                <span className="tabular-nums text-muted-foreground">{formatoUF(parteDelCostoOperativo(costoOperativo, ids.length, ids.indexOf(p.id)))} UF</span>
+                                            </div>
                                         </td>
                                     </tr>
                                 )}
@@ -116,15 +120,7 @@ export const ResumenVisita: React.FC<Props> = ({ puntos, parametros, costoOperat
                 </tbody>
                 <tfoot>
                     <tr className="bg-muted/40 font-bold">
-                        <td className="px-3 py-1.5" colSpan={3}>Suma de los puntos</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">{formatoUF(sumaDeLosPuntos(enviables, ids))} UF</td>
-                    </tr>
-                    <tr className="border-t border-border bg-muted/40 font-bold">
-                        <td className="px-3 py-1.5" colSpan={3}>Costo operativo</td>
-                        <td className="px-3 py-1.5 text-right tabular-nums">{formatoUF(costoOperativo)} UF</td>
-                    </tr>
-                    <tr className="border-t border-border bg-muted/40 font-bold">
-                        <td className="px-3 py-1.5" colSpan={3}>Total de la visita</td>
+                        <td className="px-3 py-1.5" colSpan={3}>Total de la visita (incluye el costo operativo de {formatoUF(costoOperativo)} UF)</td>
                         <td className="px-3 py-1.5 text-right tabular-nums">{formatoUF(totalDeLaVisita(enviables, ids, costoOperativo))} UF</td>
                     </tr>
                 </tfoot>

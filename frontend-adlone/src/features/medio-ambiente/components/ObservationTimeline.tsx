@@ -6,10 +6,12 @@ import {
     IconAlertTriangle,
     IconCalendar,
     IconInfoCircle,
-    IconChevronDown
+    IconChevronDown,
+    IconLink,
+    IconCalendarOff,
+    IconBan
 } from '@tabler/icons-react';
 import { fichaService } from '../services/ficha.service';
-import { Timeline } from '@/components/ui/timeline';
 import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +22,7 @@ interface TimelineEvent {
     user: string;
     observation: string;
     stateChange?: { from: string; to: string };
-    type: 'CREATION' | 'APPROVAL' | 'REJECTION' | 'REVIEW' | 'ASSIGNMENT' | 'OTHER';
+    type: 'CREATION' | 'APPROVAL' | 'REJECTION' | 'REVIEW' | 'ASSIGNMENT' | 'GROUP' | 'UNASSIGN' | 'CANCEL' | 'OTHER';
 }
 
 interface ObservationTimelineProps {
@@ -46,6 +48,9 @@ const TYPE_STYLE: Record<TimelineEvent['type'], TimelineTypeStyle> = {
     REJECTION: { badgeVariant: 'destructive', dotClass: 'bg-destructive text-destructive-foreground', expandedClass: 'bg-destructive/5', borderClass: 'border-destructive/20' },
     REVIEW: { badgeVariant: 'warning', dotClass: 'bg-warning text-warning-foreground', expandedClass: 'bg-warning/5', borderClass: 'border-warning/20' },
     ASSIGNMENT: { badgeVariant: 'secondary', dotClass: 'bg-violet-500 text-white', expandedClass: 'bg-violet-500/5', borderClass: 'border-violet-500/20' },
+    GROUP: { badgeVariant: 'info', dotClass: 'bg-sky-500 text-white', expandedClass: 'bg-sky-500/5', borderClass: 'border-sky-500/20' },
+    UNASSIGN: { badgeVariant: 'warning', dotClass: 'bg-warning text-warning-foreground', expandedClass: 'bg-warning/5', borderClass: 'border-warning/20' },
+    CANCEL: { badgeVariant: 'destructive', dotClass: 'bg-destructive text-destructive-foreground', expandedClass: 'bg-destructive/5', borderClass: 'border-destructive/20' },
     OTHER: { badgeVariant: 'outline', dotClass: 'bg-muted-foreground text-background', expandedClass: 'bg-muted/40', borderClass: 'border-border' },
 };
 
@@ -56,6 +61,9 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
 
     const determineType = (action: string): TimelineEvent['type'] => {
         const act = action.toUpperCase();
+        if (act.includes('GRUPO')) return 'GROUP';
+        if (act.includes('DESASIGNACION')) return 'UNASSIGN';
+        if (act.includes('CANCELACION') || act.includes('CANCELAD')) return 'CANCEL';
         if (act.includes('CREACION') || act.includes('CREADA')) return 'CREATION';
         if (act.includes('APROB') || act.includes('ACEPT')) return 'APPROVAL';
         if (act.includes('RECHAZ')) return 'REJECTION';
@@ -123,6 +131,9 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
             case 'REJECTION': return <IconX size={13} />;
             case 'REVIEW': return <IconAlertTriangle size={13} />;
             case 'ASSIGNMENT': return <IconCalendar size={13} />;
+            case 'GROUP': return <IconLink size={13} />;
+            case 'UNASSIGN': return <IconCalendarOff size={13} />;
+            case 'CANCEL': return <IconBan size={13} />;
             default: return <IconInfoCircle size={13} />;
         }
     };
@@ -142,7 +153,11 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
             'actualizacion': 'actualizada',
             'FICHA CREADA': 'creada por el Área Comercial',
             'EDICION_POR_AREA_COMERCIAL': 'editada por el Área Comercial',
-            'EDICION_COMERCIAL': 'editada por el Área Comercial'
+            'EDICION_COMERCIAL': 'editada por el Área Comercial',
+            'GRUPO_MUESTREO': 'agrupada como punto de una visita',
+            'DESASIGNACION_MUESTREO': 'sin asignación: vuelve a quedar pendiente de coordinar',
+            'CANCELACION_MUESTREO': 'con un muestreo cancelado por Coordinación',
+            'CANCELACION_FICHA': 'cancelada',
         };
 
         if (actionMap[action]) return actionMap[action];
@@ -166,18 +181,17 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
 
     return (
         <div className="max-h-[350px] overflow-y-auto overflow-x-hidden pr-2">
-            <Timeline items={events.map((event) => {
+            <ol className="flex flex-col">
+                {events.map((event, idx) => {
                 const isExpanded = expandedIds.has(event.id);
                 const style = TYPE_STYLE[event.type];
 
-                return {
-                    key: event.id,
-                    dot: (
-                        <div className={cn('flex h-6 w-6 items-center justify-center rounded-full', style.dotClass)}>
+                return (
+                    <li key={event.id} className="relative pb-4 pl-10 last:pb-0">
+                        {idx < events.length - 1 && <span className="absolute left-[11px] top-7 h-[calc(100%-12px)] w-px bg-border" aria-hidden="true" />}
+                        <span className={cn('absolute left-0 top-2 flex h-6 w-6 items-center justify-center rounded-full ring-4 ring-background', style.dotClass)}>
                             {getIcon(event.type)}
-                        </div>
-                    ),
-                    content: (
+                        </span>
                         <div className={cn('overflow-hidden rounded-lg border', style.borderClass)}>
                             <button
                                 type="button"
@@ -195,7 +209,7 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
                                         Responsable: <span className="font-semibold text-foreground">{event.user}</span>
                                     </span>
                                     <span className="text-xs text-muted-foreground">
-                                        {event.date.toLocaleString()}
+                                        {event.date.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
                                 <IconChevronDown
@@ -224,9 +238,10 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
                                 </div>
                             )}
                         </div>
-                    ),
-                };
-            })} />
+                    </li>
+                );
+            })}
+            </ol>
         </div>
     );
 };

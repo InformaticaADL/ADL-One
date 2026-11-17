@@ -163,6 +163,31 @@ export const fichaService = {
         const response = await apiClient.post('/api/fichas/cancel-sampling', { idAgenda, idFicha, user, motivo_cancelacion, idMotivoCancelacion, tambien });
         return response.data;
     },
+    // Portada del usuario: lo que le toca atender según sus permisos (todo en visitas).
+    getResumenInicio: async (): Promise<any> => {
+        const response = await apiClient.get('/api/fichas/mi-resumen');
+        return response.data?.data ?? {};
+    },
+    // Dashboard Operativo (en visitas): embudo por etapa y agenda reciente (una fila por punto y servicio).
+    getDashboardOperativo: async (): Promise<{ etapas: { etapa: string; visitas: number; puntos: number; dias_mas_antigua: number | null }[]; agenda: any[]; generado: string }> => {
+        const response = await apiClient.get('/api/fichas/dashboard-operativo');
+        return response.data?.data ?? { etapas: [], agenda: [], generado: '' };
+    },
+    // Fichas parecidas ya creadas (mismo cliente, centro, objetivo y punto) para avisar antes de grabar una duplicada.
+    getPosiblesDuplicadas: async (p: { cliente: number | string; centro: number | string; objetivo: number | string; puntos: string[]; dias?: number }): Promise<{ id: number; ficha: string; punto: string; fecha: string; estado: string }[]> => {
+        const response = await apiClient.get('/api/fichas/posibles-duplicadas', { params: { cliente: p.cliente, centro: p.centro, objetivo: p.objetivo, puntos: p.puntos.join('|'), dias: p.dias ?? 30 } });
+        return response.data?.data ?? [];
+    },
+    // Cancela una ficha completa con motivo (p. ej. una ficha duplicada). No borra nada.
+    cancelarFicha: async (id: number, idMotivo: number, observacion: string) => {
+        const response = await apiClient.post(`/api/fichas/${id}/cancel-ficha`, { idMotivo, observacion });
+        return response.data;
+    },
+    // Quita la asignación (responsable y fecha): el servicio vuelve a quedar pendiente de coordinar. No es una cancelación.
+    quitarAsignacion: async (idsAgenda: number[], observacion?: string) => {
+        const response = await apiClient.post('/api/fichas/unassign-agenda', { idsAgenda, observacion });
+        return response.data;
+    },
     // Otros puntos de la visita que comparten este muestreo y todavía se pueden cancelar (vacío si la ficha no es de una visita).
     // modo 'ejecutados': en cambio devuelve los que ya se ejecutaron (para moverse entre ellos en el detalle).
     getPuntosVisita: async (idAgenda: number, modo: 'cancelables' | 'ejecutados' = 'cancelables'): Promise<{ id_agenda: number; id_ficha: number; punto: string | null; correlativo: string }[]> => {

@@ -520,10 +520,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
                 required.push({ label: 'N° Instrumento', value: nroInstrumento });
             }
 
-            if (!ocultarPunto && zona && !isNA(zona, zonasUTMList)) {
-                required.push({ label: 'UTM Norte', value: utmNorte });
-                required.push({ label: 'UTM Este',  value: utmEste });
-            }
+            // Zona UTM y coordenadas son opcionales: vacío = «no tengo la información»; «No aplica» = el punto no lleva zona.
 
             if (medicionCaudal && !isNA(medicionCaudal, modalidades)) {
                 required.push({ label: 'Modalidad de Medición', value: selectedModalidad });
@@ -1049,8 +1046,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
     );
 
     const block3Complete = useMemo(() => {
-        const req = [...(ocultarPunto ? [] : [zona]), selectedInstrumento, selectedComponente, selectedSubArea, glosa];
-        if (!ocultarPunto && zona && !isNoAplicaValue(zona, zonasUTMData)) req.push(utmNorte, utmEste);
+        const req = [selectedInstrumento, selectedComponente, selectedSubArea, glosa];
         const instLow = (selectedInstrumento || '').toLowerCase();
         if (instLow === 'otro') req.push(nroInstrumento);
         else if (instLow !== 'no aplica' && selectedInstrumento) req.push(nroInstrumento, anioInstrumento);
@@ -1105,11 +1101,6 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
         {
             id: 'clasif', label: 'Clasificación Técnica', icon: IconCertificate, complete: block3Complete,
             fields: [
-                ...(ocultarPunto ? [] : [{ label: 'Zona UTM', filled: fv('zona', zona) }]),
-                ...(!ocultarPunto && !isNoAplicaValue(zona, zonasUTMData) ? [
-                    { label: 'UTM Norte', filled: fv('utmNorte', utmNorte) },
-                    { label: 'UTM Este',  filled: fv('utmEste', utmEste) },
-                ] : []),
                 { label: 'Instrumento Legal',    filled: fv('selectedInstrumento', selectedInstrumento) },
                 ...(instLowNav !== 'no aplica' && instLowNav !== '' ? [
                     { label: 'N° Instrumento',   filled: fv('nroInstrumento', nroInstrumento) },
@@ -1283,7 +1274,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
             {/* Sección 2: Datos del Servicio */}
             <div ref={(el) => { sectionRefs.current.servicio = el; }} id="ficha-sec-servicio" className={modoPasos && pasoActivo !== 'servicio' ? 'hidden' : undefined}>
             <Block>
-                <BlockTitle icon={IconAdjustmentsHorizontal} color="#9c36b5">Datos del Servicio y Frecuencia</BlockTitle>
+                <BlockTitle icon={IconAdjustmentsHorizontal} color="var(--sc-primary)">Datos del Servicio y Frecuencia</BlockTitle>
 
                 <Row className="mb-4">
                     <Select
@@ -1366,27 +1357,28 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
             {/* Sección 3: Clasificación Técnica */}
             <div ref={(el) => { sectionRefs.current.clasif = el; }} id="ficha-sec-clasif" className={modoPasos && pasoActivo !== 'clasif' ? 'hidden' : undefined}>
             <Block>
-                <BlockTitle icon={IconCertificate} color="#0d9488">Clasificación Técnica y Geográfica</BlockTitle>
+                <BlockTitle icon={IconCertificate} color="var(--sc-primary)">Clasificación Técnica y Geográfica</BlockTitle>
 
                 <Row className="mb-4">
                     {!ocultarPunto && (<>
                     <Select
                         size="xs"
-                        label={<FieldLabel label="Zona UTM *" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
+                        label={<FieldLabel label="Zona UTM" help="Huso o banda de la cuadrícula UTM donde se ubica el punto de muestreo. En Chile continental se usa mayoritariamente la Zona 19S. Selecciónela según la ubicación geográfica del centro." />}
+                        clearable
                         data={zonasUTMData}
                         value={zona}
                         onChange={(v: string | null) => { setZona(v || ''); markDirty('zona'); }}
                     />
                     <TextInput
                         size="sm"
-                        label={<FieldLabel label="UTM Norte *" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
+                        label={<FieldLabel label="UTM Norte" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
                         onChange={(e: any) => { setUtmNorte(e.target.value); markDirty('utmNorte'); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     <TextInput
                         size="sm"
-                        label={<FieldLabel label="UTM Este *" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
+                        label={<FieldLabel label="UTM Este" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
                         onChange={(e: any) => { setUtmEste(e.target.value); markDirty('utmEste'); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
@@ -1510,7 +1502,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
             {/* Sección 4: Detalles Operativos */}
             <div ref={(el) => { sectionRefs.current.operativo = el; }} id="ficha-sec-operativo" className={modoPasos && pasoActivo !== 'operativo' ? 'hidden' : undefined}>
             <Block>
-                <BlockTitle icon={IconClock} color="#e8590c">Detalles Operativos y Descarga</BlockTitle>
+                <BlockTitle icon={IconClock} color="var(--sc-warning)">Detalles Operativos y Descarga</BlockTitle>
 
                 <Row className="mb-4">
                     <Select

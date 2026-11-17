@@ -18,7 +18,6 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     ajustarParametrosPorCambioDePuntos,
     armarPayloadVisita,
-    desdeFijoPorDefecto,
     desdeFilaGuardada,
     formatoUF,
     nuevoPunto,
@@ -198,27 +197,9 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
         tiposEntrega,
     }), [laboratorios, tiposEntrega]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Estado de partida: pH y Temperatura (terreno) vienen pre-agregados, sin normativa/tabla hasta que el usuario la elija.
-    // Si no se configuran no se envían. Se cargan una sola vez al montar.
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const defaults = await fichaService.getDefaultAnalyses();
-                if (cancelled || !defaults || defaults.length === 0) return;
-                setParametros((prev) => {
-                    if (prev.length > 0) return prev; // no pisar si el usuario ya agregó algo
-                    const ids = puntosRef.current.map((p) => p.id);
-                    return defaults.map((d: any) => desdeFijoPorDefecto(d, ids));
-                });
-            } catch {
-                /* si falla, la ficha simplemente arranca sin los fijos */
-            }
-        })();
-        return () => { cancelled = true; };
-    }, []);
+    // La ficha arranca SIN análisis predefinidos: pH y Temperatura ya no se agregan solos (se miden en la aplicación de terreno).
 
-    // Precarga desde la cotización. Los análisis cotizados se AGREGAN a los fijos (pH/Temperatura), no los reemplazan.
+    // Precarga desde la cotización. Los análisis cotizados se agregan a lo que ya haya elegido el usuario.
     useEffect(() => {
         if (!cotizacionParaFicha) return;
         let cancelled = false;
@@ -325,8 +306,19 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             resolvedor,
             comunes: datosDeLaVisita(),
         });
+        // Aviso previo: ¿ya existe una ficha igual (mismo cliente, centro, objetivo y punto) creada hace poco? No bloquea: el usuario decide.
+        try {
+            const parecidas = await fichaService.getPosiblesDuplicadas({
+                cliente: antData.selectedCliente, centro: antData.selectedFuente, objetivo: antData.selectedObjetivo,
+                puntos: puntos.map((p) => p.puntoMuestreo),
+            });
+            if (parecidas.length > 0) { setPosiblesDuplicadas({ lista: parecidas, payload, esGrupo }); return; }
+        } catch { /* sin el aviso se sigue igual */ }
         await enviarVisita(payload, esGrupo);
     };
+
+    // Fichas parecidas encontradas antes de grabar; mientras haya, se muestra el aviso y se espera la decisión.
+    const [posiblesDuplicadas, setPosiblesDuplicadas] = useState<{ lista: { id: number; ficha: string; punto: string; fecha: string; estado: string }[]; payload: Record<string, unknown>; esGrupo: boolean } | null>(null);
 
     // Crea la ficha (un punto) o la visita completa (varios puntos agrupados) y muestra el resultado.
     const enviarVisita = async (payload: Record<string, unknown>, esGrupo: boolean) => {
@@ -422,11 +414,6 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
         setActiveTab('antecedentes');
         setPasoAnt(0); setMaxAnt(0); setPasoVis(0); setMaxVis(0);
         setParametros([]);
-        // Vuelve a los análisis fijos de partida (pH + Temperatura), igual que al abrir la pantalla.
-        fichaService.getDefaultAnalyses().then((defaults: any[]) => {
-            if (!defaults || defaults.length === 0) return;
-            setParametros((prev) => (prev.length > 0 ? prev : defaults.map((d: any) => desdeFijoPorDefecto(d, [primero.id]))));
-        }).catch(() => { /* la ficha arranca sin los fijos */ });
     };
 
     const handleContinuarBorrador = () => {
@@ -546,6 +533,29 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
 
     return (
         <div>
+            <Dialog open={!!posiblesDuplicadas} onOpenChange={(o) => { if (!o) setPosiblesDuplicadas(null); }}>
+                <DialogContent className="max-w-[560px]">
+                    <DialogHeader>
+                        <DialogTitle>Ya existe una ficha parecida</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-[13px]">
+                        Hay {posiblesDuplicadas?.lista.length === 1 ? 'una ficha' : `${posiblesDuplicadas?.lista.length} fichas`} del mismo cliente, centro y objetivo, con {posiblesDuplicadas?.lista.length === 1 ? 'el mismo punto' : 'puntos iguales'}, creadas en los últimos 30 días. Si es la misma ficha, no la crees otra vez.
+                    </p>
+                    <ul className="m-0 flex max-h-56 list-none flex-col gap-1.5 overflow-y-auto p-0">
+                        {posiblesDuplicadas?.lista.map((d) => (
+                            <li key={d.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2 text-[13px]">
+                                <span><strong>Ficha N° {d.ficha || d.id}</strong> · {d.punto}</span>
+                                <span className="shrink-0 text-xs text-muted-foreground">{String(d.fecha || '').slice(0, 10).split('-').reverse().join('-')} · {d.estado}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPosiblesDuplicadas(null)}>Volver y revisar</Button>
+                        <Button onClick={async () => { const d = posiblesDuplicadas; setPosiblesDuplicadas(null); if (d) await enviarVisita(d.payload, d.esGrupo); }}>Crear de todos modos</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <SuccessModal
                 isOpen={showSuccessModal}
                 onClose={handleCloseSuccess}

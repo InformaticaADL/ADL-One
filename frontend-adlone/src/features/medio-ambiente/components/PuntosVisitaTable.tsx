@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { IconClipboardText, IconPlus, IconTrash, IconWand } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,8 @@ const estaVacio = (p: PuntoFila) => !p.puntoMuestreo.trim() && !p.zona && !p.utm
  * («Borde AZE, Control» × 3) o pegar desde Excel.
  */
 export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zonaNoAplica }) => {
+    // Dejar la zona vacía (no tengo la información) es distinto de «No aplica» (el punto no lleva zona).
+    const opcionesZona = useMemo(() => [{ value: '', label: '— Sin zona —' }, ...zonas], [zonas]);
     const [nombres, setNombres] = useState('');
     const [replicas, setReplicas] = useState('1');
     const [pegarAbierto, setPegarAbierto] = useState(false);
@@ -49,6 +51,13 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
             if (campo === 'zona' && zonaNoAplica(valor)) { nuevo.utmNorte = ''; nuevo.utmEste = ''; }
             return nuevo;
         }));
+
+    // Una sola zona para todos los puntos. Las coordenadas de cada punto se conservan.
+    const aplicarZonaATodos = (zona: string) => {
+        // Sin zona o «No aplica»: las coordenadas no corresponden y se limpian.
+        onChange(puntos.map((p) => (!zona || zonaNoAplica(zona) ? { ...p, zona, utmNorte: '', utmEste: '' } : { ...p, zona })));
+    };
+    const zonaComun = puntos.length > 0 && puntos.every((p) => p.zona && p.zona === puntos[0].zona) ? puntos[0].zona : '';
 
     const quitar = (id: string) => onChange(puntos.length > 1 ? puntos.filter((p) => p.id !== id) : [nuevoPunto()]);
 
@@ -84,6 +93,10 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
                         <label className="mb-1 block text-xs text-muted-foreground" htmlFor="gen-replicas">Réplicas por punto</label>
                         <Input id="gen-replicas" type="number" min={1} max={50} value={replicas} onChange={(e) => setReplicas(e.target.value)} />
                     </div>
+                    <div className="w-44">
+                        <label className="mb-1 block text-xs text-muted-foreground">Zona UTM para todos los puntos</label>
+                        <Combobox options={opcionesZona} value={zonaComun || undefined} onValueChange={(v) => aplicarZonaATodos(v || '')} placeholder="Elegir zona…" />
+                    </div>
                     <Button type="button" onClick={generar} disabled={!nombres.trim()}><IconWand size={16} /> Generar</Button>
                     <Button type="button" variant="outline" onClick={() => setPegarAbierto(true)}><IconClipboardText size={16} /> Pegar desde Excel</Button>
                 </div>
@@ -98,7 +111,7 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
                         <tr className="bg-muted/40 text-left text-xs font-medium text-muted-foreground">
                             <th className="w-10 px-3 py-2">#</th>
                             <th className="px-3 py-2">Punto de muestreo *</th>
-                            <th className="w-40 px-3 py-2">Zona UTM *</th>
+                            <th className="w-40 px-3 py-2">Zona UTM</th>
                             <th className="w-36 px-3 py-2">UTM Norte</th>
                             <th className="w-36 px-3 py-2">UTM Este</th>
                             <th className="px-3 py-2">Referencia Google Maps</th>
@@ -113,7 +126,7 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
                                     <td className="px-3 py-1.5 text-muted-foreground">{i + 1}</td>
                                     <td className="px-2 py-1.5"><Input aria-label={`Nombre del punto ${i + 1}`} value={p.puntoMuestreo} onChange={(e) => cambiar(p.id, 'puntoMuestreo', e.target.value)} placeholder="Ej.: Borde AZE 1" /></td>
                                     <td className="px-2 py-1.5">
-                                        <Combobox options={zonas} value={p.zona || undefined} onValueChange={(v) => cambiar(p.id, 'zona', v || '')} placeholder="Zona…" />
+                                        <Combobox options={opcionesZona} value={p.zona || undefined} onValueChange={(v) => cambiar(p.id, 'zona', v || '')} placeholder="Sin zona" />
                                     </td>
                                     <td className="px-2 py-1.5"><Input aria-label={`UTM Norte del punto ${i + 1}`} inputMode="numeric" value={p.utmNorte} disabled={sinCoord} onChange={(e) => cambiar(p.id, 'utmNorte', e.target.value)} /></td>
                                     <td className="px-2 py-1.5"><Input aria-label={`UTM Este del punto ${i + 1}`} inputMode="numeric" value={p.utmEste} disabled={sinCoord} onChange={(e) => cambiar(p.id, 'utmEste', e.target.value)} /></td>

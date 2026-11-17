@@ -193,7 +193,7 @@ export const AgendaMuestreadores: React.FC<Props> = ({ muestreadores, hayAsignac
             },
         };
     };
-    const arrastrable = (v: Visita) => (onMoverVisita && !v.ejecutada ? {
+    const arrastrable = (v: Visita) => (onMoverVisita && !v.ejecutada && v.movible ? {
         draggable: true,
         onDragStart: (e: React.DragEvent) => { arrastrando.current = v; e.dataTransfer.setData('text/adl-visita', v.key); e.dataTransfer.effectAllowed = 'move'; },
         onDragEnd: () => { arrastrando.current = null; setSobre(null); },
@@ -250,7 +250,7 @@ export const AgendaMuestreadores: React.FC<Props> = ({ muestreadores, hayAsignac
                 {hayAsignacion
                     ? 'Arrastra los puntos marcados a un día de un muestreador, o haz clic en el día.'
                     : vista === 'semana'
-                        ? 'Arrastra puntos de la lista a un día para agendarlos. Para mover una visita, haz clic en su celda y usa «Mover…» (o arrástrala).'
+                        ? 'Arrastra puntos de la lista a un día para agendarlos. Para mover una visita, arrástrala desde su celda a otro día o a otro muestreador (o usa «Mover…» en el detalle).'
                         : 'Usa «Mover…» en una visita (o arrástrala a otra columna) para cambiar de responsable o de día.'}
             </p>
 
@@ -286,20 +286,33 @@ export const AgendaMuestreadores: React.FC<Props> = ({ muestreadores, hayAsignac
                                             const p = puntosDe(m.id, d.fecha);
                                             const activa = detalle && detalle.mu === m.id && detalle.fecha === d.fecha;
                                             return (
-                                                <TableCell key={d.fecha} className="p-1">
-                                                    <button
-                                                        type="button"
+                                                <TableCell key={d.fecha} className="p-1 align-top">
+                                                    <div
+                                                        role="button"
+                                                        tabIndex={0}
                                                         {...zona(m.id, d.fecha)}
                                                         onClick={() => elegirCelda(m.id, d.fecha)}
+                                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); elegirCelda(m.id, d.fecha); } }}
                                                         aria-label={`${m.nombre}, ${d.largo} ${d.d.getDate()}: ${v} visitas`}
                                                         className={cn(
-                                                            'flex h-10 w-full flex-col justify-center rounded-md px-2 text-left text-xs transition-colors hover:ring-2 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+                                                            'flex min-h-10 w-full cursor-pointer flex-col justify-center gap-1 rounded-md px-2 py-1 text-left text-xs transition-colors hover:ring-2 hover:ring-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
                                                             nivelDe(v, p),
                                                             (activa || sobre === m.id + '|' + d.fecha) && 'ring-2 ring-primary'
                                                         )}
                                                     >
                                                         {v ? <span><strong className="text-sm">{v}</strong> {v === 1 ? 'visita' : 'visitas'} · {p} pts</span> : <span className="text-muted-foreground">—</span>}
-                                                    </button>
+                                                        {/* Cada visita se puede arrastrar directo a otro día o a otro muestreador */}
+                                                        {deCelda(m.id, d.fecha).map((vis) => (
+                                                            <div
+                                                                key={vis.key}
+                                                                {...arrastrable(vis)}
+                                                                className={cn('truncate rounded border border-border bg-background px-1.5 py-0.5 text-[11px] leading-tight', !vis.ejecutada && onMoverVisita && (vis.movible ? 'cursor-grab' : 'cursor-not-allowed opacity-80'))}
+                                                                title={`${vis.centro} · ${vis.puntos} ${vis.puntos === 1 ? 'punto' : 'puntos'}${vis.ejecutada ? ' · ejecutada' : vis.movible ? ' · arrástrala a otro día o muestreador' : ' · no se puede mover desde aquí'}`}
+                                                            >
+                                                                {vis.centro} · {vis.puntos}
+                                                            </div>
+                                                        ))}
+                                                    </div>
                                                 </TableCell>
                                             );
                                         })}

@@ -13,12 +13,14 @@ import {
     copiarPuntoATodos,
     estaEn,
     formatoUF,
+    parteDelCostoOperativo,
     repartirEnPunto,
     repartirVisita,
     seEnvia,
     sumaDeLosPuntos,
     totalDeLaVisita,
     totalDelPunto,
+    valorDelPuntoConCosto,
     type NuevoParametro,
     type ParametroVisita,
     type PuntoFila,
@@ -31,7 +33,8 @@ import { SelectBuscable } from './SelectBuscable';
  * «Puntos y análisis» se reparte en dos pantallas con un solo trabajo cada una:
  *  - ParametrosVisitaForm: qué se mide en cada punto y en qué laboratorio (sin precios).
  *  - PrecioVisitaForm: la tarifa de cada parámetro en cada punto, el reparto rápido y el costo operativo.
- * El valor de un punto y el total de la visita son SIEMPRE la suma de las tarifas.
+ * El costo operativo es una línea más de la tabla (como un análisis) y entra al reparto rápido. El valor de un punto y el
+ * total de la visita son SIEMPRE la suma de las tarifas.
  */
 
 const claseInput = 'flex h-8 w-full rounded-md border border-border bg-background px-2 py-1 pr-8 text-right text-[13px] tabular-nums text-foreground shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50';
@@ -333,7 +336,7 @@ interface PropsPrecio {
     puntos: PuntoFila[];
     parametros: ParametroVisita[];
     onParametrosChange: (parametros: ParametroVisita[]) => void;
-    /** Costo operativo de la visita, en centésimas de UF. Se suma aparte, una sola vez. */
+    /** Costo operativo de la visita, en centésimas de UF. Una línea más de la tabla; cada punto lleva su parte. */
     costoOperativo: number;
     onCostoOperativoChange: (centesimas: number) => void;
 }
@@ -354,30 +357,36 @@ export const PrecioVisitaForm: React.FC<PropsPrecio> = ({ puntos, parametros, on
         onParametrosChange(resultado || copia);
     };
 
-    const suma = sumaDeLosPuntos(enviables, ids);
     const total = totalDeLaVisita(enviables, ids, costoOperativo);
-    const enCero = ids.filter((id) => totalDelPunto(enviables, id) === 0);
+    const enCero = ids.filter((id) => valorDelPuntoConCosto(enviables, ids, id, costoOperativo) === 0);
 
     const pedirReparto = () => {
         if (repartoValor <= 0) return;
-        const hacer = () => mutar((c) => { repartirVisita(c, ids, { tipo: repartoTipo, valor: repartoValor }); });
-        const n = tarifasConValor(parametros, ids);
+        const hacer = () => {
+            const copia = clonar(parametros);
+            const nuevoCosto = repartirVisita(copia, ids, { tipo: repartoTipo, valor: repartoValor });
+            onParametrosChange(copia);
+            onCostoOperativoChange(nuevoCosto);
+        };
+        const n = tarifasConValor(parametros, ids) + (costoOperativo > 0 ? 1 : 0);
         if (n === 0) { hacer(); return; }
         setConfirmacion({
             titulo: '¿Reemplazar las tarifas actuales?',
-            texto: `Hay ${n} ${n === 1 ? 'tarifa con valor' : 'tarifas con valor'}. Al repartir se reemplazan por partes iguales.`,
+            texto: `Hay ${n} ${n === 1 ? 'tarifa con valor' : 'tarifas con valor'} (el costo operativo cuenta como una). Al repartir se reemplazan por partes iguales.`,
             boton: 'Sí, repartir',
             alAceptar: hacer,
         });
     };
 
     const pedirValorDelPunto = (id: string, valor: number) => {
-        const hacer = () => mutar((c) => { repartirEnPunto(c, id, valor); });
+        // El valor del punto incluye su parte del costo operativo: a los parámetros les queda el resto.
+        const parte = parteDelCostoOperativo(costoOperativo, ids.length, Math.max(0, ids.indexOf(id)));
+        const hacer = () => mutar((c) => { repartirEnPunto(c, id, Math.max(0, valor - parte)); });
         const n = tarifasConValor(parametros, [id]);
         if (n === 0) { hacer(); return; }
         setConfirmacion({
             titulo: '¿Reemplazar las tarifas de este punto?',
-            texto: `«${nombreDe(id)}» tiene ${n} ${n === 1 ? 'tarifa con valor' : 'tarifas con valor'}. El nuevo valor se reparte en partes iguales entre sus parámetros.`,
+            texto: `«${nombreDe(id)}» tiene ${n} ${n === 1 ? 'tarifa con valor' : 'tarifas con valor'}. El nuevo valor (con su parte del costo operativo) se reparte en partes iguales entre sus parámetros.`,
             boton: 'Sí, reemplazar',
             alAceptar: hacer,
         });
@@ -435,13 +444,7 @@ export const PrecioVisitaForm: React.FC<PropsPrecio> = ({ puntos, parametros, on
                         <div className="mt-1"><CampoUF className="w-[120px]" valor={repartoValor} ariaLabel="Valor para repartir" onCambio={setRepartoValor} /></div>
                     </label>
                     <Button type="button" onClick={pedirReparto} disabled={repartoValor <= 0}>Repartir</Button>
-                    <span className="min-w-[200px] flex-1 text-xs text-muted-foreground">Es solo el punto de partida: después ajuste cada tarifa.</span>
-                </div>
-                <div className="flex flex-wrap items-end gap-x-4 gap-y-2.5 border-t border-border px-4 py-3">
-                    <label className="text-xs text-muted-foreground">Costo operativo de la visita
-                        <div className="mt-1"><CampoUF className="w-[120px]" valor={costoOperativo} ariaLabel="Costo operativo de la visita" onCambio={onCostoOperativoChange} /></div>
-                    </label>
-                    <span className="min-w-[200px] flex-1 text-xs text-muted-foreground">Se cobra una vez y se suma aparte. Escriba 0 si no se cobra.</span>
+                    <span className="min-w-[200px] flex-1 text-xs text-muted-foreground">El costo operativo entra al reparto como un parámetro más. Es solo el punto de partida: después ajuste cada tarifa.</span>
                 </div>
             </div>
 
@@ -461,26 +464,30 @@ export const PrecioVisitaForm: React.FC<PropsPrecio> = ({ puntos, parametros, on
                                 <th className="sticky right-0 z-[1] border-b border-border bg-card px-3 py-1.5 text-right font-medium">Suma</th>
                             </tr>
                         </thead>
-                        <tbody>{filasDe('terreno', 'Terreno')}{filasDe('laboratorio', 'Laboratorio')}</tbody>
+                        <tbody>
+                            {filasDe('terreno', 'Terreno')}{filasDe('laboratorio', 'Laboratorio')}
+                            <tr>
+                                <td colSpan={ids.length + 2} className="sticky left-0 bg-muted/40 px-3 py-1.5 text-xs font-semibold">Costo operativo</td>
+                            </tr>
+                            <tr>
+                                <td className="sticky left-0 z-[1] min-w-[150px] border-b border-border bg-card px-3 py-1.5" title="Es uno por visita; cada punto lleva una parte igual.">Costo operativo de la visita</td>
+                                {ids.map((id, i) => (
+                                    <td key={id} className="border-b border-border px-3 py-1 text-right tabular-nums text-muted-foreground" title="Parte de este punto">{formatoUF(parteDelCostoOperativo(costoOperativo, ids.length, i))}</td>
+                                ))}
+                                <td className="sticky right-0 border-b border-border bg-card px-1.5 py-1 text-right">
+                                    <CampoUF className="w-[88px]" valor={costoOperativo} ariaLabel="Costo operativo de la visita" onCambio={onCostoOperativoChange} />
+                                </td>
+                            </tr>
+                        </tbody>
                         <tfoot>
                             <tr className="bg-muted/40 font-bold">
-                                <td className="sticky left-0 z-[1] min-w-[150px] bg-muted px-3 py-1.5">Valor del punto</td>
+                                <td className="sticky left-0 z-[1] min-w-[150px] bg-muted px-3 py-1.5">Valor del punto · Total de la visita</td>
                                 {ids.map((id) => (
                                     <td key={id} className="px-1.5 py-1 text-right">
-                                        <CampoUFAlTerminar className="w-[88px]" valor={totalDelPunto(enviables, id)} ariaLabel={`Valor de ${nombreDe(id)}`} title="Es la suma de sus parámetros. Si lo escribe, se reparte en partes iguales." onTerminar={(c) => pedirValorDelPunto(id, c)} />
+                                        <CampoUFAlTerminar className="w-[88px]" valor={valorDelPuntoConCosto(enviables, ids, id, costoOperativo)} ariaLabel={`Valor de ${nombreDe(id)}`} title="Es la suma de sus parámetros más su parte del costo operativo. Si lo escribe, se reparte en partes iguales." onTerminar={(c) => pedirValorDelPunto(id, c)} />
                                     </td>
                                 ))}
-                                <td className="sticky right-0 bg-muted px-3 py-1.5 text-right tabular-nums">{formatoUF(suma)}</td>
-                            </tr>
-                            <tr className="border-t border-border bg-muted/40 font-bold">
-                                <td className="sticky left-0 z-[1] bg-muted px-3 py-1.5">Costo operativo</td>
-                                <td colSpan={ids.length} />
-                                <td className="sticky right-0 bg-muted px-3 py-1.5 text-right tabular-nums">{formatoUF(costoOperativo)}</td>
-                            </tr>
-                            <tr className="border-t border-border bg-muted/40 font-bold">
-                                <td className="sticky left-0 z-[1] bg-muted px-3 py-1.5">Total de la visita</td>
-                                <td colSpan={ids.length} />
-                                <td className="sticky right-0 bg-muted px-3 py-1.5 text-right tabular-nums">{formatoUF(total)}</td>
+                                <td className="sticky right-0 bg-muted px-3 py-1.5 text-right tabular-nums" title="Total de la visita">{formatoUF(total)}</td>
                             </tr>
                         </tfoot>
                     </table>
