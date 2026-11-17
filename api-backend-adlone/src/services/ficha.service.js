@@ -486,7 +486,7 @@ class FichaIngresoService {
             // Construct Coordinates
             let coordenadas = null;
             if (ant.zona && ant.zona !== 'No aplica') {
-                coordenadas = `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S`;
+                coordenadas = (String(ant.utmNorte || '').trim() || String(ant.utmEste || '').trim()) ? `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S` : ant.zona; // sin coordenadas: solo la zona
             } else if (ant.zona === 'No aplica') {
                 coordenadas = 'No aplica';
             }
@@ -916,7 +916,7 @@ class FichaIngresoService {
 
             let coordenadas = null;
             if (ant.zona && ant.zona !== 'No aplica') {
-                coordenadas = `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S`;
+                coordenadas = (String(ant.utmNorte || '').trim() || String(ant.utmEste || '').trim()) ? `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S` : ant.zona; // sin coordenadas: solo la zona
             } else if (ant.zona === 'No aplica') { coordenadas = 'No aplica'; }
 
             // 2. UPDATE ENCABEZADO (Antecedentes)
@@ -1405,6 +1405,134 @@ class FichaIngresoService {
             throw error;
         }
     }
+    // Resumen para la portada de cada usuario, según SUS permisos (`permisos`) y su id. Todo en visitas (grupo de puntos = una visita).
+    //  comercial     (FI_CREAR): mis visitas rechazadas por corregir, las que tengo en validación y las que creé hoy.
+    //  tecnica       (FI_APROBAR_TEC / FI_RECHAZAR_TEC): visitas pendientes de validación técnica, la más antigua primero.
+    //  coordinacion  (FI_APROBAR_COO / FI_RECHAZAR_COO): visitas pendientes de validación de coordinación.
+    //  programar     (FI_ASIG_GRUPO): visitas aprobadas que esperan fecha y muestreador.
+    //  operacion     (calendario / coordinación): visitas de hoy y visitas que no se realizaron en su fecha.
+    async getResumenInicio({ userId, permisos = [] }) {
+        const pool = await getConnection();
+        const tiene = (...ps) => ps.some((p) => permisos.includes(p));
+        const salida = {};
+        const base = `
+            WITH p AS (
+                SELECT f.id_fichaingresoservicio AS id, ISNULL(f.id_validaciontecnica, 0) AS v, f.fecha_fichacomercial AS fecha, f.id_usuario,
+                       ce.nombre_centro AS centro, es.nombre_empresaservicios AS empresa, om.nombre_objetivomuestreo_ma AS programa,
+                       (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) AS grupo
+                FROM App_Ma_FichaIngresoServicio_ENC f
+                LEFT JOIN mae_centro ce ON ce.id_centro = f.id_centro
+                LEFT JOIN mae_empresaservicios es ON es.id_empresaservicio = f.id_empresaservicio
+                LEFT JOIN mae_objetivomuestreo_ma om ON om.id_objetivomuestreo_ma = f.id_objetivomuestreo_ma
+                WHERE ISNULL(f.id_validaciontecnica, 0) IN (0, 1, 2, 3, 4, 6)
+            ), vis AS (
+                SELECT COALESCE('g' + CAST(grupo AS varchar(20)), 'f' + CAST(id AS varchar(20))) AS clave,
+                       MIN(id) AS id, COUNT(*) AS puntos, MIN(fecha) AS desde, MAX(id_usuario) AS id_usuario,
+                       LTRIM(RTRIM(MAX(centro))) AS centro, LTRIM(RTRIM(MAX(empresa))) AS empresa, LTRIM(RTRIM(MAX(programa))) AS programa,
+                       SUM(CASE WHEN v IN (0, 3) THEN 1 ELSE 0 END) AS tec, SUM(CASE WHEN v = 1 THEN 1 ELSE 0 END) AS coo,
+                       SUM(CASE WHEN v IN (2, 4) THEN 1 ELSE 0 END) AS rech, SUM(CASE WHEN v = 6 THEN 1 ELSE 0 END) AS prog
+                FROM p GROUP BY COALESCE('g' + CAST(grupo AS varchar(20)), 'f' + CAST(id AS varchar(20)))
+            )`;
+        const lista = async (cond, extra = '') => {
+            const rq = pool.request();
+            rq.input('uid', sql.Numeric(10, 0), Number(userId) || 0);
+            const total = (await rq.query(`${base} SELECT COUNT(*) AS n, DATEDIFF(day, MIN(desde), GETDATE()) AS dias FROM vis WHERE ${cond}`)).recordset[0];
+            const rq2 = pool.request();
+            rq2.input('uid', sql.Numeric(10, 0), Number(userId) || 0);
+            const filas = (await rq2.query(`${base} SELECT TOP 6 id, puntos, centro, empresa, programa, CONVERT(varchar(10), desde, 23) AS desde,
+                                                   DATEDIFF(day, desde, GETDATE()) AS dias ${extra} FROM vis WHERE ${cond} ORDER BY desde ASC, id ASC`)).recordset;
+            return { total: total.n || 0, diasMasAntigua: total.dias, filas };
+        };
+        if (tiene('FI_CREAR')) {
+            const rechazadas = await lista('rech > 0 AND id_usuario = @uid',
+                ", (SELECT TOP 1 ISNULL(NULLIF(LTRIM(RTRIM(e.observaciones_jefaturatecnica)), ''), e.observaciones_coordinador) FROM App_Ma_FichaIngresoServicio_ENC e WHERE e.id_fichaingresoservicio = vis.id) AS motivo");
+            const enValidacion = await lista('(tec > 0 OR coo > 0) AND id_usuario = @uid');
+            const hoyRq = pool.request(); hoyRq.input('uid', sql.Numeric(10, 0), Number(userId) || 0);
+            const creadasHoy = (await hoyRq.query('SELECT COUNT(*) AS n FROM App_Ma_FichaIngresoServicio_ENC WHERE id_usuario = @uid AND CAST(fecha_fichacomercial AS date) = CAST(GETDATE() AS date)')).recordset[0].n;
+            salida.comercial = { rechazadas, enValidacion, creadasHoy };
+        }
+        if (tiene('FI_APROBAR_TEC', 'FI_RECHAZAR_TEC')) salida.tecnica = await lista('tec > 0');
+        if (tiene('FI_APROBAR_COO', 'FI_RECHAZAR_COO')) salida.coordinacion = await lista('coo > 0');
+        if (tiene('FI_ASIG_GRUPO')) salida.programar = await lista('prog > 0 AND tec = 0 AND coo = 0');
+        if (tiene('MA_CALENDARIO_ACCESO', 'MA_COORDINACION_ACCESO', 'FI_ASIG_GRUPO')) {
+            const d = await this.getDashboardOperativo({ atras: 120, adelante: 1 });
+            const hoy = new Date();
+            const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`;
+            const marcado = (x) => x === true || x === 1 || ['S', 'SI', '1', 'TRUE'].includes(String(x ?? '').trim().toUpperCase());
+            const visitas = new Map();
+            for (const f of d.agenda) {
+                if (String(f.estado_caso || '').toUpperCase().includes('CANCELAD')) continue;
+                const servicio = String(f.correlativo || '').split('-')[1] || '';
+                const clave = `${f.id_grupo ? `g${f.id_grupo}-${servicio}` : `a${f.id_agenda}`}|${f.fecha}`;
+                const ejecutada = f.id_estadomuestreo === 3 || marcado(f.realizado_por_gem)
+                    || (marcado(f.instalacion_completado) && (String(f.tipo_ficha || '').toLowerCase() === 'puntual' || marcado(f.retiro_completado)));
+                const v = visitas.get(clave) || { fecha: f.fecha, filas: 0, hechas: 0 };
+                v.filas++; if (ejecutada) v.hechas++;
+                visitas.set(clave, v);
+            }
+            const todas = [...visitas.values()];
+            salida.operacion = {
+                visitasHoy: todas.filter((v) => v.fecha === hoyStr).length,
+                visitasHoyRealizadas: todas.filter((v) => v.fecha === hoyStr && v.hechas === v.filas).length,
+                noRealizadas: todas.filter((v) => v.fecha < hoyStr && v.hechas < v.filas).length,
+            };
+        }
+        return salida;
+    }
+
+    // Datos del Dashboard Operativo, contados en VISITAS (varios puntos agrupados = una visita; una ficha suelta = una visita).
+    //  - etapas: cuántas visitas hay en cada etapa del flujo (técnica → coordinación → programación → en terreno) y las rechazadas por
+    //    corregir; una visita está en la etapa MÁS atrasada de sus puntos, y es «rechazada» si alguno lo está.
+    //  - agenda: los servicios agendados entre `atras` días antes y `adelante` días después de hoy (una fila por punto y servicio), de fichas
+    //    no canceladas; el frontend los agrupa en visitas y calcula realizadas, no realizadas, carga por muestreador, etc.
+    async getDashboardOperativo({ atras = 90, adelante = 45 } = {}) {
+        const pool = await getConnection();
+        const rq = pool.request();
+        rq.input('atras', sql.Int, Math.min(Math.max(Number(atras) || 90, 1), 400));
+        rq.input('adelante', sql.Int, Math.min(Math.max(Number(adelante) || 45, 1), 200));
+        const etapasRes = await rq.query(`
+            WITH puntos AS (
+                SELECT f.id_fichaingresoservicio AS id, ISNULL(f.id_validaciontecnica, 0) AS v, f.fecha_fichacomercial AS fecha,
+                       (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) AS grupo
+                FROM App_Ma_FichaIngresoServicio_ENC f
+                WHERE ISNULL(f.id_validaciontecnica, 0) IN (0, 1, 2, 3, 4, 5, 6)
+            ), visitas AS (
+                SELECT COALESCE('g' + CAST(grupo AS varchar(20)), 'f' + CAST(id AS varchar(20))) AS clave,
+                       COUNT(*) AS puntos, MIN(fecha) AS desde,
+                       SUM(CASE WHEN v IN (2, 4) THEN 1 ELSE 0 END) AS rechazados,
+                       MIN(CASE v WHEN 0 THEN 0 WHEN 3 THEN 0 WHEN 1 THEN 1 WHEN 6 THEN 2 WHEN 5 THEN 3 ELSE 9 END) AS etapa
+                FROM puntos GROUP BY COALESCE('g' + CAST(grupo AS varchar(20)), 'f' + CAST(id AS varchar(20)))
+            )
+            SELECT CASE WHEN rechazados > 0 THEN 'rechazada' WHEN etapa = 0 THEN 'tecnica' WHEN etapa = 1 THEN 'coordinacion'
+                        WHEN etapa = 2 THEN 'programacion' WHEN etapa = 3 THEN 'terreno' ELSE 'otra' END AS etapa,
+                   COUNT(*) AS visitas, SUM(puntos) AS puntos, DATEDIFF(day, MIN(desde), GETDATE()) AS dias_mas_antigua
+            FROM visitas GROUP BY CASE WHEN rechazados > 0 THEN 'rechazada' WHEN etapa = 0 THEN 'tecnica' WHEN etapa = 1 THEN 'coordinacion'
+                        WHEN etapa = 2 THEN 'programacion' WHEN etapa = 3 THEN 'terreno' ELSE 'otra' END`);
+        const rq2 = pool.request();
+        rq2.input('atras', sql.Int, Math.min(Math.max(Number(atras) || 90, 1), 400));
+        rq2.input('adelante', sql.Int, Math.min(Math.max(Number(adelante) || 45, 1), 200));
+        const agendaRes = await rq2.query(`
+            SELECT a.id_agendamam AS id_agenda, f.id_fichaingresoservicio AS id_ficha, f.ma_punto_muestreo AS punto,
+                   (SELECT TOP 1 gf.id_grupo FROM App_Ma_GrupoMuestreo_Ficha gf WHERE gf.id_fichaingresoservicio = f.id_fichaingresoservicio) AS id_grupo,
+                   a.frecuencia_correlativo AS correlativo, CONVERT(varchar(10), a.fecha_muestreo, 23) AS fecha,
+                   CONVERT(varchar(10), a.fecha_retiro, 23) AS fecha_retiro, a.id_muestreador, m.nombre_muestreador AS muestreador,
+                   ce.nombre_centro AS centro, es.nombre_empresaservicios AS empresa_servicio, om.nombre_objetivomuestreo_ma AS programa,
+                   f.tipo_fichaingresoservicio AS tipo_ficha, a.id_estadomuestreo, a.instalacion_completado, a.retiro_completado,
+                   a.realizado_por_gem, a.estado_caso
+            FROM App_Ma_Agenda_MUESTREOS a
+            INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+            LEFT JOIN mae_muestreador m ON m.id_muestreador = a.id_muestreador
+            LEFT JOIN mae_centro ce ON ce.id_centro = f.id_centro
+            LEFT JOIN mae_empresaservicios es ON es.id_empresaservicio = f.id_empresaservicio
+            LEFT JOIN mae_objetivomuestreo_ma om ON om.id_objetivomuestreo_ma = f.id_objetivomuestreo_ma
+            WHERE ISNULL(f.id_validaciontecnica, 0) IN (5, 8)
+              AND a.fecha_muestreo IS NOT NULL AND YEAR(a.fecha_muestreo) > 1900
+              AND a.fecha_muestreo >= DATEADD(day, -@atras, CAST(GETDATE() AS date))
+              AND a.fecha_muestreo <= DATEADD(day, @adelante, CAST(GETDATE() AS date))
+              AND ISNULL(a.id_muestreador, 0) > 0`);
+        return { etapas: etapasRes.recordset, agenda: agendaRes.recordset, generado: new Date().toISOString() };
+    }
+
     async getEnProcesoFichas(month, year) {
         const pool = await getConnection();
         try {
@@ -1451,6 +1579,7 @@ class FichaIngresoService {
                     CASE WHEN f.id_contacto > 0 AND (co.email_contacto NOT LIKE '%adldiagnostic.cl' OR co.email_contacto IS NULL) THEN co.email_contacto ELSE NULL END as correo_contacto,
                     om.nombre_objetivomuestreo_ma as objetivo,
                     sa.nombre_subarea as subarea,
+                    f.ma_punto_muestreo as punto_muestreo,
                     DAY(a.fecha_muestreo) as dia,
                     MONTH(a.fecha_muestreo) as mes,
                     YEAR(a.fecha_muestreo) as ano,
@@ -2758,6 +2887,207 @@ class FichaIngresoService {
         return hermanos
             .filter((h) => (modo === 'ejecutados' ? ejecutado(h) : !ejecutado(h)))
             .map((h) => ({ id_agenda: Number(h.id_agendamam), id_ficha: Number(h.id_fichaingresoservicio), punto: h.punto || null, correlativo: h.frecuencia_correlativo, hora: this._claveHora(h.ma_muestreo_fechai, h.ma_muestreo_horai), observador: !!(String(h.nombre_observadorterreno || '').trim() || String(h.nombre_observadorterreno_retiro || '').trim()) }));
+    }
+
+    // Fichas que podrían ser la misma que se está por crear: mismo cliente, centro y objetivo, con alguno de los mismos puntos de muestreo,
+    // creadas en los últimos `dias` y no canceladas. Solo para avisar al usuario antes de grabar; no bloquea nada.
+    async buscarPosiblesDuplicadas({ idCliente, idCentro, idObjetivo, puntos, dias = 30 }) {
+        const nombres = [...new Set((puntos || []).map((p) => String(p || '').trim().toLowerCase()).filter(Boolean))].slice(0, 100);
+        if (!Number(idCliente) || !Number(idCentro) || !Number(idObjetivo) || nombres.length === 0) return [];
+        const pool = await getConnection();
+        const rq = pool.request();
+        rq.input('cliente', sql.Numeric(10, 0), Number(idCliente));
+        rq.input('centro', sql.Numeric(10, 0), Number(idCentro));
+        rq.input('objetivo', sql.Numeric(10, 0), Number(idObjetivo));
+        rq.input('dias', sql.Int, Math.min(Math.max(Number(dias) || 30, 1), 365));
+        const marcadores = nombres.map((n, i) => { rq.input(`p${i}`, sql.VarChar(250), n); return `@p${i}`; });
+        const r = await rq.query(`
+            SELECT TOP 20 f.id_fichaingresoservicio AS id, f.fichaingresoservicio AS ficha, f.ma_punto_muestreo AS punto,
+                   f.fecha_fichacomercial AS fecha, f.estado_ficha AS estado
+            FROM App_Ma_FichaIngresoServicio_ENC f
+            WHERE f.id_empresa = @cliente AND f.id_centro = @centro AND f.id_objetivomuestreo_ma = @objetivo
+              AND ISNULL(f.id_validaciontecnica, 0) <> 7
+              AND f.fecha_fichacomercial >= DATEADD(day, -@dias, CAST(GETDATE() AS date))
+              AND LOWER(LTRIM(RTRIM(f.ma_punto_muestreo))) IN (${marcadores.join(',')})
+            ORDER BY f.id_fichaingresoservicio DESC`);
+        return r.recordset;
+    }
+
+    // Cancela una ficha completa con motivo (p. ej. una ficha creada dos veces). No borra nada: la ficha pasa a «CANCELADO» (7), sus
+    // servicios sin ejecutar quedan cancelados con el mismo motivo y todo queda en el historial. Desde ahí desaparece de las bandejas
+    // de Técnica, Coordinación y Asignación. No se permite si algún servicio ya se ejecutó o empezó, si ya tiene caso de laboratorio
+    // o si es punto de una visita (en ese caso se cancela el punto desde el calendario o se deshace la visita antes).
+    async cancelarFicha({ id, idMotivo, observacion, user }, { transaction: trExterna } = {}) {
+        const idFicha = Number(id);
+        if (!Number.isInteger(idFicha) || idFicha <= 0) throw this._errorDatos('Ficha inválida.');
+        if (!Number(idMotivo)) throw this._errorDatos('Debe indicar el motivo de la cancelación.');
+        if (!String(observacion || '').trim()) throw this._errorDatos('Debe escribir una observación para cancelar la ficha.');
+        const pool = await getConnection();
+        const transaction = trExterna || new sql.Transaction(pool);
+        try {
+            if (!trExterna) await transaction.begin();
+            const ficha = (await new sql.Request(transaction).input('id', sql.Numeric(10, 0), idFicha).query(
+                'SELECT id_validaciontecnica, estado_ficha, fichaingresoservicio FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @id')).recordset[0];
+            if (!ficha) throw this._errorDatos('La ficha no existe.', 404);
+            if (Number(ficha.id_validaciontecnica) === 7) throw this._errorDatos('La ficha ya está cancelada.', 409);
+            if (Number(ficha.id_validaciontecnica) === 8) throw this._errorDatos('La ficha ya cerró su ciclo y no se puede cancelar.', 409);
+
+            const motivo = (await new sql.Request(transaction).input('m', sql.Int, Number(idMotivo)).query(
+                "SELECT nombre_motivo FROM mae_motivocancelacion WHERE id_motivocancelacion = @m AND habilitado = 'S'")).recordset[0];
+            if (!motivo) throw this._errorDatos('El motivo indicado no es válido.');
+
+            const enGrupo = (await new sql.Request(transaction).input('id', sql.Numeric(10, 0), idFicha).query(
+                'SELECT TOP 1 id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @id')).recordset[0];
+            if (enGrupo) throw this._errorDatos('Esta ficha es un punto de una visita. Cancela el punto desde el calendario o deshaz la visita primero.', 409);
+
+            const agendas = (await new sql.Request(transaction).input('id', sql.Numeric(10, 0), idFicha).query(`
+                SELECT id_agendamam, frecuencia_correlativo, estado_caso, id_estadomuestreo, realizado_por_gem, instalacion_completado,
+                       retiro_completado, foma_enviado, cadena_enviada, caso_adlab
+                FROM App_Ma_Agenda_MUESTREOS WHERE id_fichaingresoservicio = @id`)).recordset;
+            const marcado = (v) => v === true || v === 1 || ['S', 'SI', 'SÍ', '1', 'TRUE'].includes(String(v ?? '').trim().toUpperCase());
+            const problemas = [];
+            for (const a of agendas) {
+                const nombre = String(a.frecuencia_correlativo || '').trim();
+                if (String(a.estado_caso || '').toUpperCase().includes('CANCELAD')) continue;
+                if (a.id_estadomuestreo === 3 || marcado(a.realizado_por_gem)) problemas.push(`${nombre}: ya fue ejecutado.`);
+                else if (marcado(a.instalacion_completado) || marcado(a.retiro_completado)) problemas.push(`${nombre}: el muestreador ya empezó el trabajo en terreno.`);
+                else if (marcado(a.foma_enviado) || marcado(a.cadena_enviada)) problemas.push(`${nombre}: ya se enviaron sus documentos.`);
+                else if (String(a.caso_adlab || '').trim()) problemas.push(`${nombre}: ya tiene un caso de laboratorio.`);
+            }
+            if (problemas.length > 0) throw this._errorDatos(`No se puede cancelar la ficha: ${problemas.join(' ')}`, 409);
+
+            const rqAg = new sql.Request(transaction);
+            rqAg.input('id', sql.Numeric(10, 0), idFicha);
+            rqAg.input('m', sql.Int, Number(idMotivo));
+            rqAg.input('obs', sql.VarChar(500), String(observacion).trim().slice(0, 500));
+            await rqAg.query(`
+                UPDATE App_Ma_Agenda_MUESTREOS
+                SET estado_caso = 'CANCELADO', id_estadomuestreo = 6, id_motivocancelacion = @m, motivo_cancelacion = @obs
+                WHERE id_fichaingresoservicio = @id AND ISNULL(estado_caso, '') NOT LIKE '%CANCELAD%'`);
+            await new sql.Request(transaction).input('id', sql.Numeric(10, 0), idFicha).query(
+                "UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 7, estado_ficha = 'CANCELADO' WHERE id_fichaingresoservicio = @id");
+
+            const userId = user ? (user.id_usuario || user.id || 0) : 0;
+            await this.logHistorial(transaction, {
+                idFicha, idUsuario: userId, accion: 'CANCELACION_FICHA', estadoAnterior: String(ficha.estado_ficha || '').slice(0, 50), estadoNuevo: 'CANCELADO',
+                observacion: `Ficha cancelada. Motivo: ${motivo.nombre_motivo}. ${String(observacion).trim()}`,
+            });
+            if (!trExterna) await transaction.commit();
+
+            auditService.log({
+                usuario_id: userId, area_key: 'medio_ambiente', modulo_nombre: 'Fichas de Ingreso', evento_tipo: 'CANCELACION_FICHA',
+                entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC', entidad_id: idFicha,
+                descripcion_humana: `El usuario ${user?.nombre_usuario || user?.usuario || 'Usuario'} canceló la ficha #${idFicha}. Motivo: ${motivo.nombre_motivo}`,
+                datos_nuevos: { idMotivo, observacion }, severidad: 2,
+            });
+            return { success: true, id: idFicha, agendasCanceladas: agendas.length };
+        } catch (error) {
+            if (!trExterna) { try { await transaction.rollback(); } catch (_) { /* ya cerrada */ } }
+            throw error;
+        }
+    }
+
+    // Quita la asignación (responsable y fecha) de uno o varios muestreos y los deja otra vez «por asignar» (pendientes de
+    // coordinar), como si nunca se hubieran agendado. Es lo contrario de batchUpdateAgenda y NO es una cancelación: no deja
+    // motivo ni marca CANCELADO, el servicio se puede volver a agendar. Solo se permite si el muestreo aún no empezó: no ejecutado,
+    // no cancelado, sin instalación/retiro completados, sin documentos enviados y sin caso de laboratorio. Todo o nada.
+    // `transaction` externa opcional (pruebas con rollback).
+    async desasignarAgendas({ idsAgenda, user, observacion }, { transaction: trExterna } = {}) {
+        const ids = [...new Set((idsAgenda || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+        if (ids.length === 0) throw this._errorDatos('Indique al menos un muestreo.');
+        const pool = await getConnection();
+        const transaction = trExterna || new sql.Transaction(pool);
+        try {
+            if (!trExterna) await transaction.begin();
+            const filas = (await new sql.Request(transaction).query(`
+                SELECT a.id_agendamam, a.id_fichaingresoservicio, a.frecuencia_correlativo, a.fecha_muestreo, a.estado_caso, a.id_estadomuestreo,
+                       a.id_muestreador, a.realizado_por_gem, a.instalacion_completado, a.retiro_completado, a.foma_enviado, a.cadena_enviada,
+                       a.caso_adlab, a.id_caso, f.ma_punto_muestreo AS punto
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+                WHERE a.id_agendamam IN (${ids.join(',')})`)).recordset;
+            if (filas.length !== ids.length) throw this._errorDatos('Alguno de los muestreos no existe.', 404);
+
+            // Las marcas de la agenda son texto 'S'/'N' (o bit): 'N' NO es verdadero.
+            const marcado = (v) => v === true || v === 1 || ['S', 'SI', 'SÍ', '1', 'TRUE'].includes(String(v ?? '').trim().toUpperCase());
+            const problemas = [];
+            for (const a of filas) {
+                const nombre = `${a.punto || 'Ficha ' + a.id_fichaingresoservicio} (${String(a.frecuencia_correlativo || '').trim()})`;
+                const estadoCaso = String(a.estado_caso || '').toUpperCase();
+                const conFecha = a.fecha_muestreo && new Date(a.fecha_muestreo).getUTCFullYear() > 1900;
+                if (estadoCaso.includes('CANCELAD') || estadoCaso.includes('ANULAD')) problemas.push(`${nombre}: está cancelado.`);
+                else if (a.id_estadomuestreo === 3 || marcado(a.realizado_por_gem)) problemas.push(`${nombre}: ya fue ejecutado.`);
+                else if (marcado(a.instalacion_completado) || marcado(a.retiro_completado)) problemas.push(`${nombre}: el muestreador ya empezó el trabajo en terreno.`);
+                else if (marcado(a.foma_enviado) || marcado(a.cadena_enviada)) problemas.push(`${nombre}: ya se enviaron sus documentos.`);
+                else if (String(a.caso_adlab || '').trim()) problemas.push(`${nombre}: ya tiene un caso de laboratorio.`);
+                else if (!conFecha && !Number(a.id_muestreador)) problemas.push(`${nombre}: ya está pendiente de asignar.`);
+            }
+            if (problemas.length > 0) throw this._errorDatos(`No se puede quitar la asignación: ${problemas.join(' ')}`, 409);
+
+            const userId = user ? (user.id_usuario || user.id || 0) : 0;
+            const fichasTocadas = new Set();
+            for (const a of filas) {
+                const idFicha = Number(a.id_fichaingresoservicio);
+                const corr = String(a.frecuencia_correlativo || '').trim();
+                fichasTocadas.add(idFicha);
+
+                // 1. La agenda vuelve al estado con que se crea (sin fecha, sin responsable, sin estado de muestreo).
+                const rqAgenda = new sql.Request(transaction);
+                rqAgenda.input('id', sql.Numeric(10, 0), a.id_agendamam);
+                rqAgenda.input('def', sql.Date, new Date('1900-01-01'));
+                await rqAgenda.query(`
+                    UPDATE App_Ma_Agenda_MUESTREOS
+                    SET fecha_muestreo = NULL, ma_muestreo_fechat = @def, fecha_retiro = NULL,
+                        dia = 0, mes = 0, ano = 0,
+                        id_muestreador = 0, id_muestreador2 = NULL, id_estadomuestreo = 0, id_coordinador = 0
+                    WHERE id_agendamam = @id`);
+
+                // 2. Los análisis que se prepararon al asignar (filas sin resultado) se borran: al volver a asignar se recrean.
+                //    Si alguno ya trae un resultado, no se toca.
+                const rqRes = new sql.Request(transaction);
+                rqRes.input('f', sql.Numeric(10, 0), idFicha);
+                rqRes.input('c', sql.VarChar(50), corr);
+                await rqRes.query(`
+                    DELETE FROM App_Ma_Resultados
+                    WHERE id_fichaingresoservicio = @f AND RTRIM(frecuencia_correlativo) = @c
+                      AND REPLACE(REPLACE(ISNULL(resultado_fecha, ''), '/', ''), ' ', '') = ''`);
+
+                // 3. Los equipos reservados para ese muestreo se desactivan (igual que cuando cambia el responsable).
+                const rqEq = new sql.Request(transaction);
+                rqEq.input('f', sql.Numeric(10, 0), idFicha);
+                rqEq.input('c', sql.VarChar(50), corr);
+                await rqEq.query(`
+                    UPDATE App_Ma_Equipos_MUESTREOS SET estado = 'DESACTIVADO'
+                    WHERE id_fichaingresoservicio = @f AND RTRIM(frecuencia_correlativo) = @c AND estado = 'ACTIVO'`);
+
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId, accion: 'DESASIGNACION_MUESTREO', estadoAnterior: 'En Proceso', estadoNuevo: 'Pendiente Programación',
+                    observacion: `Se quitó la asignación del servicio ${corr}: vuelve a quedar pendiente de coordinar.${observacion ? ' Obs: ' + observacion : ''}`,
+                });
+            }
+
+            // 4. Una ficha sin ningún servicio agendado vuelve a «Pendiente programación» (solo si estaba «En proceso»).
+            for (const idFicha of fichasTocadas) {
+                const rq = new sql.Request(transaction);
+                rq.input('f', sql.Numeric(10, 0), idFicha);
+                await rq.query(`
+                    UPDATE App_Ma_FichaIngresoServicio_ENC
+                    SET id_validaciontecnica = 6, estado_ficha = 'PENDIENTE PROGRAMACIÓN'
+                    WHERE id_fichaingresoservicio = @f AND id_validaciontecnica = 5
+                      AND NOT EXISTS (
+                        SELECT 1 FROM App_Ma_Agenda_MUESTREOS g
+                        WHERE g.id_fichaingresoservicio = @f
+                          AND g.fecha_muestreo IS NOT NULL AND YEAR(g.fecha_muestreo) > 1900
+                          AND ISNULL(g.estado_caso, '') NOT IN ('CANCELADO', 'ANULADO'))`);
+            }
+
+            if (!trExterna) await transaction.commit();
+            if (!trExterna) for (const a of filas) this.avisarVisitaCambiada(a.id_agendamam);
+            return { success: true, desasignados: filas.map((a) => Number(a.id_agendamam)), fichas: [...fichasTocadas] };
+        } catch (error) {
+            if (!trExterna) { try { await transaction.rollback(); } catch (_) { /* ya cerrada */ } }
+            throw error;
+        }
     }
 
     // Crea una visita con varios puntos en UNA transacción: la ficha del primer punto (antecedentes tal cual) y una

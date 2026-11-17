@@ -65,7 +65,7 @@ export const fichaValidationSchemas = {
 
     approve: Joi.object({
         body: Joi.object({
-            observaciones: Joi.string().max(5000).optional(),
+            observaciones: Joi.string().max(5000).allow('', null).optional(),
         }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object({
@@ -100,7 +100,7 @@ export const fichaValidationSchemas = {
 
     approveCoordinacion: Joi.object({
         body: Joi.object({
-            observaciones: Joi.string().max(5000).optional(),
+            observaciones: Joi.string().max(5000).allow('', null).optional(),
         }).unknown(true).required(),
         query: Joi.object(),
         params: Joi.object({

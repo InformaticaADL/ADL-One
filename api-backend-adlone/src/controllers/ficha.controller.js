@@ -442,6 +442,70 @@ class FichaIngresoController {
             return errorResponse(res, 'Error al cancelar el muestreo', 500, err.message);
         }
     }
+    // Portada del usuario: lo que le toca atender según sus permisos (todo en visitas).
+    async getResumenInicio(req, res) {
+        try {
+            const data = await fichaService.getResumenInicio({ userId: req.user?.id, permisos: req.user?.permissions || [] });
+            return successResponse(res, data, 'Resumen de inicio');
+        } catch (err) {
+            logger.error('Error in getResumenInicio controller:', err);
+            return errorResponse(res, 'Error al cargar el resumen de inicio', 500, err.message);
+        }
+    }
+
+    // Dashboard Operativo (contado en visitas): embudo por etapa y agenda reciente.
+    async getDashboardOperativo(req, res) {
+        try {
+            const data = await fichaService.getDashboardOperativo({ atras: req.query.atras, adelante: req.query.adelante });
+            return successResponse(res, data, 'Dashboard operativo');
+        } catch (err) {
+            logger.error('Error in getDashboardOperativo controller:', err);
+            return errorResponse(res, 'Error al cargar el dashboard operativo', 500, err.message);
+        }
+    }
+
+    // Aviso previo a crear: fichas parecidas ya creadas (mismo cliente, centro, objetivo y punto). No bloquea.
+    async posiblesDuplicadas(req, res) {
+        try {
+            const { cliente, centro, objetivo, puntos, dias } = req.query;
+            const lista = await fichaService.buscarPosiblesDuplicadas({
+                idCliente: cliente, idCentro: centro, idObjetivo: objetivo,
+                puntos: String(puntos || '').split('|'), dias: dias ? Number(dias) : 30,
+            });
+            return successResponse(res, lista, 'Posibles fichas duplicadas');
+        } catch (err) {
+            logger.error('Error in posiblesDuplicadas controller:', err);
+            return errorResponse(res, 'Error al buscar fichas parecidas', 500, err.message);
+        }
+    }
+
+    // Cancelar una ficha completa con motivo (p. ej. una ficha duplicada). No borra nada.
+    async cancelFicha(req, res) {
+        try {
+            const { idMotivo, observacion } = req.body || {};
+            const result = await fichaService.cancelarFicha({ id: req.params.id, idMotivo, observacion, user: req.user || { id: 0 } });
+            notificarCalendarioActualizado();
+            return successResponse(res, result, 'Ficha cancelada correctamente');
+        } catch (err) {
+            logger.error('Error in cancelFicha controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al cancelar la ficha', err.statusCode || 500, err.message);
+        }
+    }
+
+    // Quitar la asignación (responsable y fecha): el servicio vuelve a quedar pendiente de coordinar. Distinto de cancelar.
+    async unassignAgenda(req, res) {
+        try {
+            const { idsAgenda, observacion } = req.body || {};
+            const result = await fichaService.desasignarAgendas({ idsAgenda, user: req.user || { id: 0 }, observacion });
+            notificarCalendarioActualizado();
+            const n = result.desasignados.length;
+            return successResponse(res, result, n > 1 ? `Se quitó la asignación de ${n} puntos; quedan pendientes de coordinar` : 'Asignación quitada; el servicio queda pendiente de coordinar');
+        } catch (err) {
+            logger.error('Error in unassignAgenda controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al quitar la asignación', err.statusCode || 500, err.message);
+        }
+    }
+
     async update(req, res) {
         try {
             const { id } = req.params;

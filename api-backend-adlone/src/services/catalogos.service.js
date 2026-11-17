@@ -425,7 +425,7 @@ export const catalogosService = {
       const pool = await getConnection();
       const request = pool.request();
       let filtro = '';
-      if (para === 'terreno' || para === 'coordinacion') {
+      if (para === 'terreno' || para === 'coordinacion' || para === 'ficha') {
         request.input('para', sql.VarChar(20), para);
         filtro = " AND ISNULL(NULLIF(LTRIM(RTRIM(aplica_a)), ''), 'ambos') IN ('ambos', @para)";
       }

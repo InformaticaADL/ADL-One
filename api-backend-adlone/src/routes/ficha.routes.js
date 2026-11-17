@@ -8,10 +8,13 @@ import { validateRequest, fichaValidationSchemas } from '../middlewares/validate
 const router = express.Router();
 
 router.get('/', authenticate, fichaController.getAll);
+router.get('/mi-resumen', authenticate, fichaController.getResumenInicio);
+router.get('/dashboard-operativo', authenticate, verifyPermission('MA_COORDINACION_ACCESO'), fichaController.getDashboardOperativo);
 router.get('/en-proceso', authenticate, validateRequest(fichaValidationSchemas.getEnProceso), fichaController.getEnProceso);
 router.get('/for-assignment', authenticate, fichaController.getForAssignment);
 router.post('/verificar-link', authenticate, fichaController.verificarLink);
 router.get('/ejecutados', authenticate, fichaController.getMuestreosEjecutados);
+router.get('/posibles-duplicadas', authenticate, verifyPermission('FI_CREAR'), fichaController.posiblesDuplicadas);
 router.get('/resolve-url', authenticate, fichaController.resolveGoogleMaps);
 router.get('/analisis-por-defecto', authenticate, fichaController.getDefaultAnalyses);
 
@@ -30,6 +33,8 @@ router.post('/:id/approve-coordinacion', authenticate, verifyPermission('FI_APRO
 router.post('/:id/review-coordinacion', authenticate, verifyPermission('FI_RECHAZAR_COO'), validateRequest(fichaValidationSchemas.reviewCoordinacion), fichaController.reviewCoordinacion);
 router.post('/batch-agenda', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA_RUTA_CREAR']), validateRequest(fichaValidationSchemas.batchUpdateAgenda), fichaController.batchUpdateAgenda);
 router.post('/cancel-sampling', authenticate, verifyPermission('MA_CALENDARIO_CANCELAR'), fichaController.cancelSampling);
+router.post('/:id/cancel-ficha', authenticate, verifyPermission(['FI_EDITAR', 'MA_CALENDARIO_CANCELAR']), fichaController.cancelFicha);
+router.post('/unassign-agenda', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA_CALENDARIO_CANCELAR']), fichaController.unassignAgenda);
 router.post('/enviar-documento-manual', authenticate, fichaController.enviarDocumentoManual);
 router.post('/regenerar-documentos', authenticate, fichaController.regenerarDocumentos);
 router.post('/interno/muestreo-completado', protectInternalService, fichaController.notificarMuestreoCompletado);
