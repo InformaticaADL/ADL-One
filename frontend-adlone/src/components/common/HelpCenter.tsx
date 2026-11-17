@@ -503,6 +503,28 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // MÓDULO: ARCHIVO DE FICHAS DE EQUIPO (Calidad) — OI-FoGe-22/24/36/42
+    // ─────────────────────────────────────────────────────────────────────────
+    if (activeSubmodule === 'gc-archivo-fichas') {
+        return {
+            title: 'Archivo de fichas de equipo',
+            queEs: 'Archivo de todas las fichas de equipo guardadas en el sistema: ficha técnica (OI-FoGe-22), historial (OI-FoGe-24), ficha de entrega (OI-FoGe-36) y recepción/puesta en marcha (OI-FoGe-42).',
+            queHace: 'Guarda el PDF tal como salió (con sus firmas y los datos del equipo en ese momento) y permite consultarlo después por año de vigencia, formulario, sede o equipo, aunque el equipo haya cambiado.',
+            comoFunciona: [
+                '1. GUARDAR: desde la ficha del equipo (botón «Guardar» junto a «Generar PDF»). Cada ficha queda con el año en que se emitió; el historial, con el año que cubre.',
+                '2. CONSULTAR POR AÑO: los botones de arriba muestran los años con fichas y cuántas hay; al elegir uno se ve solo lo de ese año (ej. las fichas técnicas del 2026 con la vigencia de ese año).',
+                '3. FILTRAR: por formulario, sede, estado (vigentes, anuladas o todas) y buscando por código o nombre del equipo o por quién la guardó.',
+                '4. VER Y DESCARGAR: clic en la fila o en el ícono PDF abre el documento; la flecha lo descarga con su nombre original.',
+                '5. ANULAR: una ficha guardada no se edita; si quedó mal, se anula con motivo (quien pueda editar equipos) y se guarda otra. La anulada se conserva y se puede ver eligiendo «Anuladas».'
+            ],
+            tips: [
+                'Al guardar una ficha cuando ya existe una vigente del mismo formulario y año, el sistema avisa quién guardó la anterior y cuándo.',
+                'Las fichas guardadas también se ven en el propio equipo, en «Guardadas de este equipo».'
+            ]
+        };
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: VERIFICACIÓN DE TEMPERATURA (Calidad) — OI-FoGe-39
     // ─────────────────────────────────────────────────────────────────────────
     if (activeSubmodule === 'gc-verificacion-temperatura') {

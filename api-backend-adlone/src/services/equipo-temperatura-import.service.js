@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
-import { lineasNuevasObservacion, normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador, esVerificacionMasAntigua } from './equipo-excel-import.service.js';
+import { lineasNuevasObservacion, normalize, toYYYYMMDD, parseCellValue, esSiNo, resolveNombreMuestreador, mapaMuestreadoresPorNombre, anotarResponsables, esVerificacionMasAntigua } from './equipo-excel-import.service.js';
 
 // Columnas del "Resumen Verificaciones Intermedias T°". Los puntos de Error
 // (0,0°C / 15,0°C / 30,0°C) vienen ANTES que su espejo "Factor de Corrección"
@@ -171,11 +171,7 @@ class EquipoTemperaturaImportService {
         } catch (err) {
             logger.error('[EquipoTemperaturaImport] No se pudo cargar muestreadores:', err);
         }
-        const muestreadorPorNombre = new Map(
-            (muestreadores || [])
-                .filter((m) => m.nombre_muestreador)
-                .map((m) => [normalize(m.nombre_muestreador), m])
-        );
+        const muestreadorPorNombre = mapaMuestreadoresPorNombre(muestreadores);
 
         const items = parsedRows.map((row) => {
             const warnings = [];
@@ -265,6 +261,7 @@ class EquipoTemperaturaImportService {
                 warnings,
             };
         });
+        anotarResponsables(items, parsedRows, muestreadores);
 
         const resumen = {
             total: items.length,

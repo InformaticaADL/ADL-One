@@ -6,7 +6,8 @@ import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { generarPdfVerificacion } from './verificacionTemperatura.pdf.js';
 import firmaRemotaService from './firmaRemota.service.js';
-import { calcularVerificacion, normalizarLecturas, lecturasVacias, sumarMeses } from '../utils/verificacionTemperatura.calc.js';
+import auditService from './audit.service.js';
+import { calcularVerificacion, normalizarLecturas, lecturasVacias, sumarMeses, TOLERANCIA } from '../utils/verificacionTemperatura.calc.js';
 
 // Formulario OI-FoGe-39 "Verificación Intermedia de Temperatura" digitalizado.
 // Ver migrations/add_verificacion_temperatura.sql para el flujo de estados.
@@ -58,6 +59,39 @@ const hayColumnasPatron = async (pool) => {
     return columnasPatronExisten;
 };
 
+// Trazabilidad: quién envió a firma, devolvió a borrador, registró la firma o
+// anuló (migrations/add_trazabilidad_verificacion_temperatura.sql). Sin esas
+// columnas todo sigue igual, solo que no se guarda quién lo hizo.
+let columnasTrazaExisten = false;
+let columnasTrazaRevisadas = 0;
+const hayColumnasTraza = async (pool) => {
+    if (columnasTrazaExisten) return true;
+    if (Date.now() - columnasTrazaRevisadas < 5 * 60 * 1000) return false;
+    columnasTrazaRevisadas = Date.now();
+    try {
+        const r = await pool.request().query(`SELECT COL_LENGTH('${TABLA}', 'id_usuario_envio_firma') AS c`);
+        columnasTrazaExisten = !!r.recordset[0]?.c;
+        if (!columnasTrazaExisten) logger.warn('Falta la trazabilidad de verificaciones — ejecute migrations/add_trazabilidad_verificacion_temperatura.sql');
+    } catch (e) {
+        logger.warn('No se pudo verificar id_usuario_envio_firma: ' + e.message);
+    }
+    return columnasTrazaExisten;
+};
+
+// Registro en App_Audit_Log de cada cambio de estado de una ficha. Nunca
+// interrumpe la acción (audit.service ya captura sus propios errores).
+const auditar = (idUsuario, evento, v, descripcion, extra = {}) => auditService.log({
+    usuario_id: idUsuario || null,
+    area_key: 'gestion-calidad',
+    modulo_nombre: 'Verificación de Temperatura',
+    evento_tipo: evento,
+    entidad_nombre: TABLA,
+    entidad_id: v.id_verificacion,
+    descripcion_humana: `${descripcion} — ${v.codigo_equipo} (${v.periodo})`,
+    datos_anteriores: { estado: v.estado },
+    datos_nuevos: extra,
+}).catch(() => { /* ya registrado por audit.service */ });
+
 // Máxima división del termómetro verificado y del patrón: siempre 5, no se modifica.
 const MAXIMA_DIVISION_FIJA = '5';
 
@@ -66,9 +100,15 @@ const MAXIMA_DIVISION_FIJA = '5';
 // cambian (aunque llegue otro valor); solo se pueden borrar (botón × del
 // formulario: llega sin hora) y la lectura vuelve a quedar por registrar, con
 // la TP nominal del rango. Una TP nueva sin hora toma la del servidor.
+// Hora y fecha de Chile, sin depender de la zona horaria del servidor.
+const ZONA = 'America/Santiago';
+const partesChile = (d = new Date()) => Object.fromEntries(
+    new Intl.DateTimeFormat('en-CA', { timeZone: ZONA, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+        .formatToParts(d).map((p) => [p.type, p.value]),
+);
 const horaActual = () => {
-    const d = new Date();
-    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    const p = partesChile();
+    return `${p.hour}:${p.minute}`;
 };
 const bloquearTpRegistradas = (previas, nuevas) => {
     for (const r of Object.keys(nuevas)) {
@@ -176,8 +216,8 @@ const guardarAntecedentesPatron = async (pool, idPatron, valores) => {
 };
 
 const hoyYmd = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const p = partesChile();
+    return `${p.year}-${p.month}-${p.day}`;
 };
 
 const ymd = (v) => (v instanceof Date ? v.toISOString().slice(0, 10) : (v ? String(v).slice(0, 10) : null));
@@ -219,9 +259,50 @@ const patronPorSede = async (pool, sede) => {
 
 const obtenerPatron = async (pool, idPatron) => {
     const r = await pool.request().input('id', sql.Numeric(10, 0), Number(idPatron))
-        .query(`SELECT id_equipo, codigo, nombre, sede, error0, error15, error30 FROM mae_equipo WHERE id_equipo = @id AND ${FILTRO_PATRON}`);
-    if (!r.recordset[0]) throw error('El termómetro patrón seleccionado no existe', 404);
+        .query(`SELECT id_equipo, codigo, nombre, sede, error0, error15, error30 FROM mae_equipo WHERE id_equipo = @id AND ${FILTRO_PATRON} AND habilitado = 'S'`);
+    if (!r.recordset[0]) throw error('El termómetro patrón seleccionado no existe o está deshabilitado', 404);
     return r.recordset[0];
+};
+
+// Certificado del patrón que estaba vigente en la fecha de la verificación (el
+// último calibrado hasta esa fecha), de mae_termometro_patron_errores. null si
+// la tabla no existe o el patrón no tiene un certificado anterior a esa fecha.
+const certificadoPatron = async (pool, idPatron, fecha) => {
+    if (!idPatron || !fecha || !(await hayTablaErrPatron(pool))) return null;
+    const r = await pool.request()
+        .input('p', sql.Numeric(10, 0), Number(idPatron))
+        .input('f', sql.Date, String(fecha).slice(0, 10))
+        .query(`
+            SELECT TOP 1 anio, CONVERT(VARCHAR(10), fecha_calibracion, 23) AS fecha_calibracion,
+                   error0, error15, error30, CONVERT(VARCHAR(10), valido_hasta, 23) AS valido_hasta
+            FROM ${TABLA_ERR_PATRON}
+            WHERE id_equipo = @p AND COALESCE(fecha_calibracion, DATEFROMPARTS(anio, 1, 1)) <= @f
+            ORDER BY COALESCE(fecha_calibracion, DATEFROMPARTS(anio, 1, 1)) DESC, anio DESC`);
+    return r.recordset[0] || null;
+};
+
+// Errores del patrón que corresponden a la fecha: los de su certificado de esa
+// fecha; si no hay, los vigentes del equipo patrón.
+const erroresParaFecha = async (pool, patron, fecha) => {
+    const cert = await certificadoPatron(pool, patron?.id_equipo, fecha);
+    if (!cert) return patron;
+    return {
+        ...patron,
+        error0: cert.error0 ?? patron.error0,
+        error15: cert.error15 ?? patron.error15,
+        error30: cert.error30 ?? patron.error30,
+    };
+};
+
+// No se envía a firma ni se firma con un patrón cuyo certificado ya había
+// vencido en la fecha de la verificación.
+const exigirPatronVigente = async (pool, v) => {
+    if (!v.id_patron) throw error('La ficha no tiene termómetro patrón');
+    const cert = await certificadoPatron(pool, v.id_patron, v.fecha_verificacion);
+    if (cert?.valido_hasta && cert.valido_hasta < String(v.fecha_verificacion).slice(0, 10)) {
+        const [y, m, d] = cert.valido_hasta.split('-');
+        throw error(`El certificado del patrón ${v.patron_codigo || ''} venció el ${d}-${m}-${y}, antes de la fecha de la verificación. Registre el certificado nuevo en "Errores de patrón" o use otro patrón.`, 409);
+    }
 };
 
 const SELECT_LISTA = `
@@ -353,7 +434,13 @@ const filaErrorPatron = (f) => {
         error30: errorPatron(f.error30, '30 °C'),
         valido_hasta: fechaOpcional(f.valido_hasta, 'Válido hasta'),
     };
-    if (fila.fecha_calibracion && fila.valido_hasta && fila.valido_hasta < fila.fecha_calibracion) {
+    // Un rango vacío se tomaba como error 0: el certificado trae los tres.
+    const faltan = [['0 °C', fila.error0], ['15 °C', fila.error15], ['30 °C', fila.error30]].filter(([, v]) => v === null).map(([n]) => n);
+    if (faltan.length) throw error(`Ingrese el error del patrón en ${faltan.join(', ')} (si el certificado indica 0, escriba 0)`);
+    // La fecha de calibración decide qué certificado usa cada ficha según su fecha.
+    if (!fila.fecha_calibracion) throw error('Ingrese la fecha de la última calibración (la del certificado)');
+    if (fila.fecha_calibracion > hoyYmd()) throw error('La fecha de calibración no puede ser futura');
+    if (fila.valido_hasta && fila.valido_hasta < fila.fecha_calibracion) {
         throw error('"Válido hasta" no puede ser anterior a la última calibración');
     }
     return fila;
@@ -361,9 +448,37 @@ const filaErrorPatron = (f) => {
 
 // Copia el año más reciente del patrón a mae_equipo (errores) y a los
 // antecedentes (fecha de calibración), para que las fichas nuevas lo usen.
+// Ficha del equipo patrón con el certificado nuevo: errores, última
+// calibración, próxima revisión (válido hasta) y una línea en la observación
+// con la misma forma que deja la firma de una ficha. Pasa por updateEquipo
+// para que quede como una versión más en el historial del equipo.
+const actualizarEquipoPatron = async (tx, f, observacion, idUsuario) => {
+    const actual = await equipoService.getEquipoById(f.id_equipo);
+    const fecha = f.fecha_calibracion || hoyYmd();
+    const [y, mo, d] = fecha.split('-');
+    const vh = f.valido_hasta ? f.valido_hasta.split('-').reverse().join('-') : null;
+    const lineaObs = `${d}.${mo}.${y.slice(2)} Calibración termómetro patrón (certificado ${f.anio}): `
+        + `error 0/15/30 °C ${fmt1(f.error0)} / ${fmt1(f.error15)} / ${fmt1(f.error30)}.${vh ? ` Válido hasta ${vh}.` : ''} ${observacion}`;
+    const obsActual = String(actual?.observacion || '').trim();
+    const payload = {
+        error0: f.error0 ?? 0,
+        error15: f.error15 ?? 0,
+        error30: f.error30 ?? 0,
+        tiene_fc: 'SI',
+        observacion: obsActual && obsActual !== 'No Aplica' ? `${obsActual}\n${lineaObs}` : lineaObs,
+    };
+    if (f.fecha_calibracion) payload.ultima_verificacion = f.fecha_calibracion;
+    if (f.valido_hasta) {
+        payload.siguiente_verificacion = f.valido_hasta;
+        // updateEquipo rechaza una vigencia ya vencida: un certificado atrasado solo mueve la siguiente revisión.
+        if (f.valido_hasta >= hoyYmd()) payload.vigencia = f.valido_hasta;
+    }
+    await equipoService.updateEquipo(f.id_equipo, payload, idUsuario, tx);
+};
+
 const sincronizarPatronVigente = async (tx, idEquipo) => {
     const r = await new sql.Request(tx).input('p', sql.Numeric(10, 0), idEquipo).query(`
-        SELECT TOP 1 anio, fecha_calibracion, error0, error15, error30
+        SELECT TOP 1 anio, fecha_calibracion, error0, error15, error30, valido_hasta
         FROM ${TABLA_ERR_PATRON} WHERE id_equipo = @p ORDER BY anio DESC`);
     const v = r.recordset[0];
     if (!v) return;
@@ -372,15 +487,19 @@ const sincronizarPatronVigente = async (tx, idEquipo) => {
         .input('e0', sql.Decimal(6, 2), v.error0 ?? 0)
         .input('e15', sql.Decimal(6, 2), v.error15 ?? 0)
         .input('e30', sql.Decimal(6, 2), v.error30 ?? 0)
-        .query(`UPDATE mae_equipo SET error0 = @e0, error15 = @e15, error30 = @e30
+        .input('fc', sql.Date, v.fecha_calibracion || null)
+        .input('vh', sql.Date, v.valido_hasta || null)
+        .query(`UPDATE mae_equipo 
+                SET error0 = @e0, error15 = @e15, error30 = @e30,
+                    Ultima_verificacion = ISNULL(@fc, Ultima_verificacion),
+                    Siguiente_verificacion = ISNULL(@vh, Siguiente_verificacion)
                 WHERE id_equipo = @p AND tipoequipo = 'Termometro patrón'`);
     if (v.fecha_calibracion && (await hayTablaAntPatron(tx))) {
         await new sql.Request(tx)
             .input('p', sql.Numeric(10, 0), idEquipo)
             .input('f', sql.Date, v.fecha_calibracion)
-            // Solo si es más nueva: nunca retrocede una fecha de calibración ya registrada.
             .query(`UPDATE ${TABLA_ANT_PATRON} SET patron_fecha_calibracion = @f, fecha_modificacion = GETDATE()
-                    WHERE id_equipo = @p AND (patron_fecha_calibracion IS NULL OR patron_fecha_calibracion < @f)`);
+                    WHERE id_equipo = @p`);
     }
     logger.info(`Errores de patrón: ${idEquipo} sincronizado con el año ${v.anio}`);
 };
@@ -525,7 +644,8 @@ const verificacionTemperaturaService = {
             .query(`SELECT TOP 1 id_verificacion FROM ${TABLA} WHERE id_equipo = @id AND periodo = @p AND estado <> 'ANULADA'`);
         if (dup.recordset[0]) throw error(`${equipo.codigo} ya tiene una ficha en el periodo ${periodoOk}`, 409);
 
-        const patron = await patronPorSede(pool, equipo.sede);
+        const patronSede = await patronPorSede(pool, equipo.sede);
+        const patron = patronSede ? await erroresParaFecha(pool, patronSede, fechaOk) : null;
         const r = await pool.request()
             .input('id_equipo', sql.Numeric(10, 0), equipo.id_equipo)
             .input('codigo', sql.VarChar(100), equipo.codigo)
@@ -549,7 +669,13 @@ const verificacionTemperaturaService = {
                     OUTPUT INSERTED.id_verificacion
                     VALUES (@id_equipo, @codigo, @nombre, @sede, @periodo, @fecha,
                         @id_patron, @p_cod, @p_nom, @p_e0, @p_e15, @p_e30,
-                        @lecturas, 'BORRADOR', @resp, @muest, @resp, @maxdiv)`);
+                        @lecturas, 'BORRADOR', @resp, @muest, @resp, @maxdiv)`)
+            .catch((e) => {
+                // Índice único UX_mae_verif_temp_equipo_periodo (una ficha no anulada por equipo y periodo):
+                // dos creaciones simultáneas del mismo equipo.
+                if (e.number === 2601 || e.number === 2627) throw error(`${equipo.codigo} ya tiene una ficha en el periodo ${periodoOk}`, 409);
+                throw e;
+            });
         const idNueva = r.recordset[0].id_verificacion;
         await heredarAntecedentesPatron(pool, idNueva, patron?.id_equipo);
         return { id_verificacion: idNueva };
@@ -571,7 +697,10 @@ const verificacionTemperaturaService = {
         return { creadas: creadas.length, ids: creadas.map((c) => c.id_verificacion), omitidas };
     },
 
-    async actualizar(id, data) {
+    // puedePatron: el usuario tiene GC_VERIF_TEMP_PATRON; solo así los
+    // antecedentes del patrón que manda el formulario se guardan (pasan a ser
+    // los vigentes del patrón para las fichas siguientes).
+    async actualizar(id, data, { puedePatron = false } = {}) {
         const pool = await getConnection();
         const v = await cargar(pool, id);
         if (v.estado !== 'BORRADOR') throw error('Solo se puede editar una ficha en borrador', 409);
@@ -580,6 +709,9 @@ const verificacionTemperaturaService = {
         let patron = { id_equipo: v.id_patron, codigo: v.patron_codigo, nombre: v.patron_nombre, error0: v.patron_error0, error15: v.patron_error15, error30: v.patron_error30 };
         // Cambiar de patrón vuelve a tomar su error actual; mantenerlo conserva el de la ficha.
         if (data.id_patron && Number(data.id_patron) !== Number(v.id_patron)) patron = await obtenerPatron(pool, data.id_patron);
+        // Si hay certificados por año, manda el que estaba vigente en la fecha de
+        // la verificación (un certificado nuevo no cambia lecturas anteriores a él).
+        patron = await erroresParaFecha(pool, patron, fecha);
         const lecturas = data.lecturas ? bloquearTpRegistradas(normalizarLecturas(v.lecturas), normalizarLecturas(data.lecturas)) : normalizarLecturas(v.lecturas);
         const calc = calcularVerificacion(lecturas, { 0: patron.error0, 15: patron.error15, 30: patron.error30 });
 
@@ -610,7 +742,7 @@ const verificacionTemperaturaService = {
         // Antecedentes del patrón: los que manda el formulario (y pasan a ser
         // los vigentes del patrón); si cambió de patrón y no mandó nada, los
         // vigentes de ese patrón.
-        const ant = data.patron_antecedentes;
+        const ant = puedePatron ? data.patron_antecedentes : null;
         if (ant && typeof ant === 'object' && (await hayColumnasPatron(pool))) {
             const valores = {};
             for (const c of CAMPOS_PATRON) {
@@ -630,7 +762,7 @@ const verificacionTemperaturaService = {
         return this.obtener(id);
     },
 
-    async enviarFirma(id) {
+    async enviarFirma(id, idUsuario = null) {
         const pool = await getConnection();
         const v = await cargar(pool, id);
         if (v.estado !== 'BORRADOR') throw error('La ficha no está en borrador', 409);
@@ -639,6 +771,7 @@ const verificacionTemperaturaService = {
         const sinTp = tpSinRegistrar(normalizarLecturas(v.lecturas));
         if (sinTp > 0) throw error(`Faltan ${sinTp} temperatura(s) TP por registrar`);
         if (!v.id_muestreador) throw error('Indique el muestreador que debe firmar la ficha');
+        await exigirPatronVigente(pool, v);
         // La observación es obligatoria: el formulario la empieza con "- dd/mm/aaaa"
         // y debe tener texto después de esa fecha.
         if (!String(v.observacion || '').replace(/^\s*-\s*\d{1,2}[./-]\d{1,2}[./-]\d{4}\s*/, '').trim()) {
@@ -646,17 +779,21 @@ const verificacionTemperaturaService = {
                 ? 'La verificación NO CUMPLE: registre una observación antes de enviarla a firma'
                 : 'Escriba la observación de la verificación antes de enviarla a firma');
         }
-        await pool.request().input('id', sql.Int, Number(id))
-            .query(`UPDATE ${TABLA} SET estado = 'PENDIENTE_FIRMA', fecha_modificacion = GETDATE() WHERE id_verificacion = @id`);
+        const traza = (await hayColumnasTraza(pool)) ? ', id_usuario_envio_firma = @u, fecha_envio_firma = GETDATE()' : '';
+        await pool.request().input('id', sql.Int, Number(id)).input('u', sql.Numeric(10, 0), idUsuario || null)
+            .query(`UPDATE ${TABLA} SET estado = 'PENDIENTE_FIRMA', fecha_modificacion = GETDATE()${traza} WHERE id_verificacion = @id AND estado = 'BORRADOR'`);
+        auditar(idUsuario, 'ENVIO_FIRMA', v, 'Ficha enviada a firma', { estado: 'PENDIENTE_FIRMA' });
         return this.obtener(id);
     },
 
-    async volverBorrador(id) {
+    async volverBorrador(id, idUsuario = null) {
         const pool = await getConnection();
         const v = await cargar(pool, id);
         if (v.estado !== 'PENDIENTE_FIRMA') throw error('Solo una ficha pendiente de firma puede volver a borrador', 409);
-        await pool.request().input('id', sql.Int, Number(id))
-            .query(`UPDATE ${TABLA} SET estado = 'BORRADOR', fecha_modificacion = GETDATE() WHERE id_verificacion = @id`);
+        const traza = (await hayColumnasTraza(pool)) ? ', id_usuario_vuelve_borrador = @u, fecha_vuelve_borrador = GETDATE()' : '';
+        await pool.request().input('id', sql.Int, Number(id)).input('u', sql.Numeric(10, 0), idUsuario || null)
+            .query(`UPDATE ${TABLA} SET estado = 'BORRADOR', fecha_modificacion = GETDATE()${traza} WHERE id_verificacion = @id AND estado = 'PENDIENTE_FIRMA'`);
+        auditar(idUsuario, 'VUELVE_BORRADOR', v, 'Ficha devuelta a borrador', { estado: 'BORRADOR' });
         return this.obtener(id);
     },
 
@@ -697,10 +834,17 @@ const verificacionTemperaturaService = {
 
         const calc = resultadoCalculo(v);
         if (!calc.completas) throw error('La ficha tiene lecturas incompletas');
-        const siguiente = sumarMeses(v.fecha_verificacion);
+        await exigirPatronVigente(pool, v);
+        // Un equipo que NO CUMPLE no queda vigente: no se le programa la próxima
+        // verificación ni se extiende su vigencia, y pasa a Fuera de Servicio
+        // hasta que se corrija y se verifique de nuevo.
+        const noCumple = calc.cumple === false;
+        const siguiente = noCumple ? null : sumarMeses(v.fecha_verificacion);
         const fechaFirma = new Date();
+        const conTraza = await hayColumnasTraza(pool);
 
-        // 1. PDF definitivo, con la firma.
+        // 1. PDF definitivo, con la firma. Se escribe antes de tocar la base y
+        //    se borra si algo de lo que sigue falla.
         const datosPdf = { ...v, id_muestreador: idMuestreador, muestreador_nombre: m.nombre_muestreador, firma_muestreador: imagenFirma, fecha_firma: fechaFirma };
         const buffer = await generarPdfVerificacion(datosPdf);
         fs.mkdirSync(PDF_DIR, { recursive: true });
@@ -709,13 +853,34 @@ const verificacionTemperaturaService = {
         fs.writeFileSync(abs, buffer);
         const ruta = `/uploads/equipos/${archivo}`;
 
-        // 2. Aplicar a la ficha del equipo: errores, FC, revisión y el PDF como
-        //    documento de esta revisión (la anterior pasa al historial).
+        // 2. Cerrar la ficha y aplicarla al equipo en UNA transacción: o quedan
+        //    las dos cosas o ninguna. El UPDATE exige que la ficha siga pendiente
+        //    de firma: si dos personas firman a la vez, la segunda no pasa (antes
+        //    el equipo recibía la observación y la versión dos veces).
+        const tx = new sql.Transaction(pool);
         try {
+            await tx.begin();
+            const cierre = await new sql.Request(tx)
+                .input('id', sql.Int, Number(id))
+                .input('m', sql.Numeric(10, 0), idMuestreador)
+                .input('firma', sql.NVarChar(sql.MAX), imagenFirma)
+                .input('ff', sql.DateTime, fechaFirma)
+                .input('sig', sql.Date, siguiente)
+                .input('ruta', sql.NVarChar(500), ruta)
+                .input('u', sql.Numeric(10, 0), idUsuario || null)
+                .query(`UPDATE ${TABLA} SET estado = 'FIRMADA', id_muestreador = @m, firma_muestreador = @firma,
+                            fecha_firma = @ff, siguiente_verificacion = @sig, pdf_ruta = @ruta, fecha_modificacion = GETDATE()
+                            ${conTraza ? ', id_usuario_registra_firma = @u' : ''}
+                        WHERE id_verificacion = @id AND estado = 'PENDIENTE_FIRMA'`);
+            if (!cierre.rowsAffected[0]) throw error('La ficha ya fue firmada o cambió de estado; vuelva a abrirla', 409);
+
+            // Ficha del equipo: errores, FC, revisión y el PDF como documento de
+            // esta revisión (la anterior pasa al historial).
             const actual = await equipoService.getEquipoById(v.id_equipo);
             const [y, mo, d] = v.fecha_verificacion.split('-');
             const lineaObs = `${d}.${mo}.${y.slice(2)} Verificación intermedia de temperatura (OI-FoGe-39, ficha N° ${v.id_verificacion}): `
-                + `${calc.cumple ? 'Cumple' : 'NO CUMPLE'}. Error 0/15/30 °C: ${fmt1(calc.rangos[0].promedio)} / ${fmt1(calc.rangos[15].promedio)} / ${fmt1(calc.rangos[30].promedio)}.`;
+                + `${calc.cumple ? 'Cumple' : 'NO CUMPLE'}. Error 0/15/30 °C: ${fmt1(calc.rangos[0].promedio)} / ${fmt1(calc.rangos[15].promedio)} / ${fmt1(calc.rangos[30].promedio)}.`
+                + (noCumple ? ' Equipo pasa a Fuera de Servicio hasta su corrección y nueva verificación.' : '');
             const obsActual = String(actual?.observacion || '').trim();
             const redondear1 = (n) => Math.round(Number(n) * 10) / 10;
             const payload = {
@@ -724,59 +889,63 @@ const verificacionTemperaturaService = {
                 error30: redondear1(calc.rangos[30].promedio),
                 tiene_fc: 'SI',
                 ultima_verificacion: v.fecha_verificacion,
-                siguiente_verificacion: siguiente,
                 observacion: obsActual && obsActual !== 'No Aplica' ? `${obsActual}\n${lineaObs}` : lineaObs,
                 documento_ruta: ruta,
                 documento_nombre: `OI-FoGe-39 Verificación T° ${d}-${mo}-${y}`,
             };
-            // updateEquipo rechaza una vigencia ya vencida; si la verificación se
-            // registra tarde, se actualiza solo la siguiente revisión.
-            if (siguiente >= hoyYmd()) payload.vigencia = siguiente;
-            await equipoService.updateEquipo(v.id_equipo, payload, idUsuario);
+            if (noCumple) {
+                // Un equipo dado de baja se queda así.
+                if (!/baja/i.test(String(actual?.estado_equipo || ''))) payload.estado_equipo = 'Fuera de Servicio';
+            } else {
+                payload.siguiente_verificacion = siguiente;
+                // updateEquipo rechaza una vigencia ya vencida; si la verificación se
+                // registra tarde, se actualiza solo la siguiente revisión.
+                if (siguiente >= hoyYmd()) payload.vigencia = siguiente;
+            }
+            await equipoService.updateEquipo(v.id_equipo, payload, idUsuario, tx);
+
+            await tx.commit();
         } catch (e) {
+            try { await tx.rollback(); } catch { /* ya revertida */ }
             try { fs.unlinkSync(abs); } catch { /* ya no existe */ }
+            if (e.statusCode) throw e;
             logger.error(`[VerificacionTemperatura] No se pudo aplicar la ficha ${id} al equipo ${v.id_equipo}:`, e);
             throw error(`No se pudo actualizar el equipo: ${e.message}`, 500);
         }
 
         // Si había un QR de firma por celular, la web ve que ya quedó firmada.
         firmaRemotaService.marcarRegistrada(id, imagenFirma);
-
-        // 3. Cerrar la ficha.
-        await pool.request()
-            .input('id', sql.Int, Number(id))
-            .input('m', sql.Numeric(10, 0), idMuestreador)
-            .input('firma', sql.NVarChar(sql.MAX), imagenFirma)
-            .input('ff', sql.DateTime, fechaFirma)
-            .input('sig', sql.Date, siguiente)
-            .input('ruta', sql.NVarChar(500), ruta)
-            .query(`UPDATE ${TABLA} SET estado = 'FIRMADA', id_muestreador = @m, firma_muestreador = @firma,
-                        fecha_firma = @ff, siguiente_verificacion = @sig, pdf_ruta = @ruta, fecha_modificacion = GETDATE()
-                    WHERE id_verificacion = @id`);
+        auditar(idUsuario, 'FIRMA', v, `Ficha firmada por ${m.nombre_muestreador}`, {
+            estado: 'FIRMADA', id_muestreador: idMuestreador, cumple: calc.cumple, siguiente_verificacion: siguiente,
+            ...(noCumple ? { estado_equipo: 'Fuera de Servicio' } : {}),
+        });
         return this.obtener(id);
     },
 
-    async anular(id, motivo) {
+    async anular(id, motivo, idUsuario = null) {
         const pool = await getConnection();
         const v = await cargar(pool, id);
         if (v.estado === 'FIRMADA') throw error('Una ficha firmada no se puede anular: ya quedó registrada en el equipo', 409);
         if (v.estado === 'ANULADA') throw error('La ficha ya está anulada', 409);
         const m = String(motivo || '').trim();
         if (!m) throw error('Indique el motivo de la anulación');
-        await pool.request().input('id', sql.Int, Number(id)).input('mot', sql.NVarChar(500), m.slice(0, 500))
-            .query(`UPDATE ${TABLA} SET estado = 'ANULADA', motivo_anulacion = @mot, fecha_modificacion = GETDATE() WHERE id_verificacion = @id`);
+        const traza = (await hayColumnasTraza(pool)) ? ', id_usuario_anula = @u, fecha_anulacion = GETDATE()' : '';
+        await pool.request().input('id', sql.Int, Number(id)).input('mot', sql.NVarChar(500), m.slice(0, 500)).input('u', sql.Numeric(10, 0), idUsuario || null)
+            .query(`UPDATE ${TABLA} SET estado = 'ANULADA', motivo_anulacion = @mot, fecha_modificacion = GETDATE()${traza} WHERE id_verificacion = @id AND estado <> 'FIRMADA'`);
+        auditar(idUsuario, 'ANULACION', v, 'Ficha anulada', { estado: 'ANULADA', motivo: m.slice(0, 500) });
         return { success: true };
     },
 
     // Descartar una ficha que se estaba llenando: se borra del todo (no queda
     // como anulada). Solo en borrador: lo enviado a firma o firmado ya es registro.
-    async eliminar(id) {
+    async eliminar(id, idUsuario = null) {
         const pool = await getConnection();
         const v = await cargar(pool, id);
         if (v.estado !== 'BORRADOR') throw error('Solo se puede eliminar una ficha en borrador; las enviadas a firma se anulan', 409);
         await pool.request().input('id', sql.Int, Number(id))
             .query(`DELETE FROM ${TABLA} WHERE id_verificacion = @id AND estado = 'BORRADOR'`);
         logger.info(`Verificación T° ficha ${id} (${v.codigo_equipo}, ${v.periodo}) eliminada en borrador`);
+        auditar(idUsuario, 'ELIMINACION', v, 'Ficha en borrador eliminada', { estado: 'ELIMINADA' });
         return { success: true };
     },
 
@@ -797,30 +966,41 @@ const verificacionTemperaturaService = {
                    e.error0 AS eq_error0, e.error15 AS eq_error15, e.error30 AS eq_error30,
                    CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) AS eq_ultima_verificacion,
                    CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) AS eq_siguiente_verificacion,
+                   -- Resultado: la última ficha FIRMADA hasta el periodo (un borrador o
+                   -- una ficha pendiente aún no es un resultado: puede estar a medio llenar).
                    u.id_verificacion, u.periodo, CONVERT(VARCHAR(10), u.fecha_verificacion, 23) AS fecha_verificacion,
-                   u.error0, u.error15, u.error30, u.cumple, u.estado,
-                   CASE WHEN u.periodo = @hasta THEN 1 ELSE 0 END AS del_periodo
+                   u.error0, u.error15, u.error30, u.cumple,
+                   -- Registro del periodo elegido: la ficha no anulada de ese mes, en el estado que esté.
+                   p.estado, p.id_verificacion AS id_ficha_periodo,
+                   CASE WHEN p.id_verificacion IS NULL THEN 0 ELSE 1 END AS del_periodo
             FROM mae_equipo e
             LEFT JOIN mae_muestreador m ON m.id_muestreador = e.id_muestreador
             OUTER APPLY (
-                SELECT TOP 1 v.id_verificacion, v.periodo, v.fecha_verificacion, v.error0, v.error15, v.error30, v.cumple, v.estado
+                SELECT TOP 1 v.id_verificacion, v.periodo, v.fecha_verificacion, v.error0, v.error15, v.error30, v.cumple
                 FROM ${TABLA} v
-                WHERE v.id_equipo = e.id_equipo AND v.estado <> 'ANULADA' AND v.periodo <= @hasta
+                WHERE v.id_equipo = e.id_equipo AND v.estado = 'FIRMADA' AND v.periodo <= @hasta
                 ORDER BY v.periodo DESC, v.fecha_verificacion DESC, v.id_verificacion DESC
             ) u
+            OUTER APPLY (
+                SELECT TOP 1 v.id_verificacion, v.estado
+                FROM ${TABLA} v
+                WHERE v.id_equipo = e.id_equipo AND v.estado <> 'ANULADA' AND v.periodo = @hasta
+                ORDER BY v.id_verificacion DESC
+            ) p
             WHERE ${FILTRO_ELEGIBLES}
             ORDER BY e.tipoequipo, e.codigo`);
+        // Conteo de registros por estado; resultados y errores solo de las firmadas.
         const s = await pool.request().query(`
             SELECT periodo,
                    COUNT(*) AS total,
                    SUM(CASE WHEN estado = 'FIRMADA' THEN 1 ELSE 0 END) AS firmadas,
                    SUM(CASE WHEN estado = 'PENDIENTE_FIRMA' THEN 1 ELSE 0 END) AS pendientes,
                    SUM(CASE WHEN estado = 'BORRADOR' THEN 1 ELSE 0 END) AS borradores,
-                   SUM(CASE WHEN cumple = 'S' THEN 1 ELSE 0 END) AS cumplen,
-                   SUM(CASE WHEN cumple = 'N' THEN 1 ELSE 0 END) AS no_cumplen,
-                   AVG(ABS(CAST(error0 AS FLOAT))) AS prom_abs0,
-                   AVG(ABS(CAST(error15 AS FLOAT))) AS prom_abs15,
-                   AVG(ABS(CAST(error30 AS FLOAT))) AS prom_abs30
+                   SUM(CASE WHEN estado = 'FIRMADA' AND cumple = 'S' THEN 1 ELSE 0 END) AS cumplen,
+                   SUM(CASE WHEN estado = 'FIRMADA' AND cumple = 'N' THEN 1 ELSE 0 END) AS no_cumplen,
+                   AVG(CASE WHEN estado = 'FIRMADA' THEN ABS(CAST(error0 AS FLOAT)) END) AS prom_abs0,
+                   AVG(CASE WHEN estado = 'FIRMADA' THEN ABS(CAST(error15 AS FLOAT)) END) AS prom_abs15,
+                   AVG(CASE WHEN estado = 'FIRMADA' THEN ABS(CAST(error30 AS FLOAT)) END) AS prom_abs30
             FROM ${TABLA}
             WHERE estado <> 'ANULADA'
             GROUP BY periodo
@@ -828,7 +1008,7 @@ const verificacionTemperaturaService = {
         const red = (n) => (n === null || n === undefined ? null : Math.round(Number(n) * 1000) / 1000);
         return {
             periodo: hasta,
-            tolerancia: 0.5,
+            tolerancia: TOLERANCIA,
             equipos: r.recordset,
             serie: s.recordset.map((x) => ({ ...x, prom_abs0: red(x.prom_abs0), prom_abs15: red(x.prom_abs15), prom_abs30: red(x.prom_abs30) })),
         };
@@ -856,12 +1036,17 @@ const verificacionTemperaturaService = {
 
     // Agrega un año nuevo para uno o varios patrones ("Nuevo año"). Los
     // registros son un historial: nunca se reemplazan ni se eliminan, y el año
-    // nuevo tiene que ser posterior al vigente del patrón.
+    // nuevo tiene que ser posterior al vigente del patrón. Con el certificado
+    // nuevo se actualiza también la ficha del equipo patrón (errores, última
+    // calibración, próxima revisión y una línea en su observación con lo que
+    // escribió el usuario), como una revisión más en su historial.
     async guardarErroresPatron(idUsuario, body) {
         const pool = await getConnection();
         await exigirTablaErrPatron(pool);
         const filas = (Array.isArray(body?.filas) ? body.filas : [body]).map(filaErrorPatron);
         if (!filas.length) throw error('No hay filas para guardar');
+        const observacion = String(body?.observacion || '').trim();
+        if (!observacion) throw error('Escriba una observación para el registro del nuevo certificado (queda en la ficha del equipo patrón)');
         const tx = new sql.Transaction(pool);
         await tx.begin();
         try {
@@ -889,25 +1074,44 @@ const verificacionTemperaturaService = {
                     .query(`
                         INSERT INTO ${TABLA_ERR_PATRON} (id_equipo, anio, fecha_calibracion, error0, error15, error30, valido_hasta, id_usuario)
                         VALUES (@p, @anio, @fc, @e0, @e15, @e30, @vh, @u)`);
+                await actualizarEquipoPatron(tx, f, observacion, idUsuario);
             }
             for (const idEquipo of new Set(filas.map((f) => f.id_equipo))) await sincronizarPatronVigente(tx, idEquipo);
             await tx.commit();
         } catch (e) {
             await tx.rollback().catch(() => {});
-            throw e;
+            if (e.statusCode || e.status) throw e;
+            throw error(`No se pudo actualizar el equipo patrón: ${e.message}`, 500);
+        }
+        for (const f of filas) {
+            auditService.log({
+                usuario_id: idUsuario, area_key: 'GC', modulo_nombre: 'Verificación de Temperatura', evento_tipo: 'PATRON_NUEVO_ANIO',
+                entidad_nombre: 'mae_equipo', entidad_id: String(f.id_equipo),
+                descripcion_humana: `Certificado ${f.anio} del termómetro patrón registrado — error 0/15/30 °C ${fmt1(f.error0)} / ${fmt1(f.error15)} / ${fmt1(f.error30)}`,
+                datos_nuevos: { ...f, observacion },
+            }).catch(() => {});
         }
         return this.erroresPatron();
     },
 
     // Solo se corrige el registro vigente (el año más reciente del patrón), y
     // sin cambiarle el año. Los años pasados quedan como historial.
+    // Cada corrección exige un motivo y queda en la auditoría con el valor
+    // anterior y el nuevo (cambia los errores que usan las fichas).
     async actualizarErrorPatron(idError, idUsuario, body) {
         const pool = await getConnection();
         await exigirTablaErrPatron(pool);
+        const motivo = String(body?.motivo || '').trim().slice(0, 500);
+        if (!motivo) throw error('Indique el motivo de la corrección (queda en la auditoría)');
         const r = await pool.request().input('id', sql.Int, Number(idError)).query(`
-            SELECT x.id_equipo, x.anio,
+            SELECT x.id_equipo, x.anio, e.codigo,
+                   CONVERT(VARCHAR(10), x.fecha_calibracion, 23) AS fecha_calibracion,
+                   x.error0, x.error15, x.error30,
+                   CONVERT(VARCHAR(10), x.valido_hasta, 23) AS valido_hasta,
                    (SELECT MAX(y.anio) FROM ${TABLA_ERR_PATRON} y WHERE y.id_equipo = x.id_equipo) AS anio_vigente
-            FROM ${TABLA_ERR_PATRON} x WHERE x.id_error = @id`);
+            FROM ${TABLA_ERR_PATRON} x
+            JOIN mae_equipo e ON e.id_equipo = x.id_equipo
+            WHERE x.id_error = @id`);
         const actual = r.recordset[0];
         if (!actual) throw error('Registro no encontrado', 404);
         if (actual.anio !== actual.anio_vigente) {
@@ -936,6 +1140,67 @@ const verificacionTemperaturaService = {
             await tx.rollback().catch(() => {});
             throw e;
         }
+        const { anio_vigente: _v, codigo, id_equipo: _e, ...antes } = actual;
+        const despues = { anio: f.anio, fecha_calibracion: f.fecha_calibracion, error0: f.error0, error15: f.error15, error30: f.error30, valido_hasta: f.valido_hasta };
+        auditService.log({
+            usuario_id: idUsuario, area_key: 'GC', modulo_nombre: 'Verificación de Temperatura', evento_tipo: 'PATRON_CORRECCION',
+            entidad_nombre: 'mae_termometro_patron_errores', entidad_id: String(idError),
+            descripcion_humana: `Corrección del certificado ${f.anio} del termómetro patrón ${codigo} — error 0/15/30 °C ${fmt1(antes.error0)} / ${fmt1(antes.error15)} / ${fmt1(antes.error30)} → ${fmt1(f.error0)} / ${fmt1(f.error15)} / ${fmt1(f.error30)}. Motivo: ${motivo}`,
+            datos_anteriores: antes,
+            datos_nuevos: { ...despues, motivo },
+        }).catch(() => {});
+        return this.erroresPatron();
+    },
+
+    // Elimina todos los registros de errores de un año en caso de duplicados
+    // o casos excepcionales. Cada patrón se resincroniza con su año anterior vigente.
+    async eliminarAnioErroresPatron(anio, idUsuario) {
+        const anioNum = parseInt(anio, 10);
+        if (!anioNum || isNaN(anioNum)) throw error('Año no válido', 400);
+
+        const pool = await getConnection();
+        await exigirTablaErrPatron(pool);
+
+        const r = await pool.request()
+            .input('anio', sql.Int, anioNum)
+            .query(`
+                SELECT x.id_error, x.id_equipo, e.codigo, x.error0, x.error15, x.error30
+                FROM ${TABLA_ERR_PATRON} x
+                JOIN mae_equipo e ON e.id_equipo = x.id_equipo
+                WHERE x.anio = @anio`);
+
+        if (!r.recordset.length) {
+            throw error(`No hay registros para el año ${anioNum}`, 404);
+        }
+
+        const registros = r.recordset;
+        const idsEquipo = [...new Set(registros.map((x) => x.id_equipo))];
+
+        const tx = new sql.Transaction(pool);
+        await tx.begin();
+        try {
+            await new sql.Request(tx)
+                .input('anio', sql.Int, anioNum)
+                .query(`DELETE FROM ${TABLA_ERR_PATRON} WHERE anio = @anio`);
+
+            for (const idEquipo of idsEquipo) {
+                await sincronizarPatronVigente(tx, idEquipo);
+            }
+
+            await tx.commit();
+        } catch (e) {
+            await tx.rollback().catch(() => {});
+            if (e.statusCode || e.status) throw e;
+            throw error(`No se pudo eliminar el año ${anioNum}: ${e.message}`, 500);
+        }
+
+        auditService.log({
+            usuario_id: idUsuario, area_key: 'GC', modulo_nombre: 'Verificación de Temperatura', evento_tipo: 'PATRON_ELIMINAR_ANIO',
+            entidad_nombre: 'mae_termometro_patron_errores', entidad_id: String(anioNum),
+            descripcion_humana: `Eliminación del año ${anioNum} de errores de termómetro patrón (${registros.length} registro(s): ${registros.map((x) => x.codigo).join(', ')})`,
+            datos_anteriores: { anio: anioNum, registros },
+        }).catch(() => {});
+
         return this.erroresPatron();
     },
 

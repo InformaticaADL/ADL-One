@@ -18,6 +18,8 @@ import { useToast } from '../../../contexts/ToastContext';
 // y la nueva se agrega debajo con un guion y la fecha de la actualización —
 // nunca se sobreescribe la observación existente.
 const RE_FECHA_EN_LINEA = /\b(\d{1,2})[./-](\d{1,2})[./-](\d{4}|\d{2})\b/g;
+/** Minúsculas y sin tildes, para buscar «nicolas» y encontrar «Nicolás». */
+export const quitarTildes = (s: string): string => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const normalizarTexto = (s: string) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/\s+/g, ' ').trim();
 // Misma regla que el backend (claveLineaObservacion): igual texto Y misma fecha, ignorando el
 // prefijo "- [dd/mm/aaaa]" que agrega el sistema.
@@ -28,15 +30,20 @@ const claveLinea = (linea: string): string => {
     return normalizarTexto(conFechas).replace(/^-\s*/, '');
 };
 
+// «Sin observaciones», «No aplica», «N/A»… es una celda sin observación: no se agrega (misma regla que el backend).
+const RE_SIN_OBSERVACION = /^(SIN (OBSERVACIONES?|COMENTARIOS?|NOVEDADES?|DATOS?)|NO APLICA|N ?\/ ?A|S ?\/ ?O|NINGUN[AO]|NO HAY|NO TIENE|NO REGISTRA)[ .]*$/;
+const esSinObservacion = (clave: string) => !clave || /^[-.\s]*$/.test(clave) || RE_SIN_OBSERVACION.test(clave);
+
 export const appendObservacion = (actual: string | null | undefined, nueva: string): string => {
     const limpia = actual && actual.trim() ? actual.trim() : '';
     const existentes = limpia.split(/\r?\n/).map(claveLinea).filter(Boolean);
-    const yaEsta = (k: string) => existentes.some((e) => e.includes(k));
+    const todo = existentes.join(' ');
+    const yaEsta = (k: string) => existentes.some((e) => e.includes(k)) || (k.length >= 15 && todo.includes(k));
     const vistas = new Set<string>();
     // Solo las líneas del Excel que el equipo aún no tiene (mismo texto y misma fecha).
     const nuevas = nueva.split(/\r?\n/).map((l) => l.trim()).filter((l) => {
         const k = claveLinea(l);
-        if (!k || yaEsta(k) || vistas.has(k)) return false;
+        if (esSinObservacion(k) || yaEsta(k) || vistas.has(k)) return false;
         vistas.add(k);
         return true;
     });

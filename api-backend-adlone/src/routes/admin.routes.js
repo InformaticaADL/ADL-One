@@ -158,6 +158,7 @@ router.get('/equipos/catalogo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'
 router.post('/equipos/catalogo', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquipoCatalogo);
 router.put('/equipos/catalogo/:id', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), equipoController.updateEquipoCatalogo);
 router.delete('/equipos/catalogo/:id', verifyToken, verifyPermission('EQ_DESACTIVAR'), equipoController.deleteEquipoCatalogo);
+router.get('/equipos/reglas-control', verifyToken, equipoController.getReglasControl);
 router.get('/equipos/suggest-code', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.suggestNextCode);
 router.get('/equipos/next-correlativo/:tipo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getNextCorrelativo);
 router.get('/equipos/resumen-calidad', verifyToken, verifyPermission(['GC_ACCESO', 'GC_EQUIPOS', 'MA_A_GEST_EQUIPO']), equipoController.getResumenCalidad);
@@ -198,6 +199,12 @@ router.post('/equipos/:id/fichas/tecnica/pdf', ...permisoFichas, fichasEquipo.te
 router.post('/equipos/fichas/entrega/guardar', ...permisoFichas, fichasEquipo.entregaGuardar);
 router.post('/equipos/fichas/recepcion/guardar', ...permisoFichas, fichasEquipo.recepcionGuardar);
 router.get('/equipos/fichas/guardadas/:idFicha/pdf', ...permisoFichas, fichasEquipo.guardadaPdf);
+// Archivo de fichas guardadas de todos los equipos (consulta por año / formulario / sede).
+router.get('/equipos/fichas/archivo', ...permisoFichas, fichasEquipo.archivoListar);
+router.get('/equipos/fichas/archivo/anios', ...permisoFichas, fichasEquipo.archivoAnios);
+// Anular una ficha guardada: solo quien edita equipos (queda como ANULADA, con motivo).
+router.post('/equipos/fichas/guardadas/:idFicha/anular', verifyToken, verifyPermission(['AI_MA_EDITAR_EQUIPO', 'GC_EQUIPOS']), fichasEquipo.guardadaAnular);
+router.get('/equipos/:id/fichas/guardadas/vigente', ...permisoFichas, fichasEquipo.guardadaVigente);
 router.post('/equipos/:id/fichas/tecnica/guardar', ...permisoFichas, fichasEquipo.tecnicaGuardar);
 router.post('/equipos/:id/fichas/historial/guardar', ...permisoFichas, fichasEquipo.historialGuardar);
 router.get('/equipos/:id/fichas/guardadas', ...permisoFichas, fichasEquipo.guardadasListar);

@@ -18,6 +18,7 @@ import {
 } from '../../services/verificacionTemperatura.service';
 import { RANGOS, TOLERANCIA, calcular, fmtNum, fmtFecha, nombrePeriodo, parseNum, hoyYmd, ESTADO_META } from '../../utils/verificacionTemperatura';
 import { FirmaMuestreadorDialog } from './FirmaMuestreadorDialog';
+import { useAccionesVerifTemp } from './useAccionesVerifTemp';
 
 // Máxima división del termómetro verificado y del patrón: siempre 5 (el backend la fija igual).
 const MAXIMA_DIVISION_FIJA = '5';
@@ -115,6 +116,8 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
     const [anularAbierto, setAnularAbierto] = useState(false);
     const [motivoAnular, setMotivoAnular] = useState('');
     const [eliminarAbierto, setEliminarAbierto] = useState(false);
+    // Firmar, devolver a borrador y anular requieren GC_VERIF_TEMP_FIRMAR.
+    const puede = useAccionesVerifTemp();
 
     // Cada edición suma 1: si llega la respuesta de un guardado y hubo cambios
     // mientras tanto, no se pisan con lo que devolvió el servidor.
@@ -174,7 +177,10 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
             lecturas: aNumeros(lecturas),
             observacion,
             id_muestreador: idMuestreador ? Number(idMuestreador) : null,
-            patron_antecedentes: Object.fromEntries(CAMPOS_PATRON.map(({ campo }) => [campo, antecedentes[campo].trim() || null])) as unknown as AntecedentesPatron,
+            // Solo con permiso de patrón: lo que se guarda pasa a ser lo vigente del patrón.
+            ...(puede.patron ? {
+                patron_antecedentes: Object.fromEntries(CAMPOS_PATRON.map(({ campo }) => [campo, antecedentes[campo].trim() || null])) as unknown as AntecedentesPatron,
+            } : {}),
         });
         if (cambiosRef.current === marca) cargarEn(d); else setV(d);
         onChanged();
@@ -466,8 +472,8 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                                                         type={tipo || 'text'}
                                                         className="h-8 text-sm"
                                                         value={antecedentes[campo]}
-                                                        placeholder={editable ? placeholder : undefined}
-                                                        disabled={!editable}
+                                                        placeholder={editable && puede.patron ? placeholder : undefined}
+                                                        disabled={!editable || !puede.patron}
                                                         max={tipo === 'date' ? hoyYmd() : undefined}
                                                         onChange={(e) => { setAntecedentes((prev) => ({ ...prev, [campo]: e.target.value })); marcar(); }}
                                                     />
@@ -490,7 +496,10 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                             </div>
                             {editable && (
                                 <p className="mt-2 text-[11px] text-muted-foreground">
-                                    El error del patrón se descuenta de cada lectura TP. Los antecedentes se guardan con el patrón: la próxima ficha que lo use los trae ya llenos.
+                                    El error del patrón (el de su certificado vigente en la fecha de la verificación) se descuenta de cada lectura TP.{' '}
+                                    {puede.patron
+                                        ? 'Los antecedentes se guardan con el patrón: la próxima ficha que lo use los trae ya llenos.'
+                                        : 'Los antecedentes del patrón los actualiza quien tiene el permiso de patrón (en «Errores de patrón»).'}
                                 </p>
                             )}
                         </>
@@ -673,7 +682,7 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                         <IconTrash size={15} /> Eliminar
                     </Button>
                 )}
-                {v.estado === 'PENDIENTE_FIRMA' && (
+                {v.estado === 'PENDIENTE_FIRMA' && puede.firmar && (
                     <Button variant="ghost" size={compacto ? 'sm' : 'default'} className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setAnularAbierto(true)} disabled={!!accion}>
                         <IconBan size={15} /> Anular
                     </Button>
@@ -695,12 +704,12 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                             {accion === 'guardar' ? <Spinner /> : <IconDeviceFloppy size={15} />} Guardar
                         </Button>
                     )}
-                    {v.estado === 'PENDIENTE_FIRMA' && (
+                    {v.estado === 'PENDIENTE_FIRMA' && puede.firmar && (
                         <Button variant="outline" size={compacto ? 'sm' : 'default'} onClick={volverBorrador} disabled={!!accion}>
                             {accion === 'volver' ? <Spinner /> : <IconArrowBackUp size={15} />} Volver a editar
                         </Button>
                     )}
-                    {(editable || v.estado === 'PENDIENTE_FIRMA') && (
+                    {(editable || v.estado === 'PENDIENTE_FIRMA') && puede.firmar && (
                         <Button
                             size={compacto ? 'sm' : 'default'}
                             onClick={firmar}
@@ -708,6 +717,11 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                             title={editable && faltaParaFirmar ? faltaParaFirmar : `Firmar la ficha de ${v.codigo_equipo}`}
                         >
                             {accion === 'firmar' ? <Spinner light /> : <IconSignature size={15} />} Firmar
+                        </Button>
+                    )}
+                    {v.estado === 'PENDIENTE_FIRMA' && !puede.firmar && (
+                        <Button size={compacto ? 'sm' : 'default'} variant="outline" disabled className="disabled:opacity-100" title="Firmar, anular o devolver a borrador requiere el permiso GC_VERIF_TEMP_FIRMAR">
+                            <IconLock size={15} /> Pendiente de firma
                         </Button>
                     )}
                     {v.estado === 'FIRMADA' && (
@@ -790,6 +804,38 @@ export const EliminarFichaDialog: React.FC<{
         </DialogContent>
     </Dialog>
 );
+
+// Confirmación para eliminar varias fichas en borrador a la vez (desde la lista).
+export const EliminarFichasDialog: React.FC<{
+    fichas: { id_verificacion: number; codigo_equipo: string }[] | null;
+    omitidas: number; eliminando: boolean; onConfirmar: () => void; onCancelar: () => void;
+}> = ({ fichas, omitidas, eliminando, onConfirmar, onCancelar }) => {
+    const n = fichas?.length ?? 0;
+    const muestra = (fichas ?? []).slice(0, 8).map((f) => f.codigo_equipo);
+    return (
+        <Dialog open={!!fichas} onOpenChange={(o) => { if (!o && !eliminando) onCancelar(); }}>
+            <DialogContent className="max-w-md gap-5" showCloseButton={!eliminando}>
+                <DialogHeader className="items-center text-center sm:text-center">
+                    <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10 text-destructive">
+                        <IconTrash size={24} />
+                    </div>
+                    <DialogTitle>¿Eliminar {n} ficha{n === 1 ? '' : 's'} en borrador?</DialogTitle>
+                    <DialogDescription>
+                        {muestra.join(', ')}{n > muestra.length ? ` y ${n - muestra.length} más` : ''}.
+                        Se borra todo lo ingresado en ellas y no quedan guardadas. Los equipos no cambian y se pueden volver a crear sus fichas.
+                        {omitidas > 0 && <><br /><br />{omitidas} de las seleccionadas ya están pendientes de firma: esas no se eliminan (se anulan desde la ficha).</>}
+                    </DialogDescription>
+                </DialogHeader>
+                <DialogFooter className="gap-2 sm:justify-center">
+                    <Button variant="outline" onClick={onCancelar} disabled={eliminando}>Cancelar</Button>
+                    <Button variant="destructive" onClick={onConfirmar} disabled={eliminando || n === 0}>
+                        {eliminando ? <Spinner light /> : <IconTrash size={15} />} Eliminar {n} ficha{n === 1 ? '' : 's'}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+};
 
 // Ventana "¿Hay cambios sin guardar?" al cerrar (una ficha o la mesa completa).
 const ConfirmarCierre: React.FC<{

@@ -13,7 +13,7 @@ import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
 import { FichasEquipoDialog } from '../components/FichasEquipoDialog';
 import { verificacionTemperaturaService as api, type VerificacionResumen, type EstadoVerificacion } from '../services/verificacionTemperatura.service';
 import { ESTADO_META, fmtFecha, fmtNum, hoyYmd, nombrePeriodo } from '../utils/verificacionTemperatura';
-import { VerificacionTempEditor, MesaVerificacionTemp, EliminarFichaDialog } from '../components/verificacion-temperatura/VerificacionTempEditor';
+import { VerificacionTempEditor, MesaVerificacionTemp, EliminarFichaDialog, EliminarFichasDialog } from '../components/verificacion-temperatura/VerificacionTempEditor';
 import { CrearFichasDialog } from '../components/verificacion-temperatura/CrearFichasDialog';
 import { ErroresPatronPanel } from '../components/verificacion-temperatura/ErroresPatronPanel';
 import { ResumenVerificacionTemp } from '../components/verificacion-temperatura/ResumenVerificacionTemp';
@@ -53,6 +53,8 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
     // Ficha en borrador que se quiere eliminar (descartar lo que se estaba llenando).
     const [aEliminar, setAEliminar] = useState<VerificacionResumen | null>(null);
     const [eliminando, setEliminando] = useState(false);
+    // Eliminación en lote de las seleccionadas (solo las que siguen en borrador).
+    const [loteAbierto, setLoteAbierto] = useState(false);
 
     const eliminar = async () => {
         if (!aEliminar) return;
@@ -103,16 +105,25 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
         setSeleccion((prev) => prev.filter((id) => fichas.some((f) => f.id_verificacion === id && ABIERTA(f.estado))));
     }, [fichas]);
 
-    const alternar = (id: number) => setSeleccion((prev) => {
-        if (prev.includes(id)) return prev.filter((x) => x !== id);
-        if (prev.length >= MAX_MESA) {
-            showToast({ type: 'warning', message: `La mesa admite hasta ${MAX_MESA} equipos a la vez` });
-            return prev;
-        }
-        return [...prev, id];
-    });
+    const alternar = (id: number) => setSeleccion((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     const seleccionables = visibles.filter((f) => ABIERTA(f.estado));
     const todasMarcadas = seleccionables.length > 0 && seleccionables.every((f) => seleccion.includes(f.id_verificacion));
+    const algunaMarcada = seleccionables.some((f) => seleccion.includes(f.id_verificacion));
+    const seleccionadas = fichas.filter((f) => seleccion.includes(f.id_verificacion));
+    const borradoresSel = seleccionadas.filter((f) => f.estado === 'BORRADOR');
+
+    const eliminarLote = async () => {
+        setEliminando(true);
+        const res = await Promise.allSettled(borradoresSel.map((f) => api.eliminar(f.id_verificacion)));
+        const ok = borradoresSel.filter((_, i) => res[i].status === 'fulfilled').map((f) => f.id_verificacion);
+        const fallidas = res.length - ok.length;
+        if (ok.length) showToast({ type: 'success', message: `${ok.length} ficha${ok.length === 1 ? '' : 's'} eliminada${ok.length === 1 ? '' : 's'}` });
+        if (fallidas) showToast({ type: 'error', message: `${fallidas} ficha${fallidas === 1 ? '' : 's'} no se pudo eliminar (quizá ya no estaba en borrador)` });
+        setSeleccion((prev) => prev.filter((id) => !ok.includes(id)));
+        setEliminando(false);
+        setLoteAbierto(false);
+        cargar();
+    };
 
     const activas = fichas.filter((f) => f.estado !== 'ANULADA');
     const cuenta = (e: EstadoVerificacion) => fichas.filter((f) => f.estado === e).length;
@@ -233,8 +244,24 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 {seleccion.length > 0 && (
                     <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
                         <span className="text-sm"><b>{seleccion.length}</b> seleccionada{seleccion.length === 1 ? '' : 's'}</span>
-                        <Button size="sm" className="h-7" onClick={() => setMesa(seleccion)}>
+                        <Button
+                            size="sm"
+                            className="h-7"
+                            onClick={() => setMesa(seleccion)}
+                            disabled={seleccion.length > MAX_MESA}
+                            title={seleccion.length > MAX_MESA ? `Para llenar a la vez se admiten hasta ${MAX_MESA} fichas` : 'Abrir las seleccionadas lado a lado'}
+                        >
                             <IconLayoutColumns size={14} /> Llenar a la vez
+                        </Button>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            onClick={() => setLoteAbierto(true)}
+                            disabled={borradoresSel.length === 0}
+                            title={borradoresSel.length === 0 ? 'Solo se pueden eliminar fichas en borrador' : 'Eliminar las fichas seleccionadas que están en borrador'}
+                        >
+                            <IconTrash size={14} /> Eliminar{borradoresSel.length ? ` (${borradoresSel.length})` : ''}
                         </Button>
                         <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setSeleccion([])} title="Quitar selección">
                             <IconX size={14} />
@@ -253,11 +280,14 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="w-10">
                                 <Checkbox
-                                    checked={todasMarcadas}
+                                    checked={todasMarcadas ? true : algunaMarcada ? 'indeterminate' : false}
                                     disabled={seleccionables.length === 0}
-                                    onCheckedChange={(c) => setSeleccion(c ? seleccionables.slice(0, MAX_MESA).map((f) => f.id_verificacion) : [])}
-                                    aria-label="Seleccionar fichas para llenar a la vez"
-                                    title={`Seleccionar hasta ${MAX_MESA} fichas para llenarlas a la vez`}
+                                    onCheckedChange={() => {
+                                        const ids = seleccionables.map((f) => f.id_verificacion);
+                                        setSeleccion((prev) => (todasMarcadas ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]));
+                                    }}
+                                    aria-label="Seleccionar todas las fichas visibles"
+                                    title="Seleccionar todas las fichas visibles (en borrador o pendientes de firma)"
                                 />
                             </TableHead>
                             <TableHead>Equipo</TableHead>
@@ -279,13 +309,17 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                             return (
                                 <TableRow
                                     key={f.id_verificacion}
-                                    className={cn('cursor-pointer', f.estado === 'ANULADA' && 'opacity-60', seleccion.includes(f.id_verificacion) && 'bg-primary/5')}
-                                    onClick={() => setAbierta(f.id_verificacion)}
+                                    className={cn('cursor-pointer select-none', f.estado === 'ANULADA' && 'opacity-60', seleccion.includes(f.id_verificacion) && 'bg-primary/5 hover:bg-primary/10')}
+                                    // Las fichas que se pueden seleccionar se marcan/desmarcan al hacer clic en
+                                    // cualquier parte de la fila (se abren con "Llenar"/"Firmar"); las firmadas o
+                                    // anuladas, que no se seleccionan, se abren con el clic.
+                                    onClick={() => (ABIERTA(f.estado) ? alternar(f.id_verificacion) : setAbierta(f.id_verificacion))}
                                 >
-                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                    <TableCell>
                                         {ABIERTA(f.estado) && (
                                             <Checkbox
                                                 checked={seleccion.includes(f.id_verificacion)}
+                                                onClick={(e) => e.stopPropagation()}
                                                 onCheckedChange={() => alternar(f.id_verificacion)}
                                                 aria-label={`Seleccionar ${f.codigo_equipo}`}
                                             />
@@ -363,6 +397,13 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 onQuitar={(id) => { setMesa((prev) => prev.filter((x) => x !== id)); setSeleccion((prev) => prev.filter((x) => x !== id)); }}
             />
             <EliminarFichaDialog ficha={aEliminar} eliminando={eliminando} onConfirmar={eliminar} onCancelar={() => setAEliminar(null)} />
+            <EliminarFichasDialog
+                fichas={loteAbierto ? borradoresSel : null}
+                omitidas={seleccionadas.length - borradoresSel.length}
+                eliminando={eliminando}
+                onConfirmar={eliminarLote}
+                onCancelar={() => setLoteAbierto(false)}
+            />
             <PdfViewerModal open={!!pdf} onClose={() => setPdf(null)} url={pdf?.url ?? null} title={pdf?.titulo} />
             <FichasEquipoDialog
                 tipo={fichaTecnica ? 'tecnica' : null}

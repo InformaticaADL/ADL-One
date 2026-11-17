@@ -42,7 +42,7 @@ const getVigenciaEstado = (str?: string): 'vigente' | 'por_vencer' | 'vencido' |
 // Con datos de /equipos/resumen-calidad la vigencia viene calculada en el
 // backend (incluye 'retirado': dados de baja / fuera de servicio, que no
 // cuentan como vencidos). Sin ella (Gestión de Equipos) se calcula acá.
-type EstadoVig = 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'retirado';
+type EstadoVig = 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'sin_vencimiento' | 'retirado';
 const estadoVig = (e: Equipo): EstadoVig => e.estado_vigencia ?? getVigenciaEstado(e.vigencia || e.siguiente_verificacion);
 
 // ── KPI Card ──
@@ -226,7 +226,7 @@ export const EquiposDashboard: React.FC<Props> = ({
 
     // ── Estado de vigencia (donut) ──
     const vigenciaData = useMemo(() => {
-        const counts = { vigente: 0, por_vencer: 0, vencido: 0, sin_fecha: 0, retirado: 0 };
+        const counts = { vigente: 0, por_vencer: 0, vencido: 0, sin_fecha: 0, sin_vencimiento: 0, retirado: 0 };
         equiposFiltered.forEach(e => {
             counts[estadoVig(e)]++;
         });
@@ -235,6 +235,7 @@ export const EquiposDashboard: React.FC<Props> = ({
             { name: 'Por vencer', value: counts.por_vencer, fill: 'var(--sc-warning)' },
             { name: 'Vencido',    value: counts.vencido,    fill: 'var(--sc-destructive)' },
             { name: 'Sin fecha',  value: counts.sin_fecha,  fill: 'var(--sc-muted-foreground)' },
+            { name: 'Sin vencimiento', value: counts.sin_vencimiento, fill: 'var(--sc-muted-foreground)' },
             { name: 'Retirado',   value: counts.retirado,   fill: 'var(--sc-muted-foreground)' },
         ].filter(d => d.value > 0);
     }, [equiposFiltered]);

@@ -4,6 +4,13 @@ import apiClient from '../../../config/axios.config';
 
 export type EstadoVerificacion = 'BORRADOR' | 'PENDIENTE_FIRMA' | 'FIRMADA' | 'ANULADA';
 
+export interface AccionesVerifTemp {
+    /** Firmar, devolver a borrador y anular. */
+    firmar: boolean;
+    /** Registrar y corregir errores de los termómetros patrón. */
+    patron: boolean;
+}
+
 export interface LecturaTemp {
     tp: number | null;
     tc: number | null;
@@ -123,6 +130,8 @@ export interface ResumenEquipo {
     cumple: 'S' | 'N' | null;
     estado: EstadoVerificacion | null;
     del_periodo: number;
+    // Ficha (no anulada) del periodo elegido, en el estado que esté.
+    id_ficha_periodo: number | null;
 }
 
 export interface ResumenPeriodo {
@@ -189,12 +198,19 @@ export const verificacionTemperaturaService = {
         (await apiClient.get(`${BASE}/resumen`, { params: { periodo } })).data.data as ResumenVerificaciones,
     erroresPatron: async () => (await apiClient.get(`${BASE}/errores-patron`)).data.data as ErroresPatron,
     // Agrega un año nuevo (posterior al vigente de cada patrón).
-    guardarErroresPatron: async (filas: ErrorPatronEntrada[]) =>
-        (await apiClient.post(`${BASE}/errores-patron`, { filas })).data.data as ErroresPatron,
-    // Solo el registro vigente de cada patrón.
-    actualizarErrorPatron: async (idError: number, fila: Omit<ErrorPatronEntrada, 'id_equipo'>) =>
-        (await apiClient.put(`${BASE}/errores-patron/${idError}`, fila)).data.data as ErroresPatron,
+    // Año nuevo de uno o varios patrones. La observación es obligatoria: queda en la
+    // ficha del equipo patrón junto con sus errores, calibración y próxima revisión.
+    guardarErroresPatron: async (filas: ErrorPatronEntrada[], observacion: string) =>
+        (await apiClient.post(`${BASE}/errores-patron`, { filas, observacion })).data.data as ErroresPatron,
+    // Solo el registro vigente de cada patrón. El motivo es obligatorio: queda en la auditoría.
+    actualizarErrorPatron: async (idError: number, fila: Omit<ErrorPatronEntrada, 'id_equipo'>, motivo: string) =>
+        (await apiClient.put(`${BASE}/errores-patron/${idError}`, { ...fila, motivo })).data.data as ErroresPatron,
+    // Elimina un año completo en caso de duplicados o casos excepcionales.
+    eliminarAnioErroresPatron: async (anio: number) =>
+        (await apiClient.delete(`${BASE}/errores-patron/anio/${anio}`)).data.data as ErroresPatron,
     muestreadores: async () => (await apiClient.get(`${BASE}/muestreadores`)).data.data as MuestreadorFirma[],
+    // Qué puede hacer el usuario: firmar/anular (GC_VERIF_TEMP_FIRMAR) y errores de patrón (GC_VERIF_TEMP_PATRON).
+    acciones: async () => (await apiClient.get(`${BASE}/acciones`)).data.data as AccionesVerifTemp,
     obtener: async (id: number) => (await apiClient.get(`${BASE}/${id}`)).data.data as VerificacionDetalle,
     crear: async (body: { id_equipo: number; fecha: string; periodo: string }) =>
         (await apiClient.post(BASE, body)).data.data as { id_verificacion: number },

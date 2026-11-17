@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { HubGrid, type HubOption } from '../components/HubGrid';
@@ -44,10 +44,18 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             icon: <IconTemperature size={20} stroke={1.75} />,
             description: 'Formulario OI-FoGe-39: mediciones, firma del muestreador y PDF en el equipo.',
         },
+        {
+            id: 'gc-archivo-fichas',
+            label: 'Archivo de Fichas',
+            icon: <IconArchive size={20} stroke={1.75} />,
+            description: 'Fichas guardadas de los equipos (OI-FoGe-22/24/36/42) por año de vigencia, formulario y sede.',
+        },
     ];
 
     const visibleOptions = OPTIONS.filter(opt => {
         if (opt.id === 'gc-verificacion-temperatura') return hasPermission('GC_VERIF_TEMP');
+        // Mismo permiso de lectura que las fichas en el backend (permisoFichas).
+        if (opt.id === 'gc-archivo-fichas') return GC_ACCESS || hasPermission('GC_VERIF_TEMP');
         if (opt.id === 'admin-equipos-gestion' || opt.id === 'gc-dashboard-equipos' || opt.id === 'gc-calendario-vencimientos') {
             // RB-08: removido AI_MA_ADMIN_ACCESO
             return GC_ACCESS;

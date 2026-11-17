@@ -27,13 +27,20 @@ interface Props {
     encabezado: { titulo: string; subtitulo: string };
     onElegirPaso: (indice: number) => void;
     onAtras?: () => void;
-    onBorrador: () => void;
+    /** Si no se pasa, no se muestra «Guardar borrador». */
+    onBorrador?: () => void;
     textoSiguiente: string;
     onSiguiente: () => void;
     siguienteDeshabilitado?: boolean;
     guardando?: boolean;
     /** Total de la visita ya formateado («15,00 UF»); se muestra en el pie desde el paso en que corresponde. */
     totalVisita?: string;
+    /** Botones propios del pie (por ejemplo «Cancelar»), antes del botón principal. */
+    pieExtra?: React.ReactNode;
+    /** Navegación libre (edición): sin barra de avance, todas las secciones se pueden abrir. */
+    libre?: boolean;
+    /** Clases extra para la grilla raíz (por ejemplo «p-0» cuando va dentro de otra tarjeta). */
+    className?: string;
     children: React.ReactNode;
 }
 
@@ -50,15 +57,17 @@ const claseNumero: Record<EstadoPaso, string> = {
  */
 export const PasosLayout: React.FC<Props> = ({
     titulo, pasos, actual, ayuda, encabezado, onElegirPaso, onAtras, onBorrador,
-    textoSiguiente, onSiguiente, siguienteDeshabilitado, guardando, totalVisita, children,
+    textoSiguiente, onSiguiente, siguienteDeshabilitado, guardando, totalVisita, pieExtra, libre, className, children,
 }) => (
-    <div className="grid items-start gap-4 p-4 md:grid-cols-[250px_minmax(0,1fr)] md:p-6">
+    <div className={cn('grid items-start gap-4 p-4 md:grid-cols-[250px_minmax(0,1fr)] md:p-6', className)}>
         <aside className="rounded-xl border border-border bg-card p-4 md:sticky md:top-4" aria-label={`Pasos de ${titulo}`}>
             <h2 className="m-0 text-[15px] font-semibold">{titulo}</h2>
-            <div className="mb-2 mt-0.5 text-xs text-muted-foreground">Paso {actual + 1} de {pasos.length}</div>
-            <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted">
-                <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((actual + 1) / pasos.length) * 100}%` }} />
-            </div>
+            <div className="mb-2 mt-0.5 text-xs text-muted-foreground">{libre ? `${pasos.length} secciones` : `Paso ${actual + 1} de ${pasos.length}`}</div>
+            {!libre && (
+                <div className="mb-3 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${((actual + 1) / pasos.length) * 100}%` }} />
+                </div>
+            )}
             <div className="flex flex-col gap-0.5">
                 {pasos.map((p, i) => (
                     <button
@@ -103,7 +112,8 @@ export const PasosLayout: React.FC<Props> = ({
                         <IconChevronLeft size={16} /> Atrás
                     </Button>
                 )}
-                <Button type="button" variant="outline" className="rounded-full" onClick={onBorrador}>Guardar borrador</Button>
+                {pieExtra}
+                {onBorrador && <Button type="button" variant="outline" className="rounded-full" onClick={onBorrador}>Guardar borrador</Button>}
                 {totalVisita && (
                     <div className="ml-auto text-right leading-tight">
                         <small className="block text-[11.5px] text-muted-foreground">Total de la visita</small>

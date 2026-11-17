@@ -24,7 +24,7 @@ import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, Attach
 import { cn } from '@/lib/utils';
 import {
     EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
-    guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante,
+    guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante, quitarTildes,
     SolicitarMuestreadorPopover, PanelCampos,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
 } from './excelAnalysisShared';
@@ -299,7 +299,9 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                 const q = busqueda.trim().toLowerCase();
                 const enCodigo = (item.codigo || '').toLowerCase().includes(q);
                 const enNombre = (item.nombre || '').toLowerCase().includes(q);
-                if (!enCodigo && !enNombre) return false;
+                // Responsable: el del Excel, el del sistema al que se resolvió y el que el equipo ya tiene.
+                const enResponsable = quitarTildes(`${item.responsable_excel || ''} ${item.responsable_sistema || ''} ${(item as { equipo?: { nombre_asignado?: string } }).equipo?.nombre_asignado || ''}`).includes(quitarTildes(q));
+                if (!enCodigo && !enNombre && !enResponsable) return false;
             }
             return true;
         });
@@ -404,7 +406,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                         )}
                         <span className="text-xs text-muted-foreground">{itemsFiltrados.length} de {resultado.items.length}</span>
                         <div className="ml-auto">
-                            <BusquedaFlotante valor={busqueda} onChange={setBusqueda} placeholder="Buscar por código o nombre..." />
+                            <BusquedaFlotante valor={busqueda} onChange={setBusqueda} placeholder="Buscar por código, nombre o responsable..." />
                         </div>
                     </div>
                 )}
@@ -481,6 +483,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                     <TableHead>Código</TableHead>
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>Estado</TableHead>
+                                    {!itemVer && <TableHead>Responsable</TableHead>}
                                     {!itemVer && <TableHead>Detalle</TableHead>}
                                     <TableHead className="text-right">Acción</TableHead>
                                 </TableRow>
@@ -499,6 +502,9 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                         <TableCell className={cn('text-sm font-semibold text-foreground', viendo && 'border-l-2 border-l-primary')}>{item.codigo || '—'}</TableCell>
                                         <TableCell className="max-w-[260px] truncate font-medium text-foreground" title={item.nombre || ''}>{item.nombre || '—'}</TableCell>
                                         <TableCell><EstadoBadge status={item.status} meta={STATUS_META} /></TableCell>
+                                        {!itemVer && <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground" title={item.responsable_excel && item.responsable_excel !== item.responsable_sistema ? `Excel: ${item.responsable_excel}` : ''}>
+                                            {item.responsable_sistema || item.responsable_excel || '—'}
+                                        </TableCell>}
                                         {!itemVer && <TableCell className="max-w-xs text-xs text-muted-foreground">
                                             {item.status === 'difiere' && (
                                                 <span>{item.diffs.length} campo(s) distinto(s): {item.diffs.map(d => d.etiqueta).join(', ')}</span>

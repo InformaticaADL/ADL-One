@@ -4,6 +4,7 @@ import equipoService from '../services/equipo.service.js';
 import equipoExcelImportService from '../services/equipo-excel-import.service.js';
 import equipoTemperaturaImportService from '../services/equipo-temperatura-import.service.js';
 import logger from '../utils/logger.js';
+import { catalogoReglas } from '../utils/reglasControlEquipo.js';
 
 // La descarga pasa por la API (y no por el /uploads estático) para que respete
 // el token y devuelva el nombre real del documento en vez del nombre aleatorio
@@ -169,6 +170,12 @@ export const equipoController = {
             logger.error('Controller createEquiposBulk error:', error);
             res.status(500).json({ success: false, message: error.message || 'Error al crear equipos' });
         }
+    },
+
+    // Reglas de control de fechas por tipo de equipo (modalidades, frecuencias, cuál es
+    // elegible). Es constante: el formulario la usa para mostrar solo lo que corresponde.
+    getReglasControl: async (req, res) => {
+        res.json({ success: true, data: catalogoReglas() });
     },
 
     getEquipoCatalogo: async (req, res) => {

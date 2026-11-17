@@ -60,20 +60,25 @@ export const calcularVerificacion = (lecturas, errPatron) => {
     let completas = true;
     for (const r of RANGOS) {
         const ep = num(errPatron?.[r]) ?? 0;
+        // Los errores sin redondear se usan para el promedio y para decidir si
+        // cumple (como la planilla: AVERAGE sin ROUND). El redondeo es solo para
+        // mostrar. Ej.: 0,50·4 + 0,51 → promedio 0,502 → NO cumple.
+        const crudos = [];
         const filas = (lecturas[String(r)] || []).map((f) => {
             const tfp = f.tp === null ? null : f.tp - ep;
             const error = f.tc === null || tfp === null ? null : f.tc - tfp;
+            if (error !== null) crudos.push(error);
             return { ...f, errorPatron: ep, tfp: redondear(tfp), error: redondear(error) };
         });
-        const errores = filas.map((f) => f.error).filter((e) => e !== null);
-        if (errores.length < LECTURAS_POR_RANGO) completas = false;
-        const promedio = errores.length ? errores.reduce((a, b) => a + b, 0) / errores.length : null;
+        if (crudos.length < LECTURAS_POR_RANGO) completas = false;
+        const promedio = crudos.length ? crudos.reduce((a, b) => a + b, 0) / crudos.length : null;
         const prom = redondear(promedio);
         rangos[r] = {
             filas,
             promedio: prom,
             fc: prom === null ? null : redondear(-prom),
-            cumple: prom === null ? null : Math.abs(prom) <= TOLERANCIA + 1e-9,
+            // 1e-9 absorbe el ruido de punto flotante (0,1+0,2…), no redondea.
+            cumple: promedio === null ? null : Math.abs(promedio) <= TOLERANCIA + 1e-9,
         };
     }
     const evaluados = RANGOS.map((r) => rangos[r].cumple).filter((c) => c !== null);

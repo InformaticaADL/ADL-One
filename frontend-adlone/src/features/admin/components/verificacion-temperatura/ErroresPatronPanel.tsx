@@ -3,6 +3,8 @@ import { IconCalendarPlus, IconCheck, IconPencil, IconPlus, IconLock, IconX, Ico
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { useToast } from '../../../../contexts/ToastContext';
@@ -10,6 +12,7 @@ import {
     verificacionTemperaturaService as api,
     type ErroresPatron, type ErrorPatronRegistro, type ErrorPatronEntrada,
 } from '../../services/verificacionTemperatura.service';
+import { useAccionesVerifTemp } from './useAccionesVerifTemp';
 import { fmtFecha, fmtNum, hoyYmd } from '../../utils/verificacionTemperatura';
 
 // Tabla "Errores de patrón" de la planilla: por año, la última calibración de
@@ -68,7 +71,15 @@ export const ErroresPatronPanel: React.FC = () => {
     const [guardando, setGuardando] = useState(false);
     // Edición en la fila: clave = id_error, o "n-<año>-<patrón>" para una fila nueva.
     const [edicion, setEdicion] = useState<{ clave: string; idError: number | null; fila: Fila } | null>(null);
-    const [nuevoAnio, setNuevoAnio] = useState<{ anio: number; filas: Fila[] } | null>(null);
+    const [nuevoAnio, setNuevoAnio] = useState<{ anio: number; filas: Fila[]; observacion: string } | null>(null);
+    // Diálogo de confirmación para eliminar un año completo (en caso de duplicados o casos excepcionales).
+    const [anioAEliminar, setAnioAEliminar] = useState<number | null>(null);
+    const [eliminandoAnio, setEliminandoAnio] = useState(false);
+    // Al agregar un patrón a un año desde la tabla se pide la observación (va a la ficha del equipo);
+    // al corregir el registro vigente (idError), el motivo de la corrección (va a la auditoría).
+    const [pedirObs, setPedirObs] = useState<{ entrada: ErrorPatronEntrada; observacion: string; idError: number | null } | null>(null);
+    // Registrar o corregir errores de patrón requiere GC_VERIF_TEMP_PATRON; sin él solo se consulta.
+    const puede = useAccionesVerifTemp();
 
     const cargar = useCallback(async () => {
         setCargando(true);
@@ -110,12 +121,27 @@ export const ErroresPatronPanel: React.FC = () => {
         if (!edicion) return;
         setGuardando(true);
         try {
-            const entrada = aEntrada(edicion.fila);
-            const d = edicion.idError
-                ? await api.actualizarErrorPatron(edicion.idError, entrada)
-                : await api.guardarErroresPatron([entrada]);
+            // Registro nuevo: primero la observación; corrección: primero el motivo.
+            // Se guarda desde el diálogo.
+            setPedirObs({ entrada: aEntrada(edicion.fila), observacion: '', idError: edicion.idError });
+        } catch (err) {
+            showToast({ type: 'error', message: mensajeError(err, 'No se pudo guardar') });
+        } finally {
+            setGuardando(false);
+        }
+    };
+
+    const guardarConObs = async () => {
+        if (!pedirObs || !pedirObs.observacion.trim()) return;
+        setGuardando(true);
+        try {
+            const correccion = pedirObs.idError !== null;
+            const d = correccion
+                ? await api.actualizarErrorPatron(pedirObs.idError as number, pedirObs.entrada, pedirObs.observacion.trim())
+                : await api.guardarErroresPatron([pedirObs.entrada], pedirObs.observacion.trim());
+            setPedirObs(null);
             setEdicion(null);
-            respuesta(d, 'Errores de patrón guardados');
+            respuesta(d, correccion ? 'Corrección guardada (queda en la auditoría)' : 'Registro guardado y equipo patrón actualizado');
         } catch (err) {
             showToast({ type: 'error', message: mensajeError(err, 'No se pudo guardar') });
         } finally {
@@ -129,15 +155,33 @@ export const ErroresPatronPanel: React.FC = () => {
             showToast({ type: 'warning', message: `${nuevoAnio.anio} ya existe: edita sus filas en la tabla` });
             return;
         }
+        if (!nuevoAnio.observacion.trim()) {
+            showToast({ type: 'warning', message: 'Escribe la observación del nuevo certificado: queda en la ficha de cada equipo patrón' });
+            return;
+        }
         setGuardando(true);
         try {
-            const d = await api.guardarErroresPatron(nuevoAnio.filas.map(aEntrada));
+            const d = await api.guardarErroresPatron(nuevoAnio.filas.map(aEntrada), nuevoAnio.observacion.trim());
             setNuevoAnio(null);
-            respuesta(d, `Año ${nuevoAnio.anio} agregado`);
+            respuesta(d, `Año ${nuevoAnio.anio} agregado y equipos patrón actualizados`);
         } catch (err) {
             showToast({ type: 'error', message: mensajeError(err, 'No se pudo guardar el año') });
         } finally {
             setGuardando(false);
+        }
+    };
+
+    const confirmarEliminarAnio = async () => {
+        if (!anioAEliminar) return;
+        setEliminandoAnio(true);
+        try {
+            const d = await api.eliminarAnioErroresPatron(anioAEliminar);
+            setAnioAEliminar(null);
+            respuesta(d, `Año ${anioAEliminar} eliminado correctamente`);
+        } catch (err) {
+            showToast({ type: 'error', message: mensajeError(err, 'No se pudo eliminar el año') });
+        } finally {
+            setEliminandoAnio(false);
         }
     };
 
@@ -148,10 +192,14 @@ export const ErroresPatronPanel: React.FC = () => {
             anio,
             filas: patrones.filter((p) => p.habilitado === 'S').map((p) => {
                 const u = ultimoDe(p.id_equipo);
+                // Se propone como última calibración el día en que se registra el
+                // certificado nuevo, y +365 días de vigencia (como la planilla).
+                const fc = hoyYmd();
                 return u
-                    ? { ...desdeRegistro(u), anio }
+                    ? { ...desdeRegistro(u), anio, fecha_calibracion: fc, valido_hasta: mas365(fc) }
                     : { id_equipo: p.id_equipo, anio, fecha_calibracion: '', error0: txt(p.error0), error15: txt(p.error15), error30: txt(p.error30), valido_hasta: '' };
             }),
+            observacion: '',
         });
     };
 
@@ -190,11 +238,13 @@ export const ErroresPatronPanel: React.FC = () => {
 
                 {datos?.disponible && (
                     <>
-                        <div className="flex justify-end">
-                            <Button size="sm" onClick={abrirNuevoAnio} disabled={!!nuevoAnio || guardando}>
-                                <IconCalendarPlus size={15} /> Nuevo año
-                            </Button>
-                        </div>
+                        {puede.patron && (
+                            <div className="flex justify-end">
+                                <Button size="sm" onClick={abrirNuevoAnio} disabled={!!nuevoAnio || guardando}>
+                                    <IconCalendarPlus size={15} /> Nuevo año
+                                </Button>
+                            </div>
+                        )}
 
                         {nuevoAnio && (
                             <div className="rounded-xl border-2 border-primary/40 bg-primary/5 p-3">
@@ -206,10 +256,10 @@ export const ErroresPatronPanel: React.FC = () => {
                                         value={nuevoAnio.anio}
                                         onChange={(e) => {
                                             const anio = Number(e.target.value);
-                                            setNuevoAnio((p) => p && { anio, filas: p.filas.map((f) => ({ ...f, anio })) });
+                                            setNuevoAnio((p) => p && { ...p, anio, filas: p.filas.map((f) => ({ ...f, anio })) });
                                         }}
                                     />
-                                    <span className="text-xs text-muted-foreground">Viene con los datos del último año: corrige lo que cambió según el nuevo certificado.</span>
+                                    <span className="text-xs text-muted-foreground">Viene con los errores del último año y la fecha de hoy como última calibración: corrige lo que cambió según el nuevo certificado.</span>
                                 </div>
                                 <TablaAnio
                                     filas={nuevoAnio.filas.map((f, i) => ({
@@ -222,9 +272,22 @@ export const ErroresPatronPanel: React.FC = () => {
                                     nombrePatron={nombrePatron}
                                     hoy={hoy}
                                 />
+                                <div className="mt-3">
+                                    <p className="mb-1 text-xs font-medium">Observación <span className="text-destructive">*</span></p>
+                                    <Textarea
+                                        rows={2}
+                                        maxLength={600}
+                                        value={nuevoAnio.observacion}
+                                        onChange={(e) => setNuevoAnio((p) => p && { ...p, observacion: e.target.value })}
+                                        placeholder="Ej.: Certificado de calibración N° 1234 (laboratorio X). Se actualizan errores y vigencia del patrón."
+                                    />
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        Al guardar, cada equipo patrón de la lista queda con los errores nuevos, la última calibración, la próxima revisión («Válido hasta») y esta observación en su ficha, como una revisión más de su historial.
+                                    </p>
+                                </div>
                                 <div className="mt-2 flex justify-end gap-2">
                                     <Button variant="outline" size="sm" onClick={() => setNuevoAnio(null)} disabled={guardando}>Cancelar</Button>
-                                    <Button size="sm" onClick={guardarNuevoAnio} disabled={guardando || nuevoAnio.filas.length === 0}>
+                                    <Button size="sm" onClick={guardarNuevoAnio} disabled={guardando || nuevoAnio.filas.length === 0 || !nuevoAnio.observacion.trim()}>
                                         <IconCheck size={15} /> Guardar {nuevoAnio.anio}
                                     </Button>
                                 </div>
@@ -248,6 +311,7 @@ export const ErroresPatronPanel: React.FC = () => {
                                 <div key={anio}>
                                     <TablaAnio
                                         anio={anio}
+                                        onEliminarAnio={puede.patron ? () => setAnioAEliminar(anio) : undefined}
                                         filas={[
                                             ...delAnio.map((r) => {
                                                 const clave = String(r.id_error);
@@ -258,7 +322,7 @@ export const ErroresPatronPanel: React.FC = () => {
                                                     registro: r,
                                                     vigente: vigente.get(r.id_equipo) === anio,
                                                     editando: enEdicion,
-                                                    onEditar: () => { setNuevoAnio(null); setEdicion({ clave, idError: r.id_error, fila: desdeRegistro(r) }); },
+                                                    onEditar: puede.patron ? () => { setNuevoAnio(null); setEdicion({ clave, idError: r.id_error, fila: desdeRegistro(r) }); } : undefined,
                                                     onCambiar: (f: Fila) => setEdicion((e) => e && { ...e, fila: f }),
                                                     onGuardar: guardarEdicion,
                                                     onCancelar: () => setEdicion(null),
@@ -277,7 +341,7 @@ export const ErroresPatronPanel: React.FC = () => {
                                         hoy={hoy}
                                         guardando={guardando}
                                     />
-                                    {faltan.length > 0 && !editandoNueva && (
+                                    {faltan.length > 0 && !editandoNueva && puede.patron && (
                                         <div className="mt-1 flex flex-wrap gap-1.5">
                                             {faltan.map((p) => (
                                                 <Button
@@ -305,6 +369,62 @@ export const ErroresPatronPanel: React.FC = () => {
                         })}
                     </>
                 )}
+
+            <Dialog open={!!pedirObs} onOpenChange={(o) => { if (!o && !guardando) setPedirObs(null); }}>
+                <DialogContent className="shadcn-scope sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{pedirObs?.idError ? 'Motivo de la corrección' : 'Observación del nuevo certificado'}</DialogTitle>
+                        <DialogDescription>
+                            {pedirObs ? `${nombrePatron(pedirObs.entrada.id_equipo)} · año ${pedirObs.entrada.anio}` : ''}.{' '}
+                            {pedirObs?.idError
+                                ? 'Cambia los errores que usan las fichas de verificación: el motivo queda en la auditoría junto con los valores anteriores y los nuevos.'
+                                : 'Queda en la ficha del equipo patrón junto con sus errores, última calibración y próxima revisión.'}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Textarea
+                        rows={3}
+                        maxLength={600}
+                        autoFocus
+                        value={pedirObs?.observacion ?? ''}
+                        onChange={(e) => setPedirObs((p) => p && { ...p, observacion: e.target.value })}
+                        placeholder={pedirObs?.idError ? 'Ej.: Error de digitación del error a 15 °C (certificado N° 1234).' : 'Ej.: Certificado de calibración N° 1234 (laboratorio X).'}
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setPedirObs(null)} disabled={guardando}>Cancelar</Button>
+                        <Button onClick={guardarConObs} disabled={guardando || !pedirObs?.observacion.trim()}>
+                            <IconCheck size={15} /> {guardando ? 'Guardando…' : 'Guardar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Diálogo de confirmación para eliminar un año completo */}
+            <Dialog open={anioAEliminar !== null} onOpenChange={(o) => { if (!o && !eliminandoAnio) setAnioAEliminar(null); }}>
+                <DialogContent className="shadcn-scope sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2 text-destructive">
+                            <IconAlertTriangle size={20} /> Eliminar año {anioAEliminar}
+                        </DialogTitle>
+                        <DialogDescription className="space-y-2 pt-2 text-left">
+                            <p>
+                                ¿Seguro que deseas eliminar el <b>año {anioAEliminar}</b> de la tabla de errores de patrón?
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                Se eliminarán los registros de calibración de todos los termómetros patrón para este año.
+                                Si este año estaba vigente, los equipos se resincronizarán automáticamente con su año anterior más reciente.
+                            </p>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="mt-4 gap-2 sm:gap-0">
+                        <Button variant="outline" onClick={() => setAnioAEliminar(null)} disabled={eliminandoAnio}>
+                            Cancelar
+                        </Button>
+                        <Button variant="destructive" onClick={confirmarEliminarAnio} disabled={eliminandoAnio}>
+                            <IconX size={15} /> {eliminandoAnio ? 'Eliminando…' : `Eliminar ${anioAEliminar}`}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };
@@ -323,13 +443,20 @@ interface FilaTabla {
     onQuitar?: () => void;
 }
 
-const TablaAnio: React.FC<{ anio?: number; filas: FilaTabla[]; nombrePatron: (id: number) => string; hoy: string; guardando?: boolean }> = ({ anio, filas, nombrePatron, hoy, guardando }) => (
+const TablaAnio: React.FC<{
+    anio?: number;
+    filas: FilaTabla[];
+    nombrePatron: (id: number) => string;
+    hoy: string;
+    guardando?: boolean;
+    onEliminarAnio?: () => void;
+}> = ({ anio, filas, nombrePatron, hoy, guardando, onEliminarAnio }) => (
     <div className="overflow-x-auto rounded-lg border border-border">
         {/* Anchos fijos: así todos los años quedan con las columnas alineadas,
             aunque uno tenga la etiqueta «Vigente» o «(vencido)». */}
         <table className="w-full min-w-[760px] table-fixed text-sm">
             <colgroup>
-                <col className="w-[84px]" />
+                <col className="w-[100px]" />
                 <col />
                 <col className="w-[150px]" />
                 <col className="w-[88px]" />
@@ -340,14 +467,41 @@ const TablaAnio: React.FC<{ anio?: number; filas: FilaTabla[]; nombrePatron: (id
             </colgroup>
             <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs text-muted-foreground">
-                    <th className="px-2 py-1.5 text-left font-bold text-foreground">{anio ?? ''}</th>
+                    <th className="px-2 py-1.5 text-left font-bold text-foreground">
+                        <div className="flex items-center gap-1.5">
+                            <span>{anio ?? ''}</span>
+                            {onEliminarAnio && (
+                                <button
+                                    type="button"
+                                    className="inline-flex h-5 w-5 items-center justify-center rounded text-muted-foreground/60 transition-colors hover:bg-destructive/15 hover:text-destructive"
+                                    onClick={onEliminarAnio}
+                                    title={`Eliminar año ${anio}`}
+                                    aria-label={`Eliminar año ${anio}`}
+                                >
+                                    <IconX size={13} stroke={2.5} />
+                                </button>
+                            )}
+                        </div>
+                    </th>
                     <th className="px-2 py-1.5 text-left font-medium">Termómetro patrón</th>
                     <th className="px-2 py-1.5 text-center font-medium">Última calibración</th>
                     <th className="px-2 py-1.5 text-center font-medium">0 °C</th>
                     <th className="px-2 py-1.5 text-center font-medium">15 °C</th>
                     <th className="px-2 py-1.5 text-center font-medium">30 °C</th>
                     <th className="px-2 py-1.5 text-center font-medium">Válido hasta</th>
-                    <th className="px-2 py-1.5" />
+                    <th className="px-2 py-1.5 text-right">
+                        {onEliminarAnio && (
+                            <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-6 w-6 text-muted-foreground/60 hover:bg-destructive/15 hover:text-destructive transition-colors"
+                                onClick={onEliminarAnio}
+                                title={`Eliminar año ${anio}`}
+                            >
+                                <IconX size={14} />
+                            </Button>
+                        )}
+                    </th>
                 </tr>
             </thead>
             <tbody>
@@ -407,10 +561,14 @@ const TablaAnio: React.FC<{ anio?: number; filas: FilaTabla[]; nombrePatron: (id
                             </td>
                             <td className="px-1 py-1 text-right">
                                 {/* Solo el vigente se corrige; ninguno se elimina (es historial). */}
-                                {f.vigente ? (
+                                {f.vigente && f.onEditar ? (
                                     <Button size="icon" variant="ghost" className="h-7 w-7 opacity-60 transition-opacity group-hover:opacity-100" onClick={f.onEditar} disabled={guardando} title="Corregir el registro vigente">
                                         <IconPencil size={14} />
                                     </Button>
+                                ) : f.vigente ? (
+                                    <span className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground/50" title="Corregir requiere el permiso GC_VERIF_TEMP_PATRON">
+                                        <IconLock size={13} />
+                                    </span>
                                 ) : (
                                     <span className="inline-flex h-7 w-7 items-center justify-center text-muted-foreground/50" title="Año pasado: queda como historial y no se modifica">
                                         <IconLock size={14} />

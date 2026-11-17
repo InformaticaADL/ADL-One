@@ -791,6 +791,28 @@ frontend-adlone/
 - **Filtrado de Muestreos Ejecutados para Usuarios GEM (`ficha.controller.js`, `ficha.service.js`)**:
   - Detección del rol GEM en el usuario autenticado para filtrar los muestreos ejecutados (`getMuestreosEjecutados`) únicamente según sus empresas cliente asignadas en `rel_usuario_empresa_asignada`.
 
+### 86. Modalidades de Control de Fechas por Tipo de Equipo y Nuevos Filtros (Noviembre 2026) 🗓️🔍🔧
+
+- **Reglas por tipo de equipo (`reglasControlEquipo.js`, con tests)**: fuente única para backend y formulario, definida a partir del inventario OI-FoGe-21 (36 tipos de equipo). Cada equipo rige por **una** modalidad y `Ultima_verificacion` / `Siguiente_verificacion` guardan las fechas de esa modalidad:
+  - `MANTENCION_ANUAL` (12 meses): muestreador automático; molinete (opcional).
+  - `CONTRASTACION_SEMESTRAL` (6 meses): sonda de caudal (por defecto); molinete (por defecto).
+  - `VERIFICACION_TRIMESTRAL` (3 meses): pH, oxígeno disuelto, multiparámetro, termocupla; sonda de caudal (opcional).
+  - `CALIBRACION_ANUAL` (12 meses): termómetro patrón y sonda termómetro patrón.
+  - `SIN_VENCIMIENTO`: complementos (baterías, botellas, cargadores, cables, etc.); no generan vencimientos y solo se dan de baja manualmente.
+  - Sonda de caudal y molinete son a elección y excluyentes: solo rige la modalidad elegida. La próxima fecha se calcula por meses de calendario (31-ago + 6 meses = 28/29-feb).
+- **Migración `add_modalidad_control_equipo.sql`**: agrega `modalidad_control` a `mae_equipo` y `mae_equipo_historial` y rellena los equipos existentes según su nombre. Es idempotente; sin ella el sistema sigue funcionando como antes.
+- **Backend (`equipo.service.js`, `equipo-excel-import.service.js`)**:
+  - Al crear, editar o restaurar un equipo se guarda la modalidad que le corresponde por nombre.
+  - Nuevo estado de vigencia `sin_vencimiento`; los complementos nunca cuentan como vencidos. La definición del estado de vigencia quedó en una sola función (`estadoVigenciaCase`) compartida por el listado, el resumen de calidad y el filtro.
+  - Nuevo endpoint `GET /api/admin/equipos/reglas-control` con modalidades, frecuencias y familias.
+  - El importador de Excel respeta la regla de cada tipo (los termómetros patrón se leen como calibración anual; los complementos entran sin fechas).
+- **Formulario de equipos (`EquipoForm.tsx`)**: bloque "Control de fechas del equipo" con selector para sonda de caudal y molinete; la siguiente fecha se recalcula con la frecuencia de la modalidad y los complementos no exigen fecha de vencimiento.
+- **Gestión de Equipos (`EquiposPage.tsx`)**:
+  - Filtros nuevos en el panel lateral: Control de fechas, Estado de vigencia, Familia (9 grupos) y Documento adjunto, combinables entre sí.
+  - Botonera de pestañas rediseñada con el mismo estilo segmentado de los demás listados; Dashboard y Calendario quedan aparte y no usan la búsqueda ni los filtros.
+  - Título del panel y botón de limpiar alineados con el resto de las secciones.
+  - El Calendario de Vencimientos y el Dashboard tratan a los complementos como "Sin vencimiento".
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -891,6 +913,8 @@ npm run dev       # Puerto 5173
 | **Integridad de equipo_asociado** | Renombrado en cascada al cambiar el código de un equipo dentro de la misma transacción | ✅ Implementado |
 | **Carga Diferida de Documentos de Equipo** | Subida del archivo recién al guardar (no al seleccionar) — elimina archivos huérfanos en disco | ✅ Implementado |
 | **Dashboard y Calendario GC + Filtro GEM** | Dashboard de equipos GC, calendario de vencimientos y filtrado de muestreos por empresas asignadas GEM | ✅ Implementado |
+| **Modalidades de Control de Equipos** | Ciclos mantención anual / contrastación semestral / verificación trimestral / calibración anual de patrón / sin vencimiento por tipo, con opción excluyente en sonda de caudal y molinete + migración `modalidad_control` | ✅ Implementado (requiere migración) |
+| **Filtros de Gestión de Equipos** | Filtros por control de fechas, estado de vigencia, familia y documento + pestañas segmentadas; Dashboard y Calendario independientes de los filtros | ✅ Implementado |
 
 ---
 

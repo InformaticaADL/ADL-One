@@ -109,14 +109,20 @@ const mesesEntre = (desde: string, hasta: string) => {
 };
 
 const construir = (e: ResumenEquipo, hoy: string, en30: string): Fila => {
-    const fichaCompleta = !!e.id_verificacion && (e.error0 !== null || e.error15 !== null || e.error30 !== null);
+    // e.id_verificacion es la última ficha FIRMADA (el backend no manda borradores
+    // ni pendientes como resultado: pueden estar a medio llenar).
+    const fichaFirmada = !!e.id_verificacion && (e.error0 !== null || e.error15 !== null || e.error30 !== null);
     const hayEquipo = e.eq_error0 !== null || e.eq_error15 !== null || e.eq_error30 !== null;
-    const fuente = fichaCompleta ? 'ficha' : hayEquipo ? 'equipo' : null;
+    const fuente = fichaFirmada ? 'ficha' : hayEquipo ? 'equipo' : null;
     const errores: Record<Punto, number | null> = fuente === 'ficha'
         ? { 0: e.error0, 15: e.error15, 30: e.error30 }
         : { 0: e.eq_error0, 15: e.eq_error15, 30: e.eq_error30 };
     const vals = Object.values(errores).filter((v): v is number => v !== null);
-    const resultado: Resultado = !vals.length ? 'SIN_DATO' : vals.every((v) => Math.abs(v) <= TOLERANCIA + 1e-9) ? 'CUMPLE' : 'NO_CUMPLE';
+    // Con ficha firmada manda su resultado (calculado sin redondear); los errores
+    // guardados van a 2 decimales y no sirven para decidir justo en el límite.
+    const resultado: Resultado = fuente === 'ficha' && e.cumple
+        ? (e.cumple === 'S' ? 'CUMPLE' : 'NO_CUMPLE')
+        : !vals.length ? 'SIN_DATO' : vals.every((v) => Math.abs(v) <= TOLERANCIA + 1e-9) ? 'CUMPLE' : 'NO_CUMPLE';
     const fecha = (fuente === 'ficha' ? e.fecha_verificacion : null) || e.eq_ultima_verificacion || e.fecha_verificacion;
     const registro: Registro = e.del_periodo && e.estado ? (e.estado as Registro) : 'SIN_FICHA';
     let antiguedad: Antiguedad = 'Sin registro';
@@ -610,7 +616,9 @@ export const ResumenVerificacionTemp: React.FC<{ periodo: string; onAbrirFicha: 
                     </TableHeader>
                     <TableBody>
                         {tabla.map((f) => {
-                            const abrir = f.e.id_verificacion ? () => onAbrirFicha(f.e.id_verificacion as number) : undefined;
+                            // Abre la ficha del periodo (aunque esté en borrador); si no hay, la última firmada.
+                            const idAbrir = f.e.id_ficha_periodo ?? f.e.id_verificacion;
+                            const abrir = idAbrir ? () => onAbrirFicha(idAbrir) : undefined;
                             return (
                                 <TableRow key={f.e.id_equipo} className={cn(abrir && 'cursor-pointer')} onClick={abrir}>
                                     <TableCell>

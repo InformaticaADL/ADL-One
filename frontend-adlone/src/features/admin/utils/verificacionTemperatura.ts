@@ -32,20 +32,23 @@ export const calcular = (lecturas: LecturasTemp, errPatron: Record<number, numbe
     let completas = true;
     for (const r of RANGOS) {
         const ep = Number(errPatron[r] ?? 0);
+        // Igual que el backend: promedio y "cumple" con los errores sin redondear.
+        const crudos: number[] = [];
         const filas = (lecturas[String(r) as '0'] || []).map((f) => {
             const tfp = f.tp === null ? null : f.tp - ep;
             const error = f.tc === null || tfp === null ? null : f.tc - tfp;
+            if (error !== null) crudos.push(error);
             return { ...f, tfp: redondear(tfp), error: redondear(error) };
         });
-        const errores = filas.map((f) => f.error).filter((e): e is number => e !== null);
-        if (errores.length < 5) completas = false;
-        const promedio = errores.length ? redondear(errores.reduce((a, b) => a + b, 0) / errores.length) : null;
+        if (crudos.length < 5) completas = false;
+        const crudo = crudos.length ? crudos.reduce((a, b) => a + b, 0) / crudos.length : null;
+        const promedio = redondear(crudo);
         rangos[r] = {
             filas,
             promedio,
             fc: promedio === null ? null : redondear(-promedio),
-            cumple: promedio === null ? null : Math.abs(promedio) <= TOLERANCIA + 1e-9,
-            completas: errores.length,
+            cumple: crudo === null ? null : Math.abs(crudo) <= TOLERANCIA + 1e-9,
+            completas: crudos.length,
         };
     }
     const cumple = completas ? RANGOS.every((r) => rangos[r].cumple) : null;
