@@ -22,6 +22,7 @@ interface LineaAnalisis {
 interface Resumen {
     zona: string;
     utm: string;
+    referencia: string;
     lineas: LineaAnalisis[];
     costoOperativo: number; // centésimas
     valor: number; // centésimas, con costo operativo
@@ -56,7 +57,7 @@ function resumir(data: any): Resumen {
     const m = coord.match(/^(.*?) UTM (\d*)E (\d*)S/);
     const zona = m ? m[1] : (coord || '');
     const utm = m && (m[2] || m[3]) ? `${m[2] || '—'} E · ${m[3] || '—'} S` : '';
-    return { zona: zona || 'Sin zona', utm, lineas, costoOperativo: co, valor: lineas.reduce((s, l) => s + l.uf, 0) + co };
+    return { zona: zona || 'Sin zona', utm, referencia: String(data?.referencia_googlemaps || '').trim(), lineas, costoOperativo: co, valor: lineas.reduce((s, l) => s + l.uf, 0) + co };
 }
 
 /** Lee la ficha de cada punto de la visita (una sola vez) y arma lo que necesitan la tabla de puntos y la matriz de precios. */
@@ -117,6 +118,7 @@ export const PuntosVisitaTabla: React.FC<PropsTabla> = ({ puntos, activoId, onCa
                             <th className="px-3 py-2">Ficha</th>
                             <th className="px-3 py-2">Zona UTM</th>
                             <th className="px-3 py-2">Coordenadas</th>
+                            <th className="px-3 py-2">Mapa</th>
                             <th className="px-3 py-2">Estado</th>
                             <th className="px-3 py-2 text-right">Valor (UF)</th>
                         </tr>
@@ -141,6 +143,11 @@ export const PuntosVisitaTabla: React.FC<PropsTabla> = ({ puntos, activoId, onCa
                                     <td className="px-3 py-1.5 text-muted-foreground">N° {id}</td>
                                     <td className="px-3 py-1.5 text-muted-foreground">{r === undefined ? 'Cargando…' : r === null ? '—' : r.zona}</td>
                                     <td className="px-3 py-1.5 text-muted-foreground">{r ? (r.utm || '—') : '—'}</td>
+                                    <td className="px-3 py-1.5">
+                                        {r?.referencia
+                                            ? <a href={r.referencia} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="text-primary underline-offset-2 hover:underline">Abrir</a>
+                                            : <span className="text-muted-foreground">—</span>}
+                                    </td>
                                     <td className="px-3 py-1.5"><Badge variant="secondary">{p.estado || '—'}</Badge></td>
                                     <td className="px-3 py-1.5 text-right tabular-nums">{r ? formatoUF(r.valor) : '—'}</td>
                                 </tr>

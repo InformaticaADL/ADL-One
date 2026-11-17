@@ -202,7 +202,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     } | null>(null);
 
     useEffect(() => {
-        setGrupo(null);
+        // Si la ficha nueva es otro punto de la misma visita, la visita se conserva mientras se vuelve a leer: borrarla hacía que la pantalla
+        // dejara de ser «de visita» un instante (parpadeo), se recargaran todos los puntos y la selección volviera a «Todos».
+        setGrupo((prev) => (prev && prev.puntos.some((p) => Number(p.id_fichaingresoservicio) === Number(fichaId)) ? prev : null));
         if (!fichaId) return;
         let cancelado = false;
         fichaService.getGrupo(fichaId)
@@ -641,7 +643,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                     <FieldGrid>
                                         <StaticField label="Es ETFA" value={data.etfa === 'S' ? 'Sí' : 'No'} />
                                         <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
-                                        <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} span={2} />
+                                        {!esVisita && <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} span={2} />}
                                     </FieldGrid>
 
                                     <SectionDivider>Frecuencia y Programación</SectionDivider>
@@ -681,12 +683,16 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                                     )}
                                                 </FieldGrid>
 
-                                                <SectionDivider>Ubicación del punto</SectionDivider>
-                                                <FieldGrid min={180}>
-                                                    <StaticField label="Zona UTM" value={zona || 'Sin zona'} />
-                                                    <StaticField label="UTM Norte" value={m?.[2] || '—'} />
-                                                    <StaticField label="UTM Este" value={m?.[3] || '—'} />
-                                                </FieldGrid>
+                                                {!esVisita && (
+                                                    <>
+                                                        <SectionDivider>Ubicación del punto</SectionDivider>
+                                                        <FieldGrid min={180}>
+                                                            <StaticField label="Zona UTM" value={zona || 'Sin zona'} />
+                                                            <StaticField label="UTM Norte" value={m?.[2] || '—'} />
+                                                            <StaticField label="UTM Este" value={m?.[3] || '—'} />
+                                                        </FieldGrid>
+                                                    </>
+                                                )}
 
                                                 <SectionDivider>Medición de caudal</SectionDivider>
                                                 <FieldGrid min={180}>
@@ -707,7 +713,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                     </FieldGrid>
 
                                     {/* F-24/F-25: Referencia Google Maps + mapa */}
-                                    {(data.referencia_googlemaps || (data.ubicacion_lat && data.ubicacion_lon)) && (
+                                    {!esVisita && (data.referencia_googlemaps || (data.ubicacion_lat && data.ubicacion_lon)) && (
                                         <>
                                             <SectionDivider>Ubicación</SectionDivider>
                                             <div className="flex flex-col gap-2">
@@ -765,6 +771,19 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             {pt.punto || `Punto ${i + 1}`}
                                         </Button>
                                     ))}
+                                </div>
+                            )}
+                            {esVisita && !isEditing && analisisModo === 'punto' && (
+                                <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                                    <h4 className="m-0 text-base font-semibold">
+                                        Análisis de «{grupo!.puntos.find((pt) => Number(pt.id_fichaingresoservicio) === Number(fichaId))?.punto || 'este punto'}»
+                                        <span className="ml-2 text-sm font-normal text-muted-foreground">Ficha N° {fichaId}</span>
+                                    </h4>
+                                    {(loading || Number(data?.id_fichaingresoservicio ?? data?.id ?? fichaId) !== Number(fichaId)) && (
+                                        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Cargando el punto…
+                                        </span>
+                                    )}
                                 </div>
                             )}
                             {esVisita && !isEditing && analisisModo === 'todos' ? (
