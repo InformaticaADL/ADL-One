@@ -24,7 +24,7 @@ import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, Attach
 import { cn } from '@/lib/utils';
 import {
     EstadoBadge, StatCard, DiffDetailView, BusquedaFlotante, LoteResultadoView,
-    guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante,
+    guardarLote, leerLote, limpiarLote, appendObservacion, extraerResponsableFaltante, quitarTildes,
     SolicitarMuestreadorPopover, PanelCampos,
     type EstadoMeta, type LoteItemResultado, type LoteGuardado,
 } from './excelAnalysisShared';
@@ -49,7 +49,7 @@ const LOTE_KEY = 'equipo_temperatura_lote_pendiente';
 // Campos leídos del Resumen de verificaciones T°, en el orden en que se muestran en "Datos del Excel".
 const ETIQUETAS_EXCEL: Record<string, string> = {
     codigo: 'Código', ubicacion: 'Sede', error0: 'Error 0', error15: 'Error 15', error30: 'Error 30',
-    tiene_fc: 'Factor de corrección', ultima_verificacion: 'Última verificación', estado_equipo: 'Estado operativo',
+    tiene_fc: 'Factor de corrección', ultima_verificacion: 'Última verificación', siguiente_verificacion: 'Siguiente revisión (calculada)', estado_equipo: 'Estado operativo',
     id_muestreador: 'Responsable (id)', equipo_asociado: 'Equipo asociado', observacion: 'Observación',
 };
 
@@ -72,6 +72,13 @@ const buildUpdatePayload = (item: AnalisisTemperaturaItem) => {
     if (d.error30 !== undefined && d.error30 !== null) payload.error30 = d.error30;
     if (d.tiene_fc) payload.tiene_fc = d.tiene_fc;
     if (d.ultima_verificacion) payload.ultima_verificacion = d.ultima_verificacion;
+    if (d.siguiente_verificacion) {
+        // La Siguiente se calcula en el análisis según el control del equipo (trimestral 3
+        // meses, patrón 12). vigencia la sigue, salvo que ya esté vencida: updateEquipo
+        // rechaza el update completo con una vigencia anterior a hoy.
+        payload.siguiente_verificacion = d.siguiente_verificacion;
+        if (d.siguiente_verificacion >= new Date().toISOString().slice(0, 10)) payload.vigencia = d.siguiente_verificacion;
+    }
     if (d.estado_equipo) payload.estado_equipo = d.estado_equipo;
     if (d.observacion) {
         // Si el equipo ya tenía una observación (ej. la cargada desde el inventario
@@ -299,7 +306,9 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                 const q = busqueda.trim().toLowerCase();
                 const enCodigo = (item.codigo || '').toLowerCase().includes(q);
                 const enNombre = (item.nombre || '').toLowerCase().includes(q);
-                if (!enCodigo && !enNombre) return false;
+                // Responsable: el del Excel, el del sistema al que se resolvió y el que el equipo ya tiene.
+                const enResponsable = quitarTildes(`${item.responsable_excel || ''} ${item.responsable_sistema || ''} ${(item as { equipo?: { nombre_asignado?: string } }).equipo?.nombre_asignado || ''}`).includes(quitarTildes(q));
+                if (!enCodigo && !enNombre && !enResponsable) return false;
             }
             return true;
         });
@@ -404,7 +413,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                         )}
                         <span className="text-xs text-muted-foreground">{itemsFiltrados.length} de {resultado.items.length}</span>
                         <div className="ml-auto">
-                            <BusquedaFlotante valor={busqueda} onChange={setBusqueda} placeholder="Buscar por código o nombre..." />
+                            <BusquedaFlotante valor={busqueda} onChange={setBusqueda} placeholder="Buscar por código, nombre o responsable..." />
                         </div>
                     </div>
                 )}
@@ -481,6 +490,7 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                     <TableHead>Código</TableHead>
                                     <TableHead>Nombre</TableHead>
                                     <TableHead>Estado</TableHead>
+                                    {!itemVer && <TableHead>Responsable</TableHead>}
                                     {!itemVer && <TableHead>Detalle</TableHead>}
                                     <TableHead className="text-right">Acción</TableHead>
                                 </TableRow>
@@ -499,6 +509,9 @@ export const EquipoTemperaturaAnalysisModal: React.FC<Props> = ({ isOpen, onClos
                                         <TableCell className={cn('text-sm font-semibold text-foreground', viendo && 'border-l-2 border-l-primary')}>{item.codigo || '—'}</TableCell>
                                         <TableCell className="max-w-[260px] truncate font-medium text-foreground" title={item.nombre || ''}>{item.nombre || '—'}</TableCell>
                                         <TableCell><EstadoBadge status={item.status} meta={STATUS_META} /></TableCell>
+                                        {!itemVer && <TableCell className="max-w-[180px] truncate text-sm text-muted-foreground" title={item.responsable_excel && item.responsable_excel !== item.responsable_sistema ? `Excel: ${item.responsable_excel}` : ''}>
+                                            {item.responsable_sistema || item.responsable_excel || '—'}
+                                        </TableCell>}
                                         {!itemVer && <TableCell className="max-w-xs text-xs text-muted-foreground">
                                             {item.status === 'difiere' && (
                                                 <span>{item.diffs.length} campo(s) distinto(s): {item.diffs.map(d => d.etiqueta).join(', ')}</span>

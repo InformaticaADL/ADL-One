@@ -96,7 +96,7 @@ function getEstado(vigencia: string | null | undefined): EstadoVig {
 // reglas que la revisión diaria y los avisos; getEstado queda de respaldo.
 function estadoDe(e: Equipo): EstadoVig {
     const v = e.estado_vigencia;
-    return v && v !== 'retirado' ? v : getEstado(getVigencia(e));
+    return v && v !== 'retirado' && v !== 'sin_vencimiento' ? v : getEstado(getVigencia(e));
 }
 
 function getVigencia(e: Equipo): string | null {
@@ -234,7 +234,8 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
         // Los dados de baja / fuera de servicio no vencen: no se muestran en el calendario.
         equipoService.getResumenCalidad()
             .then(r => {
-                const lista = r.equipos.filter(e => e.estado_vigencia !== 'retirado');
+                // Los complementos (baterías, botellas…) no vencen: tampoco entran al calendario.
+                const lista = r.equipos.filter(e => e.estado_vigencia !== 'retirado' && e.estado_vigencia !== 'sin_vencimiento');
                 setEquipos(lista);
                 // El detalle abierto se actualiza con los datos recién guardados.
                 setSeleccionado(prev => (prev ? lista.find(e => e.id_equipo === prev.id_equipo) ?? null : prev));

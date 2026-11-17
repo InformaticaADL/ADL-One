@@ -1,4 +1,5 @@
 import apiClient from '../../../config/axios.config';
+import type { ModalidadControl, ReglasControl } from '../utils/reglasControlEquipo';
 
 // No need for custom axios instance - using centralized apiClient with automatic token injection
 
@@ -33,10 +34,14 @@ export interface Equipo {
     // Campos nuevos del Excel
     ultima_verificacion?: string;      // DATE - fecha de última verificación
     siguiente_verificacion?: string;   // DATE - calculada (ultima + 90 días) pero editable
+    // Qué ciclo de fechas rige: mantención anual / contrastación semestral / verificación
+    // trimestral / calibración anual de patrón / sin vencimiento (complementos). Las fechas
+    // de arriba son las de ESA modalidad.
+    modalidad_control?: ModalidadControl | null;
     plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
     estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
     // Solo en /equipos/resumen-calidad: vigencia calculada en el backend.
-    estado_vigencia?: 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'retirado';
+    estado_vigencia?: 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'sin_vencimiento' | 'retirado';
     dias_restantes?: number | null;
     ultima_modificacion?: string | null;  // última fecha de cambio en mae_equipo_historial
     usuario_modificacion?: string | null; // quién hizo ese cambio
@@ -105,6 +110,9 @@ export interface AnalisisExcelItem {
     excelData: Partial<Equipo>;
     diffs: { campo: string; etiqueta: string; valorExcel: unknown; valorBD: unknown }[];
     warnings: string[];
+    /** Responsable tal como viene en el Excel, y el muestreador del sistema al que se resolvió. */
+    responsable_excel?: string | null;
+    responsable_sistema?: string | null;
     referencia?: { marca?: string | null; modelo?: string | null; serie?: string | null };
     // Ficha actual del equipo en el sistema (coincide / difiere).
     equipo?: Equipo;
@@ -128,6 +136,8 @@ export interface AnalisisTemperaturaItem {
     excelData: Partial<Equipo>;
     diffs: { campo: string; etiqueta: string; valorExcel: unknown; valorBD: unknown }[];
     warnings: string[];
+    responsable_excel?: string | null;
+    responsable_sistema?: string | null;
 }
 
 export interface AnalisisTemperaturaResponse {
@@ -188,6 +198,11 @@ export const equipoService = {
     getEquipos: async (params: any): Promise<EquiposResponse> => {
         const response = await apiClient.get('/api/admin/equipos/', { params });
         return response.data;
+    },
+
+    getReglasControl: async (): Promise<ReglasControl> => {
+        const response = await apiClient.get('/api/admin/equipos/reglas-control');
+        return response.data.data;
     },
 
     getEquipoCatalogo: async (): Promise<any> => {

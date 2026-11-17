@@ -3,6 +3,8 @@ import sql from 'mssql';
 import logger from '../utils/logger.js';
 import { ordenarObservacion } from '../utils/observacionEquipo.js';
 import { normalizarEstadoEquipo, ESTADOS_EQUIPO } from '../utils/estadoEquipo.js';
+import { resolverModalidad, familiaDeEquipo, MODALIDADES, FAMILIAS } from '../utils/reglasControlEquipo.js';
+import { excluirSinVencimiento } from '../utils/sinVencimientoSql.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
@@ -40,36 +42,60 @@ const CAMPOS_INVENTARIO = [
     { campo: 'influencia_significativa', tipo: () => sql.NVarChar(20), max: 20 },
     { campo: 'justificacion_influencia', tipo: () => sql.NVarChar(1000), max: 1000 },
 ];
+// Modalidad de control de fechas (mantención anual / contrastación semestral /
+// verificación trimestral / calibración anual / sin vencimiento). Llega con
+// migrations/add_modalidad_control_equipo.sql y viaja por el mismo camino que los
+// datos de inventario, pero se activa por separado: sin esa migración todo sigue
+// igual que antes.
+const CAMPO_MODALIDAD = { campo: 'modalidad_control', tipo: () => sql.NVarChar(30), max: 30 };
 let invColumnsExist = false;
+let modalidadColumnsExist = false;
+let CAMPOS_ACTIVOS = []; // los de inventario y/o la modalidad que existen en la BD
 let invColumnsRevisadas = 0; // si faltan, se vuelve a revisar (y avisar) cada 5 min
 const hasInvColumns = async (pool) => {
-    if (invColumnsExist) return true;
-    if (Date.now() - invColumnsRevisadas < 5 * 60 * 1000) return false;
+    if (invColumnsExist && modalidadColumnsExist) return true;
+    if (Date.now() - invColumnsRevisadas < 5 * 60 * 1000) return invColumnsExist || modalidadColumnsExist;
     invColumnsRevisadas = Date.now();
     try {
         const r = await pool.request().query(`SELECT
             COL_LENGTH('mae_equipo', 'justificacion_influencia')           AS equipo,
-            COL_LENGTH('mae_equipo_historial', 'justificacion_influencia') AS historial`);
+            COL_LENGTH('mae_equipo_historial', 'justificacion_influencia') AS historial,
+            COL_LENGTH('mae_equipo', 'modalidad_control')                  AS mod_equipo,
+            COL_LENGTH('mae_equipo_historial', 'modalidad_control')        AS mod_historial`);
         const row = r.recordset[0] || {};
         invColumnsExist = !!row.equipo && !!row.historial;
+        modalidadColumnsExist = !!row.mod_equipo && !!row.mod_historial;
+        CAMPOS_ACTIVOS = [...(invColumnsExist ? CAMPOS_INVENTARIO : []), ...(modalidadColumnsExist ? [CAMPO_MODALIDAD] : [])];
         if (!invColumnsExist) logger.warn('Faltan marca/modelo/serie/influencia en equipos — ejecute migrations/add_equipo_datos_inventario.sql');
+        if (!modalidadColumnsExist) logger.warn('Falta modalidad_control en equipos — ejecute migrations/add_modalidad_control_equipo.sql');
     } catch (e) {
         logger.warn('No se pudieron verificar las columnas de inventario: ' + e.message);
     }
-    return invColumnsExist;
+    return invColumnsExist || modalidadColumnsExist;
 };
 // Fragmentos SQL (vacíos si las columnas no existen).
-const invCols = (alias = '') => (invColumnsExist ? ', ' + CAMPOS_INVENTARIO.map((c) => (alias ? `${alias}.${c.campo}` : c.campo)).join(', ') : '');
-const invVals = (suf = '') => (invColumnsExist ? ', ' + CAMPOS_INVENTARIO.map((c) => `@${c.campo}${suf}`).join(', ') : '');
-const invSet = (suf = '') => (invColumnsExist ? ', ' + CAMPOS_INVENTARIO.map((c) => `${c.campo} = @${c.campo}${suf}`).join(', ') : '');
+const invCols = (alias = '') => (CAMPOS_ACTIVOS.length ? ', ' + CAMPOS_ACTIVOS.map((c) => (alias ? `${alias}.${c.campo}` : c.campo)).join(', ') : '');
+const invVals = (suf = '') => (CAMPOS_ACTIVOS.length ? ', ' + CAMPOS_ACTIVOS.map((c) => `@${c.campo}${suf}`).join(', ') : '');
+const invSet = (suf = '') => (CAMPOS_ACTIVOS.length ? ', ' + CAMPOS_ACTIVOS.map((c) => `${c.campo} = @${c.campo}${suf}`).join(', ') : '');
 const textoInv = (c, v) => {
     const t = v === null || v === undefined ? '' : String(v).trim();
     return t ? t.slice(0, c.max) : null;
 };
 const invInputs = (req, src, suf = '') => {
-    if (!invColumnsExist) return;
-    for (const c of CAMPOS_INVENTARIO) req.input(`${c.campo}${suf}`, c.tipo(), textoInv(c, src?.[c.campo]));
+    for (const c of CAMPOS_ACTIVOS) req.input(`${c.campo}${suf}`, c.tipo(), textoInv(c, src?.[c.campo]));
 };
+// Modalidad que rige para el equipo según su nombre (ver reglasControlEquipo.js):
+// respeta la elegida si es una de las permitidas; si no, la de por defecto. Un nombre
+// sin regla conserva lo que ya traía.
+const aplicarModalidad = (data, actual = {}) => {
+    if (!modalidadColumnsExist) return;
+    const nombre = data.nombre ?? actual.nombre;
+    const pedida = Object.prototype.hasOwnProperty.call(data, 'modalidad_control') ? data.modalidad_control : actual.modalidad_control;
+    const resuelta = resolverModalidad(nombre, pedida);
+    if (resuelta) data.modalidad_control = resuelta;
+};
+// Rama del CASE de vigencia para los complementos (solo si existe la columna).
+const sinVencimientoWhen = (alias) => (modalidadColumnsExist ? `WHEN ${alias}.modalidad_control = 'SIN_VENCIMIENTO' THEN 'sin_vencimiento'` : '');
 
 // Helper to parse dates in various formats (ISO, DD/MM/YYYY, Date objects)
 const parseSqlDate = (dateVal) => {
@@ -190,7 +216,34 @@ const vencidoCondition = (a) => `(
     ${a}.Siguiente_verificacion IS NOT NULL
     AND CAST(${a}.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
     AND (${a}.habilitado = 'S' OR ${a}.Estado LIKE '%operativo%')
+    ${modalidadColumnsExist ? `AND ISNULL(${a}.modalidad_control, '') <> 'SIN_VENCIMIENTO'` : ''}
 )`;
+
+// Estado de vigencia de un equipo (retirado / sin_vencimiento / sin_fecha / vencido /
+// por_vencer / vigente). Una sola definición para la lista, el resumen de calidad y el
+// filtro "Estado de vigencia", así los tres siempre coinciden.
+const estadoVigenciaCase = (a) => `CASE
+                        WHEN ISNULL(${a}.Estado, '') LIKE '%baja%' OR ISNULL(${a}.Estado, '') LIKE '%fuera de servicio%' THEN 'retirado'
+                        ${sinVencimientoWhen(a)}
+                        WHEN ${a}.Siguiente_verificacion IS NULL THEN 'sin_fecha'
+                        WHEN ${vencidoCondition(a)} THEN 'vencido'
+                        WHEN CAST(${a}.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE) THEN 'retirado'
+                        WHEN DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(${a}.Siguiente_verificacion AS DATE)) <= 30 THEN 'por_vencer'
+                        ELSE 'vigente'
+                    END`;
+const VIGENCIAS_FILTRO = ['vencido', 'por_vencer', 'vigente', 'sin_fecha', 'sin_vencimiento'];
+
+// El código de un equipo no se repite (el correlativo es único por tipo y sede, ver hoja NMCL
+// del inventario). Se revisa al crear, dentro de la misma transacción, y vale aunque el otro
+// equipo esté dado de baja: un código dado de baja no se reutiliza.
+const asegurarCodigoUnico = async (transaction, codigo) => {
+    const c = String(codigo ?? '').trim();
+    if (!c) return;
+    const r = await new sql.Request(transaction)
+        .input('codigo', sql.VarChar(200), c)
+        .query('SELECT TOP 1 id_equipo FROM mae_equipo WHERE LTRIM(RTRIM(codigo)) = @codigo');
+    if (r.recordset.length) throw new Error(`El código ${c} ya existe en el inventario. Los códigos no se repiten, ni siquiera con equipos dados de baja.`);
+};
 
 export const equipoService = {
     /**
@@ -284,7 +337,7 @@ export const equipoService = {
      */
     getEquipos: async (params = {}) => {
         try {
-            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, expiredOnly, inactiveSamplerOnly, sortBy, sortOrder, page = 1, limit = 10 } = params;
+            const { search, tipo, sede, estado, fechaDesde, fechaHasta, id_muestreador, expiredOnly, inactiveSamplerOnly, modalidad, vigencia, familia, documento, sortBy, sortOrder, page = 1, limit = 10 } = params;
             const direccionOrden = sortOrder === 'desc' ? 'DESC' : 'ASC';
             logger.info('getEquipos params: ' + JSON.stringify(params));
             const pool = await getConnection();
@@ -350,6 +403,32 @@ export const equipoService = {
                 whereClause += ` AND e.habilitado = 'S' AND m.habilitado = 'N'`;
             }
 
+            // Filtros del panel: control de fechas, estado de vigencia, familia y documento.
+            if (modalidad && modalidadColumnsExist && Object.prototype.hasOwnProperty.call(MODALIDADES, modalidad)) {
+                request.input('modalidad', sql.NVarChar(30), modalidad);
+                whereClause += ` AND e.modalidad_control = @modalidad`;
+            }
+
+            if (vigencia && VIGENCIAS_FILTRO.includes(vigencia)) {
+                request.input('vigencia', sql.VarChar(20), vigencia);
+                whereClause += ` AND (${estadoVigenciaCase('e')}) = @vigencia`;
+            }
+
+            if (familia && FAMILIAS[familia]) {
+                const nombresFamilia = FAMILIAS[familia];
+                const marcas = nombresFamilia.map((n, i) => {
+                    request.input(`fam${i}`, sql.NVarChar(200), n);
+                    return `@fam${i}`;
+                });
+                whereClause += ` AND LTRIM(RTRIM(e.nombre)) COLLATE Latin1_General_CI_AI IN (${marcas.join(', ')})`;
+            }
+
+            if ((documento === 'con' || documento === 'sin') && (await hasDocsColumns(pool))) {
+                whereClause += documento === 'con'
+                    ? ` AND ISNULL(e.documento_ruta, '') <> ''`
+                    : ` AND ISNULL(e.documento_ruta, '') = ''`;
+            }
+
             // 1. Get total for pagination
             const countQuery = `
                 SELECT COUNT(*) as total 
@@ -411,6 +490,11 @@ export const equipoService = {
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
                     e.Plazo_Vigencia as plazo_vigencia,
                     e.Estado as estado_equipo,
+                    -- Vigencia calculada acá, con las mismas reglas que el resumen
+                    -- de calidad, la revisión diaria y los avisos: la pantalla no
+                    -- la recalcula.
+                    DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) AS dias_restantes,
+                    ${estadoVigenciaCase('e')} AS estado_vigencia,
                     um.ultima_modificacion,
                     um.usuario_modificacion${docsColumns}
                 FROM mae_equipo e
@@ -578,11 +662,12 @@ export const equipoService = {
     // cuentan como vencidos ni por vencer.
     getResumenCalidad: async () => {
         const pool = await getConnection();
+        await hasInvColumns(pool);
         const r = await pool.request().query(`
             SELECT
                 e.id_equipo, e.codigo, e.nombre, e.tipoequipo AS tipo, e.sede AS ubicacion,
                 CASE WHEN e.habilitado = 'S' THEN 'Activo' ELSE 'Inactivo' END AS estado,
-                e.Estado AS estado_equipo,
+                e.Estado AS estado_equipo,${modalidadColumnsExist ? ' e.modalidad_control,' : ''}
                 e.id_muestreador, m.nombre_muestreador AS nombre_asignado, m.habilitado AS habilitado_muestreador,
                 FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') AS vigencia,
                 CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) AS ultima_verificacion,
@@ -591,14 +676,7 @@ export const equipoService = {
                 e.tienefc AS tiene_fc, e.error0, e.error15, e.error30, e.fc0, e.fc15, e.fc30,
                 CONVERT(VARCHAR(10), e.fecha_compra, 23) AS fecha_compra,
                 DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) AS dias_restantes,
-                CASE
-                    WHEN ISNULL(e.Estado, '') LIKE '%baja%' OR ISNULL(e.Estado, '') LIKE '%fuera de servicio%' THEN 'retirado'
-                    WHEN e.Siguiente_verificacion IS NULL THEN 'sin_fecha'
-                    WHEN ${vencidoCondition('e')} THEN 'vencido'
-                    WHEN CAST(e.Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE) THEN 'retirado'
-                    WHEN DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) <= 30 THEN 'por_vencer'
-                    ELSE 'vigente'
-                END AS estado_vigencia
+                ${estadoVigenciaCase('e')} AS estado_vigencia
             FROM mae_equipo e
             LEFT JOIN mae_muestreador m ON m.id_muestreador = e.id_muestreador
             ORDER BY e.Siguiente_verificacion, e.codigo
@@ -874,9 +952,11 @@ export const equipoService = {
         }
         const pool = await getConnection();
         await hasInvColumns(pool);
+        aplicarModalidad(data);
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
+            await asegurarCodigoUnico(transaction, data.codigo);
             // 1. Generate new ID manually (Pattern from ficha.service.js)
             const idResult = await transaction.request()
                 .query('SELECT ISNULL(MAX(id_equipo), 0) + 1 as NewId FROM mae_equipo');
@@ -993,8 +1073,14 @@ export const equipoService = {
 
             const results = [];
 
+            const codigosDelLote = new Set();
             for (const data of equiposData) {
                 currentId++;
+                aplicarModalidad(data);
+                const codigoLote = String(data.codigo ?? '').trim().toLowerCase();
+                if (codigoLote && codigosDelLote.has(codigoLote)) throw new Error(`El código ${data.codigo} está repetido dentro del lote.`);
+                codigosDelLote.add(codigoLote);
+                await asegurarCodigoUnico(transaction, data.codigo);
                 const request = new sql.Request(transaction);
 
                 // Bind all inputs
@@ -1064,15 +1150,20 @@ export const equipoService = {
         }
     },
 
-    updateEquipo: async (id, data, userId = null) => {
+    // `txExterna`: transacción ya abierta por quien llama (ej. la firma de una
+    // verificación de temperatura, que actualiza el equipo y cierra la ficha
+    // juntos). En ese caso no se abre, confirma ni revierte acá: lo hace el
+    // llamador. Sin ella, se maneja una transacción propia como siempre.
+    updateEquipo: async (id, data, userId = null, txExterna = null) => {
         const pool = await getConnection();
         await hasInvColumns(pool);
         // Si la migración 003 todavía no corrió, el equipo se actualiza igual:
         // simplemente sin la parte del documento (ver hasDocsColumns).
         const docsColumnsOk = await hasDocsColumns(pool);
-        const transaction = new sql.Transaction(pool);
+        const transaction = txExterna || new sql.Transaction(pool);
+        const propia = !txExterna;
         try {
-            await transaction.begin();
+            if (propia) await transaction.begin();
 
             // 1. Fetch CURRENT state (to move to history and check date)
             const currentRequest = new sql.Request(transaction);
@@ -1081,6 +1172,7 @@ export const equipoService = {
             const current = currentResult.recordset[0];
 
             if (!current) throw new Error('Equipo no encontrado');
+            aplicarModalidad(data, current);
 
             // --- REFINED DATE VALIDATION ---
             // Only validate if a NEW date is provided and it's different from the current one
@@ -1216,7 +1308,7 @@ export const equipoService = {
             requestMain.input('valor_unitario', sql.Numeric(12, 2), data.hasOwnProperty('valor_unitario') ? (data.valor_unitario ?? null) : (current.valor_unitario ?? null));
             requestMain.input('fecha_baja', sql.Date, parseSqlDate(data.hasOwnProperty('fecha_baja') ? data.fecha_baja : current.fecha_baja) || null);
             // Datos de inventario: lo que mande el formulario; si no viene el campo, se conserva.
-            invInputs(requestMain, Object.fromEntries(CAMPOS_INVENTARIO.map((c) => [c.campo, Object.prototype.hasOwnProperty.call(data, c.campo) ? data[c.campo] : current[c.campo]])));
+            invInputs(requestMain, Object.fromEntries(CAMPOS_ACTIVOS.map((c) => [c.campo, Object.prototype.hasOwnProperty.call(data, c.campo) ? data[c.campo] : current[c.campo]])));
 
             const eqAsoc = data.hasOwnProperty('equipo_asociado') ? data.equipo_asociado : current.equipo_asociado;
             requestMain.input('equipo_asociado', sql.VarChar(200), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
@@ -1350,10 +1442,10 @@ export const equipoService = {
                 }
             }
 
-            await transaction.commit();
+            if (propia) await transaction.commit();
             return { id, ...data, version: nextVersionLabel };
         } catch (error) {
-            try { await transaction.rollback(); } catch (rollbackError) {}
+            if (propia) { try { await transaction.rollback(); } catch (rollbackError) {} }
             logger.error('Error in updateEquipo service:', error);
             throw error;
         }
@@ -1647,11 +1739,13 @@ export const equipoService = {
             // Actually, usually expiry means "up to and including". So if vigencia is TODAY, it is still valid. 
             // It expires tomorrow. So find where vigencia < TODAY.
             const findReq = new sql.Request(transaction);
+            // Los complementos (modalidad SIN_VENCIMIENTO) nunca se inactivan por fecha.
+            const sinVencimientoCond = await excluirSinVencimiento(pool);
             const findQuery = `
                 SELECT id_equipo, nombre, codigo 
                 FROM mae_equipo 
                 WHERE habilitado = 'S' 
-                AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)
+                AND CAST(Siguiente_verificacion AS DATE) < CAST(GETDATE() AS DATE)${sinVencimientoCond}
             `;
             const findRes = await findReq.query(findQuery);
             const expiredEquipos = findRes.recordset;
@@ -1898,6 +1992,8 @@ export const equipoService = {
                 { header: 'TIPO', key: 'tipo', width: 20 },
                 { header: 'UBICACIÓN', key: 'ubicacion', width: 25 },
                 { header: 'VIGENCIA', key: 'vigencia', width: 15 },
+                { header: 'CONTROL DE FECHAS', key: 'control_fechas', width: 30 },
+                { header: 'FAMILIA', key: 'familia', width: 26 },
                 { header: 'FECHA CREACIÓN', key: 'fecha_creacion', width: 15 },
                 { header: 'ASIGNADO A', key: 'nombre_asignado', width: 25 },
                 { header: 'SIGLA', key: 'sigla', width: 10 },
@@ -1921,6 +2017,8 @@ export const equipoService = {
             ];
             
             data.forEach((row, index) => {
+                row.control_fechas = MODALIDADES[row.modalidad_control]?.nombre || '';
+                row.familia = familiaDeEquipo(row.nombre);
                 const newRow = wsData.addRow(row);
                 // Alternating row colors (Light blue-ish / White)
                 if (index % 2 !== 0) {

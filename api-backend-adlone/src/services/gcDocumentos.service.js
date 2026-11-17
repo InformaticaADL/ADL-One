@@ -51,6 +51,10 @@ const gcDocumentosService = {
     async guardarFichaEquipo({ tipo, equipo = {}, anio = null, buffer, nombre, datos, usuario, firmas = [] }) {
         const form = FORMULARIOS_EQUIPO[tipo];
         if (!form) throw error('Tipo de ficha inválido');
+        // Año de vigencia de la ficha: el historial cubre el año que se pidió; las
+        // demás (técnica, entrega, recepción) valen para el año en que se emiten,
+        // así el archivo se consulta por año ("las fichas técnicas del 2026").
+        const anioDoc = anio ? Number(anio) : new Date().getFullYear();
         const pool = await getConnection();
         await exigirTablas(pool);
         const f = (await pool.request().input('cod', sql.VarChar(20), form.codigo)
@@ -70,7 +74,7 @@ const gcDocumentosService = {
                 .input('codEnt', sql.VarChar(100), String(equipo.codigo || '').slice(0, 100) || null)
                 .input('nomEnt', sql.NVarChar(200), String(equipo.nombre || '').slice(0, 200) || null)
                 .input('sede', sql.VarChar(10), String(equipo.sede || '').slice(0, 10) || null)
-                .input('anio', sql.Int, anio ? Number(anio) : null)
+                .input('anio', sql.Int, anioDoc)
                 .input('archivo', sql.NVarChar(200), String(nombre).slice(0, 200))
                 .input('pdf', sql.VarBinary(sql.MAX), buffer)
                 .input('tam', sql.Int, buffer?.length || null)
@@ -132,6 +136,140 @@ const gcDocumentosService = {
                 con_firmas: !!d.con_firmas,
             })),
         };
+    },
+
+    /**
+     * Archivo de fichas de todos los equipos, para consultarlas por año
+     * ("las fichas técnicas del 2025"). Filtros opcionales: tipo, año, sede,
+     * estado (VIGENTE | ANULADO | TODOS) y texto (código o nombre del equipo,
+     * quién la guardó). Sin el PDF; paginado.
+     */
+    async listarArchivo({ tipo = null, anio = null, sede = null, estado = 'VIGENTE', q = '', page = 1, limit = 50 } = {}) {
+        const pool = await getConnection();
+        if (!(await hayTablasGc(pool))) return { disponible: false, fichas: [], total: 0, page: 1, limit };
+        const pg = Math.max(1, Number(page) || 1);
+        const lim = Math.min(200, Math.max(1, Number(limit) || 50));
+        const texto = String(q || '').trim();
+        // Misma condición para la lista y el total: cada consulta liga sus propios parámetros.
+        const cond = ["d.modulo = 'EQUIPOS'", "d.entidad_tipo = 'EQUIPO'"];
+        const ligar = (req) => {
+            if (tipo && FORMULARIOS_EQUIPO[tipo]) req.input('form', sql.VarChar(20), FORMULARIOS_EQUIPO[tipo].codigo);
+            if (anio) req.input('anio', sql.Int, Number(anio));
+            if (sede) req.input('sede', sql.VarChar(10), String(sede).slice(0, 10));
+            if (estado === 'VIGENTE' || estado === 'ANULADO') req.input('est', sql.VarChar(15), estado);
+            if (texto) req.input('q', sql.NVarChar(200), `%${texto.slice(0, 150)}%`);
+            return req;
+        };
+        if (tipo && FORMULARIOS_EQUIPO[tipo]) cond.push('d.codigo_formulario = @form');
+        if (anio) cond.push('d.anio = @anio');
+        if (sede) cond.push('d.sede = @sede');
+        if (estado === 'VIGENTE' || estado === 'ANULADO') cond.push('d.estado = @est');
+        if (texto) cond.push('(d.codigo_entidad LIKE @q OR d.nombre_entidad LIKE @q OR d.nombre_usuario LIKE @q)');
+        const where = `WHERE ${cond.join(' AND ')}`;
+        const [lista, cuenta] = await Promise.all([
+            ligar(pool.request()).input('off', sql.Int, (pg - 1) * lim).input('lim', sql.Int, lim).query(`
+                SELECT d.id_documento, d.codigo_formulario, f.nombre AS nombre_formulario, d.id_entidad, d.codigo_entidad, d.nombre_entidad, d.sede,
+                       d.anio, d.fecha_documento, d.nombre_archivo, d.tamano_bytes, d.con_firmas, d.estado, d.motivo_anulacion, d.fecha_anulacion,
+                       d.nombre_usuario, d.fecha_creacion
+                FROM ${TABLA} d
+                LEFT JOIN mae_gc_formulario f ON f.codigo_formulario = d.codigo_formulario
+                ${where}
+                ORDER BY d.fecha_creacion DESC, d.id_documento DESC
+                OFFSET @off ROWS FETCH NEXT @lim ROWS ONLY`),
+            ligar(pool.request()).query(`SELECT COUNT(*) AS n FROM ${TABLA} d ${where}`),
+        ]);
+        return {
+            disponible: true,
+            total: cuenta.recordset[0]?.n ?? 0,
+            page: pg,
+            limit: lim,
+            fichas: lista.recordset.map((d) => ({
+                id_ficha: d.id_documento,
+                tipo: TIPO_POR_FORMULARIO[d.codigo_formulario] || null,
+                formato: d.codigo_formulario,
+                nombre_formulario: d.nombre_formulario,
+                id_equipo: d.id_entidad,
+                codigo_equipo: d.codigo_entidad,
+                nombre_equipo: d.nombre_entidad,
+                sede: d.sede,
+                anio: d.anio,
+                fecha_documento: d.fecha_documento,
+                nombre_archivo: d.nombre_archivo,
+                tamano_bytes: d.tamano_bytes,
+                con_firmas: !!d.con_firmas,
+                estado: d.estado,
+                motivo_anulacion: d.motivo_anulacion,
+                fecha_anulacion: d.fecha_anulacion,
+                nombre_usuario: d.nombre_usuario,
+                fecha_creacion: d.fecha_creacion,
+            })),
+        };
+    },
+
+    /** Años con fichas guardadas y cuántas vigentes hay de cada formulario (para los filtros del archivo). */
+    async aniosArchivo() {
+        const pool = await getConnection();
+        if (!(await hayTablasGc(pool))) return { disponible: false, anios: [] };
+        const r = await pool.request().query(`
+            SELECT anio, codigo_formulario, COUNT(*) AS n
+            FROM ${TABLA}
+            WHERE modulo = 'EQUIPOS' AND entidad_tipo = 'EQUIPO' AND estado = 'VIGENTE' AND anio IS NOT NULL
+            GROUP BY anio, codigo_formulario
+            ORDER BY anio DESC`);
+        const porAnio = new Map();
+        for (const f of r.recordset) {
+            if (!porAnio.has(f.anio)) porAnio.set(f.anio, { anio: f.anio, total: 0, por_tipo: {} });
+            const a = porAnio.get(f.anio);
+            a.total += f.n;
+            a.por_tipo[TIPO_POR_FORMULARIO[f.codigo_formulario] || f.codigo_formulario] = f.n;
+        }
+        return { disponible: true, anios: [...porAnio.values()] };
+    },
+
+    /**
+     * Documento vigente más reciente del mismo formulario para un equipo (y año,
+     * en el historial). La pantalla avisa antes de guardar otro igual.
+     */
+    async vigenteIgual(tipo, idEquipo, anio = null) {
+        const form = FORMULARIOS_EQUIPO[tipo];
+        if (!form || !idEquipo) return null;
+        const pool = await getConnection();
+        if (!(await hayTablasGc(pool))) return null;
+        const req = pool.request().input('eq', sql.Numeric(10, 0), Number(idEquipo)).input('form', sql.VarChar(20), form.codigo);
+        if (anio) req.input('anio', sql.Int, Number(anio));
+        const r = await req.query(`
+            SELECT TOP 1 id_documento, anio, nombre_usuario, fecha_creacion
+            FROM ${TABLA}
+            WHERE modulo = 'EQUIPOS' AND entidad_tipo = 'EQUIPO' AND id_entidad = @eq
+              AND codigo_formulario = @form AND estado = 'VIGENTE' ${anio ? 'AND anio = @anio' : ''}
+            ORDER BY fecha_creacion DESC, id_documento DESC`);
+        return r.recordset[0] || null;
+    },
+
+    /**
+     * Anula un documento guardado (queda registrado como ANULADO, con motivo;
+     * el PDF no se borra). Un documento guardado no se edita: se anula y se
+     * guarda otro.
+     */
+    async anular(idDocumento, motivo, usuario = null) {
+        const id = Number(idDocumento);
+        if (!Number.isInteger(id) || id <= 0) throw error('Documento inválido');
+        const m = String(motivo || '').trim();
+        if (!m) throw error('Indique el motivo de la anulación');
+        const pool = await getConnection();
+        await exigirTablas(pool);
+        const d = (await pool.request().input('id', sql.Int, id)
+            .query(`SELECT estado, codigo_formulario, codigo_entidad FROM ${TABLA} WHERE id_documento = @id`)).recordset[0];
+        if (!d) throw error('Documento no encontrado', 404);
+        if (d.estado === 'ANULADO') throw error('El documento ya está anulado', 409);
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('mot', sql.NVarChar(300), m.slice(0, 300))
+            .input('usu', sql.Numeric(10, 0), usuario?.id ? Number(usuario.id) : null)
+            .query(`UPDATE ${TABLA} SET estado = 'ANULADO', motivo_anulacion = @mot, fecha_anulacion = GETDATE(), id_usuario_anula = @usu
+                    WHERE id_documento = @id AND estado = 'VIGENTE'`);
+        logger.info(`Documento GC ${id} (${d.codigo_formulario} ${d.codigo_entidad || ''}) anulado: ${m.slice(0, 120)}`);
+        return { success: true };
     },
 
     async pdf(idDocumento) {

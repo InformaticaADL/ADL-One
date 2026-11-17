@@ -99,9 +99,35 @@ export const fichasEquipoController = {
         successResponse(res, await gcDocumentosService.listarFichasEquipo(req.params.id, tipo), 'Fichas guardadas');
     }, 'Error al leer las fichas guardadas'),
 
+    // Archivo de fichas de todos los equipos (consulta por año, formulario, sede…).
+    archivoListar: manejar(async (req, res) => {
+        const { tipo, anio, sede, estado, q, page, limit } = req.query;
+        successResponse(res, await gcDocumentosService.listarArchivo({
+            tipo: ['tecnica', 'historial', 'entrega', 'recepcion'].includes(tipo) ? tipo : null,
+            anio: anio ? Number(anio) : null,
+            sede: sede || null,
+            estado: ['VIGENTE', 'ANULADO', 'TODOS'].includes(estado) ? estado : 'VIGENTE',
+            q, page, limit,
+        }), 'Archivo de fichas');
+    }, 'Error al leer el archivo de fichas'),
+
+    archivoAnios: manejar(async (req, res) => {
+        successResponse(res, await gcDocumentosService.aniosArchivo(), 'Años con fichas');
+    }, 'Error al leer los años del archivo'),
+
     guardadaPdf: manejar(async (req, res) => {
         enviarPdf(res, await gcDocumentosService.pdf(req.params.idFicha));
     }, 'Error al abrir la ficha guardada'),
+
+    guardadaAnular: manejar(async (req, res) => {
+        successResponse(res, await gcDocumentosService.anular(req.params.idFicha, req.body?.motivo, req.user), 'Ficha anulada');
+    }, 'Error al anular la ficha guardada'),
+
+    // Documento vigente igual (mismo formulario, equipo y año): para avisar antes de guardar otro.
+    guardadaVigente: manejar(async (req, res) => {
+        const tipo = ['tecnica', 'historial', 'entrega', 'recepcion'].includes(req.query.tipo) ? req.query.tipo : null;
+        successResponse(res, await gcDocumentosService.vigenteIgual(tipo, req.params.id, req.query.anio || null), 'Documento vigente');
+    }, 'Error al consultar las fichas guardadas'),
 
     recepcionDatos: manejar(async (req, res) => {
         successResponse(res, await fichasEquipoService.recepcionDatos(req.params.id), 'Datos para el formulario de recepción');

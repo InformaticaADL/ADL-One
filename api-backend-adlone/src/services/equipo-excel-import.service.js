@@ -3,6 +3,8 @@ import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { adminService } from './admin.service.js';
 import { normalizarEstadoEquipo } from '../utils/estadoEquipo.js';
+import { reglaDeEquipo } from '../utils/reglasControlEquipo.js';
+import { advertenciaActivacion } from '../utils/activacionEquipo.js';
 
 // Quita tildes, pasa a mayúsculas y colapsa espacios — usado tanto para
 // encabezados de columna como para comparar valores de texto. Exportado
@@ -31,15 +33,22 @@ export const claveLineaObservacion = (linea) => {
         `${a.length === 2 ? '20' + a : a}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`);
     return normalize(conFechas).replace(/^-\s*/, '');
 };
+// «Sin observaciones», «No aplica», «N/A»… es una celda sin observación, no una observación: ni cuenta
+// como diferencia ni se agrega al equipo.
+const RE_SIN_OBSERVACION = /^(SIN (OBSERVACIONES?|COMENTARIOS?|NOVEDADES?|DATOS?)|NO APLICA|N ?\/ ?A|S ?\/ ?O|NINGUN[AO]|NO HAY|NO TIENE|NO REGISTRA)[ .]*$/;
+export const esSinObservacion = (clave) => !clave || /^[-.\s]*$/.test(clave) || RE_SIN_OBSERVACION.test(clave);
 export const lineasNuevasObservacion = (excel, bd) => {
     const existentes = String(bd ?? '').split(/\r?\n/).map(claveLineaObservacion).filter(Boolean);
+    // Todo lo que ya tiene el equipo, de corrido: una línea del Excel también "ya está" si la observación
+    // del sistema la trae partida en otras líneas o pegada dentro de un párrafo más largo.
+    const todo = existentes.join(' ');
     // Una línea ya está si coincide con una existente o si está contenida en ella (la existente puede
     // traer más texto, ej. "Dado de baja 16.02.26 Informado por X" frente a "Dado de baja 16.02.26").
-    const yaEsta = (k) => existentes.some((e) => e.includes(k));
+    const yaEsta = (k) => existentes.some((e) => e.includes(k)) || (k.length >= 15 && todo.includes(k));
     const vistas = new Set();
     return String(excel ?? '').split(/\r?\n/).map((l) => l.trim()).filter((l) => {
         const k = claveLineaObservacion(l);
-        if (!k || yaEsta(k) || vistas.has(k)) return false;
+        if (esSinObservacion(k) || yaEsta(k) || vistas.has(k)) return false;
         vistas.add(k);
         return true;
     });
@@ -56,6 +65,7 @@ export const lineasNuevasObservacion = (excel, bd) => {
 // otro. Se resuelven al que ya tienen asignado la mayoría de los equipos.
 const ALIAS_MUESTREADOR = {
     'ERNESTO LIRA': 'JAVIER LIRA',
+    'NELSON DELGADO': 'FELIPE DELGADO',
     'SEDE PUERTO MONTT': 'BASE PUERTO MONTT',
     'BASE VILLARRICA': 'SEDE VILLARRICA',
 };
@@ -69,6 +79,38 @@ export const esVerificacionMasAntigua = (excel, bd) => {
 export const resolveNombreMuestreador = (nombreExcel) => {
     const n = normalize(nombreExcel);
     return ALIAS_MUESTREADOR[n] || n;
+};
+
+// Agrega a cada ítem del análisis el responsable tal como viene en el Excel y el muestreador del sistema
+// al que se resolvió (para poder buscar y ver por responsable).
+export const anotarResponsables = (items, parsedRows, muestreadores) => {
+    const filas = new Map(parsedRows.map((r) => [r.rowNumber, r]));
+    const nombrePorId = new Map((muestreadores || []).map((m) => [Number(m.id_muestreador), m.nombre_muestreador]));
+    for (const item of items) {
+        const idRes = item.excelData?.id_muestreador;
+        item.responsable_excel = filas.get(item.rowNumber)?.responsable_nombre || null;
+        item.responsable_sistema = idRes != null ? (nombrePorId.get(Number(idRes)) || null) : null;
+    }
+    return items;
+};
+
+// Un muestreador está inactivo si `habilitado` es 'N' / false (mismo criterio que el formulario de equipos).
+const muestreadorActivo = (m) => !(m.habilitado === 'N' || m.habilitado === 'n' || m.habilitado === false || m.habilitado === 0);
+
+// Nombre normalizado → muestreador. Si el mismo nombre existe más de una vez (por ejemplo uno
+// activo y uno dado de baja), se queda con el ACTIVO; entre iguales, el de menor id. Antes ganaba
+// el último de la lista, fuera activo o no.
+export const mapaMuestreadoresPorNombre = (muestreadores) => {
+    const mapa = new Map();
+    const ordenados = [...(muestreadores || [])]
+        .filter((m) => m.nombre_muestreador)
+        .sort((a, b) => Number(a.id_muestreador) - Number(b.id_muestreador));
+    for (const m of ordenados) {
+        const k = normalize(m.nombre_muestreador);
+        const actual = mapa.get(k);
+        if (!actual || (!muestreadorActivo(actual) && muestreadorActivo(m))) mapa.set(k, m);
+    }
+    return mapa;
 };
 
 // Cada campo que nos interesa, con los fragmentos (ya normalizados) que
@@ -293,7 +335,24 @@ class EquipoExcelImportService {
                 const trimestralProxima = toYYYYMMDD(valoresCrudos.trimestral_proxima);
                 let ultimaVerificacion = null;
                 let siguienteVerificacion = null;
-                if (contrastacionUltima && contrastacionProxima) {
+                // Si el nombre tiene regla (reglasControlEquipo.js) manda la regla: solo
+                // se mira el ciclo que le corresponde (la sonda de caudal o el molinete
+                // toman el que traiga fechas entre los dos permitidos; los termómetros
+                // patrón guardan su calibración anual en las columnas trimestrales; los
+                // complementos no llevan fechas). Sin regla, se usa el orden de arriba.
+                const paresPorModalidad = {
+                    CONTRASTACION_SEMESTRAL: [contrastacionUltima, contrastacionProxima],
+                    MANTENCION_ANUAL: [mantencionUltima, mantencionProxima],
+                    VERIFICACION_TRIMESTRAL: [trimestralUltima, trimestralProxima],
+                    CALIBRACION_ANUAL: [trimestralUltima, trimestralProxima],
+                };
+                let modalidadControl = null;
+                const reglaControl = reglaDeEquipo(valoresCrudos.nombre);
+                if (reglaControl) {
+                    const elegida = reglaControl.permitidas.find((m) => paresPorModalidad[m]?.[0] && paresPorModalidad[m]?.[1]);
+                    modalidadControl = elegida || reglaControl.defecto;
+                    if (elegida) [ultimaVerificacion, siguienteVerificacion] = paresPorModalidad[elegida];
+                } else if (contrastacionUltima && contrastacionProxima) {
                     ultimaVerificacion = contrastacionUltima;
                     siguienteVerificacion = contrastacionProxima;
                 } else if (mantencionUltima && mantencionProxima) {
@@ -324,6 +383,7 @@ class EquipoExcelImportService {
                     observacion: valoresCrudos.observacion,
                     ultima_verificacion: ultimaVerificacion,
                     siguiente_verificacion: siguienteVerificacion,
+                    modalidad_control: modalidadControl,
                     proveedor: valoresCrudos.proveedor,
                     fecha_compra: toYYYYMMDD(valoresCrudos.fecha_compra),
                     documento_compra: valoresCrudos.documento_compra,
@@ -377,11 +437,7 @@ class EquipoExcelImportService {
         } catch (err) {
             logger.error('[EquipoExcelImport] No se pudo cargar muestreadores:', err);
         }
-        const muestreadorPorNombre = new Map(
-            (muestreadores || [])
-                .filter((m) => m.nombre_muestreador)
-                .map((m) => [normalize(m.nombre_muestreador), m])
-        );
+        const muestreadorPorNombre = mapaMuestreadoresPorNombre(muestreadores);
 
         // El inventario no trae Tipo / Qué Mide / Unidad de Medida — se resuelven
         // desde el catálogo de equipos por coincidencia de Nombre (el mismo que ya
@@ -432,6 +488,7 @@ class EquipoExcelImportService {
                 estado_equipo: row.estado_equipo,
                 ultima_verificacion: row.ultima_verificacion,
                 siguiente_verificacion: row.siguiente_verificacion,
+                modalidad_control: row.modalidad_control,
                 observacion: row.observacion,
                 id_muestreador: idMuestreadorResuelto,
                 proveedor: row.proveedor,
@@ -483,6 +540,11 @@ class EquipoExcelImportService {
                 warnings.push(`El Excel trae una verificación más antigua (${excelData.ultima_verificacion}) que la registrada (${toYYYYMMDD(equipoDB.ultima_verificacion)}); al actualizar se usan las fechas del Excel.`);
             }
 
+            // Si el Excel lo trae Activo y el sistema lo tiene Inactivo pero las fechas no
+            // cambian (o siguen vencidas), actualizar el estado no basta: se avisa primero.
+            const avisoActivacion = advertenciaActivacion(excelData, equipoDB, new Date().toISOString().slice(0, 10));
+            if (avisoActivacion) warnings.unshift(avisoActivacion);
+
             const diffs = [];
             for (const campo of comparables) {
                 const valorExcel = excelData[campo];
@@ -511,6 +573,7 @@ class EquipoExcelImportService {
                 equipo: equipoDB,
             };
         });
+        anotarResponsables(items, parsedRows, muestreadores);
 
         // Equipos que están en el sistema pero NO en el Excel: solo para
         // consultarlos (no se actualizan ni se crean desde el análisis).

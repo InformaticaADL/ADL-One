@@ -199,6 +199,22 @@ export const fichasEquipoService = {
 
     guardadaPdf: async (idFicha: number) =>
         comoPdf(await apiClient.get(`${BASE}/fichas/guardadas/${idFicha}/pdf`, { responseType: 'blob' }), 'ficha.pdf'),
+
+    /** Anula una ficha guardada (queda registrada como anulada, con motivo). */
+    anularGuardada: async (idFicha: number, motivo: string) =>
+        (await apiClient.post(`${BASE}/fichas/guardadas/${idFicha}/anular`, { motivo })).data,
+
+    // ── Archivo de fichas de todos los equipos (consulta por año de vigencia) ──
+    archivo: async (params: { tipo?: TipoFichaGuardada; anio?: number; sede?: string; estado?: EstadoFichaArchivo; q?: string; page?: number; limit?: number }) =>
+        (await apiClient.get(`${BASE}/fichas/archivo`, { params })).data.data as { disponible: boolean; total: number; page: number; limit: number; fichas: FichaArchivo[] },
+
+    archivoAnios: async () =>
+        (await apiClient.get(`${BASE}/fichas/archivo/anios`)).data.data as { disponible: boolean; anios: AnioArchivo[] },
+
+    /** Ficha vigente del mismo tipo (y año) para avisar antes de guardar otra igual; null si no hay. */
+    guardadaVigente: async (idEquipo: number, tipo: TipoFichaGuardada, anio?: number | null) =>
+        (await apiClient.get(`${BASE}/${idEquipo}/fichas/guardadas/vigente`, { params: { tipo, anio: anio ?? undefined } })).data.data as
+            { id_documento: number; anio: number | null; nombre_usuario: string | null; fecha_creacion: string } | null,
 };
 
 /** Firmas del formulario de recepción (imagen en data URL); el nombre va en firma_recepcion / firma_calidad. */
@@ -221,6 +237,37 @@ export interface FirmanteFicha {
 
 export type TipoFichaGuardada = 'tecnica' | 'historial' | 'entrega' | 'recepcion';
 
+export type EstadoFichaArchivo = 'VIGENTE' | 'ANULADO' | 'TODOS';
+
+/** Fila del archivo de fichas (todas las de todos los equipos, sin el PDF). */
+export interface FichaArchivo {
+    id_ficha: number;
+    tipo: TipoFichaGuardada | null;
+    formato: string;
+    nombre_formulario: string | null;
+    id_equipo: number | null;
+    codigo_equipo: string | null;
+    nombre_equipo: string | null;
+    sede: string | null;
+    /** Año de vigencia: en que se emitió (el historial, el año que cubre). */
+    anio: number | null;
+    fecha_documento: string;
+    nombre_archivo: string;
+    tamano_bytes: number | null;
+    con_firmas: boolean;
+    estado: 'VIGENTE' | 'ANULADO';
+    motivo_anulacion: string | null;
+    fecha_anulacion: string | null;
+    nombre_usuario: string | null;
+    fecha_creacion: string;
+}
+
+export interface AnioArchivo {
+    anio: number;
+    total: number;
+    por_tipo: Partial<Record<TipoFichaGuardada, number>>;
+}
+
 export interface FichaGuardada {
     id_ficha: number;
     tipo: TipoFichaGuardada;
@@ -229,6 +276,7 @@ export interface FichaGuardada {
     nombre_archivo: string;
     nombre_usuario: string | null;
     fecha_creacion: string;
+    con_firmas?: boolean;
 }
 
 export default fichasEquipoService;

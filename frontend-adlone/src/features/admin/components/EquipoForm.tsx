@@ -6,7 +6,6 @@ import {
     IconInfoCircle,
     IconDeviceFloppy,
     IconChevronRight,
-    IconChevronLeft,
     IconEdit,
     IconX,
     IconFile,
@@ -36,6 +35,7 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
 import { descargarDocumentoRevision, formatearTamano } from '../utils/documentosEquipo';
 import { ordenarObservacion } from '../utils/observacionEquipo';
+import { controlDeEquipo, sumarMeses, type ReglasControl, type ModalidadControl } from '../utils/reglasControlEquipo';
 import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import { adminService } from '../../../services/admin.service';
 import { catalogosService } from '../../medio-ambiente/services/catalogos.service';
@@ -45,6 +45,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FieldLabel } from '../../../components/common/FieldHelp';
+import { PasosLayout, type PasoInfo, type EstadoPaso } from '../../medio-ambiente/components/PasosLayout';
 
 // Valores de "Influencia Significativa" del inventario OI-FoGe-21.
 const INFLUENCIAS = ['Alta', 'Media', 'Baja'];
@@ -122,6 +123,50 @@ const colSpanClass = (md: number): string => {
         default: return 'col-span-12';
     }
 };
+
+// ─── Pasos / secciones ────────────────────────────────────────────────────────────────────────────
+// Al crear: pasos en orden (con aviso de lo que falta y bloqueo de los no visitados). Al editar: las mismas
+// secciones, con navegación libre. Los campos de cada sección se muestran u ocultan, no se desmontan.
+type PasoEq = 'ident' | 'tecnica' | 'verif' | 'inventario' | 'documento' | 'cantidad' | 'revision';
+const PASOS_EQ: Record<PasoEq, { titulo: string; descripcion: string; subtitulo: string; ayuda: string }> = {
+    ident: { titulo: 'Identificación', descripcion: 'Qué equipo es y quién lo tiene', subtitulo: 'Tipo, sede, nombre, código y responsable del equipo.', ayuda: 'Elija el tipo, la sede y el nombre: el código se genera solo. Lo marcado con * es obligatorio.' },
+    tecnica: { titulo: 'Configuración técnica', descripcion: 'Qué mide y sus errores', subtitulo: 'Qué mide, unidad, errores de calibración y observación.', ayuda: 'Indique qué mide el equipo y deje en la observación cualquier detalle o historial relevante.' },
+    verif: { titulo: 'Verificación y vigencia', descripcion: 'Revisión y vencimiento', subtitulo: 'Cuándo toca la próxima revisión y hasta cuándo está vigente.', ayuda: 'La siguiente revisión se propone a 90 días de la última; ajústela si corresponde.' },
+    inventario: { titulo: 'Inventario y compra', descripcion: 'Marca, modelo y compra', subtitulo: 'Datos del inventario (OI-FoGe-21), compra y baja del equipo.', ayuda: 'Todo es opcional en este paso, pero ayuda a la ficha técnica y a las fichas de entrega.' },
+    documento: { titulo: 'Documento de la revisión', descripcion: 'Informe o certificado', subtitulo: 'Adjunte el informe de la mantención o el certificado de calibración.', ayuda: 'El archivo se guarda junto con el equipo, al presionar Actualizar.' },
+    cantidad: { titulo: 'Cantidad y resumen', descripcion: 'Revise y cree el equipo', subtitulo: 'Revise los datos y elija cuántas unidades crear.', ayuda: 'Si necesita varias unidades iguales, indique la cantidad: en el paso siguiente confirma cada código.' },
+    revision: { titulo: 'Revisión masiva', descripcion: 'Confirmar códigos', subtitulo: 'Confirme el código, la sede y la vigencia de cada unidad.', ayuda: 'Puede ajustar los códigos y sedes de cada unidad antes de crearlas.' },
+};
+// Qué paso contiene cada campo obligatorio (data-campo → paso).
+const PASO_DE_CAMPO: Record<string, PasoEq> = {
+    tipo: 'ident', ubicacion: 'ident', estado: 'ident', nombre: 'ident', codigo: 'ident', id_muestreador: 'ident',
+    que_mide: 'tecnica', observacion: 'tecnica', siguiente_verificacion: 'verif',
+};
+
+// ─── Borrador del equipo en creación (se guarda en este navegador) ───────────────────────────────────
+interface BorradorEquipo {
+    version: 1;
+    guardadoEn: number;
+    formData: Record<string, unknown>;
+    bulkQuantity: number;
+    pasoActual: PasoEq;
+    maxPaso: number;
+}
+const claveBorradorEq = (idUsuario: unknown) => `adlone:borrador-equipo-v1:${idUsuario ?? 0}`;
+const leerBorradorEq = (clave: string): BorradorEquipo | null => {
+    try {
+        const raw = localStorage.getItem(clave);
+        if (!raw) return null;
+        const d = JSON.parse(raw);
+        return d?.version === 1 && d.formData ? d : null;
+    } catch { return null; }
+};
+const escribirBorradorEq = (clave: string, valor: unknown): boolean => {
+    try { localStorage.setItem(clave, JSON.stringify(valor)); return true; } catch { return false; }
+};
+const borrarBorradorEq = (clave: string) => { try { localStorage.removeItem(clave); } catch { /* sin acceso al almacenamiento */ } };
+// Se recalculan al abrir el borrador (código y correlativo se piden de nuevo para no repetir uno ya usado).
+const CAMPOS_NO_RESTAURAR = ['codigo', 'correlativo', 'sigla', 'previousCode', 'previousStatus'];
 
 const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
     <div className="my-2 flex items-center gap-3">
@@ -247,6 +292,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [generatingCode, setGeneratingCode] = useState(false);
     const [namesOptions, setNamesOptions] = useState<string[]>([]);
     const [tipoOptions, setTipoOptions] = useState<string[]>([]);
+    const [reglasControl, setReglasControl] = useState<ReglasControl | null>(null);
     const [queMideOptions, setQueMideOptions] = useState<string[]>([]);
     const [unidadesOptions, setUnidadesOptions] = useState<string[]>([]);
     const [sedeOptions, setSedeOptions] = useState<string[]>([]);
@@ -262,6 +308,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [activeStep, setActiveStep] = useState(0); // 0: Form, 1: Bulk Check
     const [bulkQuantity, setBulkQuantity] = useState(1);
     const [bulkItems, setBulkItems] = useState<any[]>([]);
+    // Paso actual y el más lejano visitado (al crear); al editar solo cuenta el actual.
+    const [pasoActual, setPasoActual] = useState<PasoEq>('ident');
+    const [maxPaso, setMaxPaso] = useState(0);
+    const topRef = useRef<HTMLDivElement>(null);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     // --- Documento de la revisión/mantención ---
     // Es un atributo de la versión del equipo, no una lista de adjuntos: se
@@ -279,13 +329,19 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const { showToast } = useToast();
     const { hideNotification } = useNavStore();
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
 
     // Permissions
     // RB-08: AI_MA_ADMIN_ACCESO eliminado (no existe en BD). Solo permisos reales.
     const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
     const isSuper = false;
+
+    // Borrador: solo en creación pura (sin solicitud ni equipo de partida).
+    const conBorrador = !initialData;
+    const claveBorr = claveBorradorEq(user?.id);
+    const [borradorPendiente, setBorradorPendiente] = useState<BorradorEquipo | null>(() => (conBorrador ? leerBorradorEq(claveBorradorEq(user?.id)) : null));
+    const borradorCerrado = useRef(false);
 
     // --- Helpers ---
     const autoGenerateSigla = (text: string) => {
@@ -541,6 +597,44 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [formData.siguiente_verificacion]);
 
+    // Reglas de control por tipo de equipo (qué ciclo de fechas aplica y cada cuánto).
+    useEffect(() => {
+        equipoService.getReglasControl().then(setReglasControl).catch(() => setReglasControl(null));
+    }, []);
+
+    // Control que rige para este equipo según su nombre: sonda de caudal y molinete
+    // eligen entre dos ciclos (solo rige el elegido); el resto trae uno fijo; los
+    // complementos (baterías, botellas…) no vencen. Sin regla, todo igual que antes.
+    const control = useMemo(
+        () => controlDeEquipo(reglasControl, formData.nombre, formData.modalidad_control),
+        [reglasControl, formData.nombre, formData.modalidad_control],
+    );
+    const esSinVencimiento = !!control?.sinVencimiento;
+    const mesesControl = control?.meses ?? null;
+
+    // Guarda la modalidad que rige y recalcula la siguiente fecha (última + frecuencia)
+    // solo cuando cambia la modalidad o la última fecha: al abrir un equipo existente
+    // se respeta la fecha guardada.
+    const previoControl = useRef<{ modalidad: ModalidadControl | null; ultima: string } | null>(null);
+    useEffect(() => {
+        if (!control) return;
+        const ultima = String(formData.ultima_verificacion || '');
+        const previo = previoControl.current;
+        previoControl.current = { modalidad: control.modalidad, ultima };
+        setFormData((p: any) => {
+            const next = { ...p };
+            let cambio = false;
+            if (p.modalidad_control !== control.modalidad) { next.modalidad_control = control.modalidad; cambio = true; }
+            const cambioCiclo = !!previo && (previo.modalidad !== control.modalidad || previo.ultima !== ultima);
+            if (cambioCiclo && control.meses && ultima) {
+                const sig = sumarMeses(ultima, control.meses);
+                if (sig && sig !== p.siguiente_verificacion) { next.siguiente_verificacion = sig; cambio = true; }
+            }
+            return cambio ? next : p;
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [control?.modalidad, formData.ultima_verificacion]);
+
     // Sincronizar equipo_asociado si viene como ID numérico heredado
     useEffect(() => {
         if (allEquipos.length > 0 && formData.equipo_asociado && !isNaN(Number(formData.equipo_asociado)) && Number(formData.equipo_asociado) !== 0) {
@@ -751,7 +845,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     const handleSetToday = () => {
         const todayStr = getTodayString();
-        const next90 = calculateNext90Days(todayStr);
+        const next90 = mesesControl ? sumarMeses(todayStr, mesesControl) : calculateNext90Days(todayStr);
         setFormData((prev: any) => ({
             ...prev,
             ultima_verificacion: todayStr,
@@ -802,7 +896,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 formData.estado_equipo &&
                 formData.codigo &&
                 formData.id_muestreador &&
-                formData.siguiente_verificacion &&
+                (formData.siguiente_verificacion || esSinVencimiento) &&
                 !generatingCode &&
                 !docUploading
             );
@@ -819,11 +913,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             formData.id_muestreador &&
             formData.que_mide &&
             formData.observacion &&
-            formData.siguiente_verificacion &&
+            (formData.siguiente_verificacion || esSinVencimiento) &&
             !generatingCode &&
             !docUploading
         );
-    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading]);
+    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading, esSinVencimiento]);
 
     // Lo que falta para poder guardar. `campo` es el data-campo del bloque del
     // formulario: el aviso junto al botón lo usa para llevar al usuario ahí.
@@ -843,20 +937,24 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!formData.id_muestreador) missing.push({ label: 'Responsable (Muestreador)', campo: 'id_muestreador' });
         if (!isEdit && !formData.que_mide) missing.push({ label: '¿Qué Mide?', campo: 'que_mide' });
         if (!isEdit && !formData.observacion) missing.push({ label: 'Observación', campo: 'observacion' });
-        if (!formData.siguiente_verificacion) missing.push({ label: 'Siguiente Revisión (Vigente hasta:)', campo: 'siguiente_verificacion' });
+        if (!formData.siguiente_verificacion && !esSinVencimiento) missing.push({ label: 'Siguiente Revisión (Vigente hasta:)', campo: 'siguiente_verificacion' });
         return missing;
-    }, [formData, initialData]);
-    const missingFields = faltantes.map((f) => f.label);
+    }, [formData, initialData, esSinVencimiento]);
 
     // Lleva al campo que falta, lo enfoca y enciende las marcas rojas.
     const irACampo = (campo?: string) => {
         setAttemptedSubmit(true);
         if (!campo) return;
-        const bloque = document.querySelector<HTMLElement>(`[data-campo="${campo}"]`);
-        if (!bloque) return;
-        bloque.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        const control = bloque.querySelector<HTMLElement>('input:not([readonly]):not([disabled]), textarea, button[role="combobox"], button:not([disabled])');
-        setTimeout(() => control?.focus({ preventScroll: true }), 350);
+        // El campo puede estar en otro paso (oculto): se abre primero.
+        const paso = PASO_DE_CAMPO[campo];
+        if (paso) { setActiveStep(0); setPasoActual(paso); }
+        setTimeout(() => {
+            const bloque = document.querySelector<HTMLElement>(`[data-campo="${campo}"]`);
+            if (!bloque) return;
+            bloque.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const control = bloque.querySelector<HTMLElement>('input:not([readonly]):not([disabled]), textarea, button[role="combobox"], button:not([disabled])');
+            setTimeout(() => control?.focus({ preventScroll: true }), 350);
+        }, 60);
     };
 
     // Botón de acción principal: el del encabezado y el del pie comparten
@@ -872,16 +970,109 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         ...(docUploading ? ['Esperando que termine la carga del archivo…'] : []),
         ...(sinPermiso ? [`No tienes permiso para ${esCreacion ? 'crear' : 'editar'} equipos`] : []),
     ];
-    const accionTitle = accionDeshabilitada
-        ? [missingFields.length ? `Falta: ${missingFields.join(', ')}` : '', ...bloqueos].filter(Boolean).join(' · ')
-        : (esCreacion ? 'Guardar equipo' : 'Actualizar equipo');
     // Al editar, el equipo ya existe: lo que falte se marca en rojo desde que
     // carga, sin esperar a que se intente guardar (el botón está deshabilitado
     // y nunca llegaría ese intento).
     const mostrarErrores = attemptedSubmit || (!esCreacion && !loading);
-    // Deshabilitado se ve gris, no azul translúcido: con disabled:opacity-50 el
-    // botón seguía leyéndose como accionable aunque falten campos obligatorios.
-    const accionDisabledClass = 'disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100';
+
+    // ─── Pasos: lista, estado de cada uno y navegación ───────────────────────────────────────────────
+    const idsPasos: PasoEq[] = esCreacion
+        ? ['ident', 'tecnica', 'verif', 'inventario', 'cantidad', ...(esMasivo ? ['revision' as PasoEq] : [])]
+        : ['ident', 'tecnica', 'verif', 'inventario', ...(idEquipoActual ? ['documento' as PasoEq] : [])];
+    // En la revisión masiva (activeStep 1) el paso mostrado es «revision».
+    const pasoMostrado: PasoEq = esCreacion && activeStep === 1 ? 'revision' : pasoActual;
+    const idxActual = Math.max(0, idsPasos.indexOf(pasoMostrado));
+    const faltanDePaso = (id: PasoEq) => faltantes.filter((f) => f.campo && PASO_DE_CAMPO[f.campo] === id);
+    const pasosInfo: PasoInfo[] = idsPasos.map((id, i) => {
+        const f = faltanDePaso(id).length;
+        const visitado = !esCreacion || i <= maxPaso || id === 'revision';
+        const estado: EstadoPaso = i === idxActual ? 'actual' : visitado ? (f > 0 ? 'error' : 'completo') : 'pendiente';
+        return {
+            id,
+            titulo: PASOS_EQ[id].titulo,
+            descripcion: PASOS_EQ[id].descripcion,
+            estado,
+            aviso: f > 0 ? `Faltan ${f} ${f > 1 ? 'campos' : 'campo'}` : undefined,
+            bloqueado: esCreacion && !visitado,
+        };
+    });
+    const irAPaso = (id: PasoEq) => {
+        const i = idsPasos.indexOf(id);
+        setActiveStep(0);
+        setPasoActual(id);
+        if (esCreacion) setMaxPaso((m) => Math.max(m, i));
+        setTimeout(() => topRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+    };
+    const elegirPaso = (i: number) => {
+        const id = idsPasos[i];
+        if (!id) return;
+        if (id === 'revision') { if (activeStep === 0) handleNext(); return; }
+        if (esCreacion && i > maxPaso) return;
+        irAPaso(id);
+    };
+    // «Siguiente» en los pasos de datos exige lo obligatorio de ese paso; el último paso crea / actualiza.
+    const esUltimoPaso = !esCreacion || pasoMostrado === 'cantidad' || pasoMostrado === 'revision';
+    const siguientePaso = () => {
+        if (esUltimoPaso) { handleNext(); return; }
+        const f = faltanDePaso(pasoMostrado);
+        if (f.length > 0) {
+            setAttemptedSubmit(true);
+            showToast({ id: 'equipo-paso-guard', type: 'warning', message: `Falta: ${f.slice(0, 3).map((x) => x.label).join(', ')}${f.length > 3 ? ` y ${f.length - 3} más` : ''}.` });
+            return;
+        }
+        if (generatingCode) {
+            showToast({ id: 'equipo-paso-guard', type: 'info', message: 'Generando el código del equipo… intente de nuevo en un momento.' });
+            return;
+        }
+        irAPaso(idsPasos[idxActual + 1]);
+    };
+    const atrasPaso = esCreacion && (activeStep === 1 || idxActual > 0)
+        ? () => (activeStep === 1 ? irAPaso('cantidad') : irAPaso(idsPasos[idxActual - 1]))
+        : undefined;
+    const textoSiguientePaso = !esCreacion ? 'Actualizar' : (esUltimoPaso ? accionLabel : 'Siguiente');
+
+    // ─── Borrador (solo creación) ────────────────────────────────────────────────────────────────────
+    const hayContenido = (f: Record<string, unknown>) => !!(f.tipo || f.ubicacion || f.nombre || f.id_muestreador || f.marca || f.modelo || f.n_serie || f.proveedor || f.observacion);
+    const estadoBorrRef = useRef<Omit<BorradorEquipo, 'version' | 'guardadoEn'> | null>(null);
+    estadoBorrRef.current = { formData, bulkQuantity, pasoActual, maxPaso };
+    const guardarBorradorAhora = (): boolean => {
+        if (!conBorrador || borradorCerrado.current || borradorPendiente) return true;
+        const e = estadoBorrRef.current;
+        if (!e || !hayContenido(e.formData)) return true;
+        return escribirBorradorEq(claveBorr, { version: 1, guardadoEn: Date.now(), ...e });
+    };
+    const guardarBorradorRef = useRef(guardarBorradorAhora);
+    guardarBorradorRef.current = guardarBorradorAhora;
+    useEffect(() => {
+        if (!conBorrador) return;
+        const guardar = () => { guardarBorradorRef.current(); };
+        const t = setInterval(guardar, 4000);
+        window.addEventListener('beforeunload', guardar);
+        return () => { clearInterval(t); window.removeEventListener('beforeunload', guardar); guardar(); };
+    }, [conBorrador]);
+    const descartarBorrador = () => {
+        borrarBorradorEq(claveBorr);
+        setBorradorPendiente(null);
+    };
+    const continuarBorrador = () => {
+        const d = borradorPendiente;
+        setBorradorPendiente(null);
+        if (!d) return;
+        const guardado = { ...d.formData };
+        CAMPOS_NO_RESTAURAR.forEach((k) => delete guardado[k]);
+        // La fecha de creación es la de hoy; la siguiente revisión se recalcula solo si era la propuesta automática.
+        const eraAutomatica = guardado.siguiente_verificacion === calculateNext90Days(String(d.formData.ultima_verificacion || ''));
+        setFormData((p: Record<string, unknown>) => ({
+            ...p,
+            ...guardado,
+            ultima_verificacion: defaultRevisionDate,
+            siguiente_verificacion: eraAutomatica ? defaultSiguienteDate : guardado.siguiente_verificacion,
+        }));
+        setBulkQuantity(Number(d.bulkQuantity) || 1);
+        const id: PasoEq = (['ident', 'tecnica', 'verif', 'inventario', 'cantidad'] as PasoEq[]).includes(d.pasoActual) ? d.pasoActual : 'ident';
+        setPasoActual(id);
+        setMaxPaso(Math.min(Number(d.maxPaso) || 0, 4));
+    };
 
     const generateBulkItems = (quantity: number, baseData: any) => {
         const items = [];
@@ -961,6 +1152,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     if (isTech) hideNotification(`${reqId}-PENDIENTE_TECNICA`);
                 }
                 showToast({ type: 'success', message: items.length > 1 ? 'Equipos creados correctamente' : 'Equipo creado correctamente' });
+                // Ya está creado: el borrador no se vuelve a guardar al cerrar el formulario.
+                borradorCerrado.current = true;
+                borrarBorradorEq(claveBorr);
             }
             onSave();
         } catch (err: any) {
@@ -1000,9 +1194,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         finally { setProcessingAction(false); setRejectingSolicitud(null); setAdminFeedback(''); }
     };
 
+    // Solo se ve la sección del paso actual (en la revisión masiva, ninguna del formulario).
+    const ver = (id: PasoEq) => (activeStep === 0 && pasoActual === id ? 'flex flex-col gap-6' : 'hidden');
+
     // --- Renders ---
     return (
-        <div className="shadcn-scope relative w-full p-4">
+        <div ref={topRef} className="shadcn-scope relative w-full scroll-mt-4 p-4">
             {(loading || processingAction) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1063,29 +1260,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </ProtectedContent>
-                            {esCreacion && (
-                                <ProtectedContent permission="EQ_UPDATE">
-                                    {/* El span lleva el title porque el botón deshabilitado
-                                        no recibe eventos del mouse. */}
-                                    <span className={cn('inline-block', isMobile && 'flex-1')} title={accionTitle}>
-                                        <Button
-                                            // Antes llamaba a handleSave directo: se saltaba la
-                                            // validación y la generación de los ítems, así que
-                                            // creaba sin datos. Ahora usa la misma acción que el
-                                            // botón del pie.
-                                            onClick={handleNext}
-                                            disabled={loading || accionDeshabilitada}
-                                            className={cn(accionDisabledClass, isMobile && 'w-full')}
-                                        >
-                                            {loading ? (
-                                                <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                                            ) : !irARevision && <IconDeviceFloppy size={18} />}
-                                            {accionLabel}
-                                            {!loading && irARevision && <IconChevronRight size={18} />}
-                                        </Button>
-                                    </span>
-                                </ProtectedContent>
-                            )}
                         </div>
                     </div>
 
@@ -1238,51 +1412,78 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         </div>
                     )}
 
-                    {/* Step indicator */}
-                    {esMasivo ? (
-                        <div className="flex items-center gap-2">
-                            {[
-                                { idx: 0, title: 'Información General', desc: 'Datos del equipo' },
-                                { idx: 1, title: 'Revisión Masiva', desc: 'Confirmar seriales' },
-                            ].map((step, i) => (
-                                <React.Fragment key={step.idx}>
-                                    <button
-                                        type="button"
-                                        // Avanzar al paso 2 pasa por handleNext para que valide el
-                                        // formulario y genere los ítems: saltar directo mostraba la
-                                        // revisión vacía.
-                                        onClick={() => (step.idx === 0 ? setActiveStep(0) : handleNext())}
-                                        className="flex items-center gap-2 rounded-md px-1 py-1 text-left"
-                                    >
-                                        <span className={cn(
-                                            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-medium',
-                                            activeStep === step.idx ? 'border-primary bg-primary text-primary-foreground'
-                                                : activeStep > step.idx ? 'border-primary text-primary' : 'border-border text-muted-foreground'
-                                        )}>
-                                            {step.idx + 1}
-                                        </span>
-                                        <span className="flex flex-col">
-                                            <span className={cn('text-sm font-medium', activeStep === step.idx ? 'text-foreground' : 'text-muted-foreground')}>{step.title}</span>
-                                            <span className="text-xs text-muted-foreground">{step.desc}</span>
-                                        </span>
-                                    </button>
-                                    {i === 0 && <div className="h-px flex-1 bg-border" />}
-                                </React.Fragment>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="flex items-center gap-2">
-                            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-xs font-medium text-primary-foreground">1</span>
-                            <span className="flex flex-col">
-                                <span className="text-sm font-medium text-foreground">Información General</span>
-                                <span className="text-xs text-muted-foreground">Datos del equipo</span>
-                            </span>
+                    {/* Pasos (al crear) / secciones (al editar): mismo diseño que la ficha de ingreso. */}
+                    {(!esCreacion || esUltimoPaso) && !loading && accionDeshabilitada && (faltantes.length > 0 || bloqueos.length > 0) && (
+                        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3" role="status">
+                            <div className="flex items-start gap-2.5">
+                                <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold">
+                                        {faltantes.length > 0
+                                            ? `Para ${esCreacion ? 'guardar' : 'actualizar'} el equipo falta${faltantes.length === 1 ? '' : 'n'} ${faltantes.length} campo${faltantes.length === 1 ? '' : 's'}`
+                                            : `Todavía no se puede ${esCreacion ? 'guardar' : 'actualizar'}`}
+                                    </p>
+                                    {faltantes.length > 0 && (
+                                        <>
+                                            <p className="mt-0.5 text-xs text-muted-foreground">Presiona uno para ir al campo.</p>
+                                            <div className="mt-2 flex flex-wrap gap-1.5">
+                                                {faltantes.map((f) => (
+                                                    <button
+                                                        key={f.label}
+                                                        type="button"
+                                                        onClick={() => irACampo(f.campo)}
+                                                        className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-background px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                                                    >
+                                                        {f.label}
+                                                        <IconChevronRight size={12} />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
+                                    {bloqueos.length > 0 && (
+                                        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
+                                            {bloqueos.map((b) => <li key={b}>{b}</li>)}
+                                        </ul>
+                                    )}
+                                </div>
+                            </div>
                         </div>
                     )}
-
+                    <PasosLayout
+                        className="p-0 md:p-0"
+                        titulo={esCreacion ? 'Nuevo equipo' : 'Equipo'}
+                        libre={!esCreacion}
+                        pasos={pasosInfo}
+                        actual={idxActual}
+                        ayuda={PASOS_EQ[pasoMostrado].ayuda}
+                        encabezado={{ titulo: PASOS_EQ[pasoMostrado].titulo, subtitulo: PASOS_EQ[pasoMostrado].subtitulo }}
+                        onElegirPaso={elegirPaso}
+                        onAtras={atrasPaso}
+                        textoSiguiente={textoSiguientePaso}
+                        onSiguiente={siguientePaso}
+                        siguienteDeshabilitado={esUltimoPaso && accionDeshabilitada}
+                        guardando={loading}
+                        pieExtra={(
+                            <>
+                                <Button type="button" variant="outline" className="rounded-full" onClick={onCancel}>Cancelar</Button>
+                                {initialData?.requestId && !initialData.id_equipo && (
+                                    <Button
+                                        type="button"
+                                        variant="destructive"
+                                        className="rounded-full"
+                                        onClick={() => setRejectingSolicitud({ id_solicitud: initialData.requestId, tipo_solicitud: 'ALTA', datos_json: initialData })}
+                                    >
+                                        Rechazar Solicitud
+                                    </Button>
+                                )}
+                            </>
+                        )}
+                    >
                     {activeStep === 0 && (
                         <div className="mt-2 flex flex-col gap-6">
-                            <div className="grid grid-cols-12 gap-4">
+                            <div className={ver('ident')}>
+<div className="grid grid-cols-12 gap-4">
                                 <div className={colSpanClass(4)} data-campo="tipo">
                                     <HybridSelect
                                         label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
@@ -1486,7 +1687,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     />
                                 </div>
                             </div>
-                            <SectionDivider>Configuración Técnica</SectionDivider>
+                            </div>
+                            <div className={ver('tecnica')}>
+
                             <div className="grid grid-cols-12 gap-4">
                                 <div className={colSpanClass(4)} data-campo="que_mide">
                                     <HybridSelect
@@ -1592,13 +1795,44 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         : <p className="mt-1 text-xs text-muted-foreground">Al salir del campo, las líneas con fecha se ordenan de la más antigua a la más nueva.</p>}
                                 </div>
                             </div>
-                            <SectionDivider>Verificación y Estado</SectionDivider>
-                            <div className="grid grid-cols-12 gap-4">
+                            </div>
+                            <div className={ver('verif')}>
+
+                            {control && (
+                                <div className="mb-4 rounded-md border bg-muted/30 p-3" data-campo="modalidad_control">
+                                    <div className="mb-2"><FieldLabel label="Control de fechas del equipo" help="Qué revisión periódica lleva este equipo. Solo rige la que se elige: la otra no aplica ni genera vencimientos." /></div>
+                                    {control.elegible ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {control.permitidas.map((m) => (
+                                                <Button
+                                                    key={m}
+                                                    type="button"
+                                                    size="sm"
+                                                    variant={m === control.modalidad ? 'default' : 'outline'}
+                                                    onClick={() => setFormData((p: any) => ({ ...p, modalidad_control: m }))}
+                                                >
+                                                    {reglasControl?.modalidades[m]?.nombre ?? m}
+                                                    {reglasControl?.modalidades[m]?.meses ? ` · cada ${reglasControl.modalidades[m].meses} meses` : ''}
+                                                </Button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm">
+                                            <span className="font-medium">{control.info.nombre}</span>
+                                            {control.meses ? ` · cada ${control.meses} meses` : ''}
+                                        </p>
+                                    )}
+                                    {esSinVencimiento && (
+                                        <p className="mt-2 text-xs text-muted-foreground">Es un complemento: no tiene fecha de vencimiento. Solo se da de baja manualmente.</p>
+                                    )}
+                                </div>
+                            )}
+                            <div className={cn('grid grid-cols-12 gap-4', esSinVencimiento && 'hidden')}>
                                 <div className={colSpanClass(6)} data-campo="siguiente_verificacion">
                                     <div className="mb-1 inline-flex flex-wrap items-center gap-1.5">
-                                        <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help="Fecha programada para la próxima revisión técnica (por defecto 90 días después de la última). Corresponde también a la fecha de vigencia." />
+                                        <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help={`Fecha programada para la próxima revisión técnica (${mesesControl ? `${control?.info.nombre}, cada ${mesesControl} meses` : 'por defecto 90 días'} después de la última). Corresponde también a la fecha de vigencia.`} />
                                         <span className="text-xs font-normal text-muted-foreground">
-                                            (Auto: Última + 90 días)
+                                            {mesesControl ? `(Auto: Última + ${mesesControl} meses)` : '(Auto: Última + 90 días)'}
                                         </span>
                                     </div>
                                     <Input
@@ -1633,7 +1867,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </div>
                             </div>
 
-                            <SectionDivider>Datos del Inventario</SectionDivider>
+                            </div>
+                            <div className={ver('inventario')}>
+<SectionDivider>Datos del Inventario</SectionDivider>
                             <div className="grid grid-cols-12 gap-4">
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="Marca" help="Fabricante del equipo (columna MARCA del inventario OI-FoGe-21)." /></div>
@@ -1709,10 +1945,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </div>
                             </div>
 
-                            {/* --- Documento de la mantención (solo en edición) --- */}
+                            </div>
+                            <div className={ver('documento')}>
+{/* --- Documento de la mantención (solo en edición) --- */}
                             {idEquipoActual && (
                                 <>
-                                    <SectionDivider>Documento de la Revisión</SectionDivider>
+                                    
                                     <div className="flex flex-col gap-3">
                                         <p className="text-[13px] text-muted-foreground">
                                             Adjunte el informe de la mantención, una foto del equipo intervenido o el certificado de calibración (PDF o imagen, hasta 20 MB). Queda asociado a esta revisión: al registrar la próxima, el informe actual pasa al historial junto con su versión.
@@ -1815,6 +2053,28 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </>
                             )}
 
+                            </div>
+                            <div className={ver('cantidad')}>
+                                <div className="rounded-lg border border-border bg-muted/30 p-4">
+                                    <p className="mb-2 text-sm font-semibold">Resumen del equipo</p>
+                                    <dl className="grid grid-cols-1 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
+                                        {[
+                                            ['Nombre', formData.nombre],
+                                            ['Tipo', formData.tipo],
+                                            ['Sede', formData.ubicacion],
+                                            ['Estado', formData.estado_equipo],
+                                            ['Código', formData.codigo],
+                                            ['Responsable', muestreadores.find((m) => String(m.id_muestreador) === String(formData.id_muestreador))?.nombre_muestreador],
+                                            ['¿Qué mide?', formData.que_mide],
+                                            ['Siguiente revisión', formData.siguiente_verificacion ? formatDateToSpanish(formData.siguiente_verificacion) : ''],
+                                        ].map(([k, v]) => (
+                                            <div key={k} className="flex justify-between gap-3 border-b border-border/60 py-1">
+                                                <dt className="text-muted-foreground">{k}</dt>
+                                                <dd className="min-w-0 truncate text-right font-medium">{v || <span className="text-destructive">Falta</span>}</dd>
+                                            </div>
+                                        ))}
+                                    </dl>
+                                </div>
                             {!initialData?.id_equipo && (
                                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
                                     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1836,6 +2096,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </div>
                                 </div>
                             )}
+                            </div>
                         </div>
                     )}
                     {activeStep === 1 && !initialData?.id_equipo && (
@@ -1917,77 +2178,30 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         </div>
                     )}
 
-                    <SectionDivider />
-                    {activeStep === 0 && !loading && accionDeshabilitada && (faltantes.length > 0 || bloqueos.length > 0) && (
-                        <div className="mb-4 rounded-lg border border-warning/40 bg-warning/10 p-3" role="status">
-                            <div className="flex items-start gap-2.5">
-                                <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-warning" />
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-semibold">
-                                        {faltantes.length > 0
-                                            ? `Para ${esCreacion ? 'guardar' : 'actualizar'} el equipo falta${faltantes.length === 1 ? '' : 'n'} ${faltantes.length} campo${faltantes.length === 1 ? '' : 's'}`
-                                            : `Todavía no se puede ${esCreacion ? 'guardar' : 'actualizar'}`}
-                                    </p>
-                                    {faltantes.length > 0 && (
-                                        <>
-                                            <p className="mt-0.5 text-xs text-muted-foreground">Presiona uno para ir al campo.</p>
-                                            <div className="mt-2 flex flex-wrap gap-1.5">
-                                                {faltantes.map((f) => (
-                                                    <button
-                                                        key={f.label}
-                                                        type="button"
-                                                        onClick={() => irACampo(f.campo)}
-                                                        className="inline-flex items-center gap-1 rounded-full border border-destructive/30 bg-background px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
-                                                    >
-                                                        {f.label}
-                                                        <IconChevronRight size={12} />
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </>
-                                    )}
-                                    {bloqueos.length > 0 && (
-                                        <ul className="mt-2 list-disc space-y-0.5 pl-4 text-xs text-muted-foreground">
-                                            {bloqueos.map((b) => <li key={b}>{b}</li>)}
-                                        </ul>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    )}
-                    <div className="flex flex-wrap justify-between gap-3">
-                        {activeStep === 1 && esMasivo ? (
-                            <Button variant="outline" onClick={() => setActiveStep(0)}>
-                                <IconChevronLeft size={18} /> Volver al Formulario
-                            </Button>
-                        ) : <div />}
-                        <div className="flex flex-wrap gap-2">
-                            <Button variant="outline" onClick={onCancel}>Cancelar</Button>
-                            {initialData?.requestId && (!initialData.id_equipo) && (
-                                <Button
-                                    variant="destructive"
-                                    onClick={() => setRejectingSolicitud({ id_solicitud: initialData.requestId, tipo_solicitud: 'ALTA', datos_json: initialData })}
-                                >
-                                    Rechazar Solicitud
-                                </Button>
-                            )}
-                            <span className="inline-block" title={accionTitle}>
-                                <Button
-                                    className={accionDisabledClass}
-                                    disabled={accionDeshabilitada}
-                                    onClick={handleNext}
-                                >
-                                    {!irARevision && <IconDeviceFloppy size={18} />}
-                                    {accionLabel}
-                                    {irARevision && <IconChevronRight size={18} />}
-                                </Button>
-                            </span>
-                        </div>
-                    </div>
+                    </PasosLayout>
                 </div>
             </div>
 
             {/* --- Modals --- */}
+            {/* Borrador de un equipo que quedó a medias */}
+            <Dialog open={!!borradorPendiente} onOpenChange={() => { /* hay que elegir una opción */ }}>
+                <DialogContent className="max-w-[440px]" onInteractOutside={(e) => e.preventDefault()}>
+                    <DialogHeader>
+                        <DialogTitle>Hay un equipo sin terminar</DialogTitle>
+                    </DialogHeader>
+                    <p className="text-sm text-muted-foreground">
+                        {borradorPendiente?.formData?.nombre ? <b className="text-foreground">{String(borradorPendiente.formData.nombre)}</b> : 'Un equipo'}
+                        {borradorPendiente?.formData?.ubicacion ? ` (${String(borradorPendiente.formData.ubicacion)})` : ''} quedó a medias
+                        {borradorPendiente?.guardadoEn ? `, guardado el ${new Date(borradorPendiente.guardadoEn).toLocaleString('es-CL')}` : ''}.
+                        ¿Quiere continuar donde quedó?
+                    </p>
+                    <DialogFooter className="sm:justify-stretch">
+                        <Button variant="outline" className="flex-1" onClick={descartarBorrador}>Descartar y empezar de nuevo</Button>
+                        <Button className="flex-1" onClick={continuarBorrador}>Continuar donde quedé</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
                 <DialogContent className="max-w-[420px]">
                     <DialogHeader>

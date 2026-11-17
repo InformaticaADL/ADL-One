@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText } from '@tabler/icons-react';
+import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle } from '@tabler/icons-react';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
 import { CampoFirma } from './CampoFirma';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectGroup } from '@/components/ui/select';
@@ -216,7 +216,9 @@ const Campo: React.FC<{ label: string; className?: string; children: React.React
  */
 export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, onClose }) => {
     const { showToast } = useToast();
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
+    // Anular una ficha guardada: quien edita equipos o tiene G. Calidad > Equipos.
+    const puedeAnular = hasPermission('AI_MA_EDITAR_EQUIPO') || hasPermission('GC_EQUIPOS');
     const [cargando, setCargando] = useState(false);
     // La vista previa al lado solo en pantallas anchas (en angostas, botón «Vista previa»).
     const pantallaAncha = useMediaQuery('(min-width: 1024px)');
@@ -258,6 +260,11 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     const [guardando, setGuardando] = useState(false);
     const [guardadas, setGuardadas] = useState<FichaGuardada[]>([]);
     const [verGuardadas, setVerGuardadas] = useState(false);
+    // Anulación de una ficha guardada (con motivo) y aviso cuando ya hay una vigente igual.
+    const [aAnular, setAAnular] = useState<FichaGuardada | null>(null);
+    const [motivoAnular, setMotivoAnular] = useState('');
+    const [anulando, setAnulando] = useState(false);
+    const [duplicada, setDuplicada] = useState<{ fecha_creacion: string; nombre_usuario: string | null; anio: number | null } | null>(null);
     // Borrador recuperado de una sesión anterior.
     const [borradorRecuperado, setBorradorRecuperado] = useState(false);
     const borradorRevisado = useRef(false);
@@ -426,11 +433,20 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     };
 
     // Guarda la ficha en el sistema; la ventana sigue abierta para descargarla.
-    const guardar = async () => {
+    // Si ya hay una vigente igual (mismo formulario y mismo año: el historial
+    // el que cubre, las demás el año en que se emiten) primero avisa: lo normal
+    // es anular la anterior y guardar la nueva.
+    const guardar = async (confirmado = false) => {
         if (!tipo) return;
         const cuerpo = tipo === 'historial' ? { anio } : tipo === 'tecnica' ? cuerpoTecnica() : tipo === 'entrega' ? cuerpoEntrega() : cuerpoRecepcion();
         if (!cuerpo) return;
         setGuardando(true);
+        if (!confirmado && idEquipo) {
+            try {
+                const previa = await api.guardadaVigente(idEquipo, tipo, tipo === 'historial' ? anio : new Date().getFullYear());
+                if (previa) { setDuplicada(previa); setGuardando(false); return; }
+            } catch { /* si no se puede consultar, se guarda igual */ }
+        }
         try {
             const r = await api.guardar(tipo, idEquipo ?? null, cuerpo);
             setGuardada(r);
@@ -443,6 +459,24 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
             showToast({ type: 'error', message: msg || 'No se pudo guardar la ficha' });
         } finally {
             setGuardando(false);
+        }
+    };
+
+    const anularGuardada = async () => {
+        if (!aAnular || !motivoAnular.trim()) return;
+        setAnulando(true);
+        try {
+            await api.anularGuardada(aAnular.id_ficha, motivoAnular.trim());
+            setGuardadas((prev) => prev.filter((g) => g.id_ficha !== aAnular.id_ficha));
+            if (guardada?.id_ficha === aAnular.id_ficha) setGuardada(null);
+            setAAnular(null);
+            setMotivoAnular('');
+            showToast({ type: 'success', message: 'Ficha anulada' });
+        } catch (err) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            showToast({ type: 'error', message: msg || 'No se pudo anular la ficha' });
+        } finally {
+            setAnulando(false);
         }
     };
 
@@ -676,9 +710,16 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                                     {fechaHora(f.fecha_creacion)}{f.anio ? ` · año ${f.anio}` : ''}
                                                     <span className="text-muted-foreground"> · {f.nombre_usuario || '—'}</span>
                                                 </span>
-                                                <Button type="button" size="sm" variant="ghost" className="h-7 shrink-0 text-xs" onClick={() => abrirGuardada(f)}>
-                                                    <IconEye size={14} /> Ver
-                                                </Button>
+                                                <span className="flex shrink-0 items-center gap-0.5">
+                                                    <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={() => abrirGuardada(f)}>
+                                                        <IconEye size={14} /> Ver
+                                                    </Button>
+                                                    {puedeAnular && (
+                                                        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => { setMotivoAnular(''); setAAnular(f); }} title="Anular esta ficha guardada (queda registrada como anulada)">
+                                                            <IconBan size={14} /> Anular
+                                                        </Button>
+                                                    )}
+                                                </span>
                                             </div>
                                         ))}
                                     </div>
@@ -1095,7 +1136,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                 <IconCircleCheck size={16} /> Ficha guardada
                             </span>
                         ) : (
-                            <Button variant="secondary" disabled={!puedeGenerar || !!generando || guardando} onClick={guardar}>
+                            <Button variant="secondary" disabled={!puedeGenerar || !!generando || guardando} onClick={() => guardar()}>
                                 <IconDeviceFloppy size={16} /> {guardando ? 'Guardando…' : 'Guardar'}
                             </Button>
                         )}
@@ -1107,6 +1148,49 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
             </Dialog>
 
             <PdfViewerModal open={!!pdf} onClose={() => setPdf(null)} url={pdf?.url ?? null} title={pdf?.titulo} />
+
+            {/* Ya hay una ficha vigente igual: ¿guardar otra de todos modos? */}
+            <Dialog open={!!duplicada} onOpenChange={(o) => { if (!o && !guardando) setDuplicada(null); }}>
+                <DialogContent className="max-w-md gap-5">
+                    <DialogHeader className="items-center text-center sm:text-center">
+                        <div className="mb-1 flex h-12 w-12 items-center justify-center rounded-full bg-warning/15 text-warning">
+                            <IconAlertTriangle size={24} />
+                        </div>
+                        <DialogTitle>Ya hay una ficha guardada</DialogTitle>
+                        <DialogDescription>
+                            {tipo ? FICHAS_EQUIPO[tipo].titulo : 'Esta ficha'}{duplicada?.anio ? ` del año ${duplicada.anio}` : ''} ya tiene una versión vigente,
+                            guardada el {duplicada ? fechaHora(duplicada.fecha_creacion) : ''}{duplicada?.nombre_usuario ? ` por ${duplicada.nombre_usuario}` : ''}.
+                            Si guardas otra, quedarán las dos vigentes. Lo recomendable es anular la anterior desde "Guardadas de este equipo" y luego guardar esta.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2 sm:justify-center">
+                        <Button variant="outline" onClick={() => setDuplicada(null)} disabled={guardando}>Cancelar</Button>
+                        <Button variant="secondary" onClick={() => { setDuplicada(null); guardar(true); }} disabled={guardando}>
+                            <IconDeviceFloppy size={15} /> Guardar de todos modos
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Anular una ficha guardada (con motivo). */}
+            <Dialog open={!!aAnular} onOpenChange={(o) => { if (!o && !anulando) setAAnular(null); }}>
+                <DialogContent className="max-w-md gap-4">
+                    <DialogHeader>
+                        <DialogTitle>¿Anular esta ficha guardada?</DialogTitle>
+                        <DialogDescription>
+                            {aAnular ? `${aAnular.formato} · ${fechaHora(aAnular.fecha_creacion)}${aAnular.anio ? ` · año ${aAnular.anio}` : ''}` : ''}.
+                            Queda registrada como anulada con su motivo; el PDF no se borra, pero deja de aparecer como vigente.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Textarea rows={3} autoFocus placeholder="Motivo de la anulación (obligatorio)" value={motivoAnular} onChange={(e) => setMotivoAnular(e.target.value)} className="resize-none" />
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setAAnular(null)} disabled={anulando}>Cancelar</Button>
+                        <Button variant="destructive" onClick={anularGuardada} disabled={!motivoAnular.trim() || anulando}>
+                            <IconBan size={15} /> {anulando ? 'Anulando…' : 'Anular ficha'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </>
     );
 };

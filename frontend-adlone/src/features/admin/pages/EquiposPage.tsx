@@ -13,6 +13,9 @@ import {
     IconTrash,
     IconCheck,
     IconX,
+    IconEraser,
+    IconLayoutDashboard,
+    IconChartHistogram,
     IconFilter,
     IconPaperclip,
     IconFileSpreadsheet,
@@ -51,6 +54,8 @@ import { EquipoForm } from '../components/EquipoForm';
 import { FichasEquipoDialog, type TipoFichaEquipo } from '../components/FichasEquipoDialog';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
+import type { ReglasControl } from '../utils/reglasControlEquipo';
+import { EquiposPlanificacion } from '../components/EquiposPlanificacion';
 import { GcCalendarioVencimientosPage } from './GcCalendarioVencimientosPage';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -202,7 +207,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [resultadoAutoEquipos, setResultadoAutoEquipos] = useState<AnalisisExcelResponse | null>(null);
     const [resultadoAutoTemperatura, setResultadoAutoTemperatura] = useState<AnalisisTemperaturaResponse | null>(null);
     const fileInputAutoRef = useRef<HTMLInputElement>(null);
-    const [activeView, setActiveView] = useState<'general' | 'list' | 'dashboard' | 'calendario'>('general');
+    const [activeView, setActiveView] = useState<'general' | 'list' | 'dashboard' | 'calendario' | 'plan'>('general');
     const [filtersSheetOpen, setFiltersSheetOpen] = useState(false);
     const [showRequestsModal, setShowRequestsModal] = useState(false);
     const [requestsEquipoInfo, setRequestsEquipoInfo] = useState<{ id: string | number; nombre: string; codigo?: string } | null>(null);
@@ -270,6 +275,15 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [filterMuestreador, setFilterMuestreador] = useState<string | null>(null);
     const [filterFechaDesde, setFilterFechaDesde] = useState('');
     const [filterFechaHasta, setFilterFechaHasta] = useState('');
+    // Filtros del panel por modalidad de control, estado de vigencia, familia y documento.
+    const [filterModalidad, setFilterModalidad] = useState<string | null>(null);
+    const [filterVigencia, setFilterVigencia] = useState<string | null>(null);
+    const [filterFamilia, setFilterFamilia] = useState<string | null>(null);
+    const [filterDocumento, setFilterDocumento] = useState<string | null>(null);
+    const [reglasControl, setReglasControl] = useState<ReglasControl | null>(null);
+    useEffect(() => {
+        equipoService.getReglasControl().then(setReglasControl).catch(() => setReglasControl(null));
+    }, []);
 
     const [page, setPage] = useState(1);
     const [limit, setLimit] = useState(10);
@@ -362,7 +376,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     useEffect(() => {
         setPage(1);
-    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler, sortBy, sortOrder]);
+    }, [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterModalidad, filterVigencia, filterFamilia, filterDocumento, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler, sortBy, sortOrder]);
 
     useEffect(() => {
         const delayDebounceFn = setTimeout(() => {
@@ -370,7 +384,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         }, 300);
         return () => clearTimeout(delayDebounceFn);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [page, limit, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterExpired, filterInactiveSampler, sortBy, sortOrder]);
+    }, [page, limit, filterTipo, filterSede, filterEstado, searchTerm, filterFechaDesde, filterFechaHasta, filterMuestreador, filterModalidad, filterVigencia, filterFamilia, filterDocumento, filterExpired, filterInactiveSampler, sortBy, sortOrder]);
 
     // Al cambiar de página el listado se redibuja arriba, pero la vista se
     // quedaba donde estaba —en teléfono, abajo del todo junto a los botones—,
@@ -446,6 +460,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 fechaDesde: filterFechaDesde,
                 fechaHasta: filterFechaHasta,
                 id_muestreador: filterMuestreador || '',
+                modalidad: filterModalidad || '',
+                vigencia: filterVigencia || '',
+                familia: filterFamilia || '',
+                documento: filterDocumento || '',
                 expiredOnly: filterExpired,
                 inactiveSamplerOnly: filterInactiveSampler,
                 sortBy,
@@ -1022,6 +1040,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         setFilterMuestreador(null);
         setFilterFechaDesde('');
         setFilterFechaHasta('');
+        setFilterModalidad(null);
+        setFilterVigencia(null);
+        setFilterFamilia(null);
+        setFilterDocumento(null);
         setFilterExpired(false);
         setFilterInactiveSampler(false);
         setPage(1);
@@ -1137,15 +1159,15 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const hasActiveFilters = useMemo(() =>
-        searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterFechaDesde || filterFechaHasta || filterExpired || filterInactiveSampler,
-    [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
+        searchTerm !== '' || filterTipo || filterSede || filterEstado || filterMuestreador || filterModalidad || filterVigencia || filterFamilia || filterDocumento || filterFechaDesde || filterFechaHasta || filterExpired || filterInactiveSampler,
+    [searchTerm, filterTipo, filterSede, filterEstado, filterMuestreador, filterModalidad, filterVigencia, filterFamilia, filterDocumento, filterFechaDesde, filterFechaHasta, filterExpired, filterInactiveSampler]);
 
     // Cuenta solo los filtros que viven dentro del panel lateral (Tipo/Sede/
     // Estado/Responsable/Vigencia) — búsqueda y los 3 atajos rápidos tienen
     // su propio indicador visual y no suman acá.
     const panelFilterCount = useMemo(() =>
-        [filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta].filter(Boolean).length,
-    [filterTipo, filterSede, filterEstado, filterMuestreador, filterFechaDesde, filterFechaHasta]);
+        [filterTipo, filterSede, filterEstado, filterMuestreador, filterModalidad, filterVigencia, filterFamilia, filterDocumento, filterFechaDesde, filterFechaHasta].filter(Boolean).length,
+    [filterTipo, filterSede, filterEstado, filterMuestreador, filterModalidad, filterVigencia, filterFamilia, filterDocumento, filterFechaDesde, filterFechaHasta]);
 
     // Vista por defecto (sortBy === 'vigencia'): solicitudes pendientes
     // primero, luego los que vencen pronto (más cercano primero). Si el
@@ -1363,14 +1385,21 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     }
                 />
 
-                {/* En teléfono los tres rótulos suman más que el ancho de pantalla:
-                    la fila se desliza en horizontal (sin barra visible) en vez de
-                    comprimir los botones. */}
-                <div className="flex items-center gap-2">
-                <div className="scrollbar-none inline-flex h-9 w-full items-center justify-start overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground md:w-fit md:justify-center [&>button]:shrink-0">
-                    {/* Tab: General */}
+                {/* Misma botonera segmentada que el resto de los listados (borde, fondo
+                    claro, activo en gris, conteo en gris). En teléfono la fila se desliza
+                    en horizontal en vez de comprimir los botones. */}
+                {(() => {
+                    const tab = (activo: boolean) => cn(
+                        'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1 text-[13px] font-medium transition-colors',
+                        activo ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    );
+                    const conteo = (n: number) => n > 0 ? <span className="tabular-nums text-muted-foreground">{n}</span> : null;
+                    return (
+                <div className="scrollbar-none overflow-x-auto">
+                <div className="inline-flex gap-0.5 rounded-lg border border-border bg-background p-0.5" role="group" aria-label="Vista de equipos">
                     <button
                         type="button"
+                        aria-pressed={activeView === 'general'}
                         onClick={() => {
                             setActiveView('general');
                             setFilterExpired(false);
@@ -1380,15 +1409,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setFilterEstado(null);
                             setPage(1);
                         }}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            activeView === 'general' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
+                        className={tab(activeView === 'general')}
                     >
                         General
                     </button>
                     <button
                         type="button"
+                        aria-pressed={isPorVencerActive}
                         onClick={() => {
                             setActiveView('list');
                             setFilterFechaDesde(todayStr);
@@ -1398,35 +1425,19 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setFilterInactiveSampler(false);
                             setPage(1);
                         }}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            isPorVencerActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
+                        className={tab(isPorVencerActive)}
                     >
-                        Por vencer{expiringCount > 0 && ` (${expiringCount})`}
+                        Por vencer {conteo(expiringCount)}
+                    </button>
+                    <button type="button" aria-pressed={isFueraServicioActive} onClick={() => verEstado('Fuera de Servicio')} className={tab(isFueraServicioActive)}>
+                        Fuera de Servicio {conteo(fueraServicioCount)}
+                    </button>
+                    <button type="button" aria-pressed={isBajaActive} onClick={() => verEstado('Dado de Baja')} className={tab(isBajaActive)}>
+                        Dado de Baja {conteo(bajaCount)}
                     </button>
                     <button
                         type="button"
-                        onClick={() => verEstado('Fuera de Servicio')}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            isFueraServicioActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
-                    >
-                        Fuera de Servicio{fueraServicioCount > 0 && ` (${fueraServicioCount})`}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => verEstado('Dado de Baja')}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            isBajaActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
-                    >
-                        Dado de Baja{bajaCount > 0 && ` (${bajaCount})`}
-                    </button>
-                    <button
-                        type="button"
+                        aria-pressed={filterInactiveSampler}
                         onClick={() => {
                             setActiveView('list');
                             setFilterInactiveSampler(true);
@@ -1436,15 +1447,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setFilterFechaHasta('');
                             setPage(1);
                         }}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            filterInactiveSampler ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
+                        className={tab(filterInactiveSampler)}
                     >
-                        Muestreador inactivo{inactiveSamplerCount > 0 && ` (${inactiveSamplerCount})`}
+                        Muestreador inactivo {conteo(inactiveSamplerCount)}
                     </button>
                     <button
                         type="button"
+                        aria-pressed={isActivosActive}
                         onClick={() => {
                             setActiveView('list');
                             setFilterEstado('Operativo');
@@ -1454,43 +1463,30 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             setFilterFechaHasta('');
                             setPage(1);
                         }}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            isActivosActive ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
+                        className={tab(isActivosActive)}
                     >
-                        Operativos{activeCount > 0 && ` (${activeCount})`}
+                        Operativos {conteo(activeCount)}
                     </button>
-                    {/* Tab: Dashboard */}
-                    <button
-                        type="button"
-                        onClick={() => { setActiveView('dashboard'); handleClearFilters(); }}
-                        className={cn(
-                            'inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-sm font-medium transition-colors',
-                            activeView === 'dashboard' ? 'bg-background text-foreground shadow-sm' : 'hover:text-foreground'
-                        )}
-                    >
-                        Dashboard
+                    {/* Vistas aparte del listado: no usan la búsqueda ni los filtros. */}
+                    <span className="mx-1 w-px self-stretch bg-border" aria-hidden="true" />
+                    <button type="button" aria-pressed={activeView === 'dashboard'} onClick={() => { setActiveView('dashboard'); handleClearFilters(); }} className={tab(activeView === 'dashboard')}>
+                        <IconLayoutDashboard size={14} /> Dashboard
+                    </button>
+                    <button type="button" aria-pressed={activeView === 'plan'} onClick={() => { setActiveView('plan'); handleClearFilters(); }} className={tab(activeView === 'plan')}>
+                        <IconChartHistogram size={14} /> Plan
+                    </button>
+                    <button type="button" aria-pressed={activeView === 'calendario'} onClick={() => { setActiveView('calendario'); handleClearFilters(); }} className={tab(activeView === 'calendario')}>
+                        <IconCalendarEvent size={14} /> Calendario
                     </button>
                 </div>
-                {/* Botón Calendario de Vencimientos */}
-                <button
-                    type="button"
-                    onClick={() => { setActiveView('calendario'); handleClearFilters(); }}
-                    className={cn(
-                        'inline-flex shrink-0 items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors',
-                        activeView === 'calendario'
-                            ? 'border-primary bg-primary/10 text-primary'
-                            : 'bg-background text-muted-foreground shadow-xs hover:bg-muted hover:text-foreground'
-                    )}
-                >
-                    <IconCalendarEvent size={15} />
-                    Calendario
-                </button>
                 </div>
+                    );
+                })()}
 
                 <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                    <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+                    {/* Búsqueda, orden y filtros solo valen para el listado: el Dashboard y el
+                        Calendario van aparte y no los usan. */}
+                    <div className={cn('flex w-full flex-wrap items-center gap-2 md:w-auto', (activeView === 'dashboard' || activeView === 'calendario' || activeView === 'plan') && 'hidden')}>
                     <div className="relative w-full sm:w-auto">
                         <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                         <Input
@@ -1525,7 +1521,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         </SheetTrigger>
                         <SheetContent className="flex w-full flex-col gap-6 overflow-y-auto sm:max-w-sm">
                             <SheetHeader>
-                                <SheetTitle>Filtros</SheetTitle>
+                                <SheetTitle>Filtros de búsqueda</SheetTitle>
                             </SheetHeader>
 
                             <div className="flex flex-1 flex-col gap-4">
@@ -1587,6 +1583,68 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 </div>
 
                                 <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Control de fechas</Label>
+                                    <Combobox
+                                        value={filterModalidad ?? 'all'}
+                                        onValueChange={(v) => setFilterModalidad(v === 'all' ? null : v)}
+                                        placeholder="Control de fechas"
+                                        options={[
+                                            { value: 'all', label: 'Todos' },
+                                            ...Object.entries(reglasControl?.modalidades ?? {}).map(([k, m]) => ({ value: k, label: m.nombre })),
+                                        ]}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado de vigencia</Label>
+                                    <Combobox
+                                        value={filterVigencia ?? 'all'}
+                                        onValueChange={(v) => {
+                                            setFilterVigencia(v === 'all' ? null : v);
+                                            setFilterExpired(false);
+                                            setFilterInactiveSampler(false);
+                                        }}
+                                        placeholder="Estado de vigencia"
+                                        options={[
+                                            { value: 'all', label: 'Todos' },
+                                            { value: 'vencido', label: 'Vencido' },
+                                            { value: 'por_vencer', label: 'Por vencer (30 días)' },
+                                            { value: 'vigente', label: 'Vigente' },
+                                            { value: 'sin_fecha', label: 'Sin fecha' },
+                                            { value: 'sin_vencimiento', label: 'Sin vencimiento (complementos)' },
+                                        ]}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Familia</Label>
+                                    <Combobox
+                                        value={filterFamilia ?? 'all'}
+                                        onValueChange={(v) => setFilterFamilia(v === 'all' ? null : v)}
+                                        placeholder="Familia"
+                                        searchPlaceholder="Buscar familia..."
+                                        options={[
+                                            { value: 'all', label: 'Todas las familias' },
+                                            ...Object.keys(reglasControl?.familias ?? {}).map((f) => ({ value: f, label: f })),
+                                        ]}
+                                    />
+                                </div>
+
+                                <div>
+                                    <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Documento adjunto</Label>
+                                    <Combobox
+                                        value={filterDocumento ?? 'all'}
+                                        onValueChange={(v) => setFilterDocumento(v === 'all' ? null : v)}
+                                        placeholder="Documento adjunto"
+                                        options={[
+                                            { value: 'all', label: 'Todos' },
+                                            { value: 'con', label: 'Con documento' },
+                                            { value: 'sin', label: 'Sin documento' },
+                                        ]}
+                                    />
+                                </div>
+
+                                <div>
                                     <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Vigencia desde</Label>
                                     <DatePicker
                                         value={filterFechaDesde}
@@ -1622,11 +1680,15 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             setFilterMuestreador(null);
                                             setFilterFechaDesde('');
                                             setFilterFechaHasta('');
+                                            setFilterModalidad(null);
+                                            setFilterVigencia(null);
+                                            setFilterFamilia(null);
+                                            setFilterDocumento(null);
                                             setFilterExpired(false);
                                             setFilterInactiveSampler(false);
                                         }}
                                     >
-                                        <IconX size={16} /> Limpiar filtros
+                                        <IconEraser size={16} /> Limpiar filtros
                                     </Button>
                                 )}
                                 <Button onClick={() => setFiltersSheetOpen(false)}>Aplicar</Button>
@@ -1670,6 +1732,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 </div>
             )}
 
+            {/* Vista Plan: carga de revisiones por mes, sede y tipo de control */}
+            {activeView === 'plan' && (
+                <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
+                    <EquiposPlanificacion reglas={reglasControl} onEditEquipo={abrirFichaPopup} />
+                </div>
+            )}
+
             {/* Vista Calendario de Vencimientos */}
             {activeView === 'calendario' && (
                 <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
@@ -1683,7 +1752,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 página). Con `min-h-0` y shrink por defecto, la tarjeta mide su contenido
                 mientras entra y se encoge cuando no: ahí scrollea la tabla por dentro y
                 la paginación, que es shrink-0, queda fija abajo. */}
-            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1', (activeView === 'dashboard' || activeView === 'calendario') && 'hidden')}>
+            <div className={cn('flex flex-col px-4 pb-4 pt-4 md:px-6 md:pb-6', !isMobile && 'min-h-0 flex-1', (activeView === 'dashboard' || activeView === 'calendario' || activeView === 'plan') && 'hidden')}>
                 <div ref={listaRef} className="relative flex min-h-0 flex-col overflow-hidden rounded-xl border border-border bg-card">
                     {loading && (
                         <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
@@ -1853,8 +1922,13 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 <TableCell><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge></TableCell>
                                                 <TableCell className="truncate">
                                                     <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
-                                                        {equipo.vigencia}
+                                                        {equipo.vigencia || (equipo.modalidad_control === 'SIN_VENCIMIENTO' ? '—' : '')}
                                                     </span>
+                                                    {equipo.modalidad_control && (
+                                                        <span className="block truncate text-xs text-muted-foreground" title={reglasControl?.modalidades?.[equipo.modalidad_control]?.nombre}>
+                                                            {reglasControl?.modalidades?.[equipo.modalidad_control]?.corto ?? ''}
+                                                        </span>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     {equipo.nombre_asignado ? (
