@@ -43,7 +43,9 @@ export function DataPagination({ page, pageSize, total, onPageChange, onPageSize
     // (mt-4) la pone este componente, NO el contenedor de cada página — si el padre
     // además aplicara gap, el espacio se duplicaría. Antes cada página ponía su propio
     // mt-3/mt-4/px-4 y no había dos pies de tabla iguales.
-    <div className={cn('mt-4 flex shrink-0 flex-col items-center justify-between gap-3 sm:flex-row', className)}>
+    // @container: los cortes dependen del ancho del PROPIO bloque (no de la ventana): en un panel angosto el pie se apila y no se corta
+    <div className="@container shrink-0">
+    <div className={cn('mt-4 flex flex-col items-center justify-between gap-3 @xl:flex-row', className)}>
       <div className="flex flex-wrap items-center gap-3">
         <span className="text-sm text-muted-foreground">
           Mostrando <span className="font-medium text-foreground">{from}–{to}</span> de{' '}
@@ -76,7 +78,7 @@ export function DataPagination({ page, pageSize, total, onPageChange, onPageSize
             onClick={() => onPageChange(page - 1)}
           >
             <ChevronLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">Anterior</span>
+            <span className="hidden @md:inline">Anterior</span>
           </Button>
 
           {getPageItems(page, totalPages).map((item, i) =>
@@ -105,11 +107,12 @@ export function DataPagination({ page, pageSize, total, onPageChange, onPageSize
             disabled={page === totalPages}
             onClick={() => onPageChange(page + 1)}
           >
-            <span className="hidden sm:inline">Siguiente</span>
+            <span className="hidden @md:inline">Siguiente</span>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </nav>
       )}
+    </div>
     </div>
   );
 }

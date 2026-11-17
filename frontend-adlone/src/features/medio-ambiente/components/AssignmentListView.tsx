@@ -886,7 +886,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                 la paginación fuera de vista al subir los centros por página). Con min-h-0
                 la tarjeta mide su contenido mientras entra y se encoge cuando no: ahí
                 scrollea el listado por dentro y la paginación queda fija abajo. */}
-            <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+            <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-[minmax(0,4fr)_minmax(0,7fr)]">
             <div className="flex min-h-0 flex-col">
             <Card className="flex min-h-0 flex-col p-0">
                 <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">

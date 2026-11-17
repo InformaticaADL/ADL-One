@@ -4,6 +4,10 @@ import 'dayjs/locale/es'
 import './index.css'
 import App from './App.tsx'
 import { useThemeStore } from './store/themeStore'
+import { recargarPorVersionNueva } from './lib/recargaPorVersion'
+
+// Vite avisa con este evento cuando no puede cargar un archivo de la versión anterior (ya no está en el servidor): se carga la página de nuevo.
+window.addEventListener('vite:preloadError', (e) => { e.preventDefault(); recargarPorVersionNueva(); });
 
 // eslint-disable-next-line react-refresh/only-export-components -- entry point, not fast-refreshed
 function Root() {

@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 import { ErrorPage } from '../../pages/ErrorPage';
+import { esErrorDeVersionVieja, recargarPorVersionNueva } from '../../lib/recargaPorVersion';
 
 interface Props {
   children?: ReactNode;
@@ -22,6 +23,8 @@ class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    // Un módulo que ya no existe en el servidor = hay una versión nueva: se recarga sola en vez de mostrar el error.
+    if (esErrorDeVersionVieja(error?.message)) recargarPorVersionNueva();
   }
 
   public resetError = () => {

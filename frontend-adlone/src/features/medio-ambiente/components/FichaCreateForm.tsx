@@ -64,21 +64,21 @@ const borrarBorrador = (clave: string) => { try { localStorage.removeItem(clave)
 
 // ─── Pasos ───────────────────────────────────────────────────────────────────────────────────────────
 // Antecedentes: un paso por bloque del formulario. Las etiquetas son las que entrega AntecedentesForm en «missing».
-type BloqueAnt = 'ident' | 'servicio' | 'clasif' | 'operativo';
-const PASOS_ANT: Array<{ id: BloqueAnt; titulo: string; descripcion: string; subtitulo: string; ayuda: string }> = [
+export type BloqueAnt = 'ident' | 'servicio' | 'clasif' | 'operativo';
+export const PASOS_ANT: Array<{ id: BloqueAnt; titulo: string; descripcion: string; subtitulo: string; ayuda: string }> = [
     { id: 'ident', titulo: 'Identificación', descripcion: 'Quién y dónde', subtitulo: 'Quién es el cliente y qué se muestrea.', ayuda: 'Elija el tipo de monitoreo, la empresa a facturar y la fuente emisora. Lo marcado con * es obligatorio.' },
     { id: 'servicio', titulo: 'Datos del servicio', descripcion: 'Objetivo y frecuencia', subtitulo: 'Objetivo, responsable y frecuencia del servicio.', ayuda: 'Indique para qué es el servicio y con qué frecuencia se repite.' },
     { id: 'clasif', titulo: 'Clasificación técnica', descripcion: 'Norma y componente', subtitulo: 'Instrumento legal, componente ambiental y glosa.', ayuda: 'Indique la norma que se aplica y el tipo de agua o lodo.' },
     { id: 'operativo', titulo: 'Detalles operativos', descripcion: 'Cómo se muestrea', subtitulo: 'Tipo de muestreo, de muestra y de descarga, y medición de caudal.', ayuda: 'Cómo se toma la muestra y si se mide el caudal. Si se mide, aparecen más campos.' },
 ];
-const ETIQUETAS_BLOQUE: Record<BloqueAnt, string[]> = {
+export const ETIQUETAS_BLOQUE: Record<BloqueAnt, string[]> = {
     ident: ['Tipo de Monitoreo', 'Lugar de Análisis', 'Cliente', 'Empresa de Servicio', 'Fuente Emisora', 'Contacto Empresa'],
     servicio: ['Objetivo del Muestreo', 'Responsable Muestreo', 'Cargo', 'Punto de Muestreo', 'Frecuencia Periodo', 'Cant. Frecuencia', 'Factor', 'Total Servicios'],
     clasif: ['Zona UTM', 'UTM Norte', 'UTM Este', 'Instrumento Legal', 'N° Instrumento', 'Año Instrumento', 'Componente Ambiental', 'Sub-Área', 'Glosa'],
     operativo: ['Tipo de Muestreo', 'Tipo de Muestra', 'Actividad', 'Duración', 'Tipo de Descarga', 'Medición de Caudal', 'Modalidad de Medición', 'Forma de Canal', 'Dispositivo Hidráulico', 'Tipo Medida Canal', 'Detalle Canal', 'Tipo Medida Dispositivo', 'Detalle Dispositivo'],
 };
 // Puntos y análisis.
-const PASOS_VIS = [
+export const PASOS_VIS = [
     { id: 'puntos', titulo: 'Puntos', descripcion: 'Dónde se toma la muestra', subtitulo: 'Genere los nombres, péguelos desde Excel o agréguelos uno a uno.', ayuda: 'Escriba los nombres de los puntos y cuántas réplicas quiere. Cada punto queda registrado por separado dentro de la visita.' },
     { id: 'parametros', titulo: 'Parámetros', descripcion: 'Qué se mide y en qué laboratorio', subtitulo: 'Los de terreno se miden en el lugar. Los de laboratorio llevan entrega y laboratorio.', ayuda: 'Elija un punto y agregue sus parámetros. Aquí no hay precios todavía.' },
     { id: 'precio', titulo: 'Precio', descripcion: 'Tarifa por parámetro', subtitulo: 'Una tarifa por parámetro y punto, más el costo operativo de la visita.', ayuda: 'Parta de un valor repartido o escriba cada tarifa. El valor del punto y el total siempre son la suma.' },

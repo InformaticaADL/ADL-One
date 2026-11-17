@@ -266,8 +266,8 @@ export const AgendaMuestreadores: React.FC<Props> = ({ muestreadores, hayAsignac
                         <Table containerClassName="max-h-[460px]">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="sticky left-0 z-10 min-w-44 bg-background">Muestreador</TableHead>
-                                    {dias.map((d) => <TableHead key={d.fecha} className="min-w-24">{d.corto} {d.d.getDate()}</TableHead>)}
+                                    <TableHead className="sticky left-0 z-10 min-w-32 bg-background">Muestreador</TableHead>
+                                    {dias.map((d) => <TableHead key={d.fecha} className="min-w-[78px] px-2">{d.corto} {d.d.getDate()}</TableHead>)}
                                 </TableRow>
                             </TableHeader>
                             <TableBody>

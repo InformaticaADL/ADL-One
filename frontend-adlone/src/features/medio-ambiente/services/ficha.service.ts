@@ -111,6 +111,21 @@ export const fichaService = {
         const response = await apiClient.post(`/api/fichas/${id}/approve-visita/${etapa}`, data);
         return response.data;
     },
+    /** Devuelve a Comercial todos los puntos pendientes de la visita de la ficha (mismo motivo para todos). */
+    rechazarVisita: async (id: number, etapa: 'tecnica' | 'coordinacion', data: ObsPayload) => {
+        const response = await apiClient.post(`/api/fichas/${id}/reject-visita/${etapa}`, data);
+        return response.data;
+    },
+    /** Edita solo nombre, zona, coordenadas y mapa de los puntos de una visita. */
+    actualizarPuntosVisita: async (id: number, puntos: Array<{ id: number; punto: string; zona: string; utmNorte: string; utmEste: string; refGoogle: string }>) => {
+        const response = await apiClient.post(`/api/fichas/${id}/puntos-visita`, { puntos });
+        return response.data;
+    },
+    /** «Editar visita»: antecedentes comunes y/o análisis y precio de cada punto (cada punto conserva lo suyo). */
+    actualizarVisita: async (id: number, data: { antecedentes?: Record<string, unknown>; analisisPorFicha?: Array<{ id: number; analisis: any[]; costoOperativo: { activo: boolean; uf: number } }>; observaciones?: string }) => {
+        const response = await apiClient.post(`/api/fichas/${id}/editar-visita`, data);
+        return response.data;
+    },
     approveCoordinacion: async (id: number, data: ObsPayload) => {
         const response = await apiClient.post(`/api/fichas/${id}/approve-coordinacion`, data);
         return response.data;

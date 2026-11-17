@@ -27,7 +27,8 @@ interface Props {
     encabezado: { titulo: string; subtitulo: string };
     onElegirPaso: (indice: number) => void;
     onAtras?: () => void;
-    onBorrador: () => void;
+    /** Si no se pasa, no se muestra «Guardar borrador» (por ejemplo al editar una visita que ya existe). */
+    onBorrador?: () => void;
     textoSiguiente: string;
     onSiguiente: () => void;
     siguienteDeshabilitado?: boolean;
@@ -103,7 +104,7 @@ export const PasosLayout: React.FC<Props> = ({
                         <IconChevronLeft size={16} /> Atrás
                     </Button>
                 )}
-                <Button type="button" variant="outline" className="rounded-full" onClick={onBorrador}>Guardar borrador</Button>
+                {onBorrador && <Button type="button" variant="outline" className="rounded-full" onClick={onBorrador}>Guardar borrador</Button>}
                 {totalVisita && (
                     <div className="ml-auto text-right leading-tight">
                         <small className="block text-[11.5px] text-muted-foreground">Total de la visita</small>
