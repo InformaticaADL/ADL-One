@@ -187,6 +187,11 @@ router.get('/equipos/:id/documento', verifyToken, verifyPermission('MA_A_GEST_EQ
 // OI-FoGe-22 ficha técnica, OI-FoGe-24 historial por año, OI-FoGe-36 ficha de
 // entrega. Solo leen: también los usa Verificación de Temperatura.
 const permisoFichas = [verifyToken, verifyPermission(['MA_A_GEST_EQUIPO', 'GC_VERIF_TEMP'])];
+// Firmas de las fichas: importar una registrada o firmar desde el celular con un QR.
+router.get('/equipos/fichas/firmas-registradas', ...permisoFichas, fichasEquipo.firmasRegistradas);
+router.get('/equipos/fichas/firmas-registradas/:tipo/:id', ...permisoFichas, fichasEquipo.firmaRegistrada);
+router.post('/equipos/fichas/firma-remota', ...permisoFichas, fichasEquipo.firmaRemotaCrear);
+router.get('/equipos/fichas/firma-remota/:token', ...permisoFichas, fichasEquipo.firmaRemotaEstado);
 router.post('/equipos/fichas/entrega/pdf', ...permisoFichas, fichasEquipo.entregaPdf);
 router.post('/equipos/fichas/recepcion/pdf', ...permisoFichas, fichasEquipo.recepcionPdf);
 router.get('/equipos/:id/fichas/historial', ...permisoFichas, fichasEquipo.historialAnios);

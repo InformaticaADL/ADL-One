@@ -81,3 +81,22 @@ export const ordenarObservacion = (texto: string): string => {
         .map((x) => x.l)
         .join('\n');
 };
+
+// --- Observación escrita a mano: la fecha de hoy va al comienzo y no se puede borrar ---
+
+/** "18.11.26 " (día.mes.año de 2 dígitos y un espacio): como se fechan las líneas de la observación. */
+export const prefijoFechaHoy = (hoy: Date = new Date()): string => {
+    const dd = String(hoy.getDate()).padStart(2, '0');
+    const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+    return `${dd}.${mm}.${String(hoy.getFullYear()).slice(2)} `;
+};
+
+/** Lo que se escribe en el campo, con la fecha siempre al comienzo (si se borra o se daña, se repone). */
+export const conPrefijoFecha = (valor: string, prefijo: string): string => {
+    if (valor.startsWith(prefijo)) return valor;
+    return prefijo + valor.replace(/^[\d.\s]*/, '');
+};
+
+/** El texto que escribió la persona, sin la fecha del comienzo. */
+export const textoSinPrefijo = (valor: string, prefijo: string): string =>
+    (valor.startsWith(prefijo) ? valor.slice(prefijo.length) : valor).trim();

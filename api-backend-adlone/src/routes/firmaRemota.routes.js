@@ -41,10 +41,12 @@ router.use((req, res, next) => {
 });
 
 router.get('/assets/firma.js', (req, res) => res.sendFile(path.join(DIR, 'firma.js')));
+router.get('/assets/ficha.js', (req, res) => res.sendFile(path.join(DIR, 'ficha.js')));
 
 router.get('/api/:token', (req, res) => {
     if (!TOKEN.test(req.params.token)) return errorResponse(res, 'Enlace no válido', 404);
     try {
+        if (firmaRemotaService.tipoSesion(req.params.token) === 'FICHA') return successResponse(res, firmaRemotaService.infoFicha(req.params.token));
         return successResponse(res, firmaRemotaService.info(req.params.token));
     } catch (e) {
         return errorResponse(res, e.message, e.statusCode || 500);
@@ -57,6 +59,11 @@ router.get('/api/:token', (req, res) => {
 router.post('/api/:token', async (req, res) => {
     if (!TOKEN.test(req.params.token)) return errorResponse(res, 'Enlace no válido', 404);
     try {
+        // Ficha de equipo: una firma (slot) por vez; vuelven a la web, no se registran en el equipo.
+        if (firmaRemotaService.tipoSesion(req.params.token) === 'FICHA') {
+            const estado = firmaRemotaService.recibirFirmaFicha(req.params.token, req.body?.slot, req.body?.firma);
+            return successResponse(res, estado, 'Firma enviada');
+        }
         const f = firmaRemotaService.recibirFirma(req.params.token, req.body?.firma);
         await verificacionTemperaturaService.firmar(f.idVerificacion, f.idUsuario, { id_muestreador: f.idMuestreador, firma: f.firma });
         logger.info(`[FirmaRemota] Ficha ${f.idVerificacion} firmada desde el celular y registrada en el equipo`);
@@ -91,7 +98,9 @@ router.post('/api/:token/abrir/:idVerificacion', async (req, res) => {
 
 router.get('/:token', (req, res) => {
     if (!TOKEN.test(req.params.token)) return res.status(404).send('Enlace no válido');
-    return res.sendFile(path.join(DIR, 'index.html'));
+    let archivo = 'index.html';
+    try { if (firmaRemotaService.tipoSesion(req.params.token) === 'FICHA') archivo = 'ficha.html'; } catch { /* enlace vencido: la página lo avisa */ }
+    return res.sendFile(path.join(DIR, archivo));
 });
 
 export default router;

@@ -1313,8 +1313,12 @@ export const equipoService = {
             const eqAsoc = data.hasOwnProperty('equipo_asociado') ? data.equipo_asociado : current.equipo_asociado;
             requestMain.input('equipo_asociado', sql.VarChar(200), (eqAsoc === null || eqAsoc === undefined || eqAsoc === 'No Aplica') ? '0' : String(eqAsoc));
 
-            // La observación se guarda con sus líneas ordenadas por fecha (más nueva abajo).
-            requestMain.input('observacion', sql.VarChar(8000), data.hasOwnProperty('observacion') ? (ordenarObservacion(data.observacion) || '') : (current.observacion || ''));
+            // La observación se guarda con sus líneas ordenadas por fecha (más nueva abajo). Lo que llega en
+            // observacion_agregada (la observación obligatoria de una actualización o de una revisión) se
+            // pone al final, debajo de todo lo anterior, sin reordenarse con las fechas de las otras líneas.
+            const observacionBase = data.hasOwnProperty('observacion') ? (ordenarObservacion(data.observacion) || '') : (current.observacion || '');
+            const observacionAgregada = String(data.observacion_agregada ?? '').trim();
+            requestMain.input('observacion', sql.VarChar(8000), [String(observacionBase).trim(), observacionAgregada].filter(Boolean).join('\n'));
 
             const visMuest = data.hasOwnProperty('visible_muestreador') ? data.visible_muestreador : current.visible_muestreador;
             requestMain.input('visible_muestreador', sql.VarChar(1), (visMuest === 'SI' || visMuest === 'S') ? 'S' : 'N');

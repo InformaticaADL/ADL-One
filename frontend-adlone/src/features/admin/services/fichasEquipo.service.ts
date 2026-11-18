@@ -148,7 +148,37 @@ const comoPdf = (res: { data: Blob; headers: Record<string, unknown> }, porDefec
     return { url: URL.createObjectURL(res.data), nombre };
 };
 
+// --- FIRMAS DE LAS FICHAS: importar una registrada o firmar desde el celular (QR) ---
+export interface FirmaRegistrada { tipo: 'USUARIO' | 'MUESTREADOR'; id: number; nombre: string; cargo: string | null }
+export interface SesionFirmaFicha { token: string; url: string; qr: string; expira: string }
+export interface EstadoFirmaFicha {
+    estado: 'pendiente' | 'completo';
+    expira: string;
+    slots: { id: string; firmada: boolean; firma: string | null }[];
+}
+
+// La lista de firmas registradas se pide una vez por sesión de la pantalla (la usan varios campos a la vez).
+let firmasRegistradasEnCurso: Promise<FirmaRegistrada[]> | null = null;
+
 export const fichasEquipoService = {
+    /** Personas con firma registrada (sin la imagen). */
+    firmasRegistradas: (): Promise<FirmaRegistrada[]> => {
+        if (!firmasRegistradasEnCurso) {
+            firmasRegistradasEnCurso = apiClient.get(`${BASE}/fichas/firmas-registradas`)
+                .then((r) => r.data.data as FirmaRegistrada[])
+                .catch((e) => { firmasRegistradasEnCurso = null; throw e; });
+        }
+        return firmasRegistradasEnCurso;
+    },
+    /** Imagen (data URL) de la firma registrada de una persona. */
+    imagenFirmaRegistrada: async (tipo: FirmaRegistrada['tipo'], id: number) =>
+        (await apiClient.get(`${BASE}/fichas/firmas-registradas/${tipo}/${id}`)).data.data.firma as string,
+    /** Genera el QR para firmar desde el celular las firmas que faltan (enlace de un solo uso, 15 minutos). */
+    crearFirmaRemota: async (cuerpo: { titulo: string; subtitulo?: string; slots: { id: string; titulo: string; nombre?: string | null }[] }) =>
+        (await apiClient.post(`${BASE}/fichas/firma-remota`, cuerpo)).data.data as SesionFirmaFicha,
+    estadoFirmaRemota: async (token: string) =>
+        (await apiClient.get(`${BASE}/fichas/firma-remota/${token}`)).data.data as EstadoFirmaFicha,
+
     historialAnios: async (idEquipo: number) =>
         (await apiClient.get(`${BASE}/${idEquipo}/fichas/historial`)).data.data as HistorialAnios,
 

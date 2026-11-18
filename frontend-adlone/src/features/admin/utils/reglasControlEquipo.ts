@@ -68,3 +68,11 @@ export const sumarMeses = (fechaISO: string, meses: number): string => {
     const p = (n: number) => String(n).padStart(2, '0');
     return `${anio}-${p(mesDestino + 1)}-${p(Math.min(Number(m[3]), ultimoDia))}`;
 };
+
+/** Color de cada tipo de control en el Plan (barras, puntos y chips). */
+export const COLOR_CONTROL: Record<string, { barra: string; punto: string }> = {
+    MANTENCION_ANUAL: { barra: 'bg-primary', punto: 'bg-primary' },
+    CONTRASTACION_SEMESTRAL: { barra: 'bg-amber-500', punto: 'bg-amber-500' },
+    VERIFICACION_TRIMESTRAL: { barra: 'bg-emerald-500', punto: 'bg-emerald-500' },
+    CALIBRACION_ANUAL: { barra: 'bg-sky-500', punto: 'bg-sky-500' },
+};

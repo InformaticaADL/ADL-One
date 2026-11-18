@@ -28,13 +28,14 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
 import { descargarDocumentoRevision, formatearTamano } from '../utils/documentosEquipo';
-import { ordenarObservacion } from '../utils/observacionEquipo';
+import { ordenarObservacion, prefijoFechaHoy, conPrefijoFecha, textoSinPrefijo } from '../utils/observacionEquipo';
+import { Textarea } from '@/components/ui/textarea';
 import { controlDeEquipo, sumarMeses, type ReglasControl, type ModalidadControl } from '../utils/reglasControlEquipo';
 import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
 import { adminService } from '../../../services/admin.service';
@@ -282,6 +283,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const [showHistory, setShowHistory] = useState(false);
     const [showSaveConfirm, setShowSaveConfirm] = useState(false);
     const [showRevisionConfirm, setShowRevisionConfirm] = useState(false);
+    // Observación obligatoria al registrar una revisión: queda como una línea fechada en la observación del equipo.
+    const [obsRevision, setObsRevision] = useState('');
+    // Al actualizar un equipo: la observación obligatoria que acompaña el cambio.
+    const [obsActualizar, setObsActualizar] = useState('');
     const [compareVersion, setCompareVersion] = useState<any | null>(null);
     const [compareOnlyChanges, setCompareOnlyChanges] = useState(false);
     const [editingObsIdx, setEditingObsIdx] = useState<number | null>(null);
@@ -1091,8 +1096,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             showToast({ type: 'error', message: 'Por favor complete todos los campos obligatorios.' });
             return;
         }
-        // Edición → ir directo a confirmar guardado
+        // Edición → ir directo a confirmar guardado, con la observación obligatoria ya fechada
         if (initialData?.id_equipo) {
+            setObsActualizar(prefijoFechaHoy());
             setShowSaveConfirm(true);
             return;
         }
@@ -1107,7 +1113,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         }
     };
 
-    const handleSave = async () => {
+    const handleSave = async (observacionNueva?: string) => {
         setLoading(true);
         setShowSaveConfirm(false);
         try {
@@ -1127,8 +1133,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         setDocUploading(false);
                     }
                 }
+                // La observación obligatoria de la actualización (ya fechada) viaja aparte: el servidor la guarda
+                // debajo de las anteriores, sin reordenarla con ellas.
                 const data = {
                     ...formData,
+                    ...(observacionNueva?.trim() ? { observacion_agregada: observacionNueva.trim() } : {}),
                     documento_nombre: documentoNombre,
                     documento_ruta: documentoRuta,
                     equipo_asociado: (formData.equipo_asociado === 'No Aplica' || !formData.equipo_asociado) ? '0' : String(formData.equipo_asociado),
@@ -1598,7 +1607,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 <Input
                                                     placeholder="Presione para registrar hoy"
                                                     value={formData.ultima_verificacion === originalUltimaVerificacion ? '' : formatDateToSpanish(formData.ultima_verificacion)}
-                                                    onClick={() => setShowRevisionConfirm(true)}
+                                                    onClick={() => { setObsRevision(prefijoFechaHoy()); setShowRevisionConfirm(true); }}
                                                     className="cursor-pointer pr-8"
                                                     readOnly
                                                 />
@@ -2202,23 +2211,72 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 </DialogContent>
             </Dialog>
 
-            <Dialog open={showSaveConfirm} onOpenChange={setShowSaveConfirm}>
-                <DialogContent className="max-w-[420px]">
-                    <DialogHeader>
-                        <DialogTitle>Confirmar Guardado</DialogTitle>
-                    </DialogHeader>
-                    <div className="flex flex-col items-center gap-3 py-2">
-                        <IconDeviceFloppy size={48} className="text-primary" />
-                        <p className="text-center text-sm text-foreground">¿Deseas confirmar los cambios realizados en el sistema?</p>
-                    </div>
-                    <DialogFooter className="sm:justify-stretch">
-                        <Button variant="outline" className="flex-1" onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
-                        <Button className="flex-1" onClick={handleSave}>Sí, confirmar</Button>
-                    </DialogFooter>
-                </DialogContent>
+            <Dialog open={showSaveConfirm} onOpenChange={(abrir) => { setShowSaveConfirm(abrir); if (!abrir) setObsActualizar(''); }}>
+                {initialData?.id_equipo ? (
+                    /* Actualizar un equipo: se ven todas las observaciones hasta ahora y se pide una nueva (obligatoria). */
+                    <DialogContent className="max-w-[560px] grid-cols-[minmax(0,1fr)]">
+                        <DialogHeader>
+                            <DialogTitle>Actualizar equipo</DialogTitle>
+                            <DialogDescription>
+                                {formData.codigo ? `${formData.codigo}${formData.nombre ? ` · ${formData.nombre}` : ''}. ` : ''}Revise las observaciones que ya tiene y agregue la de esta actualización.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex min-w-0 flex-col gap-3">
+                            <div>
+                                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Observaciones hasta el momento</p>
+                                {String(formData.observacion || '').trim() ? (
+                                    <ul className="flex max-h-56 flex-col gap-1 overflow-y-auto rounded-lg border border-border bg-muted/30 p-2">
+                                        {String(formData.observacion).split(/\r?\n/).map((l) => l.trim()).filter(Boolean).map((l, i) => (
+                                            <li key={i} className="whitespace-pre-wrap break-words rounded bg-background px-2 py-1 text-xs">{l}</li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p className="rounded-lg border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">Este equipo todavía no tiene observaciones.</p>
+                                )}
+                            </div>
+                            <div>
+                                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Observación de esta actualización <span className="text-destructive">*</span></p>
+                                {/* La fecha de hoy ya viene escrita al comienzo (18.11.26) y no se puede borrar: se escribe a continuación. */}
+                                <Textarea
+                                    rows={3}
+                                    autoFocus
+                                    value={obsActualizar}
+                                    onChange={(e) => setObsActualizar(conPrefijoFecha(e.target.value, prefijoFechaHoy()))}
+                                    onFocus={(e) => { const n = e.target.value.length; e.target.setSelectionRange(n, n); }}
+                                    placeholder="Ej.: 18.11.26 se corrigió la sede, cambio de responsable…"
+                                    aria-required="true"
+                                    className={textoSinPrefijo(obsActualizar, prefijoFechaHoy()).length < 3 ? 'border-destructive/50' : undefined}
+                                />
+                                <p className={textoSinPrefijo(obsActualizar, prefijoFechaHoy()).length < 3 ? 'mt-1 text-[11px] text-destructive' : 'mt-1 text-[11px] text-muted-foreground'}>
+                                    {textoSinPrefijo(obsActualizar, prefijoFechaHoy()).length < 3 ? 'Obligatoria: escriba qué se cambió, después de la fecha, para poder actualizar.' : 'Se agrega a las observaciones del equipo tal como está escrita.'}
+                                </p>
+                            </div>
+                        </div>
+                        <DialogFooter className="sm:justify-stretch">
+                            <Button variant="outline" className="flex-1" onClick={() => { setShowSaveConfirm(false); setObsActualizar(''); }}>No, revisar</Button>
+                            <Button className="flex-1" disabled={textoSinPrefijo(obsActualizar, prefijoFechaHoy()).length < 3} onClick={() => { const t = obsActualizar; setObsActualizar(''); handleSave(t); }}>
+                                <IconDeviceFloppy size={16} /> Actualizar
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                ) : (
+                    <DialogContent className="max-w-[420px]">
+                        <DialogHeader>
+                            <DialogTitle>Confirmar Guardado</DialogTitle>
+                        </DialogHeader>
+                        <div className="flex flex-col items-center gap-3 py-2">
+                            <IconDeviceFloppy size={48} className="text-primary" />
+                            <p className="text-center text-sm text-foreground">¿Deseas confirmar los cambios realizados en el sistema?</p>
+                        </div>
+                        <DialogFooter className="sm:justify-stretch">
+                            <Button variant="outline" className="flex-1" onClick={() => setShowSaveConfirm(false)}>No, revisar</Button>
+                            <Button className="flex-1" onClick={() => handleSave()}>Sí, confirmar</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                )}
             </Dialog>
 
-            <Dialog open={showRevisionConfirm} onOpenChange={setShowRevisionConfirm}>
+            <Dialog open={showRevisionConfirm} onOpenChange={(abrir) => { setShowRevisionConfirm(abrir); if (!abrir) setObsRevision(''); }}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>Registrar Revisión</DialogTitle>
@@ -2249,19 +2307,39 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </div>
                             </div>
                         </div>
+                        <div>
+                            <p className="mb-1.5 text-xs font-medium text-muted-foreground">Observación <span className="text-destructive">*</span></p>
+                            <Textarea
+                                rows={3}
+                                value={obsRevision}
+                                onChange={(e) => setObsRevision(conPrefijoFecha(e.target.value, prefijoFechaHoy()))}
+                                onFocus={(e) => { const n = e.target.value.length; e.target.setSelectionRange(n, n); }}
+                                placeholder="Ej.: 18.11.26 se revisó el equipo y funciona según lo esperado…"
+                                aria-required="true"
+                                className={textoSinPrefijo(obsRevision, prefijoFechaHoy()).length < 3 ? 'border-destructive/50' : undefined}
+                            />
+                            <p className={textoSinPrefijo(obsRevision, prefijoFechaHoy()).length < 3 ? 'mt-1 text-[11px] text-destructive' : 'mt-1 text-[11px] text-muted-foreground'}>
+                                {textoSinPrefijo(obsRevision, prefijoFechaHoy()).length < 3 ? 'Obligatoria: escriba qué se revisó, después de la fecha, para poder registrar.' : 'Se agrega a la observación del equipo tal como está escrita.'}
+                            </p>
+                        </div>
                         <p className="text-xs text-muted-foreground">
                             * Al confirmar, se actualizará el estado temporal del equipo. Los cambios se guardarán definitivamente al presionar el botón "Actualizar" del formulario.
                         </p>
                     </div>
                     <DialogFooter className="sm:justify-stretch">
-                        <Button variant="outline" className="flex-1" onClick={() => setShowRevisionConfirm(false)}>
+                        <Button variant="outline" className="flex-1" onClick={() => { setShowRevisionConfirm(false); setObsRevision(''); }}>
                             Cancelar
                         </Button>
                         <Button
                             className="flex-1"
+                            disabled={textoSinPrefijo(obsRevision, prefijoFechaHoy()).length < 3}
                             onClick={() => {
                                 handleSetToday();
+                                // La observación obligatoria ya trae la fecha de hoy al comienzo.
+                                const linea = obsRevision.trim();
+                                setFormData((p: any) => ({ ...p, observacion: ordenarObservacion([String(p.observacion || '').trim(), linea].filter(Boolean).join('\n')) }));
                                 setShowRevisionConfirm(false);
+                                setObsRevision('');
                             }}
                         >
                             Confirmar y Registrar
