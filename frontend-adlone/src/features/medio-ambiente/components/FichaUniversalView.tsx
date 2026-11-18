@@ -555,15 +555,15 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                 </Button>
                             )
                         )}
-                        {!isEditing && ![7, 8].includes(Number(data?.id_validaciontecnica)) && !esVisita && (
+                        {!isEditing && ![7, 8].includes(Number(data?.id_validaciontecnica)) && (
                             <ProtectedContent permission={['FI_EDITAR', 'MA_CALENDARIO_CANCELAR']}>
                                 <Button
                                     variant="outline"
                                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    title="Cancelar la ficha con un motivo (por ejemplo, si está duplicada). No se borra nada."
+                                    title={esVisita ? 'Cancelar la visita completa con un motivo (por ejemplo, si está duplicada). No se borra nada.' : 'Cancelar la ficha con un motivo (por ejemplo, si está duplicada). No se borra nada.'}
                                     onClick={() => setShowCancelarFicha(true)}
                                 >
-                                    <IconX size={18} /> Cancelar ficha
+                                    <IconX size={18} /> {esVisita ? 'Cancelar visita' : 'Cancelar ficha'}
                                 </Button>
                             </ProtectedContent>
                         )}
@@ -988,11 +988,14 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
             <Dialog open={showCancelarFicha} onOpenChange={setShowCancelarFicha}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Cancelar la ficha {data?.fichaingresoservicio ? `N° ${data.fichaingresoservicio}` : ''}</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{esVisita ? `Cancelar la visita completa (${grupo!.total} puntos)` : `Cancelar la ficha ${data?.fichaingresoservicio ? `N° ${data.fichaingresoservicio}` : ''}`}</DialogTitle></DialogHeader>
                     <div className="flex flex-col gap-4">
                         <p className="text-[13px]">
-                            La ficha queda como <strong>CANCELADA</strong> y sale de las bandejas de Área Técnica, Coordinación y Asignación. No se borra:
-                            queda el motivo y quién la canceló en su historial. Esta acción es irreversible.
+                            {esVisita
+                                ? <>Los <strong>{grupo!.total} puntos</strong> de la visita ({grupo!.puntos.map((p) => p.punto).join(', ')}) quedan como <strong>CANCELADOS</strong>, salen de las bandejas de Área Técnica, Coordinación y Asignación y la visita se deshace. No se borra:
+                                  queda el motivo y quién la canceló en el historial de cada punto. Esta acción es irreversible.</>
+                                : <>La ficha queda como <strong>CANCELADA</strong> y sale de las bandejas de Área Técnica, Coordinación y Asignación. No se borra:
+                                  queda el motivo y quién la canceló en su historial. Esta acción es irreversible.</>}
                         </p>
                         <div>
                             <span className="mb-1 block text-xs">Motivo *</span>
@@ -1016,6 +1019,13 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             onClick={async () => {
                                 setCancelandoFicha(true);
                                 try {
+                                    if (esVisita) {
+                                        await fichaService.cancelarVisita(Number(fichaId), Number(motivoFichaId), obsCancelarFicha.trim());
+                                        showToast({ type: 'success', message: 'Visita cancelada correctamente.' });
+                                        setShowCancelarFicha(false);
+                                        onBack();
+                                        return;
+                                    }
                                     await fichaService.cancelarFicha(Number(fichaId), Number(motivoFichaId), obsCancelarFicha.trim());
                                     showToast({ type: 'success', message: 'Ficha cancelada correctamente.' });
                                     setShowCancelarFicha(false);
@@ -1028,7 +1038,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             }}
                         >
                             {cancelandoFicha && <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />}
-                            Sí, cancelar la ficha
+                            {esVisita ? 'Sí, cancelar la visita' : 'Sí, cancelar la ficha'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

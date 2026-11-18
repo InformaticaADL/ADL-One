@@ -208,6 +208,11 @@ export const fichaService = {
         const response = await apiClient.post(`/api/fichas/${id}/cancel-ficha`, { idMotivo, observacion });
         return response.data;
     },
+    // Cancela una visita completa (duplicada o creada por error) con motivo: todos sus puntos. No borra nada.
+    cancelarVisita: async (id: number, idMotivo: number, observacion: string) => {
+        const response = await apiClient.post(`/api/fichas/${id}/cancelar-visita`, { idMotivo, observacion });
+        return response.data;
+    },
     // Quita la asignación (responsable y fecha): el servicio vuelve a quedar pendiente de coordinar. No es una cancelación.
     quitarAsignacion: async (idsAgenda: number[], observacion?: string) => {
         const response = await apiClient.post('/api/fichas/unassign-agenda', { idsAgenda, observacion });

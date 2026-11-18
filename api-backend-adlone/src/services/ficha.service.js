@@ -2354,6 +2354,38 @@ class FichaIngresoService {
         return { rechazados, fallidos, total: ids.length };
     }
 
+    // Cancela una visita COMPLETA (por ejemplo, una visita duplicada o creada por error): cada ficha queda CANCELADA con el mismo motivo y la visita
+    // se deshace. No se borra nada. Mismas reglas que cancelar una ficha suelta (no se cancela un punto ya ejecutado, iniciado en terreno, con
+    // documentos enviados o con caso de laboratorio) y todo o nada: si un punto no se puede cancelar, no se cancela ninguno.
+    async cancelarVisita(id, { idMotivo, observacion }, user) {
+        if (!Number(idMotivo)) throw this._errorDatos('Debe indicar el motivo de la cancelación.');
+        if (!String(observacion || '').trim()) throw this._errorDatos('Debe escribir una observación para cancelar la visita.');
+        const grupo = await this.getGrupoDeFicha(id);
+        if (!grupo) throw this._errorDatos('La ficha no forma parte de una visita: cancélela como ficha.');
+        const ids = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
+        const pool = await getConnection();
+        const userId = user ? (user.id_usuario || user.id || 0) : 0;
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            // Sale del grupo primero: cancelarFicha no cancela fichas que siguen dentro de una visita.
+            await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g');
+            await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo WHERE id_grupo = @g');
+            for (const idFicha of ids) {
+                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction });
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Visita cancelada completa (grupo de muestreo #${grupo.id_grupo}, ${ids.length} puntos).`,
+                });
+            }
+            await transaction.commit();
+            return { success: true, canceladas: ids, id_grupo: grupo.id_grupo };
+        } catch (error) {
+            try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
+            throw error;
+        }
+    }
+
     // Quita puntos de una visita: cada ficha quitada se CANCELA con un motivo (no se borra nada) y deja de ser parte de la visita. Mismas reglas
     // que cancelar una ficha: no se puede si el punto ya se ejecutó, el muestreador empezó, se enviaron sus documentos o tiene caso de laboratorio.
     // Todo en una transacción: si un punto no se puede quitar, no se quita ninguno. Debe quedar al menos un punto; si queda uno solo, la visita

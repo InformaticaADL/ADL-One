@@ -28,6 +28,7 @@ router.put('/:id/acompanante', authenticate, verifyPermission('FI_GEST_ASIG'), f
 router.post('/:id/approve', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), fichaController.approve);
 router.post('/:id/approve-visita/tecnica', authenticate, verifyPermission('FI_APROBAR_TEC'), validateRequest(fichaValidationSchemas.approve), (req, res) => fichaController.aprobarVisita(Object.assign(req, { params: { ...req.params, etapa: 'tecnica' } }), res));
 router.post('/:id/approve-visita/coordinacion', authenticate, verifyPermission('FI_APROBAR_COO'), validateRequest(fichaValidationSchemas.approveCoordinacion), (req, res) => fichaController.aprobarVisita(Object.assign(req, { params: { ...req.params, etapa: 'coordinacion' } }), res));
+router.post('/:id/cancelar-visita', authenticate, verifyPermission(['FI_EDITAR', 'MA_CALENDARIO_CANCELAR']), fichaController.cancelarVisita);
 router.post('/:id/quitar-puntos', authenticate, verifyPermission('FI_EDITAR'), fichaController.quitarPuntosVisita);
 router.post('/:id/agregar-puntos', authenticate, verifyPermission('FI_EDITAR'), fichaController.agregarPuntosVisita);
 router.post('/:id/editar-visita', authenticate, verifyPermission('FI_EDITAR'), fichaController.actualizarVisita);

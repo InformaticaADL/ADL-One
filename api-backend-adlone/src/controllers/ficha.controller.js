@@ -328,6 +328,19 @@ class FichaIngresoController {
         }
     }
 
+    // Cancela la visita completa (duplicada o creada por error): todos sus puntos, con un motivo
+    async cancelarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { idMotivo, observacion } = req.body || {};
+            const result = await fichaService.cancelarVisita(id, { idMotivo, observacion }, req.user || { id: 0 });
+            return successResponse(res, result, 'Visita cancelada');
+        } catch (err) {
+            logger.error('Error in cancelarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al cancelar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
     // «Editar visita»: quita puntos de la visita (cada uno se cancela con un motivo)
     async quitarPuntosVisita(req, res) {
         try {
