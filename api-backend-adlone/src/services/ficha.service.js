@@ -24,6 +24,7 @@ class FichaIngresoService {
                     c.nombre_empresa as empresa_facturar,
                     es.nombre_empresaservicios as empresa_servicio,
                     cen.nombre_centro as fuente_emisora,
+                    f.ma_punto_muestreo as punto_muestreo,
                     obj.nombre_objetivomuestreo_ma as objetivo_muestreo,
                     f.observaciones_comercial,
                     f.observaciones_jefaturatecnica,
@@ -38,11 +39,31 @@ class FichaIngresoService {
             `);
             
             const data = res.recordset[0] || {};
+
+            // Si la ficha es un punto de una visita, los avisos y correos hablan de la VISITA (centro y cantidad de puntos), no de una ficha suelta.
+            let puntosVisita = [];
+            try {
+                const g = await new sql.Request(poolOrTransaction).input('idF2', sql.Numeric(10, 0), idFicha).query(`
+                    SELECT e.ma_punto_muestreo AS punto
+                    FROM App_Ma_GrupoMuestreo_Ficha gf
+                    JOIN App_Ma_FichaIngresoServicio_ENC e ON e.id_fichaingresoservicio = gf.id_fichaingresoservicio
+                    WHERE gf.id_grupo = (SELECT TOP 1 id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @idF2)
+                    ORDER BY gf.orden, gf.id_fichaingresoservicio`);
+                puntosVisita = g.recordset.map((r) => String(r.punto || '').trim()).filter(Boolean);
+            } catch (e) { /* sin grupo: se avisa como ficha suelta */ }
+            const esVisita = puntosVisita.length > 1;
+            const centro = String(data.fuente_emisora || 'Sin centro').trim();
             
             // Determinar observacion más reciente (simplificado, o puedes pasarla como param)
             
             const now = new Date();
             return {
+                // Cómo se llama el registro en textos y correos: «Visita «Edwards» (6 puntos)» o «Ficha #1081»
+                TIPO_REGISTRO: esVisita ? 'Visita' : 'Ficha',
+                TIPO_REGISTRO_MIN: esVisita ? 'visita' : 'ficha',
+                REGISTRO: esVisita ? `«${centro}» (${puntosVisita.length} puntos)` : `#${idFicha}`,
+                LISTA_PUNTOS_VISITA: esVisita ? puntosVisita.join(', ') : '',
+                PUNTO_FICHA: esVisita ? '' : String(data.punto_muestreo || puntosVisita[0] || '').trim(),
                 CORRELATIVO: String(idFicha),
                 ID_FICHA: String(idFicha),
                 ACCION_AREA: accionText,
@@ -61,6 +82,11 @@ class FichaIngresoService {
             // Fallback context
             const now = new Date();
             return {
+                TIPO_REGISTRO: 'Ficha',
+                TIPO_REGISTRO_MIN: 'ficha',
+                REGISTRO: `#${idFicha}`,
+                LISTA_PUNTOS_VISITA: '',
+                PUNTO_FICHA: '',
                 CORRELATIVO: String(idFicha),
                 ID_FICHA: String(idFicha),
                 ACCION_AREA: accionText,
@@ -919,6 +945,10 @@ class FichaIngresoService {
                 coordenadas = (String(ant.utmNorte || '').trim() || String(ant.utmEste || '').trim()) ? `${ant.zona} UTM ${ant.utmNorte || ''}E ${ant.utmEste || ''}S` : ant.zona; // sin coordenadas: solo la zona
             } else if (ant.zona === 'No aplica') { coordenadas = 'No aplica'; }
 
+            // Edición de una visita: soloAntecedentes = no toca los análisis ni el costo operativo; soloAnalisis = no toca el encabezado ni la agenda.
+            const soloAnalisis = data.soloAnalisis === true;
+            const soloAntecedentes = data.soloAntecedentes === true;
+            if (!soloAnalisis) {
             // 2. UPDATE ENCABEZADO (Antecedentes)
             const request = new sql.Request(transaction);
             request.input('id', sql.Numeric(10, 0), id);
@@ -1008,6 +1038,8 @@ class FichaIngresoService {
                 WHERE id_fichaingresoservicio = @id
             `);
 
+            }
+            if (!soloAntecedentes) {
             // 3. UPDATE DETALLE (Analysis Upsert/Soft Delete)
             let itemCounter = 1;
 
@@ -1186,6 +1218,8 @@ class FichaIngresoService {
             }
 
 
+            }
+            if (!soloAnalisis) {
             // 4. SMART SYNC AGENDA
             // ---------------------------------------------------------
             // 4.1 Get current Agenda Logic
@@ -1371,6 +1405,7 @@ class FichaIngresoService {
 
             logger.info(`Regenerated ${corrCounter - 1} correlativos for ficha ${id}`);
 
+            }
             // 5. HISTORY
             await this.logHistorial(transaction, {
                 idFicha: id,
@@ -2229,6 +2264,12 @@ class FichaIngresoService {
         }
     }
 
+    // Si la ficha es un punto de una visita (varios puntos), aprobar o rechazar SIEMPRE se hace con toda la visita: nunca un punto solo.
+    async esParteDeVisita(id) {
+        const g = await this.getGrupoDeFicha(id);
+        return !!g && g.total > 1;
+    }
+
     // Aprueba de una vez TODOS los puntos de la visita a la que pertenece la ficha `id` (los que están pendientes en esa etapa), con las
     // mismas observaciones. Se envía un solo aviso (el de la ficha desde la que se aprueba). etapa: 'tecnica' | 'coordinacion'.
     // Una ficha que no es parte de un grupo se aprueba sola.
@@ -2272,7 +2313,369 @@ class FichaIngresoService {
         return { aprobados, fallidos, total: ids.length };
     }
 
-    async rejectFicha(id, { observaciones }, user) {
+    // Devuelve a Comercial de una vez TODOS los puntos de la visita de la ficha `id` que están pendientes en esa etapa (técnica o coordinación), con el
+    // mismo motivo. Es el rechazo de la visita completa: antes solo se podía rechazar un punto y los demás quedaban esperando. Un solo aviso (el
+    // de la ficha desde la que se rechaza). Una ficha que no es parte de un grupo se rechaza sola.
+    async rechazarVisita(id, { observaciones, etapa }, user) {
+        if (!String(observaciones || '').trim()) throw this._errorDatos('Para devolver la visita debe indicar el motivo.');
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const ids = grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)];
+        const estados = (await pool.request().query(
+            `SELECT id_fichaingresoservicio, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
+        )).recordset;
+        const valida = etapa === 'coordinacion' ? [1] : [0, 3, 4];
+        const pendientes = estados.filter((e) => valida.includes(Number(e.id_validaciontecnica))).map((e) => Number(e.id_fichaingresoservicio));
+        pendientes.sort((a, b) => (a === Number(id) ? -1 : b === Number(id) ? 1 : a - b));
+        if (pendientes.length === 0) throw this._errorDatos('Ningún punto de la visita está pendiente en esta etapa.');
+        const rechazados = [];
+        const fallidos = [];
+        const rechazarUno = (idPunto, i) => (etapa === 'coordinacion'
+            ? this.reviewCoordinacion(idPunto, { observaciones, sinNotificar: i > 0 }, user)
+            : this.rejectFicha(idPunto, { observaciones, sinNotificar: i > 0 }, user));
+        logger.info(`[rechazarVisita] etapa ${etapa}: ficha ${id}, grupo con ${ids.length} puntos, pendientes en esta etapa: ${pendientes.join(', ')}`);
+        for (let i = 0; i < pendientes.length; i++) {
+            try {
+                try {
+                    await rechazarUno(pendientes[i], i);
+                } catch (e1) {
+                    if (e1.statusCode) throw e1;
+                    logger.warn(`[rechazarVisita] ficha ${pendientes[i]} falló (${e1.message}); se reintenta una vez`);
+                    await new Promise((r) => setTimeout(r, 500));
+                    await rechazarUno(pendientes[i], i);
+                }
+                rechazados.push(pendientes[i]);
+            } catch (e) {
+                logger.error(`[rechazarVisita] no se pudo devolver la ficha ${pendientes[i]} (etapa ${etapa}): ${e.message}`, { stack: e.stack });
+                fallidos.push({ id: pendientes[i], error: e.message });
+            }
+        }
+        logger.info(`[rechazarVisita] etapa ${etapa}: devueltos ${rechazados.join(', ') || '-'}; fallidos ${fallidos.map((f) => f.id).join(', ') || '-'}`);
+        return { rechazados, fallidos, total: ids.length };
+    }
+
+    // Cancela una visita COMPLETA (por ejemplo, una visita duplicada o creada por error): cada ficha queda CANCELADA con el mismo motivo y la visita
+    // se deshace. No se borra nada. Mismas reglas que cancelar una ficha suelta (no se cancela un punto ya ejecutado, iniciado en terreno, con
+    // documentos enviados o con caso de laboratorio) y todo o nada: si un punto no se puede cancelar, no se cancela ninguno.
+    async cancelarVisita(id, { idMotivo, observacion }, user) {
+        if (!Number(idMotivo)) throw this._errorDatos('Debe indicar el motivo de la cancelación.');
+        if (!String(observacion || '').trim()) throw this._errorDatos('Debe escribir una observación para cancelar la visita.');
+        const grupo = await this.getGrupoDeFicha(id);
+        if (!grupo) throw this._errorDatos('La ficha no forma parte de una visita: cancélela como ficha.');
+        const ids = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
+        const pool = await getConnection();
+        const userId = user ? (user.id_usuario || user.id || 0) : 0;
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            // Sale del grupo primero: cancelarFicha no cancela fichas que siguen dentro de una visita.
+            await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g');
+            await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo WHERE id_grupo = @g');
+            for (const idFicha of ids) {
+                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction });
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Visita cancelada completa (grupo de muestreo #${grupo.id_grupo}, ${ids.length} puntos).`,
+                });
+            }
+            await transaction.commit();
+            return { success: true, canceladas: ids, id_grupo: grupo.id_grupo };
+        } catch (error) {
+            try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
+            throw error;
+        }
+    }
+
+    // Quita puntos de una visita: cada ficha quitada se CANCELA con un motivo (no se borra nada) y deja de ser parte de la visita. Mismas reglas
+    // que cancelar una ficha: no se puede si el punto ya se ejecutó, el muestreador empezó, se enviaron sus documentos o tiene caso de laboratorio.
+    // Todo en una transacción: si un punto no se puede quitar, no se quita ninguno. Debe quedar al menos un punto; si queda uno solo, la visita
+    // se deshace y ese punto pasa a ser una ficha suelta. Los puntos que quedan vuelven a validación técnica.
+    async quitarPuntosDeVisita(id, { ids, idMotivo, observacion }, user) {
+        const aQuitar = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+        if (aQuitar.length === 0) throw this._errorDatos('No hay puntos que quitar.');
+        if (!Number(idMotivo)) throw this._errorDatos('Debe indicar el motivo.');
+        if (!String(observacion || '').trim()) throw this._errorDatos('Debe escribir una observación para quitar puntos.');
+        const grupo = await this.getGrupoDeFicha(id);
+        if (!grupo) throw this._errorDatos('La ficha no forma parte de una visita.');
+        const todos = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
+        const ajenos = aQuitar.filter((x) => !todos.includes(x));
+        if (ajenos.length > 0) throw this._errorDatos(`Las fichas ${ajenos.join(', ')} no pertenecen a esta visita.`);
+        const quedan = todos.filter((x) => !aQuitar.includes(x));
+        if (quedan.length === 0) throw this._errorDatos('La visita debe conservar al menos un punto.');
+
+        const pool = await getConnection();
+        const userId = user ? (user.id_usuario || user.id || 0) : 0;
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            for (const idFicha of aQuitar) {
+                // Sale de la visita primero: cancelarFicha no cancela fichas que siguen dentro de un grupo.
+                await new sql.Request(transaction).input('f', sql.Numeric(10, 0), idFicha)
+                    .query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @f');
+                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction });
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Ficha quitada de la visita (grupo de muestreo #${grupo.id_grupo}) y cancelada.`,
+                });
+            }
+            let grupoDisuelto = false;
+            if (quedan.length === 1) {
+                // Una visita de un solo punto no existe: el punto que queda pasa a ser una ficha suelta.
+                await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g');
+                await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo WHERE id_grupo = @g');
+                grupoDisuelto = true;
+            }
+            const reenviados = await this._reenviarVisitaATecnica(transaction, quedan, user, 'Se quitaron puntos de la visita: vuelve a validación técnica');
+            await transaction.commit();
+            return { success: true, quitados: aQuitar, quedan, grupoDisuelto, reenviados, id_grupo: grupo.id_grupo };
+        } catch (error) {
+            try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
+            throw error;
+        }
+    }
+
+    // Agrega puntos nuevos a una visita que ya existe (cada uno es una ficha más del mismo grupo). Los datos comunes (cliente, centro, objetivo,
+    // frecuencia…) salen de `antecedentes`, igual que al crear la visita; cada punto trae su ubicación, sus análisis y su parte del costo operativo
+    // (`costoOperativo.uf`, ya repartido entre todos los puntos por quien llama). Todo en una transacción: si un punto falla no se crea ninguno.
+    // Los puntos de la visita vuelven a validación técnica. No se avisa por cada ficha nueva.
+    async agregarPuntosAVisita(id, { antecedentes, puntos, observaciones = '' }, user) {
+        if (!antecedentes || typeof antecedentes !== 'object') throw this._errorDatos('Faltan los antecedentes de la visita.');
+        if (!Array.isArray(puntos) || puntos.length === 0) throw this._errorDatos('No hay puntos nuevos que agregar.');
+        const grupo = await this.getGrupoDeFicha(id);
+        if (!grupo) throw this._errorDatos('La ficha no forma parte de una visita.');
+        const existentes = grupo.puntos.map((p) => Number(p.id_fichaingresoservicio));
+        const nombresExistentes = new Set(grupo.puntos.map((p) => String(p.punto || '').trim().toLowerCase()));
+        const nuevos = puntos.map((p) => ({ ...p, puntoMuestreo: String(p.puntoMuestreo || '').trim() }));
+        const vistos = new Set();
+        for (const p of nuevos) {
+            if (!p.puntoMuestreo) throw this._errorDatos('Todos los puntos nuevos necesitan un nombre.');
+            const k = p.puntoMuestreo.toLowerCase();
+            if (nombresExistentes.has(k) || vistos.has(k)) throw this._errorDatos(`El punto "${p.puntoMuestreo}" está repetido.`);
+            vistos.add(k);
+            if (!Array.isArray(p.analisis) || p.analisis.length === 0) throw this._errorDatos(`El punto "${p.puntoMuestreo}" no tiene análisis.`);
+        }
+        const pool = await getConnection();
+        const estados = (await pool.request().query(
+            `SELECT id_fichaingresoservicio id, id_validaciontecnica v FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${existentes.join(',')})`
+        )).recordset;
+        const bloqueadas = estados.filter((e) => ![0, 1, 2, 3, 4].includes(Number(e.v))).map((e) => e.id);
+        if (bloqueadas.length > 0) throw this._errorDatos(`No se pueden agregar puntos: las fichas ${bloqueadas.join(', ')} ya están en otra etapa.`);
+
+        const userId = user ? (user.id_usuario || user.id || 0) : 0;
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            const creados = [];
+            const despues = [];
+            for (const p of nuevos) {
+                const r = await this.createFicha({
+                    antecedentes: {
+                        ...antecedentes,
+                        puntoMuestreo: p.puntoMuestreo,
+                        zona: p.zona ?? '',
+                        utmNorte: p.utmNorte ?? '',
+                        utmEste: p.utmEste ?? '',
+                        refGoogle: p.refGoogle ?? '',
+                        ubicacion_lat: null,
+                        ubicacion_lon: null,
+                    },
+                    analisis: p.analisis,
+                    costoOperativo: p.costoOperativo || { activo: true, uf: 0 },
+                    observaciones: observaciones || 'Punto agregado a la visita',
+                    user: user || { id: userId },
+                }, { transaction, sinNotificar: true });
+                creados.push(r.id);
+                despues.push(r.despuesDeConfirmar);
+            }
+            const mx = (await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo)
+                .query('SELECT ISNULL(MAX(orden), 0) AS mx FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g')).recordset[0].mx;
+            for (const [i, idFicha] of creados.entries()) {
+                await new sql.Request(transaction)
+                    .input('g', sql.Int, grupo.id_grupo)
+                    .input('f', sql.Numeric(10, 0), idFicha)
+                    .input('o', sql.Int, Number(mx) + i + 1)
+                    .query('INSERT INTO App_Ma_GrupoMuestreo_Ficha (id_grupo, id_fichaingresoservicio, orden) VALUES (@g, @f, @o)');
+                await this.logHistorial(transaction, {
+                    idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Ficha agregada como punto ${existentes.length + i + 1} de la visita (grupo de muestreo #${grupo.id_grupo}).`,
+                });
+            }
+            const reenviados = await this._reenviarVisitaATecnica(transaction, existentes, user, 'Se agregaron puntos a la visita: vuelve a validación técnica');
+            await transaction.commit();
+            for (const fn of despues) { try { await fn(); } catch (e) { logger.warn('Post-creación de punto agregado:', e); } }
+            return { success: true, creados, id_grupo: grupo.id_grupo, reenviados };
+        } catch (error) {
+            logger.error('Error agregando puntos a la visita:', error);
+            try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
+            throw this._errorGrupo ? this._errorGrupo(error) : error;
+        }
+    }
+
+    // Toda edición de una visita la devuelve a validación técnica (igual que editar una ficha suelta): los puntos que estaban rechazados o esperando
+    // coordinación vuelven a «Pendiente Técnica». Los que ya están ahí no cambian. Devuelve los ids que se movieron.
+    async _reenviarVisitaATecnica(transaction, ids, user, motivo) {
+        const lista = ids.map(Number).filter((n) => Number.isFinite(n));
+        if (lista.length === 0) return [];
+        const afectados = (await new sql.Request(transaction).query(
+            `SELECT id_fichaingresoservicio id, estado_ficha FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${lista.join(',')}) AND id_validaciontecnica IN (1, 2, 4)`
+        )).recordset;
+        for (const a of afectados) {
+            await new sql.Request(transaction).input('id', sql.Numeric(10, 0), a.id)
+                .query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 3, estado_ficha = 'PENDIENTE TÉCNICA' WHERE id_fichaingresoservicio = @id");
+            await this.logHistorial(transaction, { idFicha: a.id, idUsuario: user?.id || 0, accion: 'REENVIO_A_TECNICA', estadoAnterior: String(a.estado_ficha || ''), estadoNuevo: 'Pendiente Técnica', observacion: motivo });
+        }
+        return afectados.map((a) => Number(a.id));
+    }
+
+    // Edita una visita desde «Editar visita»: `antecedentes` (lo común a todos los puntos; cada punto conserva su nombre, zona, coordenadas y mapa) y/o
+    // `analisisPorFicha` ([{ id, analisis, costoOperativo }], los análisis y el precio de cada punto). Cada ficha se guarda por separado (una falla no
+    // deshace las demás: se informa cuáles no se pudieron guardar). Al final los puntos vuelven a validación técnica.
+    async actualizarVisita(id, { antecedentes = null, analisisPorFicha = null, observaciones = '' }, user) {
+        const hayAnalisis = Array.isArray(analisisPorFicha) && analisisPorFicha.length > 0;
+        if (!antecedentes && !hayAnalisis) throw this._errorDatos('No hay nada que guardar.');
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const ids = grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)];
+        const filas = (await pool.request().query(
+            `SELECT id_fichaingresoservicio id, ma_punto_muestreo, ma_coordenadas, referencia_googlemaps, ubicacion_lat, ubicacion_lon, id_validaciontecnica v
+             FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
+        )).recordset;
+        const bloqueadas = filas.filter((f) => ![0, 1, 2, 3, 4].includes(Number(f.v))).map((f) => f.id);
+        if (bloqueadas.length > 0) throw this._errorDatos(`No se puede editar la visita: las fichas ${bloqueadas.join(', ')} ya están en otra etapa.`);
+        if (hayAnalisis) {
+            for (const a of analisisPorFicha) {
+                if (!ids.includes(Number(a.id))) throw this._errorDatos(`La ficha ${a.id} no pertenece a esta visita.`);
+                if (!Array.isArray(a.analisis) || a.analisis.length === 0) throw this._errorDatos(`La ficha ${a.id} quedaría sin análisis.`);
+            }
+        }
+        const actualizados = [];
+        const fallidos = [];
+        const guardar = async (idFicha, datos) => {
+            try {
+                try {
+                    await this.updateFicha(idFicha, { ...datos, observaciones }, user);
+                } catch (e1) {
+                    if (e1.statusCode) throw e1;
+                    logger.warn(`[actualizarVisita] ficha ${idFicha} falló (${e1.message}); se reintenta una vez`);
+                    await new Promise((r) => setTimeout(r, 500));
+                    await this.updateFicha(idFicha, { ...datos, observaciones }, user);
+                }
+                return true;
+            } catch (e) {
+                logger.error(`[actualizarVisita] no se pudo guardar la ficha ${idFicha}: ${e.message}`, { stack: e.stack });
+                fallidos.push({ id: idFicha, error: e.message });
+                return false;
+            }
+        };
+        if (antecedentes) {
+            for (const f of filas) {
+                const m = String(f.ma_coordenadas || '').match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
+                const propios = {
+                    puntoMuestreo: f.ma_punto_muestreo || '',
+                    zona: m ? m[1] : String(f.ma_coordenadas || ''),
+                    utmNorte: m ? m[2] : '',
+                    utmEste: m ? m[3] : '',
+                    refGoogle: f.referencia_googlemaps || '',
+                    ubicacion_lat: f.ubicacion_lat ?? null,
+                    ubicacion_lon: f.ubicacion_lon ?? null,
+                };
+                if (await guardar(Number(f.id), { antecedentes: { ...antecedentes, ...propios }, analisis: [], soloAntecedentes: true })) actualizados.push(Number(f.id));
+            }
+        }
+        if (hayAnalisis) {
+            for (const a of analisisPorFicha) {
+                if (await guardar(Number(a.id), { antecedentes: {}, analisis: a.analisis, costoOperativo: a.costoOperativo, soloAnalisis: true })) actualizados.push(Number(a.id));
+            }
+        }
+        // Una edición vuelve la visita a validación técnica (solo los puntos que se guardaron bien)
+        const tx = new sql.Transaction(pool);
+        await tx.begin();
+        let reenviados = [];
+        try {
+            reenviados = await this._reenviarVisitaATecnica(tx, [...new Set(actualizados)], user, 'Visita editada: vuelve a validación técnica');
+            await tx.commit();
+        } catch (e) {
+            try { await tx.rollback(); } catch (_) { /* nada */ }
+            logger.error(`[actualizarVisita] no se pudo reenviar a técnica: ${e.message}`);
+        }
+        return { actualizados: [...new Set(actualizados)], fallidos, reenviados, total: ids.length };
+    }
+
+    // Edita SOLO los datos propios de cada punto de una visita (nombre, zona, coordenadas y enlace al mapa). No toca análisis, precios ni los demás
+    // antecedentes: así se puede corregir un punto sin reescribir la ficha entera. Cada punto debe pertenecer a la misma visita que `id` y estar en
+    // un estado que permita editar. Deja una línea en el historial de cada ficha que cambió.
+    async actualizarPuntosVisita(id, puntos, user) {
+        if (!Array.isArray(puntos) || puntos.length === 0) throw this._errorDatos('No hay puntos que actualizar.');
+        const pool = await getConnection();
+        const grupo = await this.getGrupoDeFicha(id);
+        const permitidos = new Set(grupo ? grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)) : [Number(id)]);
+        const limpio = (v, max) => String(v ?? '').trim().slice(0, max);
+        const cambios = puntos.map((p) => ({
+            id: Number(p.id),
+            punto: limpio(p.punto, 200),
+            zona: limpio(p.zona, 50),
+            utmNorte: limpio(p.utmNorte, 20),
+            utmEste: limpio(p.utmEste, 20),
+            refGoogle: limpio(p.refGoogle, 500),
+        }));
+        for (const c of cambios) {
+            if (!permitidos.has(c.id)) throw this._errorDatos(`La ficha ${c.id} no pertenece a esta visita.`);
+            if (!c.punto) throw this._errorDatos(`La ficha ${c.id} no puede quedar sin nombre de punto.`);
+        }
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            const modificados = [];
+            for (const c of cambios) {
+                const actual = (await new sql.Request(transaction).input('id', sql.Numeric(10, 0), c.id).query(
+                    'SELECT ma_punto_muestreo, ma_coordenadas, referencia_googlemaps, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @id'
+                )).recordset[0];
+                if (!actual) throw this._errorDatos(`La ficha ${c.id} no existe.`);
+                if (![0, 1, 2, 3, 4].includes(Number(actual.id_validaciontecnica))) throw this._errorDatos(`La ficha ${c.id} ya no se puede editar (está en otra etapa).`);
+                // Mismo formato que al crear la ficha: «zona UTM {norte}E {este}S»; sin coordenadas solo la zona; «No aplica» tal cual.
+                let coordenadas = null;
+                if (c.zona && c.zona.toLowerCase() !== 'no aplica') coordenadas = (c.utmNorte || c.utmEste) ? `${c.zona} UTM ${c.utmNorte}E ${c.utmEste}S` : c.zona;
+                else if (c.zona) coordenadas = 'No aplica';
+                const puntoActual = String(actual.ma_punto_muestreo || '').trim();
+                const coordActual = String(actual.ma_coordenadas || '');
+                // «No Aplica» y «No aplica» son lo mismo: no cuenta como cambio
+                if (coordenadas && coordActual.toLowerCase() === String(coordenadas).toLowerCase()) coordenadas = coordActual;
+                const refActual = String(actual.referencia_googlemaps || '').trim();
+                if (puntoActual === c.punto && coordActual === String(coordenadas || '') && refActual === c.refGoogle) continue;
+                await new sql.Request(transaction)
+                    .input('id', sql.Numeric(10, 0), c.id)
+                    .input('punto', sql.VarChar(200), c.punto)
+                    .input('coord', sql.VarChar(50), coordenadas)
+                    .input('ref', sql.VarChar(500), c.refGoogle || null)
+                    .query('UPDATE App_Ma_FichaIngresoServicio_ENC SET ma_punto_muestreo = @punto, ma_coordenadas = @coord, referencia_googlemaps = @ref WHERE id_fichaingresoservicio = @id');
+                const que = [];
+                if (puntoActual !== c.punto) que.push(`punto «${puntoActual}» → «${c.punto}»`);
+                if (coordActual !== String(coordenadas || '')) que.push(`ubicación «${coordActual || '-'}» → «${coordenadas || '-'}»`);
+                if (refActual !== c.refGoogle) que.push('enlace al mapa');
+                await this.logHistorial(transaction, { idFicha: c.id, idUsuario: user?.id || 0, accion: 'EDICION_PUNTO', estadoAnterior: '', estadoNuevo: '', observacion: `Edición del punto de la visita: ${que.join('; ')}` });
+                modificados.push(c.id);
+            }
+            await transaction.commit();
+            let reenviados = [];
+            if (modificados.length > 0) {
+                const tx2 = new sql.Transaction(pool);
+                await tx2.begin();
+                try {
+                    reenviados = await this._reenviarVisitaATecnica(tx2, [...permitidos], user, 'Puntos de la visita editados: vuelve a validación técnica');
+                    await tx2.commit();
+                } catch (e2) {
+                    try { await tx2.rollback(); } catch (_) { /* nada */ }
+                    logger.error('[actualizarPuntosVisita] no se pudo reenviar a técnica: ' + e2.message);
+                }
+            }
+            return { modificados, reenviados, total: cambios.length };
+        } catch (error) {
+            await transaction.rollback();
+            throw error;
+        }
+    }
+
+    async rejectFicha(id, { observaciones, sinNotificar = false }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
         try {
@@ -2313,7 +2716,7 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Jefatura Técnica';
 
-            this.getFichaContextForNotification(id, notifUser, 'Ficha Rechazada por Área Técnica', pool).then(baseContext => {
+            if (!sinNotificar) this.getFichaContextForNotification(id, notifUser, 'Ficha Rechazada por Área Técnica', pool).then(baseContext => {
                 unsService.trigger('FICHA_RECHAZADA_TECNICA', {
                     ...baseContext,
                     id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,
@@ -2426,7 +2829,7 @@ class FichaIngresoService {
         }
     }
 
-    async reviewCoordinacion(id, { observaciones }, user) {
+    async reviewCoordinacion(id, { observaciones, sinNotificar = false }, user) {
         const pool = await getConnection();
         const transaction = new sql.Transaction(pool);
 
@@ -2471,7 +2874,7 @@ class FichaIngresoService {
 
             notifUser = notifUser || 'Coordinación';
 
-            this.getFichaContextForNotification(id, notifUser, 'Ficha Devuelta a Revisión por Coordinación', pool).then(baseContext => {
+            if (!sinNotificar) this.getFichaContextForNotification(id, notifUser, 'Ficha Devuelta a Revisión por Coordinación', pool).then(baseContext => {
                 unsService.trigger('FICHA_RECHAZADA_COORDINACION', {
                     ...baseContext,
                     id_usuario_accion: user ? (user.id || user.id_usuario || 0) : 0,

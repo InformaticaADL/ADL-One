@@ -67,13 +67,13 @@ export const FIXED_TOP_MODULES: FixedModule[] = [
         ],
     },
     {
-        label: 'Facturación Salud', icon: IconFileInvoice, id: 'facturacion_salud',
+        label: 'Facturación Salud', icon: IconFileInvoice, id: 'facturacion_salud', permission: 'FAC_SALUD_ACCESO',
         links: [
-            { id: 'fs-dashboard', label: 'Dashboard Salud' },
-            { id: 'fs-procesar', label: 'Valorizar y Pre-Facturar' },
-            { id: 'fs-prefacturas', label: 'Pre-Facturas Casos' },
-            { id: 'fs-otras-ventas', label: 'Otras Ventas y NC/ND' },
-            { id: 'fs-dte', label: 'Exportación DTE (35 Col)' },
+            { id: 'fs-dashboard', label: 'Dashboard Salud', permission: 'FAC_SALUD_ACCESO' },
+            { id: 'fs-procesar', label: 'Valorizar y Pre-Facturar', permission: 'FAC_SALUD_ACCESO' },
+            { id: 'fs-prefacturas', label: 'Pre-Facturas Casos', permission: 'FAC_SALUD_ACCESO' },
+            { id: 'fs-otras-ventas', label: 'Otras Ventas y NC/ND', permission: 'FAC_SALUD_ACCESO' },
+            { id: 'fs-dte', label: 'Exportación DTE (35 Col)', permission: 'FAC_SALUD_ACCESO' },
         ],
     },
 ];

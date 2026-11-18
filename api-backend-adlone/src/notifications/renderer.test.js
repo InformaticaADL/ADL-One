@@ -25,7 +25,7 @@ test('returns null for an event with no config (not yet migrated)', () => {
 test('renders FICHA_CREADA: subject, title, badge, fields and CTA', () => {
     const result = renderEmail('FICHA_CREADA', BASE_CONTEXT);
 
-    assert.equal(result.asunto, 'Nueva Ficha Ingresada: #1245');
+    assert.equal(result.asunto, 'Nueva ficha ingresada: #1245');
     assert.match(result.html, /Ficha Comercial Creada/);
     assert.match(result.html, /NUEVA/);
     assert.match(result.html, /Monitoreo Agua\/Ril - Terreno/);
@@ -43,7 +43,7 @@ test('renders FICHA_RECHAZADA_TECNICA with RECHAZADA badge and motivo label', ()
         OBSERVACION: 'Faltan datos de muestreo en el sector norte.',
     });
 
-    assert.match(result.asunto, /URGENTE: Ficha Rechazada Técnica: #1245/);
+    assert.match(result.asunto, /URGENTE: Ficha rechazada por Técnica: #1245/);
     assert.match(result.html, /RECHAZADA/);
     assert.match(result.html, /Motivo del Rechazo/);
     assert.match(result.html, /Faltan datos de muestreo en el sector norte\./);
@@ -109,7 +109,7 @@ test('renders FICHA_MUESTREO_COMPLETADO: subject, title, meta and CTA to ejecuta
         total_servicios: 12,
     });
 
-    assert.equal(result.asunto, 'Muestreo Completado - Ficha #1245 - Servicio 5/12');
+    assert.equal(result.asunto, 'Muestreo Completado: #1245 - Servicio 5/12');
     assert.match(result.html, /Muestreo Completado/);
     assert.match(result.html, /Se complet.* el servicio 5\/12 de la ficha #1245/);
     assert.match(result.html, /J\. Pérez/);
@@ -118,4 +118,24 @@ test('renders FICHA_MUESTREO_COMPLETADO: subject, title, meta and CTA to ejecuta
     assert.match(result.html, /\/\?vista=ejecutados/);
     // INFORMATIVA outcome has no badge
     assert.doesNotMatch(result.html, />NUEVA</);
+});
+
+
+test('una visita se nombra como visita en el asunto, el resumen, los puntos y el botón', () => {
+    const result = renderEmail('FICHA_RECHAZADA_COORDINACION', {
+        ...BASE_CONTEXT,
+        TIPO_REGISTRO: 'Visita',
+        TIPO_REGISTRO_MIN: 'visita',
+        REGISTRO: '«Edwards» (6 puntos)',
+        LISTA_PUNTOS_VISITA: 'Borde AZE R1, Borde AZE R2, Control R1',
+        PUNTO_FICHA: '',
+        OBSERVACION: 'Faltan las coordenadas.',
+    });
+
+    assert.equal(result.asunto, 'URGENTE: Visita devuelta por Coordinación: «Edwards» (6 puntos)');
+    assert.ok(result.html.includes('La visita «Edwards» (6 puntos) fue devuelta por Coordinación'));
+    assert.match(result.html, /Puntos de la Visita/);
+    assert.match(result.html, /Borde AZE R1, Borde AZE R2, Control R1/);
+    assert.doesNotMatch(result.html, /Punto de Muestreo/);
+    assert.match(result.html, /Ver Visita en ADL ONE/);
 });

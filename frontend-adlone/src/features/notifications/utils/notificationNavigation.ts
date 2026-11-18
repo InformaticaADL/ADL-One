@@ -7,7 +7,7 @@ interface NavActions {
     setPendingChatId: (id: number | null) => void;
     setPendingSolicitudClienteId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
-    setFichasMode: (mode: 'list_ejecutados') => void;
+    setFichasMode: (mode: 'list_ejecutados' | 'list_fichas') => void;
     hasPermission: (permission: string | string[]) => boolean;
     showToast: (toast: { type: 'error' | 'info' | 'success' | 'warning'; message: string }) => void;
 }
@@ -37,6 +37,21 @@ export const abrirCalendarioVencimientos = (actions: Pick<NavActions, 'setActive
     actions.setActiveSubmodule('gc-calendario-vencimientos');
 };
 
+// Avisos que hablan de una ficha o de una visita. Se reconocen por el título («Rechazo Coordinación: #1081», «Muestreo Asignado: #1057»…) o por
+// el texto («La ficha #1081 …»); el área suele venir vacía, así que no se puede depender de ella. «Reasignación» y similares también son de fichas.
+const TITULO_DE_FICHA = /^(nueva ficha|ficha\b|visita\b|aprobaci[oó]n (t[eé]cnica|coordinaci[oó]n)|rechazo (t[eé]cnico|t[eé]cnica|coordinaci[oó]n)|muestreo (asignado|cancelado|reprogramado|reagendado|reasignado)|reasignaci[oó]n|cambio de fecha|cambio integral|informe completo|ciclo finalizado|cancelaci[oó]n de muestreo)/i;
+const TEXTO_DE_FICHA = /\b(ficha|visita)\s*(n[°º.]?\s*)?#?\s*\d+/i;
+
+/** Id de la ficha a abrir: el que trae el aviso o, en los avisos antiguos que quedaron sin él, el número que aparece en el texto («#1081»). */
+export const idFichaDeAviso = (n: { id_referencia?: number | null; titulo?: string | null; mensaje?: string | null }): number | null => {
+    if (n.id_referencia) return Number(n.id_referencia);
+    const m = `${n.titulo || ''} ${n.mensaje || ''}`.match(/#\s*(\d{1,9})\b/);
+    return m ? Number(m[1]) : null;
+};
+
+export const esAvisoDeFicha = (n: { titulo?: string | null; mensaje?: string | null }) =>
+    TITULO_DE_FICHA.test((n.titulo || '').trim()) || TEXTO_DE_FICHA.test(`${n.titulo || ''} ${n.mensaje || ''}`);
+
 export const handleNotificationNavigation = (notif: Notification, actions: NavActions) => {
     const {
         setActiveModule,
@@ -55,83 +70,55 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
         return;
     }
 
-    if (!notif.id_referencia) {
-        if (notif.area === 'Chat') {
-            setActiveModule('chat');
-            setActiveSubmodule('');
-        }
+    const titulo = (notif.titulo || '').toLowerCase();
+    const area = (notif.area || '').toLowerCase();
+
+    // Chat
+    if (area === 'chat' || area === 'mensajería') {
+        if (notif.id_referencia) setPendingChatId(notif.id_referencia);
+        setActiveModule('chat');
+        setActiveSubmodule('');
         return;
     }
 
-    if (esNotificacionSolicitudCliente(notif)) {
+    // Solicitudes de clientes del portal
+    if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
         setPendingSolicitudClienteId(notif.id_referencia);
         setActiveModule('solicitudes-clientes');
         setActiveSubmodule('');
         return;
     }
 
-    const titulo = (notif.titulo || '').toLowerCase();
-    const mensaje = (notif.mensaje || '').toLowerCase();
-    const area = (notif.area || '').toLowerCase();
-
-    // 1. Chat — check FIRST to prevent mis-routing (chat notifications can have titles
-    //    like "nuevo mensaje" that would otherwise match the solicitudes check below)
-    const isChat = area === 'chat' || area === 'mensajería';
-    if (isChat) {
-        setPendingChatId(notif.id_referencia);
-        setActiveModule('chat');
-        setActiveSubmodule('');
-        return;
-    }
-
-    // 2. Solicitudes (Universal Inbox)
-    const isRequest =
-        titulo.includes('solicitud') || titulo.includes('estado') ||
-        titulo.includes('derivación') || titulo.includes('derivacion') ||
-        titulo.includes('baja') || titulo.includes('traspaso') ||
-        titulo.includes('asignación') || titulo.includes('equipo') ||
-        titulo.includes('activación') || titulo.includes('comentario') ||
-        titulo.includes('mensaje en #') || titulo.includes('nuevo mensaje') ||
-        area === 'urs' || area === 'solicitudes' ||
-        area === 'gestión de calidad' || area === 'gestion de calidad';
-
-    if (isRequest) {
-        setSelectedRequestId(notif.id_referencia);
-        setActiveModule('solicitudes');
-        setActiveSubmodule('');
-        return;
-    }
-
-    // 3. Muestreo Completado: lleva al listado de Muestreos Ejecutados, no al detalle de la ficha
+    // Muestreo Completado: lleva al listado de Muestreos Ejecutados, no al detalle de la ficha
     if (titulo.includes('muestreo completado')) {
         if (!hasPermission(FICHA_EJECUTADOS_PERMS)) {
             showToast({ type: 'error', message: 'No tienes permiso para ver el listado de Muestreos Ejecutados.' });
             return;
         }
-        setActiveModule('medio_ambiente');
+        setActiveModule('medio-ambiente');
         setActiveSubmodule('ma-fichas-ingreso');
         setFichasMode('list_ejecutados');
         return;
     }
 
-    // 4. Medio Ambiente (Fichas de Ingreso)
-    const isFicha =
-        titulo.includes('ficha') || mensaje.includes('ficha') ||
-        titulo.includes('programación') || mensaje.includes('muestreo') ||
-        area === 'medio ambiente' || area === 'medio_ambiente' || area === 'fichas';
-
-    if (isFicha) {
+    // Fichas y visitas: se abre la visita (si la ficha es un punto de una visita, la pantalla de la ficha muestra toda la visita)
+    // Va ANTES que solicitudes: títulos como «Reasignación» o «Muestreo Asignado» contienen palabras que antes las mandaban a la bandeja equivocada.
+    if (esAvisoDeFicha(notif) && !titulo.includes('consulta')) {
         if (!hasPermission(FICHA_DETALLE_PERMS)) {
             showToast({ type: 'error', message: 'No tienes permiso para ver el detalle de esta ficha.' });
             return;
         }
-        setPendingRequestId(notif.id_referencia);
-        setActiveModule('medio_ambiente');
+        const idFicha = idFichaDeAviso(notif);
+        setActiveModule('medio-ambiente');
         setActiveSubmodule('ma-fichas-ingreso');
+        if (idFicha) setPendingRequestId(idFicha);
+        else setFichasMode('list_fichas');
         return;
     }
 
-    // Fallback: Default to solicitudes if reference exists but type is unknown
+    if (!notif.id_referencia) return;
+
+    // Solicitudes (bandeja universal)
     setSelectedRequestId(notif.id_referencia);
     setActiveModule('solicitudes');
     setActiveSubmodule('');

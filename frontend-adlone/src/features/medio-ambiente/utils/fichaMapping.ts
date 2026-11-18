@@ -8,7 +8,7 @@ export const mapToAntecedentes = (enc: any, agenda: any) => {
 
     let zona = '', utmNorte = '', utmEste = '';
     const coordStr = enc.ma_coordenadas || '';
-    const coordMatch = coordStr.match(/^(.*?) UTM (\d+)E (\d+)S/);
+    const coordMatch = coordStr.match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
     if (coordMatch) {
         zona = coordMatch[1];
         utmNorte = coordMatch[2];

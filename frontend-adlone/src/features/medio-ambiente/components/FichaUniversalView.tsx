@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { PuntosVisitaTabla, MatrizPrecioVisita, useDatosVisita } from './PuntosVisitaPanel';
+import { EditarVisitaView } from './EditarVisitaView';
 import { fichaService } from '../services/ficha.service';
 import { ObservationTimeline } from './ObservationTimeline';
 import { WorkflowAlert } from '../../../components/ui/WorkflowAlert';
@@ -157,7 +158,6 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     const [loading, setLoading] = useState(true);
     // Visita con varios puntos: todos sus puntos a un clic y aprobación de toda la visita de una vez
     const [grupo, setGrupo] = useState<{ total: number; puntos: { id_fichaingresoservicio: number; punto: string; estado: string }[] } | null>(null);
-    const [aprobarTodaLaVisita, setAprobarTodaLaVisita] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
@@ -214,7 +214,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     }, [fichaId]);
     const esVisita = !!grupo && grupo.total > 1;
     // Datos de todos los puntos de la visita (se leen una vez y los usan la pestaña de puntos y la de análisis y precio).
-    const datosVisita = useDatosVisita(esVisita && grupo ? grupo.puntos : []);
+    const [versionPuntos, setVersionPuntos] = useState(0);
+    const datosVisita = useDatosVisita(esVisita && grupo ? grupo.puntos : [], versionPuntos);
+    // «Editar visita»: pantalla por pasos como la de crear la visita (Antecedentes y Puntos y análisis)
+    const [editarVisita, setEditarVisita] = useState(false);
+
     // Pestaña de análisis de una visita: «todos» (matriz con el precio de cada punto) o el detalle de un punto.
     const [analisisModo, setAnalisisModo] = useState<'todos' | 'punto'>('todos');
     const visitaYaAbierta = useRef<number | null>(null);
@@ -346,6 +350,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         }
     };
 
+    // Después de editar la visita: vuelve a la vista de la visita y se lee de nuevo todo (puntos, antecedentes, estado).
+    const alGuardarVisita = async () => {
+        setEditarVisita(false);
+        try {
+            const g = (await fichaService.getGrupo(fichaId))?.data ?? null;
+            setGrupo(g && g.total > 1 ? g : null);
+        } catch { /* la visita se vuelve a leer al entrar de nuevo */ }
+        setVersionPuntos((v) => v + 1);
+        loadData();
+    };
+
     // Tech & Coord Actions
     const handleActionClick = (type: 'approve_tech' | 'reject_tech' | 'approve_coord' | 'reject_coord') => {
         const esTec = type === 'approve_tech' || type === 'reject_tech';
@@ -365,11 +380,12 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
             return;
         }
 
+        const todaLaVisita = esVisita;
         const actionConfig = {
             approve_tech: { title: 'Confirmar Aprobación Técnica', message: '¿Está seguro de ACEPTAR esta ficha técnicamente? Esta acción habilitará la ficha para coordinación.' },
-            reject_tech: { title: 'Solicitar Revisión Técnica', message: '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al área comercial para su corrección.' },
+            reject_tech: { title: 'Solicitar Revisión Técnica', message: todaLaVisita ? `¿Está seguro de devolver los ${grupo!.total} puntos de la VISITA a Comercial para su corrección?` : '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al área comercial para su corrección.' },
             approve_coord: { title: 'Confirmar Aprobación Coordinación', message: '¿Está seguro de ACEPTAR esta ficha? Esta acción habilitará la ficha para su programación.' },
-            reject_coord: { title: 'Solicitar Revisión Coordinación', message: '¿Está seguro de solicitar una REVISIÓN? La ficha volverá a Comercial para corrección desde inicio.' }
+            reject_coord: { title: 'Solicitar Revisión Coordinación', message: todaLaVisita ? `¿Está seguro de devolver los ${grupo!.total} puntos de la VISITA a Comercial para corrección desde inicio?` : '¿Está seguro de solicitar una REVISIÓN? La ficha volverá a Comercial para corrección desde inicio.' }
         };
 
         setConfirmAction({
@@ -398,8 +414,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     };
 
     // Aprobar toda la visita puede dejar puntos sin aprobar (cada uno se aprueba por separado): se avisa cuáles y por qué, no solo "éxito"
-    const avisarResultadoVisita = (r: any, textoOk: string) => {
-        const aprobados = r?.aprobados?.length ?? 0;
+    const avisarResultadoVisita = (r: any, textoOk: string, clave: 'aprobados' | 'rechazados' = 'aprobados') => {
+        const aprobados = r?.[clave]?.length ?? 0;
         const fallidos: { id: number; error: string }[] = r?.fallidos ?? [];
         if (fallidos.length === 0) {
             showToast({ type: 'success', message: `Visita ${textoOk} (${aprobados} puntos)` });
@@ -407,7 +423,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         }
         showToast({
             type: 'error',
-            message: `Se aprobaron ${aprobados} de ${r?.total ?? aprobados + fallidos.length} puntos. No se pudo aprobar: ${fallidos.map((x) => `ficha ${x.id} (${x.error})`).join('; ')}`,
+            message: `Se ${clave === 'aprobados' ? 'aprobaron' : 'devolvieron'} ${aprobados} de ${r?.total ?? aprobados + fallidos.length} puntos. No se pudo ${clave === 'aprobados' ? 'aprobar' : 'devolver'}: ${fallidos.map((x) => `ficha ${x.id} (${x.error})`).join('; ')}`,
         });
     };
 
@@ -417,7 +433,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         try {
             switch (confirmAction.type) {
                 case 'approve_tech':
-                    if (esVisita && aprobarTodaLaVisita) {
+                    if (esVisita) {
                         const r = (await fichaService.aprobarVisita(fichaId, 'tecnica', { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'ACEPTADA técnicamente');
                     } else {
@@ -426,11 +442,16 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     }
                     break;
                 case 'reject_tech':
-                    await fichaService.reject(fichaId, { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } });
-                    showToast({ type: 'info', message: 'Revisión solicitada a Comercial' });
+                    if (esVisita) {
+                        const r = (await fichaService.rechazarVisita(fichaId, 'tecnica', { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } }))?.data;
+                        avisarResultadoVisita(r, 'DEVUELTA a Comercial', 'rechazados');
+                    } else {
+                        await fichaService.reject(fichaId, { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } });
+                        showToast({ type: 'info', message: 'Revisión solicitada a Comercial' });
+                    }
                     break;
                 case 'approve_coord':
-                    if (esVisita && aprobarTodaLaVisita) {
+                    if (esVisita) {
                         const r = (await fichaService.aprobarVisita(fichaId, 'coordinacion', { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'APROBADA para programación');
                     } else {
@@ -439,8 +460,13 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     }
                     break;
                 case 'reject_coord':
-                    await fichaService.reviewCoordinacion(fichaId, { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } });
-                    showToast({ type: 'info', message: 'Ficha devuelta a Comercial' });
+                    if (esVisita) {
+                        const r = (await fichaService.rechazarVisita(fichaId, 'coordinacion', { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } }))?.data;
+                        avisarResultadoVisita(r, 'DEVUELTA a Comercial', 'rechazados');
+                    } else {
+                        await fichaService.reviewCoordinacion(fichaId, { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } });
+                        showToast({ type: 'info', message: 'Ficha devuelta a Comercial' });
+                    }
                     break;
             }
             onBack();
@@ -471,6 +497,10 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                 <Button variant="outline" onClick={onBack}>Volver</Button>
             </div>
         );
+    }
+
+    if (editarVisita && esVisita && grupo) {
+        return <EditarVisitaView fichaId={fichaId} grupo={grupo} data={data} onVolver={() => setEditarVisita(false)} onGuardado={alGuardarVisita} />;
     }
 
     const statusObj = getStatusProps(data?.estado_ficha);
@@ -520,20 +550,20 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             </>
                         ) : (
                             canEdit && (
-                                <Button onClick={handleEditStart}>
-                                    <IconEdit size={18} /> Editar Comercial
+                                <Button onClick={esVisita ? () => setEditarVisita(true) : handleEditStart}>
+                                    <IconEdit size={18} /> {esVisita ? 'Editar visita' : 'Editar Comercial'}
                                 </Button>
                             )
                         )}
-                        {!isEditing && ![7, 8].includes(Number(data?.id_validaciontecnica)) && !esVisita && (
+                        {!isEditing && ![7, 8].includes(Number(data?.id_validaciontecnica)) && (
                             <ProtectedContent permission={['FI_EDITAR', 'MA_CALENDARIO_CANCELAR']}>
                                 <Button
                                     variant="outline"
                                     className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-                                    title="Cancelar la ficha con un motivo (por ejemplo, si está duplicada). No se borra nada."
+                                    title={esVisita ? 'Cancelar la visita completa con un motivo (por ejemplo, si está duplicada). No se borra nada.' : 'Cancelar la ficha con un motivo (por ejemplo, si está duplicada). No se borra nada.'}
                                     onClick={() => setShowCancelarFicha(true)}
                                 >
-                                    <IconX size={18} /> Cancelar ficha
+                                    <IconX size={18} /> {esVisita ? 'Cancelar visita' : 'Cancelar ficha'}
                                 </Button>
                             </ProtectedContent>
                         )}
@@ -590,7 +620,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                 </TabsTrigger>
                             )}
                             <TabsTrigger value="analisis" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
-                                <IconFlask size={tabIconSize} />{esVisita ? 'Análisis y precio' : 'Análisis'}
+                                <IconFlask size={tabIconSize} />{esVisita && showUfColumn ? 'Análisis y precio' : 'Análisis'}
                             </TabsTrigger>
                             <TabsTrigger value="observaciones" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                                 <IconHistory size={tabIconSize} />{isVerySmall ? 'Historial/Valid.' : 'Validación e Historial'}
@@ -606,7 +636,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     {esVisita && !isEditing && onCambiarFicha && (
                         <TabsContent value="puntos" className="mt-0">
                             <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
-                                <PuntosVisitaTabla puntos={grupo!.puntos} activoId={fichaId} onCambiar={onCambiarFicha} datos={datosVisita} />
+                                <PuntosVisitaTabla puntos={grupo!.puntos} activoId={fichaId} onCambiar={onCambiarFicha} datos={datosVisita} verPrecios={showUfColumn} />
                             </div>
                         </TabsContent>
                     )}
@@ -668,7 +698,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
                                     {(() => {
                                         const coord = String(data.ma_coordenadas || '').trim();
-                                        const m = coord.match(/^(.*?) UTM (\d*)E (\d*)S/);
+                                        const m = coord.match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
                                         const zona = m ? m[1] : coord;
                                         const noCaudal = !data.medicion_caudal || /no\s*aplica/i.test(String(data.medicion_caudal));
                                         const medida = (n: any, u: any) => [n, u].filter((x) => x !== undefined && x !== null && String(x).trim() !== '').join(' ');
@@ -787,7 +817,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                 </div>
                             )}
                             {esVisita && !isEditing && analisisModo === 'todos' ? (
-                                <MatrizPrecioVisita puntos={grupo!.puntos} datos={datosVisita} />
+                                <MatrizPrecioVisita puntos={grupo!.puntos} datos={datosVisita} verPrecios={showUfColumn} />
                             ) : isEditing ? (
                                 <AnalysisForm
                                     savedAnalysis={analysisList}
@@ -884,10 +914,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             </p>
                                         )}
                                         {esVisita && (
-                                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
-                                                <Checkbox checked={aprobarTodaLaVisita} onCheckedChange={(v) => setAprobarTodaLaVisita(v === true)} />
-                                                Aprobar los {grupo!.total} puntos de la visita de una vez
-                                            </label>
+                                            <p className="mb-0 mt-3 rounded-md bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+                                                Es una visita: lo que decidas se aplica a los {grupo!.total} puntos a la vez.
+                                            </p>
                                         )}
                                         <div className="mt-4 flex justify-end gap-2.5">
                                             <ProtectedContent permission="FI_APROBAR_TEC">
@@ -924,10 +953,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             </p>
                                         )}
                                         {esVisita && (
-                                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
-                                                <Checkbox checked={aprobarTodaLaVisita} onCheckedChange={(v) => setAprobarTodaLaVisita(v === true)} />
-                                                Aprobar los {grupo!.total} puntos de la visita de una vez
-                                            </label>
+                                            <p className="mb-0 mt-3 rounded-md bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+                                                Es una visita: lo que decidas se aplica a los {grupo!.total} puntos a la vez.
+                                            </p>
                                         )}
                                         <div className="mt-4 flex justify-end gap-2.5">
                                             <ProtectedContent permission="FI_APROBAR_COO">
@@ -960,11 +988,14 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
             <Dialog open={showCancelarFicha} onOpenChange={setShowCancelarFicha}>
                 <DialogContent>
-                    <DialogHeader><DialogTitle>Cancelar la ficha {data?.fichaingresoservicio ? `N° ${data.fichaingresoservicio}` : ''}</DialogTitle></DialogHeader>
+                    <DialogHeader><DialogTitle>{esVisita ? `Cancelar la visita completa (${grupo!.total} puntos)` : `Cancelar la ficha ${data?.fichaingresoservicio ? `N° ${data.fichaingresoservicio}` : ''}`}</DialogTitle></DialogHeader>
                     <div className="flex flex-col gap-4">
                         <p className="text-[13px]">
-                            La ficha queda como <strong>CANCELADA</strong> y sale de las bandejas de Área Técnica, Coordinación y Asignación. No se borra:
-                            queda el motivo y quién la canceló en su historial. Esta acción es irreversible.
+                            {esVisita
+                                ? <>Los <strong>{grupo!.total} puntos</strong> de la visita ({grupo!.puntos.map((p) => p.punto).join(', ')}) quedan como <strong>CANCELADOS</strong>, salen de las bandejas de Área Técnica, Coordinación y Asignación y la visita se deshace. No se borra:
+                                  queda el motivo y quién la canceló en el historial de cada punto. Esta acción es irreversible.</>
+                                : <>La ficha queda como <strong>CANCELADA</strong> y sale de las bandejas de Área Técnica, Coordinación y Asignación. No se borra:
+                                  queda el motivo y quién la canceló en su historial. Esta acción es irreversible.</>}
                         </p>
                         <div>
                             <span className="mb-1 block text-xs">Motivo *</span>
@@ -988,6 +1019,13 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             onClick={async () => {
                                 setCancelandoFicha(true);
                                 try {
+                                    if (esVisita) {
+                                        await fichaService.cancelarVisita(Number(fichaId), Number(motivoFichaId), obsCancelarFicha.trim());
+                                        showToast({ type: 'success', message: 'Visita cancelada correctamente.' });
+                                        setShowCancelarFicha(false);
+                                        onBack();
+                                        return;
+                                    }
                                     await fichaService.cancelarFicha(Number(fichaId), Number(motivoFichaId), obsCancelarFicha.trim());
                                     showToast({ type: 'success', message: 'Ficha cancelada correctamente.' });
                                     setShowCancelarFicha(false);
@@ -1000,7 +1038,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             }}
                         >
                             {cancelandoFicha && <div className="h-4 w-4 animate-spin rounded-full border-2 border-destructive-foreground border-t-transparent" />}
-                            Sí, cancelar la ficha
+                            {esVisita ? 'Sí, cancelar la visita' : 'Sí, cancelar la ficha'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

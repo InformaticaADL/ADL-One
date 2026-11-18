@@ -1,11 +1,15 @@
 import express from 'express';
 import facturacionSaludController from '../controllers/facturacion-salud.controller.js';
 import { authenticate } from '../middlewares/auth.middleware.js';
+import { verifyPermission } from '../middlewares/verifyPermission.js';
 
 const router = express.Router();
 
 // Ampliar límite JSON para envíos de valorización/agrupación de casos de salud
 router.use(express.json({ limit: '10mb' }));
+
+// Facturación Salud escribe en LaboratorioADL: solo entra quien tiene el permiso FAC_SALUD_ACCESO (hoy, el área de Informática).
+router.use(authenticate, verifyPermission('FAC_SALUD_ACCESO'));
 
 // Dashboard y Catálogos Maestros (Conexión estrictamente local: localhost -> LaboratorioADL)
 router.get('/dashboard', authenticate, facturacionSaludController.getDashboard);

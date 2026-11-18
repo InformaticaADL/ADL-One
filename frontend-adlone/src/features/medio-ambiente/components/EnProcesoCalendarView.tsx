@@ -222,6 +222,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
 
     const [globalMuestreadores, setGlobalMuestreadores] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    // Los hooks van SIEMPRE antes de cualquier return: un useState después del return de «Ver Detalle Completo» rompía la pantalla (React #300).
+    const [agrupando, setAgrupando] = useState(false);
     const lastFetchRef = useRef<string>('');
 
 
@@ -623,7 +625,6 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
     }
 
     // Fichas sueltas (sin visita) del mismo centro, mismo día y mismo muestreador que se pueden unir en una sola visita.
-    const [agrupando, setAgrupando] = useState(false);
     const sueltasParaAgrupar = (evs: CalendarEvent[]): CalendarEvent[][] => {
         const mapa = new Map<string, CalendarEvent[]>();
         evs.forEach((ev) => {
@@ -1150,8 +1151,9 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                 })()}
 
                 {viewMode === 'week' && semanaPor === 'dias' && (
-                    <div className="py-2">
-                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))' }}>
+                    <div className="overflow-x-auto py-2">
+                        {/* Siempre 7 columnas (LUN a DOM): en pantallas angostas la semana se desplaza de lado en vez de bajar el domingo a una segunda fila */}
+                        <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(7, minmax(138px, 1fr))' }}>
                             {weekDays.map((date, idx) => {
                                 const d = date.getDate();
                                 const m = date.getMonth() + 1;
@@ -1162,7 +1164,7 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                 const dayEvents = filteredEvents.filter(ev => ev.event_dia === d && ev.event_mes === m && ev.event_ano === y);
 
                                 return (
-                                    <div key={idx} className={cn('flex min-h-[550px] flex-col gap-2 rounded-lg border border-border p-2', isToday ? 'bg-accent' : 'bg-muted/40')}>
+                                    <div key={idx} className={cn('flex min-h-[320px] flex-col gap-2 rounded-lg border border-border p-2', isToday ? 'bg-accent' : 'bg-muted/40')}>
                                         <div className="border-b border-border pb-1 text-center">
                                             <span className={cn('text-xs font-extrabold', isToday ? 'text-primary' : 'text-muted-foreground')}>{dayName}</span>
                                             <span className={cn('block text-lg font-black', isToday ? 'text-primary' : 'text-foreground')}>{d}</span>
@@ -1176,8 +1178,8 @@ export const EnProcesoCalendarView: React.FC<Props> = ({ onBackToMenu }) => {
                                                     return (
                                                         <details key={nombre} className="group rounded-md border border-border bg-card">
                                                             <summary className="flex cursor-pointer list-none flex-col gap-0.5 p-1.5 hover:bg-primary/5">
-                                                                <span className="flex items-center justify-between gap-1 text-xs font-bold">
-                                                                    <span className="truncate" title={nombre}>{nombre}</span>
+                                                                <span className="flex flex-col items-start gap-0.5 text-xs font-bold">
+                                                                    <span className="break-words leading-tight" title={nombre}>{nombre}</span>
                                                                     <Badge variant="secondary" className="shrink-0 px-1 py-0 text-[10px]">{bloquesM.length} {bloquesM.length === 1 ? 'visita' : 'visitas'} · {evs.length} pts</Badge>
                                                                 </span>
                                                                 <span className="truncate text-[10px] text-muted-foreground" title={centrosM.join(' · ')}>{centrosM.join(' · ') || 'Sin centro'}</span>

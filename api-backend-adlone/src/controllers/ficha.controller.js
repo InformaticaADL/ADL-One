@@ -249,6 +249,12 @@ class FichaIngresoController {
                 return errorResponse(res, 'Ficha no encontrada', 404);
             }
 
+            // Los valores (UF) solo los ve quien tiene FI_EXP_VER_UF (Comercial, Informática, Gerencia Técnica). A los demás (Coordinación, Técnica…)
+            // no se les envían: ocultarlos solo en la pantalla no basta, se podían leer desde el navegador.
+            if (!(req.user?.permissions || []).includes('FI_EXP_VER_UF') && Array.isArray(result.detalles)) {
+                result.detalles = result.detalles.map((d) => ({ ...d, uf_individual: 0 }));
+            }
+
             return successResponse(res, result, 'Ficha recuperada exitosamente');
         } catch (err) {
             logger.error('Error in getById ficha controller:', err);
@@ -273,6 +279,12 @@ class FichaIngresoController {
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
 
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.aprobarVisita(id, { observaciones, etapa: 'tecnica' }, userData);
+                return successResponse(res, resultVisita, 'Visita aceptada');
+            }
+
             const result = await fichaService.approveFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada exitosamente');
         } catch (err) {
@@ -286,6 +298,12 @@ class FichaIngresoController {
             const { id } = req.params;
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
+
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.rechazarVisita(id, { observaciones, etapa: 'tecnica' }, userData);
+                return successResponse(res, resultVisita, 'Visita devuelta a Comercial');
+            }
 
             const result = await fichaService.rejectFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha rechazada exitosamente');
@@ -310,11 +328,96 @@ class FichaIngresoController {
         }
     }
 
+    // Cancela la visita completa (duplicada o creada por error): todos sus puntos, con un motivo
+    async cancelarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { idMotivo, observacion } = req.body || {};
+            const result = await fichaService.cancelarVisita(id, { idMotivo, observacion }, req.user || { id: 0 });
+            return successResponse(res, result, 'Visita cancelada');
+        } catch (err) {
+            logger.error('Error in cancelarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al cancelar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
+    // «Editar visita»: quita puntos de la visita (cada uno se cancela con un motivo)
+    async quitarPuntosVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { ids, idMotivo, observacion } = req.body || {};
+            const result = await fichaService.quitarPuntosDeVisita(id, { ids, idMotivo, observacion }, req.user || { id: 0 });
+            return successResponse(res, result, 'Puntos quitados de la visita');
+        } catch (err) {
+            logger.error('Error in quitarPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al quitar los puntos', err.statusCode || 500, err.message);
+        }
+    }
+
+    // «Editar visita»: agrega puntos nuevos (cada uno, una ficha más de la visita)
+    async agregarPuntosVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { antecedentes, puntos, observaciones } = req.body || {};
+            const result = await fichaService.agregarPuntosAVisita(id, { antecedentes, puntos, observaciones }, req.user || { id: 0 });
+            return successResponse(res, result, 'Puntos agregados a la visita');
+        } catch (err) {
+            logger.error('Error in agregarPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al agregar los puntos', err.statusCode || 500, err.message);
+        }
+    }
+
+    // «Editar visita»: antecedentes comunes y/o análisis y precio de cada punto
+    async actualizarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { antecedentes, analisisPorFicha, observaciones } = req.body || {};
+            const result = await fichaService.actualizarVisita(id, { antecedentes, analisisPorFicha, observaciones }, req.user || { id: 0 });
+            return successResponse(res, result, 'Visita actualizada');
+        } catch (err) {
+            logger.error('Error in actualizarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al actualizar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
+    // Edita nombre, zona, coordenadas y mapa de los puntos de una visita (solo esos campos)
+    async actualizarPuntosVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const result = await fichaService.actualizarPuntosVisita(id, req.body?.puntos, req.user || { id: 0 });
+            return successResponse(res, result, 'Puntos actualizados');
+        } catch (err) {
+            logger.error('Error in actualizarPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al actualizar los puntos', err.statusCode || 500, err.message);
+        }
+    }
+
+    // Devuelve a Comercial todos los puntos de la visita de la ficha (etapa técnica o de coordinación)
+    async rechazarVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { observaciones } = req.body;
+            const etapa = req.params.etapa === 'coordinacion' ? 'coordinacion' : 'tecnica';
+            const userData = req.user || { id: 0 };
+            const result = await fichaService.rechazarVisita(id, { observaciones, etapa }, userData);
+            return successResponse(res, result, 'Visita devuelta a Comercial');
+        } catch (err) {
+            logger.error('Error in rechazarVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al devolver la visita', err.statusCode || 500, err.message);
+        }
+    }
+
     async approveCoordinacion(req, res) {
         try {
             const { id } = req.params;
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
+
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.aprobarVisita(id, { observaciones, etapa: 'coordinacion' }, userData);
+                return successResponse(res, resultVisita, 'Visita aceptada por coordinación');
+            }
 
             const result = await fichaService.approveCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada por coordinación exitosamente');
@@ -329,6 +432,12 @@ class FichaIngresoController {
             const { id } = req.params;
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
+
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.rechazarVisita(id, { observaciones, etapa: 'coordinacion' }, userData);
+                return successResponse(res, resultVisita, 'Visita devuelta a Comercial');
+            }
 
             const result = await fichaService.reviewCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha enviada a revisión exitosamente');
