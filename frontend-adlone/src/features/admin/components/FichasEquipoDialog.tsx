@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle } from '@tabler/icons-react';
+import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle, IconDeviceMobile } from '@tabler/icons-react';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
-import { CampoFirma } from './CampoFirma';
+import { CampoFirma, type CampoFirmaHandle } from './CampoFirma';
+import { FirmaCelularDialog, type SlotFirma } from './FirmaCelularDialog';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectGroup } from '@/components/ui/select';
 import { firmaUsuarioService } from '../../../services/firmaUsuario.service';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -250,6 +251,9 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     // Firmas de la columna FIRMA: se marcan las que van (quien llena, Pablo Flores,
     // Mario Jofré); cada una usa su firma guardada o se dibuja en el momento.
     const [firmasSel, setFirmasSel] = useState<Record<number, { imagen: string | null; usarGuardada: boolean }>>({});
+    // Firmar con el celular (QR): cada campo de firma se registra acá para poder ponerle la firma que llega.
+    const firmaRefs = useRef<Record<string, CampoFirmaHandle | null>>({});
+    const [celularAbierto, setCelularAbierto] = useState(false);
     // Entrega
     const [entrega, setEntrega] = useState<DatosFichaEntrega | null>(null);
     // Recepción
@@ -381,6 +385,50 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
 
     const info = tipo ? FICHAS_EQUIPO[tipo] : null;
     const codigoEquipo = historial?.codigo || tecnica?.codigo || entrega?.codigo || recepcion?.codigo || equipo?.codigo || '';
+
+    // Las firmas de la ficha abierta y cuáles ya están hechas (dibujadas, guardadas o importadas):
+    // al celular solo se piden las que faltan.
+    const slotsCelular = (): SlotFirma[] => {
+        if (tipo === 'entrega' && entrega) {
+            return [
+                { id: 'entrega:equipo', titulo: 'Responsable del equipo (recibe)', nombre: entrega.responsable_equipo, firmada: !!firmasEntrega.equipo },
+                { id: 'entrega:entrega', titulo: 'Responsable de entrega', nombre: entrega.responsable_entrega, firmada: !!firmasEntrega.entrega || (firmasEntrega.usarMiFirma && !!miFirma) },
+                { id: 'entrega:area', titulo: 'Responsable de área', nombre: entrega.responsable_area, firmada: !!firmasEntrega.area },
+            ];
+        }
+        if (tipo === 'recepcion' && recepcion) {
+            return [
+                { id: 'recepcion:recepcion', titulo: 'Recepción Área Técnica Medio Ambiente', nombre: recepcion.firma_recepcion, firmada: !!firmasRecepcion.recepcion || (firmasRecepcion.usarMiFirma && !!miFirma) },
+                { id: 'recepcion:calidad', titulo: 'Área Gestión de Calidad', nombre: recepcion.firma_calidad, firmada: !!firmasRecepcion.calidad },
+            ];
+        }
+        if (tipo === 'tecnica' && tecnica) {
+            return tecnica.firmantes_ficha.filter((p) => firmasSel[p.id_usuario]).map((p) => {
+                const sel = firmasSel[p.id_usuario];
+                return { id: `tecnica:${p.id_usuario}`, titulo: p.rol === 'REALIZA' ? 'Firma de quien realiza' : 'Firma de quien valida', nombre: p.nombre, firmada: !!sel.imagen || (sel.usarGuardada && !!p.firma_guardada) };
+            });
+        }
+        return [];
+    };
+    const cabeceraFirmas = (() => {
+        const lista = slotsCelular();
+        const listas = lista.filter((x) => x.firmada).length;
+        return (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold">Firmas</span>
+                    {lista.length > 0 && (
+                        <Badge variant={listas === lista.length ? 'success' : 'outline'} className={listas === lista.length ? '' : 'text-muted-foreground'}>
+                            {listas} de {lista.length} listas
+                        </Badge>
+                    )}
+                </div>
+                <Button type="button" size="sm" variant="outline" onClick={() => setCelularAbierto(true)} disabled={tipo === 'tecnica' && lista.length === 0}>
+                    <IconDeviceMobile size={14} /> Firmar con el celular
+                </Button>
+            </div>
+        );
+    })();
 
     const puedeGenerar = !cargando && (
         (tipo === 'historial' && !!anio)
@@ -906,8 +954,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     )}
                                     {filas.length > 0 && (
                                         <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                                            <span className="text-sm font-semibold">Firmas</span>
-                                            <span className="text-[11px] text-muted-foreground">Marca las firmas que van en la columna FIRMA. Cada una usa la firma guardada de esa persona o se dibuja en el momento.</span>
+                                            {cabeceraFirmas}
+                                            <span className="text-[11px] text-muted-foreground">Marca las firmas que van en la columna FIRMA. Cada una puede usar la firma guardada de esa persona, dibujarse en el momento o firmarse desde el celular.</span>
                                             <div className="flex flex-col gap-2">
                                                 {tecnica.firmantes_ficha.map((p) => {
                                                     const sel = firmasSel[p.id_usuario];
@@ -930,6 +978,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                                             </label>
                                                             {sel && (
                                                                 <CampoFirma
+                                                                    plano
+                                                                    ref={(r) => { firmaRefs.current[`tecnica:${p.id_usuario}`] = r; }}
                                                                     titulo="Firma"
                                                                     guardada={p.firma_guardada}
                                                                     onChange={(f, usar) => setFirmasSel((prev) => (prev[p.id_usuario] ? { ...prev, [p.id_usuario]: { imagen: f, usarGuardada: usar } } : prev))}
@@ -978,14 +1028,16 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     <Campo label="Fecha de entrega"><Input type="date" value={entrega.fecha_entrega} onChange={setE('fecha_entrega')} /></Campo>
                                 </div>
                                 <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                                    <span className="text-sm font-semibold">Firmas</span>
-                                    <div className="grid gap-3 lg:grid-cols-3">
+                                    {cabeceraFirmas}
+                                    <div className={cn('grid gap-3', pantallaAncha ? 'grid-cols-1' : 'sm:grid-cols-3')}>
                                         <CampoFirma
+                                            ref={(r) => { firmaRefs.current['entrega:equipo'] = r; }}
                                             titulo="Responsable del equipo (recibe)"
                                             nombre={entrega.responsable_equipo}
                                             onChange={(f) => setFirmasEntrega((p) => ({ ...p, equipo: f }))}
                                         />
                                         <CampoFirma
+                                            ref={(r) => { firmaRefs.current['entrega:entrega'] = r; }}
                                             key={miFirma ? 'con-guardada' : 'sin-guardada'}
                                             titulo="Responsable de entrega"
                                             nombre={entrega.responsable_entrega}
@@ -993,13 +1045,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                             onChange={(f, usar) => setFirmasEntrega((p) => ({ ...p, entrega: f, usarMiFirma: usar }))}
                                         />
                                         <CampoFirma
+                                            ref={(r) => { firmaRefs.current['entrega:area'] = r; }}
                                             titulo="Responsable de área"
                                             nombre={entrega.responsable_area}
                                             onChange={(f) => setFirmasEntrega((p) => ({ ...p, area: f }))}
                                         />
                                     </div>
                                     <span className="text-[11px] text-muted-foreground">
-                                        Cada persona firma en el momento. Quien entrega puede usar su firma guardada en Perfil («Mi firma»). Lo que no se firme queda en blanco para firmar en papel.
+                                        Se puede firmar en pantalla, importar la firma registrada de la persona (si la tiene) o firmar con el celular (solo se piden las que faltan). Lo que no se firme queda en blanco para firmar en papel.
                                     </span>
                                 </div>
                                 <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -1087,15 +1140,17 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     <Textarea rows={3} value={recepcion.observaciones} onChange={setRTexto('observaciones')} />
                                 </Campo>
                                 <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                                    <span className="text-sm font-semibold">Firmas</span>
-                                    <div className="grid gap-3 lg:grid-cols-2">
+                                    {cabeceraFirmas}
+                                    <div className={cn('grid gap-3', pantallaAncha ? 'grid-cols-1' : 'sm:grid-cols-2')}>
                                         <div className="flex flex-col gap-2">
                                             <Campo label="Recepción Área Técnica Medio Ambiente · nombre" ayuda="Va sobre la línea, bajo la firma.">
                                                 <Input value={recepcion.firma_recepcion} onChange={setRTexto('firma_recepcion')} />
                                             </Campo>
                                             <CampoFirma
+                                                ref={(r) => { firmaRefs.current['recepcion:recepcion'] = r; }}
                                                 key={miFirma ? 'con-guardada' : 'sin-guardada'}
                                                 titulo="Firma"
+                                                nombre={recepcion.firma_recepcion}
                                                 guardada={miFirma}
                                                 onChange={(f, usar) => setFirmasRecepcion((p) => ({ ...p, recepcion: f, usarMiFirma: usar }))}
                                             />
@@ -1105,13 +1160,15 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                                 <Input value={recepcion.firma_calidad} onChange={setRTexto('firma_calidad')} />
                                             </Campo>
                                             <CampoFirma
+                                                ref={(r) => { firmaRefs.current['recepcion:calidad'] = r; }}
                                                 titulo="Firma"
+                                                nombre={recepcion.firma_calidad}
                                                 onChange={(f) => setFirmasRecepcion((p) => ({ ...p, calidad: f }))}
                                             />
                                         </div>
                                     </div>
                                     <span className="text-[11px] text-muted-foreground">
-                                        Cada uno firma en el momento; quien llena puede usar su firma guardada en Perfil («Mi firma»). Lo que no se firme queda en blanco para firmar en papel.
+                                        Se puede firmar en pantalla, importar la firma registrada de la persona (si la tiene) o firmar con el celular (solo se piden las que faltan). Lo que no se firme queda en blanco para firmar en papel.
                                     </span>
                                 </div>
                                 <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
@@ -1191,6 +1248,16 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Firmar con el celular: las firmas que llegan se ponen en su campo de la ficha. */}
+            <FirmaCelularDialog
+                open={celularAbierto && !!tipo}
+                onClose={() => setCelularAbierto(false)}
+                titulo={tipo ? `${FICHAS_EQUIPO[tipo].codigo} · ${FICHAS_EQUIPO[tipo].titulo}` : ''}
+                subtitulo={codigoEquipo ? `Equipo ${codigoEquipo}` : undefined}
+                slots={celularAbierto ? slotsCelular() : []}
+                onFirma={(id, imagen) => firmaRefs.current[id]?.fijar(imagen)}
+            />
         </>
     );
 };

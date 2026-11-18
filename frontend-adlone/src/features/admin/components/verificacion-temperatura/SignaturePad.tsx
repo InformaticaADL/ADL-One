@@ -46,13 +46,17 @@ export interface SignaturePadHandle {
 interface Props {
     onChange?: (vacio: boolean) => void;
     className?: string;
+    /** Clase de alto del área de firma (por defecto h-44). */
+    alto?: string;
+    /** Texto que se ve mientras está en blanco. */
+    ayuda?: string;
 }
 
 // Panel para firmar con mouse, dedo o lápiz (Pointer Events). Se dibuja en un
 // canvas a la resolución real de la pantalla para que el trazo no salga
 // pixelado; al exportar se recorta al área firmada y se limita el ancho, así la
 // imagen viaja liviana al backend.
-export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onChange, className }, ref) => {
+export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onChange, className, alto = 'h-44', ayuda = 'Firme aquí con el mouse, el dedo o un lápiz' }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const dibujando = useRef(false);
     const ultimo = useRef<{ x: number; y: number } | null>(null);
@@ -161,7 +165,7 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
         <div className={cn('relative', className)}>
             <canvas
                 ref={canvasRef}
-                className="h-44 w-full cursor-crosshair touch-none rounded-lg border-2 border-dashed border-border bg-white"
+                className={cn('w-full cursor-crosshair touch-none rounded-lg border-2 border-dashed border-border bg-white', alto)}
                 onPointerDown={onDown}
                 onPointerMove={onMove}
                 onPointerUp={onUp}
@@ -170,10 +174,10 @@ export const SignaturePad = React.forwardRef<SignaturePadHandle, Props>(({ onCha
             />
             {vacio && (
                 <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-slate-400">
-                    Firme aquí con el mouse, el dedo o un lápiz
+                    {ayuda}
                 </span>
             )}
-            <span className="pointer-events-none absolute bottom-8 left-6 right-6 border-b border-slate-300" />
+            <span className="pointer-events-none absolute bottom-6 left-6 right-6 border-b border-slate-300" />
             <Button type="button" variant="ghost" size="sm" className="absolute right-2 top-2 h-7 text-xs" onClick={clear} disabled={vacio}>
                 <IconEraser size={14} /> Limpiar
             </Button>

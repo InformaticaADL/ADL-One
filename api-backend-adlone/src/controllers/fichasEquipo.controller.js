@@ -2,6 +2,8 @@ import fichasEquipoService from '../services/fichasEquipo.service.js';
 import gcDocumentosService from '../services/gcDocumentos.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
+import firmaDigitalService from '../services/firmaDigital.service.js';
+import firmaRemotaService, { urlPublica } from '../services/firmaRemota.service.js';
 
 // Formularios de equipo: OI-FoGe-22 (ficha técnica), OI-FoGe-24 (historial
 // por año) y OI-FoGe-36 (ficha de entrega). Los PDF se devuelven inline para
@@ -32,6 +34,33 @@ const equipoDelCuerpo = async (body = {}) => {
 };
 
 export const fichasEquipoController = {
+    // ── Firmas de las fichas: importar una registrada o pedirla al celular (QR) ──
+    firmasRegistradas: manejar(async (req, res) => {
+        successResponse(res, await firmaDigitalService.listarRegistradas(), 'Firmas registradas');
+    }, 'Error al leer las firmas registradas'),
+
+    firmaRegistrada: manejar(async (req, res) => {
+        const tipo = String(req.params.tipo || '').toUpperCase();
+        const imagen = await firmaDigitalService.imagenRegistrada(tipo, req.params.id);
+        if (!imagen) return errorResponse(res, 'Esa persona no tiene una firma registrada', 404);
+        successResponse(res, { tipo, id: Number(req.params.id), firma: imagen }, 'Firma registrada');
+    }, 'Error al leer la firma registrada'),
+
+    firmaRemotaCrear: manejar(async (req, res) => {
+        const { titulo, subtitulo, slots } = req.body || {};
+        const sesion = await firmaRemotaService.crearFicha({ titulo, subtitulo, slots, idUsuario: req.user?.id || null, url: (token) => urlPublica(req, token) });
+        successResponse(res, sesion, 'Código QR generado');
+    }, 'No se pudo generar el código QR'),
+
+    firmaRemotaEstado: manejar(async (req, res) => {
+        try {
+            successResponse(res, firmaRemotaService.estadoFicha(req.params.token, req.user?.id || null));
+        } catch (e) {
+            if (e.statusCode) return errorResponse(res, e.message, e.statusCode);
+            throw e;
+        }
+    }, 'No se pudo consultar la firma del celular'),
+
     historialAnios: manejar(async (req, res) => {
         successResponse(res, await fichasEquipoService.historialAnios(req.params.id), 'Historial por año');
     }, 'Error al leer el historial del equipo'),

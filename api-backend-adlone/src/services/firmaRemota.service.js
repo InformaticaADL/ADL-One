@@ -53,7 +53,72 @@ export const urlPublica = (req, token) => {
     return `${req.protocol}://${destino}${puerto ? `:${puerto}` : ''}/firma/${token}`;
 };
 
+// Sesión de VARIAS firmas para una ficha de equipo (entrega, recepción, técnica): cada
+// firma es un "slot" con su título. El celular lista las que faltan y firma una por una;
+// las firmas viajan de vuelta a la web, que las pone en el formulario (no se registran
+// en ningún equipo: la ficha las usa al generar el PDF). Las que ya estaban firmadas en
+// la web (dibujadas o importadas) no se piden al celular.
+const MAX_FIRMA = 900_000;
+
 const firmaRemotaService = {
+    async crearFicha({ titulo, subtitulo, slots, idUsuario, url }) {
+        limpiarVencidas();
+        const lista = (Array.isArray(slots) ? slots : [])
+            .map((x) => ({ id: String(x?.id ?? '').slice(0, 40), titulo: String(x?.titulo ?? '').slice(0, 120), nombre: x?.nombre ? String(x.nombre).slice(0, 120) : null, firma: null }))
+            .filter((x) => x.id && x.titulo);
+        if (!lista.length) throw error('No hay firmas pendientes para pedir al celular.', 400);
+        if (new Set(lista.map((x) => x.id)).size !== lista.length) throw error('Firmas repetidas', 400);
+        const token = crypto.randomBytes(32).toString('hex');
+        const enlace = url ? url(token) : `/firma/${token}`;
+        sesiones.set(token, {
+            tipo: 'FICHA', titulo: String(titulo || 'Firma de ficha').slice(0, 150), subtitulo: subtitulo ? String(subtitulo).slice(0, 200) : null,
+            slots: lista, idUsuario: idUsuario || null, expira: Date.now() + DURACION_MS,
+        });
+        const qr = url ? await QRCode.toDataURL(enlace, { margin: 1, width: 320, errorCorrectionLevel: 'M' }) : null;
+        return { token, url: enlace, qr, expira: new Date(Date.now() + DURACION_MS).toISOString() };
+    },
+
+    /** 'FICHA' (varias firmas de una ficha) o 'VERIFICACION' (una verificación de temperatura). */
+    tipoSesion(token) {
+        const s = vigente(token);
+        return s.tipo === 'FICHA' ? 'FICHA' : 'VERIFICACION';
+    },
+
+    // Celular: qué ve antes de firmar (sin las imágenes).
+    infoFicha(token) {
+        const s = vigente(token);
+        if (s.tipo !== 'FICHA') throw error(ENLACE_INVALIDO, 410);
+        return { tipo: 'FICHA', titulo: s.titulo, subtitulo: s.subtitulo, slots: s.slots.map((x) => ({ id: x.id, titulo: x.titulo, nombre: x.nombre, firmada: !!x.firma })) };
+    },
+
+    // Celular: una firma de la ficha. Se puede volver a firmar mientras el enlace viva (corrige un error).
+    recibirFirmaFicha(token, slotId, firma) {
+        const s = vigente(token);
+        if (s.tipo !== 'FICHA') throw error(ENLACE_INVALIDO, 410);
+        const slot = s.slots.find((x) => x.id === String(slotId));
+        if (!slot) throw error('Esa firma no corresponde a esta ficha.', 404);
+        const f = String(firma || '');
+        if (!/^data:image\/png;base64,/.test(f)) throw error('Firma inválida', 400);
+        if (f.length > MAX_FIRMA) throw error('La imagen de la firma es demasiado grande', 400);
+        slot.firma = f;
+        return this.infoFicha(token);
+    },
+
+    // Web (con sesión): firmas recibidas hasta ahora. Solo quien generó el QR puede verlas.
+    estadoFicha(token, idUsuario) {
+        const s = sesiones.get(token);
+        if (!s || s.tipo !== 'FICHA') throw error('El código QR ya no es válido. Genere uno nuevo.', 404);
+        if (s.expira < Date.now()) { sesiones.delete(token); throw error('El código QR venció. Genere uno nuevo.', 410); }
+        if (s.idUsuario && idUsuario && Number(s.idUsuario) !== Number(idUsuario)) throw error('Este código QR lo generó otra persona.', 403);
+        return {
+            estado: s.slots.every((x) => x.firma) ? 'completo' : 'pendiente',
+            expira: new Date(s.expira).toISOString(),
+            slots: s.slots.map((x) => ({ id: x.id, firmada: !!x.firma, firma: x.firma })),
+        };
+    },
+
+    cerrarFicha(token) { sesiones.delete(token); },
+
     /**
      * Sesión de firma para una ficha (reemplaza la anterior de esa ficha).
      * @param url  (token) => enlace absoluto; si se pasa, también se genera el QR.
@@ -86,12 +151,14 @@ const firmaRemotaService = {
     // Para el celular (público): lo que ve antes de firmar.
     info(token) {
         const s = vigente(token);
+        if (s.tipo === 'FICHA') throw error(ENLACE_INVALIDO, 410);
         return { ...s.info, ya_firmado: s.registrada };
     },
 
     // Muestreador e id de ficha de una sesión vigente (para listar sus pendientes).
     sesion(token) {
         const s = vigente(token);
+        if (s.tipo === 'FICHA') throw error(ENLACE_INVALIDO, 410);
         return { idVerificacion: s.idVerificacion, idMuestreador: s.idMuestreador, idUsuario: s.idUsuario };
     },
 
@@ -99,6 +166,7 @@ const firmaRemotaService = {
     // (la ruta pública la firma y registra con verificacionTemperaturaService.firmar).
     recibirFirma(token, firma) {
         const s = vigente(token);
+        if (s.tipo === 'FICHA') throw error(ENLACE_INVALIDO, 410);
         if (s.registrada) throw error('Esta verificación ya quedó firmada.', 409);
         const f = String(firma || '');
         if (!/^data:image\/png;base64,/.test(f)) throw error('Firma inválida', 400);

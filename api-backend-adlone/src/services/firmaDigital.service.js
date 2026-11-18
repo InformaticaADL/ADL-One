@@ -94,6 +94,42 @@ const firmaDigitalService = {
         return r.recordset[0] || null;
     },
 
+    /**
+     * Personas con una firma registrada, sin las imágenes (pesan): usuarios (firma de su Perfil)
+     * y muestreadores (la firma que ya usa Verificación de Temperatura). Para "importar" una
+     * firma en las fichas de equipo.
+     */
+    async listarRegistradas() {
+        const pool = await getConnection();
+        const lista = [];
+        if (await hayTabla(pool)) {
+            const u = await pool.request().query(`
+                SELECT f.id_firmante AS id, ISNULL(NULLIF(LTRIM(RTRIM(f.nombre_firmante)), ''), LTRIM(RTRIM(us.usuario))) AS nombre, f.cargo
+                FROM ${TABLA} f LEFT JOIN mae_usuario us ON us.id_usuario = f.id_firmante AND f.tipo_firmante = 'USUARIO'
+                WHERE f.tipo_firmante = 'USUARIO' AND f.vigente = 1`);
+            for (const r of u.recordset) lista.push({ tipo: 'USUARIO', id: Number(r.id), nombre: r.nombre, cargo: r.cargo || null });
+        }
+        const m = await pool.request().query(`
+            SELECT id_muestreador AS id, LTRIM(RTRIM(nombre_muestreador)) AS nombre
+            FROM mae_muestreador
+            WHERE firma_muestreador LIKE 'data:image%' AND ISNULL(habilitado, 'S') <> 'N'`);
+        for (const r of m.recordset) lista.push({ tipo: 'MUESTREADOR', id: Number(r.id), nombre: r.nombre, cargo: 'Muestreador' });
+        return lista.sort((a, b) => String(a.nombre).localeCompare(String(b.nombre), 'es'));
+    },
+
+    /** Imagen de la firma registrada de una persona, o null. */
+    async imagenRegistrada(tipo, idFirmante) {
+        const id = firmante(tipo, idFirmante);
+        if (tipo === 'MUESTREADOR') {
+            const pool = await getConnection();
+            const r = await pool.request().input('id', sql.Numeric(10, 0), id)
+                .query('SELECT firma_muestreador FROM mae_muestreador WHERE id_muestreador = @id');
+            const f = r.recordset[0]?.firma_muestreador;
+            if (f && String(f).startsWith('data:image')) return f;
+        }
+        return this.obtener(tipo, id);
+    },
+
     /** Nombre y cargo actuales de un usuario o muestreador. */
     async datos(tipo, idFirmante) {
         const id = firmante(tipo, idFirmante);
