@@ -26,6 +26,8 @@ interface TimelineEvent {
 }
 
 interface ObservationTimelineProps {
+    /** Sin límite de altura propio: para mostrarla dentro de un panel que ya hace scroll. */
+    sinLimiteDeAltura?: boolean;
     fichaId: number;
     // Optional data to synthesize creation event if missing in DB history
     creationData?: {
@@ -54,7 +56,7 @@ const TYPE_STYLE: Record<TimelineEvent['type'], TimelineTypeStyle> = {
     OTHER: { badgeVariant: 'outline', dotClass: 'bg-muted-foreground text-background', expandedClass: 'bg-muted/40', borderClass: 'border-border' },
 };
 
-export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaId, creationData }) => {
+export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaId, creationData, sinLimiteDeAltura }) => {
     const [events, setEvents] = useState<TimelineEvent[]>([]);
     const [loading, setLoading] = useState(false);
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -180,7 +182,7 @@ export const ObservationTimeline: React.FC<ObservationTimelineProps> = ({ fichaI
     );
 
     return (
-        <div className="max-h-[350px] overflow-y-auto overflow-x-hidden pr-2">
+        <div className={cn(sinLimiteDeAltura ? 'overflow-x-hidden' : 'max-h-[350px] overflow-y-auto overflow-x-hidden pr-2')}>
             <ol className="flex flex-col">
                 {events.map((event, idx) => {
                 const isExpanded = expandedIds.has(event.id);
