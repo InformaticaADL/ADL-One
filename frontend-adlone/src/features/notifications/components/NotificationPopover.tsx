@@ -10,7 +10,7 @@ import {
 } from '@tabler/icons-react';
 import { useNotificationStore, type Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
-import { esNotificacionSolicitudCliente, AREA_VENCIMIENTOS_EQUIPOS, abrirCalendarioVencimientos } from '../utils/notificationNavigation';
+import { handleNotificationNavigation } from '../utils/notificationNavigation';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -37,9 +37,6 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
 
-    // Mismos permisos que FichasIngresoPage exige para 'list_fichas' / 'list_ejecutados'
-    const FICHA_DETALLE_PERMS = ['FI_CONSULTAR', 'FI_VER', 'FI_APROBAR_TEC', 'FI_RECHAZAR_TEC', 'FI_APROBAR_COO', 'FI_RECHAZAR_COO', 'FI_EDITAR'];
-    const FICHA_EJECUTADOS_PERMS = ['MA_COMERCIAL_HISTORIAL_ACCESO', 'FI_EXP_MC'];
 
     const unreadNotifications = notifications.filter(n => !n.leido);
     const recentNotifications = notifications.slice(0, 5);
@@ -54,83 +51,15 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
 
     const handleItemClick = (notif: Notification) => {
         onClose();
-
         if (!notif.leido) {
             markAsRead(notif.id_notificacion).catch(console.error);
         }
-
-        if (notif.area === AREA_VENCIMIENTOS_EQUIPOS) {
-            abrirCalendarioVencimientos({ setActiveModule, setActiveSubmodule, hasPermission, showToast });
-            if (isMobile) window.dispatchEvent(new CustomEvent('close-mobile-sidebar'));
-            return;
-        }
-
-        if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
-            setPendingSolicitudClienteId(notif.id_referencia);
-            setActiveModule('solicitudes-clientes');
-            setActiveSubmodule('');
-            return;
-        }
-
-        if (notif.id_referencia) {
-            const titulo = (notif.titulo || '').toLowerCase();
-            const mensaje = (notif.mensaje || '').toLowerCase();
-            const area = (notif.area || '').toLowerCase();
-
-            // Chat — check FIRST to prevent mis-routing
-            if (area === 'chat' || area === 'mensajería') {
-                setPendingChatId(notif.id_referencia);
-                setActiveModule('chat');
-                setActiveSubmodule('');
-            } else {
-                // Solicitudes: route to URS inbox with request selected
-                const isRequest =
-                    titulo.includes('solicitud') || titulo.includes('estado') ||
-                    titulo.includes('derivación') || titulo.includes('derivacion') ||
-                    titulo.includes('baja') || titulo.includes('traspaso') ||
-                    titulo.includes('asignación') || titulo.includes('equipo') ||
-                    titulo.includes('activación') || titulo.includes('comentario') ||
-                    titulo.includes('mensaje en #') || titulo.includes('nuevo mensaje') ||
-                    titulo.includes('consulta') || mensaje.includes('ficha/servicio') ||
-                    area === 'urs' || area === 'solicitudes' ||
-                    area === 'gestión de calidad' || area === 'gestion de calidad';
-
-                if (isRequest) {
-                    setSelectedRequestId(notif.id_referencia);
-                    setActiveModule('solicitudes');
-                    setActiveSubmodule('');
-                } else if (titulo.includes('muestreo completado')) {
-                    // Muestreo Completado: lleva al listado de Muestreos Ejecutados, no al detalle de la ficha
-                    if (!hasPermission(FICHA_EJECUTADOS_PERMS)) {
-                        showToast({ type: 'error', message: 'No tienes permiso para ver el listado de Muestreos Ejecutados.' });
-                        return;
-                    }
-                    setActiveModule('medio-ambiente');
-                    setActiveSubmodule('ma-fichas-ingreso');
-                    setFichasMode('list_ejecutados');
-                } else if (titulo.includes('ficha') || (mensaje.includes('ficha') && !mensaje.includes('ficha/servicio')) || titulo.includes('programación') || mensaje.includes('muestreo')) {
-                    if (!hasPermission(FICHA_DETALLE_PERMS)) {
-                        showToast({ type: 'error', message: 'No tienes permiso para ver el detalle de esta ficha.' });
-                        return;
-                    }
-                    setPendingRequestId(notif.id_referencia);
-                    setActiveModule('medio-ambiente');
-                    setActiveSubmodule('ma-fichas-ingreso');
-                } else {
-                    // Fallback: still route to solicitudes
-                    setSelectedRequestId(notif.id_referencia);
-                    setActiveModule('solicitudes');
-                    setActiveSubmodule('');
-                }
-            }
-        } else if (notif.area === 'Chat') {
-            setActiveModule('chat');
-            setActiveSubmodule('');
-        }
-
-        if (isMobile) {
-            window.dispatchEvent(new CustomEvent('close-mobile-sidebar'));
-        }
+        // Misma lógica de destino que la página de notificaciones (una sola copia)
+        handleNotificationNavigation(notif, {
+            setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setPendingSolicitudClienteId,
+            setSelectedRequestId, setFichasMode, hasPermission, showToast,
+        });
+        if (isMobile) window.dispatchEvent(new CustomEvent('close-mobile-sidebar'));
     };
 
     // Cada tipo lleva su ícono dentro de un círculo del mismo color, para que se distinga de un vistazo.

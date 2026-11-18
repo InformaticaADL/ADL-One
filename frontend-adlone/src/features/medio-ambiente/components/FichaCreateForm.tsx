@@ -2,6 +2,7 @@ import React, { useState, useRef, useTransition, useCallback, useEffect, useMemo
 import { AntecedentesForm } from './AntecedentesForm';
 import type { AntecedentesFormHandle } from './AntecedentesForm';
 import { ParametrosVisitaForm, PrecioVisitaForm } from './AnalisisVisitaForm';
+import { ComponerPuntosDialog } from './ComponerPuntosDialog';
 import { PasosLayout, type PasoInfo, type EstadoPaso } from './PasosLayout';
 import type { FuenteAnalisis } from './AgregarParametrosDialog';
 import { PuntosVisitaTable } from './PuntosVisitaTable';
@@ -17,6 +18,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import {
     ajustarParametrosPorCambioDePuntos,
+    componerPuntos,
     armarPayloadVisita,
     desdeFilaGuardada,
     formatoUF,
@@ -255,6 +257,20 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
         const antes = puntosRef.current.map((p) => p.id);
         setParametros((prev) => ajustarParametrosPorCambioDePuntos(prev, antes, nuevos.map((p) => p.id)));
         setPuntos(nuevos);
+    };
+
+    // Punto compuesto: el laboratorio de los puntos elegidos se toma UNA vez en un punto nuevo; cada uno se queda con su terreno.
+    const [componerAbierto, setComponerAbierto] = useState(false);
+    const agregarComposicion = (origenes: string[], nombre: string) => {
+        const antes = puntosRef.current.map((p) => p.id);
+        const zonaSin = zonas.find((z) => zonaNoAplica(z.value))?.value || '';
+        const nuevo = nuevoPunto({ puntoMuestreo: nombre, zona: zonaSin });
+        setParametros((prev) => {
+            const copia = ajustarParametrosPorCambioDePuntos(prev, antes, [...antes, nuevo.id]);
+            componerPuntos(copia, origenes, nuevo.id);
+            return copia;
+        });
+        setPuntos([...puntosRef.current, nuevo]);
     };
 
     // ─── Validaciones ───────────────────────────────────────────────────────────────────────────────────
@@ -586,6 +602,12 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
             </Dialog>
 
             <div ref={topRef} className="h-0 overflow-hidden" />
+            <ComponerPuntosDialog
+                open={componerAbierto}
+                onOpenChange={setComponerAbierto}
+                puntos={puntos.map((p) => ({ id: p.id, nombre: p.puntoMuestreo }))}
+                onConfirmar={agregarComposicion}
+            />
             <PageHeader
                 title="Nueva Ficha de Ingreso"
                 onBack={handleSalir}
@@ -686,6 +708,10 @@ export const FichaCreateForm = ({ onBackToMenu, onSuccess }: { onBackToMenu: () 
                                 )}
                             </div>
                             <div className={cn(pasoVis !== 1 && 'hidden')}>
+                                <div className="mb-3 flex flex-wrap items-center justify-end gap-3">
+                                    <span className="text-xs text-muted-foreground">¿El laboratorio se toma una sola vez sobre varios puntos? Crea un punto compuesto.</span>
+                                    <Button type="button" variant="outline" size="sm" onClick={() => setComponerAbierto(true)}>Componer puntos…</Button>
+                                </div>
                                 <ParametrosVisitaForm
                                     puntos={puntos}
                                     parametros={parametros}

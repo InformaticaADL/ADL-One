@@ -57,7 +57,7 @@ function resumir(data: any): Resumen {
         };
     });
     const coord = String(data?.ma_coordenadas || '').trim();
-    const m = coord.match(/^(.*?) UTM (\d*)E (\d*)S/);
+    const m = coord.match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
     const zona = m ? m[1] : (coord || '');
     const utm = m && (m[2] || m[3]) ? `${m[2] || '—'} E · ${m[3] || '—'} S` : '';
     return { zonaRaw: zona || '', utmNorte: m ? m[2] : '', utmEste: m ? m[3] : '', zona: zona || 'Sin zona', utm, referencia: String(data?.referencia_googlemaps || '').trim(), lineas, costoOperativo: co, valor: lineas.reduce((s, l) => s + l.uf, 0) + co };

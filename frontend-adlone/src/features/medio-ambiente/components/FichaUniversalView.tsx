@@ -158,7 +158,6 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     const [loading, setLoading] = useState(true);
     // Visita con varios puntos: todos sus puntos a un clic y aprobación de toda la visita de una vez
     const [grupo, setGrupo] = useState<{ total: number; puntos: { id_fichaingresoservicio: number; punto: string; estado: string }[] } | null>(null);
-    const [aprobarTodaLaVisita, setAprobarTodaLaVisita] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [actionLoading, setActionLoading] = useState(false);
     const [activeTab, setActiveTab] = useState<string>('antecedentes');
@@ -381,7 +380,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
             return;
         }
 
-        const todaLaVisita = esVisita && aprobarTodaLaVisita;
+        const todaLaVisita = esVisita;
         const actionConfig = {
             approve_tech: { title: 'Confirmar Aprobación Técnica', message: '¿Está seguro de ACEPTAR esta ficha técnicamente? Esta acción habilitará la ficha para coordinación.' },
             reject_tech: { title: 'Solicitar Revisión Técnica', message: todaLaVisita ? `¿Está seguro de devolver los ${grupo!.total} puntos de la VISITA a Comercial para su corrección?` : '¿Está seguro de solicitar una REVISIÓN para esta ficha? Volverá al área comercial para su corrección.' },
@@ -434,7 +433,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         try {
             switch (confirmAction.type) {
                 case 'approve_tech':
-                    if (esVisita && aprobarTodaLaVisita) {
+                    if (esVisita) {
                         const r = (await fichaService.aprobarVisita(fichaId, 'tecnica', { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'ACEPTADA técnicamente');
                     } else {
@@ -443,7 +442,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     }
                     break;
                 case 'reject_tech':
-                    if (esVisita && aprobarTodaLaVisita) {
+                    if (esVisita) {
                         const r = (await fichaService.rechazarVisita(fichaId, 'tecnica', { observaciones: textoObs(modoObsTec, tecnicaObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'DEVUELTA a Comercial', 'rechazados');
                     } else {
@@ -452,7 +451,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     }
                     break;
                 case 'approve_coord':
-                    if (esVisita && aprobarTodaLaVisita) {
+                    if (esVisita) {
                         const r = (await fichaService.aprobarVisita(fichaId, 'coordinacion', { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'APROBADA para programación');
                     } else {
@@ -461,7 +460,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                     }
                     break;
                 case 'reject_coord':
-                    if (esVisita && aprobarTodaLaVisita) {
+                    if (esVisita) {
                         const r = (await fichaService.rechazarVisita(fichaId, 'coordinacion', { observaciones: textoObs(modoObsCoord, coordinacionObs), user: { id: user?.id || 0 } }))?.data;
                         avisarResultadoVisita(r, 'DEVUELTA a Comercial', 'rechazados');
                     } else {
@@ -699,7 +698,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
                                     {(() => {
                                         const coord = String(data.ma_coordenadas || '').trim();
-                                        const m = coord.match(/^(.*?) UTM (\d*)E (\d*)S/);
+                                        const m = coord.match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
                                         const zona = m ? m[1] : coord;
                                         const noCaudal = !data.medicion_caudal || /no\s*aplica/i.test(String(data.medicion_caudal));
                                         const medida = (n: any, u: any) => [n, u].filter((x) => x !== undefined && x !== null && String(x).trim() !== '').join(' ');
@@ -915,10 +914,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             </p>
                                         )}
                                         {esVisita && (
-                                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
-                                                <Checkbox checked={aprobarTodaLaVisita} onCheckedChange={(v) => setAprobarTodaLaVisita(v === true)} />
-                                                Aplicar a los {grupo!.total} puntos de la visita (aprobar o devolver) de una vez
-                                            </label>
+                                            <p className="mb-0 mt-3 rounded-md bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+                                                Es una visita: lo que decidas se aplica a los {grupo!.total} puntos a la vez.
+                                            </p>
                                         )}
                                         <div className="mt-4 flex justify-end gap-2.5">
                                             <ProtectedContent permission="FI_APROBAR_TEC">
@@ -955,10 +953,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             </p>
                                         )}
                                         {esVisita && (
-                                            <label className="mt-3 flex cursor-pointer items-center gap-2 text-[13px] text-foreground">
-                                                <Checkbox checked={aprobarTodaLaVisita} onCheckedChange={(v) => setAprobarTodaLaVisita(v === true)} />
-                                                Aplicar a los {grupo!.total} puntos de la visita (aprobar o devolver) de una vez
-                                            </label>
+                                            <p className="mb-0 mt-3 rounded-md bg-muted px-3 py-2 text-[13px] text-muted-foreground">
+                                                Es una visita: lo que decidas se aplica a los {grupo!.total} puntos a la vez.
+                                            </p>
                                         )}
                                         <div className="mt-4 flex justify-end gap-2.5">
                                             <ProtectedContent permission="FI_APROBAR_COO">

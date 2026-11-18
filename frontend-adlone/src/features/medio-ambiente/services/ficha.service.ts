@@ -121,6 +121,16 @@ export const fichaService = {
         const response = await apiClient.post(`/api/fichas/${id}/puntos-visita`, { puntos });
         return response.data;
     },
+    /** «Editar visita»: quita puntos (cada uno se cancela con un motivo). Si queda uno solo, la visita se deshace. */
+    quitarPuntosVisita: async (id: number, data: { ids: number[]; idMotivo: number; observacion: string }) => {
+        const response = await apiClient.post(`/api/fichas/${id}/quitar-puntos`, data);
+        return response.data;
+    },
+    /** «Editar visita»: agrega puntos nuevos (cada uno, una ficha más de la visita) con sus análisis y su parte del costo operativo. */
+    agregarPuntosVisita: async (id: number, data: { antecedentes: Record<string, unknown>; puntos: Array<Record<string, unknown>>; observaciones?: string }) => {
+        const response = await apiClient.post(`/api/fichas/${id}/agregar-puntos`, data);
+        return response.data;
+    },
     /** «Editar visita»: antecedentes comunes y/o análisis y precio de cada punto (cada punto conserva lo suyo). */
     actualizarVisita: async (id: number, data: { antecedentes?: Record<string, unknown>; analisisPorFicha?: Array<{ id: number; analisis: any[]; costoOperativo: { activo: boolean; uf: number } }>; observaciones?: string }) => {
         const response = await apiClient.post(`/api/fichas/${id}/editar-visita`, data);

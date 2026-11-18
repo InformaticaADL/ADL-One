@@ -452,3 +452,36 @@ export function armarPayloadVisita(args: {
     };
     return { payload, esGrupo: resto.length > 0 };
 }
+
+
+// ─── Punto compuesto ───────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Arma un punto COMPUESTO: la muestra de laboratorio se toma una sola vez sobre la mezcla de varios puntos («Composición Estación 2 y 3»), y cada
+ * punto de origen se queda solo con sus análisis de terreno. Todos los parámetros de laboratorio que tenían los puntos de origen pasan al compuesto
+ * (una sola vez, no multiplicados por la cantidad de puntos) y se les quitan a los de origen. Si un parámetro tenía precios distintos en los
+ * puntos de origen, el compuesto conserva el más alto. Modifica `params`. El punto compuesto ya debe existir en los parámetros (ver
+ * ajustarParametrosPorCambioDePuntos).
+ */
+export function componerPuntos(params: ParametroVisita[], origenes: IdPunto[], compuesto: IdPunto): void {
+    for (const p of params) {
+        const donde = p.tipo === 'laboratorio' ? origenes.filter((o) => estaEn(p, o)) : [];
+        if (donde.length === 0) {
+            // Lo que no es laboratorio de los puntos de origen NO va al compuesto (un punto nuevo hereda los parámetros del primero: se limpia).
+            p.en[compuesto] = false;
+            p.u[compuesto] = 0;
+            continue;
+        }
+        p.en[compuesto] = true;
+        p.u[compuesto] = Math.max(...donde.map((o) => p.u[o] || 0));
+        for (const o of origenes) { p.en[o] = false; p.u[o] = 0; }
+    }
+}
+
+/** Nombre sugerido del punto compuesto: «Composición Estación 2 y Estación 3». */
+export const nombreDeComposicion = (nombres: string[]): string => {
+    const lista = nombres.map((n) => n.trim()).filter(Boolean);
+    if (lista.length === 0) return 'Composición';
+    if (lista.length === 1) return `Composición ${lista[0]}`;
+    return `Composición ${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}`;
+};
