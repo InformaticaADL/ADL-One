@@ -279,6 +279,12 @@ class FichaIngresoController {
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
 
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.aprobarVisita(id, { observaciones, etapa: 'tecnica' }, userData);
+                return successResponse(res, resultVisita, 'Visita aceptada');
+            }
+
             const result = await fichaService.approveFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada exitosamente');
         } catch (err) {
@@ -292,6 +298,12 @@ class FichaIngresoController {
             const { id } = req.params;
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
+
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.rechazarVisita(id, { observaciones, etapa: 'tecnica' }, userData);
+                return successResponse(res, resultVisita, 'Visita devuelta a Comercial');
+            }
 
             const result = await fichaService.rejectFicha(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha rechazada exitosamente');
@@ -313,6 +325,32 @@ class FichaIngresoController {
         } catch (err) {
             logger.error('Error in aprobarVisita controller:', err);
             return errorResponse(res, err.statusCode ? err.message : 'Error al aprobar la visita', err.statusCode || 500, err.message);
+        }
+    }
+
+    // «Editar visita»: quita puntos de la visita (cada uno se cancela con un motivo)
+    async quitarPuntosVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { ids, idMotivo, observacion } = req.body || {};
+            const result = await fichaService.quitarPuntosDeVisita(id, { ids, idMotivo, observacion }, req.user || { id: 0 });
+            return successResponse(res, result, 'Puntos quitados de la visita');
+        } catch (err) {
+            logger.error('Error in quitarPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al quitar los puntos', err.statusCode || 500, err.message);
+        }
+    }
+
+    // «Editar visita»: agrega puntos nuevos (cada uno, una ficha más de la visita)
+    async agregarPuntosVisita(req, res) {
+        try {
+            const { id } = req.params;
+            const { antecedentes, puntos, observaciones } = req.body || {};
+            const result = await fichaService.agregarPuntosAVisita(id, { antecedentes, puntos, observaciones }, req.user || { id: 0 });
+            return successResponse(res, result, 'Puntos agregados a la visita');
+        } catch (err) {
+            logger.error('Error in agregarPuntosVisita controller:', err);
+            return errorResponse(res, err.statusCode ? err.message : 'Error al agregar los puntos', err.statusCode || 500, err.message);
         }
     }
 
@@ -362,6 +400,12 @@ class FichaIngresoController {
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
 
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.aprobarVisita(id, { observaciones, etapa: 'coordinacion' }, userData);
+                return successResponse(res, resultVisita, 'Visita aceptada por coordinación');
+            }
+
             const result = await fichaService.approveCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha aceptada por coordinación exitosamente');
         } catch (err) {
@@ -375,6 +419,12 @@ class FichaIngresoController {
             const { id } = req.params;
             const { observaciones } = req.body;
             const userData = req.user || { id: 0 };
+
+            // Una ficha que es punto de una visita nunca se aprueba ni se rechaza sola: se aplica a todos los puntos de la visita.
+            if (await fichaService.esParteDeVisita(id)) {
+                const resultVisita = await fichaService.rechazarVisita(id, { observaciones, etapa: 'coordinacion' }, userData);
+                return successResponse(res, resultVisita, 'Visita devuelta a Comercial');
+            }
 
             const result = await fichaService.reviewCoordinacion(id, { observaciones }, userData);
             return successResponse(res, result, 'Ficha enviada a revisión exitosamente');

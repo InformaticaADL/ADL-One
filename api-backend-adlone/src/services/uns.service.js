@@ -226,9 +226,9 @@ class UnsService {
                     cuerpo_mensaje: '{{usuario_accion}} ha reportado un problema con el equipo {{equipo_nombre}}'
                 },
                 'FICHA_CREADA': {
-                    titulo: 'Nueva Ficha Comercial #{{correlativo}}',
-                    asunto_template: 'Nueva Ficha Comercial #{{correlativo}}',
-                    mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}',
+                    titulo: 'Nueva {{tipo_registro_min}}: {{registro}}',
+                    asunto_template: 'Nueva {{tipo_registro_min}}: {{registro}}',
+                    mensaje: '{{usuario_accion}} ha creado una nueva {{tipo_registro_min}} {{registro}}',
                     cuerpo_mensaje: '{{usuario_accion}} ha creado una nueva ficha para {{cliente}}'
                 },
                 'AVISO_PERDIDO_NUEVO': {
@@ -256,20 +256,20 @@ class UnsService {
                     mensaje: '{{usuario_accion}} ha reportado la anulación del servicio #{{correlativo}}'
                 },
                 'FICHA_APROBADA_TECNICA': {
-                    titulo: 'Aprobación Técnica: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido aprobada técnicamente por {{usuario_accion}}.'
+                    titulo: 'Aprobación Técnica: {{registro}}',
+                    mensaje: 'La {{tipo_registro_min}} {{registro}} ha sido aprobada técnicamente por {{usuario_accion}}.'
                 },
                 'FICHA_RECHAZADA_TECNICA': {
-                    titulo: 'Ficha Rechazada: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido rechazada técnicamente por {{usuario_accion}}.'
+                    titulo: 'Rechazo Técnico: {{registro}}',
+                    mensaje: 'La {{tipo_registro_min}} {{registro}} ha sido rechazada técnicamente por {{usuario_accion}}.'
                 },
                 'FICHA_APROBADA_COORDINACION': {
-                    titulo: 'Aprobación Coordinación: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido aprobada por coordinación ({{usuario_accion}}).'
+                    titulo: 'Aprobación Coordinación: {{registro}}',
+                    mensaje: 'La {{tipo_registro_min}} {{registro}} ha sido aprobada por coordinación ({{usuario_accion}}).'
                 },
                 'FICHA_RECHAZADA_COORDINACION': {
-                    titulo: 'Rechazo Coordinación: #{{correlativo}}',
-                    mensaje: 'La ficha #{{correlativo}} ha sido rechazada por coordinación ({{usuario_accion}}).'
+                    titulo: 'Rechazo Coordinación: {{registro}}',
+                    mensaje: 'La {{tipo_registro_min}} {{registro}} ha sido rechazada por coordinación ({{usuario_accion}}).'
                 },
                 'FICHA_ASIGNADA': {
                     titulo: 'Muestreo Asignado: #{{correlativo}}',
@@ -331,6 +331,10 @@ class UnsService {
                     const { id_usuario } = recipient;
                     const ctxParaWeb = { 
                         ...context, 
+                        // «visita «Edwards» (6 puntos)» o «ficha #1081», según a qué se refiera el aviso
+                        tipo_registro: context.TIPO_REGISTRO || 'Ficha',
+                        tipo_registro_min: context.TIPO_REGISTRO_MIN || 'ficha',
+                        registro: context.REGISTRO || `#${context.CORRELATIVO || context.correlativo || context.id_solicitud || ''}`,
                         id_solicitud: context.id_solicitud || context.CORRELATIVO || context.correlativo || 'N/A',
                         usuario_accion: context.usuario_accion || context.USUARIO || context.SOLICITANTE || context.nombre_solicitante || 'Un usuario',
                         correlativo: context.id_solicitud || context.CORRELATIVO || context.correlativo || 'N/A',
@@ -379,7 +383,11 @@ class UnsService {
                         mensaje = mensaje.replace('EN_REVISION', 'En revisión');
                     }
 
-                    await this.sendWebNotification(id_usuario, titulo, mensaje, 'INFO', context.id_solicitud || context.id_referencia || context.correlativo, context.area_destino || context.area);
+                    // Los avisos de fichas guardan el id de la ficha (si no, al pulsarlos no hay a dónde ir); los de solicitudes, el de la solicitud.
+                    const refAviso = codigoEvento.startsWith('FICHA_')
+                        ? (context.ID_FICHA || context.CORRELATIVO || context.correlativo || context.id_referencia)
+                        : (context.id_solicitud || context.id_referencia || context.correlativo);
+                    await this.sendWebNotification(id_usuario, titulo, mensaje, 'INFO', refAviso, context.area_destino || context.area);
                 }
             }
 
@@ -489,6 +497,9 @@ class UnsService {
 
                     const enrichedContext = {
                         ...context,
+                        TIPO_REGISTRO: context.TIPO_REGISTRO || 'Ficha',
+                        TIPO_REGISTRO_MIN: context.TIPO_REGISTRO_MIN || 'ficha',
+                        REGISTRO: context.REGISTRO || `#${context.CORRELATIVO || context.correlativo || context.id_solicitud || context.id_referencia || ''}`,
                         ID_SOLICITUD: context.ID_SOLICITUD || context.id_solicitud || context.id_referencia || 'N/A',
                         CORRELATIVO: context.CORRELATIVO || context.correlativo || context.id_solicitud || context.id_referencia || 'N/A',
                         USUARIO: context.USUARIO || context.usuario_accion || context.nombre_solicitante || context.nombre_autor || 'Técnico en Terreno (App)',

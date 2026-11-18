@@ -29,6 +29,13 @@ export function getEventConfig(codigoEvento) {
  * event code (caller should fall back to the legacy DB-driven renderer).
  */
 export function renderEmail(codigoEvento, context = {}, options = {}) {
+    // Cómo se llama el registro en el correo: «Ficha #1245» por defecto, o «Visita «Edwards» (6 puntos)» cuando el contexto lo indica.
+    context = {
+        TIPO_REGISTRO: 'Ficha',
+        TIPO_REGISTRO_MIN: 'ficha',
+        REGISTRO: `#${context.CORRELATIVO ?? context.ID_FICHA ?? ''}`,
+        ...context,
+    };
     const config = getEventConfig(codigoEvento);
     if (!config) return null;
 
@@ -72,7 +79,7 @@ export function renderEmail(codigoEvento, context = {}, options = {}) {
     if (config.cta) {
         const appUrl = context.APP_URL || DEFAULT_APP_URL;
         const ruta = resolveTemplate(config.cta.ruta, context);
-        ctaHtml = renderCta(config.cta.label, `${appUrl}${ruta}`);
+        ctaHtml = renderCta(resolveTemplate(config.cta.label, context), `${appUrl}${ruta}`);
     }
 
     const html = renderBaseLayout({
