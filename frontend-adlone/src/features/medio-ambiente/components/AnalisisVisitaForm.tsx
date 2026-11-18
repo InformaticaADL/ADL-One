@@ -184,6 +184,26 @@ export const ParametrosVisitaForm: React.FC<PropsParametros> = ({ puntos, parame
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse text-[13.5px]">
                             <thead>
+                                {lab && filas.length > 1 && (
+                                    <tr className="bg-primary/[0.04]">
+                                        <td className="border-b border-dashed border-primary/30 px-3 py-1.5 text-xs font-medium text-muted-foreground">Aplicar a todos los parámetros de laboratorio de este punto</td>
+                                        <td className="border-b border-dashed border-primary/30 px-3 py-1.5">
+                                            <SelectBuscable placeholder="Entrega de todos…" valor="" opciones={opcionesEntrega}
+                                                onCambio={(v) => { const n = Number(v) || 0; if (n) mutar((c) => { for (const q of c) if (q.tipo === 'laboratorio' && estaEn(q, idActivo)) q.idTipoEntrega = n; }); }} />
+                                        </td>
+                                        <td className="border-b border-dashed border-primary/30 px-3 py-1.5">
+                                            <SelectBuscable placeholder="Laboratorio 1 de todos…" valor="" opciones={opcionesLab(0)}
+                                                onCambio={(v) => { const n = Number(v) || 0; if (n) mutar((c) => { for (const q of c) if (q.tipo === 'laboratorio' && estaEn(q, idActivo)) { q.idLab1 = n; if (q.idLab2 === n) q.idLab2 = 0; } }); }} />
+                                        </td>
+                                        {LABORATORIOS_MAXIMOS >= 2 && (
+                                            <td className="border-b border-dashed border-primary/30 px-3 py-1.5">
+                                                <SelectBuscable placeholder="Laboratorio 2 de todos…" valor="" opciones={[{ value: '-1', label: 'Sin laboratorio 2 (quitar)' }, ...opcionesLab(0)]}
+                                                    onCambio={(v) => { const n = Number(v); if (n) mutar((c) => { for (const q of c) if (q.tipo === 'laboratorio' && estaEn(q, idActivo) && (n === -1 || q.idLab1 !== n)) q.idLab2 = n === -1 ? 0 : n; }); }} />
+                                            </td>
+                                        )}
+                                        <td className="border-b border-dashed border-primary/30" />
+                                    </tr>
+                                )}
                                 <tr className="text-xs font-medium text-muted-foreground">
                                     <th className="border-b border-border px-3 py-1.5 text-left font-medium">Parámetro</th>
                                     {lab && <th className="whitespace-nowrap border-b border-border px-3 py-1.5 text-left font-medium">Entrega</th>}
@@ -269,7 +289,7 @@ export const ParametrosVisitaForm: React.FC<PropsParametros> = ({ puntos, parame
     return (
         <div>
             {/* Puntos: todos en una fila; el que tiene un problema lleva un aviso */}
-            <div className="mb-3 grid grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-2">
+            <div className="mb-3 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-2">
                 {puntos.map((p) => {
                     const e = estadoDelPunto(parametros, p.id);
                     const act = p.id === idActivo;
@@ -285,8 +305,8 @@ export const ParametrosVisitaForm: React.FC<PropsParametros> = ({ puntos, parame
                             )}
                         >
                             {e.nivel === 'error' && <span aria-hidden="true" className="absolute -right-1.5 -top-1.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-destructive text-[11px] font-bold text-white">!</span>}
-                            <b className="block truncate text-[13.5px]">{nombreDe(p.id)}</b>
-                            <span className={cn('block truncate text-[11.5px]', act ? 'opacity-85' : 'text-muted-foreground')}>{e.texto}</span>
+                            <b className="block break-words text-[13.5px] leading-tight" title={nombreDe(p.id)}>{nombreDe(p.id)}</b>
+                            <span className={cn('block break-words text-[11.5px]', act ? 'opacity-85' : 'text-muted-foreground')}>{e.texto}</span>
                         </button>
                     );
                 })}

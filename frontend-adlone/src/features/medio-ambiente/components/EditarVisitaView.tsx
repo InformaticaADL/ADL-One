@@ -104,6 +104,8 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
     const topRef = useRef<HTMLDivElement>(null);
     const subir = () => topRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
 
+    // Una ficha suelta (de un solo punto) se edita con esta misma pantalla, pero sin quitar ni añadir puntos: no forma parte de ninguna visita.
+    const esUnica = grupo.total <= 1;
     const ids = useMemo(() => grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)), [grupo]);
 
     // Puntos marcados para quitar de la visita (se cancelan al guardar, con motivo). `idsActivos` son los que siguen en la visita.
@@ -372,7 +374,7 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
             showToast({ type: 'error', message: `No se pudo guardar todo. ${fallos.join(' · ')}` });
             return;
         }
-        showToast({ type: 'success', message: `Visita actualizada.${agregados > 0 ? ` Se agregaron ${agregados} ${agregados === 1 ? 'punto' : 'puntos'}.` : ''}${quitadosN > 0 ? ` Se quitaron ${quitadosN} ${quitadosN === 1 ? 'punto' : 'puntos'}.` : ''}${reenviados > 0 ? ' Volvió a validación técnica.' : ''}` });
+        showToast({ type: 'success', message: `${esUnica ? 'Ficha actualizada.' : 'Visita actualizada.'}${agregados > 0 ? ` Se agregaron ${agregados} ${agregados === 1 ? 'punto' : 'puntos'}.` : ''}${quitadosN > 0 ? ` Se quitaron ${quitadosN} ${quitadosN === 1 ? 'punto' : 'puntos'}.` : ''}${reenviados > 0 ? ' Volvió a validación técnica.' : ''}` });
         onGuardado();
     };
 
@@ -501,8 +503,8 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                 onConfirmar={agregarComposicion}
             />
             <PageHeader
-                title={`Editar visita · ${data?.nombre_centro || 'Sin centro'}`}
-                subtitle={`${grupo.total} puntos · ${data?.nombre_empresaservicios || data?.nombre_empresa || ''}`}
+                title={`${esUnica ? 'Editar ficha' : 'Editar visita'} · ${data?.nombre_centro || 'Sin centro'}`}
+                subtitle={`${esUnica ? '1 punto' : `${grupo.total} puntos`} · ${data?.nombre_empresaservicios || data?.nombre_empresa || ''}`}
                 onBack={salir}
                 breadcrumbItems={[{ label: 'Fichas de Ingreso', onClick: salir }, { label: 'Visita', onClick: salir }, { label: 'Editar visita' }]}
             />
@@ -529,7 +531,7 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                                 titulo="Antecedentes"
                                 pasos={pasosAnt}
                                 actual={pasoAnt}
-                                ayuda={`Lo que cambie aquí se aplica a los ${grupo.total} puntos de la visita. ${PASOS_ANT[pasoAnt].ayuda}`}
+                                ayuda={`${esUnica ? '' : `Lo que cambie aquí se aplica a los ${grupo.total} puntos de la visita. `}${PASOS_ANT[pasoAnt].ayuda}`}
                                 encabezado={{ titulo: PASOS_ANT[pasoAnt].titulo, subtitulo: PASOS_ANT[pasoAnt].subtitulo }}
                                 onElegirPaso={irAnt}
                                 onAtras={atrasAnt}
@@ -560,8 +562,8 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                             >
                                 {/* Los cuatro pasos siguen montados (solo se ocultan) para no perder lo escrito al cambiar de paso. */}
                                 <div className={cn(pasoVis !== 0 && 'hidden')}>
-                                    <PuntosVisitaEditor filas={filas!} inicial={filasIniciales!} onChange={setFilas} zonas={zonas} quitados={quitados} onQuitar={(id) => setQuitados((q) => [...q, id])} onDeshacerQuitar={(id) => setQuitados((q) => q.filter((x) => x !== id))} />
-                                    <div className="mt-6 border-t border-border pt-5">
+                                    <PuntosVisitaEditor filas={filas!} inicial={filasIniciales!} onChange={setFilas} zonas={zonas} quitados={quitados} onQuitar={esUnica ? undefined : (id) => setQuitados((q) => [...q, id])} onDeshacerQuitar={(id) => setQuitados((q) => q.filter((x) => x !== id))} />
+                                    <div className={cn('mt-6 border-t border-border pt-5', esUnica && 'hidden')}>
                                         {nuevos.length === 0 ? (
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <Button type="button" variant="outline" onClick={() => cambiarNuevos([nuevoPunto({ zona: filas?.[filas.length - 1]?.zona || '' })])}>

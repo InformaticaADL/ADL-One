@@ -499,8 +499,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         );
     }
 
-    if (editarVisita && esVisita && grupo) {
-        return <EditarVisitaView fichaId={fichaId} grupo={grupo} data={data} onVolver={() => setEditarVisita(false)} onGuardado={alGuardarVisita} />;
+    if (editarVisita && (grupo || data)) {
+        return <EditarVisitaView fichaId={fichaId} grupo={esVisita && grupo ? grupo : { total: 1, puntos: [{ id_fichaingresoservicio: Number(fichaId), punto: String(data?.ma_punto_muestreo || ''), estado: String(data?.estado_ficha || '') }] }} data={data} onVolver={() => setEditarVisita(false)} onGuardado={alGuardarVisita} />;
     }
 
     const statusObj = getStatusProps(data?.estado_ficha);
@@ -550,8 +550,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             </>
                         ) : (
                             canEdit && (
-                                <Button onClick={esVisita ? () => setEditarVisita(true) : handleEditStart}>
-                                    <IconEdit size={18} /> {esVisita ? 'Editar visita' : 'Editar Comercial'}
+                                <Button onClick={() => setEditarVisita(true)}>
+                                    <IconEdit size={18} /> {esVisita ? 'Editar visita' : 'Editar ficha'}
                                 </Button>
                             )
                         )}
