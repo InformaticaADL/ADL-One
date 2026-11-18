@@ -840,11 +840,20 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
         if (val && val !== 'No Aplica') loadActividades(val);
     };
 
+    // La dirección es propia de la ficha (se guarda en ella, nunca en el maestro del centro): el centro solo la SUGIERE.
+    // Se sugiere al elegir un centro distinto; no se vuelve a copiar cuando la lista de fuentes se recarga ni al abrir una ficha que ya
+    // tiene su dirección guardada (antes se pisaba lo editado en cada recarga).
+    const fuenteAnteriorRef = useRef<string | null>(null);
     useEffect(() => {
         if (selectedFuente) {
             const fuente = fuentesEmisoras.find(f => f.id.toString() === selectedFuente);
             if (fuente) {
-                setUbicacion(fuente.direccion || fuente.ubicacion || '');
+                const primeraAsignacion = fuenteAnteriorRef.current === null;
+                const sugerirDireccion = primeraAsignacion
+                    ? !(initialData && String((initialData as any).ubicacion || '').trim())
+                    : fuenteAnteriorRef.current !== selectedFuente;
+                fuenteAnteriorRef.current = selectedFuente;
+                if (sugerirDireccion) setUbicacion(fuente.direccion || fuente.ubicacion || '');
                 setComuna(fuente.comuna || fuente.nombre_comuna || '');
                 setRegion(fuente.region || fuente.nombre_region || '');
                 setTipoAgua(fuente.tipo_agua || '');
@@ -853,6 +862,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
                 setCodigo(fuente.codigo || '');
             }
         } else if (!initialData) {
+            fuenteAnteriorRef.current = null;
             setUbicacion(''); setComuna(''); setRegion(''); setTipoAgua(''); setCodigo('');
         }
     }, [selectedFuente, fuentesEmisoras]);
