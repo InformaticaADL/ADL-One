@@ -1,6 +1,7 @@
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import fichaService from './ficha.service.js';
+import { ubicacionDesdeUtm } from '../utils/utm.js';
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const pdfParse = require('pdf-parse');
@@ -792,36 +793,27 @@ class BulkFichaService {
         const urlMatch = text.match(/(https?:\/\/[^\s]+)/i);
         fields.refGoogle = urlMatch ? urlMatch[1] : '';
 
-        // Coordinates: UTM[Huso][Easting][Northing]
-        const coordMatch = text.match(/UTM\s*(\d{2})\s*(\d{5,8})\s*(\d{5,8})/i);
-        if (coordMatch) {
-            fields.zona = coordMatch[1] + 'H'; // Assume H hemisphere for Chile
-            fields.utmNorte = coordMatch[2];
-            fields.utmEste = coordMatch[3];
+        // Coordenadas: en los PDF de ADLSOFT vienen pegadas, «UTM185426758711953» = huso 18, norte 5426758 (7 dígitos), este 711953 (6 dígitos).
+        // También se aceptan separadas («UTM 18 5426758,7 711953») o con letra de zona («18G UTM 5426758 N 711953 E»).
+        let huso = null; let norteUtm = ''; let esteUtm = '';
+        const cPegadas = text.match(/UTM\s*(\d{2})\s*(\d{7})(?:[.,]\d+)?\s*(\d{6})(?!\d)/i);
+        const cConLetra = text.match(/(\d{2})[A-Z]?\s*UTM\s*([\d.,]+)\s*[EeNn]?\s+([\d.,]+)/i);
+        if (cPegadas) { huso = cPegadas[1]; norteUtm = cPegadas[2]; esteUtm = cPegadas[3]; }
+        else if (cConLetra) { huso = cConLetra[1]; norteUtm = cConLetra[2]; esteUtm = cConLetra[3]; }
+        if (huso) {
+            // La letra de la zona sale de la latitud (en el sur de Chile es F, G o H); si las coordenadas no son creíbles se deja solo el huso.
+            const u = ubicacionDesdeUtm({ zona: huso, utmNorte: norteUtm, utmEste: esteUtm });
+            const conLetra = u ? `${huso}${u.banda}` : null;
+            const enCatalogo = conLetra && (catalogs.zonasUTM || []).some((z) => z.nombre.toUpperCase() === conLetra);
+            fields.zona = enCatalogo ? conLetra : huso;
+            fields.utmNorte = norteUtm;
+            fields.utmEste = esteUtm;
+            if (!u) warnings.push({ field: 'Coordenadas', message: `Las coordenadas UTM leídas (${norteUtm} / ${esteUtm}) no parecen válidas: revíselas.` });
         } else {
-            // Try alternate format
-            const coordMatch2 = text.match(/(\d{2}[A-Z])\s*UTM\s*(\d+)\s*[EeNn]\s*(\d+)/i);
-            if (coordMatch2) {
-                fields.zona = coordMatch2[1];
-                fields.utmNorte = coordMatch2[2];
-                fields.utmEste = coordMatch2[3];
-            } else {
-                // Positional search for coordinates
-                const latIdx = dataLines.findIndex(l => l.startsWith('UTM') || l.includes('5426'));
-                if (latIdx !== -1) {
-                     const parts = dataLines[latIdx].match(/UTM\s*(\d+)\s*(\d+)\s*(\d+)/i);
-                     if (parts) {
-                         fields.zona = parts[1] + 'H';
-                         fields.utmNorte = parts[2];
-                         fields.utmEste = parts[3];
-                     }
-                } else {
-                    fields.zona = 'No aplica';
-                    fields.utmNorte = '';
-                    fields.utmEste = '';
-                    warnings.push({ field: 'Coordenadas', message: 'No se detectaron coordenadas UTM' });
-                }
-            }
+            fields.zona = 'No aplica';
+            fields.utmNorte = '';
+            fields.utmEste = '';
+            warnings.push({ field: 'Coordenadas', message: 'No se detectaron coordenadas UTM' });
         }
 
         // Email

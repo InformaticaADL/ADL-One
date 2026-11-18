@@ -1,10 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { IconClipboardText, IconPlus, IconTrash, IconWand } from '@tabler/icons-react';
+import { IconClipboardText, IconMapPin, IconPlus, IconTrash, IconWand } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { refAutomatica } from '../utils/utm';
+import { MapaUbicacionDialog } from './MapaUbicacionDialog';
 import { Textarea } from '@/components/ui/textarea';
 import {
     generarPuntos,
@@ -29,6 +31,7 @@ const estaVacio = (p: PuntoFila) => !p.puntoMuestreo.trim() && !p.zona && !p.utm
  */
 export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zonaNoAplica }) => {
     // Dejar la zona vacía (no tengo la información) es distinto de «No aplica» (el punto no lleva zona).
+    const [mapaDe, setMapaDe] = useState<PuntoFila | null>(null);
     const opcionesZona = useMemo(() => [{ value: '', label: '— Sin zona —' }, ...zonas], [zonas]);
     const [nombres, setNombres] = useState('');
     const [replicas, setReplicas] = useState('1');
@@ -49,13 +52,14 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
             const nuevo = { ...p, [campo]: valor };
             // Con zona «No aplica» las coordenadas no corresponden.
             if (campo === 'zona' && zonaNoAplica(valor)) { nuevo.utmNorte = ''; nuevo.utmEste = ''; }
+            if (campo === 'zona' || campo === 'utmNorte' || campo === 'utmEste') return refAutomatica(nuevo);
             return nuevo;
         }));
 
     // Una sola zona para todos los puntos. Las coordenadas de cada punto se conservan.
     const aplicarZonaATodos = (zona: string) => {
         // Sin zona o «No aplica»: las coordenadas no corresponden y se limpian.
-        onChange(puntos.map((p) => (!zona || zonaNoAplica(zona) ? { ...p, zona, utmNorte: '', utmEste: '' } : { ...p, zona })));
+        onChange(puntos.map((p) => refAutomatica(!zona || zonaNoAplica(zona) ? { ...p, zona, utmNorte: '', utmEste: '' } : { ...p, zona })));
     };
     const zonaComun = puntos.length > 0 && puntos.every((p) => p.zona && p.zona === puntos[0].zona) ? puntos[0].zona : '';
 
@@ -130,7 +134,7 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
                                     </td>
                                     <td className="px-2 py-1.5"><Input aria-label={`UTM Norte del punto ${i + 1}`} inputMode="numeric" value={p.utmNorte} disabled={sinCoord} onChange={(e) => cambiar(p.id, 'utmNorte', e.target.value)} /></td>
                                     <td className="px-2 py-1.5"><Input aria-label={`UTM Este del punto ${i + 1}`} inputMode="numeric" value={p.utmEste} disabled={sinCoord} onChange={(e) => cambiar(p.id, 'utmEste', e.target.value)} /></td>
-                                    <td className="px-2 py-1.5"><Input aria-label={`Referencia del punto ${i + 1}`} value={p.refGoogle} onChange={(e) => cambiar(p.id, 'refGoogle', e.target.value)} placeholder="https://maps.app.goo.gl/…" /></td>
+                                    <td className="px-2 py-1.5"><div className="flex items-center gap-1"><Input aria-label={`Referencia del punto ${i + 1}`} value={p.refGoogle} onChange={(e) => cambiar(p.id, 'refGoogle', e.target.value)} placeholder="Opcional (se genera de las UTM)" /><Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label={`Ver en el mapa el punto ${i + 1}`} title="Ver en el mapa lo que resulta de la zona y las UTM" onClick={() => setMapaDe(p)}><IconMapPin size={16} /></Button></div></td>
                                     <td className="px-1 py-1.5 text-center">
                                         <Button type="button" variant="ghost" size="icon" aria-label={`Quitar el punto ${i + 1}`} onClick={() => quitar(p.id)}><IconTrash size={16} /></Button>
                                     </td>
@@ -146,7 +150,7 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
                     <IconPlus size={16} /> Agregar punto
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                    {puntos.length === 1 ? 'Se creará 1 ficha.' : `Se crearán ${puntos.length} fichas, agrupadas como una sola visita.`} Sin referencia de Google Maps, la ficha queda inhabilitada para generar rutas.
+                    {puntos.length === 1 ? 'Se creará 1 ficha.' : `Se crearán ${puntos.length} fichas, agrupadas como una sola visita.`} La referencia de Google Maps es opcional: si la deja vacía y escribe las coordenadas UTM, se genera sola; sin ninguna de las dos, la ficha queda inhabilitada para generar rutas.
                 </span>
             </div>
 
@@ -171,6 +175,7 @@ export const PuntosVisitaTable: React.FC<Props> = ({ puntos, onChange, zonas, zo
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {mapaDe && <MapaUbicacionDialog open onClose={() => setMapaDe(null)} nombre={mapaDe.puntoMuestreo} zona={mapaDe.zona} utmNorte={mapaDe.utmNorte} utmEste={mapaDe.utmEste} refGoogle={mapaDe.refGoogle} />}
         </div>
     );
 };

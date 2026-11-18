@@ -759,6 +759,18 @@ class FichaIngresoController {
         }
     }
 
+    // Agrega a los muestreos ya asignados los equipos nuevos del muestreador (o de todos los muestreadores si no se indica)
+    async sincronizarEquipos(req, res) {
+        try {
+            const { idMuestreador, idFicha } = req.body || {};
+            const result = await fichaService.sincronizarEquiposMuestreo({ idMuestreador, idFicha, user: req.user || { id: 0 } });
+            return successResponse(res, result, result.agregados > 0 ? 'Equipos actualizados' : 'No había equipos nuevos que agregar');
+        } catch (err) {
+            logger.error('Error in sincronizarEquipos controller:', err);
+            return errorResponse(res, 'Error al actualizar los equipos', 500, err.message);
+        }
+    }
+
     async getExecutionDetail(req, res) {
         try {
             const { id } = req.params;
@@ -768,6 +780,10 @@ class FichaIngresoController {
             }
 
             const result = await fichaService.getExecutionDetail(id, correlativo);
+            // Los valores (UF) solo los ve quien tiene FI_EXP_VER_UF.
+            if (!(req.user?.permissions || []).includes('FI_EXP_VER_UF') && result && Array.isArray(result.analisis)) {
+                result.analisis = result.analisis.map((a) => ({ ...a, uf_individual: 0 }));
+            }
             return successResponse(res, result, 'Detalle de ejecución obtenido exitosamente');
         } catch (err) {
             logger.error('Error in getExecutionDetail controller:', err);

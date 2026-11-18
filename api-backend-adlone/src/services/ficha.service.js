@@ -10,8 +10,22 @@ import path from 'path';
 import PDFDocument from 'pdfkit-table';
 import ExcelJS from 'exceljs';
 import { getTransporter } from '../config/mailer.js';
+import { ubicacionDesdeUtm } from '../utils/utm.js';
+import { resolverGoogleMapsLink } from '../utils/resolverGoogleMapsLink.js';
 
 class FichaIngresoService {
+
+    // Si la ficha trae coordenadas UTM pero no se pudo sacar una ubicación (no hay enlace de Google Maps, o no se pudo leer), se calcula la latitud y
+    // la longitud desde las UTM y, si la referencia está vacía, se deja el enlace de Google Maps generado: así la ficha queda lista para armar rutas.
+    // Un enlace de Google Maps escrito por el usuario nunca se pisa. Modifica `ant`.
+    _completarUbicacion(ant) {
+        if (!ant || (ant.ubicacion_lat !== null && ant.ubicacion_lat !== undefined && ant.ubicacion_lon !== null && ant.ubicacion_lon !== undefined)) return;
+        const u = ubicacionDesdeUtm({ zona: ant.zona, utmNorte: ant.utmNorte, utmEste: ant.utmEste });
+        if (!u) return;
+        ant.ubicacion_lat = Number(u.lat.toFixed(7));
+        ant.ubicacion_lon = Number(u.lon.toFixed(7));
+        if (!String(ant.refGoogle || '').trim()) ant.refGoogle = u.enlace;
+    }
 
     async getFichaContextForNotification(idFicha, usuario, accionText, poolOrTransaction) {
         try {
@@ -461,6 +475,7 @@ class FichaIngresoService {
 
             // Map antecedente fields
             const ant = data.antecedentes || {};
+            this._completarUbicacion(ant);
             const obs = data.observaciones || '';
             // Costo Operativo: SIEMPRE se persiste como una fila adicional en DET
             // con tipo_analisis = 'CostoOperativo'. Si no aplica, uf_individual = 0
@@ -880,12 +895,15 @@ class FichaIngresoService {
     // ----------------------------------------------------
     // UPDATE FICHA (RESTORED & IMPROVED)
     // ----------------------------------------------------
-    async updateFicha(id, data, user) {
+    // Con `opts.transaction` trabaja dentro de la transacción de quien llama (no la abre, no la confirma ni la revierte) y deja lo que debe pasar DESPUÉS de
+    // confirmar (auditoría) en `opts.despues` para que quien llama lo ejecute al hacer commit.
+    async updateFicha(id, data, user, opts = {}) {
         const pool = await getConnection();
-        const transaction = new sql.Transaction(pool);
+        const externa = !!opts.transaction;
+        const transaction = opts.transaction || new sql.Transaction(pool);
 
         try {
-            await transaction.begin();
+            if (!externa) await transaction.begin();
             logger.info(`Transaction started for updateFicha ID: ${id}`);
             // FIX: Ensure User Name is available for logs
             logger.info('DEBUG updateFicha - user object:', user);
@@ -907,6 +925,7 @@ class FichaIngresoService {
 
 
             const ant = data.antecedentes || {};
+            if (data.soloAnalisis !== true) this._completarUbicacion(ant);
             const analisisList = data.analisis || [];
             const obs = data.observaciones || '';
 
@@ -1416,11 +1435,11 @@ class FichaIngresoService {
                 observacion: obs // Clean obs
             });
 
-            await transaction.commit();
+            if (!externa) await transaction.commit();
             logger.info(`Ficha ${id} updated successfully`);
 
             // AUDITORIA INMUTABLE
-            auditService.log({
+            const auditar = () => auditService.log({
                 usuario_id: user.id,
                 area_key: ant.tipoMonitoreo === 'Terreno' ? 'it' : (user.area || 'comercial'),
                 modulo_nombre: 'Fichas de Ingreso',
@@ -1431,12 +1450,13 @@ class FichaIngresoService {
                 datos_nuevos: { ...ant, observaciones: obs },
                 severidad: 1
             });
+            if (externa && Array.isArray(opts.despues)) opts.despues.push(auditar); else auditar();
 
             return { success: true, message: 'Ficha actualizada correctamente' };
 
         } catch (error) {
             logger.error('Error updating ficha:', error);
-            try { await transaction.rollback(); } catch (e) { }
+            if (!externa) { try { await transaction.rollback(); } catch (e) { } }
             throw error;
         }
     }
@@ -2528,8 +2548,7 @@ class FichaIngresoService {
     }
 
     // Edita una visita desde «Editar visita»: `antecedentes` (lo común a todos los puntos; cada punto conserva su nombre, zona, coordenadas y mapa) y/o
-    // `analisisPorFicha` ([{ id, analisis, costoOperativo }], los análisis y el precio de cada punto). Cada ficha se guarda por separado (una falla no
-    // deshace las demás: se informa cuáles no se pudieron guardar). Al final los puntos vuelven a validación técnica.
+    // `analisisPorFicha` ([{ id, analisis, costoOperativo }], los análisis y el precio de cada punto). Todo se guarda en una sola transacción: o se guardan todos los puntos o ninguno.
     async actualizarVisita(id, { antecedentes = null, analisisPorFicha = null, observaciones = '' }, user) {
         const hayAnalisis = Array.isArray(analisisPorFicha) && analisisPorFicha.length > 0;
         if (!antecedentes && !hayAnalisis) throw this._errorDatos('No hay nada que guardar.');
@@ -2548,57 +2567,63 @@ class FichaIngresoService {
                 if (!Array.isArray(a.analisis) || a.analisis.length === 0) throw this._errorDatos(`La ficha ${a.id} quedaría sin análisis.`);
             }
         }
-        const actualizados = [];
-        const fallidos = [];
-        const guardar = async (idFicha, datos) => {
+        // Todo o nada: los antecedentes y el análisis de TODOS los puntos, y el reenvío a validación técnica, se guardan en UNA transacción. Si algo falla
+        // no se guarda nada (la visita queda como estaba). Un bloqueo transitorio de la base (deadlock) se reintenta una vez entero.
+        const ejecutar = async () => {
+            const tx = new sql.Transaction(pool);
+            await tx.begin();
+            const despues = [];
             try {
-                try {
-                    await this.updateFicha(idFicha, { ...datos, observaciones }, user);
-                } catch (e1) {
-                    if (e1.statusCode) throw e1;
-                    logger.warn(`[actualizarVisita] ficha ${idFicha} falló (${e1.message}); se reintenta una vez`);
-                    await new Promise((r) => setTimeout(r, 500));
-                    await this.updateFicha(idFicha, { ...datos, observaciones }, user);
+                const actualizados = [];
+                if (antecedentes) {
+                    for (const f of filas) {
+                        const m = String(f.ma_coordenadas || '').match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
+                        const propios = {
+                            puntoMuestreo: f.ma_punto_muestreo || '',
+                            zona: m ? m[1] : String(f.ma_coordenadas || ''),
+                            utmNorte: m ? m[2] : '',
+                            utmEste: m ? m[3] : '',
+                            refGoogle: f.referencia_googlemaps || '',
+                            ubicacion_lat: f.ubicacion_lat ?? null,
+                            ubicacion_lon: f.ubicacion_lon ?? null,
+                        };
+                        await this.updateFicha(Number(f.id), { antecedentes: { ...antecedentes, ...propios }, analisis: [], soloAntecedentes: true, observaciones }, user, { transaction: tx, despues });
+                        actualizados.push(Number(f.id));
+                    }
                 }
-                return true;
+                if (hayAnalisis) {
+                    for (const a of analisisPorFicha) {
+                        await this.updateFicha(Number(a.id), { antecedentes: {}, analisis: a.analisis, costoOperativo: a.costoOperativo, soloAnalisis: true, observaciones }, user, { transaction: tx, despues });
+                        actualizados.push(Number(a.id));
+                    }
+                }
+                const unicos = [...new Set(actualizados)];
+                const reenviados = await this._reenviarVisitaATecnica(tx, unicos, user, 'Visita editada: vuelve a validación técnica');
+                await tx.commit();
+                for (const fn of despues) { try { fn(); } catch (e) { logger.warn('[actualizarVisita] post-confirmación:', e); } }
+                return { actualizados: unicos, fallidos: [], reenviados, total: ids.length };
             } catch (e) {
-                logger.error(`[actualizarVisita] no se pudo guardar la ficha ${idFicha}: ${e.message}`, { stack: e.stack });
-                fallidos.push({ id: idFicha, error: e.message });
-                return false;
+                try { await tx.rollback(); } catch (_) { /* ya revertida */ }
+                throw e;
             }
         };
-        if (antecedentes) {
-            for (const f of filas) {
-                const m = String(f.ma_coordenadas || '').match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
-                const propios = {
-                    puntoMuestreo: f.ma_punto_muestreo || '',
-                    zona: m ? m[1] : String(f.ma_coordenadas || ''),
-                    utmNorte: m ? m[2] : '',
-                    utmEste: m ? m[3] : '',
-                    refGoogle: f.referencia_googlemaps || '',
-                    ubicacion_lat: f.ubicacion_lat ?? null,
-                    ubicacion_lon: f.ubicacion_lon ?? null,
-                };
-                if (await guardar(Number(f.id), { antecedentes: { ...antecedentes, ...propios }, analisis: [], soloAntecedentes: true })) actualizados.push(Number(f.id));
-            }
-        }
-        if (hayAnalisis) {
-            for (const a of analisisPorFicha) {
-                if (await guardar(Number(a.id), { antecedentes: {}, analisis: a.analisis, costoOperativo: a.costoOperativo, soloAnalisis: true })) actualizados.push(Number(a.id));
-            }
-        }
-        // Una edición vuelve la visita a validación técnica (solo los puntos que se guardaron bien)
-        const tx = new sql.Transaction(pool);
-        await tx.begin();
-        let reenviados = [];
+        const transitorio = (e) => [1205, 1222].includes(Number(e?.number ?? e?.originalError?.number));
         try {
-            reenviados = await this._reenviarVisitaATecnica(tx, [...new Set(actualizados)], user, 'Visita editada: vuelve a validación técnica');
-            await tx.commit();
+            try {
+                return await ejecutar();
+            } catch (e1) {
+                if (e1.statusCode || !transitorio(e1)) throw e1;
+                logger.warn(`[actualizarVisita] bloqueo transitorio (${e1.message}); se reintenta una vez`);
+                await new Promise((r) => setTimeout(r, 500));
+                return await ejecutar();
+            }
         } catch (e) {
-            try { await tx.rollback(); } catch (_) { /* nada */ }
-            logger.error(`[actualizarVisita] no se pudo reenviar a técnica: ${e.message}`);
+            if (e.statusCode) throw e;
+            logger.error(`[actualizarVisita] no se guardó la visita (no se aplicó ningún cambio): ${e.message}`, { stack: e.stack });
+            const err = new Error('No se pudo guardar la visita y no se aplicó ningún cambio. Intente nuevamente; si se repite, avise a Informática.');
+            err.statusCode = 500;
+            throw err;
         }
-        return { actualizados: [...new Set(actualizados)], fallidos, reenviados, total: ids.length };
     }
 
     // Edita SOLO los datos propios de cada punto de una visita (nombre, zona, coordenadas y enlace al mapa). No toca análisis, precios ni los demás
@@ -2622,6 +2647,12 @@ class FichaIngresoService {
             if (!permitidos.has(c.id)) throw this._errorDatos(`La ficha ${c.id} no pertenece a esta visita.`);
             if (!c.punto) throw this._errorDatos(`La ficha ${c.id} no puede quedar sin nombre de punto.`);
         }
+        // Los enlaces de Google Maps se resuelven antes de abrir la transacción: es una consulta a internet y no debe mantener filas bloqueadas.
+        const coordsDeEnlace = new Map();
+        for (const c of cambios) {
+            if (!c.refGoogle) continue;
+            try { const co = await resolverGoogleMapsLink(c.refGoogle); if (co) coordsDeEnlace.set(c.id, co); } catch (_) { /* sin ubicación desde el enlace */ }
+        }
         const transaction = new sql.Transaction(pool);
         await transaction.begin();
         try {
@@ -2642,12 +2673,26 @@ class FichaIngresoService {
                 if (coordenadas && coordActual.toLowerCase() === String(coordenadas).toLowerCase()) coordenadas = coordActual;
                 const refActual = String(actual.referencia_googlemaps || '').trim();
                 if (puntoActual === c.punto && coordActual === String(coordenadas || '') && refActual === c.refGoogle) continue;
+                // Ubicación del punto: del enlace de Google Maps si lo hay; si no, de las UTM (y entonces se deja el enlace generado).
+                let lat = null;
+                let lon = null;
+                let refFinal = c.refGoogle;
+                if (refFinal) {
+                    const co = coordsDeEnlace.get(c.id);
+                    if (co) { lat = co.lat; lon = co.lon; }
+                }
+                if (lat === null) {
+                    const u = ubicacionDesdeUtm({ zona: c.zona, utmNorte: c.utmNorte, utmEste: c.utmEste });
+                    if (u) { lat = Number(u.lat.toFixed(7)); lon = Number(u.lon.toFixed(7)); if (!refFinal) refFinal = u.enlace; }
+                }
                 await new sql.Request(transaction)
                     .input('id', sql.Numeric(10, 0), c.id)
                     .input('punto', sql.VarChar(200), c.punto)
                     .input('coord', sql.VarChar(50), coordenadas)
-                    .input('ref', sql.VarChar(500), c.refGoogle || null)
-                    .query('UPDATE App_Ma_FichaIngresoServicio_ENC SET ma_punto_muestreo = @punto, ma_coordenadas = @coord, referencia_googlemaps = @ref WHERE id_fichaingresoservicio = @id');
+                    .input('ref', sql.VarChar(500), refFinal || null)
+                    .input('lat', sql.Decimal(10, 7), lat)
+                    .input('lon', sql.Decimal(10, 7), lon)
+                    .query('UPDATE App_Ma_FichaIngresoServicio_ENC SET ma_punto_muestreo = @punto, ma_coordenadas = @coord, referencia_googlemaps = @ref, ubicacion_lat = @lat, ubicacion_lon = @lon WHERE id_fichaingresoservicio = @id');
                 const que = [];
                 if (puntoActual !== c.punto) que.push(`punto «${puntoActual}» → «${c.punto}»`);
                 if (coordActual !== String(coordenadas || '')) que.push(`ubicación «${coordActual || '-'}» → «${coordenadas || '-'}»`);
@@ -2655,22 +2700,13 @@ class FichaIngresoService {
                 await this.logHistorial(transaction, { idFicha: c.id, idUsuario: user?.id || 0, accion: 'EDICION_PUNTO', estadoAnterior: '', estadoNuevo: '', observacion: `Edición del punto de la visita: ${que.join('; ')}` });
                 modificados.push(c.id);
             }
-            await transaction.commit();
+            // El reenvío a validación técnica va en la misma transacción: o se guarda todo, o nada.
             let reenviados = [];
-            if (modificados.length > 0) {
-                const tx2 = new sql.Transaction(pool);
-                await tx2.begin();
-                try {
-                    reenviados = await this._reenviarVisitaATecnica(tx2, [...permitidos], user, 'Puntos de la visita editados: vuelve a validación técnica');
-                    await tx2.commit();
-                } catch (e2) {
-                    try { await tx2.rollback(); } catch (_) { /* nada */ }
-                    logger.error('[actualizarPuntosVisita] no se pudo reenviar a técnica: ' + e2.message);
-                }
-            }
+            if (modificados.length > 0) reenviados = await this._reenviarVisitaATecnica(transaction, [...permitidos], user, 'Puntos de la visita editados: vuelve a validación técnica');
+            await transaction.commit();
             return { modificados, reenviados, total: cambios.length };
         } catch (error) {
-            await transaction.rollback();
+            try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
             throw error;
         }
     }
@@ -4766,6 +4802,72 @@ class FichaIngresoService {
         } catch (error) {
             logger.error('Error en cancelAgendaSampling:', error);
             if (transaction) await transaction.rollback();
+            throw error;
+        }
+    }
+
+    // Equipos nuevos de un muestreador en los muestreos que ya tiene asignados.
+    // Al asignar un muestreo se copian a App_Ma_Equipos_MUESTREOS los equipos que el muestreador tenía EN ESE MOMENTO (y la app ADL SAMPLING solo muestra esa copia).
+    // Si después se le asignan equipos, no aparecían. Esto agrega los que faltan, SOLO agrega: nunca quita ni cambia lo ya copiado (ni las versiones elegidas a mano).
+    // Un equipo que ya tuvo fila en ese muestreo (aunque esté desactivado) no se vuelve a agregar: alguien lo quitó o lo cambió a propósito.
+    // Se aplica a los muestreos asignados (con fecha y muestreador), no cancelados, no ejecutados y cuyo instalador/retiro aún no empezó, sin importar en qué etapa
+    // esté la ficha (salvo cancelada o ciclo cerrado) y con fecha de hace máximo 7 días o futura (no se tocan muestreos viejos que quedaron pendientes). `idMuestreador` / `idFicha` acotan; sin ellos revisa todos los muestreos pendientes.
+    async sincronizarEquiposMuestreo({ idMuestreador = null, idFicha = null, user = null } = {}) {
+        const pool = await getConnection();
+        const transaction = new sql.Transaction(pool);
+        await transaction.begin();
+        try {
+            const rq = new sql.Request(transaction);
+            rq.input('s', sql.Numeric(10, 0), idMuestreador ? Number(idMuestreador) : null);
+            rq.input('f', sql.Numeric(10, 0), idFicha ? Number(idFicha) : null);
+            const res = await rq.query(`
+                DECLARE @ins TABLE (id_fichaingresoservicio NUMERIC(10,0), frecuencia_correlativo VARCHAR(50), id_equipo NUMERIC(10,0), id_muestreador NUMERIC(10,0));
+                INSERT INTO App_Ma_Equipos_MUESTREOS
+                    (id_fichaingresoservicio, frecuencia_correlativo, id_equipo, tienefc, error0, error15, error30, id_muestreador, seleccionado, usado_instalacion, usado_retiro, version, estado)
+                OUTPUT inserted.id_fichaingresoservicio, inserted.frecuencia_correlativo, inserted.id_equipo, inserted.id_muestreador INTO @ins
+                SELECT DISTINCT a.id_fichaingresoservicio, RTRIM(a.frecuencia_correlativo), e.id_equipo,
+                       NULLIF(LEFT(LTRIM(RTRIM(ISNULL(e.tienefc, ''))), 1), ''), e.error0, e.error15, e.error30, s.id_muestreador,
+                       'N', NULL, NULL, ISNULL(e.version, 'v1'), 'ACTIVO'
+                FROM App_Ma_Agenda_MUESTREOS a
+                INNER JOIN App_Ma_FichaIngresoServicio_ENC f ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+                CROSS APPLY (VALUES (a.id_muestreador, 'I'), (a.id_muestreador2, 'R')) s(id_muestreador, rol)
+                INNER JOIN mae_equipo e ON e.id_muestreador = s.id_muestreador
+                WHERE s.id_muestreador > 0
+                  AND (@s IS NULL OR s.id_muestreador = @s)
+                  AND (@f IS NULL OR a.id_fichaingresoservicio = @f)
+                  AND f.id_validaciontecnica NOT IN (7, 8)
+                  AND a.fecha_muestreo IS NOT NULL AND a.fecha_muestreo >= DATEADD(DAY, -7, CAST(GETDATE() AS DATE))
+                  AND ISNULL(a.estado_caso, '') NOT LIKE '%CANCELAD%' AND ISNULL(a.estado_caso, '') NOT LIKE '%ANULAD%'
+                  AND ISNULL(a.id_estadomuestreo, 0) <> 3
+                  AND UPPER(LTRIM(RTRIM(ISNULL(CAST(a.realizado_por_gem AS NVARCHAR(10)), '')))) NOT IN ('S', 'SI', 'SÍ', '1', 'TRUE')
+                  AND ((s.rol = 'I' AND UPPER(ISNULL(a.instalacion_completado, 'N')) <> 'S') OR (s.rol = 'R' AND UPPER(ISNULL(a.retiro_completado, 'N')) <> 'S'))
+                  AND NOT EXISTS (
+                      SELECT 1 FROM App_Ma_Equipos_MUESTREOS m
+                      WHERE m.id_fichaingresoservicio = a.id_fichaingresoservicio AND RTRIM(m.frecuencia_correlativo) = RTRIM(a.frecuencia_correlativo)
+                        AND m.id_equipo = e.id_equipo AND m.id_muestreador = s.id_muestreador);
+                SELECT i.id_fichaingresoservicio, i.frecuencia_correlativo, i.id_equipo, i.id_muestreador, e.codigo, e.nombre
+                FROM @ins i LEFT JOIN mae_equipo e ON e.id_equipo = i.id_equipo
+                ORDER BY i.id_fichaingresoservicio, i.frecuencia_correlativo, e.codigo;`);
+            const agregados = res.recordset || [];
+            const porMuestreo = new Map();
+            for (const r of agregados) {
+                const k = `${r.id_fichaingresoservicio}|${String(r.frecuencia_correlativo).trim()}`;
+                if (!porMuestreo.has(k)) porMuestreo.set(k, { ficha: Number(r.id_fichaingresoservicio), correlativo: String(r.frecuencia_correlativo).trim(), equipos: [] });
+                porMuestreo.get(k).equipos.push(String(r.codigo || r.id_equipo).trim());
+            }
+            const userId = user ? (user.id_usuario || user.id || 0) : 0;
+            for (const m of porMuestreo.values()) {
+                await this.logHistorial(transaction, {
+                    idFicha: m.ficha, idUsuario: userId, accion: 'EQUIPOS_ACTUALIZADOS', estadoAnterior: '', estadoNuevo: '',
+                    observacion: `Se agregaron al muestreo ${m.correlativo} los equipos nuevos del muestreador: ${m.equipos.join(', ')}.`,
+                });
+            }
+            await transaction.commit();
+            if (agregados.length > 0) logger.info(`[EQUIPOS] Sincronización: ${agregados.length} equipos agregados en ${porMuestreo.size} muestreos`);
+            return { agregados: agregados.length, muestreos: [...porMuestreo.values()] };
+        } catch (error) {
+            try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
+            logger.error('[EQUIPOS] Error sincronizando equipos de muestreos:', error);
             throw error;
         }
     }

@@ -62,7 +62,7 @@ class UnsService {
             const recipientsById = new Map(); // id -> { id_usuario, web, email, regla }
 
             // Add From SQL Dispatcher (Legacy/Global)
-            dispatchRes.recordset.forEach(r => {
+            (dispatchRes.recordset || []).forEach(r => {
                 recipientsById.set(Number(r.id_usuario), {
                     id_usuario: Number(r.id_usuario),
                     web: !!r.web,
@@ -270,6 +270,14 @@ class UnsService {
                 'FICHA_RECHAZADA_COORDINACION': {
                     titulo: 'Rechazo Coordinación: {{registro}}',
                     mensaje: 'La {{tipo_registro_min}} {{registro}} ha sido rechazada por coordinación ({{usuario_accion}}).'
+                },
+                'FICHA_EDITADA_COMERCIAL': {
+                    titulo: 'Modificada por Comercial: {{registro}}',
+                    mensaje: '{{usuario_accion}} modificó la {{tipo_registro_min}} {{registro}} (estaba: {{estado_previo}}). Vuelve a validación técnica.'
+                },
+                'FICHA_CANCELADA': {
+                    titulo: 'Cancelada: {{registro}}',
+                    mensaje: '{{usuario_accion}} canceló la {{tipo_registro_min}} {{registro}} (estaba: {{estado_previo}}).'
                 },
                 'FICHA_ASIGNADA': {
                     titulo: 'Muestreo Asignado: #{{correlativo}}',

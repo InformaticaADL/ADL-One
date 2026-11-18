@@ -21,6 +21,8 @@ import {
 } from '@tabler/icons-react';
 import { CreateEmpresaServicioModal } from './CreateEmpresaServicioModal';
 import apiClient from '../../../config/axios.config';
+import { refAutomatica } from '../utils/utm';
+import { MapaUbicacionDialog } from './MapaUbicacionDialog';
 import { FieldLabel } from '../../../components/common/FieldHelp';
 import { Input } from '../../../components/ui/input';
 import { Button } from '../../../components/ui/button';
@@ -626,6 +628,13 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
             setVerifyError('');
         }
     }, [refGoogle]);
+
+    // La referencia de Google Maps se genera sola desde la zona y las UTM mientras esté vacía o sea una generada antes; un enlace escrito a mano no se toca.
+    const [mapaAbierto, setMapaAbierto] = useState(false);
+    const autoRef = (z: string | null, n: string, e: string) => {
+        const sig = refAutomatica({ zona: z || '', utmNorte: n, utmEste: e, refGoogle });
+        if (sig.refGoogle !== refGoogle) { setRefGoogle(sig.refGoogle); markDirty('refGoogle'); }
+    };
 
     const handleVerifyLink = useCallback(async () => {
         const link = refGoogle.trim();
@@ -1367,20 +1376,20 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
                         clearable
                         data={zonasUTMData}
                         value={zona}
-                        onChange={(v: string | null) => { setZona(v || ''); markDirty('zona'); }}
+                        onChange={(v: string | null) => { setZona(v || ''); markDirty('zona'); autoRef(v || '', utmNorte, utmEste); }}
                     />
                     <TextInput
                         size="sm"
                         label={<FieldLabel label="UTM Norte" help="Coordenada Norte en sistema de coordenadas UTM. Es el valor de latitud expresado en metros. Ejemplo: 5837000. Debe ser un número de 7 dígitos aproximadamente." />}
                         value={utmNorte}
-                        onChange={(e: any) => { setUtmNorte(e.target.value); markDirty('utmNorte'); }}
+                        onChange={(e: any) => { setUtmNorte(e.target.value); markDirty('utmNorte'); autoRef(zona, e.target.value, utmEste); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     <TextInput
                         size="sm"
                         label={<FieldLabel label="UTM Este" help="Coordenada Este en sistema UTM. Es el valor de longitud expresado en metros. Ejemplo: 672000. Debe ser un número de 6 dígitos aproximadamente." />}
                         value={utmEste}
-                        onChange={(e: any) => { setUtmEste(e.target.value); markDirty('utmEste'); }}
+                        onChange={(e: any) => { setUtmEste(e.target.value); markDirty('utmEste'); autoRef(zona, utmNorte, e.target.value); }}
                         disabled={!zona || isNoAplicaValue(zona, zonasUTMData)}
                     />
                     </>)}
@@ -1591,10 +1600,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
                             {verifyStatus === 'loading' && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
                             Verificar
                         </Button>
+                        <Button type="button" variant="outline" onClick={() => setMapaAbierto(true)} disabled={!refGoogle.trim() && !(zona && utmNorte && utmEste)} className="shrink-0" title="Ver en el mapa el punto que resulta de las coordenadas UTM">
+                            <IconMapPin size={16} /> Ver mapa
+                        </Button>
                     </div>
                     <p className="m-0 text-[11px] text-muted-foreground">
-                        Si no es ingresada, esta ficha quedará inhabilitada para generación de rutas.
+                        Si no la ingresa, se genera sola a partir de las coordenadas UTM; sin ninguna de las dos, la ficha queda inhabilitada para generación de rutas.
                     </p>
+                    {mapaAbierto && <MapaUbicacionDialog open onClose={() => setMapaAbierto(false)} zona={zona || ''} utmNorte={utmNorte} utmEste={utmEste} refGoogle={refGoogle} />}
 
                     {verifyStatus === 'ok' && verifiedCoords && (
                         <div className="flex flex-col gap-1.5">

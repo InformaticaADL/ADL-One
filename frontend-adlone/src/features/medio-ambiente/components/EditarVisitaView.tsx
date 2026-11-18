@@ -335,14 +335,15 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
         const refId = idsActivos[0] ?? fichaId;
         try {
             // 1) puntos → 2) antecedentes (cada punto conserva ya su ubicación nueva) → 3) análisis y precio
+            let puntosOk = true;
             if (puntosCambiados.length > 0) {
                 try {
                     const r = (await fichaService.actualizarPuntosVisita(fichaId, puntosCambiados))?.data;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
-                } catch (e: any) { fallos.push(`Puntos: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
+                } catch (e: any) { puntosOk = false; fallos.push(`Puntos: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
             }
             let nuevosOk = true;
-            if (nuevos.length > 0 && antActuales) {
+            if (puntosOk && nuevos.length > 0 && antActuales) {
                 try {
                     const r = (await fichaService.agregarPuntosVisita(fichaId, { antecedentes: antActuales, puntos: puntosParaCrear, observaciones }))?.data;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
@@ -350,26 +351,20 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                 } catch (e: any) { nuevosOk = false; fallos.push(`Puntos nuevos: ${e?.response?.data?.message || 'no se pudieron crear'}`); }
             }
             let quitadosOk = true;
-            if (quitados.length > 0 && nuevosOk) {
+            if (quitados.length > 0 && puntosOk && nuevosOk) {
                 try {
                     const r = (await fichaService.quitarPuntosVisita(fichaId, { ids: quitados, idMotivo: Number(motivoId), observacion: obsQuitar.trim() }))?.data;
                     quitadosN = r?.quitados?.length ?? 0;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
                 } catch (e: any) { quitadosOk = false; fallos.push(`Quitar puntos: ${e?.response?.data?.message || 'no se pudieron quitar'}`); }
             }
-            if (ant && nuevosOk && quitadosOk) {
+            // Antecedentes y análisis/precio viajan JUNTOS: el servidor los guarda en una sola transacción (todos los puntos o ninguno).
+            const hayAnalisisAGuardar = analisisCambiado && !!analisisPorFicha;
+            if ((ant || hayAnalisisAGuardar) && puntosOk && nuevosOk && quitadosOk) {
                 try {
-                    const r = (await fichaService.actualizarVisita(refId, { antecedentes: ant, observaciones }))?.data;
+                    const r = (await fichaService.actualizarVisita(refId, { ...(ant ? { antecedentes: ant } : {}), ...(hayAnalisisAGuardar ? { analisisPorFicha } : {}), observaciones }))?.data;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
-                    (r?.fallidos || []).forEach((f: any) => fallos.push(`Antecedentes, ficha ${f.id}: ${f.error}`));
-                } catch (e: any) { fallos.push(`Antecedentes: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
-            }
-            if (nuevosOk && quitadosOk && analisisCambiado && analisisPorFicha) {
-                try {
-                    const r = (await fichaService.actualizarVisita(refId, { analisisPorFicha, observaciones }))?.data;
-                    reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
-                    (r?.fallidos || []).forEach((f: any) => fallos.push(`Análisis y precio, ficha ${f.id}: ${f.error}`));
-                } catch (e: any) { fallos.push(`Análisis y precio: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
+                } catch (e: any) { fallos.push(`Antecedentes y análisis: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
             }
         } finally { setGuardando(false); }
 

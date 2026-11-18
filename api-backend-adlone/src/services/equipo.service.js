@@ -9,6 +9,16 @@ import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
 
+// Un equipo asignado a un muestreador después de que éste ya tenía muestreos agendados debe aparecerle también en esos muestreos (y en la app ADL SAMPLING).
+// Se hace sin esperar y sin que un error afecte al guardado del equipo; además un proceso periódico (utils/scheduler.js) cubre cualquier otra vía.
+const sincronizarEquiposDeMuestreadores = (ids) => {
+    const lista = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
+    if (lista.length === 0) return;
+    import('./ficha.service.js').then(async (m) => {
+        for (const idMuestreador of lista) await m.default.sincronizarEquiposMuestreo({ idMuestreador });
+    }).catch((e) => logger.warn('[EQUIPOS] No se pudo actualizar los muestreos con el equipo nuevo:', e.message));
+};
+
 // Las columnas documento_* las agrega migrations/003_add_documento_to_equipo.sql.
 // Referenciar una columna inexistente no es un filtro que no matchea: rompe la
 // compilación del SELECT completo y dejaría Gestión de Equipos en blanco en
@@ -1047,6 +1057,7 @@ export const equipoService = {
             await request.query(queryMain);
 
             await transaction.commit();
+            sincronizarEquiposDeMuestreadores([data.id_muestreador]);
             return { id: newId, ...data };
         } catch (error) {
             try { await transaction.rollback(); } catch (rollbackError) {}
@@ -1142,6 +1153,7 @@ export const equipoService = {
             }
 
             await transaction.commit();
+            sincronizarEquiposDeMuestreadores(results.map((r) => r.id_muestreador));
             return results;
         } catch (error) {
             try { await transaction.rollback(); } catch (rollbackError) {}
@@ -1443,6 +1455,7 @@ export const equipoService = {
             }
 
             if (propia) await transaction.commit();
+            if (propia && Object.prototype.hasOwnProperty.call(data, 'id_muestreador')) sincronizarEquiposDeMuestreadores([data.id_muestreador]);
             return { id, ...data, version: nextVersionLabel };
         } catch (error) {
             if (propia) { try { await transaction.rollback(); } catch (rollbackError) {} }
