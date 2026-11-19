@@ -397,6 +397,16 @@ export const initScheduler = () => {
         }
     };
 
+    // --- Equipos nuevos de un muestreador en sus muestreos ya asignados (cada 10 min; solo agrega lo que falta) ---
+    const sincronizarEquiposMuestreos = async () => {
+        try {
+            const r = await fichaService.sincronizarEquiposMuestreo();
+            if (r.agregados > 0) logger.info(`[EQUIPOS] Sincronización periódica: ${r.agregados} equipos agregados.`);
+        } catch (error) {
+            logger.error('[EQUIPOS] Error en la sincronización periódica:', error);
+        }
+    };
+
     // --- Startup Execution ---
     setTimeout(() => {
         runDailyCheck();
@@ -407,6 +417,7 @@ export const initScheduler = () => {
         purgeTrackingHistory();
         actualizarUfDiaria();
         expirarCotizaciones();
+        sincronizarEquiposMuestreos();
     }, 10000);
 
     setTimeout(() => {
@@ -427,6 +438,9 @@ export const initScheduler = () => {
 
     // Every 24 hours (Cotizaciones cuya vigencia venció)
     setInterval(expirarCotizaciones, 24 * 60 * 60 * 1000);
+
+    // Cada 10 minutos (equipos nuevos de los muestreadores en sus muestreos asignados)
+    setInterval(sincronizarEquiposMuestreos, 10 * 60 * 1000);
 
     // Every 20 seconds (Vigilante poll)
     setInterval(pollNewRequests, 20 * 1000);

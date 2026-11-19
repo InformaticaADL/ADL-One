@@ -175,6 +175,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
     const [showCancelModal, setShowCancelModal] = useState(false);
     // Cancelar la ficha completa (p. ej. una ficha creada dos veces)
     const [showCancelarFicha, setShowCancelarFicha] = useState(false);
+    const [confirmarEditar, setConfirmarEditar] = useState(false);
     const [motivosFicha, setMotivosFicha] = useState<any[]>([]);
     const [motivoFichaId, setMotivoFichaId] = useState('');
     const [obsCancelarFicha, setObsCancelarFicha] = useState('');
@@ -499,16 +500,20 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         );
     }
 
-    if (editarVisita && esVisita && grupo) {
-        return <EditarVisitaView fichaId={fichaId} grupo={grupo} data={data} onVolver={() => setEditarVisita(false)} onGuardado={alGuardarVisita} />;
+    if (editarVisita && (grupo || data)) {
+        return <EditarVisitaView fichaId={fichaId} grupo={esVisita && grupo ? grupo : { total: 1, puntos: [{ id_fichaingresoservicio: Number(fichaId), punto: String(data?.ma_punto_muestreo || ''), estado: String(data?.estado_ficha || '') }] }} data={data} onVolver={() => setEditarVisita(false)} onGuardado={alGuardarVisita} />;
     }
 
     const statusObj = getStatusProps(data?.estado_ficha);
 
     // Capabilities
-    const canEdit = hasPermission('FI_EDITAR') && !isEditing && [1, 2, 3, 4].includes(Number(data?.id_validaciontecnica));
+    const canEdit = hasPermission('FI_EDITAR') && !isEditing && [1, 2, 3, 4, 5, 6].includes(Number(data?.id_validaciontecnica));
     const canProcessTech = (hasPermission('FI_APROBAR_TEC') || hasPermission('FI_RECHAZAR_TEC')) && [0, 3, 4].includes(data?.id_validaciontecnica || -1);
     const canProcessCoord = (hasPermission('FI_APROBAR_COO') || hasPermission('FI_RECHAZAR_COO')) && data?.id_validaciontecnica === 1;
+    // Una ficha ya aprobada (p. ej. creada por carga masiva) que aún no se programa: Coordinación puede devolverla a Comercial para que la edite.
+    const canDevolverCoord = hasPermission('FI_RECHAZAR_COO') && data?.id_validaciontecnica === 6;
+    // Editar una ficha que ya avanzó de etapa la devuelve a validación técnica: se pide confirmación.
+    const edicionConfirma = [1, 5, 6].includes(Number(data?.id_validaciontecnica));
 
     const det = data?.detalles || [];
     const rejected = data?.id_validaciontecnica === 2 || data?.id_validaciontecnica === 4;
@@ -550,8 +555,8 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             </>
                         ) : (
                             canEdit && (
-                                <Button onClick={esVisita ? () => setEditarVisita(true) : handleEditStart}>
-                                    <IconEdit size={18} /> {esVisita ? 'Editar visita' : 'Editar Comercial'}
+                                <Button onClick={() => (edicionConfirma ? setConfirmarEditar(true) : setEditarVisita(true))}>
+                                    <IconEdit size={18} /> {esVisita ? 'Editar visita' : 'Editar ficha'}
                                 </Button>
                             )
                         )}
@@ -937,17 +942,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                     </div>
                                 )}
 
-                                {!isEditing && canProcessCoord && (
+                                {!isEditing && (canProcessCoord || canDevolverCoord) && (
                                     <div className="rounded-[10px] border border-violet-500/20 bg-violet-500/5 p-4">
                                         <div className="flex items-center gap-2">
                                             <IconMessageDots size={20} className="text-violet-600" />
-                                            <h5 className="m-0 text-sm font-semibold text-violet-600">Gestión Coordinación: Aprobación Logística</h5>
+                                            <h5 className="m-0 text-sm font-semibold text-violet-600">{canDevolverCoord ? 'Gestión Coordinación: Devolver a Comercial' : 'Gestión Coordinación: Aprobación Logística'}</h5>
                                         </div>
                                         <span className="my-1 mb-2 block text-xs text-violet-600">
-                                            Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.
+                                            {canDevolverCoord ? 'Esta ficha ya está aprobada y pendiente de programar. Si hay datos que corregir, devuélvala a Comercial con el motivo: podrá editarla y volverá a validación técnica.' : 'Ingrese comentarios operativos finales antes de habilitar la Ficha para programación y asignación de terreno.'}
                                         </span>
                                         <SelectorObservacion modo={modoObsCoord} onModo={setModoObsCoord} texto={coordinacionObs} onTexto={setCoordinacionObs} placeholder="Ingrese las observaciones de coordinación aquí..." />
-                                        {!allTabsVisited && (
+                                        {canProcessCoord && !allTabsVisited && (
                                             <p className="mb-0 mt-3 rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">
                                                 Para aprobar, revise antes las pestañas que faltan: {[!visitedTabs.antecedentes && 'Antecedentes', !visitedTabs.analisis && 'Análisis', !visitedTabs.observaciones && 'Observaciones'].filter(Boolean).join(', ')}.
                                             </p>
@@ -958,14 +963,14 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                             </p>
                                         )}
                                         <div className="mt-4 flex justify-end gap-2.5">
-                                            <ProtectedContent permission="FI_APROBAR_COO">
+                                            {canProcessCoord && (<ProtectedContent permission="FI_APROBAR_COO">
                                                 <span title={!allTabsVisited ? 'Debe visualizar todas las pestañas (Antecedentes, Análisis, Historial) antes de probar' : undefined}>
                                                     <Button className="bg-violet-500 text-white hover:bg-violet-600" onClick={() => handleActionClick('approve_coord')} disabled={!allTabsVisited || actionLoading}>
                                                         {actionLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
                                                         <IconCheck size={18} /> Aprobar Coordinación
                                                     </Button>
                                                 </span>
-                                            </ProtectedContent>
+                                            </ProtectedContent>)}
                                             <ProtectedContent permission="FI_RECHAZAR_COO">
                                                 <Button variant="destructive" onClick={() => handleActionClick('reject_coord')} disabled={actionLoading}>
                                                     {actionLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
@@ -986,6 +991,22 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                 </Tabs>
             </Card>
 
+            <Dialog open={confirmarEditar} onOpenChange={setConfirmarEditar}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>{esVisita ? 'Editar la visita' : 'Editar la ficha'}</DialogTitle></DialogHeader>
+                    <p className="text-[13px]">
+                        {Number(data?.id_validaciontecnica) === 1 && <>Esta {esVisita ? 'visita' : 'ficha'} ya fue aprobada por el Área Técnica y espera a Coordinación. </>}
+                        {Number(data?.id_validaciontecnica) === 6 && <>Esta {esVisita ? 'visita' : 'ficha'} ya fue aprobada y está pendiente de programar. </>}
+                        {Number(data?.id_validaciontecnica) === 5 && <>Esta {esVisita ? 'visita' : 'ficha'} ya está en programación; se conservan sus fechas y muestreadores. </>}
+                        Al guardar los cambios volverá a <strong>validación técnica</strong> y deberá aprobarse de nuevo. Solo se puede editar mientras ningún servicio se haya ejecutado, empezado en terreno o tenga documentos enviados.
+                    </p>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setConfirmarEditar(false)}>No, volver</Button>
+                        <Button onClick={() => { setConfirmarEditar(false); setEditarVisita(true); }}>Sí, editar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={showCancelarFicha} onOpenChange={setShowCancelarFicha}>
                 <DialogContent>
                     <DialogHeader><DialogTitle>{esVisita ? `Cancelar la visita completa (${grupo!.total} puntos)` : `Cancelar la ficha ${data?.fichaingresoservicio ? `N° ${data.fichaingresoservicio}` : ''}`}</DialogTitle></DialogHeader>
@@ -997,6 +1018,9 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                 : <>La ficha queda como <strong>CANCELADA</strong> y sale de las bandejas de Área Técnica, Coordinación y Asignación. No se borra:
                                   queda el motivo y quién la canceló en su historial. Esta acción es irreversible.</>}
                         </p>
+                        {[5, 6].includes(Number(data?.id_validaciontecnica)) && (
+                            <p className="rounded-md bg-warning/10 px-3 py-2 text-xs text-warning">Ya está en programación: sus servicios agendados también se cancelan y se liberan del calendario.</p>
+                        )}
                         <div>
                             <span className="mb-1 block text-xs">Motivo *</span>
                             <Combobox

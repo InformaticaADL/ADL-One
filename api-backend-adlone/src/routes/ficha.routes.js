@@ -50,6 +50,7 @@ router.get('/:id/execution-detail', authenticate, fichaController.getExecutionDe
 router.get('/:id/historial', authenticate, fichaController.getHistorial);
 router.get('/:id/pdf', authenticate, fichaController.downloadPdf);
 router.get('/:id/excel', authenticate, fichaController.downloadExcel);
+router.post('/sincronizar-equipos', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA_A_GEST_EQUIPO', 'FI_EDITAR']), fichaController.sincronizarEquipos);
 router.get('/:id/sampling-equipos', authenticate, fichaController.getSamplingEquipos);
 router.get('/:id', authenticate, validateRequest(fichaValidationSchemas.getById), fichaController.getById);
 router.post('/:id/agenda', authenticate, verifyPermission(['FI_GEST_ASIG', 'MA_RUTA_CREAR']), validateRequest(fichaValidationSchemas.updateAgenda), fichaController.updateAgenda);

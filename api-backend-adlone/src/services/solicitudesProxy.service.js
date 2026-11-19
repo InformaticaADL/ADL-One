@@ -44,9 +44,19 @@ const SolicitudesProxyService = {
             empresaAsignadaService.esRespaldo(idUsuario),
             verificadorSolicitudesService.esVerificador(idUsuario),
         ]);
-        if (!empresas.length && !esRespaldo && !esVerificador) return [];
+        // Lo que se administra en ADL WEB GO (Administración → Responsables de solicitudes): se le pide por correo, y la web responde con
+        // los clientes que esa persona atiende (con sus asociados) y, si está en la jefatura, todos. Se suma a lo heredado de arriba.
+        let correo = null;
+        try {
+            const pool = await getConnection();
+            const r = await pool.request().input('u', sql.Numeric(10, 0), idUsuario)
+                .query("SELECT correo_electronico FROM mae_usuario WHERE id_usuario = @u AND habilitado = 'S'");
+            correo = String(r.recordset[0]?.correo_electronico || '').trim().toLowerCase() || null;
+        } catch (_) { /* sin correo: solo lo heredado */ }
+        if (!empresas.length && !esRespaldo && !esVerificador && !correo) return [];
         const ids = empresas.map(e => e.id_empresa).join(',');
         const qs = new URLSearchParams();
+        if (correo) qs.set('usuario', correo);
         if (ids) qs.set('empresas', ids);
         if (esRespaldo) qs.set('incluirSinAsignar', '1');
         // Los verificadores (jefatura en copia) ven las solicitudes de TODAS las empresas.

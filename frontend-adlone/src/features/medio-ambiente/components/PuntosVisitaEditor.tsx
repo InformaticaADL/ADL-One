@@ -1,10 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 
-import { IconArrowBackUp, IconTrash } from '@tabler/icons-react';
+import { IconArrowBackUp, IconMapPin, IconTrash } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
+import { refAutomatica } from '../utils/utm';
+import { MapaUbicacionDialog } from './MapaUbicacionDialog';
 import { cn } from '@/lib/utils';
 
 export interface FilaPunto { id: number; punto: string; zona: string; utmNorte: string; utmEste: string; refGoogle: string }
@@ -28,6 +30,7 @@ interface Props {
  * Es un componente controlado: el estado vive en quien lo usa. No agrega ni quita puntos (eso crearía o cancelaría fichas).
  */
 export const PuntosVisitaEditor: React.FC<Props> = ({ filas, inicial, onChange, zonas, quitados = [], onQuitar, onDeshacerQuitar }) => {
+    const [mapaDe, setMapaDe] = useState<FilaPunto | null>(null);
     const opcionesZona = useMemo(() => [{ value: '', label: '— Sin zona —' }, ...zonas], [zonas]);
 
     const cambiar = (id: number, campo: keyof FilaPunto, valor: string) =>
@@ -36,12 +39,13 @@ export const PuntosVisitaEditor: React.FC<Props> = ({ filas, inicial, onChange, 
             const nuevo = { ...f, [campo]: valor };
             // Con zona «No aplica» (o sin zona) las coordenadas no corresponden.
             if (campo === 'zona' && sinCoordenadas(valor)) { nuevo.utmNorte = ''; nuevo.utmEste = ''; }
+            if (campo === 'zona' || campo === 'utmNorte' || campo === 'utmEste') return refAutomatica(nuevo);
             return nuevo;
         }));
 
     // Una sola zona para todos los puntos. Las coordenadas de cada punto se conservan (salvo sin zona o «No aplica»).
     const aplicarZonaATodos = (zona: string) =>
-        onChange(filas.map((f) => (sinCoordenadas(zona) ? { ...f, zona, utmNorte: '', utmEste: '' } : { ...f, zona })));
+        onChange(filas.map((f) => refAutomatica(sinCoordenadas(zona) ? { ...f, zona, utmNorte: '', utmEste: '' } : { ...f, zona })));
     const zonaComun = filas.length > 0 && filas.every((f) => f.zona && f.zona === filas[0].zona) ? filas[0].zona : '';
     const sinNombre = filas.some((f) => !f.punto.trim());
 
@@ -76,7 +80,7 @@ export const PuntosVisitaEditor: React.FC<Props> = ({ filas, inicial, onChange, 
                                     <td className="px-2 py-1.5"><Combobox disabled={quitado} options={opcionesZona} value={f.zona || undefined} onValueChange={(v) => cambiar(f.id, 'zona', v || '')} placeholder="Sin zona" /></td>
                                     <td className="px-2 py-1.5"><Input aria-label={`UTM Norte del punto ${i + 1}`} inputMode="numeric" value={f.utmNorte} disabled={sinCoord || quitado} onChange={(e) => cambiar(f.id, 'utmNorte', e.target.value)} /></td>
                                     <td className="px-2 py-1.5"><Input aria-label={`UTM Este del punto ${i + 1}`} inputMode="numeric" value={f.utmEste} disabled={sinCoord || quitado} onChange={(e) => cambiar(f.id, 'utmEste', e.target.value)} /></td>
-                                    <td className="px-2 py-1.5"><Input aria-label={`Referencia del punto ${i + 1}`} disabled={quitado} value={f.refGoogle} onChange={(e) => cambiar(f.id, 'refGoogle', e.target.value)} placeholder="https://maps.app.goo.gl/…" /></td>
+                                    <td className="px-2 py-1.5"><div className="flex items-center gap-1"><Input aria-label={`Referencia del punto ${i + 1}`} disabled={quitado} value={f.refGoogle} onChange={(e) => cambiar(f.id, 'refGoogle', e.target.value)} placeholder="Opcional (se genera de las UTM)" /><Button type="button" variant="ghost" size="icon" className="shrink-0" aria-label={`Ver en el mapa el punto ${i + 1}`} title="Ver en el mapa lo que resulta de la zona y las UTM" onClick={() => setMapaDe(f)}><IconMapPin size={16} /></Button></div></td>
                                     {onQuitar && (
                                         <td className="px-2 py-1.5 text-right">
                                             {quitado ? (
@@ -94,6 +98,7 @@ export const PuntosVisitaEditor: React.FC<Props> = ({ filas, inicial, onChange, 
             </div>
             {sinNombre && <p className="mb-0 mt-2 text-xs text-destructive">Todos los puntos deben tener nombre.</p>}
             <p className="mb-0 mt-3 text-xs text-muted-foreground">Aquí se corrigen los puntos que ya existen. «Quitar» cancela la ficha de ese punto al guardar (con un motivo, sin borrar nada) y la visita debe conservar al menos un punto.</p>
+            {mapaDe && <MapaUbicacionDialog open onClose={() => setMapaDe(null)} nombre={mapaDe.punto} zona={mapaDe.zona} utmNorte={mapaDe.utmNorte} utmEste={mapaDe.utmEste} refGoogle={mapaDe.refGoogle} />}
         </div>
     );
 };

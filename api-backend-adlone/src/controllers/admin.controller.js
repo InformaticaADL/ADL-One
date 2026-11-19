@@ -355,7 +355,11 @@ export const adminController = {
                 logger.error('Error parsing export params:', e);
             }
 
-            const result = await adminService.getTableData(name, type, parsedParams);
+            let result = await adminService.getTableData(name, type, parsedParams);
+            // Los valores (UF) solo los ve quien tiene FI_EXP_VER_UF: sin el permiso la columna sale en 0 (igual que en el detalle de la ficha).
+            if (!(req.user?.permissions || []).includes('FI_EXP_VER_UF') && Array.isArray(result)) {
+                result = result.map((fila) => (fila && Object.prototype.hasOwnProperty.call(fila, 'UF Individual') ? { ...fila, 'UF Individual': 0 } : fila));
+            }
             res.json({ success: true, data: result });
         } catch (error) {
             logger.error(`Controller getExportData error for ${req.query.name}:`, error);

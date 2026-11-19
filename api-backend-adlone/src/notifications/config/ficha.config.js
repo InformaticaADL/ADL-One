@@ -20,6 +20,12 @@ const FICHA_CAMPOS_BASE = [
 // separado de los datos de la ficha para no confundirla con sus atributos.
 const EVENTO_META = { usuario: '{USUARIO}', fecha: '{FECHA}', hora: '{HORA}' };
 
+// Avisos de Comercial sobre una ficha o visita que ya estaba en marcha: dicen en qué estado estaba y qué pasa ahora.
+const FICHA_CAMPOS_CAMBIO = [
+    { icono: '📋', label: 'Estado en que estaba', variable: '{ESTADO_PREVIO}' },
+    { icono: '🔁', label: 'Qué pasa ahora', variable: '{QUE_PASA}' },
+];
+
 const OBSERVACION_DEFAULT = { etiqueta: 'Observaciones', variable: '{OBSERVACION}' };
 
 const CTA_FICHA = { label: 'Ver {TIPO_REGISTRO} en ADL ONE', ruta: '/?ficha={ID_FICHA}' };
@@ -103,6 +109,30 @@ export const FICHA_CONFIG = [
         campos: FICHA_CAMPOS_BASE,
         eventoMeta: EVENTO_META,
         observacion: { etiqueta: 'Motivo de Devolución', variable: '{OBSERVACION}' },
+        cta: CTA_FICHA,
+    },
+    {
+        codigo: 'FICHA_EDITADA_COMERCIAL',
+        categoria: 'FICHA',
+        outcome: 'EN_REVISION',
+        asunto: '{TIPO_REGISTRO} modificada por Comercial: {REGISTRO}',
+        titulo: '{TIPO_REGISTRO} Modificada por Comercial',
+        resumen: 'Comercial modificó la {TIPO_REGISTRO_MIN} {REGISTRO}. Vuelve a validación técnica.',
+        campos: [...FICHA_CAMPOS_BASE, ...FICHA_CAMPOS_CAMBIO],
+        eventoMeta: EVENTO_META,
+        observacion: { etiqueta: 'Qué se cambió', variable: '{OBSERVACION}' },
+        cta: CTA_FICHA,
+    },
+    {
+        codigo: 'FICHA_CANCELADA',
+        categoria: 'FICHA',
+        outcome: 'CANCELADA',
+        asunto: '{TIPO_REGISTRO} cancelada: {REGISTRO}',
+        titulo: '{TIPO_REGISTRO} Cancelada',
+        resumen: 'La {TIPO_REGISTRO_MIN} {REGISTRO} fue cancelada por Comercial. No se borró nada: queda el motivo y el historial.',
+        campos: [...FICHA_CAMPOS_BASE, ...FICHA_CAMPOS_CAMBIO],
+        eventoMeta: EVENTO_META,
+        observacion: { etiqueta: 'Motivo de la cancelación', variable: '{OBSERVACION}' },
         cta: CTA_FICHA,
     },
     {

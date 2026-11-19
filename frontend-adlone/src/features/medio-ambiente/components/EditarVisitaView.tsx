@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { IconArrowDownRight, IconArrowUpRight, IconCheck, IconEqual, IconFileText, IconMapPin, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconArrowDownRight, IconArrowUpRight, IconCheck, IconEqual, IconFileText, IconHistory, IconMapPin, IconPlus, IconTrash } from '@tabler/icons-react';
 
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ConfirmModal } from '../../../components/common/ConfirmModal';
@@ -36,6 +36,7 @@ import { PasosLayout, type EstadoPaso, type PasoInfo } from './PasosLayout';
 import { PuntosVisitaEditor, type FilaPunto } from './PuntosVisitaEditor';
 import { PuntosVisitaTable } from './PuntosVisitaTable';
 import { ResumenVisita } from './ResumenVisita';
+import { ObservationTimeline } from './ObservationTimeline';
 import type { PuntoDeVisita } from './PuntosVisitaPanel';
 
 import { Button } from '@/components/ui/button';
@@ -43,6 +44,7 @@ import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
 import { Radio } from '@/components/ui/radio';
 import { Textarea } from '@/components/ui/textarea';
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 
@@ -101,9 +103,15 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
     const [pasoAnt, setPasoAnt] = useState(0);
     const [pasoVis, setPasoVis] = useState(0);
     const [guardando, setGuardando] = useState(false);
+    // Historial de la ficha (línea de tiempo y validación): a mano mientras se edita, para ver por qué la devolvieron y qué hay que corregir.
+    const [historialAbierto, setHistorialAbierto] = useState(false);
+    const devuelta = [2, 4].includes(Number(data?.id_validaciontecnica));
+    const datosCreacion = useMemo(() => ({ date: data?.fecha_fichacomercial || new Date().toISOString(), user: data?.responsablemuestreo || 'Comercial', observation: data?.observaciones_comercial || '' }), [data]);
     const topRef = useRef<HTMLDivElement>(null);
     const subir = () => topRef.current?.scrollIntoView({ behavior: 'instant', block: 'start' });
 
+    // Una ficha suelta (de un solo punto) se edita con esta misma pantalla, pero sin quitar ni añadir puntos: no forma parte de ninguna visita.
+    const esUnica = grupo.total <= 1;
     const ids = useMemo(() => grupo.puntos.map((p) => Number(p.id_fichaingresoservicio)), [grupo]);
 
     // Puntos marcados para quitar de la visita (se cancelan al guardar, con motivo). `idsActivos` son los que siguen en la visita.
@@ -335,14 +343,15 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
         const refId = idsActivos[0] ?? fichaId;
         try {
             // 1) puntos → 2) antecedentes (cada punto conserva ya su ubicación nueva) → 3) análisis y precio
+            let puntosOk = true;
             if (puntosCambiados.length > 0) {
                 try {
                     const r = (await fichaService.actualizarPuntosVisita(fichaId, puntosCambiados))?.data;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
-                } catch (e: any) { fallos.push(`Puntos: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
+                } catch (e: any) { puntosOk = false; fallos.push(`Puntos: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
             }
             let nuevosOk = true;
-            if (nuevos.length > 0 && antActuales) {
+            if (puntosOk && nuevos.length > 0 && antActuales) {
                 try {
                     const r = (await fichaService.agregarPuntosVisita(fichaId, { antecedentes: antActuales, puntos: puntosParaCrear, observaciones }))?.data;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
@@ -350,26 +359,20 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                 } catch (e: any) { nuevosOk = false; fallos.push(`Puntos nuevos: ${e?.response?.data?.message || 'no se pudieron crear'}`); }
             }
             let quitadosOk = true;
-            if (quitados.length > 0 && nuevosOk) {
+            if (quitados.length > 0 && puntosOk && nuevosOk) {
                 try {
                     const r = (await fichaService.quitarPuntosVisita(fichaId, { ids: quitados, idMotivo: Number(motivoId), observacion: obsQuitar.trim() }))?.data;
                     quitadosN = r?.quitados?.length ?? 0;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
                 } catch (e: any) { quitadosOk = false; fallos.push(`Quitar puntos: ${e?.response?.data?.message || 'no se pudieron quitar'}`); }
             }
-            if (ant && nuevosOk && quitadosOk) {
+            // Antecedentes y análisis/precio viajan JUNTOS: el servidor los guarda en una sola transacción (todos los puntos o ninguno).
+            const hayAnalisisAGuardar = analisisCambiado && !!analisisPorFicha;
+            if ((ant || hayAnalisisAGuardar) && puntosOk && nuevosOk && quitadosOk) {
                 try {
-                    const r = (await fichaService.actualizarVisita(refId, { antecedentes: ant, observaciones }))?.data;
+                    const r = (await fichaService.actualizarVisita(refId, { ...(ant ? { antecedentes: ant } : {}), ...(hayAnalisisAGuardar ? { analisisPorFicha } : {}), observaciones }))?.data;
                     reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
-                    (r?.fallidos || []).forEach((f: any) => fallos.push(`Antecedentes, ficha ${f.id}: ${f.error}`));
-                } catch (e: any) { fallos.push(`Antecedentes: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
-            }
-            if (nuevosOk && quitadosOk && analisisCambiado && analisisPorFicha) {
-                try {
-                    const r = (await fichaService.actualizarVisita(refId, { analisisPorFicha, observaciones }))?.data;
-                    reenviados = Math.max(reenviados, r?.reenviados?.length ?? 0);
-                    (r?.fallidos || []).forEach((f: any) => fallos.push(`Análisis y precio, ficha ${f.id}: ${f.error}`));
-                } catch (e: any) { fallos.push(`Análisis y precio: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
+                } catch (e: any) { fallos.push(`Antecedentes y análisis: ${e?.response?.data?.message || 'no se pudieron guardar'}`); }
             }
         } finally { setGuardando(false); }
 
@@ -377,7 +380,7 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
             showToast({ type: 'error', message: `No se pudo guardar todo. ${fallos.join(' · ')}` });
             return;
         }
-        showToast({ type: 'success', message: `Visita actualizada.${agregados > 0 ? ` Se agregaron ${agregados} ${agregados === 1 ? 'punto' : 'puntos'}.` : ''}${quitadosN > 0 ? ` Se quitaron ${quitadosN} ${quitadosN === 1 ? 'punto' : 'puntos'}.` : ''}${reenviados > 0 ? ' Volvió a validación técnica.' : ''}` });
+        showToast({ type: 'success', message: `${esUnica ? 'Ficha actualizada.' : 'Visita actualizada.'}${agregados > 0 ? ` Se agregaron ${agregados} ${agregados === 1 ? 'punto' : 'puntos'}.` : ''}${quitadosN > 0 ? ` Se quitaron ${quitadosN} ${quitadosN === 1 ? 'punto' : 'puntos'}.` : ''}${reenviados > 0 ? ' Volvió a validación técnica.' : ''}` });
         onGuardado();
     };
 
@@ -505,12 +508,28 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                 puntos={puntosFila.map((p) => ({ id: p.id, nombre: p.puntoMuestreo }))}
                 onConfirmar={agregarComposicion}
             />
+            <Sheet open={historialAbierto} onOpenChange={setHistorialAbierto}>
+                <SheetContent side="right" className="!top-0 !h-[100dvh] w-full overflow-y-auto sm:max-w-xl">
+                    <SheetHeader>
+                        <SheetTitle>Línea de tiempo y validación</SheetTitle>
+                        <SheetDescription>Qué pasó con la ficha N° {fichaId}, quién la revisó y por qué se devolvió. Puede seguir editando al cerrar este panel.</SheetDescription>
+                    </SheetHeader>
+                    <div className="mt-4"><ObservationTimeline fichaId={fichaId} creationData={datosCreacion} sinLimiteDeAltura /></div>
+                </SheetContent>
+            </Sheet>
             <PageHeader
-                title={`Editar visita · ${data?.nombre_centro || 'Sin centro'}`}
-                subtitle={`${grupo.total} puntos · ${data?.nombre_empresaservicios || data?.nombre_empresa || ''}`}
+                title={`${esUnica ? 'Editar ficha' : 'Editar visita'} · ${data?.nombre_centro || 'Sin centro'}`}
+                subtitle={`${esUnica ? '1 punto' : `${grupo.total} puntos`} · ${data?.nombre_empresaservicios || data?.nombre_empresa || ''}`}
                 onBack={salir}
+                rightSection={<Button type="button" variant={devuelta ? 'default' : 'outline'} onClick={() => setHistorialAbierto(true)}><IconHistory size={18} /> Historial y validación</Button>}
                 breadcrumbItems={[{ label: 'Fichas de Ingreso', onClick: salir }, { label: 'Visita', onClick: salir }, { label: 'Editar visita' }]}
             />
+            {devuelta && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3">
+                    <p className="m-0 text-sm"><b>Esta ficha fue devuelta para corrección.</b> Revise el motivo del rechazo en el historial para saber qué debe editar.</p>
+                    <Button type="button" variant="outline" size="sm" onClick={() => setHistorialAbierto(true)}>Ver motivo del rechazo</Button>
+                </div>
+            )}
             {cargando ? (
                 <Card className="p-8"><p className="m-0 text-center text-sm text-muted-foreground">Cargando la visita…</p></Card>
             ) : (
@@ -534,7 +553,7 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                                 titulo="Antecedentes"
                                 pasos={pasosAnt}
                                 actual={pasoAnt}
-                                ayuda={`Lo que cambie aquí se aplica a los ${grupo.total} puntos de la visita. ${PASOS_ANT[pasoAnt].ayuda}`}
+                                ayuda={`${esUnica ? '' : `Lo que cambie aquí se aplica a los ${grupo.total} puntos de la visita. `}${PASOS_ANT[pasoAnt].ayuda}`}
                                 encabezado={{ titulo: PASOS_ANT[pasoAnt].titulo, subtitulo: PASOS_ANT[pasoAnt].subtitulo }}
                                 onElegirPaso={irAnt}
                                 onAtras={atrasAnt}
@@ -565,8 +584,8 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                             >
                                 {/* Los cuatro pasos siguen montados (solo se ocultan) para no perder lo escrito al cambiar de paso. */}
                                 <div className={cn(pasoVis !== 0 && 'hidden')}>
-                                    <PuntosVisitaEditor filas={filas!} inicial={filasIniciales!} onChange={setFilas} zonas={zonas} quitados={quitados} onQuitar={(id) => setQuitados((q) => [...q, id])} onDeshacerQuitar={(id) => setQuitados((q) => q.filter((x) => x !== id))} />
-                                    <div className="mt-6 border-t border-border pt-5">
+                                    <PuntosVisitaEditor filas={filas!} inicial={filasIniciales!} onChange={setFilas} zonas={zonas} quitados={quitados} onQuitar={esUnica ? undefined : (id) => setQuitados((q) => [...q, id])} onDeshacerQuitar={(id) => setQuitados((q) => q.filter((x) => x !== id))} />
+                                    <div className={cn('mt-6 border-t border-border pt-5', esUnica && 'hidden')}>
                                         {nuevos.length === 0 ? (
                                             <div className="flex flex-wrap items-center gap-3">
                                                 <Button type="button" variant="outline" onClick={() => cambiarNuevos([nuevoPunto({ zona: filas?.[filas.length - 1]?.zona || '' })])}>
@@ -662,7 +681,7 @@ export const EditarVisitaView: React.FC<Props> = ({ fichaId, grupo, data, onVolv
                     </Tabs>
                 </Card>
             )}
-            <div className="mt-3 flex justify-end"><Button variant="ghost" size="sm" onClick={salir}>Salir sin guardar</Button></div>
+            <div className="mt-3 flex justify-end"><Button variant="outline" className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={salir}>Salir sin guardar</Button></div>
         </div>
     );
 };
