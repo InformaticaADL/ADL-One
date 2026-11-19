@@ -184,7 +184,7 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
                 {[...filas].reverse().map((f) => (
                     <div key={f.anio} className="flex items-start justify-between gap-2 rounded-xl border border-border bg-card p-3">
                         <div className="min-w-0 text-sm">
-                            <p className="font-semibold">Revisión {f.anio} {f.vigente && <Badge variant="success" className="ml-1">Vigente</Badge>}</p>
+                            <div className="font-semibold">Revisión {f.anio} {f.vigente && <Badge variant="success" className="ml-1">Vigente</Badge>}</div>
                             <p className="text-xs text-muted-foreground">Del {dmy(f.fecha_inicio)} {f.fecha_fin ? `al ${dmy(f.fecha_fin)}` : 'en adelante'}</p>
                             {f.motivo && <p className="text-xs text-muted-foreground">{f.motivo}</p>}
                         </div>
