@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useId, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useId, useRef } from 'react';
 import { formatearFechaHoraCorta } from '@/lib/fechas';
 import {
     IconArrowLeft,
@@ -36,7 +36,7 @@ import { cn } from '@/lib/utils';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { equipoService, type Equipo, type EquipoHistorial } from '../services/equipo.service';
 import { descargarDocumentoRevision, formatearTamano } from '../utils/documentosEquipo';
-import { ordenarObservacion, prefijoFechaHoy, conPrefijoFecha, textoSinPrefijo } from '../utils/observacionEquipo';
+import { ordenarObservacion, prefijoFechaHoy, conPrefijoFecha, textoSinPrefijo, fechaLineaObservacion } from '../utils/observacionEquipo';
 import { Textarea } from '@/components/ui/textarea';
 import { controlDeEquipo, sumarMeses, type ReglasControl, type ModalidadControl } from '../utils/reglasControlEquipo';
 import { Attachment, AttachmentMedia, AttachmentContent, AttachmentTitle, AttachmentDescription, AttachmentActions, AttachmentAction } from '@/components/ui/attachment';
@@ -396,6 +396,22 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             )
             .filter(part => part.length > 0)
             .join('/');
+    };
+    // Extrae la primera fecha válida contenida en el texto de la observación (formato YYYY-MM-DD), o null si no contiene fecha
+    const extraerFechaObservacion = (texto: string): string | null => {
+        if (!texto || !texto.trim()) return null;
+        const lineas = texto.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+        for (const l of lineas) {
+            const v = fechaLineaObservacion(l);
+            if (v && v >= 19900101 && v <= 21001231) {
+                const s = String(v);
+                const yyyy = s.slice(0, 4);
+                const mm = s.slice(4, 6);
+                const dd = s.slice(6, 8);
+                return `${yyyy}-${mm}-${dd}`;
+            }
+        }
+        return null;
     };
 
     // --- Documento de la revisión/mantención ---
@@ -1197,24 +1213,53 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             showToast({ type: 'error', message: 'Por favor complete todos los campos obligatorios.' });
             return;
         }
+
+        // Si es creación y ya ingresó una observación en la sección 2 (técnica),
+        // y dicha observación contiene una fecha, sincronizamos la fecha de creación con esa fecha
+        let updatedFormData = formData;
+        if (!initialData?.id_equipo && formData.observacion) {
+            const fechaDeObs = extraerFechaObservacion(formData.observacion);
+            if (fechaDeObs && fechaDeObs !== formData.ultima_verificacion) {
+                const next = mesesControl ? sumarMeses(fechaDeObs, mesesControl) : calculateNext90Days(fechaDeObs);
+                updatedFormData = {
+                    ...formData,
+                    ultima_verificacion: fechaDeObs,
+                    siguiente_verificacion: next,
+                    vigencia: next
+                };
+                setFormData(updatedFormData);
+            }
+        }
+
         // Edición → ir directo a confirmar guardado, con la observación obligatoria ya fechada
         if (initialData?.id_equipo) {
             setObsActualizar(prefijoFechaHoy());
             setShowSaveConfirm(true);
             return;
         }
+
         // E-01: en el paso 0 se generan los ítems; con más de uno se avanza a la
         // revisión masiva y con uno solo se va directo a confirmar la creación.
         if (activeStep === 0) {
-            generateBulkItems(bulkQuantity, formData);
-            if (esMasivo) setActiveStep(1);
-            else setShowSaveConfirm(true);
+            generateBulkItems(bulkQuantity, updatedFormData);
+            if (esMasivo) {
+                setActiveStep(1);
+            } else if (String(updatedFormData.observacion || '').trim()) {
+                // Si en la sección 2 ya agregó una observación, se omite el modal de confirmación y se guarda directamente
+                handleSave(undefined, updatedFormData);
+            } else {
+                setShowSaveConfirm(true);
+            }
         } else {
-            setShowSaveConfirm(true);
+            if (String(updatedFormData.observacion || '').trim()) {
+                handleSave(undefined, updatedFormData);
+            } else {
+                setShowSaveConfirm(true);
+            }
         }
     };
 
-    const handleSave = async (observacionNueva?: string) => {
+    const handleSave = async (observacionNueva?: string, customFormData?: any) => {
         setLoading(true);
         setShowSaveConfirm(false);
         try {
@@ -1251,7 +1296,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 }
                 showToast({ type: 'success', message: 'Equipo actualizado correctamente' });
             } else {
-                const items = bulkItems.map(it => ({
+                const sourceItems = (customFormData && bulkItems.length <= 1)
+                    ? [{ ...customFormData, correlativo: customFormData.correlativo || 1, codigo: customFormData.codigo, id_temp: 0 }]
+                    : bulkItems;
+                const items = sourceItems.map(it => ({
                     ...it,
                     equipo_asociado: (it.equipo_asociado === 'No Aplica' || !it.equipo_asociado) ? '0' : String(it.equipo_asociado),
                     // Tipo nuevo: el servidor valida la sigla y deja el tipo en el catálogo para los siguientes equipos iguales.
@@ -1874,11 +1922,15 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             {mostrarErrores && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
                                         </div>
                                         <div className={colSpanClass(4)}>
-                                            <div className="mb-1"><FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Se establece de forma automática con la fecha de hoy." /></div>
+                                            <div className="mb-1"><FieldLabel label="Fecha Creación *" help="Fecha de creación del registro del equipo en el sistema. Por defecto es la fecha de hoy, pero puede modificarla si el equipo fue ingresado en otra fecha." /></div>
                                             <Input
                                                 type="date"
                                                 value={formData.ultima_verificacion}
-                                                readOnly
+                                                onChange={(e) => {
+                                                    const nuevaFecha = e.target.value;
+                                                    const next = mesesControl ? sumarMeses(nuevaFecha, mesesControl) : calculateNext90Days(nuevaFecha);
+                                                    setFormData((p: any) => ({ ...p, ultima_verificacion: nuevaFecha, siguiente_verificacion: next, vigencia: next }));
+                                                }}
                                                 className={cn(mostrarErrores && !formData.ultima_verificacion && 'border-destructive')}
                                             />
                                             {mostrarErrores && !formData.ultima_verificacion && <p className="text-xs text-destructive">Se requiere una fecha de creación válida</p>}
@@ -2021,10 +2073,23 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         placeholder="Detalles sobre el equipo..."
                                         value={formData.observacion || ''}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, observacion: e.target.value }))}
-                                        // Al salir del campo las líneas quedan ordenadas por fecha, igual que al guardar.
+                                        // Al salir del campo se ordenan las líneas y, si es creación y trae fecha, sincroniza Fecha Creación
                                         onBlur={(e) => {
-                                            const ordenada = ordenarObservacion(e.target.value);
-                                            if (ordenada !== e.target.value.trim()) setFormData((p: any) => ({ ...p, observacion: ordenada }));
+                                            const val = e.target.value;
+                                            const ordenada = ordenarObservacion(val);
+                                            const fObs = esCreacion ? extraerFechaObservacion(val) : null;
+                                            if (fObs) {
+                                                const next = mesesControl ? sumarMeses(fObs, mesesControl) : calculateNext90Days(fObs);
+                                                setFormData((p: any) => ({
+                                                    ...p,
+                                                    observacion: ordenada,
+                                                    ultima_verificacion: fObs,
+                                                    siguiente_verificacion: next,
+                                                    vigencia: next
+                                                }));
+                                            } else if (ordenada !== val.trim()) {
+                                                setFormData((p: any) => ({ ...p, observacion: ordenada }));
+                                            }
                                         }}
                                         rows={3}
                                         className={cn(
@@ -2034,7 +2099,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     />
                                     {mostrarErrores && esCreacion && !formData.observacion
                                         ? <p className="text-xs text-destructive">Obligatorio</p>
-                                        : <p className="mt-1 text-xs text-muted-foreground">Al salir del campo, las líneas con fecha se ordenan de la más antigua a la más nueva.</p>}
+                                        : <p className="mt-1 text-xs text-muted-foreground">Al salir del campo, las líneas con fecha se ordenan. Si ingresó una fecha en la observación al crear, se toma como Fecha de Creación automáticamente.</p>}
                                 </div>
                             </div>
                             </div>
