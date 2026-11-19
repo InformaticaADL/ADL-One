@@ -160,6 +160,7 @@ router.put('/equipos/catalogo/:id', verifyToken, verifyPermission('AI_MA_EDITAR_
 router.delete('/equipos/catalogo/:id', verifyToken, verifyPermission('EQ_DESACTIVAR'), equipoController.deleteEquipoCatalogo);
 router.get('/equipos/reglas-control', verifyToken, equipoController.getReglasControl);
 router.get('/equipos/suggest-code', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.suggestNextCode);
+router.get('/equipos/sigla-disponible', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.siglaDisponible);
 router.get('/equipos/next-correlativo/:tipo', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.getNextCorrelativo);
 router.get('/equipos/resumen-calidad', verifyToken, verifyPermission(['GC_ACCESO', 'GC_EQUIPOS', 'MA_A_GEST_EQUIPO']), equipoController.getResumenCalidad);
 router.get('/equipos/export/excel', verifyToken, verifyPermission('EQ_EXP'), equipoController.exportExcel);
@@ -171,6 +172,8 @@ router.get('/equipos/:id', verifyToken, equipoController.getEquipoById);
 router.post('/equipos', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquipo);
 router.post('/equipos/bulk', verifyToken, verifyPermission('AI_MA_CREAR_EQUIPO'), equipoController.createEquiposBulk);
 router.put('/equipos/:id', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), equipoController.updateEquipo);
+// Habilitar para la verificación de temperatura un equipo Fuera de Servicio o Dado de Baja.
+router.put('/equipos/:id/habilitar-verif-temp', verifyToken, verifyPermission('AI_MA_EDITAR_EQUIPO'), equipoController.habilitarVerifTemp);
 router.get('/equipos/:id/historial', verifyToken, verifyPermission('EQ_HISTORY'), equipoController.getEquipoHistorial);
 router.post('/equipos/:id/restore/:idHistorial', verifyToken, verifyPermission('EQ_UPDATE'), equipoController.restoreVersion);
 router.delete('/equipos/:id', verifyToken, verifyPermission('EQ_DESACTIVAR'), equipoController.deleteEquipo);
@@ -188,6 +191,7 @@ router.get('/equipos/:id/documento', verifyToken, verifyPermission('MA_A_GEST_EQ
 // entrega. Solo leen: también los usa Verificación de Temperatura.
 const permisoFichas = [verifyToken, verifyPermission(['MA_A_GEST_EQUIPO', 'GC_VERIF_TEMP'])];
 // Firmas de las fichas: importar una registrada o firmar desde el celular con un QR.
+router.get('/equipos/fichas/responsables-entrega', ...permisoFichas, fichasEquipo.responsablesEntrega);
 router.get('/equipos/fichas/firmas-registradas', ...permisoFichas, fichasEquipo.firmasRegistradas);
 router.get('/equipos/fichas/firmas-registradas/:tipo/:id', ...permisoFichas, fichasEquipo.firmaRegistrada);
 router.post('/equipos/fichas/firma-remota', ...permisoFichas, fichasEquipo.firmaRemotaCrear);

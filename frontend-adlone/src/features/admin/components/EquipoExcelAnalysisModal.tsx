@@ -393,7 +393,8 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
     // crear) antes de guardar — secuencial a propósito: así "Subir Todo" ve, en cada
     // vuelta, el correlativo recién usado por la anterior y no genera códigos duplicados.
     const crearEquipoDesdeExcel = async (item: AnalisisExcelItem) => {
-        const payload = mapExcelDataToPayload(item.excelData);
+        // origen_excel: viene del inventario, que puede traer equipos con la vigencia ya vencida (se cargan tal cual).
+        const payload = { ...mapExcelDataToPayload(item.excelData), origen_excel: true };
         if (!payload.codigo) {
             const sugerido = await equipoService.suggestNextCode(payload.tipo, payload.ubicacion, payload.nombre);
             if (sugerido?.success && sugerido.data?.suggestedCode) {

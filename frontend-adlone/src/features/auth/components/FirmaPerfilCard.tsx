@@ -1,11 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { IconSignature, IconUpload, IconPencil, IconTrash, IconInfoCircle } from '@tabler/icons-react';
+import { IconSignature, IconUpload, IconPencil, IconTrash, IconInfoCircle, IconDeviceMobile } from '@tabler/icons-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '../../../contexts/ToastContext';
 import { SignaturePad, type SignaturePadHandle } from '../../admin/components/verificacion-temperatura/SignaturePad';
 import { firmaUsuarioService, imagenAFirma } from '../../../services/firmaUsuario.service';
+import { FirmaCelularDialog } from '../../admin/components/FirmaCelularDialog';
+import { fichaFirmaService } from '../../admin/services/fichaFirma.service';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const mensajeError = (e: unknown, porDefecto: string) =>
     (e as { response?: { data?: { message?: string } }; message?: string })?.response?.data?.message
@@ -17,6 +20,8 @@ const mensajeError = (e: unknown, porDefecto: string) =>
  */
 export const FirmaPerfilCard: React.FC = () => {
     const { showToast } = useToast();
+    const { user } = useAuth();
+    const [celular, setCelular] = useState(false);
     const [firma, setFirma] = useState<string | null>(null);
     const [disponible, setDisponible] = useState(true);
     const [cargando, setCargando] = useState(true);
@@ -107,6 +112,9 @@ export const FirmaPerfilCard: React.FC = () => {
                         <Button variant="outline" size="sm" disabled={guardando} onClick={() => archivoRef.current?.click()}>
                             <IconUpload size={16} /> Importar imagen
                         </Button>
+                        <Button variant="outline" size="sm" disabled={guardando} onClick={() => setCelular(true)}>
+                            <IconDeviceMobile size={16} /> Firmar con el celular
+                        </Button>
                         {firma && (
                             <Button variant="ghost" size="sm" className="text-muted-foreground" disabled={guardando} onClick={quitar}>
                                 <IconTrash size={16} /> Quitar
@@ -114,9 +122,21 @@ export const FirmaPerfilCard: React.FC = () => {
                         )}
                         <input ref={archivoRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={importar} />
                     </div>
-                    <p className="text-[11px] text-muted-foreground">Para importar, usa una foto o escaneo de la firma sobre fondo blanco (PNG o JPG).</p>
+                    <p className="text-[11px] text-muted-foreground">Para importar, usa una foto o escaneo de la firma sobre fondo blanco (PNG o JPG). Con el celular, escaneas un código QR y firmas con el dedo.</p>
                 </div>
             )}
+
+            {/* Dibujar la firma con el dedo en el celular: escanea el QR, firma y queda guardada aquí. */}
+            <FirmaCelularDialog
+                open={celular}
+                onClose={() => setCelular(false)}
+                titulo="Mi firma"
+                subtitulo="Perfil de usuario"
+                slots={[{ id: 'firma', titulo: 'Mi firma', nombre: user?.name ?? null, firmada: false }]}
+                onFirma={(_, imagen) => { guardar(imagen, 'DIBUJADA'); }}
+                crearSesion={() => fichaFirmaService.crearQrPerfil()}
+                estadoSesion={(token) => fichaFirmaService.estadoQr(token)}
+            />
 
             <Dialog open={dibujando} onOpenChange={(o) => { if (!o && !guardando) setDibujando(false); }}>
                 <DialogContent className="max-w-xl">

@@ -17,3 +17,17 @@ export const formatearFechaHora = (valor?: string | null): string => {
   if (!m) return String(valor);
   return m[4] ? `${m[3]}-${m[2]}-${m[1]} a las ${m[4]}:${m[5]}` : `${m[3]}-${m[2]}-${m[1]}`;
 };
+
+/**
+ * "2026-11-19T10:26:27.133Z" → "19/11/2026 10:26" (o "10:26:27" con segundos). La base guarda la hora local de Chile
+ * (GETDATE) y el driver la entrega con «Z» como si fuera UTC: se toma del texto, sin convertir de zona, para no restarle
+ * 3 horas al mostrarla.
+ */
+export const formatearFechaHoraCorta = (valor?: string | null, conSegundos = false): string => {
+  if (!valor) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2}))?)?/.exec(String(valor));
+  if (!m) return String(valor);
+  const fecha = `${m[3]}/${m[2]}/${m[1]}`;
+  if (!m[4]) return fecha;
+  return `${fecha} ${m[4]}:${m[5]}${conSegundos && m[6] ? `:${m[6]}` : ''}`;
+};

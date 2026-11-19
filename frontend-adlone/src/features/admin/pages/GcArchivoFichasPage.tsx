@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatearFechaHoraCorta } from '@/lib/fechas';
 import { IconSearch, IconFileTypePdf, IconDownload, IconBan, IconRefresh, IconArchive, IconSignature, IconX } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ const TIPOS: { value: TipoFichaGuardada; label: string; formato: string }[] = [
     { value: 'historial', label: 'Historial', formato: 'OI-FoGe-24' },
     { value: 'entrega', label: 'Ficha de entrega', formato: 'OI-FoGe-36' },
     { value: 'recepcion', label: 'Recepción y puesta en marcha', formato: 'OI-FoGe-42' },
+    { value: 'caudal', label: 'Verificación sonda caudal', formato: 'OI-FoGe-30' },
 ];
 const SEDES = ['PM', 'VI', 'AY', 'PA'];
 const ESTADOS: { value: EstadoFichaArchivo; label: string }[] = [
@@ -42,12 +44,8 @@ const ESTADOS: { value: EstadoFichaArchivo; label: string }[] = [
     { value: 'TODOS', label: 'Todas' },
 ];
 
-const fechaHora = (v: string | null | undefined) => {
-    if (!v) return '';
-    const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return String(v);
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-};
+// Hora guardada por la base (hora local de Chile): se muestra tal cual, sin convertir de zona.
+const fechaHora = (v: string | null | undefined) => formatearFechaHoraCorta(v);
 const soloFecha = (v: string | null | undefined) => {
     if (!v) return '';
     const s = String(v).slice(0, 10);
@@ -196,8 +194,8 @@ export const GcArchivoFichasPage: React.FC<Props> = ({ onBack }) => {
                 )}
             </div>
 
-            <div className="mb-4 flex flex-wrap items-end gap-3">
-                <div className="w-64">
+            <div className="mb-4 grid grid-cols-2 items-end gap-3 md:flex md:flex-wrap">
+                <div className="col-span-2 md:w-64">
                     <p className="mb-1 text-xs text-muted-foreground">Formulario</p>
                     <Combobox
                         value={tipo}
@@ -206,15 +204,15 @@ export const GcArchivoFichasPage: React.FC<Props> = ({ onBack }) => {
                         placeholder="Formulario"
                     />
                 </div>
-                <div className="w-36">
+                <div className="md:w-36">
                     <p className="mb-1 text-xs text-muted-foreground">Sede</p>
                     <Combobox value={sede} onValueChange={cambiar(setSede)} options={[{ value: '', label: 'Todas' }, ...SEDES.map((s) => ({ value: s, label: s }))]} placeholder="Sede" />
                 </div>
-                <div className="w-36">
+                <div className="md:w-36">
                     <p className="mb-1 text-xs text-muted-foreground">Estado</p>
                     <Combobox value={estado} onValueChange={(v) => cambiar(setEstado)(v as EstadoFichaArchivo)} options={ESTADOS} placeholder="Estado" />
                 </div>
-                <div className="relative min-w-[240px] flex-1">
+                <div className="relative col-span-2 min-w-0 md:min-w-[240px] md:flex-1">
                     <p className="mb-1 text-xs text-muted-foreground">Buscar</p>
                     <IconSearch size={15} className="pointer-events-none absolute left-2.5 top-[30px] text-muted-foreground" />
                     <Input value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Código o nombre del equipo, quién la guardó…" className="pl-8" />
@@ -240,7 +238,40 @@ export const GcArchivoFichasPage: React.FC<Props> = ({ onBack }) => {
             )}
 
             <div className="rounded-md border border-border bg-card">
-                <Table>
+                {/* Celular: una tarjeta por ficha (tocarla abre el PDF) */}
+                <ul className="divide-y divide-border lg:hidden">
+                    {fichas.map((f) => {
+                        const t = TIPOS.find((x) => x.value === f.tipo);
+                        const anulada = f.estado === 'ANULADO';
+                        return (
+                            <li key={f.id_ficha} className={cn('p-3', anulada && 'opacity-60')} onClick={() => verPdf(f)}>
+                                <div className="flex items-start justify-between gap-2">
+                                    <div className="min-w-0">
+                                        <p className="font-semibold">{f.codigo_equipo ?? <span className="text-muted-foreground">(equipo en creación)</span>}</p>
+                                        <p className="truncate text-xs text-muted-foreground">{f.nombre_equipo}</p>
+                                    </div>
+                                    {anulada ? <Badge variant="destructive">Anulada</Badge> : <Badge variant="success">Vigente</Badge>}
+                                </div>
+                                <p className="mt-1.5 text-xs">
+                                    <span className="font-medium">{f.formato}</span> <span className="text-muted-foreground">· {t?.label ?? f.nombre_formulario ?? ''}</span>
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                    {[f.sede, f.anio, soloFecha(f.fecha_documento), f.nombre_usuario].filter(Boolean).join(' · ')}{f.con_firmas ? ' · con firmas' : ''}
+                                </p>
+                                <div className="mt-2 flex justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                    <Button size="sm" variant="outline" onClick={() => verPdf(f)}><IconFileTypePdf size={15} className="text-red-600" /> Ver</Button>
+                                    <Button size="sm" variant="outline" onClick={() => descargar(f)}><IconDownload size={15} /> Descargar</Button>
+                                    {puedeAnular && !anulada && (
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => { setAAnular(f); setMotivo(''); }} title="Anular esta ficha">
+                                            <IconBan size={16} />
+                                        </Button>
+                                    )}
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+                <Table containerClassName="hidden lg:block">
                     <TableHeader>
                         <TableRow className="hover:bg-transparent">
                             <TableHead>Formulario</TableHead>

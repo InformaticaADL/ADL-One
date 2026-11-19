@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { IconFilePlus, IconSearch, IconAlertTriangle, IconBan } from '@tabler/icons-react';
+import { IconFilePlus, IconSearch, IconAlertTriangle } from '@tabler/icons-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -22,8 +22,7 @@ const SEDES = ['PM', 'VI', 'AY', 'PA'];
 // Crea fichas de verificación para uno o muchos equipos a la vez (la "campaña"
 // del mes, como la planilla Excel). Solo lista los equipos que miden
 // temperatura; los que ya tienen ficha en el periodo no se pueden repetir.
-// Los dados de baja aparecen al final con advertencia: se pueden elegir uno a
-// uno, pero no entran en "Todos" ni "Por vencer".
+// Los equipos dados de baja no aparecen: no corresponde hacerles verificación de temperatura.
 export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas }) => {
     const { showToast } = useToast();
     const [fecha, setFecha] = useState(hoyYmd());
@@ -45,7 +44,7 @@ export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas })
         if (!open || !/^\d{4}-\d{2}$/.test(periodo)) return;
         setCargando(true);
         api.elegibles({ periodo, sede: sede || undefined })
-            .then(setEquipos)
+            .then((lista) => setEquipos(lista.filter((e) => !e.dado_baja)))
             .catch(() => setEquipos([]))
             .finally(() => setCargando(false));
     }, [open, periodo, sede]);
@@ -55,9 +54,7 @@ export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas })
         const q = busqueda.trim().toLowerCase();
         return q ? equipos.filter((e) => `${e.codigo} ${e.nombre} ${e.nombre_muestreador || ''}`.toLowerCase().includes(q)) : equipos;
     }, [equipos, busqueda]);
-    const disponibles = visibles.filter((e) => !e.id_ficha_periodo && !e.dado_baja);
-    const dadosBaja = visibles.filter((e) => e.dado_baja).length;
-    const bajaSeleccionados = equipos.filter((e) => e.dado_baja && seleccion.has(e.id_equipo)).length;
+    const disponibles = visibles.filter((e) => !e.id_ficha_periodo);
     const vencidos = disponibles.filter((e) => !e.siguiente_verificacion || e.siguiente_verificacion <= `${periodo}-31`);
 
     const toggle = (id: number) => setSeleccion((prev) => {
@@ -146,13 +143,6 @@ export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas })
                     <Button variant="ghost" size="sm" onClick={() => setSeleccion(new Set())} disabled={!seleccion.size}>Ninguno</Button>
                 </div>
 
-                {dadosBaja > 0 && (
-                    <p className="-mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <IconBan size={13} className="shrink-0 text-destructive" />
-                        {dadosBaja} equipo(s) dado(s) de baja al final de la lista: se pueden seleccionar uno a uno.
-                    </p>
-                )}
-
                 <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-border">
                     {cargando ? (
                         <div className="flex h-full items-center justify-center py-10">
@@ -164,15 +154,14 @@ export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas })
                         <ul className="divide-y divide-border">
                             {visibles.map((e) => {
                                 const yaTiene = !!e.id_ficha_periodo;
-                                const baja = !!e.dado_baja;
-                                const vencido = !baja && (!e.siguiente_verificacion || e.siguiente_verificacion < hoy);
+                                const vencido = (!e.siguiente_verificacion || e.siguiente_verificacion < hoy);
                                 return (
                                     <li key={e.id_equipo}>
-                                        <label className={cn('flex items-center gap-3 px-4 py-2.5', yaTiene ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-muted/40', baja && 'bg-destructive/[0.04]')}>
+                                        <label className={cn('flex items-center gap-3 px-4 py-2.5', yaTiene ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-muted/40')}>
                                             <Checkbox checked={seleccion.has(e.id_equipo)} disabled={yaTiene} onCheckedChange={() => toggle(e.id_equipo)} />
                                             <div className="min-w-0 flex-1">
                                                 <p className="flex items-center gap-2 text-sm">
-                                                    <span className={cn('font-semibold', baja && 'text-muted-foreground line-through decoration-destructive/60')}>{e.codigo}</span>
+                                                    <span className="font-semibold">{e.codigo}</span>
                                                     <span className="truncate text-muted-foreground">{e.nombre}</span>
                                                 </p>
                                                 <p className="truncate text-xs text-muted-foreground">
@@ -180,11 +169,6 @@ export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas })
                                                     <span className={cn(vencido && 'font-medium text-destructive')}>{fmtFecha(e.siguiente_verificacion)}</span>
                                                 </p>
                                             </div>
-                                            {baja && (
-                                                <Badge variant="destructive" className="shrink-0 gap-1" title={`Estado: ${e.estado_equipo || 'Dado de baja'}`}>
-                                                    <IconBan size={12} /> Dado de baja
-                                                </Badge>
-                                            )}
                                             <Badge variant="outline" className="shrink-0">{e.sede}</Badge>
                                             {yaTiene && <Badge variant="secondary" className="shrink-0">Ya tiene ficha</Badge>}
                                             {!yaTiene && vencido && <IconAlertTriangle size={15} className="shrink-0 text-destructive" aria-label="Revisión vencida" />}
@@ -199,11 +183,6 @@ export const CrearFichasDialog: React.FC<Props> = ({ open, onClose, onCreadas })
                 <DialogFooter className="items-center gap-2 sm:justify-between">
                     <span className="text-sm text-muted-foreground">
                         {seleccion.size} equipo(s) seleccionado(s) · {nombrePeriodo(periodo)}
-                        {bajaSeleccionados > 0 && (
-                            <span className="ml-2 inline-flex items-center gap-1 font-medium text-destructive">
-                                <IconAlertTriangle size={14} /> {bajaSeleccionados} dado(s) de baja
-                            </span>
-                        )}
                     </span>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={onClose} disabled={creando}>Cancelar</Button>

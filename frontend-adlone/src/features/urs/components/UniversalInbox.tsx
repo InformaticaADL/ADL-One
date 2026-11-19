@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
 import { Combobox } from '@/components/ui/combobox';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import {
     IconPlus, IconSearch, IconFolderOpen, IconCalendarEvent,
     IconClock, IconArrowLeft, IconInbox, IconSend, IconStarFilled,
+  IconSignature,
 } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
@@ -17,6 +18,8 @@ import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import RequestDetailPanel from './RequestDetailPanel';
 import RequestActivityAndChat from './RequestActivityAndChat';
+import FirmasPendientesView from './FirmasPendientesView';
+import { fichaFirmaService } from '../../admin/services/fichaFirma.service';
 
 interface Request {
     id_solicitud: number;
@@ -55,8 +58,20 @@ const FOLDER_ROW_INACTIVE = 'text-muted-foreground hover:bg-muted/60';
 const UniversalInbox: React.FC = () => {
     const {
         setActiveSubmodule, pendingRequestId, setPendingRequestId, selectedRequestId, setSelectedRequestId,
-        ursInboxMode, setUrsInboxMode, ursFilters, setUrsFilters, setUrsUnreadCount,
+        ursInboxMode, setUrsInboxMode, ursFilters, setUrsFilters, setUrsUnreadCount, firmaPendienteId, setFirmaPendienteId,
     } = useNavStore();
+
+    // Solicitudes normales o Firmas pendientes (fichas de equipo que le enviaron a firmar).
+    const [vista, setVista] = useState<'solicitudes' | 'firmas'>(() => (useNavStore.getState().firmaPendienteId ? 'firmas' : 'solicitudes'));
+    const [firmasPendientes, setFirmasPendientes] = useState(0);
+    const contarFirmas = useCallback(() => { fichaFirmaService.contar().then(setFirmasPendientes).catch(() => setFirmasPendientes(0)); }, []);
+    useEffect(() => {
+        contarFirmas();
+        const t = setInterval(contarFirmas, 60000);
+        return () => clearInterval(t);
+    }, [contarFirmas]);
+    // Una notificación de firma abre directamente esa sección.
+    useEffect(() => { if (firmaPendienteId) setVista('firmas'); }, [firmaPendienteId]);
 
     const { user } = useAuth();
     const { showToast } = useToast();
@@ -189,15 +204,20 @@ const UniversalInbox: React.FC = () => {
             </Button>
 
             <div className="flex flex-col gap-0.5">
-                <button type="button" onClick={() => setUrsInboxMode('RECEIVED')}
-                    className={cn(FOLDER_ROW, ursInboxMode === 'RECEIVED' ? FOLDER_ROW_ACTIVE : FOLDER_ROW_INACTIVE)}>
+                <button type="button" onClick={() => { setVista('solicitudes'); setUrsInboxMode('RECEIVED'); }}
+                    className={cn(FOLDER_ROW, vista === 'solicitudes' && ursInboxMode === 'RECEIVED' ? FOLDER_ROW_ACTIVE : FOLDER_ROW_INACTIVE)}>
                     <span className="flex items-center gap-2"><IconInbox size={16} /> Recibidas</span>
                     {folderCounts.receivedUnread > 0 && <span className="text-xs font-semibold">{folderCounts.receivedUnread}</span>}
                 </button>
-                <button type="button" onClick={() => setUrsInboxMode('SENT')}
-                    className={cn(FOLDER_ROW, ursInboxMode === 'SENT' ? FOLDER_ROW_ACTIVE : FOLDER_ROW_INACTIVE)}>
+                <button type="button" onClick={() => { setVista('solicitudes'); setUrsInboxMode('SENT'); }}
+                    className={cn(FOLDER_ROW, vista === 'solicitudes' && ursInboxMode === 'SENT' ? FOLDER_ROW_ACTIVE : FOLDER_ROW_INACTIVE)}>
                     <span className="flex items-center gap-2"><IconSend size={16} /> Enviadas</span>
                     {folderCounts.sentCount > 0 && <span className="text-xs font-semibold">{folderCounts.sentCount}</span>}
+                </button>
+                <button type="button" onClick={() => setVista('firmas')}
+                    className={cn(FOLDER_ROW, vista === 'firmas' ? FOLDER_ROW_ACTIVE : FOLDER_ROW_INACTIVE)}>
+                    <span className="flex items-center gap-2"><IconSignature size={16} /> Firmas pendientes</span>
+                    {firmasPendientes > 0 && <span className="text-xs font-semibold">{firmasPendientes}</span>}
                 </button>
             </div>
 
@@ -252,6 +272,17 @@ const UniversalInbox: React.FC = () => {
                     </div>
                 )}
 
+                {/* Firmas pendientes: fichas de equipo que le enviaron a firmar (o que usted envió) */}
+                {vista === 'firmas' ? (
+                    <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+                        {isMobile && (
+                            <div className="border-b border-border px-3 py-2">
+                                <Button variant="ghost" onClick={() => setVista('solicitudes')}><IconArrowLeft size={18} /> Solicitudes</Button>
+                            </div>
+                        )}
+                        <FirmasPendientesView abrirId={firmaPendienteId} onAbierta={() => setFirmaPendienteId(null)} onCambio={contarFirmas} />
+                    </div>
+                ) : (<>
                 {/* COLUMNA · Bandeja */}
                 {(!isMobile || !selectedRequestId) && (
                     <div className={cn('flex min-w-0 shrink-0 flex-col border-r border-border', isMobile ? 'w-full border-r-0' : 'w-[300px]')}>
@@ -377,6 +408,7 @@ const UniversalInbox: React.FC = () => {
                         )}
                     </div>
                 )}
+                </>)}
             </div>
         </div>
     );

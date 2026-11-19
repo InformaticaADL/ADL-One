@@ -10,6 +10,19 @@ import { advertenciaActivacion } from '../utils/activacionEquipo.js';
 // encabezados de columna como para comparar valores de texto. Exportado
 // porque equipo-temperatura-import.service.js reutiliza este mismo helper
 // (y toYYYYMMDD/parseCellValue/esSiNo más abajo) en vez de duplicarlo.
+
+/**
+ * Dos filas del Excel con el mismo código: se usa la que está Operativa (activa); si las dos están en el mismo estado
+ * (las dos operativas o las dos no), la última del Excel. → { usar, motivo }
+ */
+export const elegirFilaRepetida = (anterior, nueva) => {
+    const opAnterior = anterior.estado === 'Activo';
+    const opNueva = nueva.estado === 'Activo';
+    if (opAnterior && !opNueva) return { usar: anterior, motivo: `es la que está ${anterior.estado_equipo || 'Operativo'}` };
+    if (opNueva && !opAnterior) return { usar: nueva, motivo: `es la que está ${nueva.estado_equipo || 'Operativo'}` };
+    return { usar: nueva, motivo: 'las dos están en el mismo estado: se usa la última' };
+};
+
 export const normalize = (value) => {
     if (value === null || value === undefined) return '';
     return String(value)
@@ -407,10 +420,16 @@ class EquipoExcelImportService {
                 };
                 const previa = parsedRow.codigo ? rows.findIndex((r) => r.codigo === parsedRow.codigo) : -1;
                 if (previa >= 0) {
-                    rowErrors.push({ rowNumber, message: `El código ${parsedRow.codigo} está repetido en el Excel; se usará la última fila.` });
-                    rows.splice(previa, 1);
+                    // Código repetido: se queda la fila Operativa; si las dos están en el mismo estado, la última.
+                    const { usar, motivo } = elegirFilaRepetida(rows[previa], parsedRow);
+                    rowErrors.push({
+                        rowNumber,
+                        message: `El código ${parsedRow.codigo} está repetido en el Excel (filas ${rows[previa].rowNumber} y ${rowNumber}); se usará la fila ${usar.rowNumber} (${motivo}).`,
+                    });
+                    if (usar === parsedRow) rows.splice(previa, 1, parsedRow);
+                } else {
+                    rows.push(parsedRow);
                 }
-                rows.push(parsedRow);
             } catch (err) {
                 rowErrors.push({ rowNumber, message: `No se pudo leer la fila: ${err.message}` });
             }

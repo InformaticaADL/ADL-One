@@ -1,10 +1,12 @@
 import sql from 'mssql';
+import { hayColumnaHabilitaVerifTemp, filtroEstadoVerifTemp, requiereHabilitacion } from '../utils/habilitacionVerifTemp.js';
 import fs from 'fs';
 import path from 'path';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import equipoService from './equipo.service.js';
 import { generarPdfVerificacion } from './verificacionTemperatura.pdf.js';
+import revisionDocumentalService from './revisionDocumental.service.js';
 import firmaRemotaService from './firmaRemota.service.js';
 import auditService from './audit.service.js';
 import { calcularVerificacion, normalizarLecturas, lecturasVacias, sumarMeses, TOLERANCIA } from '../utils/verificacionTemperatura.calc.js';
@@ -20,11 +22,13 @@ const PDF_DIR = path.join(process.env.UPLOAD_PATH || path.join(process.cwd(), 'u
 // Multiparámetros — exactamente los tipos de la planilla Excel), menos los
 // propios termómetros patrón (se calibran afuera), los cables de descarga
 // (su "qué mide" dice Temperatura porque transmiten ese dato, pero no miden).
-// Los dados de baja también se listan (la planilla los incluye), marcados
-// con dado_baja para advertirlo.
-const FILTRO_ELEGIBLES = `
+// Por estado: los Operativos siempre; los Fuera de Servicio y Dados de Baja solo si Gestión de Calidad los
+// habilitó para la verificación desde el Inventario de Equipos (utils/habilitacionVerifTemp.js).
+const FILTRO_TIPO = `
     e.que_mide LIKE '%temperatura%'
     AND ISNULL(e.tipoequipo, '') NOT IN ('Termometro patrón', 'Cable de descarga de datos')`;
+const filtroElegibles = async (pool) => `${FILTRO_TIPO}
+    AND ${filtroEstadoVerifTemp(await hayColumnaHabilitaVerifTemp(pool))}`;
 
 const error = (mensaje, statusCode = 400) => Object.assign(new Error(mensaje), { statusCode });
 
@@ -542,7 +546,7 @@ const verificacionTemperaturaService = {
                     WHERE v.id_equipo = e.id_equipo AND v.periodo = @periodo AND v.estado <> 'ANULADA') AS id_ficha_periodo
             FROM mae_equipo e
             LEFT JOIN mae_muestreador m ON m.id_muestreador = e.id_muestreador
-            WHERE ${FILTRO_ELEGIBLES} ${filtroSede}
+            WHERE ${await filtroElegibles(pool)} ${filtroSede}
             ORDER BY dado_baja, e.sede, e.tipoequipo, e.codigo`);
         return r.recordset;
     },
@@ -634,9 +638,16 @@ const verificacionTemperaturaService = {
         const periodoOk = validarPeriodo(periodo, fechaOk);
         const eq = await pool.request().input('id', sql.Numeric(10, 0), Number(id_equipo)).query(`
             SELECT e.id_equipo, e.codigo, e.nombre, e.sede, e.id_muestreador FROM mae_equipo e
-            WHERE e.id_equipo = @id AND ${FILTRO_ELEGIBLES}`);
+            WHERE e.id_equipo = @id AND ${await filtroElegibles(pool)}`);
         const equipo = eq.recordset[0];
-        if (!equipo) throw error('El equipo no existe o no corresponde a verificación de temperatura', 404);
+        if (!equipo) {
+            const fuera = (await pool.request().input('id', sql.Numeric(10, 0), Number(id_equipo))
+                .query("SELECT codigo, Estado FROM mae_equipo WHERE id_equipo = @id")).recordset[0];
+            if (fuera && requiereHabilitacion(fuera.Estado)) {
+                throw error(`${fuera.codigo} está ${/baja/i.test(fuera.Estado) ? 'dado de baja' : 'fuera de servicio'}: para hacerle una verificación de temperatura, habilítelo desde el Inventario de Equipos`, 409);
+            }
+            throw error('El equipo no existe o no corresponde a verificación de temperatura', 404);
+        }
 
         const dup = await pool.request()
             .input('id', sql.Numeric(10, 0), Number(id_equipo))
@@ -806,7 +817,7 @@ const verificacionTemperaturaService = {
             const abs = path.join(PDF_DIR, path.basename(v.pdf_ruta));
             if (fs.existsSync(abs)) return { buffer: fs.readFileSync(abs), nombre: path.basename(abs) };
         }
-        const buffer = await generarPdfVerificacion(v);
+        const buffer = await generarPdfVerificacion({ ...v, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-39') });
         return { buffer, nombre: `OI-FoGe-39_${String(v.codigo_equipo || v.id_verificacion).replace(/[^\w.-]+/g, '-')}_borrador.pdf` };
     },
 
@@ -845,7 +856,7 @@ const verificacionTemperaturaService = {
 
         // 1. PDF definitivo, con la firma. Se escribe antes de tocar la base y
         //    se borra si algo de lo que sigue falla.
-        const datosPdf = { ...v, id_muestreador: idMuestreador, muestreador_nombre: m.nombre_muestreador, firma_muestreador: imagenFirma, fecha_firma: fechaFirma };
+        const datosPdf = { ...v, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-39'), id_muestreador: idMuestreador, muestreador_nombre: m.nombre_muestreador, firma_muestreador: imagenFirma, fecha_firma: fechaFirma };
         const buffer = await generarPdfVerificacion(datosPdf);
         fs.mkdirSync(PDF_DIR, { recursive: true });
         const archivo = `verif-temp-${v.id_verificacion}-${Date.now()}.pdf`;
@@ -987,7 +998,7 @@ const verificacionTemperaturaService = {
                 WHERE v.id_equipo = e.id_equipo AND v.estado <> 'ANULADA' AND v.periodo = @hasta
                 ORDER BY v.id_verificacion DESC
             ) p
-            WHERE ${FILTRO_ELEGIBLES}
+            WHERE ${await filtroElegibles(pool)}
             ORDER BY e.tipoequipo, e.codigo`);
         // Conteo de registros por estado; resultados y errores solo de las firmadas.
         const s = await pool.request().query(`

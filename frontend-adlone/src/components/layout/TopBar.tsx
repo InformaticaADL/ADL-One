@@ -28,6 +28,12 @@ const STATIC_MODULE_LABELS: Record<string, string> = {
     notificaciones: 'Notificaciones',
     'bm-historico': 'Biología Molecular Histórico',
     'bm-consulta': 'Consulta de Muestras',
+    // Gestión de Calidad: vistas que se abren desde su portada y no están en el menú lateral.
+    gestion_calidad: 'Gestión de Calidad',
+    'gc-dashboard-equipos': 'Dashboard de Equipos',
+    'gc-calendario-vencimientos': 'Calendario de Vencimientos',
+    'gc-archivo-fichas': 'Archivo de Fichas',
+    'gc-verificacion-caudal': 'Verificación Caudal',
 };
 
 // Campana de notificaciones — vive en la barra de ruta (RouteBreadcrumb),

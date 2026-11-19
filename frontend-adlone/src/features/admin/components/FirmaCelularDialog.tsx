@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '../../../contexts/ToastContext';
-import { fichasEquipoService, type SesionFirmaFicha } from '../services/fichasEquipo.service';
+import { fichasEquipoService, type SesionFirmaFicha, type EstadoFirmaFicha } from '../services/fichasEquipo.service';
 
 export interface SlotFirma {
     id: string;
@@ -22,6 +22,9 @@ interface Props {
     slots: SlotFirma[];
     /** Llega una firma hecha en el celular: el formulario la pone en su campo. */
     onFirma: (id: string, imagen: string) => void;
+    /** Cómo se crea y se consulta la sesión del QR (por defecto, la de las fichas de equipo). */
+    crearSesion?: (cuerpo: { titulo: string; subtitulo?: string; slots: { id: string; titulo: string; nombre?: string | null; firmada?: boolean }[] }) => Promise<SesionFirmaFicha>;
+    estadoSesion?: (token: string) => Promise<EstadoFirmaFicha>;
 }
 
 const mensajeError = (e: unknown) => (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -31,7 +34,7 @@ const mensajeError = (e: unknown) => (e as { response?: { data?: { message?: str
  * que faltan (las ya firmadas en pantalla —dibujadas o importadas— no se piden) y cada una vuelve
  * al formulario apenas se graba. Mismo enfoque que el QR de Verificación de Temperatura.
  */
-export const FirmaCelularDialog: React.FC<Props> = ({ open, onClose, titulo, subtitulo, slots, onFirma }) => {
+export const FirmaCelularDialog: React.FC<Props> = ({ open, onClose, titulo, subtitulo, slots, onFirma, crearSesion, estadoSesion }) => {
     const { showToast } = useToast();
     const [sesion, setSesion] = useState<SesionFirmaFicha | null>(null);
     const [generando, setGenerando] = useState(false);
@@ -48,6 +51,10 @@ export const FirmaCelularDialog: React.FC<Props> = ({ open, onClose, titulo, sub
     useEffect(() => { slotsRef.current = slots; });
     const onFirmaRef = useRef(onFirma);
     useEffect(() => { onFirmaRef.current = onFirma; });
+    // Funciones de la sesión en refs: así una función nueva en cada render no vuelve a generar el QR.
+    const crearRef = useRef(crearSesion);
+    const estadoRef = useRef(estadoSesion);
+    useEffect(() => { crearRef.current = crearSesion; estadoRef.current = estadoSesion; });
 
     const generar = useCallback(async () => {
         const pendientes = slotsRef.current.filter((s) => !s.firmada);
@@ -55,9 +62,10 @@ export const FirmaCelularDialog: React.FC<Props> = ({ open, onClose, titulo, sub
         if (!pendientes.length) return;
         setGenerando(true); setError(null); setCompleto(false);
         try {
-            setSesion(await fichasEquipoService.crearFirmaRemota({
+            setSesion(await (crearRef.current ?? fichasEquipoService.crearFirmaRemota)({
                 titulo, subtitulo,
-                slots: pendientes.map((s) => ({ id: s.id, titulo: s.titulo, nombre: s.nombre || null })),
+                // Van todas las firmas: las que ya están hechas se ven en gris en el celular y no se pueden repetir.
+                slots: slotsRef.current.map((s) => ({ id: s.id, titulo: s.titulo, nombre: s.nombre || null, firmada: s.firmada })),
             }));
         } catch (e) {
             setError(mensajeError(e) || 'No se pudo generar el código QR.');
@@ -78,7 +86,7 @@ export const FirmaCelularDialog: React.FC<Props> = ({ open, onClose, titulo, sub
         const t = setInterval(async () => {
             setAhora(Date.now());
             try {
-                const r = await fichasEquipoService.estadoFirmaRemota(sesion.token);
+                const r = await (estadoRef.current ?? fichasEquipoService.estadoFirmaRemota)(sesion.token);
                 for (const s of r.slots) {
                     if (s.firmada && s.firma && entregadas.current[s.id] !== s.firma) {
                         entregadas.current[s.id] = s.firma;

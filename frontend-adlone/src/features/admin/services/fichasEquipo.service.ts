@@ -149,6 +149,7 @@ const comoPdf = (res: { data: Blob; headers: Record<string, unknown> }, porDefec
 };
 
 // --- FIRMAS DE LAS FICHAS: importar una registrada o firmar desde el celular (QR) ---
+export interface ResponsableEntrega { id_usuario: number; nombre: string; cargo: string | null; tiene_firma: boolean }
 export interface FirmaRegistrada { tipo: 'USUARIO' | 'MUESTREADOR'; id: number; nombre: string; cargo: string | null }
 export interface SesionFirmaFicha { token: string; url: string; qr: string; expira: string }
 export interface EstadoFirmaFicha {
@@ -161,6 +162,8 @@ export interface EstadoFirmaFicha {
 let firmasRegistradasEnCurso: Promise<FirmaRegistrada[]> | null = null;
 
 export const fichasEquipoService = {
+    /** Quiénes pueden ser responsable de entrega y de área en la ficha de entrega. */
+    responsablesEntrega: async () => (await apiClient.get(`${BASE}/fichas/responsables-entrega`)).data.data as ResponsableEntrega[],
     /** Personas con firma registrada (sin la imagen). */
     firmasRegistradas: (): Promise<FirmaRegistrada[]> => {
         if (!firmasRegistradasEnCurso) {
@@ -174,7 +177,7 @@ export const fichasEquipoService = {
     imagenFirmaRegistrada: async (tipo: FirmaRegistrada['tipo'], id: number) =>
         (await apiClient.get(`${BASE}/fichas/firmas-registradas/${tipo}/${id}`)).data.data.firma as string,
     /** Genera el QR para firmar desde el celular las firmas que faltan (enlace de un solo uso, 15 minutos). */
-    crearFirmaRemota: async (cuerpo: { titulo: string; subtitulo?: string; slots: { id: string; titulo: string; nombre?: string | null }[] }) =>
+    crearFirmaRemota: async (cuerpo: { titulo: string; subtitulo?: string; slots: { id: string; titulo: string; nombre?: string | null; firmada?: boolean }[] }) =>
         (await apiClient.post(`${BASE}/fichas/firma-remota`, cuerpo)).data.data as SesionFirmaFicha,
     estadoFirmaRemota: async (token: string) =>
         (await apiClient.get(`${BASE}/fichas/firma-remota/${token}`)).data.data as EstadoFirmaFicha,
@@ -265,7 +268,7 @@ export interface FirmanteFicha {
     firma_guardada: string | null;
 }
 
-export type TipoFichaGuardada = 'tecnica' | 'historial' | 'entrega' | 'recepcion';
+export type TipoFichaGuardada = 'tecnica' | 'historial' | 'entrega' | 'recepcion' | 'caudal';
 
 export type EstadoFichaArchivo = 'VIGENTE' | 'ANULADO' | 'TODOS';
 
@@ -307,6 +310,9 @@ export interface FichaGuardada {
     nombre_usuario: string | null;
     fecha_creacion: string;
     con_firmas?: boolean;
+    /** Código y sede del equipo cuando se emitió (cambian con un cambio de sede). */
+    codigo_equipo?: string | null;
+    sede?: string | null;
 }
 
 export default fichasEquipoService;

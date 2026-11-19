@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import FileIcon from './FileIcon';
 import DeriveRequestModal from './DeriveRequestModal';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -73,6 +74,9 @@ const actionBadgeVariant = (action: string): BadgeVariant => {
     return 'outline';
 };
 
+// Solicitudes que cambian un equipo (_form_type): al aceptarlas se abre el equipo en Gestión de Equipos para aplicarlas.
+const TIPOS_SOLICITUD_EQUIPO = ['TRASPASO_EQUIPO', 'BAJA_EQUIPO', 'EXTENSION_VIGENCIA', 'REPORTE_PROBLEMA'];
+
 type AlertType = 'info' | 'success' | 'warning' | 'error';
 
 const ALERT_VARIANT: Record<AlertType, 'info' | 'success' | 'warning' | 'destructive'> = {
@@ -99,6 +103,7 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const [isDeriving, setIsDeriving] = useState(false);
     const { user, token } = useAuth();
     const { showToast } = useToast();
+    const { setAplicarSolicitudId, setActiveModule, setActiveSubmodule } = useNavStore();
 
     const [obsModalOpen, setObsModalOpen] = useState(false);
     const [obsText, setObsText] = useState('');
@@ -167,6 +172,13 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             setObsModalOpen(false);
             onReload();
             onRequestUpdate();
+            // Una solicitud que cambia un equipo, al aceptarla, lleva de inmediato a Gestión de Equipos: ahí se abre
+            // el equipo con lo que hay que cambiar y la observación escrita acá.
+            if (pendingAction === 'ACEPTADA' && TIPOS_SOLICITUD_EQUIPO.includes(String(request.datos_json?._form_type || ''))) {
+                setAplicarSolicitudId(request.id_solicitud);
+                setActiveModule('gestion_calidad');
+                setActiveSubmodule('admin-equipos-gestion');
+            }
         } catch (error) {
             console.error('Error updating status:', error);
             showToast({ message: 'Error al actualizar el estado', type: 'error' });

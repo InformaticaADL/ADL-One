@@ -17,6 +17,7 @@ export const FORMULARIOS_EQUIPO = {
     historial: { codigo: 'OI-FoGe-24', tipo_documento: 'HISTORIAL' },
     entrega: { codigo: 'OI-FoGe-36', tipo_documento: 'ENTREGA' },
     recepcion: { codigo: 'OI-FoGe-42', tipo_documento: 'RECEPCION' },
+    caudal: { codigo: 'OI-FoGe-30', tipo_documento: 'VERIFICACION_CAUDAL' },
 };
 const TIPO_POR_FORMULARIO = Object.fromEntries(Object.entries(FORMULARIOS_EQUIPO).map(([tipo, f]) => [f.codigo, tipo]));
 
@@ -118,7 +119,7 @@ const gcDocumentosService = {
         const req = pool.request().input('eq', sql.Numeric(10, 0), Number(idEquipo));
         if (tipo && FORMULARIOS_EQUIPO[tipo]) req.input('form', sql.VarChar(20), FORMULARIOS_EQUIPO[tipo].codigo);
         const r = await req.query(`
-            SELECT id_documento, codigo_formulario, anio, nombre_archivo, nombre_usuario, fecha_creacion, con_firmas
+            SELECT id_documento, codigo_formulario, anio, nombre_archivo, nombre_usuario, fecha_creacion, con_firmas, codigo_entidad, sede
             FROM ${TABLA}
             WHERE modulo = 'EQUIPOS' AND entidad_tipo = 'EQUIPO' AND id_entidad = @eq AND estado = 'VIGENTE'
               ${tipo && FORMULARIOS_EQUIPO[tipo] ? 'AND codigo_formulario = @form' : ''}
@@ -134,6 +135,9 @@ const gcDocumentosService = {
                 nombre_usuario: d.nombre_usuario,
                 fecha_creacion: d.fecha_creacion,
                 con_firmas: !!d.con_firmas,
+                // Código y sede del equipo cuando se emitió la ficha (cambian si el equipo cambió de sede).
+                codigo_equipo: d.codigo_entidad || null,
+                sede: d.sede || null,
             })),
         };
     },

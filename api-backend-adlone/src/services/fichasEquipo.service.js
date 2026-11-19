@@ -1,6 +1,7 @@
 import sql from 'mssql';
 import { getConnection } from '../config/database.js';
-import { lineasObservacionConFecha, fechaNumATexto } from '../utils/observacionEquipo.js';
+import { lineasObservacionConFecha as lineasConFecha, fechaNumATexto } from '../utils/observacionEquipo.js';
+import revisionDocumentalService, { anioDeHistorial } from './revisionDocumental.service.js';
 import { pdfFichaTecnica, pdfHistorial, pdfEntrega, pdfRecepcion, ITEMS_RECEPCION } from './fichasEquipo.pdf.js';
 import firmaDigitalService from './firmaDigital.service.js';
 import equipoService from './equipo.service.js';
@@ -38,15 +39,53 @@ const cargarEquipo = async (pool, id) => {
 
 // ─── OI-FoGe-24 · Historial por año ────────────────────────────────────────
 
+const sinAsociado = (v) => { const t = String(v ?? '').trim(); return !t || t === '0' || /^no aplica$/i.test(t); };
+
+/**
+ * La observación que alimenta el historial: la del equipo más la de sus equipos asociados (ej. una sonda y su
+ * multiparámetro), porque los equipos asociados comparten el mismo historial. La asociación se guarda como código en
+ * ambos sentidos. Una línea idéntica que esté en los dos equipos se cuenta una sola vez.
+ */
+const observacionConAsociados = async (pool, eq) => {
+    const codigo = String(eq.codigo ?? '').trim();
+    const r = await pool.request()
+        .input('id', sql.Int, eq.id_equipo)
+        .input('cod', sql.VarChar(200), codigo)
+        .input('aso', sql.VarChar(200), sinAsociado(eq.equipo_asociado) ? '' : String(eq.equipo_asociado).trim())
+        .query(`SELECT observacion FROM mae_equipo
+                WHERE id_equipo <> @id
+                  AND ((@cod <> '' AND LTRIM(RTRIM(equipo_asociado)) = @cod) OR (@aso <> '' AND LTRIM(RTRIM(codigo)) = @aso))`);
+    const vistas = new Set();
+    const lineas = [];
+    for (const obs of [eq.observacion, ...r.recordset.map((x) => x.observacion)]) {
+        for (const l of String(obs || '').split(/\r?\n/)) {
+            const t = l.trim();
+            const clave = sinTildes(t);
+            if (!t || vistas.has(clave)) continue;
+            vistas.add(clave);
+            lineas.push(t);
+        }
+    }
+    return lineas.join('\n');
+};
+
+// Las líneas de la observación con el año del historial al que pertenecen: el de la revisión documental que regía ese
+// día (no el del calendario), para que el historial cambie junto con la fecha de revisión.
+const lineasObservacionConFecha = (observacion, opciones, revisiones) => {
+    const lineas = lineasConFecha(observacion, opciones);
+    return revisiones ? lineas.map((l) => ({ ...l, anio: anioDeHistorial(revisiones, l.fecha) })) : lineas;
+};
+
 const historialAnios = async (id) => {
     const pool = await getConnection();
     const eq = await cargarEquipo(pool, id);
     // La OBSERVACIÓN va tal como está escrita (con sus fechas); la fecha de la
     // línea solo decide el año y la columna FECHA.
-    const lineas = lineasObservacionConFecha(eq.observacion);
+    const observacion = await observacionConAsociados(pool, eq);
+    const lineas = lineasObservacionConFecha(observacion, undefined, await revisionDocumentalService.lista());
     const conteo = new Map();
     for (const l of lineas) conteo.set(l.anio, (conteo.get(l.anio) || 0) + 1);
-    const totalLineas = String(eq.observacion || '').split(/\r?\n/).filter((l) => l.trim()).length;
+    const totalLineas = String(observacion || '').split(/\r?\n/).filter((l) => l.trim()).length;
     return {
         id_equipo: eq.id_equipo,
         codigo: eq.codigo,
@@ -62,10 +101,10 @@ const historialPdf = async (id, anio) => {
     if (!Number.isInteger(a) || a < 1990 || a > 2100) throw error('Indique un año válido');
     const pool = await getConnection();
     const eq = await cargarEquipo(pool, id);
-    const lineas = lineasObservacionConFecha(eq.observacion)
+    const lineas = lineasObservacionConFecha(await observacionConAsociados(pool, eq), undefined, await revisionDocumentalService.lista())
         .filter((l) => l.anio === a)
         .map((l) => ({ fecha: fechaNumATexto(l.fecha), texto: l.original }));
-    const buffer = await pdfHistorial({ codigo: eq.codigo, nombre: eq.nombre, anio: a, lineas });
+    const buffer = await pdfHistorial({ codigo: eq.codigo, nombre: eq.nombre, anio: a, lineas, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-24', { anio: a }) });
     return { buffer, nombre: `OI-FoGe-24 ${nombreArchivo(eq.codigo)} ${a}.pdf` };
 };
 
@@ -318,7 +357,7 @@ const fichaTecnicaPdf = async (id, body = {}, usuario = null) => {
     const quiereFirma = Array.isArray(body.registros) && body.registros.some((r) => r?.firmar);
     const firmas = quiereFirma ? await firmasElegidas(pool, body, usuario) : [];
     d.registros = registrosManuales(body.registros, d.tipo_registro, firmas);
-    const buffer = await pdfFichaTecnica(d);
+    const buffer = await pdfFichaTecnica({ ...d, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-22') });
     return { buffer, nombre: `OI-FoGe-22 ${nombreArchivo(eq.codigo)}.pdf` };
 };
 
@@ -341,7 +380,7 @@ const entregaPdf = async (body = {}, usuario = null) => {
     d.firma_entrega = body.usar_mi_firma_entrega && usuario?.id
         ? await firmaDigitalService.obtener('USUARIO', usuario.id)
         : imagenFirma(body.firma_entrega);
-    const buffer = await pdfEntrega(d);
+    const buffer = await pdfEntrega({ ...d, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-36') });
     return { buffer, nombre: `OI-FoGe-36 ${nombreArchivo(d.codigo || d.nombre)}.pdf` };
 };
 
@@ -432,6 +471,8 @@ const recepcionDatos = async (id) => {
         const esRecepcion = RE_RECEPCION.test(t);
         const esPuesta = RE_PUESTA.test(t);
         if ((!esRecepcion && !esPuesta) || /pendiente/.test(t)) continue;
+        // Las líneas que escribe el módulo Puesta en Marcha ya tienen su propio registro (y su ficha en el archivo).
+        if (/^puesta en marcha \([^)]*\)\. realizada por:/.test(t.trim())) continue;
         const fecha = numAYmd(l.fecha);
         const ficha = fichaCerca(fecha);
         if (ficha) usadas.add(ficha.id_verificacion);
@@ -512,7 +553,7 @@ const recepcionPdf = async (body = {}, usuario = null) => {
         ? await firmaDigitalService.obtener('USUARIO', usuario.id)
         : imagenFirma(body.imagen_firma_recepcion);
     d.imagen_firma_calidad = imagenFirma(body.imagen_firma_calidad);
-    const buffer = await pdfRecepcion(d);
+    const buffer = await pdfRecepcion({ ...d, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-42') });
     return { buffer, nombre: `OI-FoGe-42 ${nombreArchivo(d.codigo || d.nombre)}.pdf` };
 };
 
@@ -572,4 +613,29 @@ const equipoBasico = async (id) => {
     return { id_equipo: Number(eq.id_equipo), codigo: eq.codigo || '', nombre: eq.nombre || '', sede: eq.sede || '' };
 };
 
-export default { historialAnios, historialPdf, agregarObservacionHistorial, fichaTecnicaDatos, fichaTecnicaPdf, entregaPdf, recepcionDatos, recepcionPdf, equipoBasico, firmasDocumento };
+// Quienes pueden ser responsable de entrega y responsable de area en la ficha de entrega (OI-FoGe-36):
+// personas del area, ya registradas como usuarios de ADL One (asi luego se les puede pedir la firma).
+// PRUEBA: Roberto Díaz aparece solo para probar el envío de fichas a firmar. Para quitarlo, dejar vacía la lista
+// RESPONSABLES_PRUEBA (y no hace falta tocar nada más).
+const RESPONSABLES_PRUEBA = ['Roberto Díaz'];
+const RESPONSABLES_ENTREGA = ['Pablo Flores', 'Mario Jofré', 'Gastón Teneb', 'Carlos Gamboa', ...RESPONSABLES_PRUEBA];
+
+const responsablesEntrega = async () => {
+    const pool = await getConnection();
+    const q = pool.request();
+    RESPONSABLES_ENTREGA.forEach((n, i) => q.input(`n${i}`, sql.NVarChar(100), n));
+    const r = await q.query(`
+        SELECT u.id_usuario, LTRIM(RTRIM(u.usuario)) AS nombre, LTRIM(RTRIM(k.nombre_cargo)) AS cargo
+        FROM mae_usuario u LEFT JOIN mae_cargo k ON k.id_cargo = u.id_cargo
+        WHERE u.habilitado = 'S'
+          AND LTRIM(RTRIM(u.usuario)) COLLATE Latin1_General_CI_AI IN (${RESPONSABLES_ENTREGA.map((_, i) => `@n${i}`).join(', ')})`);
+    // En el orden de la lista; cada uno indica si ya tiene su firma registrada.
+    const firmas = await firmaDigitalService.listarRegistradas().catch(() => []);
+    const conFirma = new Set(firmas.filter((f) => f.tipo === 'USUARIO').map((f) => f.id));
+    return RESPONSABLES_ENTREGA
+        .map((n) => r.recordset.find((u) => sinTildes(u.nombre) === sinTildes(n)))
+        .filter(Boolean)
+        .map((u) => ({ id_usuario: Number(u.id_usuario), nombre: u.nombre, cargo: u.cargo || null, tiene_firma: conFirma.has(Number(u.id_usuario)) }));
+};
+
+export default { responsablesEntrega, historialAnios, historialPdf, agregarObservacionHistorial, fichaTecnicaDatos, fichaTecnicaPdf, entregaPdf, recepcionDatos, recepcionPdf, equipoBasico, firmasDocumento };

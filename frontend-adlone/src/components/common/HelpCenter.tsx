@@ -325,7 +325,7 @@ const getContextHelp = (
             queEs: 'Panel de acceso a las herramientas del área de Gestión de Calidad.',
             queHace: 'Centraliza el control de los equipos de medición: inventario, indicadores, vencimientos y verificaciones de temperatura.',
             comoFunciona: [
-                '1. «Gestión de Equipos»: inventario, edición, historial y carga desde Excel.',
+                '1. «Inventario de Equipos»: inventario, edición, historial y carga desde Excel.',
                 '2. «Dashboard de Equipos»: indicadores y gráficos del estado del inventario.',
                 '3. «Calendario de Vencimientos»: en qué día vence la revisión de cada equipo.',
                 '4. «Verificación de Temperatura»: fichas OI-FoGe-39 con lecturas, cálculo y firma.',
@@ -477,7 +477,7 @@ const getContextHelp = (
                 '6. EQUIPOS POR AÑO DE COMPRA y CICLO DE VERIFICACIÓN: antigüedad del parque y frecuencia de revisión.'
             ],
             tips: [
-                'Para corregir un equipo, entra a Gestión de Equipos; este panel es solo de consulta.'
+                'Para corregir un equipo, entra al Inventario de Equipos; este panel es solo de consulta.'
             ]
         };
     }

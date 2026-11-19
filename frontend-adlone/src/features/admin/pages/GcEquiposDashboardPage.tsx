@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { IconArrowLeft, IconChartBar } from '@tabler/icons-react';
+import { PageHeader } from '../../../components/layout/PageHeader';
 import { EquiposDashboard } from '../components/EquiposDashboard';
 import { equipoService, type ResumenCalidad } from '../services/equipo.service';
 
@@ -40,20 +40,14 @@ export const GcEquiposDashboardPage: React.FC<Props> = ({ onBack }) => {
 
     return (
         <div className="shadcn-scope flex flex-col gap-0">
-            <div className="flex items-center gap-3 px-4 pt-4 pb-2">
-                <button
-                    type="button"
-                    onClick={onBack}
-                    className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                    <IconArrowLeft size={16} />
-                    Gestión de Calidad
-                </button>
-                <span className="text-muted-foreground/40 text-xs">·</span>
-                <div className="flex items-center gap-1.5">
-                    <IconChartBar size={16} className="text-primary" />
-                    <span className="text-sm font-medium">Dashboard de Equipos</span>
-                </div>
+            {/* Mismo encabezado que las demás pantallas de Gestión de Calidad (se acomoda solo en el celular). */}
+            <div className="px-4 pt-4 md:px-6 md:pt-6">
+                <PageHeader
+                    title="Dashboard de Equipos"
+                    subtitle="KPIs, gráficos y análisis del inventario de equipos de calidad."
+                    onBack={onBack}
+                    breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Dashboard de Equipos' }]}
+                />
             </div>
             <EquiposDashboard
                 equipos={resumen.equipos}

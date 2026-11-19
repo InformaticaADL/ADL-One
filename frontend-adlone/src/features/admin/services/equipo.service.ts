@@ -22,6 +22,8 @@ export interface Equipo {
     observacion?: string;
     visible_muestreador?: string;
     que_mide?: string;
+    /** Habilitado para la verificación de temperatura aunque esté Fuera de Servicio o Dado de Baja. */
+    habilitado_verif_temp?: boolean;
     unidad_medida_textual?: string;
     unidad_medida_sigla?: string;
     informe?: string;
@@ -159,7 +161,45 @@ export interface ResumenCalidad {
     equipos: Equipo[];
 }
 
+// --- Solicitudes URS aceptadas que cambian un equipo ---
+export interface CambioSolicitud { campo: string; etiqueta: string; actual: string; nuevo: string }
+export interface EquipoDelPlan {
+    id_equipo: number;
+    codigo: string;
+    nombre: string;
+    tipo?: string | null;
+    sede?: string | null;
+    id_muestreador?: number | null;
+    responsable?: string | null;
+    estado_equipo?: string | null;
+    ultima_verificacion?: string | null;
+    siguiente_verificacion?: string | null;
+    fecha_baja?: string | null;
+    rol: 'PRINCIPAL' | 'ASOCIADO';
+    cambios: CambioSolicitud[];
+}
+export interface PlanSolicitudEquipo {
+    id_solicitud: number;
+    estado: string;
+    /** _form_type de la solicitud: TRASPASO_EQUIPO, BAJA_EQUIPO, EXTENSION_VIGENCIA, REPORTE_PROBLEMA. */
+    tipo: string;
+    nombre_tipo: string;
+    solicitante?: string | null;
+    fecha_creacion?: string | null;
+    motivo?: string;
+    observacion_aceptacion: string;
+    equipos: EquipoDelPlan[];
+}
+export interface ResultadoAplicar { resultados: { id_equipo: number; codigo: string; ok: boolean; error?: string }[]; realizada: boolean }
+
 export const equipoService = {
+    /** Qué hay que cambiar en los equipos por una solicitud aceptada (no modifica nada). */
+    planSolicitud: async (idSolicitud: number): Promise<PlanSolicitudEquipo> =>
+        (await apiClient.get(`/api/urs/${idSolicitud}/plan-equipo`)).data.data,
+    /** Hace esos cambios, deja la observación de la aceptación y marca la solicitud como realizada. */
+    aplicarSolicitud: async (idSolicitud: number): Promise<ResultadoAplicar> =>
+        (await apiClient.post(`/api/urs/${idSolicitud}/aplicar-equipo`)).data.data,
+
     // Dashboard y Calendario de Vencimientos (Gestión de Calidad): vigencia y KPIs calculados en el backend.
     getResumenCalidad: async (): Promise<ResumenCalidad> => {
         const response = await apiClient.get('/api/admin/equipos/resumen-calidad');
@@ -230,6 +270,10 @@ export const equipoService = {
         return response.data;
     },
 
+    /** Habilita (o no) un equipo Fuera de Servicio o Dado de Baja para la verificación de temperatura. */
+    habilitarVerifTemp: async (id: number, habilitado: boolean) =>
+        (await apiClient.put(`/api/admin/equipos/${id}/habilitar-verif-temp`, { habilitado })).data as { success: boolean; message?: string },
+
     createEquiposBulk: async (data: Partial<Equipo>[]): Promise<any> => {
         const response = await apiClient.post('/api/admin/equipos/bulk', data);
         return response.data;
@@ -259,6 +303,10 @@ export const equipoService = {
         const response = await apiClient.get(`/api/admin/equipos/next-correlativo/${encodeURIComponent(tipo)}`);
         return response.data;
     },
+
+    /** ¿La sigla está libre para un tipo de equipo nuevo? → { disponible, usada_por } */
+    siglaDisponible: async (sigla: string): Promise<{ disponible: boolean; usada_por: string | null }> =>
+        (await apiClient.get('/api/admin/equipos/sigla-disponible', { params: { sigla } })).data.data,
 
     suggestNextCode: async (tipo: string, ubicacion: string, nombre: string = ''): Promise<any> => {
         const response = await apiClient.get('/api/admin/equipos/suggest-code', {

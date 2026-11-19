@@ -164,7 +164,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 )}
             />
 
-            <div className="mb-4 flex w-fit rounded-lg border border-border bg-muted/40 p-1" role="tablist">
+            <div className="mb-4 flex max-w-full overflow-x-auto rounded-lg border border-border bg-muted/40 p-1 md:w-fit" role="tablist">
                 {([
                     { k: 'fichas', label: 'Fichas', icon: IconListDetails },
                     { k: 'resumen', label: 'Resumen y estadística', icon: IconChartBar },
@@ -176,7 +176,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                         role="tab"
                         aria-selected={vista === k}
                         onClick={() => setVista(k)}
-                        className={cn('flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium transition-colors', vista === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
+                        className={cn('flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm font-medium transition-colors', vista === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
                     >
                         <Icono size={15} /> {label}
                     </button>
@@ -186,12 +186,12 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             {vista === 'patron' && <ErroresPatronPanel />}
 
             {vista !== 'patron' && <div className="mb-4 flex flex-wrap items-end gap-3">
-                <div className="w-52">
+                <div className="w-full sm:w-52">
                     <p className="mb-1 text-xs text-muted-foreground">Periodo (campaña)</p>
                     <Combobox value={periodo} onValueChange={setPeriodo} options={opcionesPeriodo} placeholder="Periodo" />
                 </div>
                 {activas.length > 0 && (
-                    <div className="min-w-[220px] flex-1">
+                    <div className="w-full min-w-0 flex-1 sm:min-w-[220px]">
                         <div className="mb-1 flex justify-between text-xs text-muted-foreground">
                             <span>Avance de {nombrePeriodo(periodo)}</span>
                             <span className="tabular-nums">{cuenta('FIRMADA')} de {activas.length} firmadas · {avance}%</span>
@@ -229,20 +229,20 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             </div>
 
             <div className="mb-3 flex flex-wrap items-center gap-2">
-                <div className="flex gap-1">
+                <div className="-mx-4 flex max-w-[calc(100%+2rem)] gap-1 overflow-x-auto px-4 sm:mx-0 sm:max-w-full sm:px-0">
                     {['', ...SEDES].map((s) => (
                         <button
                             key={s || 'todas'}
                             type="button"
                             onClick={() => setSede(s)}
-                            className={cn('h-8 rounded-md border px-3 text-sm transition-colors', sede === s ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted')}
+                            className={cn('h-8 shrink-0 whitespace-nowrap rounded-md border px-3 text-sm transition-colors', sede === s ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted')}
                         >
                             {s || 'Todas las sedes'}
                         </button>
                     ))}
                 </div>
                 {seleccion.length > 0 && (
-                    <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
+                    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-2 py-1">
                         <span className="text-sm"><b>{seleccion.length}</b> seleccionada{seleccion.length === 1 ? '' : 's'}</span>
                         <Button
                             size="sm"
@@ -268,7 +268,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                         </Button>
                     </div>
                 )}
-                <div className="relative ml-auto w-full max-w-xs">
+                <div className="relative w-full sm:ml-auto sm:max-w-xs">
                     <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input className="h-8 pl-8" placeholder="Buscar equipo o muestreador..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
                 </div>

@@ -519,7 +519,8 @@ export const MuestreadoresPage: React.FC<Props> = ({ onBack }) => {
                                                 )}
                                             </div>
 
-                                            <div className="mt-3 flex gap-2 border-t border-dashed border-border pt-3">
+                                            {/* Con varias acciones no caben en una fila del celular: pasan a la siguiente. */}
+                                            <div className="mt-3 flex flex-wrap gap-2 border-t border-dashed border-border pt-3 [&>*]:min-w-[7rem] [&>*]:flex-1">
                                                 <ProtectedContent permission="MU_SOLICITUDES">
                                                     <Button variant="outline" size="sm" className={cn('flex-1', hasPending && 'text-warning')} onClick={() => handleOpenRequests(m)}>
                                                         <IconBell size={16} /> Solicitudes

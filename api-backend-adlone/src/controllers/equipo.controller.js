@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import equipoService from '../services/equipo.service.js';
+import equipoService, { siglaDisponible, habilitarVerifTemp } from '../services/equipo.service.js';
+import { getConnection } from '../config/database.js';
 import equipoExcelImportService from '../services/equipo-excel-import.service.js';
 import equipoTemperaturaImportService from '../services/equipo-temperatura-import.service.js';
 import logger from '../utils/logger.js';
@@ -77,6 +78,30 @@ export const equipoController = {
         }
     },
 
+    // ¿La sigla está libre para un tipo de equipo nuevo? (el formulario avisa mientras se escribe)
+    siglaDisponible: async (req, res) => {
+        try {
+            const sigla = String(req.query.sigla || '').trim();
+            if (!/^[A-Za-z]{3}$/.test(sigla)) return res.status(400).json({ success: false, message: 'La sigla debe tener 3 letras' });
+            const pool = await getConnection();
+            res.json({ success: true, data: await siglaDisponible(pool, sigla) });
+        } catch (error) {
+            logger.error('Controller siglaDisponible error:', error);
+            res.status(500).json({ success: false, message: 'No se pudo revisar la sigla' });
+        }
+    },
+
+    // Habilitar un equipo Fuera de Servicio o Dado de Baja para la verificación de temperatura (o quitarlo).
+    habilitarVerifTemp: async (req, res) => {
+        try {
+            const data = await habilitarVerifTemp(req.params.id, req.body?.habilitado === true, req.user?.id || null);
+            res.json({ success: true, data, message: data.habilitado_verif_temp ? 'Equipo habilitado para la verificación de temperatura' : 'Equipo ya no habilitado para la verificación de temperatura' });
+        } catch (error) {
+            if (!error.statusCode) logger.error('Controller habilitarVerifTemp error:', error);
+            res.status(error.statusCode || 500).json({ success: false, message: error.statusCode ? error.message : 'No se pudo cambiar la habilitación' });
+        }
+    },
+
     getEquipoById: async (req, res) => {
         try {
             const { id } = req.params;
@@ -98,7 +123,7 @@ export const equipoController = {
             res.json({ success: true, data: result, message: 'Equipo creado correctamente' });
         } catch (error) {
             logger.error('Controller createEquipo error:', error);
-            res.status(500).json({ success: false, message: error.message || 'Error al crear equipo' });
+            res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Error al crear equipo' });
         }
     },
 
@@ -168,7 +193,7 @@ export const equipoController = {
             res.json({ success: true, data: result, message: `${result.length} equipos creados correctamente` });
         } catch (error) {
             logger.error('Controller createEquiposBulk error:', error);
-            res.status(500).json({ success: false, message: error.message || 'Error al crear equipos' });
+            res.status(error.statusCode || 500).json({ success: false, message: error.message || 'Error al crear equipos' });
         }
     },
 

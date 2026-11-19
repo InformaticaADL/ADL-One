@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { HubGrid, type HubOption } from '../components/HubGrid';
@@ -17,7 +17,7 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
     const OPTIONS: HubOption[] = [
         {
             id: 'admin-equipos-gestion',
-            label: 'Gestión de Equipos',
+            label: 'Inventario de Equipos',
             icon: (
                 <div className="relative">
                     <IconDeviceDesktop size={19} stroke={1.75} />
@@ -25,6 +25,18 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                 </div>
             ),
             description: 'Inventario, configuración y mantenimiento preventivo de equipos.',
+        },
+        {
+            id: 'gc-nuevo-equipo',
+            label: 'Nuevo Equipo',
+            icon: <IconPackageImport size={20} stroke={1.75} />,
+            description: 'Ingreso de un equipo al inventario: tipo existente (código automático) o equipo nuevo.',
+        },
+        {
+            id: 'gc-puesta-marcha',
+            label: 'Puesta en Marcha',
+            icon: <IconPlayerPlay size={20} stroke={1.75} />,
+            description: 'Recepción, puesta en marcha y verificación de equipos (OI-FoGe-42), con firma de Área Técnica y Calidad.',
         },
         {
             id: 'gc-dashboard-equipos',
@@ -45,10 +57,22 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             description: 'Formulario OI-FoGe-39: mediciones, firma del muestreador y PDF en el equipo.',
         },
         {
+            id: 'gc-verificacion-caudal',
+            label: 'Verificación Sonda Caudal',
+            icon: <IconDroplet size={20} stroke={1.75} />,
+            description: 'Formulario OI-FoGe-30: verificación semestral (±10 %) de sondas de caudal contra el molinete, con V°B°.',
+        },
+        {
             id: 'gc-archivo-fichas',
             label: 'Archivo de Fichas',
             icon: <IconArchive size={20} stroke={1.75} />,
             description: 'Fichas guardadas de los equipos (OI-FoGe-22/24/36/42) por año de vigencia, formulario y sede.',
+        },
+        {
+            id: 'gc-revision-documental',
+            label: 'Revisión documental',
+            icon: <IconCalendarCheck size={20} stroke={1.75} />,
+            description: 'Fechas de revisión anual que llevan los formularios de equipos.',
         },
     ];
 
@@ -56,6 +80,8 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
         if (opt.id === 'gc-verificacion-temperatura') return hasPermission('GC_VERIF_TEMP');
         // Mismo permiso de lectura que las fichas en el backend (permisoFichas).
         if (opt.id === 'gc-archivo-fichas') return GC_ACCESS || hasPermission('GC_VERIF_TEMP');
+        if (opt.id === 'gc-nuevo-equipo') return GC_ACCESS && hasPermission('AI_MA_CREAR_EQUIPO');
+        if (opt.id === 'gc-revision-documental' || opt.id === 'gc-puesta-marcha' || opt.id === 'gc-verificacion-caudal') return GC_ACCESS;
         if (opt.id === 'admin-equipos-gestion' || opt.id === 'gc-dashboard-equipos' || opt.id === 'gc-calendario-vencimientos') {
             // RB-08: removido AI_MA_ADMIN_ACCESO
             return GC_ACCESS;

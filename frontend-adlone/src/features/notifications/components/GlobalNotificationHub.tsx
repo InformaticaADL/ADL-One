@@ -9,7 +9,7 @@ const GlobalNotificationHub: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, selectedRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, setFirmaPendienteId, selectedRequestId } = useNavStore();
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -45,6 +45,14 @@ const GlobalNotificationHub: React.FC = () => {
         if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
             setPendingSolicitudClienteId(notif.id_referencia);
             setActiveModule('solicitudes-clientes');
+            setActiveSubmodule('');
+            return;
+        }
+
+        // Firma pendiente de una ficha (o aviso de que ya firmaron todos): abre Solicitudes > Firmas pendientes.
+        if (notif.id_referencia && notif.area === 'Firmas') {
+            setFirmaPendienteId(notif.id_referencia);
+            setActiveModule('solicitudes');
             setActiveSubmodule('');
             return;
         }

@@ -29,6 +29,7 @@ export const FORMATOS = {
     tecnica: { codigo: 'OI-FoGe-22', nombre: 'Ficha Técnica de Equipos', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: AZUL_TITULO, pie: true },
     historial: { codigo: 'OI-FoGe-24', nombre: 'Historial de equipo', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
     entrega: { codigo: 'OI-FoGe-36', nombre: 'Ficha Entrega de Equipo', version: 'Versión 01', vigencia: '10/03/2013', revision: '12/01/2026', colorTitulo: NEGRO, pie: false },
+    caudal: { codigo: 'OI-FoGe-30', nombre: 'Verificación Intermedia Sonda Caudal', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
     recepcion: { codigo: 'OI-FoGe-42', nombre: 'Recepción, Puesta en Marcha y Verificación de Equipo', version: 'Versión 01', vigencia: '28/12/2020', revision: '12/01/2026', colorTitulo: NEGRO, pie: false, titulo: 'FORMULARIO\nDE\nGENERAL DE GESTIÓN' },
 };
 
@@ -104,8 +105,10 @@ const textoEnCaja = (doc, x, y, w, h, str, { size = 8, bold = false, align = 'ce
 };
 
 /** Encabezado del formulario; devuelve la y donde termina. */
-const encabezado = (doc, formato, x, y, w) => {
+const encabezado = (doc, formato, x, y, w, enc) => {
     const f = FORMATOS[formato];
+    // Versión, Fecha Vigencia y Fecha Revisión salen de Revisión documental; si no llegan, las del formulario.
+    const e = typeof enc === 'string' ? { revision: enc } : (enc || {});
     const wLogo = w * 0.245;
     const wTit = w * 0.34;
     const wCol = (w - wLogo - wTit) / 2;
@@ -131,24 +134,25 @@ const encabezado = (doc, formato, x, y, w) => {
     encCampo(xA, y, wCol, h1, 'Área', 'Gestión de Calidad');
     encCampo(xB, y, wCol, h1, 'Unidad', 'No Aplica');
     rect(doc, xA, y + h1, wCol * 2, h2);
-    textoEnCaja(doc, xA, y + h1, wCol * 2, h2, f.version, { size: 10 });
+    textoEnCaja(doc, xA, y + h1, wCol * 2, h2, e.version || f.version, { size: 10 });
     rect(doc, xA, y + h1 + h2, wCol, h3);
     rect(doc, xB, y + h1 + h2, wCol, h3);
-    encCampo(xA, y + h1 + h2, wCol, h3, 'Fecha Vigencia', f.vigencia, formato === 'tecnica');
-    encCampo(xB, y + h1 + h2, wCol, h3, 'Fecha Revisión', f.revision, formato === 'tecnica');
-    // Fila del código.
+    encCampo(xA, y + h1 + h2, wCol, h3, 'Fecha Vigencia', e.vigencia || f.vigencia, formato === 'tecnica');
+    encCampo(xB, y + h1 + h2, wCol, h3, 'Fecha Revisión', e.revision || f.revision, formato === 'tecnica');
+    // Fila del código (el nombre, el de Revisión documental si llega).
+    const nombreDoc = e.nombre || f.nombre;
     const yc = y + h + 4;
     rect(doc, x, yc, w, 20);
     doc.font('Helvetica').fontSize(9).fillColor(NEGRO);
     if (formato === 'entrega') {
         doc.text('CÓDIGO:', x, yc + 6, { width: w * 0.3, align: 'center', lineBreak: false });
-        doc.text(`${f.codigo} (${f.nombre})`, x + w * 0.3, yc + 6, { width: w * 0.7, align: 'center', lineBreak: false });
+        doc.text(`${f.codigo} (${nombreDoc})`, x + w * 0.3, yc + 6, { width: w * 0.7, align: 'center', lineBreak: false });
     } else if (formato === 'recepcion') {
         doc.text('CÓDIGO:', x + 3, yc + 6, { lineBreak: false });
-        doc.text(`${f.codigo}(${f.nombre})`, x + 52, yc + 6, { width: w - 56, height: 10, lineBreak: false, ellipsis: true });
+        doc.text(`${f.codigo}(${nombreDoc})`, x + 52, yc + 6, { width: w - 56, height: 10, lineBreak: false, ellipsis: true });
     } else {
         doc.text(formato === 'historial' ? 'CODIGO' : 'CÓDIGO       :', x + 8, yc + 6, { lineBreak: false });
-        doc.text(`${f.codigo} (${f.nombre})`, x + (formato === 'historial' ? w * 0.29 : 95), yc + 6, { lineBreak: false });
+        doc.text(`${f.codigo} (${nombreDoc})`, x + (formato === 'historial' ? w * 0.29 : 95), yc + 6, { lineBreak: false });
     }
     return yc + 20;
 };
@@ -252,7 +256,7 @@ export const pdfFichaTecnica = (d) => {
         return y + 28;
     };
 
-    let y = encabezado(doc, 'tecnica', xEnc, 36, wEnc) + 26;
+    let y = encabezado(doc, 'tecnica', xEnc, 36, wEnc, d.encabezado || d.revision) + 26;
 
     // Datos del equipo.
     const w1 = W * 0.305;
@@ -301,7 +305,7 @@ export const pdfFichaTecnica = (d) => {
         if (y + alto > limite) {
             pie(doc, 'tecnica');
             doc.addPage();
-            y = encabezado(doc, 'tecnica', xEnc, 36, wEnc) + 20;
+            y = encabezado(doc, 'tecnica', xEnc, 36, wEnc, d.encabezado || d.revision) + 20;
             y = cabeceraTabla(y);
         }
         let xx = X;
@@ -368,14 +372,9 @@ export const pdfHistorial = (d) => {
             pie(doc, 'historial');
             doc.addPage();
         }
-        let y = encabezado(doc, 'historial', xEnc, 34, wEnc) + 16;
-        // El Word no identifica al equipo: sin esta línea la hoja impresa no
-        // dice de qué equipo ni de qué año es.
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(NEGRO)
-            .text(`EQUIPO: ${texto(d.nombre)}`, X, y, { width: W * 0.47, height: 10, lineBreak: false, ellipsis: true });
-        doc.text(`CÓDIGO INTERNO: ${texto(d.codigo)}`, X + W * 0.47, y, { width: W * 0.41, height: 10, lineBreak: false, ellipsis: true });
-        doc.text(`AÑO: ${d.anio}`, X + W * 0.88, y, { width: W * 0.12, align: 'right', lineBreak: false });
-        y += 18;
+        let y = encabezado(doc, 'historial', xEnc, 34, wEnc, d.encabezado || d.revision) + 16;
+        // Sin la línea «EQUIPO / CÓDIGO INTERNO / AÑO» sobre la tabla: el documento impreso no la lleva.
+        y += 4;
         rect(doc, X, y, wFecha, 30);
         rect(doc, X + wFecha, y, wObs, 30);
         textoEnCaja(doc, X, y, wFecha, 30, 'FECHA', { size: 9, bold: true, valign: 'top' });
@@ -420,7 +419,7 @@ export const pdfEntrega = (d) => {
     const NI = 'N/I';
     const may = (v, def = NI) => (texto(v) ? texto(v).toUpperCase() : def);
 
-    let y = encabezado(doc, 'entrega', X + W * 0.06, 42, W * 0.88) + 22;
+    let y = encabezado(doc, 'entrega', X + W * 0.06, 42, W * 0.88, d.encabezado || d.revision) + 22;
 
     // Aviso de responsabilidad.
     doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NEGRO);
@@ -500,7 +499,7 @@ export const pdfEntrega = (d) => {
  */
 export const pdfRecepcion = (d) => {
     const { doc, listo } = nuevoDoc(`OI-FoGe-42 ${d.codigo || ''}`);
-    let y = encabezado(doc, 'recepcion', 84, 30, 430) + 18;
+    let y = encabezado(doc, 'recepcion', 84, 30, 430, d.encabezado || d.revision) + 18;
     const X = 88;
     const W = 422;
 
@@ -632,6 +631,112 @@ export const pdfRecepcion = (d) => {
 
     doc.font('Helvetica').fontSize(8).text('Página 1 de 1', X, doc.page.height - 60, { width: W, align: 'right', lineBreak: false });
 
+    doc.end();
+    return listo;
+};
+
+// ─── OI-FoGe-30 · Verificación Intermedia Sonda Caudal ─────────────────────
+
+/** Números con coma decimal, como en los formularios. */
+const numero = (v, dec = 2) => (v === null || v === undefined || v === '' || Number.isNaN(Number(v))
+    ? '' : Number(v).toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: dec }));
+
+/**
+ * @param d { codigo, nombre, sede, fecha_verificacion, fecha_proxima, equipo_referencia, caudal_referencia, unidad,
+ *   lecturas: number[], caudal_promedio, desviacion_pct, indice, grado, cumple, observacion,
+ *   nombre_vobo, firma_vobo (data URL), encabezado }
+ */
+export const pdfCaudal = (d) => {
+    const { doc, listo } = nuevoDoc(`OI-FoGe-30 ${d.codigo || ''}`);
+    const X = 60;
+    const W = doc.page.width - 120;
+    let y = encabezado(doc, 'caudal', 50, 34, doc.page.width - 100, d.encabezado) + 22;
+
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(NEGRO)
+        .text('VERIFICACIÓN INTERMEDIA SONDA CAUDAL', X, y, { width: W, align: 'center' });
+    y += 22;
+
+    // Sonda verificada (el formulario se llena por equipo).
+    const unidad = texto(d.unidad);
+    rect(doc, X, y, W, 20);
+    textoEnCaja(doc, X, y, W * 0.22, 20, 'Sonda verificada', { size: 8.5, bold: true, align: 'left' });
+    textoEnCaja(doc, X + W * 0.22, y, W * 0.78, 20, [texto(d.codigo), texto(d.nombre), d.sede ? `Sede ${d.sede}` : ''].filter(Boolean).join(' · '), { size: 8.5, align: 'left' });
+    y += 32;
+
+    // Tabla del índice de correlación (se marca el grado obtenido).
+    const wI = W * 0.62;
+    const wG = W - wI;
+    const hF = 17;
+    rect(doc, X, y, wI, 26); rect(doc, X + wI, y, wG, 26);
+    textoEnCaja(doc, X, y, wI, 26, 'Índice = Caudal menor obtenido / Caudal mayor obtenido', { size: 8.5, bold: true });
+    textoEnCaja(doc, X + wI, y, wG, 26, 'Grado Correlación', { size: 8.5, bold: true });
+    y += 26;
+    for (const [rango, grado] of [['1', 'Perfecto'], ['0.90 a 0.99', 'Excelente'], ['0.80 a 0.89', 'Buena'], ['0.50 a 0.79', 'Regular'], ['< a 0.50', 'Mala']]) {
+        const marcado = d.grado === grado;
+        if (marcado) doc.save().rect(X, y, W, hF).fill('#e5e7eb').restore();
+        rect(doc, X, y, wI, hF); rect(doc, X + wI, y, wG, hF);
+        textoEnCaja(doc, X, y, wI, hF, rango, { size: 8.5, bold: marcado });
+        textoEnCaja(doc, X + wI, y, wG, hF, marcado ? `${grado} (obtenido)` : grado, { size: 8.5, bold: marcado });
+        y += hF;
+    }
+    rect(doc, X, y, W, hF);
+    textoEnCaja(doc, X, y, W, hF, 'Se acepta un índice > a 0.90 (10% de desviación)', { size: 8.5, oblique: true });
+    y += hF + 16;
+
+    // Verificación Caudal Semestral (+/- 10%).
+    const h = 20;
+    rect(doc, X, y, W, h);
+    textoEnCaja(doc, X, y, W, h, 'Verificación Caudal Semestral (+/- 10%)', { size: 9, bold: true });
+    y += h;
+    const fila2 = (a, va, b, vb) => {
+        rect(doc, X, y, W / 2, h); rect(doc, X + W / 2, y, W / 2, h);
+        textoEnCaja(doc, X, y, W / 2, h, `${a} ${va || ''}`, { size: 8.5, align: 'left' });
+        textoEnCaja(doc, X + W / 2, y, W / 2, h, `${b} ${vb || ''}`, { size: 8.5, align: 'left' });
+        y += h;
+    };
+    const fila1 = (a, va) => {
+        rect(doc, X, y, W, h);
+        textoEnCaja(doc, X, y, W, h, `${a} ${va || ''}`, { size: 8.5, align: 'left' });
+        y += h;
+    };
+    fila2('Fecha Verificación :', fechaCorta(d.fecha_verificacion, '/'), 'Fecha Próxima Verificación:', fechaCorta(d.fecha_proxima, '/'));
+    fila1('Caudal referencia :', d.caudal_referencia !== null && d.caudal_referencia !== undefined && d.caudal_referencia !== '' ? `${numero(d.caudal_referencia, 4)} ${unidad}` : '');
+    fila1('Equipo referencia :', texto(d.equipo_referencia));
+
+    // Caudal equipo: una casilla por lectura (10, como el formulario).
+    const lect = Array.isArray(d.lecturas) ? d.lecturas : [];
+    const wEt = W * 0.2;
+    const wC = (W - wEt) / 10;
+    rect(doc, X, y, wEt, h * 1.4);
+    textoEnCaja(doc, X, y, wEt, h * 1.4, `Caudal equipo${unidad ? `\n(${unidad})` : ''}`, { size: 8, bold: true });
+    for (let i = 0; i < 10; i++) {
+        rect(doc, X + wEt + wC * i, y, wC, h * 1.4);
+        textoEnCaja(doc, X + wEt + wC * i, y, wC, h * 1.4, lect[i] !== undefined ? numero(lect[i], 3) : '', { size: 8, pad: 1 });
+    }
+    y += h * 1.4;
+    fila2('Caudal promedio :', d.caudal_promedio !== null && d.caudal_promedio !== undefined ? `${numero(d.caudal_promedio, 3)} ${unidad}` : '',
+        '% Desviación:', d.desviacion_pct !== null && d.desviacion_pct !== undefined ? `${numero(d.desviacion_pct, 2)} %` : '');
+    fila2('Índice :', d.indice !== null && d.indice !== undefined ? numero(d.indice, 3) : '',
+        'Resultado:', d.cumple === true ? `Cumple (${d.grado})` : d.cumple === false ? `No cumple (${d.grado})` : '');
+    y += 12;
+
+    // Observación.
+    if (texto(d.observacion)) {
+        doc.font('Helvetica').fontSize(8.5);
+        const alto = Math.max(34, doc.heightOfString(texto(d.observacion), { width: W - 10 }) + 18);
+        rect(doc, X, y, W, alto);
+        textoEnCaja(doc, X, y, W, 14, 'Observación', { size: 8.5, bold: true, align: 'left', valign: 'top' });
+        doc.font('Helvetica').fontSize(8.5).text(texto(d.observacion), X + 5, y + 16, { width: W - 10 });
+        y += alto + 12;
+    }
+
+    // V°B°.
+    const yFirma = Math.max(y + 10, doc.page.height - 190);
+    dibujarFirma(doc, imagenFirma(d.firma_vobo), X + W * 0.1, yFirma, W * 0.4, 50);
+    doc.font('Helvetica').fontSize(9).fillColor(NEGRO).text('V°B°_______________________', X, yFirma + 52, { width: W * 0.6, align: 'left' });
+    if (texto(d.nombre_vobo)) doc.fontSize(8).text(texto(d.nombre_vobo), X + 28, yFirma + 66, { width: W * 0.55 });
+
+    pie(doc, 'caudal');
     doc.end();
     return listo;
 };

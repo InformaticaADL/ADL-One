@@ -22,6 +22,7 @@ import { useAccionesVerifTemp } from './useAccionesVerifTemp';
 
 // Máxima división del termómetro verificado y del patrón: siempre 5 (el backend la fija igual).
 const MAXIMA_DIVISION_FIJA = '5';
+const INTERVALO_FIJO = '1 Minuto';
 
 type Rango = '0' | '15' | '30';
 type FilaTexto = { tp: string; tc: string; hora: string };
@@ -33,7 +34,7 @@ const CAMPOS_PATRON: { campo: CampoPatron; label: string; tipo?: 'date'; placeho
     { campo: 'patron_modelo', label: 'Modelo' },
     { campo: 'patron_serie', label: 'N° Serie' },
     { campo: 'patron_identificacion', label: 'Identificación especial' },
-    { campo: 'patron_intervalo', label: 'Intervalo Indicación', placeholder: 'Ej: -50 a 150 °C' },
+    { campo: 'patron_intervalo', label: 'Intervalo Indicación', fijo: INTERVALO_FIJO },
     { campo: 'patron_fecha_calibracion', label: 'Fecha Calibración', tipo: 'date' },
     { campo: 'patron_empresa', label: 'Empresa' },
     { campo: 'patron_maxima_division', label: 'Máxima división', fijo: MAXIMA_DIVISION_FIJA },
@@ -473,7 +474,8 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                                                         className="h-8 text-sm"
                                                         value={antecedentes[campo]}
                                                         placeholder={editable && puede.patron ? placeholder : undefined}
-                                                        disabled={!editable || !puede.patron}
+                                                        // Lo que el patrón ya trae es fijo: solo se completa lo que falta.
+                                                        disabled={!editable || !puede.patron || !!patrones.find((p) => String(p.id_equipo) === idPatron)?.antecedentes?.[campo]}
                                                         max={tipo === 'date' ? hoyYmd() : undefined}
                                                         onChange={(e) => { setAntecedentes((prev) => ({ ...prev, [campo]: e.target.value })); marcar(); }}
                                                     />

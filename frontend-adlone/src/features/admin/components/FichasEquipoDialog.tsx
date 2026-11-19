@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle, IconDeviceMobile } from '@tabler/icons-react';
+import { formatearFechaHoraCorta } from '@/lib/fechas';
+import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle, IconDeviceMobile, IconSend } from '@tabler/icons-react';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
+import { PuestasMarchaEquipo } from './PuestasMarchaEquipo';
 import { CampoFirma, type CampoFirmaHandle } from './CampoFirma';
 import { FirmaCelularDialog, type SlotFirma } from './FirmaCelularDialog';
+import { fichaFirmaService } from '../services/fichaFirma.service';
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectGroup } from '@/components/ui/select';
 import { firmaUsuarioService } from '../../../services/firmaUsuario.service';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
@@ -29,6 +32,7 @@ import {
     type PdfGenerado,
     type RegistroFichaTecnica,
     type FichaGuardada,
+    type ResponsableEntrega,
 } from '../services/fichasEquipo.service';
 
 export type TipoFichaEquipo = 'tecnica' | 'historial' | 'entrega' | 'recepcion';
@@ -110,8 +114,9 @@ const aplicarEvento = (d: DatosFichaRecepcion, ev: EventoRecepcion | null, quien
         interruptor: marcha('interruptor'),
         comandos: marcha('comandos'),
         encendido: marcha('encendido'),
-        estado_recepcion: ev && (ev.recepcion || ev.puesta_marcha) ? (ev.falla ? 'Con observaciones (ver abajo)' : 'Conforme') : '',
-        funcionamiento: ev?.funcionamiento || '',
+        estado_recepcion: ev && (ev.recepcion || ev.puesta_marcha) ? (ev.falla ? 'No Cumple' : 'Cumple') : '',
+        // Si la recepción cumple, el equipo queda operativo (se puede cambiar).
+        funcionamiento: ev && (ev.recepcion || ev.puesta_marcha) ? (ev.falla ? 'No Operativo' : 'Operativo') : '',
         patron_referencia: ev?.patron_referencia || '',
         observaciones: ev?.texto || '',
         firma_recepcion: ev?.firmante || quienRecibe,
@@ -168,10 +173,8 @@ const leerBorrador = (clave: string) => {
 const escribirBorrador = (clave: string, valor: string | null) => {
     try { if (valor === null) localStorage.removeItem(clave); else localStorage.setItem(clave, valor); } catch { /* sin almacenamiento */ }
 };
-const fechaHora = (v: string) => {
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? v : d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-};
+// Hora guardada por la base (hora local de Chile): se muestra tal cual, sin convertir de zona.
+const fechaHora = (v: string) => formatearFechaHoraCorta(v);
 
 const pesos = (v?: number | string | null) => {
     const n = Number(v);
@@ -202,12 +205,40 @@ const entregaDesdeEquipo = (e: Partial<Equipo>, responsableEntrega: string): Dat
     fecha_entrega: hoy(),
 });
 
+// «Se registra» se marca solo a medida que se llenan los datos de cada parte (nunca se desmarca solo).
+const ITEMS_DE_RECEPCION: ItemRecepcion[] = ['caja', 'embalaje', 'manual', 'cable', 'accesorios'];
+const ITEMS_DE_PUESTA: ItemRecepcion[] = ['interruptor', 'comandos', 'encendido'];
+const conRegistro = (r: DatosFichaRecepcion): DatosFichaRecepcion => ({
+    ...r,
+    recepcion: r.recepcion || ITEMS_DE_RECEPCION.some((c) => !!r[c]) || !!r.estado_recepcion,
+    puesta_marcha: r.puesta_marcha || ITEMS_DE_PUESTA.some((c) => !!r[c]),
+    verificacion: r.verificacion || !!r.funcionamiento || !!r.patron_referencia.trim(),
+});
+const BUFFERS_PATRON = ['Buffer 4.0', 'Buffer 7.0', 'Buffer 10.0'];
+
 const Campo: React.FC<{ label: string; className?: string; children: React.ReactNode; ayuda?: string }> = ({ label, className, children, ayuda }) => (
     <label className={cn('flex flex-col gap-1.5', className)}>
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         {children}
         {ayuda && <span className="text-[11px] text-muted-foreground">{ayuda}</span>}
     </label>
+);
+
+// Lista para elegir quién es responsable de entrega o de área: solo las personas registradas del área.
+const ListaResponsables: React.FC<{ label: string; valor: string; lista: ResponsableEntrega[]; onCambio: (nombre: string) => void }> = ({ label, valor, lista, onCambio }) => (
+    <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-muted-foreground">{label}</span>
+        <Select value={valor || undefined} onValueChange={onCambio}>
+            <SelectTrigger><SelectValue placeholder="Seleccione la persona" /></SelectTrigger>
+            <SelectContent>
+                {lista.map((r) => (
+                    <SelectItem key={r.id_usuario} value={r.nombre}>
+                        {r.nombre}{r.cargo ? ` · ${r.cargo}` : ''}{r.tiene_firma ? ' · con firma registrada' : ''}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    </div>
 );
 
 /**
@@ -254,8 +285,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     // Firmar con el celular (QR): cada campo de firma se registra acá para poder ponerle la firma que llega.
     const firmaRefs = useRef<Record<string, CampoFirmaHandle | null>>({});
     const [celularAbierto, setCelularAbierto] = useState(false);
+    // Enviar la ficha de entrega a firmar: primero se revisa y se confirma.
+    const [envioAbierto, setEnvioAbierto] = useState(false);
+    const [revisada, setRevisada] = useState(false);
+    const [enviando, setEnviando] = useState(false);
     // Entrega
     const [entrega, setEntrega] = useState<DatosFichaEntrega | null>(null);
+    // Quiénes pueden ser responsable de entrega y responsable de área (usuarios registrados de la web).
+    const [responsablesEnt, setResponsablesEnt] = useState<ResponsableEntrega[]>([]);
     // Recepción
     const [recepcion, setRecepcion] = useState<DatosFichaRecepcion | null>(null);
 
@@ -315,8 +352,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         const r = await equipoService.getEquipoById(idEquipo);
                         base = { ...(equipo || {}), ...(r?.data || {}) };
                     }
+                    // Responsable de entrega y de área: solo las personas de la lista (si quien llena es una de ellas, parte como entrega).
+                    let lista: ResponsableEntrega[] = [];
+                    try { lista = await api.responsablesEntrega(); } catch { /* sin lista: quedan los campos de texto */ }
                     if (!vigente) return;
-                    setEntrega(entregaDesdeEquipo(base, user?.name || ''));
+                    setResponsablesEnt(lista);
+                    const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+                    const yo = lista.find((r) => sinTildes(r.nombre) === sinTildes(user?.name || ''));
+                    setEntrega(entregaDesdeEquipo(base, lista.length ? (yo?.nombre ?? '') : (user?.name || '')));
                     try {
                         const f = await firmaUsuarioService.obtener();
                         if (vigente) {
@@ -462,6 +505,33 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         firma_area: firmasEntrega.area,
     });
 
+    // Enviar la ficha de entrega a firmar: responsable de entrega y de área firman desde Solicitudes > Firmas pendientes.
+    const firmanteEntrega = entrega ? responsablesEnt.find((r) => r.nombre === entrega.responsable_entrega) : undefined;
+    const firmanteArea = entrega ? responsablesEnt.find((r) => r.nombre === entrega.responsable_area) : undefined;
+    // Pueden ser la misma persona: firma una sola vez y vale para los dos cargos.
+    const puedeEnviarAFirma = tipo === 'entrega' && puedeGenerar && !!firmanteEntrega && !!firmanteArea;
+    const enviarAFirma = async () => {
+        if (!entrega || !firmanteEntrega || !firmanteArea) return;
+        setEnviando(true);
+        try {
+            await fichaFirmaService.crear({
+                ...entrega,
+                id_equipo: idEquipo ?? null,
+                // La firma de quien recibe puede venir hecha; las de entrega y de área las hacen sus responsables.
+                firma_equipo: firmasEntrega.equipo,
+                id_firmante_entrega: firmanteEntrega.id_usuario,
+                id_firmante_area: firmanteArea.id_usuario,
+            });
+            showToast({ type: 'success', message: firmanteEntrega.id_usuario === firmanteArea.id_usuario ? `Ficha enviada a firmar a ${firmanteEntrega.nombre}` : `Ficha enviada a firmar a ${firmanteEntrega.nombre} y ${firmanteArea.nombre}` });
+            setEnvioAbierto(false);
+            onClose();
+        } catch (e) {
+            showToast({ type: 'error', message: (e as { response?: { data?: { message?: string } } })?.response?.data?.message || 'No se pudo enviar la ficha a firmar' });
+        } finally {
+            setEnviando(false);
+        }
+    };
+
     const cuerpoRecepcion = () => (!recepcion ? null : {
         ...recepcion,
         imagen_firma_recepcion: firmasRecepcion.usarMiFirma ? null : firmasRecepcion.recepcion,
@@ -489,7 +559,9 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         const cuerpo = tipo === 'historial' ? { anio } : tipo === 'tecnica' ? cuerpoTecnica() : tipo === 'entrega' ? cuerpoEntrega() : cuerpoRecepcion();
         if (!cuerpo) return;
         setGuardando(true);
-        if (!confirmado && idEquipo) {
+        // Un equipo puede tener varias recepciones o puestas en marcha en el año: no se pide reemplazar la anterior.
+        // Ficha técnica: tras un cambio de sede u otra actualización se conserva la anterior y la nueva pasa a ser la «actual».
+        if (!confirmado && idEquipo && tipo !== 'recepcion' && tipo !== 'tecnica') {
             try {
                 const previa = await api.guardadaVigente(idEquipo, tipo, tipo === 'historial' ? anio : new Date().getFullYear());
                 if (previa) { setDuplicada(previa); setGuardando(false); return; }
@@ -706,7 +778,18 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         return nueva;
     }));
     const setR = <K extends keyof DatosFichaRecepcion>(campo: K, valor: DatosFichaRecepcion[K]) =>
-        setRecepcion((prev) => (prev ? { ...prev, [campo]: valor } : prev));
+        setRecepcion((prev) => {
+            if (!prev) return prev;
+            const nuevo = { ...prev, [campo]: valor };
+            // Quien marca o desmarca «Se registra» a mano manda sobre el automático.
+            return campo === 'recepcion' || campo === 'puesta_marcha' || campo === 'verificacion' ? nuevo : conRegistro(nuevo);
+        });
+    // Recepción Cumple / No Cumple; el funcionamiento sale de ahí (Operativo / No Operativo) y se puede cambiar.
+    const elegirEstadoRecepcion = (v: 'Cumple' | 'No Cumple') => setRecepcion((prev) => {
+        if (!prev) return prev;
+        const quita = prev.estado_recepcion === v;
+        return conRegistro({ ...prev, estado_recepcion: quita ? '' : v, funcionamiento: quita ? '' : (v === 'Cumple' ? 'Operativo' : 'No Operativo') });
+    });
     const setRTexto = (campo: keyof DatosFichaRecepcion) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
         setR(campo, e.target.value);
     // Marca la primera opción ("Sin problema", "Cumple", "Con Manual", "Sí", "Bueno"…)
@@ -717,8 +800,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         for (const clave of Object.keys(ITEMS_RECEPCION) as ItemRecepcion[]) {
             if (!r[clave]) r[clave] = ITEMS_RECEPCION[clave][0];
         }
-        if ((r.recepcion || r.puesta_marcha) && !r.estado_recepcion) r.estado_recepcion = 'Conforme';
-        return r;
+        if (!r.estado_recepcion) { r.estado_recepcion = 'Cumple'; if (!r.funcionamiento) r.funcionamiento = 'Operativo'; }
+        return conRegistro(r);
     });
 
     return (
@@ -752,10 +835,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                 </button>
                                 {verGuardadas && (
                                     <div className="max-h-[180px] divide-y divide-border overflow-y-auto border-t border-border">
-                                        {guardadas.map((f) => (
+                                        {guardadas.map((f, i) => (
                                             <div key={f.id_ficha} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
                                                 <span className="min-w-0 truncate">
+                                                    {tipo === 'tecnica' && (i === 0
+                                                        ? <Badge variant="success" className="mr-1.5">Ficha actual</Badge>
+                                                        : <Badge variant="outline" className="mr-1.5">Anterior</Badge>)}
                                                     {fechaHora(f.fecha_creacion)}{f.anio ? ` · año ${f.anio}` : ''}
+                                                    {f.codigo_equipo && <span className="text-muted-foreground"> · {f.codigo_equipo}</span>}
                                                     <span className="text-muted-foreground"> · {f.nombre_usuario || '—'}</span>
                                                 </span>
                                                 <span className="flex shrink-0 items-center gap-0.5">
@@ -1023,8 +1110,17 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     <Textarea rows={3} value={entrega.observaciones} onChange={setE('observaciones')} placeholder="Ej.: Se envía en reemplazo de… / Equipo va sin pilas." />
                                 </Campo>
                                 <div className="grid gap-3 sm:grid-cols-3">
-                                    <Campo label="Responsable de entrega"><Input value={entrega.responsable_entrega} onChange={setE('responsable_entrega')} /></Campo>
-                                    <Campo label="Responsable de área"><Input value={entrega.responsable_area} onChange={setE('responsable_area')} /></Campo>
+                                    {responsablesEnt.length > 0 ? (
+                                        <>
+                                            <ListaResponsables label="Responsable de entrega" valor={entrega.responsable_entrega} lista={responsablesEnt} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_entrega: v } : p))} />
+                                            <ListaResponsables label="Responsable de área" valor={entrega.responsable_area} lista={responsablesEnt} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_area: v } : p))} />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Campo label="Responsable de entrega"><Input value={entrega.responsable_entrega} onChange={setE('responsable_entrega')} /></Campo>
+                                            <Campo label="Responsable de área"><Input value={entrega.responsable_area} onChange={setE('responsable_area')} /></Campo>
+                                        </>
+                                    )}
                                     <Campo label="Fecha de entrega"><Input type="date" value={entrega.fecha_entrega} onChange={setE('fecha_entrega')} /></Campo>
                                 </div>
                                 <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
@@ -1065,6 +1161,11 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         {/* ── Recepción, puesta en marcha y verificación ────── */}
                         {!cargando && tipo === 'recepcion' && recepcion && (
                             <div className="flex flex-col gap-4">
+                                <p className="flex items-start gap-1.5 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs">
+                                    <IconInfoCircle size={14} className="mt-px shrink-0" />
+                                    Formulario libre: no crea una puesta en marcha ni escribe en el historial del equipo. Para registrarla con la validación de Área Técnica y Gestión de Calidad use «Puesta en Marcha» (G. Calidad o el menú del equipo en el inventario).
+                                </p>
+                                {!!idEquipo && <PuestasMarchaEquipo idEquipo={idEquipo} />}
                                 <div className="grid gap-3 sm:grid-cols-3">
                                     <Campo label="Equipo"><Input value={recepcion.nombre} onChange={setRTexto('nombre')} /></Campo>
                                     <Campo label="Código interno"><Input value={recepcion.codigo} onChange={setRTexto('codigo')} /></Campo>
@@ -1126,15 +1227,42 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                                 <div className="px-3 py-2"><Campo label="Otros"><Input value={recepcion.otros} onChange={setRTexto('otros')} placeholder="Ej.: maletín, sonda, pilas" /></Campo></div>
                                             )}
                                             {s.items[0].clave === 'interruptor' && (
-                                                <div className="px-3 py-2"><Campo label="Estado recepción"><Textarea rows={2} value={recepcion.estado_recepcion} onChange={setRTexto('estado_recepcion')} /></Campo></div>
+                                                <div className="flex flex-col gap-1.5 px-3 py-2">
+                                                    <span className="text-xs font-medium text-muted-foreground">Estado recepción</span>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {(['Cumple', 'No Cumple'] as const).map((op) => (
+                                                            <button key={op} type="button" aria-pressed={recepcion.estado_recepcion === op} onClick={() => elegirEstadoRecepcion(op)}
+                                                                className={cn('min-w-[88px] rounded-md border px-2.5 py-1 text-xs transition-colors', recepcion.estado_recepcion === op ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted')}>
+                                                                {op}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                             )}
                                         </div>
                                     </div>
                                 ))}
 
                                 <div className="grid gap-3 sm:grid-cols-2">
-                                    <Campo label="Verificación · Funcionamiento"><Input value={recepcion.funcionamiento} onChange={setRTexto('funcionamiento')} /></Campo>
-                                    <Campo label="Verificación · Con patrón de referencia"><Input value={recepcion.patron_referencia} onChange={setRTexto('patron_referencia')} /></Campo>
+                                    <Campo label="Verificación · Funcionamiento" ayuda="Si la recepción cumple, queda Operativo automáticamente.">
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {(['Operativo', 'No Operativo'] as const).map((op) => (
+                                                <button key={op} type="button" aria-pressed={recepcion.funcionamiento === op} onClick={() => setR('funcionamiento', recepcion.funcionamiento === op ? '' : op)}
+                                                    className={cn('min-w-[100px] rounded-md border px-2.5 py-1.5 text-xs transition-colors', recepcion.funcionamiento === op ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-card hover:bg-muted')}>
+                                                    {op}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </Campo>
+                                    <Campo label="Verificación · Con patrón de referencia" ayuda="Cite el equipo (tipo y código) o, si es buffer, cuál se usó.">
+                                        <Input value={recepcion.patron_referencia} onChange={setRTexto('patron_referencia')} />
+                                        <span className="flex flex-wrap gap-1">
+                                            {BUFFERS_PATRON.map((b) => (
+                                                <button key={b} type="button" onClick={() => setR('patron_referencia', recepcion.patron_referencia.includes(b) ? recepcion.patron_referencia : [recepcion.patron_referencia.trim(), b].filter(Boolean).join(' / '))}
+                                                    className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted">{b}</button>
+                                            ))}
+                                        </span>
+                                    </Campo>
                                 </div>
                                 <Campo label="Observaciones">
                                     <Textarea rows={3} value={recepcion.observaciones} onChange={setRTexto('observaciones')} />
@@ -1188,6 +1316,12 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         <Button variant="outline" disabled={!puedeGenerar || !!generando} onClick={() => accion('ver')}>
                             <IconEye size={16} /> {generando === 'ver' ? 'Generando…' : 'Vista previa'}
                         </Button>
+                        {tipo === 'entrega' && responsablesEnt.length > 0 && (
+                            <Button variant="secondary" disabled={!puedeEnviarAFirma || !!generando} onClick={() => { setRevisada(false); setEnvioAbierto(true); }}
+                                title={!puedeEnviarAFirma ? 'Elija el responsable de entrega y el responsable de área' : undefined}>
+                                <IconSend size={16} /> Enviar a firma
+                            </Button>
+                        )}
                         {guardada ? (
                             <span className="flex items-center gap-1.5 px-2 text-sm font-medium text-emerald-700 dark:text-emerald-400">
                                 <IconCircleCheck size={16} /> Ficha guardada
@@ -1245,6 +1379,45 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         <Button variant="destructive" onClick={anularGuardada} disabled={!motivoAnular.trim() || anulando}>
                             <IconBan size={15} /> {anulando ? 'Anulando…' : 'Anular ficha'}
                         </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Revisar y enviar la ficha de entrega a firmar */}
+            <Dialog open={envioAbierto} onOpenChange={(o) => { if (!o && !enviando) setEnvioAbierto(false); }}>
+                <DialogContent className="max-w-lg grid-cols-[minmax(0,1fr)] gap-4">
+                    <DialogHeader>
+                        <DialogTitle>Revisar y enviar a firma</DialogTitle>
+                        <DialogDescription>Antes de enviarla, revise que todo esté bien: después la firman sus responsables y queda guardada.</DialogDescription>
+                    </DialogHeader>
+                    {entrega && (
+                        <dl className="grid gap-2 rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                            <div><dt className="text-[11px] text-muted-foreground">Equipo</dt><dd className="font-medium">{entrega.codigo} · {entrega.nombre}</dd></div>
+                            <div><dt className="text-[11px] text-muted-foreground">Recibe el equipo</dt><dd>{entrega.responsable_equipo || '—'}</dd></div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <div><dt className="text-[11px] text-muted-foreground">Firma como responsable de entrega</dt><dd className="font-medium">{firmanteEntrega?.nombre}{firmanteEntrega?.cargo ? ` · ${firmanteEntrega.cargo}` : ''}</dd></div>
+                                <div><dt className="text-[11px] text-muted-foreground">Firma como responsable de área</dt><dd className="font-medium">{firmanteArea?.nombre}{firmanteArea?.cargo ? ` · ${firmanteArea.cargo}` : ''}</dd></div>
+                            </div>
+                            <div className="grid gap-2 sm:grid-cols-2">
+                                <div><dt className="text-[11px] text-muted-foreground">Fecha de entrega</dt><dd>{entrega.fecha_entrega || '—'}</dd></div>
+                                <div><dt className="text-[11px] text-muted-foreground">Observaciones</dt><dd className="line-clamp-2">{entrega.observaciones || '—'}</dd></div>
+                            </div>
+                        </dl>
+                    )}
+                    <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => accion('ver')} disabled={!!generando}>
+                        <IconEye size={15} /> {generando === 'ver' ? 'Generando…' : 'Ver la ficha antes de enviarla'}
+                    </Button>
+                    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <IconInfoCircle size={14} className="mt-px shrink-0" />
+                        A cada uno le llega una solicitud de firma (Solicitudes &gt; Firmas pendientes) y un aviso. Podrán firmar en pantalla, con su firma registrada o con el celular. Cuando firmen todos se guarda la ficha y le avisamos.
+                    </p>
+                    <label className="flex cursor-pointer items-center gap-2 text-sm">
+                        <Checkbox checked={revisada} onCheckedChange={(v) => setRevisada(v === true)} />
+                        Revisé la ficha y está todo bien
+                    </label>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setEnvioAbierto(false)} disabled={enviando}>Volver a revisar</Button>
+                        <Button onClick={enviarAFirma} disabled={!revisada || enviando}><IconSend size={16} /> {enviando ? 'Enviando…' : 'Enviar a firma'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

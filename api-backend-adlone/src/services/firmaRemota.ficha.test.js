@@ -44,3 +44,20 @@ test('solo quien generó el QR ve las firmas, y la sesión de ficha no sirve a l
     assert.throws(() => firmaRemotaService.info(s.token), (e) => e.statusCode === 410);
     assert.throws(() => firmaRemotaService.recibirFirma(s.token, PNG), (e) => e.statusCode === 410);
 });
+
+test('las firmas ya hechas en la web quedan bloqueadas (en gris) y no se pueden repetir desde el celular', async () => {
+    const s = await nueva({ slots: [
+        { id: 'firma', titulo: 'Responsable de entrega', firmada: true },
+        { id: 'equipo', titulo: 'Responsable del equipo (recibe)' },
+    ] });
+    const info = firmaRemotaService.infoFicha(s.token);
+    assert.deepEqual(info.slots.map((x) => [x.id, x.firmada, x.bloqueada]), [['firma', true, true], ['equipo', false, false]]);
+    assert.throws(() => firmaRemotaService.recibirFirmaFicha(s.token, 'firma', PNG), (e) => e.statusCode === 409);
+    assert.equal(firmaRemotaService.estadoFicha(s.token, 7).estado, 'pendiente');
+    firmaRemotaService.recibirFirmaFicha(s.token, 'equipo', PNG);
+    assert.equal(firmaRemotaService.estadoFicha(s.token, 7).estado, 'completo');
+});
+
+test('una sesión con todas las firmas bloqueadas no tiene nada que pedir', async () => {
+    await assert.rejects(() => nueva({ slots: [{ id: 'firma', titulo: 'Responsable de entrega', firmada: true }] }), (e) => e.statusCode === 400);
+});

@@ -48,6 +48,10 @@ import verificadorSolicitudesRoutes from './routes/verificadorSolicitudes.routes
 import solicitudesClientesRoutes from './routes/solicitudesClientes.routes.js';
 import verificacionTemperaturaRoutes from './routes/verificacionTemperatura.routes.js';
 import firmaRemotaRoutes from './routes/firmaRemota.routes.js';
+import fichaFirmaRoutes from './routes/fichaFirma.routes.js';
+import revisionDocumentalRoutes from './routes/revisionDocumental.routes.js';
+import puestaMarchaRoutes from './routes/puestaMarcha.routes.js';
+import verificacionCaudalRoutes from './routes/verificacionCaudal.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -241,6 +245,10 @@ app.use(auditMiddleware);
 // Routes
 app.use('/api/health', healthRoutes);
 app.use('/api/catalogos', catalogosRoutes);
+app.use('/api/verificaciones-caudal', verificacionCaudalRoutes); // verificación intermedia sonda caudal (OI-FoGe-30)
+app.use('/api/puestas-marcha', puestaMarchaRoutes); // puestas en marcha de equipos (OI-FoGe-42)
+app.use('/api/revision-documental', revisionDocumentalRoutes); // fechas de revisión documental de los formularios
+app.use('/api/firmas-fichas', fichaFirmaRoutes); // fichas de equipo enviadas a firmar (Solicitudes > Firmas pendientes)
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/analysis', kpiAnalystRoutes);
 app.use('/api/fichas', bulkFichaRoutes); // Must be BEFORE fichaRoutes (/:id would swallow /bulk-*)

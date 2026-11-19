@@ -63,10 +63,12 @@ const MAX_FIRMA = 900_000;
 const firmaRemotaService = {
     async crearFicha({ titulo, subtitulo, slots, idUsuario, url }) {
         limpiarVencidas();
+        // Las firmas que ya están hechas en la web (dibujadas o importadas) van en la lista pero bloqueadas: el celular las
+        // muestra en gris y no deja volver a firmarlas.
         const lista = (Array.isArray(slots) ? slots : [])
-            .map((x) => ({ id: String(x?.id ?? '').slice(0, 40), titulo: String(x?.titulo ?? '').slice(0, 120), nombre: x?.nombre ? String(x.nombre).slice(0, 120) : null, firma: null }))
+            .map((x) => ({ id: String(x?.id ?? '').slice(0, 40), titulo: String(x?.titulo ?? '').slice(0, 120), nombre: x?.nombre ? String(x.nombre).slice(0, 120) : null, firma: null, bloqueada: !!x?.firmada }))
             .filter((x) => x.id && x.titulo);
-        if (!lista.length) throw error('No hay firmas pendientes para pedir al celular.', 400);
+        if (!lista.some((x) => !x.bloqueada)) throw error('No hay firmas pendientes para pedir al celular.', 400);
         if (new Set(lista.map((x) => x.id)).size !== lista.length) throw error('Firmas repetidas', 400);
         const token = crypto.randomBytes(32).toString('hex');
         const enlace = url ? url(token) : `/firma/${token}`;
@@ -88,7 +90,7 @@ const firmaRemotaService = {
     infoFicha(token) {
         const s = vigente(token);
         if (s.tipo !== 'FICHA') throw error(ENLACE_INVALIDO, 410);
-        return { tipo: 'FICHA', titulo: s.titulo, subtitulo: s.subtitulo, slots: s.slots.map((x) => ({ id: x.id, titulo: x.titulo, nombre: x.nombre, firmada: !!x.firma })) };
+        return { tipo: 'FICHA', titulo: s.titulo, subtitulo: s.subtitulo, slots: s.slots.map((x) => ({ id: x.id, titulo: x.titulo, nombre: x.nombre, firmada: !!x.firma || x.bloqueada, bloqueada: x.bloqueada })) };
     },
 
     // Celular: una firma de la ficha. Se puede volver a firmar mientras el enlace viva (corrige un error).
@@ -97,6 +99,7 @@ const firmaRemotaService = {
         if (s.tipo !== 'FICHA') throw error(ENLACE_INVALIDO, 410);
         const slot = s.slots.find((x) => x.id === String(slotId));
         if (!slot) throw error('Esa firma no corresponde a esta ficha.', 404);
+        if (slot.bloqueada) throw error('Esa firma ya está hecha en la ficha.', 409);
         const f = String(firma || '');
         if (!/^data:image\/png;base64,/.test(f)) throw error('Firma inválida', 400);
         if (f.length > MAX_FIRMA) throw error('La imagen de la firma es demasiado grande', 400);
@@ -111,9 +114,9 @@ const firmaRemotaService = {
         if (s.expira < Date.now()) { sesiones.delete(token); throw error('El código QR venció. Genere uno nuevo.', 410); }
         if (s.idUsuario && idUsuario && Number(s.idUsuario) !== Number(idUsuario)) throw error('Este código QR lo generó otra persona.', 403);
         return {
-            estado: s.slots.every((x) => x.firma) ? 'completo' : 'pendiente',
+            estado: s.slots.every((x) => x.firma || x.bloqueada) ? 'completo' : 'pendiente',
             expira: new Date(s.expira).toISOString(),
-            slots: s.slots.map((x) => ({ id: x.id, firmada: !!x.firma, firma: x.firma })),
+            slots: s.slots.map((x) => ({ id: x.id, firmada: !!x.firma || x.bloqueada, firma: x.firma })),
         };
     },
 

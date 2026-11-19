@@ -100,14 +100,14 @@ export const generarPdfVerificacion = (v) => new Promise((resolve, reject) => {
             celda(doc, xC, y, C + D + E + F, hH, 'FOMULARIO\nGENERAL DE GESTIÓN', { bold: true, size: 10.5 });
             celda(doc, xG, y, G, 26, 'Área\nGestión de\nCalidad', { size: 6, align: 'left' });
             celda(doc, xH, y, H, 26, 'Unidad\nNo Aplica', { size: 6, align: 'left' });
-            celda(doc, xG, y + 26, G + H, 18, 'Versión 03', { bold: true, size: 8.5 });
-            celda(doc, xG, y + 44, G, hH - 44, 'Fecha Vigencia\n20/06/2016', { size: 6 });
-            celda(doc, xH, y + 44, H, hH - 44, 'Fecha Revisión\n26/10/2026', { size: 6 });
+            celda(doc, xG, y + 26, G + H, 18, v.encabezado?.version || 'Versión 03', { bold: true, size: 8.5 });
+            celda(doc, xG, y + 44, G, hH - 44, `Fecha Vigencia\n${v.encabezado?.vigencia || '20/06/2016'}`, { size: 6 });
+            celda(doc, xH, y + 44, H, hH - 44, `Fecha Revisión\n${v.encabezado?.revision || '12/01/2026'}`, { size: 6 });
             y += hH;
             // B7:H8 — "CODIGO:" a la izquierda y el nombre del formulario a la derecha.
             celda(doc, xB, y, W, 22, '');
             doc.font('Helvetica-Bold').fontSize(9.5).text('CODIGO:', xB, y + 7, { width: B + C, align: 'center', lineBreak: false });
-            doc.font('Helvetica').fontSize(9.5).text('OI-FoGe-39 (Verificación Intermedia de Temperatura)', xD, y + 7, { width: W - B - C, align: 'center', lineBreak: false });
+            doc.font('Helvetica').fontSize(9.5).text(`OI-FoGe-39 (${v.encabezado?.nombre || 'Verificación Intermedia de Temperatura'})`, xD, y + 7, { width: W - B - C, align: 'center', lineBreak: false });
             y += 22 + 6;
             doc.save().lineWidth(0.7).moveTo(xB, y).lineTo(xB + W, y).stroke().restore();
             y += 5;

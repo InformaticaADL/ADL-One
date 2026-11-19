@@ -34,6 +34,10 @@ const equipoDelCuerpo = async (body = {}) => {
 };
 
 export const fichasEquipoController = {
+    responsablesEntrega: manejar(async (req, res) => {
+        successResponse(res, await fichasEquipoService.responsablesEntrega(), 'Responsables de la ficha de entrega');
+    }, 'Error al leer los responsables de la ficha de entrega'),
+
     // ── Firmas de las fichas: importar una registrada o pedirla al celular (QR) ──
     firmasRegistradas: manejar(async (req, res) => {
         successResponse(res, await firmaDigitalService.listarRegistradas(), 'Firmas registradas');
@@ -124,7 +128,7 @@ export const fichasEquipoController = {
     }, 'Error al guardar el formulario de recepción'),
 
     guardadasListar: manejar(async (req, res) => {
-        const tipo = ['tecnica', 'historial', 'entrega', 'recepcion'].includes(req.query.tipo) ? req.query.tipo : null;
+        const tipo = ['tecnica', 'historial', 'entrega', 'recepcion', 'caudal'].includes(req.query.tipo) ? req.query.tipo : null;
         successResponse(res, await gcDocumentosService.listarFichasEquipo(req.params.id, tipo), 'Fichas guardadas');
     }, 'Error al leer las fichas guardadas'),
 
@@ -132,7 +136,7 @@ export const fichasEquipoController = {
     archivoListar: manejar(async (req, res) => {
         const { tipo, anio, sede, estado, q, page, limit } = req.query;
         successResponse(res, await gcDocumentosService.listarArchivo({
-            tipo: ['tecnica', 'historial', 'entrega', 'recepcion'].includes(tipo) ? tipo : null,
+            tipo: ['tecnica', 'historial', 'entrega', 'recepcion', 'caudal'].includes(tipo) ? tipo : null,
             anio: anio ? Number(anio) : null,
             sede: sede || null,
             estado: ['VIGENTE', 'ANULADO', 'TODOS'].includes(estado) ? estado : 'VIGENTE',
@@ -154,7 +158,7 @@ export const fichasEquipoController = {
 
     // Documento vigente igual (mismo formulario, equipo y año): para avisar antes de guardar otro.
     guardadaVigente: manejar(async (req, res) => {
-        const tipo = ['tecnica', 'historial', 'entrega', 'recepcion'].includes(req.query.tipo) ? req.query.tipo : null;
+        const tipo = ['tecnica', 'historial', 'entrega', 'recepcion', 'caudal'].includes(req.query.tipo) ? req.query.tipo : null;
         successResponse(res, await gcDocumentosService.vigenteIgual(tipo, req.params.id, req.query.anio || null), 'Documento vigente');
     }, 'Error al consultar las fichas guardadas'),
 

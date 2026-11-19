@@ -25,6 +25,9 @@
         .item .nombre { font-size: 12px; color: var(--gris); }
         .item .ir { color: var(--azul); font-weight: 700; font-size: 14px; white-space: nowrap; }
         .item .hecho { color: var(--verde); font-size: 13px; font-weight: 700; white-space: nowrap; }
+        /* Firma ya hecha en la ficha: en gris y sin poder firmarse de nuevo. */
+        .item.bloqueada { background: #f1f5f9; opacity: .6; cursor: default; }
+        .item.bloqueada .hecho { color: var(--gris); }
         .tarjeta { background: #fff; border: 1px solid var(--borde); border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
         .tarjeta b { display: block; font-size: 16px; }
         .tarjeta span { font-size: 13px; color: var(--gris); }

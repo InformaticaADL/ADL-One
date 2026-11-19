@@ -19,16 +19,17 @@
         info.slots.forEach(function (s) {
             if (!s.firmada) pendientes += 1;
             var b = document.createElement('button');
-            b.className = 'item';
+            b.className = 'item' + (s.bloqueada ? ' bloqueada' : '');
+            b.disabled = !!s.bloqueada;
             var datos = document.createElement('div'); datos.className = 'datos';
             var t = document.createElement('div'); t.className = 'titulo'; t.textContent = s.titulo;
             datos.appendChild(t);
             if (s.nombre) { var n = document.createElement('div'); n.className = 'nombre'; n.textContent = s.nombre; datos.appendChild(n); }
             var estado = document.createElement('span');
             estado.className = s.firmada ? 'hecho' : 'ir';
-            estado.textContent = s.firmada ? '✓ Firmada' : 'Firmar ›';
+            estado.textContent = s.bloqueada ? 'Ya firmada' : (s.firmada ? '✓ Firmada' : 'Firmar ›');
             b.appendChild(datos); b.appendChild(estado);
-            b.addEventListener('click', function () { abrirFirma(s); });
+            if (!s.bloqueada) b.addEventListener('click', function () { abrirFirma(s); });
             cont.appendChild(b);
         });
         $('completo').classList.toggle('oculto', pendientes > 0);

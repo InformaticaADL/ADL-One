@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useId, useRef } from 'react';
+import { formatearFechaHoraCorta } from '@/lib/fechas';
 import {
     IconArrowLeft,
     IconHistory,
@@ -17,7 +18,8 @@ import {
     IconFileText,
     IconFileDescription,
     IconFileCertificate,
-    IconClipboardCheck
+    IconClipboardCheck,
+    IconSparkles,
 } from '@tabler/icons-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { FichasEquipoDialog, type TipoFichaEquipo } from './FichasEquipoDialog';
@@ -47,6 +49,7 @@ import { EquipmentRequestsModal } from './EquipmentRequestsModal';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { FieldLabel } from '../../../components/common/FieldHelp';
 import { PasosLayout, type PasoInfo, type EstadoPaso } from '../../medio-ambiente/components/PasosLayout';
+import { validarCodigoTipoNuevo, requisitosNorma, sugerirSigla } from '../utils/codigoEquipo';
 
 // Valores de "Influencia Significativa" del inventario OI-FoGe-21.
 const INFLUENCIAS = ['Alta', 'Media', 'Baja'];
@@ -64,7 +67,9 @@ const HybridSelect: React.FC<{
     required?: boolean;
     disabled?: boolean;
     error?: string | false;
-}> = ({ label, value, options, onChange, placeholder, strict, required, disabled, error }) => {
+    /** Solo escritura, sin lista desplegable de sugerencias (ej. el tipo y el nombre de un tipo de equipo nuevo). */
+    sinSugerencias?: boolean;
+}> = ({ label, value, options, onChange, placeholder, strict, required, disabled, error, sinSugerencias }) => {
     const data = Array.from(new Set(options.map((o: any) => typeof o === 'string' ? o : (o.label || o.value)))) as string[];
     const comboOptions = data.map((d) => ({ value: d, label: d }));
     const datalistId = useId();
@@ -89,16 +94,19 @@ const HybridSelect: React.FC<{
             ) : (
                 <>
                     <Input
-                        list={datalistId}
+                        list={sinSugerencias ? undefined : datalistId}
+                        autoComplete={sinSugerencias ? 'off' : undefined}
                         placeholder={placeholder}
                         value={value ?? ''}
                         onChange={(e) => onChange(e.target.value || null)}
                         disabled={disabled}
                         className={cn(error && 'border-destructive')}
                     />
-                    <datalist id={datalistId}>
-                        {data.map((d) => <option key={d} value={d} />)}
-                    </datalist>
+                    {!sinSugerencias && (
+                        <datalist id={datalistId}>
+                            {data.map((d) => <option key={d} value={d} />)}
+                        </datalist>
+                    )}
                 </>
             )}
             {error && <p className="mt-0.5 text-xs text-destructive">{error}</p>}
@@ -112,6 +120,8 @@ interface Props {
     initialData?: (Equipo & { requestId?: number; requestStatus?: string }) | null;
     pendingRequests?: any[];
     onRefreshSolicitudes?: () => void;
+    /** Solo al crear. 'nuevo': tipo de equipo que aún no existe (se escribe el código a mano y de él sale la sigla); si no, el código es correlativo automático. */
+    modoCreacion?: 'existente' | 'nuevo';
 }
 
 // Grid helper: 12-col layout that collapses to full-width on mobile.
@@ -141,7 +151,8 @@ const PASOS_EQ: Record<PasoEq, { titulo: string; descripcion: string; subtitulo:
 // Qué paso contiene cada campo obligatorio (data-campo → paso).
 const PASO_DE_CAMPO: Record<string, PasoEq> = {
     tipo: 'ident', ubicacion: 'ident', estado: 'ident', nombre: 'ident', codigo: 'ident', id_muestreador: 'ident',
-    que_mide: 'tecnica', observacion: 'tecnica', siguiente_verificacion: 'verif',
+    que_mide: 'tecnica', observacion: 'tecnica', siguiente_verificacion: 'verif', modalidad_control: 'verif',
+    n_documento_compra: 'inventario',
 };
 
 // ─── Borrador del equipo en creación (se guarda en este navegador) ───────────────────────────────────
@@ -180,7 +191,7 @@ const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) 
 // Estados del equipo (columna ESTADO del inventario OI-FoGe-21).
 const ESTADOS_EQUIPO = ['Operativo', 'Fuera de Servicio', 'Dado de Baja'];
 
-export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes }) => {
+export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes, modoCreacion }) => {
     // --- Helpers for default dates ---
     const getTodayString = () => {
         const today = new Date();
@@ -335,6 +346,34 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const { showToast } = useToast();
     const { hideNotification } = useNavStore();
     const { hasPermission, user } = useAuth();
+
+    // ── Un solo formulario: si el nombre escrito no está en el catálogo, se puede registrar ahí mismo como tipo nuevo ──
+    const normNombre = (t: unknown) => String(t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, ' ').trim().toUpperCase();
+    const [tipoNuevoMarcado, setTipoNuevoMarcado] = useState(modoCreacion === 'nuevo');
+    const esCreacionForm = !initialData?.id_equipo;
+    const nombreEnCatalogo = useMemo(
+        () => fullCatalogItems.find((c: any) => normNombre(c.nombre) === normNombre(formData.nombre)) || null,
+        [fullCatalogItems, formData.nombre],
+    );
+    // El nombre escrito no está registrado (y el catálogo ya cargó).
+    const nombreSinRegistrar = esCreacionForm && !!String(formData.nombre || '').trim() && fullCatalogItems.length > 0 && !nombreEnCatalogo;
+    // Tipo nuevo: marcado y con un nombre que de verdad no está (si se elige uno registrado, vuelve a «existente»).
+    const esNuevoTipo = esCreacionForm && tipoNuevoMarcado && !nombreEnCatalogo;
+    // La sigla de un tipo nuevo la define Gestión de Calidad: permiso «Nuevo Equipo: registrar un tipo de equipo nuevo».
+    const puedeCrearTipo = hasPermission('GC_CREAR_TIPO');
+    // Nombres del catálogo parecidos al escrito (para no crear «Sonda de caudal» si ya existe «SONDA CAUDAL»).
+    const nombresParecidos = useMemo(() => {
+        const n = normNombre(formData.nombre);
+        if (!nombreSinRegistrar || n.length < 3) return [] as string[];
+        const palabras = n.split(' ').filter((w) => w.length >= 3);
+        return fullCatalogItems
+            .map((c: any) => String(c.nombre || '').trim())
+            .filter((nom: string) => {
+                const c = normNombre(nom);
+                return c.includes(n) || n.includes(c) || palabras.some((w) => c.split(' ').includes(w));
+            })
+            .slice(0, 4);
+    }, [nombreSinRegistrar, formData.nombre, fullCatalogItems]);
 
     // Permissions
     // RB-08: AI_MA_ADMIN_ACCESO eliminado (no existe en BD). Solo permisos reales.
@@ -564,6 +603,19 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     useEffect(() => {
         if (!formData.tipo || !formData.ubicacion || !formData.nombre) return;
         const isNew = !initialData?.id_equipo;
+        if (isNew && nombreSinRegistrar && !esNuevoTipo) {
+            if (formData.codigo) setFormData((prev: any) => ({ ...prev, codigo: '', previousCode: null, previousStatus: null }));
+            return;
+        }
+        if (esNuevoTipo) {
+            // Tipo nuevo: el código se arma solo con la sigla que define Calidad, el correlativo 01 y la sede.
+            const sigla = String(formData.sigla || '').trim();
+            const codigo = sigla.length === 3 ? `${sigla}.01/MA.${formData.ubicacion}` : '';
+            if (formData.codigo !== codigo || Number(formData.correlativo) !== 1) {
+                setFormData((prev: any) => ({ ...prev, codigo, correlativo: 1, previousCode: null, previousStatus: null }));
+            }
+            return;
+        }
 
         if (isNew) {
             const timer = setTimeout(async () => {
@@ -610,10 +662,20 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     // Control que rige para este equipo según su nombre: sonda de caudal y molinete
     // eligen entre dos ciclos (solo rige el elegido); el resto trae uno fijo; los
     // complementos (baterías, botellas…) no vencen. Sin regla, todo igual que antes.
-    const control = useMemo(
-        () => controlDeEquipo(reglasControl, formData.nombre, formData.modalidad_control),
-        [reglasControl, formData.nombre, formData.modalidad_control],
-    );
+    const control = useMemo(() => {
+        const c = controlDeEquipo(reglasControl, formData.nombre, formData.modalidad_control);
+        if (c || !esNuevoTipo || !reglasControl) return c;
+        // Tipo nuevo (sin regla por nombre): Calidad elige su control de fechas entre todos; queda en el catálogo.
+        const elegida = String(formData.modalidad_control || '') as ModalidadControl;
+        const info = reglasControl.modalidades[elegida];
+        if (!info) return null;
+        return {
+            permitidas: Object.keys(reglasControl.modalidades) as ModalidadControl[],
+            elegible: true, modalidad: elegida, info, meses: info.meses, sinVencimiento: elegida === 'SIN_VENCIMIENTO',
+        };
+    }, [reglasControl, formData.nombre, formData.modalidad_control, esNuevoTipo]);
+    // Tipo nuevo todavía sin control de fechas elegido.
+    const faltaControlNuevo = esNuevoTipo && !!reglasControl && !control;
     const esSinVencimiento = !!control?.sinVencimiento;
     const mesesControl = control?.meses ?? null;
 
@@ -883,6 +945,36 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!esMasivo && activeStep !== 0) setActiveStep(0);
     }, [esMasivo, activeStep]);
 
+    // Tipo nuevo: la sigla (3 letras, libre) y el código armado SIGLA.01/MA.SEDE con la sede del equipo.
+    // Tipo nuevo: la sigla se propone con el nombre (las 3 primeras letras relevantes) hasta que Calidad la cambie.
+    const siglaEditada = useRef(false);
+    useEffect(() => {
+        if (!esNuevoTipo || siglaEditada.current) return;
+        const s = sugerirSigla(formData.nombre);
+        if (s !== (formData.sigla || '')) setFormData((p: any) => ({ ...p, sigla: s }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [esNuevoTipo, formData.nombre]);
+    // ¿La sigla está libre? (no la tiene otro tipo ni otro equipo)
+    const [estadoSigla, setEstadoSigla] = useState<{ sigla: string; disponible: boolean | null; usada_por: string | null }>({ sigla: '', disponible: null, usada_por: null });
+    useEffect(() => {
+        const s = String(formData.sigla || '').trim();
+        if (!esNuevoTipo || !/^[A-Za-z]{3}$/.test(s)) return;
+        let vigente = true;
+        const t = setTimeout(() => {
+            equipoService.siglaDisponible(s)
+                .then((r) => { if (vigente) setEstadoSigla({ sigla: s, disponible: r.disponible, usada_por: r.usada_por }); })
+                .catch(() => { if (vigente) setEstadoSigla({ sigla: s, disponible: null, usada_por: null }); });
+        }, 400);
+        return () => { vigente = false; clearTimeout(t); };
+    }, [esNuevoTipo, formData.sigla]);
+    const errorSigla = !esNuevoTipo ? null
+        : !/^[A-Za-z]{3}$/.test(String(formData.sigla || '').trim()) ? (String(formData.sigla || '').trim() ? 'La sigla debe tener 3 letras.' : 'Falta la sigla (3 letras).')
+            : estadoSigla.sigla === String(formData.sigla).trim() && estadoSigla.disponible === false ? `La sigla ya la usa ${estadoSigla.usada_por}.` : null;
+    const errorCodigoNuevo = !esNuevoTipo ? null : (errorSigla || (formData.codigo ? validarCodigoTipoNuevo(formData.codigo, formData.ubicacion) : null));
+
+    // Documentos que la norma exige para este tipo de equipo (aviso al ingresarlo).
+    const requisitos = !initialData?.id_equipo ? requisitosNorma(formData.nombre, formData.tipo, formData.que_mide) : [];
+
     const isFormValid = useMemo(() => {
         const isEdit = !!initialData?.id_equipo;
         const hasNewRevision = isEdit
@@ -909,6 +1001,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
         // Creación: todos los campos son obligatorios
         return !!(
+            !errorCodigoNuevo &&
+            !faltaControlNuevo &&
+            !(nombreSinRegistrar && !esNuevoTipo) &&
             formData.nombre &&
             formData.tipo &&
             formData.ubicacion &&
@@ -918,11 +1013,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             formData.id_muestreador &&
             formData.que_mide &&
             formData.observacion &&
+            String(formData.n_documento_compra || '').trim() &&
             (formData.siguiente_verificacion || esSinVencimiento) &&
             !generatingCode &&
             !docUploading
         );
-    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading, esSinVencimiento]);
+    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading, esSinVencimiento, errorCodigoNuevo, faltaControlNuevo, esNuevoTipo, nombreSinRegistrar]);
 
     // Lo que falta para poder guardar. `campo` es el data-campo del bloque del
     // formulario: el aviso junto al botón lo usa para llevar al usuario ahí.
@@ -932,7 +1028,10 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!formData.ubicacion) missing.push({ label: 'Ubicación (Sede)', campo: 'ubicacion' });
         if (!formData.estado_equipo) missing.push({ label: 'Estado', campo: 'estado' });
         if (!formData.nombre) missing.push({ label: 'Nombre del Equipo', campo: 'nombre' });
+        else if (nombreSinRegistrar && !esNuevoTipo) missing.push({ label: 'Nombre no registrado (elíjalo del catálogo o márquelo como tipo nuevo)', campo: 'nombre' });
         if (!formData.codigo) missing.push({ label: 'Código Final', campo: 'codigo' });
+        else if (errorCodigoNuevo) missing.push({ label: errorSigla ? 'Sigla del tipo nuevo' : 'Código Final (formato o sede)', campo: 'codigo' });
+        if (faltaControlNuevo) missing.push({ label: 'Control de fechas del tipo nuevo', campo: 'modalidad_control' });
 
         const isEdit = !!initialData?.id_equipo;
         // En edición ya no es obligatorio registrar revisión (ver isFormValid); en
@@ -942,9 +1041,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!formData.id_muestreador) missing.push({ label: 'Responsable (Muestreador)', campo: 'id_muestreador' });
         if (!isEdit && !formData.que_mide) missing.push({ label: '¿Qué Mide?', campo: 'que_mide' });
         if (!isEdit && !formData.observacion) missing.push({ label: 'Observación', campo: 'observacion' });
+        // Sin Adquisiciones en la aplicación, Calidad ingresa el N° de documento de compra al crear el equipo.
+        if (!isEdit && !String(formData.n_documento_compra || '').trim()) missing.push({ label: 'N° Documento (compra)', campo: 'n_documento_compra' });
         if (!formData.siguiente_verificacion && !esSinVencimiento) missing.push({ label: 'Siguiente Revisión (Vigente hasta:)', campo: 'siguiente_verificacion' });
         return missing;
-    }, [formData, initialData, esSinVencimiento]);
+    }, [formData, initialData, esSinVencimiento, errorCodigoNuevo, errorSigla, faltaControlNuevo, esNuevoTipo, nombreSinRegistrar]);
 
     // Lleva al campo que falta, lo enfoca y enciende las marcas rojas.
     const irACampo = (campo?: string) => {
@@ -1150,7 +1251,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 }
                 showToast({ type: 'success', message: 'Equipo actualizado correctamente' });
             } else {
-                const items = bulkItems.map(it => ({ ...it, equipo_asociado: (it.equipo_asociado === 'No Aplica' || !it.equipo_asociado) ? '0' : String(it.equipo_asociado) }));
+                const items = bulkItems.map(it => ({
+                    ...it,
+                    equipo_asociado: (it.equipo_asociado === 'No Aplica' || !it.equipo_asociado) ? '0' : String(it.equipo_asociado),
+                    // Tipo nuevo: el servidor valida la sigla y deja el tipo en el catálogo para los siguientes equipos iguales.
+                    ...(esNuevoTipo ? { tipo_nuevo: true } : {}),
+                }));
                 if (items.length > 1) await equipoService.createEquiposBulk(items);
                 else await equipoService.createEquipo(items[0]);
 
@@ -1208,24 +1314,41 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 
     // --- Renders ---
     return (
-        <div ref={topRef} className="shadcn-scope relative w-full scroll-mt-4 p-4">
+        <div ref={topRef} className={cn('shadcn-scope relative w-full scroll-mt-4 p-4', esNuevoTipo && 'tema-tipo-nuevo')}>
             {(loading || processingAction) && (
                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/60">
                     <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                 </div>
             )}
 
-            <div className="rounded-xl border border-border bg-card p-5 shadow-sm">
+            <div className={cn('rounded-xl border border-border bg-card p-5 shadow-sm', esNuevoTipo && 'border-t-4 border-t-primary')}>
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className={cn('flex flex-col', !isMobile && 'flex-1')}>
-                            <h2 className="m-0 text-xl font-semibold text-foreground">
-                                {requestedChanges?.isReactivation ? 'Activación de Equipo' : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')}
-                            </h2>
-                            <span className="text-xs text-muted-foreground">
-                                {initialData?.id_equipo ? `Modificando equipo: ${formData.codigo}` : 'Completa los datos para dar de alta nuevos equipos en el sistema.'}
-                            </span>
-                        </div>
+                        {esNuevoTipo ? (
+                            <div className={cn('flex items-start gap-3', !isMobile && 'flex-1')}>
+                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                                    <IconSparkles size={22} />
+                                </span>
+                                <div className="flex flex-col">
+                                    <h2 className="m-0 flex flex-wrap items-center gap-2 text-xl font-semibold text-foreground">
+                                        Nuevo tipo de equipo
+                                        <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Tipo no registrado</Badge>
+                                    </h2>
+                                    <span className="text-xs text-muted-foreground">
+                                        Define un tipo que aún no está en el catálogo y registra su primer equipo. El tipo queda guardado para los siguientes equipos iguales.
+                                    </span>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className={cn('flex flex-col', !isMobile && 'flex-1')}>
+                                <h2 className="m-0 text-xl font-semibold text-foreground">
+                                    {requestedChanges?.isReactivation ? 'Activación de Equipo' : (initialData?.id_equipo ? 'Editar Equipo' : 'Nuevo Equipo')}
+                                </h2>
+                                <span className="text-xs text-muted-foreground">
+                                    {initialData?.id_equipo ? `Modificando equipo: ${formData.codigo}` : 'Completa los datos para dar de alta nuevos equipos en el sistema.'}
+                                </span>
+                            </div>
+                        )}
 
                         <div className={cn('flex flex-wrap gap-2', isMobile && 'w-full')}>
                             <Button variant="outline" onClick={onCancel} className={cn(isMobile && 'flex-1')}>
@@ -1372,7 +1495,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                         <TableCell className="font-semibold text-foreground">
                                                             <span className={cn(esActiva && 'underline decoration-primary decoration-2 underline-offset-4')}>{h.version}</span>
                                                         </TableCell>
-                                                        <TableCell className="text-sm text-muted-foreground">{new Date(h.fecha_cambio).toLocaleString()}</TableCell>
+                                                        <TableCell className="text-sm text-muted-foreground">{formatearFechaHoraCorta(String(h.fecha_cambio), true)}</TableCell>
                                                         <TableCell className="text-sm text-muted-foreground">{h.nombre_usuario_cambio || 'Sistema'}</TableCell>
                                                         <TableCell className="text-sm text-foreground">{h.codigo}</TableCell>
                                                         {/* Cada versión conserva el documento con que se registró
@@ -1461,11 +1584,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     )}
                     <PasosLayout
                         className="p-0 md:p-0"
-                        titulo={esCreacion ? 'Nuevo equipo' : 'Equipo'}
+                        titulo={esNuevoTipo ? 'Tipo nuevo' : esCreacion ? 'Nuevo equipo' : 'Equipo'}
                         libre={!esCreacion}
                         pasos={pasosInfo}
                         actual={idxActual}
-                        ayuda={PASOS_EQ[pasoMostrado].ayuda}
+                        ayuda={esNuevoTipo && pasoMostrado === 'ident'
+                            ? 'Escriba el tipo y el nombre, revise la sigla propuesta (3 letras) y elija la sede: el código del primer equipo se arma solo.'
+                            : PASOS_EQ[pasoMostrado].ayuda}
                         encabezado={{ titulo: PASOS_EQ[pasoMostrado].titulo, subtitulo: PASOS_EQ[pasoMostrado].subtitulo }}
                         onElegirPaso={elegirPaso}
                         onAtras={atrasPaso}
@@ -1491,16 +1616,70 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     >
                     {activeStep === 0 && (
                         <div className="mt-2 flex flex-col gap-6">
+                            {requisitos.length > 0 && (
+                                <div className="rounded-lg border border-warning/40 bg-warning/10 p-3 text-sm">
+                                    <p className="font-semibold">Documentos que exige la norma para este equipo</p>
+                                    <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs">
+                                        {requisitos.map((r) => <li key={r}>{r}</li>)}
+                                    </ul>
+                                </div>
+                            )}
                             <div className={ver('ident')}>
+                            {esCreacionForm && (
+                                <label className={cn('flex items-start gap-3 rounded-lg border p-3 text-sm transition-colors',
+                                    esNuevoTipo ? 'border-primary/40 bg-primary/10' : 'border-dashed border-border bg-muted/30 hover:bg-muted/50',
+                                    puedeCrearTipo ? 'cursor-pointer' : 'cursor-not-allowed opacity-75')}>
+                                    <Checkbox checked={esNuevoTipo} disabled={!puedeCrearTipo || !!nombreEnCatalogo}
+                                        onCheckedChange={(v) => setTipoNuevoMarcado(v === true)} className="mt-0.5" />
+                                    <span>
+                                        <span className="font-semibold">El equipo es de un tipo que no está registrado: registrar tipo nuevo</span>
+                                        <span className="block text-xs text-muted-foreground">
+                                            {!puedeCrearTipo
+                                                ? 'Registrar tipos nuevos requiere el permiso «Nuevo Equipo: registrar un tipo de equipo nuevo» (lo tiene Gestión de Calidad).'
+                                                : nombreEnCatalogo
+                                                    ? `«${String(formData.nombre).trim()}» ya está en el catálogo: se ingresa como equipo de un tipo registrado.`
+                                                    : esNuevoTipo
+                                                        ? 'Se define el tipo (sigla, qué mide y control de fechas) y queda en el catálogo. Desmarque para volver a un tipo registrado.'
+                                                        : 'Márquelo si el tipo de equipo todavía no existe en el catálogo.'}
+                                        </span>
+                                    </span>
+                                </label>
+                            )}
+                            {esNuevoTipo && (
+                                <div className="overflow-hidden rounded-xl border border-primary/30 bg-primary/5">
+                                    <div className="grid gap-4 p-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-primary">Definición del tipo</p>
+                                            <ol className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                                <li><b className="text-foreground">1.</b> Tipo y nombre del equipo (no existen en el catálogo).</li>
+                                                <li><b className="text-foreground">2.</b> Sigla de 3 letras: se propone con el nombre; la define Calidad y no se repite entre tipos.</li>
+                                                <li><b className="text-foreground">3.</b> Sede: el código del primer equipo queda con el correlativo 01.</li>
+                                            </ol>
+                                        </div>
+                                        <div className="rounded-lg border border-primary/30 bg-background px-4 py-3 text-center md:min-w-[230px]">
+                                            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">Código del primer equipo</p>
+                                            <p className={cn('mt-0.5 font-mono text-2xl font-bold tracking-wide', formData.codigo ? 'text-primary' : 'text-muted-foreground/60')}>
+                                                {formData.codigo || `${(formData.sigla || '___').padEnd(3, '_')}.01/MA.${formData.ubicacion || '__'}`}
+                                            </p>
+                                            <p className={cn('mt-0.5 text-[11px]', errorSigla && (String(formData.sigla || '').trim() || mostrarErrores) ? 'text-destructive' : !errorSigla && estadoSigla.disponible && estadoSigla.sigla === String(formData.sigla).trim() ? 'text-success' : 'text-muted-foreground')}>
+                                                {errorSigla && (String(formData.sigla || '').trim() || mostrarErrores)
+                                                    ? errorSigla
+                                                    : estadoSigla.disponible && estadoSigla.sigla === String(formData.sigla).trim() ? `Sigla ${formData.sigla} disponible` : 'Sigla + 01 + MA + sede'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 <div className="grid grid-cols-12 gap-4">
                                 <div className={colSpanClass(4)} data-campo="tipo">
                                     <HybridSelect
                                         label={<FieldLabel label="Tipo de Equipo *" help="Categoría del equipo (ej: Multiparámetro, pH-metro, Termómetro) para agrupar equipos con características similares." />}
-                                        placeholder="Seleccione..."
+                                        placeholder={esNuevoTipo ? 'Escriba el tipo nuevo (ej. Computador)' : 'Seleccione...'}
                                         value={formData.tipo}
                                         options={tipoOptions}
-                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, tipo: val, nombre: '' }))}
-                                        strict={!isSuper}
+                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, tipo: val, nombre: esNuevoTipo ? p.nombre : '' }))}
+                                        strict={!isSuper && !esNuevoTipo}
+                                        sinSugerencias={esNuevoTipo}
                                         required
                                         disabled={!!initialData?.id_equipo}
                                         error={mostrarErrores && !formData.tipo && "Obligatorio"}
@@ -1539,31 +1718,74 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <div className={colSpanClass(6)} data-campo="nombre">
                                     <HybridSelect
                                         label={<FieldLabel label="Nombre del Equipo *" help="Modelo o nombre específico del equipo (ej: HI98194, YSI ProDSS) según catálogo." />}
-                                        placeholder="Seleccione o escriba..."
+                                        placeholder={esNuevoTipo ? 'Escriba el nombre del equipo nuevo' : 'Seleccione o escriba...'}
                                         value={formData.nombre}
                                         options={namesOptions}
                                         onChange={(val: any) => {
                                             const m = nameToMetadata[val?.trim()];
                                             setFormData((p: any) => ({
                                                 ...p, nombre: val,
+                                                tipo: m?.tipo || p.tipo,
                                                 que_mide: m?.que_mide || p.que_mide,
                                                 unidad_medida_textual: m?.unidad_medida_textual || p.unidad_medida_textual,
                                                 unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla
                                             }));
                                         }}
-                                        strict={!isSuper && !initialData?.id_equipo}
+                                        strict={false}
+                                        sinSugerencias={esNuevoTipo}
                                         required
                                         error={mostrarErrores && !formData.nombre && "Obligatorio"}
                                     />
                                 </div>
-                                <div className={colSpanClass(3)}>
+                                {nombreSinRegistrar && !esNuevoTipo && (
+                                    <div className={cn('col-span-12 rounded-lg border p-3 text-sm md:order-none',
+                                        esNuevoTipo ? 'border-primary/40 bg-primary/5' : 'border-warning/50 bg-warning/10')}>
+                                        {!esNuevoTipo && (
+                                            <>
+                                                <p className="font-medium">«{String(formData.nombre).trim()}» no está registrado en el catálogo de equipos.</p>
+                                                {nombresParecidos.length > 0 && (
+                                                    <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
+                                                        <span className="text-muted-foreground">¿Es alguno de estos?</span>
+                                                        {nombresParecidos.map((nom) => (
+                                                            <button key={nom} type="button"
+                                                                className="rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:text-primary"
+                                                                onClick={() => {
+                                                                    const m = nameToMetadata[nom];
+                                                                    setFormData((p: any) => ({ ...p, nombre: nom, tipo: m?.tipo || p.tipo, que_mide: m?.que_mide || p.que_mide, unidad_medida_textual: m?.unidad_medida_textual || p.unidad_medida_textual, unidad_medida_sigla: m?.unidad_medida_sigla || p.unidad_medida_sigla }));
+                                                                }}>
+                                                                Usar «{nom}»
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        )}
+                                        <label className={cn('mt-2 flex items-start gap-2', puedeCrearTipo ? 'cursor-pointer' : 'cursor-not-allowed opacity-70', esNuevoTipo && 'mt-0')}>
+                                            <Checkbox checked={esNuevoTipo} disabled={!puedeCrearTipo} onCheckedChange={(v) => setTipoNuevoMarcado(v === true)} className="mt-0.5" />
+                                            <span>
+                                                <span className="font-semibold">Registrar «{String(formData.nombre).trim()}» como tipo de equipo nuevo</span>
+                                                <span className="block text-xs text-muted-foreground">
+                                                    {puedeCrearTipo
+                                                        ? 'Se define su sigla, qué mide y su control de fechas; queda en el catálogo para los siguientes equipos iguales.'
+                                                        : 'Registrar tipos nuevos requiere el permiso «Nuevo Equipo: registrar un tipo de equipo nuevo». Elija un nombre del catálogo o pida a Calidad que lo registre.'}
+                                                </span>
+                                            </span>
+                                        </label>
+                                    </div>
+                                )}
+                                <div className={colSpanClass(esNuevoTipo ? 6 : 3)}>
                                     <div className="mb-1"><FieldLabel label="Sigla" help="Sigla identificadora que forma parte del código de barra del equipo (ej: MULTI, PH, TERM)." /></div>
                                     <div className="relative">
                                         <Input
-                                            placeholder="Ej: PH"
+                                            placeholder={esNuevoTipo ? 'Ej: COM' : 'Ej: PH'}
                                             value={formData.sigla}
-                                            onChange={(e) => setFormData((p: any) => ({ ...p, sigla: e.target.value }))}
-                                            className={cn(generatingCode && 'pr-8')}
+                                            maxLength={esNuevoTipo ? 3 : undefined}
+                                            onChange={(e) => {
+                                                if (esNuevoTipo) siglaEditada.current = true;
+                                                const v = esNuevoTipo ? e.target.value.replace(/[^A-Za-z]/g, '').slice(0, 3) : e.target.value;
+                                                setFormData((p: any) => ({ ...p, sigla: v }));
+                                            }}
+                                            className={cn(generatingCode && 'pr-8', esNuevoTipo && errorSigla && (String(formData.sigla || '').trim() || mostrarErrores) && 'border-destructive', esNuevoTipo && 'font-mono font-semibold uppercase')}
                                         />
                                         {generatingCode && (
                                             <span className="absolute right-2.5 top-1/2 -translate-y-1/2">
@@ -1572,7 +1794,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         )}
                                     </div>
                                 </div>
-                                <div className={colSpanClass(3)}>
+                                <div className={cn(colSpanClass(3), esNuevoTipo && 'hidden')}>
                                     <div className="mb-1"><FieldLabel label="Correlativo" help="Número correlativo único de la unidad del equipo para diferenciarlo de otros del mismo tipo y sede." /></div>
                                     <Input
                                         type="number"
@@ -1581,6 +1803,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         disabled={!isSuper}
                                     />
                                 </div>
+                                {esNuevoTipo && (String(formData.sigla || '').trim() || mostrarErrores) && (
+                                    <p className={cn('col-span-12 -mt-2 text-xs', errorSigla ? 'text-destructive' : 'text-muted-foreground')}>
+                                        {errorSigla
+                                            || (estadoSigla.sigla === String(formData.sigla).trim() && estadoSigla.disponible
+                                                ? `Sigla ${formData.sigla} disponible. El tipo queda en el catálogo con esta sigla y los siguientes equipos iguales toman el correlativo automático.`
+                                                : 'Sigla del tipo nuevo: 3 letras relevantes del equipo (la define Calidad y no se repite entre tipos).')}
+                                    </p>
+                                )}
                                 {initialData?.id_equipo ? (
                                     <>
                                         <div className={colSpanClass(4)} data-campo="codigo">
@@ -1630,13 +1860,16 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     </>
                                 ) : (
                                     <>
-                                        <div className={colSpanClass(8)} data-campo="codigo">
+                                        <div className={cn(colSpanClass(8), esNuevoTipo && "hidden")} data-campo="codigo">
                                             <div className="mb-1"><FieldLabel label="Código Final *" help="Código único de barra generado de forma automática para la identificación del equipo en terreno." /></div>
                                             <Input
                                                 value={formData.codigo}
                                                 readOnly={!isSuper}
+                                                placeholder={esNuevoTipo ? 'Se arma con la sigla y la sede' : undefined}
                                                 className={cn('font-bold', mostrarErrores && !formData.codigo && 'border-destructive')}
                                             />
+                                            {esNuevoTipo && <span className="text-xs text-muted-foreground">Código automático: sigla + correlativo 01 + área MA + sede.</span>}
+                                            {errorCodigoNuevo && !errorSigla && <span className="text-xs text-destructive">{errorCodigoNuevo}</span>}
                                             {formData.previousCode && <span className="text-xs text-muted-foreground">Anterior: {formData.previousCode}</span>}
                                             {mostrarErrores && !formData.codigo && <p className="text-xs text-destructive">Obligatorio</p>}
                                         </div>
@@ -1807,6 +2040,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                             </div>
                             <div className={ver('verif')}>
 
+                            {faltaControlNuevo && reglasControl && (
+                                <div className="mb-4 rounded-md border border-warning/40 bg-warning/10 p-3" data-campo="modalidad_control">
+                                    <div className="mb-2"><FieldLabel label="Control de fechas del tipo nuevo *" help="Qué revisión periódica lleva este tipo de equipo. Queda guardado en el catálogo para los siguientes equipos iguales." /></div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {(Object.keys(reglasControl.modalidades) as ModalidadControl[]).map((m) => (
+                                            <Button key={m} type="button" size="sm" variant="outline" onClick={() => setFormData((p: any) => ({ ...p, modalidad_control: m }))}>
+                                                {reglasControl.modalidades[m].nombre}{reglasControl.modalidades[m].meses ? ` · cada ${reglasControl.modalidades[m].meses} meses` : ''}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                             {control && (
                                 <div className="mb-4 rounded-md border bg-muted/30 p-3" data-campo="modalidad_control">
                                     <div className="mb-2"><FieldLabel label="Control de fechas del equipo" help="Qué revisión periódica lleva este equipo. Solo rige la que se elige: la otra no aplica ni genera vencimientos." /></div>
@@ -1928,9 +2173,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     <div className="mb-1"><FieldLabel label="Documento" help="Tipo de documento de la compra (ej: Factura, Boleta, Guía)." /></div>
                                     <Input value={formData.documento_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, documento_compra: e.target.value }))} />
                                 </div>
-                                <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="N° Documento" help="Número del documento de compra." /></div>
-                                    <Input value={formData.n_documento_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, n_documento_compra: e.target.value }))} />
+                                <div className={colSpanClass(4)} data-campo="n_documento_compra">
+                                    <div className="mb-1"><FieldLabel label={esCreacion ? 'N° Documento *' : 'N° Documento'} help="Número de la factura u orden de compra del equipo. Es obligatorio al crear el equipo (lo ingresa Gestión de Calidad)." /></div>
+                                    <Input value={formData.n_documento_compra || ''} placeholder={esCreacion ? 'N° de factura u orden de compra' : undefined}
+                                        className={cn(mostrarErrores && esCreacion && !String(formData.n_documento_compra || '').trim() && 'border-destructive')}
+                                        onChange={(e) => setFormData((p: any) => ({ ...p, n_documento_compra: e.target.value }))} />
                                 </div>
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="Valor Unitario" help="Precio de compra del equipo." /></div>
@@ -2194,19 +2441,54 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             {/* --- Modals --- */}
             {/* Borrador de un equipo que quedó a medias */}
             <Dialog open={!!borradorPendiente} onOpenChange={() => { /* hay que elegir una opción */ }}>
-                <DialogContent className="max-w-[440px]" onInteractOutside={(e) => e.preventDefault()}>
+                <DialogContent className="max-w-[460px] grid-cols-[minmax(0,1fr)] gap-4" showCloseButton={false} onInteractOutside={(e) => e.preventDefault()}>
                     <DialogHeader>
-                        <DialogTitle>Hay un equipo sin terminar</DialogTitle>
+                        <div className="flex items-center gap-3">
+                            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                                <IconHistory size={20} />
+                            </span>
+                            <div className="min-w-0 text-left">
+                                <DialogTitle>Hay un equipo sin terminar</DialogTitle>
+                                <DialogDescription className="mt-1">Lo que había llenado quedó guardado en este navegador.</DialogDescription>
+                            </div>
+                        </div>
                     </DialogHeader>
-                    <p className="text-sm text-muted-foreground">
-                        {borradorPendiente?.formData?.nombre ? <b className="text-foreground">{String(borradorPendiente.formData.nombre)}</b> : 'Un equipo'}
-                        {borradorPendiente?.formData?.ubicacion ? ` (${String(borradorPendiente.formData.ubicacion)})` : ''} quedó a medias
-                        {borradorPendiente?.guardadoEn ? `, guardado el ${new Date(borradorPendiente.guardadoEn).toLocaleString('es-CL')}` : ''}.
-                        ¿Quiere continuar donde quedó?
-                    </p>
-                    <DialogFooter className="sm:justify-stretch">
-                        <Button variant="outline" className="flex-1" onClick={descartarBorrador}>Descartar y empezar de nuevo</Button>
-                        <Button className="flex-1" onClick={continuarBorrador}>Continuar donde quedé</Button>
+                    {borradorPendiente && (() => {
+                        const d = borradorPendiente.formData || {};
+                        const texto = (v: unknown) => (v === null || v === undefined ? '' : String(v).trim());
+                        const minutos = Math.max(0, Math.round((Date.now() - borradorPendiente.guardadoEn) / 60000));
+                        const haceCuanto = minutos < 1 ? 'recién' : minutos < 60 ? `hace ${minutos} min`
+                            : minutos < 60 * 24 ? `hace ${Math.round(minutos / 60)} h` : `hace ${Math.round(minutos / 1440)} día(s)`;
+                        const filas: [string, string][] = [
+                            ['Equipo', texto(d.nombre) || 'Sin nombre todavía'],
+                            ['Tipo', texto(d.tipo)],
+                            ['Código', texto(d.codigo)],
+                            ['Sede', texto(d.ubicacion)],
+                            ['Quedó en', PASOS_EQ[borradorPendiente.pasoActual]?.titulo || ''],
+                        ].filter(([, v]) => v) as [string, string][];
+                        return (
+                            <div className="rounded-lg border border-border bg-muted/30 p-3">
+                                <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-sm">
+                                    {filas.map(([k, v]) => (
+                                        <React.Fragment key={k}>
+                                            <dt className="text-muted-foreground">{k}</dt>
+                                            <dd className="truncate font-medium" title={v}>{v}</dd>
+                                        </React.Fragment>
+                                    ))}
+                                </dl>
+                                <p className="mt-2 text-xs text-muted-foreground">
+                                    Guardado {haceCuanto} · {new Date(borradorPendiente.guardadoEn).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                            </div>
+                        );
+                    })()}
+                    <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                        <Button variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={descartarBorrador}>
+                            <IconTrash size={15} /> Descartar
+                        </Button>
+                        <Button onClick={continuarBorrador}>
+                            Continuar donde quedé <IconArrowRight size={15} />
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -2416,7 +2698,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 .sort((x: any, y: any) => numVersion(y.version) - numVersion(x.version))[0] ?? otras[0] ?? null)
                             : compareVersion;
                         const filaVigente = history.find((x: any) => x.version === formData.version);
-                        const fmtFecha = (v: any) => (v ? new Date(v).toLocaleString() : '');
+                        const fmtFecha = (v: any) => (v ? formatearFechaHoraCorta(String(v), true) : '');
 
                         if (!anterior) {
                             return (

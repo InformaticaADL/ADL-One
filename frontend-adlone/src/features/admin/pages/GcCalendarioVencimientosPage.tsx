@@ -314,7 +314,7 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
 
             {/* ── Header (solo en vista standalone) ──────────────────────── */}
             {!hideHeader && (
-                <div className="flex items-center gap-3 border-b pb-4">
+                <div className="flex flex-wrap items-center gap-3 border-b pb-4">
                     <button
                         type="button"
                         onClick={onBack}
@@ -384,7 +384,8 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
                                         i >= 5 ? 'text-muted-foreground/50' : 'text-muted-foreground'
                                     )}
                                 >
-                                    {d}
+                                    <span className="sm:hidden">{d.charAt(0)}</span>
+                                    <span className="hidden sm:inline">{d}</span>
                                 </div>
                             ))}
                         </div>
@@ -395,7 +396,7 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
                                 if (!dia) return (
                                     <div
                                         key={`empty-${i}`}
-                                        className="min-h-[88px] border-b border-r bg-muted/5 last:border-r-0"
+                                        className="min-h-[52px] border-b border-r bg-muted/5 last:border-r-0 sm:min-h-[88px]"
                                     />
                                 );
                                 const key = dia.format('YYYY-MM-DD');
@@ -410,7 +411,7 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
                                     <div
                                         key={key}
                                         className={cn(
-                                            'group min-h-[88px] border-b border-r p-1.5 last:border-r-0 transition-colors',
+                                            'group min-h-[52px] border-b border-r p-1 last:border-r-0 transition-colors sm:min-h-[88px] sm:p-1.5',
                                             esFinde && !eqDia.length && 'bg-muted/5',
                                             eqDia.length > 0 && !esHoy && !diaSeleccionado && 'hover:bg-muted/20',
                                             esHoy && !diaSeleccionado && 'bg-primary/5',
@@ -436,8 +437,20 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
                                             )}
                                         </div>
 
-                                        {/* Badges equipos */}
-                                        <div className="flex flex-col gap-0.5">
+                                        {/* Celular: puntos de color; tocarlos abre los equipos del día */}
+                                        {eqDia.length > 0 && (
+                                            <button
+                                                type="button"
+                                                className="flex flex-wrap gap-0.5 sm:hidden"
+                                                aria-label={`${eqDia.length} equipo(s) vencen el ${dia.format('D [de] MMMM')}`}
+                                                onClick={(e) => { e.stopPropagation(); setDiaPopup({ label: dia.format('D [de] MMMM'), equipos: eqDia }); }}
+                                            >
+                                                {eqDia.slice(0, 6).map((eq) => <span key={eq.id_equipo} className={cn('h-2 w-2 rounded-full', ESTADO[estadoDe(eq)].dotCls)} />)}
+                                            </button>
+                                        )}
+
+                                        {/* Badges equipos (desde tablet) */}
+                                        <div className="hidden flex-col gap-0.5 sm:flex">
                                             {eqDia.slice(0, MAX_VISIBLE).map(eq => (
                                                 <EquipoBadge
                                                     key={eq.id_equipo}

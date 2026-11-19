@@ -1,10 +1,10 @@
-import { formatearFecha } from '@/lib/fechas';
+import { formatearFecha, formatearFechaHoraCorta } from '@/lib/fechas';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-    IconPlus,
     IconSearch,
     IconEdit,
     IconPower,
+    IconTemperature,
     IconBell,
     IconDownload,
     IconUpload,
@@ -52,10 +52,12 @@ import { adminService } from '../../../services/admin.service';
 import { ursService } from '../../../services/urs.service';
 import { EquipoForm } from '../components/EquipoForm';
 import { FichasEquipoDialog, type TipoFichaEquipo } from '../components/FichasEquipoDialog';
+import { PuestaMarchaEquipoDialog } from '../components/PuestaMarchaEquipoDialog';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
 import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
 import type { ReglasControl } from '../utils/reglasControlEquipo';
 import { EquiposPlanificacion } from '../components/EquiposPlanificacion';
+import { AplicarSolicitudDialog } from '../components/AplicarSolicitudDialog';
 import { GcCalendarioVencimientosPage } from './GcCalendarioVencimientosPage';
 import { useToast } from '../../../contexts/ToastContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -216,6 +218,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [docDescargando, setDocDescargando] = useState<number | null>(null);
     // Formularios del equipo en PDF (OI-FoGe-22 / 24 / 36).
     const [fichaEquipo, setFichaEquipo] = useState<{ tipo: TipoFichaEquipo; equipo: Equipo } | null>(null);
+    // Recepción y puesta en marcha: se registra en el módulo Puesta en Marcha (con validación y paso al historial).
+    const [puestaMarchaEquipo, setPuestaMarchaEquipo] = useState<Equipo | null>(null);
     // Document preview modal
     const [docPreview, setDocPreview] = useState<{
         equipo: Equipo;
@@ -230,7 +234,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
     // Permissions — RB-08: AI_MA_ADMIN_ACCESO eliminado
     const isMAMan = hasPermission('AI_MA_SOLICITUDES') || hasPermission('MA_A_GEST_EQUIPO');
-    const canCreateEquipo = hasPermission('AI_MA_CREAR_EQUIPO');
     const canEditEquipo = hasPermission('AI_MA_EDITAR_EQUIPO');
     const isSuper = false;
 
@@ -342,7 +345,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         estados: ESTADOS_EQUIPO
     });
 
-    const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb, setActiveSubmodule } = useNavStore();
+    const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb, setActiveSubmodule, aplicarSolicitudId, setAplicarSolicitudId } = useNavStore();
 
     // EquipoForm ya dibuja su propio título/botón "Volver" (no usa PageHeader),
     // así que en vez de montar un segundo PageHeader visual encima publicamos
@@ -351,7 +354,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     useEffect(() => {
         if (viewMode !== 'form') return;
         setPageBreadcrumb([
-            { label: 'Equipos', onClick: () => cerrarFormulario() },
+            { label: 'Inventario de Equipos', onClick: () => cerrarFormulario() },
             { label: selectedEquipo ? 'Editar Equipo' : 'Nuevo Equipo' },
         ]);
         return () => setPageBreadcrumb([]);
@@ -603,6 +606,28 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const pendienteOperativo = !!equipoStatusPending && esOperativo(equipoStatusPending);
+
+    // Fuera de Servicio o Dado de Baja: aparece en Verificación de Temperatura solo si Calidad lo habilita aquí.
+    const midaTemperatura = (e: Equipo) => /temperatura/i.test(String(e.que_mide || ''));
+    // Se confirma en un diálogo propio (no el confirm del navegador).
+    const [habilitacionPendiente, setHabilitacionPendiente] = useState<Equipo | null>(null);
+    const [guardandoHabilitacion, setGuardandoHabilitacion] = useState(false);
+    const cambiarHabilitacionVerifTemp = (equipo: Equipo) => setHabilitacionPendiente(equipo);
+    const confirmarHabilitacionVerifTemp = async () => {
+        const equipo = habilitacionPendiente;
+        if (!equipo) return;
+        setGuardandoHabilitacion(true);
+        try {
+            const r = await equipoService.habilitarVerifTemp(equipo.id_equipo, !equipo.habilitado_verif_temp);
+            showToast({ type: 'success', message: r.message || 'Habilitación actualizada' });
+            setHabilitacionPendiente(null);
+            fetchData(true);
+        } catch (error) {
+            showToast({ type: 'error', message: (error as { response?: { data?: { message?: string } } })?.response?.data?.message || 'No se pudo cambiar la habilitación' });
+        } finally {
+            setGuardandoHabilitacion(false);
+        }
+    };
 
     const confirmToggleStatus = async () => {
         if (!equipoStatusPending) return;
@@ -1314,7 +1339,16 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             {
                 label: 'Recepción y puesta en marcha (OI-FoGe-42)',
                 icon: <IconClipboardCheck size={16} />,
-                onClick: () => setFichaEquipo({ tipo: 'recepcion', equipo }),
+                onClick: () => setPuestaMarchaEquipo(equipo),
+            },
+            {
+                label: equipo.habilitado_verif_temp ? 'Quitar habilitación para verificación de T°' : 'Habilitar para verificación de T°',
+                icon: <IconTemperature size={16} />,
+                onClick: () => cambiarHabilitacionVerifTemp(equipo),
+                disabled: !canEditEquipo,
+                // Solo hace falta si no está Operativo (los Operativos aparecen siempre) y mide temperatura.
+                hidden: !hasPermission('AI_MA_EDITAR_EQUIPO') || esOperativo(equipo) || !midaTemperatura(equipo),
+                separatorBefore: true,
             },
             {
                 label: 'Editar',
@@ -1368,21 +1402,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             {/* Desde tablet: encabezado, pestañas y filtros quedan fijos arriba. */}
             <div className={cn('flex flex-col gap-4 px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
                 <PageHeader
-                    title="Gestión de Equipos"
+                    title="Inventario de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
                     onBack={onBack}
-                    breadcrumbItems={[{ label: 'Equipos' }]}
-                    rightSection={
-                        <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
-                            <Button
-                                className={cn(isMobile && 'w-full')}
-                                onClick={() => { setSelectedEquipo(null); abrirFormulario(); }}
-                                disabled={!canCreateEquipo}
-                            >
-                                <IconPlus size={16} /> Nuevo{!isMobile && ' Equipo'}
-                            </Button>
-                        </ProtectedContent>
-                    }
+                    breadcrumbItems={[{ label: 'Inventario de Equipos' }]}
                 />
 
                 {/* Misma botonera segmentada que el resto de los listados (borde, fondo
@@ -1752,6 +1775,25 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 </div>
             )}
 
+            {/* Solicitud aceptada por Calidad: aquí se ve qué cambia y se aplica en el equipo (y en sus asociados). */}
+            <AplicarSolicitudDialog
+                idSolicitud={aplicarSolicitudId}
+                onClose={() => setAplicarSolicitudId(null)}
+                onAplicada={async (plan) => {
+                    setAplicarSolicitudId(null);
+                    fetchData();
+                    loadSolicitudes();
+                    setRecargaCalendario((n) => n + 1);
+                    // Un traspaso termina con la ficha de entrega, ya con los datos del equipo y su nuevo responsable.
+                    if (plan.tipo === 'TRASPASO_EQUIPO') {
+                        const principal = plan.equipos.find((e) => e.rol === 'PRINCIPAL');
+                        if (principal) {
+                            const res = await equipoService.getEquipoById(principal.id_equipo).catch(() => null);
+                            if (res?.data) setFichaEquipo({ tipo: 'entrega', equipo: res.data as Equipo });
+                        }
+                    }
+                }}
+            />
             {/* La tarjeta NO lleva flex-1 (se estiraría dejando un hueco en blanco con
                 pocas filas) ni la franja lleva overflow-y-auto (scrollearía la página
                 entera, empujando la paginación fuera de vista al subir las filas por
@@ -1801,6 +1843,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         </Button>
                                                     )}
                                                     <Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge>
+                                                    {equipo.habilitado_verif_temp && !esOperativo(equipo) && (
+                                                        <Badge variant="outline" className="ml-1 gap-1 whitespace-nowrap" title="Habilitado para la verificación de temperatura"><IconTemperature size={12} /> Verif. T°</Badge>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -1925,7 +1970,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 </TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.tipo}>{equipo.tipo}</TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.ubicacion}>{equipo.ubicacion}</TableCell>
-                                                <TableCell><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge></TableCell>
+                                                <TableCell><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge>
+                                                    {equipo.habilitado_verif_temp && !esOperativo(equipo) && (
+                                                        <Badge variant="outline" className="ml-1 gap-1 whitespace-nowrap" title="Habilitado para la verificación de temperatura"><IconTemperature size={12} /> Verif. T°</Badge>
+                                                    )}</TableCell>
                                                 <TableCell className="truncate">
                                                     <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
                                                         {equipo.vigencia || (equipo.modalidad_control === 'SIN_VENCIMIENTO' ? '—' : '')}
@@ -1966,6 +2014,11 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
             {/* --- Modals Area --- */}
 
+            <PuestaMarchaEquipoDialog
+                equipo={puestaMarchaEquipo}
+                onClose={() => setPuestaMarchaEquipo(null)}
+                onFormularioLibre={() => { const e = puestaMarchaEquipo; setPuestaMarchaEquipo(null); if (e) setFichaEquipo({ tipo: 'recepcion', equipo: e }); }}
+            />
             <FichasEquipoDialog
                 tipo={fichaEquipo?.tipo ?? null}
                 idEquipo={fichaEquipo?.equipo.id_equipo}
@@ -2004,7 +2057,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         </div>
                                         <div>
                                             <p className="text-xs font-bold uppercase text-muted-foreground">Fecha</p>
-                                            <p className="text-sm text-foreground">{new Date(reviewSolicitud.fecha_solicitud).toLocaleString()}</p>
+                                            <p className="text-sm text-foreground">{formatearFechaHoraCorta(String(reviewSolicitud.fecha_solicitud))}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -2021,7 +2074,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         <Badge variant={h.accion === 'APROBADO' ? 'success' : h.accion === 'RECHAZADO' ? 'destructive' : 'outline'}>
                                                             {h.accion}
                                                         </Badge>
-                                                        <span className="text-[11px] text-muted-foreground">{new Date(h.fecha_accion).toLocaleString()}</span>
+                                                        <span className="text-[11px] text-muted-foreground">{formatearFechaHoraCorta(String(h.fecha_accion))}</span>
                                                     </div>
                                                     <p className="mt-0.5 text-xs font-semibold text-foreground">{h.nombre_usuario || 'Sistema'}</p>
                                                     <p className="text-xs italic text-muted-foreground">{h.observacion || 'Sin observación'}</p>
@@ -2292,6 +2345,39 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             </Dialog>
 
             {/* Status Confirm Dialog */}
+            {/* Habilitar (o quitar) un equipo Fuera de Servicio / Dado de Baja para la verificación de temperatura */}
+            <Dialog open={!!habilitacionPendiente} onOpenChange={(o) => { if (!o && !guardandoHabilitacion) setHabilitacionPendiente(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>{habilitacionPendiente?.habilitado_verif_temp ? 'Quitar habilitación para verificación de T°' : 'Habilitar para verificación de T°'}</DialogTitle>
+                    </DialogHeader>
+                    {habilitacionPendiente && (
+                        <div className="flex flex-col items-center gap-4">
+                            <span className={cn('flex h-16 w-16 items-center justify-center rounded-full',
+                                habilitacionPendiente.habilitado_verif_temp ? 'bg-muted text-muted-foreground' : 'bg-primary/10 text-primary')}>
+                                <IconTemperature size={34} />
+                            </span>
+                            <div className="text-center">
+                                <p className="font-semibold text-foreground">{habilitacionPendiente.codigo}</p>
+                                <p className="text-sm text-muted-foreground">{habilitacionPendiente.nombre}</p>
+                                <Badge variant={varianteEstado(estadoDe(habilitacionPendiente))} className="mt-2">{estadoDe(habilitacionPendiente)}</Badge>
+                            </div>
+                            <p className="w-full rounded-lg border border-border bg-muted/40 p-3 text-center text-sm text-foreground">
+                                {habilitacionPendiente.habilitado_verif_temp
+                                    ? <>Dejará de aparecer en <b>Verificación de Temperatura</b> mientras esté {estadoDe(habilitacionPendiente)}.</>
+                                    : <>Aparecerá en <b>Verificación de Temperatura</b> aunque esté {estadoDe(habilitacionPendiente)}, y se le podrán crear fichas.</>}
+                            </p>
+                        </div>
+                    )}
+                    <DialogFooter className="sm:justify-stretch">
+                        <Button variant="outline" className="flex-1" disabled={guardandoHabilitacion} onClick={() => setHabilitacionPendiente(null)}>Cancelar</Button>
+                        <Button className="flex-1" disabled={guardandoHabilitacion} onClick={confirmarHabilitacionVerifTemp}>
+                            {guardandoHabilitacion ? 'Guardando…' : habilitacionPendiente?.habilitado_verif_temp ? 'Quitar habilitación' : 'Habilitar'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             <Dialog open={showStatusConfirmModal} onOpenChange={setShowStatusConfirmModal}>
                 <DialogContent>
                     <DialogHeader>

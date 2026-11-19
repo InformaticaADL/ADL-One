@@ -1,10 +1,14 @@
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
+import { validarCodigoTipoNuevo, partesCodigo } from '../utils/codigoEquipo.js';
+import { PERMISOS_GC, puedeGc } from '../utils/permisosCalidad.js';
 import logger from '../utils/logger.js';
 import { ordenarObservacion } from '../utils/observacionEquipo.js';
 import { normalizarEstadoEquipo, ESTADOS_EQUIPO } from '../utils/estadoEquipo.js';
 import { resolverModalidad, familiaDeEquipo, MODALIDADES, FAMILIAS } from '../utils/reglasControlEquipo.js';
 import { excluirSinVencimiento } from '../utils/sinVencimientoSql.js';
+import { hayColumnaHabilitaVerifTemp, requiereHabilitacion } from '../utils/habilitacionVerifTemp.js';
+import auditService from './audit.service.js';
 import ExcelJS from 'exceljs';
 import fs from 'fs';
 import path from 'path';
@@ -245,6 +249,130 @@ const asegurarCodigoUnico = async (transaction, codigo) => {
     if (r.recordset.length) throw new Error(`El código ${c} ya existe en el inventario. Los códigos no se repiten, ni siquiera con equipos dados de baja.`);
 };
 
+// Un equipo fuera de servicio o dado de baja ya no está en uso: su vigencia puede estar vencida (no se exige una fecha futura).
+// Tipo de equipo nuevo (Nuevo Equipo > «Equipo nuevo»): Calidad define la sigla (3 letras, no se repite entre tipos) y
+// el código lleva la sede del equipo. Al crearlo, el tipo queda en el catálogo para que los siguientes equipos iguales
+// se ingresen como «Equipo existente», con el correlativo automático.
+const errorValidacion = (mensaje) => Object.assign(new Error(mensaje), { statusCode: 400 });
+let catalogoConSigla = false;
+const hayColumnasCatalogo = async (poolOTx) => {
+    if (catalogoConSigla) return true;
+    const req = poolOTx.request ? poolOTx.request() : new sql.Request(poolOTx);
+    const r = await req.query("SELECT COL_LENGTH('mae_equipo_catalogo', 'sigla') AS s, COL_LENGTH('mae_equipo_catalogo', 'modalidad_control') AS m");
+    catalogoConSigla = !!(r.recordset[0].s && r.recordset[0].m);
+    return catalogoConSigla;
+};
+
+/**
+ * ¿Se puede usar esta sigla para un tipo nuevo? No debe tenerla otro equipo ni otro tipo del catálogo.
+ * → { disponible, usada_por } (usada_por: el tipo o equipo que ya la tiene).
+ */
+export const siglaDisponible = async (poolOTx, sigla) => {
+    const s = String(sigla || '').trim().toUpperCase();
+    const req = () => (poolOTx.request ? poolOTx.request() : new sql.Request(poolOTx));
+    const e = (await req().input('s', sql.VarChar(20), s)
+        .query('SELECT TOP 1 codigo, tipoequipo, nombre FROM mae_equipo WHERE UPPER(LTRIM(RTRIM(sigla))) = @s')).recordset[0];
+    if (e) return { disponible: false, usada_por: `${e.tipoequipo || e.nombre || 'otro tipo'} (${e.codigo})` };
+    if (await hayColumnasCatalogo(poolOTx)) {
+        const c = (await req().input('s', sql.VarChar(20), s)
+            .query('SELECT TOP 1 nombre FROM mae_equipo_catalogo WHERE UPPER(LTRIM(RTRIM(sigla))) = @s')).recordset[0];
+        if (c) return { disponible: false, usada_por: `el tipo ${c.nombre} del catálogo` };
+    }
+    return { disponible: true, usada_por: null };
+};
+const validarTipoNuevo = async (transaction, data, userId = null) => {
+    // La sigla de un tipo nuevo la define Gestión de Calidad: lo hace quien tenga el permiso «Nuevo Equipo: registrar un
+    // tipo de equipo nuevo» (Configurar rol / permisos).
+    if (userId && !(await puedeGc(transaction, userId, PERMISOS_GC.CREAR_TIPO))) {
+        throw Object.assign(new Error('No tiene el permiso para registrar tipos de equipo nuevos (define la sigla).'), { statusCode: 403 });
+    }
+    const msg = validarCodigoTipoNuevo(data.codigo, data.ubicacion);
+    if (msg) throw errorValidacion(msg);
+    const { sigla } = partesCodigo(data.codigo);
+    const libre = await siglaDisponible(transaction, sigla);
+    if (!libre.disponible) throw errorValidacion(`La sigla ${sigla} ya la usa ${libre.usada_por}: elija otra, o si es el mismo tipo ingréselo como «Equipo existente».`);
+    const nombre = String(data.nombre || '').trim();
+    if (nombre) {
+        const ya = (await new sql.Request(transaction).input('n', sql.NVarChar(200), nombre)
+            .query('SELECT TOP 1 1 AS x FROM mae_equipo_catalogo WHERE LTRIM(RTRIM(nombre)) = @n')).recordset[0];
+        if (ya) throw errorValidacion(`El equipo «${nombre}» ya está en el catálogo: ingréselo como «Equipo existente».`);
+    }
+    data.sigla = sigla;
+    data.correlativo = partesCodigo(data.codigo).correlativo;
+};
+const registrarTipoEnCatalogo = async (pool, data) => {
+    try {
+        const nombre = String(data.nombre || '').trim();
+        if (!nombre) return;
+        const ya = await pool.request().input('n', sql.NVarChar(200), nombre).query('SELECT TOP 1 1 AS x FROM mae_equipo_catalogo WHERE LTRIM(RTRIM(nombre)) = @n');
+        if (ya.recordset[0]) return;
+        const conSigla = await hayColumnasCatalogo(pool);
+        await pool.request()
+            .input('nombre', sql.NVarChar(200), nombre)
+            .input('que_mide', sql.NVarChar(500), data.que_mide || null)
+            .input('umt', sql.NVarChar(200), data.unidad_medida_textual || null)
+            .input('ums', sql.NVarChar(100), data.unidad_medida_sigla || null)
+            .input('tipo', sql.NVarChar(200), data.tipo || null)
+            .input('sigla', sql.VarChar(10), String(data.sigla || '').trim() || null)
+            .input('mod', sql.VarChar(30), data.modalidad_control || null)
+            .query(`INSERT INTO mae_equipo_catalogo (nombre, que_mide, unidad_medida_textual, unidad_medida_sigla, tipo_equipo${conSigla ? ', sigla, modalidad_control' : ''})
+                    VALUES (@nombre, @que_mide, @umt, @ums, @tipo${conSigla ? ', @sigla, @mod' : ''})`);
+        logger.info(`Tipo de equipo nuevo agregado al catálogo: ${nombre}`);
+    } catch (e) {
+        logger.error('No se pudo registrar el tipo nuevo en el catálogo:', e);
+    }
+};
+
+const estadoSinVigenciaExigida = (estado) => {
+    const e = String(normalizarEstadoEquipo(estado) || estado || '').toLowerCase();
+    return e.includes('baja') || e.includes('fuera de servicio');
+};
+
+// Mientras no se trabaje con Adquisiciones, el N° de documento de compra (factura u orden de compra) lo ingresa
+// Gestión de Calidad al crear el equipo: es obligatorio. La subida del inventario en Excel carga lo que traiga.
+const exigirDocumentoCompra = (data) => {
+    if (data?.origen_excel) return;
+    if (!String(data?.n_documento_compra ?? '').trim()) {
+        throw Object.assign(new Error('Indique el N° de documento de compra del equipo (factura u orden de compra).'), { statusCode: 400 });
+    }
+};
+
+/**
+ * Habilita (o deja de habilitar) un equipo para la verificación de temperatura. Solo hace falta si está Fuera de
+ * Servicio o Dado de Baja: los Operativos aparecen siempre.
+ */
+export const habilitarVerifTemp = async (id, habilitado, userId = null) => {
+    const pool = await getConnection();
+    if (!(await hayColumnaHabilitaVerifTemp(pool))) {
+        throw Object.assign(new Error('Falta ejecutar la migración alter_equipo_habilitado_verif_temp.sql.'), { statusCode: 503 });
+    }
+    const eq = (await pool.request().input('id', sql.Numeric(10, 0), Number(id))
+        .query('SELECT id_equipo, codigo, Estado, que_mide, CAST(ISNULL(habilitado_verif_temp, 0) AS BIT) AS habilitado_verif_temp FROM mae_equipo WHERE id_equipo = @id')).recordset[0];
+    if (!eq) throw Object.assign(new Error('Equipo no encontrado.'), { statusCode: 404 });
+    const valor = !!habilitado;
+    if (valor && !/temperatura/i.test(String(eq.que_mide || ''))) {
+        throw Object.assign(new Error(`${eq.codigo} no mide temperatura: no lleva verificación de temperatura.`), { statusCode: 400 });
+    }
+    if (valor && !requiereHabilitacion(eq.Estado)) {
+        throw Object.assign(new Error(`${eq.codigo} está Operativo: ya aparece en Verificación de Temperatura sin habilitarlo.`), { statusCode: 400 });
+    }
+    await pool.request().input('id', sql.Numeric(10, 0), Number(id)).input('h', sql.Bit, valor)
+        .query('UPDATE mae_equipo SET habilitado_verif_temp = @h WHERE id_equipo = @id');
+    auditService.log({
+        usuario_id: userId ? Number(userId) : null,
+        area_key: 'calidad',
+        modulo_nombre: 'Inventario de Equipos',
+        evento_tipo: 'EDICION',
+        entidad_nombre: 'mae_equipo',
+        entidad_id: Number(id),
+        descripcion_humana: `${eq.codigo}: ${valor ? 'habilitado' : 'ya no habilitado'} para la verificación de temperatura (estado ${eq.Estado || '—'})`,
+        datos_anteriores: { habilitado_verif_temp: !!eq.habilitado_verif_temp },
+        datos_nuevos: { habilitado_verif_temp: valor },
+        severidad: 1,
+    });
+    return { id_equipo: Number(id), codigo: eq.codigo, habilitado_verif_temp: valor };
+};
+
 export const equipoService = {
     /**
      * Get unique names and metadata from the master catalog
@@ -446,10 +574,13 @@ export const equipoService = {
 
             // Columna "Documento" del listado: el de la revisión vigente, que es
             // justamente lo que guarda mae_equipo.
-            const docsColumns = (await hasDocsColumns(pool)) ? `,
+            const docsColumns = ((await hasDocsColumns(pool)) ? `,
                     e.documento_nombre,
                     e.documento_ruta,
-                    e.documento_fecha` : '';
+                    e.documento_fecha` : '')
+                // Habilitado para la verificación de temperatura aunque esté Fuera de Servicio o Dado de Baja.
+                + ((await hayColumnaHabilitaVerifTemp(pool)) ? `,
+                    CAST(ISNULL(e.habilitado_verif_temp, 0) AS BIT) AS habilitado_verif_temp` : '');
 
             const query = `
                 SELECT 
@@ -736,7 +867,16 @@ export const equipoService = {
             const siglaResult = await siglaRequest.query(siglaQuery);
 
             let sigla = 'EQ'; // Default if none found
-            if (siglaResult.recordset.length > 0 && siglaResult.recordset[0].sigla) {
+            // La sigla que Calidad registró para ese tipo en el catálogo manda sobre la que se deduce de otros equipos.
+            let siglaCatalogo = null;
+            if (nombre && await hayColumnasCatalogo(pool)) {
+                const c = (await pool.request().input('n', sql.NVarChar(200), String(nombre).trim())
+                    .query("SELECT TOP 1 sigla FROM mae_equipo_catalogo WHERE LTRIM(RTRIM(nombre)) = @n AND ISNULL(sigla, '') <> ''")).recordset[0];
+                siglaCatalogo = c?.sigla ? String(c.sigla).trim() : null;
+            }
+            if (siglaCatalogo) {
+                sigla = siglaCatalogo;
+            } else if (siglaResult.recordset.length > 0 && siglaResult.recordset[0].sigla) {
                 sigla = siglaResult.recordset[0].sigla;
             } else {
                 // Fallback: common mappings
@@ -937,8 +1077,10 @@ export const equipoService = {
     },
 
     createEquipo: async (data, userId = null) => {
-        // Validate Vigencia
-        if (data.vigencia) {
+        exigirDocumentoCompra(data);
+        // Validate Vigencia (no aplica si el equipo queda fuera de servicio o dado de baja, ni a los equipos que se crean
+        // desde la subida del inventario en Excel: esos se cargan tal como vienen, aunque su vigencia ya esté vencida).
+        if (data.vigencia && !estadoSinVigenciaExigida(data.estado_equipo) && !data.origen_excel) {
             const vigenciaDate = new Date(data.vigencia);
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -956,6 +1098,7 @@ export const equipoService = {
         const transaction = new sql.Transaction(pool);
         try {
             await transaction.begin();
+            if (data.tipo_nuevo) await validarTipoNuevo(transaction, data, userId);
             await asegurarCodigoUnico(transaction, data.codigo);
             // 1. Generate new ID manually (Pattern from ficha.service.js)
             const idResult = await transaction.request()
@@ -1047,6 +1190,7 @@ export const equipoService = {
             await request.query(queryMain);
 
             await transaction.commit();
+            if (data.tipo_nuevo) await registrarTipoEnCatalogo(pool, data);
             return { id: newId, ...data };
         } catch (error) {
             try { await transaction.rollback(); } catch (rollbackError) {}
@@ -1059,6 +1203,7 @@ export const equipoService = {
         if (!Array.isArray(equiposData) || equiposData.length === 0) {
             throw new Error('No hay equipos para crear');
         }
+        equiposData.forEach(exigirDocumentoCompra);
 
         const pool = await getConnection();
         await hasInvColumns(pool);
@@ -1074,6 +1219,14 @@ export const equipoService = {
             const results = [];
 
             const codigosDelLote = new Set();
+            // Varios equipos de un tipo nuevo: la sigla se valida con el primero (los demás la comparten).
+            if (equiposData[0]?.tipo_nuevo) {
+                await validarTipoNuevo(transaction, equiposData[0], userId);
+                for (const d of equiposData.slice(1)) {
+                    const msg = validarCodigoTipoNuevo(d.codigo, d.ubicacion);
+                    if (msg) throw errorValidacion(`${d.codigo}: ${msg}`);
+                }
+            }
             for (const data of equiposData) {
                 currentId++;
                 aplicarModalidad(data);
@@ -1142,6 +1295,7 @@ export const equipoService = {
             }
 
             await transaction.commit();
+            if (equiposData[0]?.tipo_nuevo) await registrarTipoEnCatalogo(pool, equiposData[0]);
             return results;
         } catch (error) {
             try { await transaction.rollback(); } catch (rollbackError) {}
@@ -1201,7 +1355,9 @@ export const equipoService = {
                 });
 
                 // Only throw error if the user is TRYING to set a NEW date that is in the past
-                if (vigStr && vigStr !== currentVigStr) {
+                // Si el equipo queda fuera de servicio o dado de baja, su vigencia puede estar vencida.
+                const estadoFinal = Object.prototype.hasOwnProperty.call(data, 'estado_equipo') ? data.estado_equipo : current.Estado;
+                if (vigStr && vigStr !== currentVigStr && !estadoSinVigenciaExigida(estadoFinal)) {
                     const today = new Date();
                     today.setHours(0, 0, 0, 0);
                     const todayStr = toYMD(today);

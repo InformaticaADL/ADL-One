@@ -4,6 +4,9 @@ import ursController from '../controllers/urs.controller.js';
 import { authenticate, authenticateDownload } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 import { validateRequest, ursValidationSchemas } from '../middlewares/validate.middleware.js';
+import solicitudEquipoService from '../services/solicitudEquipo.service.js';
+import { successResponse, errorResponse } from '../utils/response.js';
+import logger from '../utils/logger.js';
 
 const upload = multer();
 
@@ -29,6 +32,22 @@ router.get('/:id', validateRequest(ursValidationSchemas.getRequestById), ursCont
 router.put('/:id/status', validateRequest(ursValidationSchemas.updateStatus), ursController.updateStatus);
 router.post('/:id/comments', upload.any(), validateRequest(ursValidationSchemas.addComment), ursController.addComment);
 router.post('/:id/derive', validateRequest(ursValidationSchemas.derive), ursController.derive);
+
+// Aplicar una solicitud aceptada en los equipos (Gestión de Equipos): qué cambia y hacerlo.
+const permisoEquipos = ['AI_MA_EDITAR_EQUIPO', 'MA_A_GEST_EQUIPO', 'GC_ACCESO'];
+const manejarEquipo = (fn, mensaje) => async (req, res) => {
+    try {
+        return await fn(req, res);
+    } catch (e) {
+        if (e.statusCode && e.statusCode < 500) return errorResponse(res, e.message, e.statusCode);
+        logger.error(`${mensaje}:`, e);
+        return errorResponse(res, mensaje, 500);
+    }
+};
+router.get('/:id/plan-equipo', verifyPermission(permisoEquipos), manejarEquipo(async (req, res) =>
+    successResponse(res, await solicitudEquipoService.plan(req.params.id), 'Cambios de la solicitud'), 'No se pudieron preparar los cambios del equipo'));
+router.post('/:id/aplicar-equipo', verifyPermission('AI_MA_EDITAR_EQUIPO'), manejarEquipo(async (req, res) =>
+    successResponse(res, await solicitudEquipoService.aplicar(req.params.id, req.user?.id), 'Solicitud aplicada en los equipos'), 'No se pudo aplicar la solicitud en los equipos'));
 
 // --- Granular Permissions & Notifications (Phase 22) ---
 router.get('/types/:id/permissions', ursController.getPermissions);
