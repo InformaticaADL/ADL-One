@@ -489,7 +489,7 @@ class FichaIngresoService {
             // (id_validaciontecnica = 3 → Pendiente Técnica).
             const autoAprobar = data.autoAprobar === true;
             const idValidacionTecnica = autoAprobar ? 6 : 3;
-            const estadoFichaInicial = autoAprobar ? 'PENDIENTE PROGRAMACIÓN' : 'VIGENTE';
+            const estadoFichaInicial = autoAprobar ? 'PENDIENTE PROGRAMACIÓN' : 'PENDIENTE TÉCNICA';
 
             // Helper for empty strings/nulls
             const val = (v) => v === undefined || v === null || v === '' ? null : v;
@@ -905,6 +905,12 @@ class FichaIngresoService {
         try {
             if (!externa) await transaction.begin();
             logger.info(`Transaction started for updateFicha ID: ${id}`);
+            {
+                const est = (await new sql.Request(transaction).input('eid', sql.Numeric(10, 0), id).query('SELECT id_validaciontecnica v FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @eid')).recordset[0];
+                if (!est) throw this._errorDatos('La ficha no existe.', 404);
+                if ([7, 8].includes(Number(est.v))) throw this._errorDatos('La ficha está cancelada o ya cerró su ciclo: no se puede editar.', 409);
+                if ([5, 6].includes(Number(est.v))) await this._exigirSinEjecucion(transaction, [id], 'editar la ficha');
+            }
             // FIX: Ensure User Name is available for logs
             logger.info('DEBUG updateFicha - user object:', user);
             let userName = String(user.usuario || user.nombre_usuario || user.name || 'Sistema');
@@ -2344,7 +2350,7 @@ class FichaIngresoService {
         const estados = (await pool.request().query(
             `SELECT id_fichaingresoservicio, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
         )).recordset;
-        const valida = etapa === 'coordinacion' ? [1] : [0, 3, 4];
+        const valida = etapa === 'coordinacion' ? [1, 6] : [0, 3, 4];
         const pendientes = estados.filter((e) => valida.includes(Number(e.id_validaciontecnica))).map((e) => Number(e.id_fichaingresoservicio));
         pendientes.sort((a, b) => (a === Number(id) ? -1 : b === Number(id) ? 1 : a - b));
         if (pendientes.length === 0) throw this._errorDatos('Ningún punto de la visita está pendiente en esta etapa.');
@@ -2386,19 +2392,21 @@ class FichaIngresoService {
         const pool = await getConnection();
         const userId = user ? (user.id_usuario || user.id || 0) : 0;
         const transaction = new sql.Transaction(pool);
+        const despues = []; // auditorías que se escriben solo si la transacción se confirma
         await transaction.begin();
         try {
             // Sale del grupo primero: cancelarFicha no cancela fichas que siguen dentro de una visita.
             await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_grupo = @g');
             await new sql.Request(transaction).input('g', sql.Int, grupo.id_grupo).query('DELETE FROM App_Ma_GrupoMuestreo WHERE id_grupo = @g');
             for (const idFicha of ids) {
-                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction });
+                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction, despues });
                 await this.logHistorial(transaction, {
                     idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
                     observacion: `Visita cancelada completa (grupo de muestreo #${grupo.id_grupo}, ${ids.length} puntos).`,
                 });
             }
             await transaction.commit();
+            despues.forEach((fn) => { try { fn(); } catch (e) { logger.warn(`[cancelarVisita] auditoría: ${e.message}`); } });
             return { success: true, canceladas: ids, id_grupo: grupo.id_grupo };
         } catch (error) {
             try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
@@ -2426,13 +2434,14 @@ class FichaIngresoService {
         const pool = await getConnection();
         const userId = user ? (user.id_usuario || user.id || 0) : 0;
         const transaction = new sql.Transaction(pool);
+        const despues = []; // auditorías que se escriben solo si la transacción se confirma
         await transaction.begin();
         try {
             for (const idFicha of aQuitar) {
                 // Sale de la visita primero: cancelarFicha no cancela fichas que siguen dentro de un grupo.
                 await new sql.Request(transaction).input('f', sql.Numeric(10, 0), idFicha)
                     .query('DELETE FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @f');
-                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction });
+                await this.cancelarFicha({ id: idFicha, idMotivo, observacion, user }, { transaction, despues });
                 await this.logHistorial(transaction, {
                     idFicha, idUsuario: userId, accion: 'GRUPO_MUESTREO', estadoAnterior: '', estadoNuevo: '',
                     observacion: `Ficha quitada de la visita (grupo de muestreo #${grupo.id_grupo}) y cancelada.`,
@@ -2447,6 +2456,7 @@ class FichaIngresoService {
             }
             const reenviados = await this._reenviarVisitaATecnica(transaction, quedan, user, 'Se quitaron puntos de la visita: vuelve a validación técnica');
             await transaction.commit();
+            despues.forEach((fn) => { try { fn(); } catch (e) { logger.warn(`[quitarPuntosDeVisita] auditoría: ${e.message}`); } });
             return { success: true, quitados: aQuitar, quedan, grupoDisuelto, reenviados, id_grupo: grupo.id_grupo };
         } catch (error) {
             try { await transaction.rollback(); } catch (_) { /* ya revertida */ }
@@ -2478,8 +2488,9 @@ class FichaIngresoService {
         const estados = (await pool.request().query(
             `SELECT id_fichaingresoservicio id, id_validaciontecnica v FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${existentes.join(',')})`
         )).recordset;
-        const bloqueadas = estados.filter((e) => ![0, 1, 2, 3, 4].includes(Number(e.v))).map((e) => e.id);
+        const bloqueadas = estados.filter((e) => ![0, 1, 2, 3, 4, 5, 6].includes(Number(e.v))).map((e) => e.id);
         if (bloqueadas.length > 0) throw this._errorDatos(`No se pueden agregar puntos: las fichas ${bloqueadas.join(', ')} ya están en otra etapa.`);
+        await this._exigirSinEjecucion(pool, estados.filter((e) => [5, 6].includes(Number(e.v))).map((e) => e.id), 'agregar puntos');
 
         const userId = user ? (user.id_usuario || user.id || 0) : 0;
         const transaction = new sql.Transaction(pool);
@@ -2537,7 +2548,7 @@ class FichaIngresoService {
         const lista = ids.map(Number).filter((n) => Number.isFinite(n));
         if (lista.length === 0) return [];
         const afectados = (await new sql.Request(transaction).query(
-            `SELECT id_fichaingresoservicio id, estado_ficha FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${lista.join(',')}) AND id_validaciontecnica IN (1, 2, 4)`
+            `SELECT id_fichaingresoservicio id, estado_ficha FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${lista.join(',')}) AND id_validaciontecnica IN (1, 2, 4, 5, 6)`
         )).recordset;
         for (const a of afectados) {
             await new sql.Request(transaction).input('id', sql.Numeric(10, 0), a.id)
@@ -2559,8 +2570,9 @@ class FichaIngresoService {
             `SELECT id_fichaingresoservicio id, ma_punto_muestreo, ma_coordenadas, referencia_googlemaps, ubicacion_lat, ubicacion_lon, id_validaciontecnica v
              FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio IN (${ids.join(',')})`
         )).recordset;
-        const bloqueadas = filas.filter((f) => ![0, 1, 2, 3, 4].includes(Number(f.v))).map((f) => f.id);
+        const bloqueadas = filas.filter((f) => ![0, 1, 2, 3, 4, 5, 6].includes(Number(f.v))).map((f) => f.id);
         if (bloqueadas.length > 0) throw this._errorDatos(`No se puede editar la visita: las fichas ${bloqueadas.join(', ')} ya están en otra etapa.`);
+        await this._exigirSinEjecucion(pool, filas.filter((f) => [5, 6].includes(Number(f.v))).map((f) => f.id), 'editar la visita');
         if (hayAnalisis) {
             for (const a of analisisPorFicha) {
                 if (!ids.includes(Number(a.id))) throw this._errorDatos(`La ficha ${a.id} no pertenece a esta visita.`);
@@ -2662,7 +2674,8 @@ class FichaIngresoService {
                     'SELECT ma_punto_muestreo, ma_coordenadas, referencia_googlemaps, id_validaciontecnica FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @id'
                 )).recordset[0];
                 if (!actual) throw this._errorDatos(`La ficha ${c.id} no existe.`);
-                if (![0, 1, 2, 3, 4].includes(Number(actual.id_validaciontecnica))) throw this._errorDatos(`La ficha ${c.id} ya no se puede editar (está en otra etapa).`);
+                if (![0, 1, 2, 3, 4, 5, 6].includes(Number(actual.id_validaciontecnica))) throw this._errorDatos(`La ficha ${c.id} ya no se puede editar (está en otra etapa).`);
+                if ([5, 6].includes(Number(actual.id_validaciontecnica))) await this._exigirSinEjecucion(transaction, [c.id], 'editar el punto');
                 // Mismo formato que al crear la ficha: «zona UTM {norte}E {este}S»; sin coordenadas solo la zona; «No aplica» tal cual.
                 let coordenadas = null;
                 if (c.zona && c.zona.toLowerCase() !== 'no aplica') coordenadas = (c.utmNorte || c.utmEste) ? `${c.zona} UTM ${c.utmNorte}E ${c.utmEste}S` : c.zona;
@@ -2804,7 +2817,13 @@ class FichaIngresoService {
             request.input('id', sql.Numeric(10, 0), id);
             request.input('obs', sql.VarChar(250), observaciones);
             // We set id_validaciontecnica = 6 (Pendiente Programación)
-            await request.query("UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = 6, estado_ficha = 'PENDIENTE PROGRAMACIÓN', observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id");
+            // Una ficha que ya tenía fecha y muestreador (volvió a validación por una edición) regresa a «En Proceso»; si no, queda pendiente de programar.
+            const yaProgramada = Number((await new sql.Request(transaction).input('pid', sql.Numeric(10, 0), id).query(
+                "SELECT COUNT(*) n FROM App_Ma_Agenda_MUESTREOS WHERE id_fichaingresoservicio = @pid AND ISNULL(estado_caso, '') NOT LIKE '%CANCELAD%' AND id_muestreador IS NOT NULL AND YEAR(fecha_muestreo) > 1900")).recordset[0].n) > 0;
+            const estadoFin = yaProgramada ? 'En Proceso' : 'PENDIENTE PROGRAMACIÓN';
+            request.input('estId', sql.Int, yaProgramada ? 5 : 6);
+            request.input('estTxt', sql.VarChar(50), estadoFin);
+            await request.query('UPDATE App_Ma_FichaIngresoServicio_ENC SET id_validaciontecnica = @estId, estado_ficha = @estTxt, observaciones_coordinador = @obs WHERE id_fichaingresoservicio = @id');
 
             // LOG HISTORY
             await this.logHistorial(transaction, {
@@ -2812,7 +2831,7 @@ class FichaIngresoService {
                 idUsuario: user.id,
                 accion: 'APROBACION_COORDINACION',
                 estadoAnterior: 'Pendiente Coordinación', // Or previous state name
-                estadoNuevo: 'PENDIENTE PROGRAMACIÓN',
+                estadoNuevo: estadoFin,
                 observacion: observaciones || ''
             });
 
@@ -2871,6 +2890,9 @@ class FichaIngresoService {
 
         try {
             await transaction.begin();
+            const estadoActual = (await new sql.Request(transaction).input('cid', sql.Numeric(10, 0), id).query('SELECT id_validaciontecnica v FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @cid')).recordset[0];
+            if (!estadoActual || ![1, 6].includes(Number(estadoActual.v))) throw this._errorDatos('Solo se puede devolver a Comercial una ficha pendiente de coordinación o de programación.', 409);
+            if (Number(estadoActual.v) === 6) await this._exigirSinEjecucion(transaction, [id], 'devolver la ficha a Comercial');
             const request = new sql.Request(transaction);
             request.input('id', sql.Numeric(10, 0), id);
             request.input('obs', sql.VarChar(250), observaciones);
@@ -2885,7 +2907,7 @@ class FichaIngresoService {
                 idFicha: id,
                 idUsuario: user.id,
                 accion: 'RECHAZO_COORDINACION',
-                estadoAnterior: 'Pendiente Coordinación',
+                estadoAnterior: Number(estadoActual.v) === 6 ? 'Pendiente Programación' : 'Pendiente Coordinación',
                 estadoNuevo: 'Revisar (Coord)',
                 observacion: observaciones || ''
             });
@@ -3269,7 +3291,7 @@ class FichaIngresoService {
             });
             porGrupo.forEach((filas, idGrupo) => {
                 const puntos = filas.map((f) => String(f.punto || `Ficha ${f.id}`).trim());
-                filas.forEach((f) => info.set(Number(f.id), { id_grupo: idGrupo, total: filas.length, puntos }));
+                filas.forEach((f) => info.set(Number(f.id), { id_grupo: idGrupo, total: filas.length, puntos, ids: filas.map((x) => Number(x.id)), puntoDe: Object.fromEntries(filas.map((x, k) => [Number(x.id), puntos[k]])) }));
             });
         } catch (e) {
             logger.warn(`[grupos] no se pudo leer la información de grupos: ${e.message}`);
@@ -3356,7 +3378,7 @@ class FichaIngresoService {
     // servicios sin ejecutar quedan cancelados con el mismo motivo y todo queda en el historial. Desde ahí desaparece de las bandejas
     // de Técnica, Coordinación y Asignación. No se permite si algún servicio ya se ejecutó o empezó, si ya tiene caso de laboratorio
     // o si es punto de una visita (en ese caso se cancela el punto desde el calendario o se deshace la visita antes).
-    async cancelarFicha({ id, idMotivo, observacion, user }, { transaction: trExterna } = {}) {
+    async cancelarFicha({ id, idMotivo, observacion, user }, { transaction: trExterna, despues } = {}) {
         const idFicha = Number(id);
         if (!Number.isInteger(idFicha) || idFicha <= 0) throw this._errorDatos('Ficha inválida.');
         if (!Number(idMotivo)) throw this._errorDatos('Debe indicar el motivo de la cancelación.');
@@ -3379,21 +3401,7 @@ class FichaIngresoService {
                 'SELECT TOP 1 id_grupo FROM App_Ma_GrupoMuestreo_Ficha WHERE id_fichaingresoservicio = @id')).recordset[0];
             if (enGrupo) throw this._errorDatos('Esta ficha es un punto de una visita. Cancela el punto desde el calendario o deshaz la visita primero.', 409);
 
-            const agendas = (await new sql.Request(transaction).input('id', sql.Numeric(10, 0), idFicha).query(`
-                SELECT id_agendamam, frecuencia_correlativo, estado_caso, id_estadomuestreo, realizado_por_gem, instalacion_completado,
-                       retiro_completado, foma_enviado, cadena_enviada, caso_adlab
-                FROM App_Ma_Agenda_MUESTREOS WHERE id_fichaingresoservicio = @id`)).recordset;
-            const marcado = (v) => v === true || v === 1 || ['S', 'SI', 'SÍ', '1', 'TRUE'].includes(String(v ?? '').trim().toUpperCase());
-            const problemas = [];
-            for (const a of agendas) {
-                const nombre = String(a.frecuencia_correlativo || '').trim();
-                if (String(a.estado_caso || '').toUpperCase().includes('CANCELAD')) continue;
-                if (a.id_estadomuestreo === 3 || marcado(a.realizado_por_gem)) problemas.push(`${nombre}: ya fue ejecutado.`);
-                else if (marcado(a.instalacion_completado) || marcado(a.retiro_completado)) problemas.push(`${nombre}: el muestreador ya empezó el trabajo en terreno.`);
-                else if (marcado(a.foma_enviado) || marcado(a.cadena_enviada)) problemas.push(`${nombre}: ya se enviaron sus documentos.`);
-                else if (String(a.caso_adlab || '').trim()) problemas.push(`${nombre}: ya tiene un caso de laboratorio.`);
-            }
-            if (problemas.length > 0) throw this._errorDatos(`No se puede cancelar la ficha: ${problemas.join(' ')}`, 409);
+            const agendas = await this._exigirSinEjecucion(transaction, [idFicha], 'cancelar la ficha');
 
             const rqAg = new sql.Request(transaction);
             rqAg.input('id', sql.Numeric(10, 0), idFicha);
@@ -3413,17 +3421,43 @@ class FichaIngresoService {
             });
             if (!trExterna) await transaction.commit();
 
-            auditService.log({
+            const auditar = () => auditService.log({
                 usuario_id: userId, area_key: 'medio_ambiente', modulo_nombre: 'Fichas de Ingreso', evento_tipo: 'CANCELACION_FICHA',
                 entidad_nombre: 'App_Ma_FichaIngresoServicio_ENC', entidad_id: idFicha,
                 descripcion_humana: `El usuario ${user?.nombre_usuario || user?.usuario || 'Usuario'} canceló la ficha #${idFicha}. Motivo: ${motivo.nombre_motivo}`,
                 datos_nuevos: { idMotivo, observacion }, severidad: 2,
             });
+            // Con transacción externa (visita) la auditoría espera al commit de quien llama; sin ella, se escribe ya.
+            if (trExterna) { if (Array.isArray(despues)) despues.push(auditar); } else auditar();
             return { success: true, id: idFicha, agendasCanceladas: agendas.length };
         } catch (error) {
             if (!trExterna) { try { await transaction.rollback(); } catch (_) { /* ya cerrada */ } }
             throw error;
         }
+    }
+
+    // Revisa que ningún servicio de las fichas se haya ejecutado, que el muestreador no haya empezado en terreno, que no se hayan enviado sus documentos y que
+    // no tengan caso de laboratorio. Es la regla común para cancelar o editar una ficha que ya avanzó de etapa. Lanza 409 con el detalle; devuelve las agendas
+    // revisadas. `conexion` puede ser el pool o una transacción.
+    async _exigirSinEjecucion(conexion, ids, verbo) {
+        const lista = (ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0);
+        if (lista.length === 0) return [];
+        const agendas = (await new sql.Request(conexion).query(`
+            SELECT id_fichaingresoservicio, id_agendamam, frecuencia_correlativo, estado_caso, id_estadomuestreo, realizado_por_gem, instalacion_completado,
+                   retiro_completado, foma_enviado, cadena_enviada, caso_adlab
+            FROM App_Ma_Agenda_MUESTREOS WHERE id_fichaingresoservicio IN (${lista.join(',')})`)).recordset;
+        const marcado = (v) => v === true || v === 1 || ['S', 'SI', 'SÍ', '1', 'TRUE'].includes(String(v ?? '').trim().toUpperCase());
+        const problemas = [];
+        for (const a of agendas) {
+            const nombre = (lista.length > 1 ? `Ficha ${a.id_fichaingresoservicio} · ` : '') + String(a.frecuencia_correlativo || '').trim();
+            if (String(a.estado_caso || '').toUpperCase().includes('CANCELAD')) continue;
+            if (a.id_estadomuestreo === 3 || marcado(a.realizado_por_gem)) problemas.push(`${nombre}: ya fue ejecutado.`);
+            else if (marcado(a.instalacion_completado) || marcado(a.retiro_completado)) problemas.push(`${nombre}: el muestreador ya empezó el trabajo en terreno.`);
+            else if (marcado(a.foma_enviado) || marcado(a.cadena_enviada)) problemas.push(`${nombre}: ya se enviaron sus documentos.`);
+            else if (String(a.caso_adlab || '').trim()) problemas.push(`${nombre}: ya tiene un caso de laboratorio.`);
+        }
+        if (problemas.length > 0) throw this._errorDatos(`No se puede ${verbo}: ${problemas.join(' ')}`, 409);
+        return agendas;
     }
 
     // Quita la asignación (responsable y fecha) de uno o varios muestreos y los deja otra vez «por asignar» (pendientes de
@@ -4354,6 +4388,8 @@ class FichaIngresoService {
                     gruposYaAvisados.add(gi.id_grupo);
                 }
                 const sufijoGrupo = gi ? ` (Visita de ${gi.total} puntos: ${gi.puntos.join(', ')})` : '';
+                // Todas las fichas (puntos) de la visita entran en el correo, no solo la primera.
+                const idsDetalle = gi && gi.ids ? gi.ids : [Number(fid)];
                 // Determine if it was already in process (Reprogramación)
                 const statusReq = new sql.Request(transaction);
                 statusReq.input('fid', sql.Numeric(10, 0), fid);
@@ -4405,7 +4441,7 @@ class FichaIngresoService {
                 // reprogramación si al menos uno de los servicios de este batch ya tenía
                 // una fecha de muestreo previa.
                 const batchAgendaIds = assignments
-                    .filter(a => a.idFichaIngresoServicio === fid)
+                    .filter(a => idsDetalle.includes(Number(a.idFichaIngresoServicio)))
                     .map(a => String(a.id));
                 const wasPreviouslyAssigned = batchAgendaIds.some(aid => {
                     const hist = historicalData.get(aid);
@@ -4416,11 +4452,10 @@ class FichaIngresoService {
 
                 // Query detailed information for this ficha
                 const detailRequest = new sql.Request(transaction);
-                detailRequest.input('fichaId', sql.Numeric(10, 0), fid);
 
                 const detailResult = await detailRequest.query(`
                     SELECT 
-                        a.id_agendamam,
+                        a.id_agendamam, a.id_fichaingresoservicio AS id_ficha_agenda,
                         a.frecuencia_correlativo,
                         a.fecha_muestreo,
                         a.dia, a.mes, a.ano,
@@ -4436,7 +4471,7 @@ class FichaIngresoService {
                     LEFT JOIN mae_muestreador m1 ON a.id_muestreador = m1.id_muestreador
                     LEFT JOIN mae_muestreador m2 ON a.id_muestreador2 = m2.id_muestreador
                     LEFT JOIN mae_frecuencia f ON a.id_frecuencia = f.id_frecuencia
-                    WHERE a.id_fichaingresoservicio = @fichaId
+                    WHERE a.id_fichaingresoservicio IN (${idsDetalle.join(',')})
                       AND (a.estado_caso IS NULL OR a.estado_caso != 'CANCELADO')
                     ORDER BY a.frecuencia_correlativo
                 `);
@@ -4447,7 +4482,7 @@ class FichaIngresoService {
                     const totalServicios = firstRow.total_servicios || 0;
                     const isPuntual = (meta.tipo_ficha || '').toString().trim().toLowerCase() === 'puntual';
                     const assignedAgendaIds = new Set(
-                        assignments.filter(a => a.idFichaIngresoServicio === fid).map(a => String(a.id))
+                        assignments.filter(a => idsDetalle.includes(Number(a.idFichaIngresoServicio))).map(a => String(a.id))
                     );
 
                     // Build services array with detailed information
@@ -4503,6 +4538,8 @@ class FichaIngresoService {
 
                         return {
                             id_agendamam: row.id_agendamam,
+                            punto: gi && gi.puntoDe ? (gi.puntoDe[Number(row.id_ficha_agenda)] || null) : null,
+                            ordenPunto: gi && gi.ids ? gi.ids.indexOf(Number(row.id_ficha_agenda)) : 0,
                             numero: numeroServicio,
                             muestreador_instalacion: row.muestreador_instalacion || 'No asignado',
                             muestreador_retiro: row.muestreador_retiro || 'No asignado',
@@ -4518,7 +4555,7 @@ class FichaIngresoService {
                     });
 
                     // Sort services numerically by their extracted number
-                    servicios.sort((a, b) => parseInt(a.numero) - parseInt(b.numero));
+                    servicios.sort((a, b) => (a.ordenPunto - b.ordenPunto) || (parseInt(a.numero) - parseInt(b.numero)));
 
                     // Only show modified services if it's a rescheduling; otherwise only the
                     // services that were part of this assignment batch

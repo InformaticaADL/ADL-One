@@ -330,7 +330,7 @@ class NotificationService {
                 <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; margin-bottom: 15px; font-family: Arial, sans-serif;">
                     <tr>
                         <td style="padding: 12px 16px; background-color: #ffffff; border-left: 4px solid #0062a8; border-top: 1px solid #e2e8f0; border-right: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 8px 8px 0;">
-                            <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}:</strong>
+                            <strong style="color: #0062a8; font-size: 14px; font-family: Arial, sans-serif;">Servicio ${servicio.numero}${servicio.punto ? ` · Punto: ${servicio.punto}` : ''}:</strong>
                             <div style="margin-top: 8px; color: #333; font-size: 13px; line-height: 1.6; font-family: Arial, sans-serif;">
                                 <div style="margin-bottom: 4px;">📥 <strong>Muestreador Inst.:</strong> ${instalacionHtml}</div>
                                 ${retiroHtml ? `<div style="margin-bottom: 4px;">📤 <strong>Muestreador Ret.:</strong> ${retiroHtml}</div>` : ''}
