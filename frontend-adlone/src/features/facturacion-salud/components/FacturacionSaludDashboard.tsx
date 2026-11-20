@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { type Fila } from './formatos';
+import { InfoHelp } from './compartido';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -25,15 +26,15 @@ interface Props {
 const PROGRAMA_TO_ELIGE: Record<number, number> = {
     1: 1,  // PVA
     2: 2,  // Screening
-    3: 3,  // Peces Reproductores
-    4: 4,  // Servicio Diagnóstico
-    5: 5,  // I+D
-    6: 6,  // Investigación Lab
-    7: 4,  // Salud -> Servicio Diagnóstico
-    8: 7,  // Genética
-    10: 5, // I+D
-    18: 8, // SAMIC
-    19: 9, // Susceptibilidad Caligus
+    3: 4,  // Servicio Diagnóstico -> SDiag / ATV (4)
+    4: 5,  // Investigación I+D -> I+D (5)
+    5: 3,  // Contingencia ISA -> CISA / PVS / SRS (3)
+    6: 3,  // PVSalmon Chile -> CISA / PVS / SRS (3)
+    7: 6,  // Investigación Laboratorio -> ILab (6)
+    8: 4,  // Asistencia Técnica Veterinaria -> SDiag / ATV (4)
+    10: 3, // SRS -> CISA / PVS / SRS (3)
+    18: 8, // SAMIC (8)
+    19: 9, // Susceptibilidad Caligus (9)
 };
 
 const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectPrograma }) => {
@@ -131,7 +132,10 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         </div>
                         <Badge variant="outline" className="text-[11px]">Estado ENVIADO</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Casos de Salud pendientes por facturar</p>
+                    <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>Casos de Salud pendientes por facturar</span>
+                        <InfoHelp texto="Total de casos del área de Salud con análisis en estado ENVIADO y sin factura asignada (id_facturacion = 0)." />
+                    </p>
                     <p className="mt-0.5 text-2xl font-bold text-foreground">
                         {fmtClp(kpis.totalCasosPendientes || 0)} casos
                     </p>
@@ -147,7 +151,10 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         </div>
                         <Badge variant="warning" className="text-[11px]">Pendientes DTE</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Facturas aún no incluidas en un archivo para el emisor</p>
+                    <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>Facturas aún no incluidas en un archivo para el emisor</span>
+                        <InfoHelp texto="Pre-facturas creadas en facturacion_enc que todavía tienen emitido <> 'S' y están pendientes de exportar al archivo plano DTE." />
+                    </p>
                     <p className="mt-0.5 text-2xl font-bold text-foreground">
                         {fmtClp(kpis.prefacturasPendientesDte || 0)}
                     </p>
@@ -163,7 +170,10 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         </div>
                         <Badge variant="success" className="text-[11px]">Emitidas</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Facturas de casos ya incluidas en un archivo</p>
+                    <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>Facturas de casos ya incluidas en un archivo</span>
+                        <InfoHelp texto="Cantidad histórica de facturas de casos que ya fueron exportadas en un archivo plano para el emisor electrónico (emitido = 'S')." />
+                    </p>
                     <p className="mt-0.5 text-2xl font-bold text-foreground">
                         {fmtClp(kpis.prefacturasEmitidasDte || 0)}
                     </p>
@@ -179,7 +189,10 @@ const FacturacionSaludDashboard: React.FC<Props> = ({ onNavigate, onSelectProgra
                         </div>
                         <Badge variant="secondary" className="text-[11px]">Referencia UF</Badge>
                     </div>
-                    <p className="text-xs text-muted-foreground">Última UF registrada en Facturación</p>
+                    <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <span>Última UF registrada en Facturación</span>
+                        <InfoHelp texto="Valor de la UF utilizado en la última factura registrada en facturacion_enc. Se propone por defecto al valorizar casos." />
+                    </p>
                     <p className="mt-0.5 text-2xl font-bold text-foreground">
                         $ {fmtUf(kpis.ultimaUf || 38500)}
                     </p>

@@ -34,9 +34,17 @@ export const hoyIso = (): string => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-/** Número desde un cuadro de texto (acepta coma decimal). */
-export const aNumero = (v: string): number => {
-    const n = Number(String(v).replace(/\./g, '').replace(',', '.'));
+/** Número desde un cuadro de texto (acepta coma o punto decimal, y puntos de miles cuando hay coma o múltiples puntos). */
+export const aNumero = (v: string | number): number => {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    const s = String(v ?? '').trim();
+    if (!s) return 0;
+    const normalizado = s.includes(',')
+        ? s.replace(/\./g, '').replace(',', '.')
+        : (s.match(/\./g)?.length ?? 0) > 1
+            ? s.replace(/\./g, '')
+            : s;
+    const n = Number(normalizado);
     return Number.isFinite(n) ? n : 0;
 };
 

@@ -104,15 +104,15 @@ const FacturacionSaludDte: React.FC = () => {
         <div className="flex flex-col gap-5">
             <Card className="p-5">
                 <div className="flex flex-col gap-4">
-                    <Campo label="Archivo a generar" ayuda={flujoActual.descripcion}><Segmentado opciones={FLUJOS.map((f) => ({ value: f.value, label: f.label }))} valor={flujo} onChange={(v) => setFlujo(v as FlujoArchivo)} /></Campo>
+                    <Campo label="Archivo a generar" info="Selecciona cuál de los 5 flujos tributarios vas a exportar en formato plano de 35 columnas (felectronicatxt) para el emisor DTE." ayuda={flujoActual.descripcion}><Segmentado opciones={FLUJOS.map((f) => ({ value: f.value, label: f.label }))} valor={flujo} onChange={(v) => setFlujo(v as FlujoArchivo)} /></Campo>
                     <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-                        <Campo label="Buscar">
+                        <Campo label="Buscar" info="Filtra el listado por razón social de la empresa, N° interno de facturación o N° de documento SII.">
                             <div className="relative">
                                 <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                                 <Input className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Empresa, N° interno o N° de documento" />
                             </div>
                         </Campo>
-                        <Campo label="Mostrar"><SelectBuscable opciones={ESTADOS} valor={estado} onChange={(v) => setEstado(v as EstadoLista)} /></Campo>
+                        <Campo label="Mostrar" info="Permite ver documentos aún no exportados (NO emitidos), ya exportados (Emitidos) o todos."><SelectBuscable opciones={ESTADOS} valor={estado} onChange={(v) => setEstado(v as EstadoLista)} /></Campo>
                     </div>
                 </div>
             </Card>

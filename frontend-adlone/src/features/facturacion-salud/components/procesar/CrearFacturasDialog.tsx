@@ -89,7 +89,7 @@ const CrearFacturasDialog: React.FC<Props> = ({ abierto, onCerrar, empresa, grup
                             {grupos.map((g, i) => (
                                 <div key={i} className="flex flex-wrap items-start justify-between gap-2 rounded-md bg-background px-3 py-2 text-sm">
                                     <span className="min-w-0 whitespace-normal break-words">{g.label}</span>
-                                    <span className="tabular-nums text-muted-foreground">{g.casos} caso(s) · <span className="font-semibold text-foreground">{fmtNum(g.totalUf)} UF</span> · $ {fmtClp(g.totalUf * uf)}</span>
+                                    <span className="tabular-nums text-muted-foreground">{g.casos} caso(s) · <span className="font-semibold text-foreground">{fmtNum(g.totalUf, 3)} UF</span> · $ {fmtClp(g.totalUf * uf)}</span>
                                 </div>
                             ))}
                         </div>

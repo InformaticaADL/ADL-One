@@ -42,9 +42,17 @@ const CasosTabla: React.FC<Props> = ({ casos, elegidos, onElegidos, guardando, o
                     <TableRow>
                         <TableHead className="w-10">
                             <Checkbox
-                                checked={casos.length > 0 && elegidos.size === casos.length}
-                                onCheckedChange={(c) => onElegidos(c ? new Set(casos.map((x) => Number(x.id_caso))) : new Set())}
-                                aria-label="Elegir todos los casos"
+                                checked={casos.length > 0 && casos.every((x) => elegidos.has(Number(x.id_caso)))}
+                                onCheckedChange={(c) => {
+                                    const next = new Set(elegidos);
+                                    for (const x of casos) {
+                                        const id = Number(x.id_caso);
+                                        if (c) next.add(id);
+                                        else next.delete(id);
+                                    }
+                                    onElegidos(next);
+                                }}
+                                aria-label="Elegir todos los casos visibles"
                             />
                         </TableHead>
                         <TableHead className="w-10" />
@@ -69,10 +77,29 @@ const CasosTabla: React.FC<Props> = ({ casos, elegidos, onElegidos, guardando, o
                                             {abierto ? <IconChevronDown size={15} /> : <IconChevronRight size={15} />}
                                         </Button>
                                     </TableCell>
-                                    <TableCell className={`${celdaTexto} font-medium`}>{c.caso_adlab || c.id_caso}</TableCell>
+                                    <TableCell className={`${celdaTexto} font-medium`}>
+                                        <div className="flex flex-wrap items-center gap-1.5">
+                                            <span>{c.caso_adlab || c.id_caso}</span>
+                                            {c.es_rezagado && (
+                                                <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 text-[10px] font-medium text-amber-700 dark:text-amber-300">
+                                                    Rezagado
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        {c.nombre_programa && (
+                                            <div className="mt-0.5 text-[11px] font-normal text-muted-foreground">
+                                                {String(c.nombre_programa).trim()}
+                                            </div>
+                                        )}
+                                    </TableCell>
                                     <TableCell className={celdaTexto}>
                                         <div>{String(c.nombre_centro ?? '').trim()}</div>
-                                        <div className="text-xs text-muted-foreground">{String(c.nombre_tipoagua ?? '').trim()}</div>
+                                        <div className="text-xs text-muted-foreground">
+                                            {[String(c.nombre_tipoagua ?? '').trim(), String(c.nombre_especie ?? '').trim()].filter(Boolean).join(' · ')}
+                                        </div>
+                                        {c.lote && String(c.lote).trim() !== '' && (
+                                            <div className="text-[11px] text-muted-foreground/80">Lote: {String(c.lote).trim()}</div>
+                                        )}
                                     </TableCell>
                                     <TableCell className={celdaTexto}>{String(c.cliente_entrega ?? '').trim()}</TableCell>
                                     <TableCell className={celdaTexto}>{String(c.fecha_recepcion ?? '').trim()} → {String(c.fecha_informe ?? '').trim()}</TableCell>
@@ -106,7 +133,7 @@ const CasosTabla: React.FC<Props> = ({ casos, elegidos, onElegidos, guardando, o
                                                             return (
                                                                 <TableRow key={clave}>
                                                                     <TableCell className="align-top tabular-nums">{l.item}</TableCell>
-                                                                    <TableCell className={celdaTexto}>[{l.id_tecnica}] {String(l.nombre_tecnica ?? '').trim()}</TableCell>
+                                                                    <TableCell className={celdaTexto}>{String(l.nombre_tecnica ?? '').trim()}</TableCell>
                                                                     <TableCell className={celdaTexto}>{String(l.nombre_organo ?? '').trim()}{l.nombre_medios ? ` / ${String(l.nombre_medios).trim()}` : ''}</TableCell>
                                                                     <TableCell className={celdaTexto}>{String(l.tipoingreso ?? '').trim()} (I: {l.ind_nmuestras} / P: {l.pol_npooles})</TableCell>
                                                                     <TableCell className="align-top"><Badge variant="outline" className="whitespace-normal break-words">{l.regla_aplicada || (l.mf === 1 ? 'Valorizado' : 'Pendiente')}</Badge></TableCell>
@@ -124,7 +151,7 @@ const CasosTabla: React.FC<Props> = ({ casos, elegidos, onElegidos, guardando, o
                                                                                 <Button variant="ghost" size="icon-xs" aria-label="Cancelar" onClick={() => setEdicion(null)}><IconX size={13} /></Button>
                                                                             </div>
                                                                         ) : (
-                                                                            <Button variant="ghost" size="sm" onClick={() => setEdicion({ clave, cantidad: String(l.n_analisis || 1), unitario: String(l.vtaunitario || 0) })}><IconPencil size={13} />Ajustar</Button>
+                                                                            <Button variant="ghost" size="sm" onClick={() => setEdicion({ clave, cantidad: String(l.n_analisis || 1), unitario: String(l.vtaunitario || 0).replace('.', ',') })}><IconPencil size={13} />Ajustar</Button>
                                                                         )}
                                                                     </TableCell>
                                                                 </TableRow>

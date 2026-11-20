@@ -17,8 +17,8 @@ test('programas oficiales: PVA, Screening, Cisa-PVS-SRS, SAMIC y Caligus (combo 
 });
 
 test('los programas oficiales no ofrecen "Tipo de Agua"; los de servicios sí', () => {
-  assert.deepEqual(criteriosDisponibles(1), ['Na', 'Centro', 'Veterinario', 'Centro - Veterinario']);
-  assert.equal(criteriosDisponibles(4).length, 6);
+  assert.deepEqual(criteriosDisponibles(1), ['Na', 'Centro', 'Veterinario', 'Centro - Veterinario', 'Lote', 'Especie']);
+  assert.equal(criteriosDisponibles(4).length, 8);
   assert.throws(() => nombreSpPrever(1, 'Tipo de Agua'), /no está disponible/);
 });
 

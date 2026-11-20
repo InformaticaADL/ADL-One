@@ -69,13 +69,13 @@ const FacturacionSaludOtrasVentas: React.FC = () => {
         <div className="flex flex-col gap-5">
             <Card className="p-5">
                 <div className="grid grid-cols-1 items-end gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto]">
-                    <Campo label="Buscar">
+                    <Campo label="Buscar" info="Busca documentos de otras ventas, facturas exentas, notas de crédito o débito por empresa, glosa, N° interno o folio SII.">
                         <div className="relative">
                             <IconSearch size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <Input className="pl-9" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} placeholder="Empresa, glosa, N° interno o N° del documento" />
                         </div>
                     </Campo>
-                    <Campo label="Mostrar"><SelectBuscable opciones={ESTADOS} valor={estado} onChange={(v) => setEstado(v as EstadoLista)} /></Campo>
+                    <Campo label="Mostrar" info="Filtra entre documentos pendientes de incluir en archivo DTE, ya incluidos o todos."><SelectBuscable opciones={ESTADOS} valor={estado} onChange={(v) => setEstado(v as EstadoLista)} /></Campo>
                     <div className="flex flex-wrap gap-2">
                         <Button variant="outline" onClick={() => setNotaCasosAbierto(true)} disabled={!maestros}><IconFileMinus size={16} />Nota de crédito por casos</Button>
                         <Button onClick={() => setNuevoAbierto(true)} disabled={!maestros}><IconPlus size={16} />Nuevo documento</Button>

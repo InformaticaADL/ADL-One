@@ -43,6 +43,7 @@ export interface FichaFactura {
     llevaDolar: boolean;
     usdTotalCasos: number;
     otrasFacturasConElMismoFolio?: number[];
+    solicitudCambioEmpresaPendiente?: Fila | null;
 }
 
 export interface ArchivoGenerado {
@@ -100,8 +101,10 @@ export const facturacionSaludService = {
         fecha_proceso_fin?: string;
         ensilaje?: boolean;
         proa?: boolean;
+        incluir_rezagados?: boolean;
         uf: number;
         usd?: number;
+        casos_ids?: number[];
     }) {
         return (await apiClient.post(`${BASE}/valorizar`, payload)).data.data;
     },
@@ -124,6 +127,10 @@ export const facturacionSaludService = {
     },
 
     // --- Consulta y mantención de una factura ----------------------------------------------------------------------------
+    async listarPrefacturas(filtros: { emitido?: 'ALL' | 'N' | 'S'; busqueda?: string; limite?: number } = {}): Promise<Array<Fila>> {
+        return (await apiClient.get(`${BASE}/prefacturas?${query(filtros)}`)).data.data || [];
+    },
+
     async consultarFactura(params: { id_facturacion?: number; factura?: number }): Promise<FichaFactura> {
         return (await apiClient.get(`${BASE}/facturas/consulta?${query(params)}`)).data.data;
     },
@@ -141,7 +148,19 @@ export const facturacionSaludService = {
     },
 
     async cambiarEmpresaFactura(id: number, payload: { id_empresaservicio: number; motivo: string }) {
-        return (await apiClient.put(`${BASE}/prefacturas/${id}/empresa`, payload)).data.data;
+        return (await apiClient.post(`${BASE}/prefacturas/${id}/solicitud-cambio-empresa`, payload)).data.data;
+    },
+
+    async listarSolicitudesCambioEmpresa(filtros: { estado?: string; busqueda?: string } = {}): Promise<{ solicitudes: Array<Fila>; resumen: { total: number; pendientes: number; aprobadas: number; rechazadas: number } }> {
+        return (await apiClient.get(`${BASE}/solicitudes-cambio-empresa?${query(filtros)}`)).data.data;
+    },
+
+    async aprobarSolicitudCambioEmpresa(idAprobacion: number, comentario = '') {
+        return (await apiClient.post(`${BASE}/solicitudes-cambio-empresa/${idAprobacion}/aprobar`, { comentario })).data.data;
+    },
+
+    async rechazarSolicitudCambioEmpresa(idAprobacion: number, comentario: string) {
+        return (await apiClient.post(`${BASE}/solicitudes-cambio-empresa/${idAprobacion}/rechazar`, { comentario })).data.data;
     },
 
     // Datos previos a exportar
@@ -211,6 +230,15 @@ export const facturacionSaludService = {
 
     async datosExcelDetalle(id: number, lote = false) {
         return (await apiClient.get(`${BASE}/prefacturas/${id}/datos-detalle?${query({ lote: lote ? 'true' : '' })}`)).data.data as { columnas: string[]; filas: Array<Fila> };
+    },
+
+    /** Excel unificado (.xlsx) con pestañas Resumen y Detalle desde ADLFacturacion. */
+    async descargarExcelUnificado(id: number): Promise<{ blob: Blob; nombre: string }> {
+        const r = await apiClient.get(`${BASE}/prefacturas/${id}/excel`, { responseType: 'blob' });
+        return {
+            blob: r.data as Blob,
+            nombre: `Factura_ID${id}.xlsx`,
+        };
     },
 
     /** PDF «Resumen» de la factura. Devuelve el archivo y la ruta donde el servidor guardó una copia (vacía si no hay carpeta configurada). */

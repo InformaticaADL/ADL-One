@@ -30,7 +30,7 @@ const MontosTab: React.FC<Props> = ({ ficha, maestros, onActualizada }) => {
 
     const [ingresos, setIngresos] = useState<Linea[]>(ficha.ingresos.map((i) => ({ id: Number(i.id_otrosingresos), nombre: String(i.nombre_otrosingresos).trim(), valor: Number(i.valor) })));
     const [descuentos, setDescuentos] = useState<Linea[]>(ficha.descuentos.map((d) => ({ id: Number(d.id_otrosdescuentos), nombre: String(d.nombre_otrosdescuentos).trim(), valor: Number(d.valor) })));
-    const [uf, setUf] = useState(String(Number(enc.uf) || ''));
+    const [uf, setUf] = useState(Number(enc.uf) ? fmtNum(enc.uf) : '');
     const [folio, setFolio] = useState('');
     const [nuevoIng, setNuevoIng] = useState('');
     const [valorIng, setValorIng] = useState('');
@@ -147,16 +147,16 @@ const MontosTab: React.FC<Props> = ({ ficha, maestros, onActualizada }) => {
 
             <div className="grid grid-cols-1 gap-6 rounded-xl border border-border bg-muted/30 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-                    <Dato label="Total casos (UF)">{fmtNum(totales.caso)}</Dato>
-                    <Dato label="Otros ingresos (UF)">{fmtNum(totales.ing)}</Dato>
-                    <Dato label="Otros descuentos (UF)">{fmtNum(totales.des)}</Dato>
-                    <Dato label="Total factura (UF)"><span className="text-base font-semibold">{fmtNum(totales.total)}</span></Dato>
-                    <Dato label="Total en pesos"><span className="text-base font-semibold">$ {fmtClp(totales.pesos)}</span></Dato>
-                    {ficha.llevaDolar && <Dato label="Total casos en dólares">US$ {fmtNum(ficha.usdTotalCasos)}</Dato>}
+                    <Dato label="Total casos (UF)" info="Suma en UF de los análisis de laboratorio de los casos asociados a esta factura.">{fmtNum(totales.caso)}</Dato>
+                    <Dato label="Otros ingresos (UF)" info="Suma de recargos adicionales en UF (guías de despacho, materiales, fletes, etc.) que se agregan al total de los casos.">{fmtNum(totales.ing)}</Dato>
+                    <Dato label="Otros descuentos (UF)" info="Suma de rebajas o descuentos en UF que se restan del total de la factura.">{fmtNum(totales.des)}</Dato>
+                    <Dato label="Total factura (UF)" info="Total final en UF: Total casos (UF) + Otros ingresos (UF) − Otros descuentos (UF)."><span className="text-base font-semibold">{fmtNum(totales.total)}</span></Dato>
+                    <Dato label="Total en pesos" info="Monto neto en pesos chilenos (sin IVA): Total factura (UF) × Valor de la UF."><span className="text-base font-semibold">$ {fmtClp(totales.pesos)}</span></Dato>
+                    {ficha.llevaDolar && <Dato label="Total casos en dólares" info="Equivalente en dólares (USD) calculado para clientes con facturación en moneda extranjera.">US$ {fmtNum(ficha.usdTotalCasos)}</Dato>}
                 </div>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <Campo label="Valor de la UF"><Input inputMode="decimal" value={uf} onChange={(e) => setUf(e.target.value)} disabled={!editable} /></Campo>
-                    <Campo label="N° de factura" ayuda="Déjalo en blanco para grabar solo los montos; después se asigna el número.">
+                    <Campo label="Valor de la UF" info="Valor de la UF en pesos chilenos aplicado a esta factura."><Input inputMode="decimal" value={uf} onChange={(e) => setUf(e.target.value)} disabled={!editable} /></Campo>
+                    <Campo label="N° de factura" info="Folio tributario SII. Mientras esté en blanco puedes modificar montos; al asignar y grabar el N° de factura, los montos quedan cerrados." ayuda="Déjalo en blanco para grabar solo los montos; después se asigna el número.">
                         <Input inputMode="numeric" value={editable ? folio : String(Number(enc.factura))} onChange={(e) => setFolio(e.target.value)} disabled={!editable} placeholder="Sin número" />
                     </Campo>
                 </div>
