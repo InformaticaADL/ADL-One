@@ -19,7 +19,6 @@ import {
     IconFileDescription,
     IconFileCertificate,
     IconClipboardCheck,
-    IconSparkles,
 } from '@tabler/icons-react';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { FichasEquipoDialog, type TipoFichaEquipo } from './FichasEquipoDialog';
@@ -680,14 +679,19 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     // complementos (baterías, botellas…) no vencen. Sin regla, todo igual que antes.
     const control = useMemo(() => {
         const c = controlDeEquipo(reglasControl, formData.nombre, formData.modalidad_control);
-        if (c || !esNuevoTipo || !reglasControl) return c;
-        // Tipo nuevo (sin regla por nombre): Calidad elige su control de fechas entre todos; queda en el catálogo.
+        if (c || !reglasControl) return c;
+        // Nombre sin regla fija en el catálogo estático (REGLAS_POR_NOMBRE): puede ser
+        // un tipo nuevo que Calidad recién está creando (esNuevoTipo, elige entre todas
+        // las modalidades) o un equipo YA EXISTENTE de un tipo nuevo anterior (ej.
+        // "Adaptador"), que trae su modalidad guardada desde que se creó — en ambos
+        // casos se respeta la modalidad elegida/guardada en vez de pedir fechas de
+        // nuevo al editarlo (antes esto solo se honraba durante la creación).
         const elegida = String(formData.modalidad_control || '') as ModalidadControl;
         const info = reglasControl.modalidades[elegida];
         if (!info) return null;
         return {
-            permitidas: Object.keys(reglasControl.modalidades) as ModalidadControl[],
-            elegible: true, modalidad: elegida, info, meses: info.meses, sinVencimiento: elegida === 'SIN_VENCIMIENTO',
+            permitidas: esNuevoTipo ? (Object.keys(reglasControl.modalidades) as ModalidadControl[]) : [elegida],
+            elegible: esNuevoTipo, modalidad: elegida, info, meses: info.meses, sinVencimiento: elegida === 'SIN_VENCIMIENTO',
         };
     }, [reglasControl, formData.nombre, formData.modalidad_control, esNuevoTipo]);
     // Tipo nuevo todavía sin control de fechas elegido.
@@ -1373,19 +1377,14 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                         {esNuevoTipo ? (
-                            <div className={cn('flex items-start gap-3', !isMobile && 'flex-1')}>
-                                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
-                                    <IconSparkles size={22} />
+                            <div className={cn('flex flex-col', !isMobile && 'flex-1')}>
+                                <h2 className="m-0 flex flex-wrap items-center gap-2 text-xl font-semibold text-foreground">
+                                    Nuevo tipo de equipo
+                                    <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Tipo no registrado</Badge>
+                                </h2>
+                                <span className="text-xs text-muted-foreground">
+                                    Define un tipo que aún no está en el catálogo y registra su primer equipo. El tipo queda guardado para los siguientes equipos iguales.
                                 </span>
-                                <div className="flex flex-col">
-                                    <h2 className="m-0 flex flex-wrap items-center gap-2 text-xl font-semibold text-foreground">
-                                        Nuevo tipo de equipo
-                                        <Badge className="bg-primary/15 text-primary hover:bg-primary/15">Tipo no registrado</Badge>
-                                    </h2>
-                                    <span className="text-xs text-muted-foreground">
-                                        Define un tipo que aún no está en el catálogo y registra su primer equipo. El tipo queda guardado para los siguientes equipos iguales.
-                                    </span>
-                                </div>
                             </div>
                         ) : (
                             <div className={cn('flex flex-col', !isMobile && 'flex-1')}>

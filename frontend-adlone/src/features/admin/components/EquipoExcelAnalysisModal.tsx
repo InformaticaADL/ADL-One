@@ -17,6 +17,7 @@ import {
 } from '@tabler/icons-react';
 import { ImportacionInformeModal } from './ImportacionInformeModal';
 import { equipoService, type AnalisisExcelResponse, type AnalisisExcelItem, type Equipo } from '../services/equipo.service';
+import { controlDeEquipo, type ReglasControl } from '../utils/reglasControlEquipo';
 import { formatearTamano } from '../utils/documentosEquipo';
 import { useToast } from '../../../contexts/ToastContext';
 import { Button } from '@/components/ui/button';
@@ -78,15 +79,20 @@ const addDays = (dateStr: string, days: number) => {
 // hace falta un valor: un equipo nuevo no puede quedar sin fecha, así que se
 // usa hoy/+90 días — el mismo default que ya usa EquipoForm al crear — pero
 // solo en este punto (armar el payload a guardar), nunca en la comparación.
-const mapExcelDataToPayload = (d: AnalisisExcelItem['excelData']) => {
-    const ultimaVerificacion = d.ultima_verificacion || getTodayString();
-    const siguienteVerificacion = d.siguiente_verificacion || addDays(ultimaVerificacion, 90);
+// Excepción: los complementos (modalidad SIN_VENCIMIENTO: baterías, botellas,
+// adaptadores…) no vencen — igual que en EquipoForm, no se les inventa fecha.
+const mapExcelDataToPayload = (d: AnalisisExcelItem['excelData'], reglasControl: ReglasControl | null) => {
+    const control = controlDeEquipo(reglasControl, d.nombre, d.modalidad_control);
+    const esSinVencimiento = !!control?.sinVencimiento;
+    const ultimaVerificacion = esSinVencimiento ? (d.ultima_verificacion || undefined) : (d.ultima_verificacion || getTodayString());
+    const siguienteVerificacion = esSinVencimiento ? (d.siguiente_verificacion || undefined) : (d.siguiente_verificacion || addDays(ultimaVerificacion as string, 90));
     return {
         codigo: d.codigo || '',
         nombre: d.nombre || '',
         tipo: d.tipo || '',
         ubicacion: d.ubicacion || '',
-        vigencia: siguienteVerificacion,
+        modalidad_control: control?.modalidad || d.modalidad_control || undefined,
+        vigencia: esSinVencimiento ? undefined : siguienteVerificacion,
         id_muestreador: d.id_muestreador || 0,
         estado: d.estado || 'Activo',
         sigla: d.sigla || '',
@@ -184,11 +190,11 @@ const mapExcelDataToUpdatePayload = (item: AnalisisExcelItem) => {
 // "no_existe" prellena con lo leído del Excel e id_equipo=0, que es justo lo
 // que EquipoForm interpreta como "creación nueva" (ver EquipoForm.tsx, todas
 // las comprobaciones son `!!initialData?.id_equipo`, no `!!initialData`).
-const buildInitialData = (item: AnalisisExcelItem): any => {
+const buildInitialData = (item: AnalisisExcelItem, reglasControl: ReglasControl | null): any => {
     if (item.status === 'difiere' && item.id_equipo) {
         return { id_equipo: item.id_equipo };
     }
-    return { id_equipo: 0, ...mapExcelDataToPayload(item.excelData) };
+    return { id_equipo: 0, ...mapExcelDataToPayload(item.excelData, reglasControl) };
 };
 
 // Campos leídos del inventario, en el orden en que se muestran en "Datos del Excel".
@@ -246,8 +252,17 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const { showToast } = useToast();
+    const [reglasControl, setReglasControl] = useState<ReglasControl | null>(null);
 
     const procesandoLote = subiendoTodo || actualizandoTodo;
+
+    // Reglas de control por tipo de equipo (qué ciclo de fechas aplica, o si el
+    // equipo es un complemento sin vencimiento). Hace falta acá para no inventar
+    // una fecha de vigencia (fallback hoy/+90) en equipos SIN_VENCIMIENTO al
+    // crearlos directo desde el Excel (ver mapExcelDataToPayload).
+    useEffect(() => {
+        equipoService.getReglasControl().then(setReglasControl).catch(() => setReglasControl(null));
+    }, []);
 
     // Si quedó un lote sin confirmar de una sesión anterior (cierre accidental
     // de pestaña, recarga a mitad de un "Subir/Actualizar Todo"), se muestra
@@ -394,7 +409,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
     // vuelta, el correlativo recién usado por la anterior y no genera códigos duplicados.
     const crearEquipoDesdeExcel = async (item: AnalisisExcelItem) => {
         // origen_excel: viene del inventario, que puede traer equipos con la vigencia ya vencida (se cargan tal cual).
-        const payload = { ...mapExcelDataToPayload(item.excelData), origen_excel: true };
+        const payload = { ...mapExcelDataToPayload(item.excelData, reglasControl), origen_excel: true };
         if (!payload.codigo) {
             const sugerido = await equipoService.suggestNextCode(payload.tipo, payload.ubicacion, payload.nombre);
             if (sugerido?.success && sugerido.data?.suggestedCode) {
@@ -1137,7 +1152,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                     {pestanaVer === 'editar' && (
                                         <div key={`form-${itemVer.rowNumber}`} className="min-h-0 flex-1 overflow-y-auto pr-1">
                                             <EquipoForm
-                                                initialData={buildInitialData(itemVer)}
+                                                initialData={buildInitialData(itemVer, reglasControl)}
                                                 onCancel={() => setPestanaVer(itemVer.status === 'difiere' ? 'diferencias' : 'excel')}
                                                 onSave={() => {
                                                     setFilaVer(null);
@@ -1204,7 +1219,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                             <IconArrowLeft size={14} /> Volver a resultados
                         </Button>
                         <EquipoForm
-                            initialData={buildInitialData(itemSeleccionado)}
+                            initialData={buildInitialData(itemSeleccionado, reglasControl)}
                             onCancel={() => setVista('resultados')}
                             onSave={() => {
                                 setVista('resultados');

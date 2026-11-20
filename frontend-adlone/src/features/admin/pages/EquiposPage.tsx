@@ -191,6 +191,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [showStatusConfirmModal, setShowStatusConfirmModal] = useState(false);
     const [equipoStatusPending, setEquipoStatusPending] = useState<Equipo | null>(null);
     const [statusObservation, setStatusObservation] = useState('');
+    // Eliminación definitiva (solo Informática, solo ingresos erróneos): pide observación obligatoria.
+    const [equipoAEliminar, setEquipoAEliminar] = useState<Equipo | null>(null);
+    const [motivoEliminar, setMotivoEliminar] = useState('');
+    const [eliminandoDefinitivo, setEliminandoDefinitivo] = useState(false);
     const [showResolutionModal, setShowResolutionModal] = useState(false);
     const [resolutionFeedback, setResolutionFeedback] = useState('');
     const [resolutionDate, setResolutionDate] = useState('');
@@ -1367,6 +1371,17 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 danger: !isInactive,
                 separatorBefore: true,
             },
+            {
+                // Solo Informática, y solo sirve para un ingreso erróneo recién creado: si ya tiene
+                // verificaciones, puesta en marcha o fichas guardadas, el backend la rechaza y hay que
+                // usar "Poner Fuera de Servicio" / "Dar de baja" en su lugar.
+                label: 'Eliminar definitivamente',
+                icon: <IconTrash size={16} />,
+                onClick: () => { setMotivoEliminar(''); setEquipoAEliminar(equipo); },
+                hidden: !hasPermission('EQ_ELIMINAR_DEFINITIVO'),
+                danger: true,
+                separatorBefore: true,
+            },
         ];
         return (
             <div className="flex justify-end">
@@ -1913,18 +1928,18 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         </span>
                                     </TableHead>
                                     <TableHead
-                                        className="w-[8%] cursor-pointer select-none hover:text-foreground"
+                                        className="w-[10%] cursor-pointer select-none text-center hover:text-foreground"
                                         onClick={handleClickEstado}
                                         title="Filtrar por estado (clic para cambiar)"
                                     >
-                                        <span className="inline-flex items-center gap-1">
+                                        <span className="inline-flex w-full items-center justify-center gap-1">
                                             Estado
                                             {filterEstado && <Badge variant="secondary" className="px-1.5 py-0 text-[10px] font-normal">{filterEstado}</Badge>}
                                         </span>
                                     </TableHead>
                                     <TableHead className="w-[9%]">Vigencia</TableHead>
                                     <TableHead className="w-[14%]">Responsable</TableHead>
-                                    <TableHead className="w-[12%] px-2">Documento</TableHead>
+                                    <TableHead className="w-[10%] px-2">Documento</TableHead>
                                     <TableHead className="w-[7%] px-2 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -1970,7 +1985,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                 </TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.tipo}>{equipo.tipo}</TableCell>
                                                 <TableCell className="truncate text-sm text-muted-foreground" title={equipo.ubicacion}>{equipo.ubicacion}</TableCell>
-                                                <TableCell><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge>
+                                                <TableCell className="pr-4 text-center"><Badge variant={varianteEstado(estadoDe(equipo))} className="whitespace-nowrap">{estadoDe(equipo)}</Badge>
                                                     {equipo.habilitado_verif_temp && !esOperativo(equipo) && (
                                                         <Badge variant="outline" className="ml-1 gap-1 whitespace-nowrap" title="Habilitado para la verificación de temperatura"><IconTemperature size={12} /> Verif. T°</Badge>
                                                     )}</TableCell>
@@ -2430,6 +2445,56 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                         >
                             {processingAction && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
                             Confirmar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Eliminación definitiva (solo Informática): borra el registro, no queda ni como Dado de Baja. */}
+            <Dialog open={!!equipoAEliminar} onOpenChange={(o) => { if (!o) setEquipoAEliminar(null); }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Eliminar definitivamente</DialogTitle>
+                    </DialogHeader>
+                    <div className="flex flex-col gap-4">
+                        <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3">
+                            <IconAlertTriangle size={18} className="mt-0.5 shrink-0 text-destructive" />
+                            <p className="text-sm text-foreground">
+                                Esto borra por completo a <b>{equipoAEliminar?.codigo}</b> ({equipoAEliminar?.nombre}): no queda como "Dado de Baja", y su correlativo queda libre para un equipo nuevo. Solo sirve para un ingreso erróneo: si ya tiene verificaciones, puesta en marcha o fichas guardadas, se rechaza. No se puede deshacer.
+                            </p>
+                        </div>
+                        <div>
+                            <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Observación (obligatoria) *</Label>
+                            <Textarea
+                                rows={3}
+                                value={motivoEliminar}
+                                onChange={(e) => setMotivoEliminar(e.target.value)}
+                                placeholder="Por qué se elimina (ej.: se creó dos veces por error, código mal tipeado...)"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-stretch">
+                        <Button variant="outline" className="flex-1" onClick={() => setEquipoAEliminar(null)}>Cancelar</Button>
+                        <Button
+                            className="flex-1 bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            disabled={eliminandoDefinitivo || motivoEliminar.trim().length < 5}
+                            onClick={async () => {
+                                if (!equipoAEliminar) return;
+                                setEliminandoDefinitivo(true);
+                                try {
+                                    await equipoService.eliminarDefinitivo(Number(equipoAEliminar.id_equipo), motivoEliminar.trim());
+                                    showToast({ type: 'success', message: 'Equipo eliminado definitivamente' });
+                                    setEquipoAEliminar(null);
+                                    fetchData();
+                                } catch (e) {
+                                    showToast({ type: 'error', message: (e as any)?.response?.data?.message || 'No se pudo eliminar el equipo' });
+                                } finally {
+                                    setEliminandoDefinitivo(false);
+                                }
+                            }}
+                        >
+                            {eliminandoDefinitivo && <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />}
+                            Eliminar definitivamente
                         </Button>
                     </DialogFooter>
                 </DialogContent>

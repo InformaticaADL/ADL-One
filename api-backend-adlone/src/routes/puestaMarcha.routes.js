@@ -43,6 +43,9 @@ router.get('/', permiso, manejar(async (req, res) => successResponse(res, await 
 router.get('/equipo/:idEquipo/datos', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.datosEquipo(req.params.idEquipo)), 'No se pudieron leer los datos del equipo'));
 // Quién puede firmar (áreas del usuario y muestreadores con competencias) y equipos que sirven de patrón de referencia.
 router.get('/firmantes', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.firmantes(req.user)), 'No se pudieron leer los firmantes'));
+// Personas con el permiso para firmar por un rol (Combobox de "Enviar a firmar") y mis puestas en marcha pendientes.
+router.get('/usuarios-para-firmar', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.usuariosParaFirmar(req.query.rol)), 'No se pudieron leer los posibles firmantes'));
+router.get('/firmas-pendientes', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.misFirmasPendientes(req.user)), 'No se pudieron leer las firmas pendientes'));
 router.get('/patrones', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.patronesReferencia()), 'No se pudieron leer los patrones'));
 router.post('/', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.crear(req.body, req.user), 'Puesta en marcha registrada'), 'No se pudo registrar la puesta en marcha'));
 
@@ -83,6 +86,7 @@ router.get('/:id/pdf', permiso, manejar(async (req, res) => {
 router.put('/:id', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.editar(req.params.id, req.body, req.user), 'Puesta en marcha actualizada'), 'No se pudo actualizar la puesta en marcha'));
 router.get('/:id/registro-interno', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.registroInterno(req.params.id, req.user)), 'No se pudo leer el registro interno'));
 router.post('/:id/firmar', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.firmar(req.params.id, req.body, req.user), 'Firma registrada'), 'No se pudo registrar la firma'));
+router.post('/:id/enviar-a-firmar', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.enviarAFirmar(req.params.id, req.body, req.user), 'Enviado a firmar'), 'No se pudo enviar a firmar'));
 router.post('/:id/anular', permiso, manejar(async (req, res) => successResponse(res, await puestaMarchaService.anular(req.params.id, req.body?.motivo, req.user), 'Puesta en marcha anulada'), 'No se pudo anular la puesta en marcha'));
 router.post('/:id/adjuntos', permiso, subirArchivo, manejar(async (req, res) =>
     successResponse(res, await puestaMarchaService.adjuntar(req.params.id, { documento: req.body?.documento, archivo: req.file, observacion: req.body?.observacion }, req.user), 'Documento adjuntado'), 'No se pudo adjuntar el documento'));

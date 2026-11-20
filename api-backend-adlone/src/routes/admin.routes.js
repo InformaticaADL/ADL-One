@@ -177,6 +177,10 @@ router.put('/equipos/:id/habilitar-verif-temp', verifyToken, verifyPermission('A
 router.get('/equipos/:id/historial', verifyToken, verifyPermission('EQ_HISTORY'), equipoController.getEquipoHistorial);
 router.post('/equipos/:id/restore/:idHistorial', verifyToken, verifyPermission('EQ_UPDATE'), equipoController.restoreVersion);
 router.delete('/equipos/:id', verifyToken, verifyPermission('EQ_DESACTIVAR'), equipoController.deleteEquipo);
+// Eliminación DEFINITIVA (distinta de la de arriba, que es la baja suave): solo ingresos erróneos, sin
+// verificaciones ni fichas asociadas, y pide una observación. Registro de qué se eliminó, más abajo.
+router.post('/equipos/:id/eliminar-definitivo', verifyToken, verifyPermission('EQ_ELIMINAR_DEFINITIVO'), equipoController.eliminarEquipoDefinitivo);
+router.get('/equipos-eliminados', verifyToken, verifyPermission('EQ_ELIMINAR_DEFINITIVO'), equipoController.equiposEliminados);
 router.post('/equipos/check-expiration', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), equipoController.checkExpiration);
 
 // --- DOCUMENTO DE LA REVISIÓN / MANTENCIÓN DEL EQUIPO ---

@@ -43,6 +43,10 @@ export const AVISO_FUTURO = 'Primera versión: la secuencia que se escribe en el
 
 const TABLA = 'mae_puesta_marcha';
 const TABLA_ADJ = 'mae_puesta_marcha_adjunto';
+// Envíos a firmar (migrations/add_puesta_marcha_asignacion_firma.sql): quien registra firma su parte y, si no puede
+// firmar la otra, la envía a una persona concreta que sí tiene el permiso; esa persona firma con el mismo endpoint
+// de siempre desde su propia sesión. Esta tabla solo registra a quién se le pidió cada firma.
+const TABLA_ASIG = 'mae_puesta_marcha_asignacion_firma';
 export const TIPOS = ['EQUIPO_NUEVO', 'RETORNO_SERVICIO', 'CAMBIO_SEDE', 'REACTIVACION'];
 const NOMBRE_TIPO = { EQUIPO_NUEVO: 'equipo nuevo', RETORNO_SERVICIO: 'retorno de servicio externo', CAMBIO_SEDE: 'cambio de sede', REACTIVACION: 'reactivación tras Fuera de Servicio' };
 const AREAS = ['TECNICA', 'CALIDAD'];
@@ -167,6 +171,27 @@ const exigirTablas = async (pool) => {
     if (!r.recordset[0].a || !r.recordset[0].b) throw error('Falta ejecutar la migración add_puesta_en_marcha.sql para usar las puestas en marcha.', 503);
 };
 
+let hayTablaAsig = false;
+const hayTablaAsignacion = async (pool) => {
+    if (hayTablaAsig) return true;
+    const r = await pool.request().query(`SELECT OBJECT_ID('${TABLA_ASIG}', 'U') AS a`);
+    hayTablaAsig = !!r.recordset[0].a;
+    return hayTablaAsig;
+};
+const exigirTablaAsignacion = async (pool) => {
+    if (!(await hayTablaAsignacion(pool))) throw error('Falta ejecutar la migración add_puesta_marcha_asignacion_firma.sql para enviar a firmar.', 503);
+};
+
+/** Avisa por la Notificación Unificada (UNS); si falla, solo lo deja en el log (no corta la acción). */
+const notificar = async (idUsuario, titulo, mensaje, idPuesta) => {
+    try {
+        const { default: uns } = await import('./uns.service.js');
+        await uns.sendWebNotification(idUsuario, titulo, mensaje, 'INFO', idPuesta, 'PuestaMarcha');
+    } catch (e) {
+        logger.warn(`Puesta en marcha: no se pudo avisar al usuario ${idUsuario}: ${e.message}`);
+    }
+};
+
 const filaPublica = (p) => ({
     id_puesta_marcha: p.id_puesta_marcha,
     id_equipo: Number(p.id_equipo),
@@ -216,6 +241,16 @@ const adjuntosDe = async (pool, id) => (await pool.request().input('id', sql.Int
     SELECT id_adjunto, documento, archivo_nombre, nombre_usuario, fecha${(await hayColumnaObsAdjunto(pool)) ? ', observacion' : ''}
     FROM ${TABLA_ADJ} WHERE id_puesta_marcha = @id ORDER BY id_adjunto`)).recordset;
 
+/** Envío pendiente por rol (si existe), para mostrar "Enviado a <nombre>, pendiente de su firma". */
+const asignacionesDe = async (pool, id) => {
+    if (!(await hayTablaAsignacion(pool))) return {};
+    const r = await pool.request().input('id', sql.Int, Number(id)).query(`
+        SELECT a.rol, a.id_usuario_destino, u.nombre_usuario AS nombre_destino, a.fecha_creacion
+        FROM ${TABLA_ASIG} a JOIN mae_usuario u ON u.id_usuario = a.id_usuario_destino
+        WHERE a.id_puesta_marcha = @id AND a.estado = 'PENDIENTE'`);
+    return Object.fromEntries(r.recordset.map((x) => [x.rol, { id_usuario_destino: x.id_usuario_destino, nombre_destino: x.nombre_destino, fecha_creacion: x.fecha_creacion }]));
+};
+
 const puestaMarchaService = {
     async listar({ id_equipo, estado, q } = {}) {
         const pool = await getConnection();
@@ -246,6 +281,8 @@ const puestaMarchaService = {
             ...filaPublica(p), adjuntos: await adjuntosDe(pool, id), aviso_futuro: AVISO_FUTURO,
             // Partes por las que puede firmar quien mira, y si puede editar (según sus permisos).
             mis_areas: areas, puede_editar: (await puedeEditar(pool, usuario)) && p.estado !== 'ANULADA',
+            // Si la parte que falta ya se envió a firmar a alguien, por rol ('TECNICA'/'CALIDAD').
+            asignaciones: await asignacionesDe(pool, id),
         };
     },
 
@@ -407,9 +444,82 @@ const puestaMarchaService = {
         if (!upd.rowsAffected[0]) throw error('La puesta en marcha cambió mientras firmaba; ábrala de nuevo.', 409);
 
         auditar(usuario, 'FIRMA', p, `Firma de ${NOMBRE_AREA[rol]}: ${nombre}`);
+        // Si esta firma venía de un envío ("Enviar a firmar"), queda resuelto y se avisa a quien la envió.
+        if (await hayTablaAsignacion(pool)) {
+            const asig = (await pool.request().input('id', sql.Int, Number(id)).input('rol', sql.VarChar(10), rol)
+                .query(`UPDATE ${TABLA_ASIG} SET estado = 'FIRMADA', fecha_resuelta = GETDATE()
+                        OUTPUT INSERTED.id_usuario_envia
+                        WHERE id_puesta_marcha = @id AND rol = @rol AND estado = 'PENDIENTE'`)).recordset[0];
+            if (asig?.id_usuario_envia && Number(asig.id_usuario_envia) !== Number(usuario.id)) {
+                await notificar(Number(asig.id_usuario_envia), 'Firma registrada',
+                    `${nombre || 'Alguien'} firmó la puesta en marcha de ${p.codigo_equipo || p.nombre_equipo} por ${NOMBRE_AREA[rol]}.`, Number(id));
+            }
+        }
         const actual = await cargar(pool, id);
         if (actual.firma_tecnica && actual.firma_calidad) await this._aprobar(pool, actual, usuario);
         return this.obtener(id, usuario);
+    },
+
+    /** Personas que tienen el permiso para firmar por ese rol (para elegir a quién enviarle la firma). */
+    async usuariosParaFirmar(rol) {
+        if (!AREAS.includes(rol)) throw error('Indique por qué área: Área Técnica o Gestión de Calidad.');
+        const pool = await getConnection();
+        const codigo = rol === 'CALIDAD' ? PERMISOS_GC.FIRMA_CALIDAD : PERMISOS_GC.FIRMA_TECNICA;
+        const candidatos = (await pool.request().query(
+            "SELECT id_usuario, nombre_usuario FROM mae_usuario WHERE habilitado = 'S' ORDER BY nombre_usuario")).recordset;
+        const resultado = [];
+        for (const u of candidatos) {
+            if (await puedeGc(pool, u.id_usuario, codigo)) resultado.push({ id_usuario: u.id_usuario, nombre: u.nombre_usuario });
+        }
+        return resultado;
+    },
+
+    /** Envía a firmar la parte que falta a una persona concreta: le llega como «Firmas pendientes». */
+    async enviarAFirmar(id, body = {}, usuario) {
+        const pool = await getConnection();
+        await exigirTablas(pool);
+        await exigirTablaAsignacion(pool);
+        const p = await cargar(pool, id);
+        if (p.estado !== 'PENDIENTE_FIRMA') throw error('Esta puesta en marcha ya no tiene firmas pendientes.', 409);
+        const rol = body.rol;
+        if (!AREAS.includes(rol)) throw error('Indique por qué área: Área Técnica o Gestión de Calidad.');
+        const columna = rol === 'TECNICA' ? 'tecnica' : 'calidad';
+        if (p[`firma_${columna}`]) throw error(`La firma de ${NOMBRE_AREA[rol]} ya está registrada.`, 409);
+        const idDestino = Number(body.id_usuario_destino);
+        if (!idDestino) throw error('Elija a quién enviarle la firma.');
+        const codigo = rol === 'CALIDAD' ? PERMISOS_GC.FIRMA_CALIDAD : PERMISOS_GC.FIRMA_TECNICA;
+        if (!(await puedeGc(pool, idDestino, codigo))) {
+            throw error(`Esa persona no tiene el permiso para firmar por ${NOMBRE_AREA[rol]}.`);
+        }
+        const destino = (await pool.request().input('u', sql.Numeric(10, 0), idDestino)
+            .query("SELECT nombre_usuario FROM mae_usuario WHERE id_usuario = @u AND habilitado = 'S'")).recordset[0];
+        if (!destino) throw error('Usuario no encontrado o deshabilitado.', 404);
+
+        // Si ya había un envío pendiente para este rol (a otra persona u a la misma), queda anulado: solo rige el último.
+        await pool.request().input('id', sql.Int, Number(id)).input('rol', sql.VarChar(10), rol)
+            .query(`UPDATE ${TABLA_ASIG} SET estado = 'ANULADA', fecha_resuelta = GETDATE() WHERE id_puesta_marcha = @id AND rol = @rol AND estado = 'PENDIENTE'`);
+        await pool.request()
+            .input('pm', sql.Int, Number(id)).input('rol', sql.VarChar(10), rol)
+            .input('dest', sql.Numeric(10, 0), idDestino).input('envia', sql.Numeric(10, 0), Number(usuario.id))
+            .query(`INSERT INTO ${TABLA_ASIG} (id_puesta_marcha, rol, id_usuario_destino, id_usuario_envia) VALUES (@pm, @rol, @dest, @envia)`);
+
+        await notificar(idDestino, 'Firma pendiente: puesta en marcha',
+            `${texto(usuario.name, 150) || 'Alguien'} le envió la puesta en marcha de ${p.codigo_equipo || p.nombre_equipo} para que la firme por ${NOMBRE_AREA[rol]}.`,
+            Number(id));
+        return this.obtener(id, usuario);
+    },
+
+    /** Puestas en marcha que le enviaron a firmar a esta persona y siguen pendientes. */
+    async misFirmasPendientes(usuario) {
+        const pool = await getConnection();
+        await exigirTablas(pool);
+        if (!(await hayTablaAsignacion(pool))) return [];
+        const r = await pool.request().input('u', sql.Numeric(10, 0), Number(usuario.id)).query(`
+            SELECT p.id_puesta_marcha, p.codigo_equipo, p.nombre_equipo, p.nombre_crea, a.rol, a.fecha_creacion
+            FROM ${TABLA_ASIG} a JOIN ${TABLA} p ON p.id_puesta_marcha = a.id_puesta_marcha
+            WHERE a.id_usuario_destino = @u AND a.estado = 'PENDIENTE' AND p.estado = 'PENDIENTE_FIRMA'
+            ORDER BY a.fecha_creacion DESC`);
+        return r.recordset;
     },
 
     /**

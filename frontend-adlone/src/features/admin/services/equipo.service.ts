@@ -4,6 +4,19 @@ import type { ModalidadControl, ReglasControl } from '../utils/reglasControlEqui
 // No need for custom axios instance - using centralized apiClient with automatic token injection
 
 
+/** Una fila del registro de equipos eliminados definitivamente (mae_equipo_eliminado). */
+export interface EquipoEliminado {
+    id_eliminado: number;
+    id_equipo_original: number;
+    codigo: string | null;
+    nombre: string | null;
+    tipoequipo: string | null;
+    sede: string | null;
+    motivo: string;
+    nombre_usuario: string | null;
+    fecha_eliminacion: string;
+}
+
 export interface Equipo {
     id_equipo: number;
     codigo: string;
@@ -291,6 +304,18 @@ export const equipoService = {
 
     deleteEquipo: async (id: number): Promise<any> => {
         const response = await apiClient.delete(`/api/admin/equipos/${id}`);
+        return response.data;
+    },
+
+    /** Eliminación definitiva (solo ingresos erróneos, sin verificaciones ni fichas asociadas). Pide observación. */
+    eliminarDefinitivo: async (id: number, observacion: string): Promise<any> => {
+        const response = await apiClient.post(`/api/admin/equipos/${id}/eliminar-definitivo`, { observacion });
+        return response.data;
+    },
+
+    /** Registro de equipos eliminados definitivamente. */
+    equiposEliminados: async (q?: string): Promise<{ success: boolean; data: EquipoEliminado[] }> => {
+        const response = await apiClient.get('/api/admin/equipos-eliminados', { params: { q: q || undefined } });
         return response.data;
     },
 

@@ -162,6 +162,30 @@ export const equipoController = {
         }
     },
 
+    /** Eliminación definitiva (solo ingresos erróneos, sin verificaciones/fichas asociadas). Pide observación. */
+    eliminarEquipoDefinitivo: async (req, res) => {
+        try {
+            const result = await equipoService.eliminarEquipoDefinitivo(req.params.id, req.body, req.user);
+            res.json({ success: true, data: result, message: 'Equipo eliminado definitivamente' });
+        } catch (error) {
+            const codigo = error.statusCode || error.status;
+            if (codigo && codigo < 600) return res.status(codigo).json({ success: false, message: error.message });
+            logger.error('Controller eliminarEquipoDefinitivo error:', error);
+            res.status(500).json({ success: false, message: 'Error al eliminar el equipo' });
+        }
+    },
+
+    /** Registro de equipos eliminados definitivamente. */
+    equiposEliminados: async (req, res) => {
+        try {
+            const result = await equipoService.equiposEliminados(req.query);
+            res.json({ success: true, data: result });
+        } catch (error) {
+            logger.error('Controller equiposEliminados error:', error);
+            res.status(500).json({ success: false, message: 'Error al leer los equipos eliminados' });
+        }
+    },
+
 
 
     checkExpiration: async (req, res) => {

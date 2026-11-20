@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { formatearFechaHoraCorta } from '@/lib/fechas';
-import { IconPlus, IconSearch, IconFileTypePdf, IconPaperclip, IconTrash, IconDownload, IconBan, IconCircleCheck, IconClock, IconEdit } from '@tabler/icons-react';
+import { IconPlus, IconSearch, IconFileTypePdf, IconPaperclip, IconTrash, IconDownload, IconBan, IconCircleCheck, IconClock, IconEdit, IconSend, IconDeviceMobile } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,9 +12,11 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import { firmaUsuarioService } from '../../../services/firmaUsuario.service';
 import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
 import { CampoFirma } from '../components/CampoFirma';
+import { FirmaCelularDialog } from '../components/FirmaCelularDialog';
 import { equipoService } from '../services/equipo.service';
 import { ITEMS_RECEPCION, type ItemRecepcion } from '../services/fichasEquipo.service';
 import {
@@ -61,6 +63,16 @@ export const GcPuestaMarchaPage: React.FC<Props> = ({ onBack }) => {
     const [nueva, setNueva] = useState(false);
     const [abierta, setAbierta] = useState<number | null>(null);
     const [pdf, setPdf] = useState<{ url: string; titulo: string } | null>(null);
+    const { puestaMarchaPendienteId, setPuestaMarchaPendienteId } = useNavStore();
+
+    // Llegó desde el aviso de "Enviar a firmar" (o de que ya firmó la otra parte): se abre directo.
+    useEffect(() => {
+        if (puestaMarchaPendienteId) {
+            setAbierta(puestaMarchaPendienteId);
+            setPuestaMarchaPendienteId(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [puestaMarchaPendienteId]);
 
     const cargar = useCallback(async () => {
         try {
@@ -233,12 +245,21 @@ const FilaFormulario: React.FC<{ label: string; children: React.ReactNode }> = (
 
 export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: number) => void; idEquipoInicial?: number }> = ({ onClose, onCreada, idEquipoInicial }) => {
     const { showToast } = useToast();
+    const { hasPermission } = useAuth();
     const [equipos, setEquipos] = useState<OpcionEquipo[]>([]);
     const [idEquipo, setIdEquipo] = useState('');
     const [datos, setDatos] = useState<DatosEquipoPuesta | null>(null);
     const [fecha, setFecha] = useState(hoyYmd());
     const [tipo, setTipo] = useState<TipoPuestaMarcha>('EQUIPO_NUEVO');
-    const [area, setArea] = useState<AreaPuestaMarcha>('TECNICA');
+    // Quién la realiza: se detecta por el perfil de quien la está registrando (permisos
+    // «Puesta en Marcha: firmar por…», ver permisosCalidad.js). Si el perfil firma solo por
+    // una parte, esa queda fija y no se puede cambiar a la otra (no tendría sentido registrar
+    // que la realizó un área a la que no pertenece). Si firma por las dos (o por ninguna,
+    // ej. un admin) queda libre para elegir, como antes.
+    const puedeCalidad = hasPermission('GC_PM_FIRMA_CALIDAD');
+    const puedeTecnica = hasPermission('GC_PM_FIRMA_TECNICA');
+    const areaFija: AreaPuestaMarcha | null = puedeCalidad !== puedeTecnica ? (puedeCalidad ? 'CALIDAD' : 'TECNICA') : null;
+    const [area, setArea] = useState<AreaPuestaMarcha>(areaFija ?? 'TECNICA');
     const [items, setItems] = useState<Items>({});
     const [otros, setOtros] = useState('');
     // Sin marcar hasta que se elija: así el formulario de la derecha muestra solo lo que se ha llenado.
@@ -398,8 +419,24 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
                             <div className="flex flex-col gap-1 text-xs text-muted-foreground">
                                 La realiza <span className="text-[11px]">(la otra parte la valida)</span>
                                 <div className="flex gap-1">
-                                    <button type="button" className={opcion(area === 'TECNICA')} onClick={() => setArea('TECNICA')}>Área Técnica</button>
-                                    <button type="button" className={opcion(area === 'CALIDAD')} onClick={() => setArea('CALIDAD')}>Gestión de Calidad</button>
+                                    <button
+                                        type="button"
+                                        disabled={areaFija === 'CALIDAD'}
+                                        title={areaFija === 'CALIDAD' ? 'Su perfil solo puede registrar la puesta en marcha por Gestión de Calidad.' : undefined}
+                                        className={cn(opcion(area === 'TECNICA'), areaFija === 'CALIDAD' && 'cursor-not-allowed opacity-50')}
+                                        onClick={() => setArea('TECNICA')}
+                                    >
+                                        Área Técnica
+                                    </button>
+                                    <button
+                                        type="button"
+                                        disabled={areaFija === 'TECNICA'}
+                                        title={areaFija === 'TECNICA' ? 'Su perfil solo puede registrar la puesta en marcha por el Área Técnica.' : undefined}
+                                        className={cn(opcion(area === 'CALIDAD'), areaFija === 'TECNICA' && 'cursor-not-allowed opacity-50')}
+                                        onClick={() => setArea('CALIDAD')}
+                                    >
+                                        Gestión de Calidad
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -583,6 +620,12 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
     const [motivo, setMotivo] = useState('');
     const [editando, setEditando] = useState(false);
     const [registro, setRegistro] = useState<RegistroInternoPuesta[] | null>(null);
+    // Enviar a firmar: a quién, de la parte que no puede firmar quien mira.
+    const [enviandoRol, setEnviandoRol] = useState<AreaPuestaMarcha | null>(null);
+    const [candidatos, setCandidatos] = useState<{ id_usuario: number; nombre: string }[] | null>(null);
+    const [destinoElegido, setDestinoElegido] = useState('');
+    const [enviando, setEnviando] = useState(false);
+    const [qrAbierto, setQrAbierto] = useState(false);
 
     useEffect(() => {
         let vigente = true;
@@ -621,6 +664,8 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
     const muestreadorElegido = firmantes?.muestreadores.find((m) => String(m.id_muestreador) === muestreador) || null;
     // Por qué partes puede firmar ahora: un muestreador elegido firma solo por Medio Ambiente.
     const rolesFirmables = falta.filter((rol) => (muestreadorElegido ? rol === 'TECNICA' : areas[rol]));
+    // Partes que faltan y quien mira no puede firmar: se pueden enviar a alguien que sí tenga el permiso.
+    const rolesParaEnviar = falta.filter((rol) => !areas[rol]);
     const firmaLista = !!firma.imagen || firma.usar;
     // Ya aprobada, solo quien tiene el permiso de editar agrega o quita documentos.
     const puedeDocumentos = p.estado !== 'ANULADA' && (!aprobada || p.puede_editar);
@@ -629,6 +674,30 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
         const cuerpo = { rol, ...(muestreadorElegido ? { id_muestreador: muestreadorElegido.id_muestreador } : {}), ...(firma.usar ? { usar_registrada: true } : { imagen: firma.imagen ?? undefined }) };
         const ok = await ejecutar(() => api.firmar(p.id_puesta_marcha, cuerpo), 'Firma registrada');
         if (ok) { setFirma({ imagen: null, usar: false }); setClaveFirma((k) => k + 1); setMuestreador(''); }
+    };
+
+    // Enviar a firmar la parte que falta (quien mira no puede firmarla): elige a quién.
+    const abrirEnvio = async (rol: AreaPuestaMarcha) => {
+        setEnviandoRol(rol);
+        setDestinoElegido('');
+        setCandidatos(null);
+        try { setCandidatos(await api.usuariosParaFirmar(rol)); } catch (e) {
+            showToast({ type: 'error', message: mensajeError(e) || 'No se pudo leer quién puede firmar' });
+            setCandidatos([]);
+        }
+    };
+    const confirmarEnvio = async () => {
+        if (!enviandoRol || !destinoElegido) return;
+        setEnviando(true);
+        try {
+            setP(await api.enviarAFirmar(p.id_puesta_marcha, { rol: enviandoRol, id_usuario_destino: Number(destinoElegido) }));
+            showToast({ type: 'success', message: 'Enviado a firmar' });
+            setEnviandoRol(null);
+        } catch (e) {
+            showToast({ type: 'error', message: mensajeError(e) || 'No se pudo enviar a firmar' });
+        } finally {
+            setEnviando(false);
+        }
     };
 
     const adjuntar = async () => {
@@ -676,7 +745,9 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
                             <p className="text-xs text-muted-foreground">{NOMBRE_AREA[a]} · {a === p.area_realiza ? 'realiza' : 'valida'}</p>
                             {p.firmas[a].firmada
                                 ? <p className="mt-1 flex items-center gap-1 font-medium text-success"><IconCircleCheck size={15} /> Firmada por {p.firmas[a].nombre}</p>
-                                : <p className="mt-1 text-muted-foreground">Pendiente</p>}
+                                : p.asignaciones?.[a]
+                                    ? <p className="mt-1 text-muted-foreground">Enviado a <span className="font-medium text-foreground">{p.asignaciones[a]!.nombre_destino}</span>, pendiente de su firma</p>
+                                    : <p className="mt-1 text-muted-foreground">Pendiente</p>}
                         </div>
                     ))}
                 </div>
@@ -709,13 +780,24 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
                                         onChange={(f, usar) => setFirma({ imagen: f, usar })}
                                     />
                                 </div>
-                                <div className="flex flex-wrap gap-2">
+                                <div className="flex flex-wrap items-center gap-2">
                                     {rolesFirmables.map((rol) => (
                                         <Button key={rol} size="sm" disabled={!firmaLista || ocupado} onClick={() => firmar(rol)}>
                                             Firmar como {NOMBRE_AREA[rol]}{rol === p.area_realiza ? ' (realiza)' : ' (valida)'}
                                         </Button>
                                     ))}
+                                    <Button type="button" size="sm" variant="outline" className="gap-1" disabled={ocupado} onClick={() => setQrAbierto(true)}>
+                                        <IconDeviceMobile size={14} /> Firmar con el celular (QR)
+                                    </Button>
                                 </div>
+                                <FirmaCelularDialog
+                                    open={qrAbierto}
+                                    onClose={() => setQrAbierto(false)}
+                                    titulo={`Firma · ${p.codigo_equipo || p.nombre_equipo}`}
+                                    subtitulo={muestreadorElegido ? muestreadorElegido.nombre : (user?.name || '')}
+                                    slots={[{ id: 'firma', titulo: 'Firma', nombre: muestreadorElegido ? muestreadorElegido.nombre : (user?.name || ''), firmada: false }]}
+                                    onFirma={(_id, imagen) => { setFirma({ imagen, usar: false }); setClaveFirma((k) => k + 1); setQrAbierto(false); }}
+                                />
                             </>
                         ) : (
                             <p className="text-xs text-muted-foreground">
@@ -723,6 +805,36 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
                             </p>
                         )}
                         <p className="text-[11px] text-muted-foreground">Quien realiza y quien valida son personas distintas: no se puede firmar por las dos partes.</p>
+
+                        {/* Enviar a firmar la parte que falta y que quien mira no puede firmar */}
+                        {rolesParaEnviar.map((rol) => (
+                            <div key={rol} className="flex flex-col gap-2 rounded-md border border-dashed border-border p-2">
+                                {p.asignaciones?.[rol] && enviandoRol !== rol ? (
+                                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                        <span>{NOMBRE_AREA[rol]}: enviado a <b>{p.asignaciones[rol]!.nombre_destino}</b>, pendiente de su firma.</span>
+                                        <Button type="button" size="sm" variant="outline" onClick={() => abrirEnvio(rol)}>Reenviar a otra persona</Button>
+                                    </div>
+                                ) : enviandoRol === rol ? (
+                                    <div className="flex flex-wrap items-end gap-2">
+                                        <label className="flex flex-col gap-1 text-xs text-muted-foreground">
+                                            A quién le llega la solicitud de firma por {NOMBRE_AREA[rol]}
+                                            <Combobox
+                                                value={destinoElegido}
+                                                onValueChange={setDestinoElegido}
+                                                options={(candidatos || []).map((c) => ({ value: String(c.id_usuario), label: c.nombre }))}
+                                                placeholder={candidatos === null ? 'Cargando…' : 'Seleccione a quién enviar'}
+                                            />
+                                        </label>
+                                        <Button type="button" size="sm" disabled={!destinoElegido || enviando} onClick={confirmarEnvio}>Enviar</Button>
+                                        <Button type="button" size="sm" variant="ghost" onClick={() => setEnviandoRol(null)}>Cancelar</Button>
+                                    </div>
+                                ) : (
+                                    <Button type="button" size="sm" variant="outline" className="w-fit gap-1" onClick={() => abrirEnvio(rol)}>
+                                        <IconSend size={14} /> Enviar a firmar ({NOMBRE_AREA[rol]})
+                                    </Button>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 )}
 

@@ -13,6 +13,9 @@ interface NavState {
     // Solicitud de firma de una ficha (Solicitudes > Firmas pendientes) a abrir al llegar desde una notificación.
     firmaPendienteId: number | null;
     setFirmaPendienteId: (id: number | null) => void;
+    // Puesta en marcha que me enviaron a firmar: Gestión de Calidad > Puesta en Marcha la abre sola al llegar desde una notificación.
+    puestaMarchaPendienteId: number | null;
+    setPuestaMarchaPendienteId: (id: number | null) => void;
     pendingChatId: number | null; // For deep-linking to specific chat
     pendingSolicitudClienteId: number | null; // Solicitud de cliente (WebClientesV2) a abrir al llegar desde una notificación
     selectedRequestId: number | null; // Phase 27
@@ -82,6 +85,7 @@ export const useNavStore = create<NavState>()(
             pendingRequestId: null,
             aplicarSolicitudId: null,
             firmaPendienteId: null,
+            puestaMarchaPendienteId: null,
             pendingChatId: null,
             pendingSolicitudClienteId: null,
             selectedRequestId: null,
@@ -124,6 +128,7 @@ export const useNavStore = create<NavState>()(
             setPendingRequestId: (id) => set({ pendingRequestId: id }),
             setAplicarSolicitudId: (id) => set({ aplicarSolicitudId: id }),
             setFirmaPendienteId: (id) => set({ firmaPendienteId: id }),
+            setPuestaMarchaPendienteId: (id) => set({ puestaMarchaPendienteId: id }),
             setPendingChatId: (id) => set({ pendingChatId: id }),
             setPendingSolicitudClienteId: (id) => set({ pendingSolicitudClienteId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),

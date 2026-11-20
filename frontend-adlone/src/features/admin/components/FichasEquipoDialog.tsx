@@ -300,7 +300,6 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     const [guardada, setGuardada] = useState<{ id_ficha: number; fecha_creacion: string } | null>(null);
     const [guardando, setGuardando] = useState(false);
     const [guardadas, setGuardadas] = useState<FichaGuardada[]>([]);
-    const [verGuardadas, setVerGuardadas] = useState(false);
     // Anulación de una ficha guardada (con motivo) y aviso cuando ya hay una vigente igual.
     const [aAnular, setAAnular] = useState<FichaGuardada | null>(null);
     const [motivoAnular, setMotivoAnular] = useState('');
@@ -321,7 +320,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         setFirmasRecepcion({ recepcion: null, usarMiFirma: false, calidad: null });
         setFirmasSel({});
         setAniosExtra([]); setNuevoAnio(null);
-        setGuardada(null); setGuardadas([]); setVerGuardadas(false); setBorradorRecuperado(false);
+        setGuardada(null); setGuardadas([]); setBorradorRecuperado(false);
         borradorRevisado.current = false; estadoInicial.current = null;
         if (idEquipo) {
             api.guardadas(idEquipo, tipo).then((r) => { if (vigente) setGuardadas(r.fichas); }).catch(() => { /* sin tabla o sin permiso */ });
@@ -804,6 +803,55 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         return conRegistro(r);
     });
 
+    // Lista de fichas guardadas de este equipo (siempre visible, nunca colapsada): al presionar una abre el
+    // popup con cómo quedó. Se arma una sola vez y se muestra como columna aparte en pantallas anchas, o
+    // arriba del formulario en pantallas angostas (ver más abajo). Se lista por id_equipo, no por la versión
+    // del equipo que esté abierta ahora, así que es la misma lista sin importar desde dónde se entre.
+    const listaGuardadas = (
+        <div className="flex h-full flex-col rounded-lg border border-border">
+            <div className="flex w-full items-center gap-1.5 border-b border-border px-3 py-2 text-left text-sm font-medium">
+                <IconFileText size={15} /> Guardadas de este equipo ({guardadas.length})
+            </div>
+            {guardadas.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-muted-foreground">Todavía no hay fichas guardadas de este equipo.</p>
+            ) : (
+                <div className="max-h-[220px] min-h-0 flex-1 divide-y divide-border overflow-y-auto lg:max-h-none">
+                    {guardadas.map((f, i) => (
+                        <button
+                            type="button"
+                            key={f.id_ficha}
+                            onClick={() => abrirGuardada(f)}
+                            className="flex w-full flex-col items-start gap-1 px-3 py-2 text-left text-sm hover:bg-muted"
+                            title="Ver cómo quedó esta ficha"
+                        >
+                            <span className="flex w-full items-center gap-1.5">
+                                <IconEye size={14} className="shrink-0 text-muted-foreground" />
+                                {tipo === 'tecnica' && (i === 0
+                                    ? <Badge variant="success">Ficha actual</Badge>
+                                    : <Badge variant="outline">Anterior</Badge>)}
+                                <span className="truncate">{fechaHora(f.fecha_creacion)}</span>
+                            </span>
+                            <span className="pl-[20px] text-xs text-muted-foreground">
+                                {f.anio ? `Año ${f.anio}` : ''}{f.codigo_equipo ? ` · ${f.codigo_equipo}` : ''} · {f.nombre_usuario || '—'}
+                            </span>
+                            {puedeAnular && (
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                    className="ml-[20px] flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-xs text-destructive hover:bg-destructive/10"
+                                    title="Anular esta ficha guardada (queda registrada como anulada)"
+                                    onClick={(e) => { e.stopPropagation(); setMotivoAnular(''); setAAnular(f); }}
+                                >
+                                    <IconBan size={14} /> Anular
+                                </span>
+                            )}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+
     return (
         <>
             <Dialog open={abierto} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -819,7 +867,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
+                    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,4.8fr)_minmax(0,6fr)]">
+                    {!cargando && <div className="hidden min-h-0 lg:block">{listaGuardadas}</div>}
                     <div className="min-h-0 overflow-y-auto pr-1">
                         {!cargando && borradorRecuperado && (
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
@@ -827,40 +876,9 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                 <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={descartarBorrador}>Descartar borrador</Button>
                             </div>
                         )}
-                        {!cargando && guardadas.length > 0 && (
-                            <div className="mb-3 rounded-lg border border-border">
-                                <button type="button" onClick={() => setVerGuardadas((v) => !v)} className="flex w-full items-center justify-between px-3 py-2 text-left text-sm">
-                                    <span className="flex items-center gap-1.5 font-medium"><IconFileText size={15} /> Guardadas de este equipo ({guardadas.length})</span>
-                                    <span className="text-xs text-muted-foreground">{verGuardadas ? 'Ocultar' : 'Ver'}</span>
-                                </button>
-                                {verGuardadas && (
-                                    <div className="max-h-[180px] divide-y divide-border overflow-y-auto border-t border-border">
-                                        {guardadas.map((f, i) => (
-                                            <div key={f.id_ficha} className="flex items-center justify-between gap-2 px-3 py-1.5 text-sm">
-                                                <span className="min-w-0 truncate">
-                                                    {tipo === 'tecnica' && (i === 0
-                                                        ? <Badge variant="success" className="mr-1.5">Ficha actual</Badge>
-                                                        : <Badge variant="outline" className="mr-1.5">Anterior</Badge>)}
-                                                    {fechaHora(f.fecha_creacion)}{f.anio ? ` · año ${f.anio}` : ''}
-                                                    {f.codigo_equipo && <span className="text-muted-foreground"> · {f.codigo_equipo}</span>}
-                                                    <span className="text-muted-foreground"> · {f.nombre_usuario || '—'}</span>
-                                                </span>
-                                                <span className="flex shrink-0 items-center gap-0.5">
-                                                    <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={() => abrirGuardada(f)}>
-                                                        <IconEye size={14} /> Ver
-                                                    </Button>
-                                                    {puedeAnular && (
-                                                        <Button type="button" size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => { setMotivoAnular(''); setAAnular(f); }} title="Anular esta ficha guardada (queda registrada como anulada)">
-                                                            <IconBan size={14} /> Anular
-                                                        </Button>
-                                                    )}
-                                                </span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
+                        {/* En pantallas angostas, donde no hay una tercera columna para la lista de guardadas,
+                            se ve aquí arriba del formulario (en pantallas anchas vive en su propia columna). */}
+                        {!cargando && <div className="mb-3 lg:hidden">{listaGuardadas}</div>}
                         {cargando && (
                             <div className="flex items-center justify-center py-12">
                                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />

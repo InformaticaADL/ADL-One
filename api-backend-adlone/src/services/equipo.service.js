@@ -1778,6 +1778,83 @@ export const equipoService = {
         }
     },
 
+    /**
+     * Eliminación DEFINITIVA (distinta de deleteEquipo, que es la baja suave de siempre): borra el registro de
+     * mae_equipo y su historial, liberando el correlativo. Solo para ingresos erróneos — si el equipo ya tiene
+     * verificaciones, puesta en marcha o fichas guardadas, se bloquea (esos son documentos, no se borran; ahí
+     * corresponde "Dar de baja"). Pide una observación obligatoria y deja una copia completa en
+     * mae_equipo_eliminado antes de borrar (migrations/add_equipo_eliminado.sql).
+     */
+    eliminarEquipoDefinitivo: async (id, { observacion } = {}, usuario = null) => {
+        const err = (mensaje, statusCode = 400) => Object.assign(new Error(mensaje), { statusCode });
+        const motivo = String(observacion ?? '').trim();
+        if (motivo.length < 5) throw err('Escriba una observación que explique por qué se elimina (ingreso erróneo).');
+
+        const pool = await getConnection();
+        const existe = await pool.request().query("SELECT OBJECT_ID('mae_equipo_eliminado', 'U') AS a, COL_LENGTH('mae_permiso', 'codigo') AS b");
+        if (!existe.recordset[0].a) throw err('Falta ejecutar la migración add_equipo_eliminado.sql.', 503);
+
+        const current = (await pool.request().input('id', sql.Int, Number(id)).query('SELECT * FROM mae_equipo WHERE id_equipo = @id')).recordset[0];
+        if (!current) throw err('Equipo no encontrado.', 404);
+
+        // Documentos y registros ya generados con este equipo: si tiene alguno, no se borra (usar "Dar de baja").
+        const asociados = (await pool.request().input('id', sql.Int, Number(id)).query(`
+            SELECT
+                (SELECT COUNT(*) FROM mae_verificacion_temperatura WHERE id_equipo = @id) +
+                (SELECT CASE WHEN OBJECT_ID('mae_verificacion_caudal', 'U') IS NULL THEN 0 ELSE
+                    (SELECT COUNT(*) FROM mae_verificacion_caudal WHERE id_equipo = @id) END) +
+                (SELECT CASE WHEN OBJECT_ID('mae_puesta_marcha', 'U') IS NULL THEN 0 ELSE
+                    (SELECT COUNT(*) FROM mae_puesta_marcha WHERE id_equipo = @id) END) +
+                (SELECT CASE WHEN OBJECT_ID('mae_gc_documento', 'U') IS NULL THEN 0 ELSE
+                    (SELECT COUNT(*) FROM mae_gc_documento WHERE entidad_tipo = 'EQUIPO' AND id_entidad = @id) END)
+                AS total`)).recordset[0].total;
+        if (asociados > 0) {
+            throw err('Este equipo ya tiene verificaciones, puesta en marcha o fichas guardadas asociadas: no se puede eliminar definitivamente. Use "Dar de baja".', 409);
+        }
+
+        const transaction = new sql.Transaction(pool);
+        try {
+            await transaction.begin();
+            await new sql.Request(transaction)
+                .input('id_eq', sql.Numeric(10, 0), Number(id))
+                .input('cod', sql.VarChar(100), current.codigo || null)
+                .input('nom', sql.NVarChar(200), current.nombre || null)
+                .input('tipo', sql.NVarChar(200), current.tipoequipo || null)
+                .input('sede', sql.VarChar(10), current.sede || null)
+                .input('snap', sql.NVarChar(sql.MAX), JSON.stringify(current))
+                .input('motivo', sql.NVarChar(500), motivo)
+                .input('usu', sql.Numeric(10, 0), usuario?.id ? Number(usuario.id) : null)
+                .input('nomUsu', sql.NVarChar(150), usuario?.name ? String(usuario.name).slice(0, 150) : null)
+                .query(`INSERT INTO mae_equipo_eliminado (id_equipo_original, codigo, nombre, tipoequipo, sede, snapshot_json, motivo, id_usuario_elimina, nombre_usuario)
+                        VALUES (@id_eq, @cod, @nom, @tipo, @sede, @snap, @motivo, @usu, @nomUsu)`);
+            await new sql.Request(transaction).input('id', sql.Numeric(10, 0), Number(id))
+                .query('DELETE FROM mae_equipo_historial WHERE id_equipo = @id');
+            const del = await new sql.Request(transaction).input('id', sql.Int, Number(id))
+                .query('DELETE FROM mae_equipo WHERE id_equipo = @id');
+            if (!del.rowsAffected[0]) throw err('El equipo cambió mientras se eliminaba; ábralo de nuevo.', 409);
+            await transaction.commit();
+            return { success: true };
+        } catch (e) {
+            try { await transaction.rollback(); } catch (_) { /* noop */ }
+            logger.error('Error in eliminarEquipoDefinitivo service:', e);
+            throw e;
+        }
+    },
+
+    /** Registro de equipos eliminados definitivamente (mae_equipo_eliminado), más recientes primero. */
+    equiposEliminados: async ({ q } = {}) => {
+        const pool = await getConnection();
+        const existe = await pool.request().query("SELECT OBJECT_ID('mae_equipo_eliminado', 'U') AS a");
+        if (!existe.recordset[0].a) return [];
+        const req = pool.request();
+        let where = '1 = 1';
+        if (q) { req.input('q', sql.NVarChar(200), `%${String(q).trim()}%`); where += ' AND (codigo LIKE @q OR nombre LIKE @q OR motivo LIKE @q OR nombre_usuario LIKE @q)'; }
+        const r = await req.query(`
+            SELECT id_eliminado, id_equipo_original, codigo, nombre, tipoequipo, sede, motivo, nombre_usuario, fecha_eliminacion
+            FROM mae_equipo_eliminado WHERE ${where} ORDER BY fecha_eliminacion DESC`);
+        return r.recordset;
+    },
+
     restoreEquipoVersion: async (id, idHistorial, userId = null) => {
         const pool = await getConnection();
         await hasInvColumns(pool);

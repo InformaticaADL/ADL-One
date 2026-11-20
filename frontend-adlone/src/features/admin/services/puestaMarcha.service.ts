@@ -57,6 +57,8 @@ export interface PuestaMarchaDetalle extends PuestaMarcha {
     mis_areas?: Record<AreaPuestaMarcha, boolean>;
     /** Gestión de Calidad: puede editar, adjuntar y ver el registro interno (también ya aprobada). */
     puede_editar?: boolean;
+    /** Si la parte que falta ya se envió a firmar a alguien, por rol. */
+    asignaciones?: Partial<Record<AreaPuestaMarcha, { id_usuario_destino: number; nombre_destino: string; fecha_creacion: string }>>;
 }
 
 export interface FirmantesPuesta {
@@ -64,6 +66,10 @@ export interface FirmantesPuesta {
     /** Muestreadores con competencias: firman por Medio Ambiente. */
     muestreadores: { id_muestreador: number; nombre: string; firma_registrada: boolean }[];
 }
+
+export interface UsuarioParaFirmar { id_usuario: number; nombre: string }
+
+export interface FirmaPendientePuesta { id_puesta_marcha: number; codigo_equipo: string | null; nombre_equipo: string | null; nombre_crea: string | null; rol: AreaPuestaMarcha; fecha_creacion: string }
 
 export interface PatronReferencia { id_equipo: number; codigo: string; nombre: string; tipoequipo: string; sede: string | null }
 
@@ -116,6 +122,13 @@ export const puestaMarchaService = {
     registroInterno: async (id: number) => (await apiClient.get(`${BASE}/${id}/registro-interno`)).data.data as RegistroInternoPuesta[],
     firmar: async (id: number, cuerpo: { rol: AreaPuestaMarcha; imagen?: string; usar_registrada?: boolean; id_muestreador?: number }) =>
         (await apiClient.post(`${BASE}/${id}/firmar`, cuerpo)).data.data as PuestaMarchaDetalle,
+    /** Personas con el permiso para firmar por ese rol (Combobox de "Enviar a firmar"). */
+    usuariosParaFirmar: async (rol: AreaPuestaMarcha) => (await apiClient.get(`${BASE}/usuarios-para-firmar`, { params: { rol } })).data.data as UsuarioParaFirmar[],
+    /** Envía la parte que falta a una persona concreta: le llega como "Firmas pendientes". */
+    enviarAFirmar: async (id: number, cuerpo: { rol: AreaPuestaMarcha; id_usuario_destino: number }) =>
+        (await apiClient.post(`${BASE}/${id}/enviar-a-firmar`, cuerpo)).data.data as PuestaMarchaDetalle,
+    /** Puestas en marcha que me enviaron a firmar y siguen pendientes. */
+    firmasPendientes: async () => (await apiClient.get(`${BASE}/firmas-pendientes`)).data.data as FirmaPendientePuesta[],
     anular: async (id: number, motivo: string) => (await apiClient.post(`${BASE}/${id}/anular`, { motivo })).data.data as PuestaMarchaDetalle,
     adjuntar: async (id: number, documento: string, archivo: File, observacion?: string) => {
         const f = new FormData();

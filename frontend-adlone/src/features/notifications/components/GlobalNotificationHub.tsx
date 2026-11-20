@@ -9,7 +9,7 @@ const GlobalNotificationHub: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, setFirmaPendienteId, selectedRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, setFirmaPendienteId, setPuestaMarchaPendienteId, selectedRequestId } = useNavStore();
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -54,6 +54,15 @@ const GlobalNotificationHub: React.FC = () => {
             setFirmaPendienteId(notif.id_referencia);
             setActiveModule('solicitudes');
             setActiveSubmodule('');
+            return;
+        }
+
+        // Puesta en marcha que me enviaron a firmar (o aviso de que ya firmó la otra parte): abre Gestión de
+        // Calidad > Puesta en Marcha directo en esa puesta en marcha.
+        if (notif.id_referencia && notif.area === 'PuestaMarcha') {
+            setPuestaMarchaPendienteId(notif.id_referencia);
+            setActiveModule('gestion_calidad');
+            setActiveSubmodule('gc-puesta-marcha');
             return;
         }
 
