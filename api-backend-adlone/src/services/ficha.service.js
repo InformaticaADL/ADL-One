@@ -2027,6 +2027,9 @@ class FichaIngresoService {
                     ficha.id_dispositivohidraulico = ficha.id_dispositivohidraulico ?? raw.id_dispositivohidraulico;
 
                     ficha.codigo_centro = ficha.codigo_centro ?? raw.codigo_centro;
+                    // Dirección del maestro de centros (mae_centro.ubicacion): la consulta de arriba la pedía, pero sin esta línea nunca llegaba a la
+                    // pantalla y la ficha decía «Sin dirección registrada» aunque el centro la tuviera.
+                    ficha.direccion_centro = ficha.direccion_centro ?? raw.direccion_centro;
 
                     // Helper to choose truthy and non-placeholder value
                     const val = (fVal, rVal) => {
