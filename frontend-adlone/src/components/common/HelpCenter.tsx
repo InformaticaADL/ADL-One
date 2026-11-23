@@ -784,41 +784,6 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // MÓDULO: ADMINISTRACIÓN — Solicitudes de clientes (empresas asignadas)
-    // ─────────────────────────────────────────────────────────────────────────
-    if (activeSubmodule === 'admin-solicitudes-clientes') {
-        return {
-            title: 'Solicitudes de Clientes — Asignaciones',
-            queEs: 'Configuración de quién atiende las solicitudes de cada empresa cliente.',
-            queHace: 'Asigna, por empresa y por área, la persona que recibe y atiende lo que esa empresa pide desde su portal.',
-            comoFunciona: [
-                '1. La lista muestra cada empresa con las personas asignadas por área.',
-                '2. Agrega una asignación eligiendo empresa, área y persona.',
-                '3. Quita una asignación con el ícono de papelera; se pide confirmación.'
-            ],
-            tips: [
-                'Cada persona ve en su bandeja de Solicitudes de clientes solo las empresas que tiene asignadas.'
-            ]
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // MÓDULO: ADMINISTRACIÓN — Verificadores de solicitudes
-    // ─────────────────────────────────────────────────────────────────────────
-    if (activeSubmodule === 'admin-verificadores-solicitudes') {
-        return {
-            title: 'Verificadores de Solicitudes',
-            queEs: 'Usuarios que reciben copia de todas las solicitudes de clientes.',
-            queHace: 'Agrega o quita verificadores: personas que quedan informadas de todas las solicitudes, sin importar la empresa. No aprueban ni bloquean nada.',
-            comoFunciona: [
-                '1. La lista muestra los verificadores actuales.',
-                '2. Agrega uno eligiendo el usuario.',
-                '3. Quítalo con el ícono de papelera; se pide confirmación.'
-            ]
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: USUARIOS GEM
     // ─────────────────────────────────────────────────────────────────────────
     if (activeSubmodule === 'admin-usuarios-gem') {

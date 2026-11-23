@@ -4,8 +4,6 @@
 // la petición a WebClientesV2 ya autenticada con la key.
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
-import empresaAsignadaService from './empresaAsignada.service.js';
-import verificadorSolicitudesService from './verificadorSolicitudes.service.js';
 
 const WC_URL = process.env.WEBCLIENTES_API_URL || 'http://localhost:8020';
 // Las solicitudes usan su propia llave (scope solicitudes:write). Facturación y cotizaciones siguen con
@@ -32,35 +30,20 @@ async function wcFetch(path, options = {}) {
 
 const SolicitudesProxyService = {
     /**
-     * Lista las solicitudes de las empresas asignadas al usuario, más las de cualquier empresa
-     * sin nadie asignado si el usuario es del grupo de respaldo (mismo criterio que WebClientesV2
-     * usa para decidir a quién avisar — ver incluirSinAsignar en GET /v1/solicitudes). Antes solo
-     * se pedían las explícitamente asignadas: alguien del grupo de respaldo recibía el aviso en su
-     * campanita pero no encontraba la solicitud acá.
+     * Lista las solicitudes que esa persona atiende según lo administrado en ADL WEB GO (Administración → Resp. solicitudes): se le pide a la
+     * web por correo y responde con los clientes que la persona atiende (con sus asociados) y, si está en la jefatura, con todos.
+     * Ya no existen en ADL ONE las empresas asignadas, el grupo de respaldo ni los verificadores: todo eso se administra solo en la web.
      */
     async listar(idUsuario) {
-        const [empresas, esRespaldo, esVerificador] = await Promise.all([
-            empresaAsignadaService.misEmpresas(idUsuario),
-            empresaAsignadaService.esRespaldo(idUsuario),
-            verificadorSolicitudesService.esVerificador(idUsuario),
-        ]);
-        // Lo que se administra en ADL WEB GO (Administración → Responsables de solicitudes): se le pide por correo, y la web responde con
-        // los clientes que esa persona atiende (con sus asociados) y, si está en la jefatura, todos. Se suma a lo heredado de arriba.
         let correo = null;
         try {
             const pool = await getConnection();
             const r = await pool.request().input('u', sql.Numeric(10, 0), idUsuario)
                 .query("SELECT correo_electronico FROM mae_usuario WHERE id_usuario = @u AND habilitado = 'S'");
             correo = String(r.recordset[0]?.correo_electronico || '').trim().toLowerCase() || null;
-        } catch (_) { /* sin correo: solo lo heredado */ }
-        if (!empresas.length && !esRespaldo && !esVerificador && !correo) return [];
-        const ids = empresas.map(e => e.id_empresa).join(',');
-        const qs = new URLSearchParams();
-        if (correo) qs.set('usuario', correo);
-        if (ids) qs.set('empresas', ids);
-        if (esRespaldo) qs.set('incluirSinAsignar', '1');
-        // Los verificadores (jefatura en copia) ven las solicitudes de TODAS las empresas.
-        if (esVerificador) qs.set('todas', '1');
+        } catch (_) { /* sin correo: no se puede saber qué atiende */ }
+        if (!correo) return [];
+        const qs = new URLSearchParams({ usuario: correo });
         const { status, body } = await wcFetch(`/v1/solicitudes?${qs.toString()}`);
         if (status !== 200) throw new Error(body?.error || 'Error al obtener solicitudes.');
         return body;
@@ -102,6 +85,3 @@ const SolicitudesProxyService = {
 };
 
 export default SolicitudesProxyService;
-// Reusado por empresaAsignada.service.js para pedirle a WebClientesV2 qué empresas son
-// clientes reales del portal (misma API key, mismo helper de fetch).
-export { wcFetch };

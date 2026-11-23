@@ -15,8 +15,6 @@ import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
-import { EmpresasAsignadasPage } from '../features/admin/pages/EmpresasAsignadasPage';
-import { VerificadoresSolicitudesPage } from '../features/admin/pages/VerificadoresSolicitudesPage';
 import { SolicitudesClientesPage } from '../features/solicitudes-clientes/pages/SolicitudesClientesPage';
 import { AdminMenuWebPage } from '../features/admin/pages/AdminMenuWebPage';
 import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
@@ -72,7 +70,7 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'admin-solicitudes-clientes', 'admin-verificadores-solicitudes', 'informatica'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'informatica'];
     // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
     // y NO dependen de los permisos de Admin. Información
 
@@ -197,7 +195,7 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'admin-solicitudes-clientes', 'admin-verificadores-solicitudes'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
@@ -205,8 +203,6 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
                 if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-maestros') return <MaestrosHub onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-revision-duplicados') return <RevisionDuplicadosPage onBack={() => setActiveSubmodule('informatica')} />;
-                if (activeSubmodule === 'admin-solicitudes-clientes') return <EmpresasAsignadasPage onBack={() => setActiveSubmodule('informatica')} />;
-                if (activeSubmodule === 'admin-verificadores-solicitudes') return <VerificadoresSolicitudesPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
