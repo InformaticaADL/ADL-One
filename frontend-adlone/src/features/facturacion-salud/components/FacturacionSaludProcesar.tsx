@@ -314,7 +314,7 @@ const FacturacionSaludProcesar: React.FC<Props> = ({ initialPrograma = 4, onNavi
             });
             setCasos(r.casos || []);
             setReglas(r.reglasAplicadas || {});
-            const nuevosIds = new Set((r.casos || []).map((c: Fila) => Number(c.id_caso)));
+            const nuevosIds = new Set<number>((r.casos || []).map((c: Fila) => Number(c.id_caso)));
             setElegidos((prev) => {
                 const conservados = [...prev].filter((id) => nuevosIds.has(id));
                 return conservados.length > 0 ? new Set(conservados) : nuevosIds;
