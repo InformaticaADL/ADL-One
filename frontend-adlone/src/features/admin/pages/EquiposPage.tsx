@@ -320,6 +320,34 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         return formatLocalDate(d);
     }, []);
 
+    // Alerta fija sobre "Volver": equipos Operativos cuya vigencia termina entre hoy y los próximos 5 días.
+    const in5Str = useMemo(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 5);
+        return formatLocalDate(d);
+    }, []);
+    const [proximosAVencer, setProximosAVencer] = useState<Equipo[]>([]);
+    const cargarProximosAVencer = () => {
+        equipoService.getEquipos({ estado: 'Operativo', fechaDesde: todayStr, fechaHasta: in5Str, sortBy: 'vigencia', sortOrder: 'asc', limit: 100 })
+            .then(res => setProximosAVencer(res?.data || []))
+            .catch(() => setProximosAVencer([]));
+    };
+    const diasParaVencer = (vigencia: string) => {
+        const [y, m, d] = String(vigencia).slice(0, 10).split('-').map(Number);
+        const [ty, tm, td] = todayStr.split('-').map(Number);
+        return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000);
+    };
+    const textoDias = (dias: number) => dias <= 0 ? 'vence hoy' : dias === 1 ? 'vence mañana' : `vence en ${dias} días`;
+    const verProximosAVencer = () => {
+        setActiveView('list');
+        setFilterExpired(false);
+        setFilterInactiveSampler(false);
+        setFilterEstado('Operativo');
+        setFilterFechaDesde(todayStr);
+        setFilterFechaHasta(in5Str);
+        setPage(1);
+    };
+
     const isPorVencerActive = useMemo(() => {
         return filterFechaDesde === todayStr && filterFechaHasta === in30Str && !filterExpired && !filterInactiveSampler;
     }, [filterFechaDesde, filterFechaHasta, todayStr, in30Str, filterExpired, filterInactiveSampler]);
@@ -493,6 +521,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                 setActiveCount(response.activeCount ?? 0);
                 setFueraServicioCount(response.fueraServicioCount ?? 0);
                 setBajaCount(response.bajaCount ?? 0);
+                cargarProximosAVencer();
                 if (response.catalogs) {
                     setCatalogs(response.catalogs);
                 }
@@ -1416,6 +1445,32 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
         <div className={cn('shadcn-scope adl-fade-in w-full p-4 md:p-6', !isMobile && 'flex h-full min-h-0 flex-col')}>
             {/* Desde tablet: encabezado, pestañas y filtros quedan fijos arriba. */}
             <div className={cn('flex flex-col gap-4 px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
+                {proximosAVencer.length > 0 && (
+                    <div role="alert" className="flex flex-col gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200 sm:flex-row sm:items-center">
+                        <IconAlertTriangle size={20} className="shrink-0" />
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold">
+                                {proximosAVencer.length === 1
+                                    ? '1 equipo operativo vence en los próximos 5 días'
+                                    : `${proximosAVencer.length} equipos operativos vencen en los próximos 5 días`}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-1.5">
+                                {proximosAVencer.slice(0, 8).map(eq => (
+                                    <span key={eq.id_equipo} className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-xs dark:bg-amber-900/50">
+                                        <span className="font-semibold">{eq.codigo}</span>
+                                        <span>· {textoDias(diasParaVencer(eq.vigencia))} ({formatearFecha(eq.vigencia)})</span>
+                                    </span>
+                                ))}
+                                {proximosAVencer.length > 8 && (
+                                    <span className="px-1 py-0.5 text-xs">y {proximosAVencer.length - 8} más</span>
+                                )}
+                            </div>
+                        </div>
+                        <Button size="sm" variant="outline" className="shrink-0 border-amber-300 bg-transparent hover:bg-amber-100 dark:border-amber-700 dark:hover:bg-amber-900/50" onClick={verProximosAVencer}>
+                            Ver equipos
+                        </Button>
+                    </div>
+                )}
                 <PageHeader
                     title="Inventario de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
