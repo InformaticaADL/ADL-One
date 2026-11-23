@@ -552,7 +552,7 @@ const recepcionDatos = async (id) => {
 // firma guardada del usuario con `usar_mi_firma_recepcion`) y Área Gestión de
 // Calidad (`imagen_firma_calidad`). El nombre de cada una va en firma_recepcion /
 // firma_calidad, sobre la línea.
-const recepcionPdf = async (body = {}, usuario = null) => {
+const recepcionPdf = async (body = {}, usuario = null, { fechaEncabezado = null } = {}) => {
     const d = {};
     for (const c of CAMPOS_RECEPCION) d[c] = body[c] === undefined || body[c] === null ? '' : String(body[c]).slice(0, LARGOS[c] || 200);
     for (const c of ['recepcion', 'puesta_marcha', 'verificacion']) d[c] = body[c] === true || body[c] === 'true';
@@ -563,7 +563,7 @@ const recepcionPdf = async (body = {}, usuario = null) => {
         ? await firmaDigitalService.obtener('USUARIO', usuario.id)
         : imagenFirma(body.imagen_firma_recepcion);
     d.imagen_firma_calidad = imagenFirma(body.imagen_firma_calidad);
-    const buffer = await pdfRecepcion({ ...d, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-42') });
+    const buffer = await pdfRecepcion({ ...d, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-42', { fecha: fechaEncabezado }) });
     return { buffer, nombre: `OI-FoGe-42 ${nombreArchivo(d.codigo || d.nombre)}.pdf` };
 };
 

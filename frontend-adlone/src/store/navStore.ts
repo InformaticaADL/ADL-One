@@ -20,6 +20,9 @@ interface NavState {
     // puesta en marcha «por recepción» de ese equipo.
     pmRecepcionEquipoId: number | null;
     setPmRecepcionEquipoId: (id: number | null) => void;
+    // KPI pulsado en el Dashboard de G.C. MAM: Inventario de Equipos abre el listado con ese filtro.
+    equiposKpiPendiente: 'all' | 'activos' | 'vencidos' | 'por_vencer' | 'sin_asignar' | null;
+    setEquiposKpiPendiente: (filtro: 'all' | 'activos' | 'vencidos' | 'por_vencer' | 'sin_asignar' | null) => void;
     pendingChatId: number | null; // For deep-linking to specific chat
     pendingSolicitudClienteId: number | null; // Solicitud de cliente (WebClientesV2) a abrir al llegar desde una notificación
     selectedRequestId: number | null; // Phase 27
@@ -91,6 +94,7 @@ export const useNavStore = create<NavState>()(
             firmaPendienteId: null,
             puestaMarchaPendienteId: null,
             pmRecepcionEquipoId: null,
+            equiposKpiPendiente: null,
             pendingChatId: null,
             pendingSolicitudClienteId: null,
             selectedRequestId: null,
@@ -135,6 +139,7 @@ export const useNavStore = create<NavState>()(
             setFirmaPendienteId: (id) => set({ firmaPendienteId: id }),
             setPuestaMarchaPendienteId: (id) => set({ puestaMarchaPendienteId: id }),
             setPmRecepcionEquipoId: (id) => set({ pmRecepcionEquipoId: id }),
+            setEquiposKpiPendiente: (filtro) => set({ equiposKpiPendiente: filtro }),
             setPendingChatId: (id) => set({ pendingChatId: id }),
             setPendingSolicitudClienteId: (id) => set({ pendingSolicitudClienteId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),

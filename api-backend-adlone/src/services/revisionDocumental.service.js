@@ -155,15 +155,16 @@ const revisionDocumentalService = {
     },
 
     /**
-     * Encabezado de un documento para su PDF: `anio` para el historial de ese año; si no, el de hoy.
+     * Encabezado de un documento para su PDF: `anio` para el historial de ese año; `fecha` (aaaa-mm-dd) para un
+     * documento ya firmado o aprobado, así su Fecha Revisión es la que regía ese día; si no, el de hoy.
      * Si algo falla devuelve null y el PDF usa los valores propios del formulario.
      */
-    async encabezado(codigo, { anio = null } = {}) {
+    async encabezado(codigo, { anio = null, fecha = null } = {}) {
         try {
             const { pool, lista } = await leer();
             const { documentos } = await leerDocs(pool);
             const doc = documentos.find((d) => d.codigo === codigo) || DOCUMENTOS_BASE.find((d) => d.codigo === codigo) || null;
-            return encabezadoDe(doc, lista, { anio });
+            return encabezadoDe(doc, lista, { anio, fecha: esFecha(fecha) ? fecha : null });
         } catch { return null; }
     },
 

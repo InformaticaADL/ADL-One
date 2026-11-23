@@ -12,6 +12,7 @@ import auditService from './audit.service.js';
 import { areasPorRoles } from '../utils/areasRoles.js';
 import { PERMISOS_GC, permisosGc, puedeGc } from '../utils/permisosCalidad.js';
 import { calcularSiguiente, resolverModalidad } from '../utils/reglasControlEquipo.js';
+import { hoyChile } from '../utils/fechaChile.js';
 
 // Puesta en Marcha de equipos (OI-FoGe-42) como registro propio (migrations/add_puesta_en_marcha.sql).
 //
@@ -58,7 +59,8 @@ export const carpetaAdjuntos = path.join(process.env.UPLOAD_PATH || path.join(pr
 
 const error = (mensaje, statusCode = 400) => Object.assign(new Error(mensaje), { statusCode });
 const esImagen = (f) => /^data:image\/(png|jpeg);base64,/.test(String(f || '')) && String(f).length <= 900_000;
-const hoyYmd = () => new Date().toISOString().slice(0, 10);
+// Hoy según la hora de Chile (no UTC): ver utils/fechaChile.js.
+const hoyYmd = () => hoyChile();
 const esFecha = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 const dmy = (ymd) => (ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : '');
 const dmyCorto = (ymd) => `${ymd.slice(8, 10)}.${ymd.slice(5, 7)}.${ymd.slice(2, 4)}`;
@@ -811,13 +813,24 @@ const puestaMarchaService = {
         return { ruta, nombre: a.archivo_nombre };
     },
 
-    /** El formulario OI-FoGe-42 de esta puesta en marcha, con las firmas que ya tiene. */
+    /**
+     * El formulario OI-FoGe-42 de esta puesta en marcha, con las firmas que ya tiene. Aprobada: el PDF que se guardó
+     * en el Archivo al aprobarla, para que no cambie si después se actualiza el encabezado en Revisión documental;
+     * si no hay copia (aprobadas antes del archivo), se arma con el encabezado que regía el día en que se aprobó.
+     */
     async pdf(id, usuario) {
         const pool = await getConnection();
         await exigirTablas(pool);
         const p = await cargar(pool, id);
+        let fechaEncabezado = null;
+        if (p.estado === 'APROBADA') {
+            const guardado = await gcDocumentosService.pdfDeOrigen('PUESTA_EN_MARCHA', 'id_puesta_marcha', p.id_puesta_marcha).catch(() => null);
+            if (guardado) return guardado;
+            const firmas = [p.fecha_firma_tecnica, p.fecha_firma_calidad].filter(Boolean).map((f) => new Date(f).toISOString().slice(0, 10)).sort();
+            fechaEncabezado = firmas.at(-1) || null;
+        }
         const eq = (await pool.request().input('id', sql.Int, Number(p.id_equipo)).query('SELECT codigo, nombre, marca, modelo, n_serie FROM mae_equipo WHERE id_equipo = @id')).recordset[0] || {};
-        return fichasEquipoService.recepcionPdf(cuerpoPdf({ ...p, items: leerItems(p.items) }, eq), usuario);
+        return fichasEquipoService.recepcionPdf(cuerpoPdf({ ...p, items: leerItems(p.items) }, eq), usuario, { fechaEncabezado });
     },
 
     /**

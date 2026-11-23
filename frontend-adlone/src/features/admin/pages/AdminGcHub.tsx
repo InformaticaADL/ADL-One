@@ -39,9 +39,9 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => 
         },
         {
             id: 'gc-dashboard-equipos',
-            label: 'Dashboard de Equipos',
+            label: 'Dashboard',
             icon: <IconChartBar size={20} stroke={1.75} />,
-            description: 'KPIs, gráficos y análisis del inventario de equipos de calidad.',
+            description: 'Resumen general, dashboard de equipos y estadística de temperaturas.',
             grupo: 'Equipos',
         },
         {

@@ -727,7 +727,14 @@ export const equipoService = {
                           AND JSON_VALUE(s.datos_json, '$.id_equipo') = CAST(e.id_equipo AS NVARCHAR(20))
                     ) THEN 0 ELSE 1 END) ASC,
                     ${sortBy === 'vigencia'
-                        ? `CASE WHEN e.Siguiente_verificacion IS NULL THEN 1 ELSE 0 END ASC, e.Siguiente_verificacion ${direccionOrden},`
+                        // Primero los Operativos y, dentro de ellos, los que vencen pronto (desde hoy en adelante);
+                        // después los Operativos ya vencidos, luego Fuera de Servicio y al final Dado de Baja.
+                        // Los sin fecha van al final de cada estado.
+                        ? `CASE WHEN e.Estado = 'Operativo' THEN 0 WHEN e.Estado = 'Fuera de Servicio' THEN 1 ELSE 2 END ASC,
+                           CASE WHEN e.Siguiente_verificacion IS NULL THEN 2
+                                WHEN CAST(e.Siguiente_verificacion AS DATE) >= CAST(GETDATE() AS DATE) THEN 0
+                                ELSE 1 END ASC,
+                           e.Siguiente_verificacion ${direccionOrden},`
                         : sortBy === 'nombre'
                         ? `e.nombre ${direccionOrden},`
                         : sortBy === 'activos_primero'

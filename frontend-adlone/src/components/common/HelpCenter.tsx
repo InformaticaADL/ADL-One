@@ -326,7 +326,7 @@ const getContextHelp = (
             queHace: 'Centraliza el control de los equipos de medición: inventario, indicadores, vencimientos y verificaciones de temperatura.',
             comoFunciona: [
                 '1. «Inventario de Equipos»: inventario, edición, historial y carga desde Excel.',
-                '2. «Dashboard de Equipos»: indicadores y gráficos del estado del inventario.',
+                '2. «Dashboard»: resumen general, dashboard de equipos y estadística de temperaturas.',
                 '3. «Calendario de Vencimientos»: en qué día vence la revisión de cada equipo.',
                 '4. «Verificación de Temperatura»: fichas OI-FoGe-39 con lecturas, cálculo y firma.',
                 '5. Para volver al menú principal de Administración, usa «Volver».'
@@ -465,10 +465,11 @@ const getContextHelp = (
     // ─────────────────────────────────────────────────────────────────────────
     if (activeSubmodule === 'gc-dashboard-equipos') {
         return {
-            title: 'Dashboard de Equipos',
-            queEs: 'Resumen gráfico del estado del inventario de equipos de medición.',
+            title: 'Dashboard',
+            queEs: 'Panel de indicadores de G.C. MAM: equipos, verificaciones de temperatura y caudal, y puestas en marcha.',
             queHace: 'Muestra en un solo panel cuántos equipos hay, cuáles están vencidos o por vencer, cómo se reparten por tipo y sede, y la calidad de sus verificaciones (errores y factor de corrección). Los datos vienen calculados desde el servidor.',
             comoFunciona: [
+                'Al entrar se ve la pestaña GENERAL (resumen de todo). Las pestañas EQUIPOS y TEMPERATURAS tienen el detalle. En EQUIPOS:',
                 '1. INDICADORES superiores: Total Equipos, Activos, Vencidos, Por Vencer (30 días) y Sin Asignar.',
                 '2. ESTADO GENERAL y ESTADO DE VIGENCIA: reparto entre vigente, por vencer, vencido, sin fecha y retirado (dados de baja o fuera de servicio).',
                 '3. VENCIMIENTOS POR MES y PRÓXIMOS A VENCER: qué viene en los próximos meses, sin contar los retirados.',

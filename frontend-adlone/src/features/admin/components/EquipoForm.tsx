@@ -1457,6 +1457,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 </div>
             )}
 
+            {/* Volver arriba a la izquierda, igual que en las demás pantallas (PageHeader). */}
+            <Button variant="link" size="sm" onClick={onCancel} className="mb-1 h-auto self-start p-0 font-medium">
+                <IconArrowLeft size={14} />
+                Volver
+            </Button>
+
             <div className={cn('rounded-xl border border-border bg-card p-5 shadow-sm', esNuevoTipo && 'border-t-4 border-t-primary')}>
                 <div className="flex flex-col gap-6">
                     <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1482,9 +1488,6 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                         )}
 
                         <div className={cn('flex flex-wrap gap-2', isMobile && 'w-full')}>
-                            <Button variant="outline" onClick={onCancel} className={cn(isMobile && 'flex-1')}>
-                                <IconArrowLeft size={18} /> Volver
-                            </Button>
                             <ProtectedContent permission="EQ_HISTORY">
                                 <Button
                                     variant="outline"

@@ -276,6 +276,25 @@ const gcDocumentosService = {
         return { success: true };
     },
 
+    /**
+     * PDF que se guardó en el archivo al firmar/aprobar un registro (ej. origen PUESTA_EN_MARCHA, clave
+     * id_puesta_marcha = 12). Prefiere el vigente y el más reciente. null si no hay copia guardada.
+     */
+    async pdfDeOrigen(origen, clave, id) {
+        if (!/^[a-z_]+$/.test(clave)) return null;
+        const pool = await getConnection();
+        if (!(await hayTablasGc(pool))) return null;
+        const r = await pool.request()
+            .input('o', sql.NVarChar(50), origen)
+            .input('id', sql.NVarChar(20), String(id))
+            .query(`SELECT TOP 1 nombre_archivo, pdf FROM ${TABLA}
+                    WHERE CASE WHEN ISJSON(datos) = 1 THEN JSON_VALUE(datos, '$.origen') END = @o
+                      AND CASE WHEN ISJSON(datos) = 1 THEN JSON_VALUE(datos, '$.${clave}') END = @id
+                    ORDER BY CASE WHEN estado = 'VIGENTE' THEN 0 ELSE 1 END, id_documento DESC`);
+        const d = r.recordset[0];
+        return d?.pdf ? { buffer: d.pdf, nombre: d.nombre_archivo } : null;
+    },
+
     async pdf(idDocumento) {
         const id = Number(idDocumento);
         if (!Number.isInteger(id) || id <= 0) throw error('Documento inválido');

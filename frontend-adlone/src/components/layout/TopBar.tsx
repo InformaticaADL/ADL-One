@@ -30,7 +30,7 @@ const STATIC_MODULE_LABELS: Record<string, string> = {
     'bm-consulta': 'Consulta de Muestras',
     // Gestión de Calidad: vistas que se abren desde su portada y no están en el menú lateral.
     gestion_calidad: 'Gestión de Calidad',
-    'gc-dashboard-equipos': 'Dashboard de Equipos',
+    'gc-dashboard-equipos': 'Dashboard',
     'gc-calendario-vencimientos': 'Calendario de Vencimientos',
     'gc-archivo-fichas': 'Archivo de Fichas',
     'gc-verificacion-caudal': 'Verificación Caudal',

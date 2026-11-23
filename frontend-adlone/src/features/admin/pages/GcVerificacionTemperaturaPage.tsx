@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { IconFilePlus, IconSearch, IconFileTypePdf, IconPencil, IconEye, IconSignature, IconRefresh, IconLayoutColumns, IconX, IconTrash, IconThermometer, IconListDetails, IconChartBar, IconFileDescription } from '@tabler/icons-react';
+import { IconFilePlus, IconSearch, IconFileTypePdf, IconPencil, IconEye, IconSignature, IconRefresh, IconLayoutColumns, IconX, IconTrash, IconThermometer, IconListDetails, IconFileDescription } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,7 +17,6 @@ import { ESTADO_META, fmtFecha, fmtNum, hoyYmd, nombrePeriodo } from '../utils/v
 import { VerificacionTempEditor, MesaVerificacionTemp, EliminarFichaDialog, EliminarFichasDialog } from '../components/verificacion-temperatura/VerificacionTempEditor';
 import { CrearFichasDialog } from '../components/verificacion-temperatura/CrearFichasDialog';
 import { ErroresPatronPanel } from '../components/verificacion-temperatura/ErroresPatronPanel';
-import { ResumenVerificacionTemp } from '../components/verificacion-temperatura/ResumenVerificacionTemp';
 
 interface Props {
     onBack: () => void;
@@ -48,7 +47,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
     // Ficha técnica del equipo (OI-FoGe-22): incluye sus verificaciones firmadas.
     const [fichaTecnica, setFichaTecnica] = useState<{ id: number; codigo: string } | null>(null);
     // Fichas del periodo o la hoja "Resumen" con estadística y gráficos.
-    const [vista, setVista] = useState<'fichas' | 'resumen' | 'patron'>('fichas');
+    const [vista, setVista] = useState<'fichas' | 'patron'>('fichas');
     // Selección para la mesa de trabajo (varios equipos a la vez).
     const [seleccion, setSeleccion] = useState<number[]>([]);
     const [mesa, setMesa] = useState<number[]>([]);
@@ -169,7 +168,6 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             <div className="mb-4 flex max-w-full overflow-x-auto rounded-lg border border-border bg-muted/40 p-1 md:w-fit" role="tablist">
                 {([
                     { k: 'fichas', label: 'Fichas', icon: IconListDetails },
-                    { k: 'resumen', label: 'Resumen y estadística', icon: IconChartBar },
                     { k: 'patron', label: 'Errores de patrón', icon: IconThermometer },
                 ] as const).map(({ k, label, icon: Icono }) => (
                     <button
@@ -210,7 +208,6 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 )}
             </div>}
 
-            {vista === 'resumen' && <ResumenVerificacionTemp periodo={periodo} onAbrirFicha={setAbierta} />}
 
             {vista === 'fichas' && (<>
             <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-5">

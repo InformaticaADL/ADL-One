@@ -6,6 +6,7 @@ import {
     IconUser, IconMapPin, IconCalendarStats, IconClock,
 } from '@tabler/icons-react';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { equipoService, type Equipo } from '../services/equipo.service';
 import { useNavStore } from '../../../store/navStore';
@@ -311,12 +312,19 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
     );
 
     if (error) return (
-        <div className="shadcn-scope flex h-72 flex-col items-center justify-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
-                <IconAlertTriangle size={22} className="text-destructive" />
+        <div className="shadcn-scope flex flex-col pt-4">
+            {!hideHeader && (
+                <Button variant="link" size="sm" onClick={onBack} className="mb-1 h-auto self-start p-0 font-medium">
+                    <IconArrowLeft size={14} />
+                    Volver
+                </Button>
+            )}
+            <div className="flex h-72 flex-col items-center justify-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-destructive/10">
+                    <IconAlertTriangle size={22} className="text-destructive" />
+                </div>
+                <p className="text-sm text-muted-foreground">{error}</p>
             </div>
-            <p className="text-sm text-muted-foreground">{error}</p>
-            <button onClick={onBack} className="text-xs text-primary underline">Volver</button>
         </div>
     );
 
@@ -325,18 +333,16 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
 
             {/* ── Header (solo en vista standalone) ──────────────────────── */}
             {!hideHeader && (
-                <div className="flex flex-wrap items-center gap-3 border-b pb-4">
-                    <button
-                        type="button"
-                        onClick={onBack}
-                        className="flex items-center gap-1.5 rounded-lg border bg-background px-2.5 py-1.5 text-xs font-medium text-muted-foreground shadow-xs hover:bg-muted hover:text-foreground transition-colors"
-                    >
+                <div className="flex flex-col border-b pb-4">
+                    {/* Volver arriba a la izquierda, igual que en las demás pantallas (PageHeader). */}
+                    <Button variant="link" size="sm" onClick={onBack} className="mb-1 h-auto self-start p-0 font-medium">
                         <IconArrowLeft size={14} />
                         Volver
-                    </button>
-                    <div className="h-4 w-px bg-border" />
-                    <IconCalendar size={16} className="text-primary" />
-                    <h2 className="text-sm font-semibold">Calendario de Vencimientos</h2>
+                    </Button>
+                    <div className="flex items-center gap-2">
+                        <IconCalendar size={18} className="text-primary" />
+                        <h2 className="m-0 text-2xl font-bold tracking-tight text-foreground">Calendario de Vencimientos</h2>
+                    </div>
                 </div>
             )}
 

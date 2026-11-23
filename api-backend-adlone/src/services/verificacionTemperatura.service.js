@@ -817,7 +817,9 @@ const verificacionTemperaturaService = {
             const abs = path.join(PDF_DIR, path.basename(v.pdf_ruta));
             if (fs.existsSync(abs)) return { buffer: fs.readFileSync(abs), nombre: path.basename(abs) };
         }
-        const buffer = await generarPdfVerificacion({ ...v, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-39') });
+        // Firmada pero sin su PDF en disco: se rearma con el encabezado que regía el día de la firma.
+        const fechaEncabezado = v.estado === 'FIRMADA' && v.fecha_firma ? new Date(v.fecha_firma).toISOString().slice(0, 10) : null;
+        const buffer = await generarPdfVerificacion({ ...v, encabezado: await revisionDocumentalService.encabezado('OI-FoGe-39', { fecha: fechaEncabezado }) });
         return { buffer, nombre: `OI-FoGe-39_${String(v.codigo_equipo || v.id_verificacion).replace(/[^\w.-]+/g, '-')}_borrador.pdf` };
     },
 

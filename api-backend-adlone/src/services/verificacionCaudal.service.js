@@ -10,6 +10,7 @@ import { PERMISOS_GC, puedeGc } from '../utils/permisosCalidad.js';
 import { pdfCaudal } from './fichasEquipo.pdf.js';
 import { calcularCaudal, lecturasValidas, MIN_LECTURAS } from '../utils/verificacionCaudal.calc.js';
 import { calcularSiguiente } from '../utils/reglasControlEquipo.js';
+import { hoyChile } from '../utils/fechaChile.js';
 
 // Formulario OI-FoGe-30 «Verificación Intermedia Sonda Caudal» (migrations/add_verificacion_caudal.sql).
 //
@@ -24,7 +25,8 @@ import { calcularSiguiente } from '../utils/reglasControlEquipo.js';
 
 const TABLA = 'mae_verificacion_caudal';
 const error = (mensaje, statusCode = 400) => Object.assign(new Error(mensaje), { statusCode });
-const hoyYmd = () => new Date().toISOString().slice(0, 10);
+// Hoy según la hora de Chile (no UTC): ver utils/fechaChile.js.
+const hoyYmd = () => hoyChile();
 const esFecha = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || '')) && !Number.isNaN(Date.parse(`${s}T00:00:00Z`));
 const dmy = (ymd) => (ymd ? `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}` : '');
 const dmyCorto = (ymd) => `${ymd.slice(8, 10)}.${ymd.slice(5, 7)}.${ymd.slice(2, 4)}`;
@@ -311,13 +313,23 @@ const verificacionCaudalService = {
         return this.obtener(id, usuario);
     },
 
+    /**
+     * Firmada: el PDF que se guardó en el Archivo al firmarla, para que no cambie si después se actualiza el encabezado
+     * en Revisión documental; si no hay copia, se arma con el encabezado que regía el día de la firma.
+     */
     async pdf(id) {
         const pool = await getConnection();
         await exigirTabla(pool);
         const v = await cargar(pool, id);
+        let fechaEncabezado = null;
+        if (v.estado === 'FIRMADA') {
+            const guardado = await gcDocumentosService.pdfDeOrigen('VERIFICACION_CAUDAL', 'id_verificacion', Number(id)).catch(() => null);
+            if (guardado) return guardado;
+            fechaEncabezado = v.fecha_firma ? new Date(v.fecha_firma).toISOString().slice(0, 10) : null;
+        }
         const buffer = await pdfCaudal({
             ...publica(v), codigo: v.codigo_equipo, nombre: v.nombre_equipo, firma_vobo: v.firma_vobo,
-            encabezado: await revisionDocumentalService.encabezado('OI-FoGe-30'),
+            encabezado: await revisionDocumentalService.encabezado('OI-FoGe-30', { fecha: fechaEncabezado }),
         });
         return { buffer, nombre: `OI-FoGe-30 ${String(v.codigo_equipo || v.id_verificacion).replace(/[\\/:*?"<>|]+/g, '-')}.pdf` };
     },

@@ -62,3 +62,17 @@ test('el historial de un año usa la revisión de ese año (y la propia si cae d
     assert.equal(encabezadoDe(DOC, LISTA, { anio: 2025 }).revision, '06/01/2025');
     assert.equal(encabezadoDe({ ...DOC, fecha_revision: '2025-08-01' }, LISTA, { anio: 2025 }).revision, '01/08/2025');
 });
+
+
+test('un documento firmado lleva la Fecha Revisión que regía el día de la firma, no la de hoy', () => {
+    const doc = { codigo: 'OI-FoGe-22', version: 'Versión 01', fecha_vigencia: '2016-06-20', fecha_revision: null };
+    assert.equal(encabezadoDe(doc, LISTA, { fecha: '2025-06-01' }).revision, '06/01/2025');
+    assert.equal(encabezadoDe(doc, LISTA, { fecha: '2026-01-11' }).revision, '06/01/2025');
+    assert.equal(encabezadoDe(doc, LISTA, { fecha: '2026-01-12' }).revision, '12/01/2026');
+});
+
+test('la revisión propia del documento solo cuenta para lo firmado desde ese día', () => {
+    const doc = { codigo: 'OI-FoGe-22', version: 'Versión 02', fecha_vigencia: '2026-03-01', fecha_revision: '2026-03-01' };
+    assert.equal(encabezadoDe(doc, LISTA, { fecha: '2026-02-15' }).revision, '12/01/2026');
+    assert.equal(encabezadoDe(doc, LISTA, { fecha: '2026-03-01' }).revision, '01/03/2026');
+});

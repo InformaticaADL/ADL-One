@@ -14,7 +14,6 @@ import {
     IconCheck,
     IconX,
     IconEraser,
-    IconLayoutDashboard,
     IconChartHistogram,
     IconFilter,
     IconPaperclip,
@@ -25,7 +24,8 @@ import {
     IconFileDescription,
     IconHistory,
     IconFileCertificate,
-    IconClipboardCheck
+    IconClipboardCheck,
+    IconClockExclamation
 } from '@tabler/icons-react';
 
 import { Button } from '@/components/ui/button';
@@ -54,7 +54,7 @@ import { EquipoForm } from '../components/EquipoForm';
 import { FichasEquipoDialog, type TipoFichaEquipo } from '../components/FichasEquipoDialog';
 import { PuestaMarchaEquipoDialog } from '../components/PuestaMarchaEquipoDialog';
 import { EquipmentRequestsModal } from '../components/EquipmentRequestsModal';
-import { EquiposDashboard, type KpiFilter } from '../components/EquiposDashboard';
+import type { KpiFilter } from '../components/EquiposDashboard';
 import type { ReglasControl } from '../utils/reglasControlEquipo';
 import { EquiposPlanificacion } from '../components/EquiposPlanificacion';
 import { AplicarSolicitudDialog } from '../components/AplicarSolicitudDialog';
@@ -93,8 +93,9 @@ const ESTADOS_EQUIPO = ['Operativo', 'Fuera de Servicio', 'Dado de Baja'];
 const estadoDe = (e: Pick<Equipo, 'estado' | 'estado_equipo'>) =>
     e.estado_equipo || (e.estado === 'Activo' ? 'Operativo' : 'Fuera de Servicio');
 const esOperativo = (e: Pick<Equipo, 'estado' | 'estado_equipo'>) => estadoDe(e) === 'Operativo';
-const varianteEstado = (estado: string): 'success' | 'warning' | 'destructive' =>
-    estado === 'Operativo' ? 'success' : /baja/i.test(estado) ? 'destructive' : 'warning';
+// Operativo en verde; Fuera de Servicio y Dado de Baja en rojo (no están en uso).
+const varianteEstado = (estado: string): 'success' | 'destructive' =>
+    estado === 'Operativo' ? 'success' : 'destructive';
 
 const parseDate = (dateStr?: string): Date | null => {
     if (!dateStr) return null;
@@ -129,6 +130,15 @@ const isDateExpired = (dateStr?: string): boolean => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return d.getTime() < today.getTime();
+};
+
+// Días que faltan para la fecha (negativo si ya pasó); null si no hay fecha.
+const diasHasta = (dateStr?: string): number | null => {
+    const d = parseDate(dateStr);
+    if (!d) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((d.getTime() - today.getTime()) / 86400000);
 };
 
 type OrdenEquipos = 'vigencia' | 'nombre' | 'activos_primero' | 'ultimas_modificaciones' | 'recien_creados';
@@ -296,7 +306,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     const [limit, setLimit] = useState(10);
     const [totalItems, setTotalItems] = useState(0);
     const [expiringCount, setExpiringCount] = useState(0);
-    const [expiredCount, setExpiredCount] = useState(0);
+    const [, setExpiredCount] = useState(0);
     const [inactiveSamplerCount, setInactiveSamplerCount] = useState(0);
     const [activeCount, setActiveCount] = useState(0);
     const [fueraServicioCount, setFueraServicioCount] = useState(0);
@@ -378,6 +388,16 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     });
 
     const { pendingRequestId, setPendingRequestId, hideNotification, setPageBreadcrumb, setActiveSubmodule, aplicarSolicitudId, setAplicarSolicitudId } = useNavStore();
+
+    // Llegó desde un KPI del Dashboard de G.C. MAM: se abre el listado con ese filtro.
+    // (handleKpiClick se define más abajo; el efecto corre después del render, cuando ya existe.)
+    const { equiposKpiPendiente, setEquiposKpiPendiente } = useNavStore();
+    useEffect(() => {
+        if (!equiposKpiPendiente) return;
+        handleKpiClick(equiposKpiPendiente);
+        setEquiposKpiPendiente(null);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [equiposKpiPendiente]);
 
     // EquipoForm ya dibuja su propio título/botón "Volver" (no usa PageHeader),
     // así que en vez de montar un segundo PageHeader visual encima publicamos
@@ -1562,9 +1582,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     </button>
                     {/* Vistas aparte del listado: no usan la búsqueda ni los filtros. */}
                     <span className="mx-1 w-px self-stretch bg-border" aria-hidden="true" />
-                    <button type="button" aria-pressed={activeView === 'dashboard'} onClick={() => { setActiveView('dashboard'); handleClearFilters(); }} className={tab(activeView === 'dashboard')}>
-                        <IconLayoutDashboard size={14} /> Dashboard
-                    </button>
                     <button type="button" aria-pressed={activeView === 'plan'} onClick={() => { setActiveView('plan'); handleClearFilters(); }} className={tab(activeView === 'plan')}>
                         <IconChartHistogram size={14} /> Plan
                     </button>
@@ -1813,20 +1830,6 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
             </div>
 
-            {/* Vista Dashboard (KPIs + gráficos) */}
-            {activeView === 'dashboard' && (
-                <div className={cn(!isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
-                    <EquiposDashboard
-                        equipos={allEquipos}
-                        expiringCount={expiringCount}
-                        expiredCount={expiredCount}
-                        activeCount={activeCount}
-                        inactiveSamplerCount={inactiveSamplerCount}
-                        onKpiClick={handleKpiClick}
-                    />
-                </div>
-            )}
-
             {/* Vista Plan: carga de revisiones por mes, sede y tipo de control */}
             {activeView === 'plan' && (
                 <div className={cn('px-4 md:px-6', !isMobile && 'min-h-0 flex-1 overflow-y-auto')}>
@@ -1923,7 +1926,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                                 <span>Tipo: {equipo.tipo}</span>
                                                 <span>Sede: {equipo.ubicacion}</span>
-                                                <span className={cn(expired && 'font-bold text-foreground')}>Vigencia: {equipo.estado_vigencia === 'pendiente_pm' ? 'Pendiente de puesta en marcha' : equipo.vigencia}</span>
+                                                <span className={cn('inline-flex items-center gap-1', expired && 'font-bold text-foreground', esOperativo(equipo) && isDateExpiringSoon(equipo.vigencia) && 'text-warning', esOperativo(equipo) && isDateExpired(equipo.vigencia) && 'text-destructive')}>
+                                                    {esOperativo(equipo) && expired && <IconClockExclamation size={13} />}
+                                                    Vigencia: {equipo.estado_vigencia === 'pendiente_pm' ? 'Pendiente de puesta en marcha' : equipo.vigencia}
+                                                </span>
                                                 <span>
                                                     Resp.: {equipo.nombre_asignado || '---'}
                                                     {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive" className="ml-1">Inactivo</Badge>}
@@ -2015,10 +2021,27 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
 
                                         const expiringSoon = isDateExpiringSoon(equipo.vigencia);
                                         const expired = isDateExpired(equipo.vigencia);
+                                        // Aviso visual solo para equipos Operativos (los demás no están en uso).
+                                        const avisoPorVencer = esOperativo(equipo) && expiringSoon;
+                                        const avisoVencido = esOperativo(equipo) && expired;
+                                        const dias = diasHasta(equipo.vigencia);
+                                        const textoAviso = avisoVencido
+                                            ? `Vigencia vencida hace ${Math.abs(dias ?? 0)} día${Math.abs(dias ?? 0) === 1 ? '' : 's'}`
+                                            : dias === 0 ? 'Vence hoy' : dias === 1 ? 'Vence mañana' : `Vence en ${dias} días`;
 
                                         return (
                                             <TableRow key={equipo.id_equipo}>
                                                 <TableCell className="px-2">
+                                                    <div className="flex items-center gap-0.5">
+                                                    {(avisoPorVencer || avisoVencido) && (
+                                                        <span
+                                                            className={cn('inline-flex h-8 w-8 items-center justify-center', avisoVencido ? 'text-destructive' : 'text-warning')}
+                                                            title={textoAviso}
+                                                            aria-label={textoAviso}
+                                                        >
+                                                            <IconClockExclamation size={17} />
+                                                        </span>
+                                                    )}
                                                     {hasAccepted && (
                                                         <Button
                                                             variant="ghost"
@@ -2034,6 +2057,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                             <IconAlertTriangle size={14} />
                                                         </Button>
                                                     )}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="truncate text-sm font-semibold text-foreground" title={equipo.codigo || 'S/N'}>{equipo.codigo || 'S/N'}</TableCell>
                                                 <TableCell className="truncate font-medium text-foreground" title={equipo.nombre}>
@@ -2047,7 +2071,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                         <Badge variant="outline" className="ml-1 gap-1 whitespace-nowrap" title="Habilitado para la verificación de temperatura"><IconTemperature size={12} /> Verif. T°</Badge>
                                                     )}</TableCell>
                                                 <TableCell className="truncate">
-                                                    <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
+                                                    <span
+                                                        className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold', avisoPorVencer && 'text-warning', avisoVencido && 'text-destructive')}
+                                                        title={avisoPorVencer || avisoVencido ? textoAviso : undefined}
+                                                    >
                                                         {equipo.estado_vigencia === 'pendiente_pm'
                                                             ? <Badge variant="warning" className="whitespace-nowrap font-normal" title="Equipo nuevo: la vigencia se fija al aprobar su Puesta en Marcha">Pendiente de PM</Badge>
                                                             : (equipo.vigencia || (equipo.modalidad_control === 'SIN_VENCIMIENTO' ? '—' : ''))}

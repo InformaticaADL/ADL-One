@@ -86,7 +86,7 @@ export const EquipoDetalleLectura: React.FC<Props> = ({ equipo: e, onBack, aviso
                     <div className="mt-1.5 flex flex-wrap gap-1.5">
                         {/* Un solo estado: el del inventario (Operativo / Fuera de Servicio / Dado de Baja). */}
                         {e.estado_equipo
-                            ? <Badge variant={/baja/i.test(e.estado_equipo) ? 'destructive' : /fuera/i.test(e.estado_equipo) ? 'warning' : 'success'}>{e.estado_equipo}</Badge>
+                            ? <Badge variant={/baja|fuera/i.test(e.estado_equipo) ? 'destructive' : 'success'}>{e.estado_equipo}</Badge>
                             : <Badge variant={activo ? 'success' : 'secondary'}>{e.estado}</Badge>}
                         <Badge variant="outline">Solo lectura</Badge>
                     </div>
