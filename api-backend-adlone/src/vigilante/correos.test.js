@@ -19,7 +19,7 @@ test('aviso de caída del frontend: asunto, motivo y pasos solo para ese proceso
     assert.match(c.text, /pm2 stop adl-one-frontend/);
     assert.match(c.text, /pm2 start adl-one-frontend/);
     assert.match(c.text, /":5174"/);
-    assert.match(c.text, /Nunca "pm2 restart" ni "pm2 restart all"/);
+    assert.match(c.text, /nunca "pm2 restart" ni "pm2 restart all"/);
     assert.doesNotMatch(c.text, /adl-one-backend/); // no mezcla el otro proceso
 });
 
@@ -58,4 +58,48 @@ test('el html escapa el motivo (no inyecta etiquetas)', () => {
 
 test('servicio desconocido no rompe', () => {
     assert.equal(servicioDe('otro').proceso, 'otro');
+});
+
+// ── Diseño: mismo layout que el resto de los correos de ADL ONE ──────────────────────────────────────────────────────────────────────────────
+test('el HTML usa el layout común: logo incrustado, insignia roja y pie de ADL', () => {
+    const c = armarCorreo({ tipo: 'CAIDO', ...base }, 'frontend');
+    assert.equal(c.logoCid, 'logo_adlone');
+    assert.match(c.html, /src="cid:logo_adlone"/);
+    assert.match(c.html, /SIN RESPUESTA/);
+    assert.match(c.html, /#fdecea/); // fondo rojo suave de la insignia
+    assert.match(c.html, /ADL Diagnostic Chile SpA/);
+    assert.match(c.html, /<h2[^>]*>La pantalla web de ADL ONE no responde<\/h2>/);
+});
+
+test('el HTML trae la lista de datos y los pasos con los comandos en recuadro de código', () => {
+    const c = armarCorreo({ tipo: 'CAIDO', ...base }, 'frontend');
+    for (const etiqueta of ['Servicio', 'Sin respuesta desde', 'Duración', 'Motivo', 'Fallos seguidos', 'Proceso y puerto']) assert.match(c.html, new RegExp(etiqueta), etiqueta);
+    assert.match(c.html, /23-11-2026 14:30/);
+    assert.match(c.html, /Cómo arreglarlo \(solo ese proceso\)/);
+    assert.match(c.html, /Consolas[^>]*>pm2 stop adl-one-frontend</);
+    assert.match(c.html, /adl-one-frontend · 5174/);
+    assert.doesNotMatch(c.html, /adl-one-backend/);
+});
+
+test('el HTML de recuperación es verde, no trae pasos y dice cuándo volvió', () => {
+    const c = armarCorreo({ tipo: 'RECUPERADO', ...base, duracionMs: 7 * MIN }, 'backend');
+    assert.match(c.html, /RECUPERADO/);
+    assert.match(c.html, /#e3f6e8/);
+    assert.match(c.html, /Volvió a responder/);
+    assert.match(c.html, /23-11-2026 14:37/); // 14:30 + 7 min, horario de Chile
+    assert.doesNotMatch(c.html, /Cómo arreglarlo/);
+    assert.doesNotMatch(c.html, /pm2 stop/);
+});
+
+test('compatible con Outlook de escritorio: sin flexbox ni grid', () => {
+    for (const tipo of ['CAIDO', 'RECORDATORIO', 'RECUPERADO']) {
+        const c = armarCorreo({ tipo, ...base }, 'frontend');
+        assert.doesNotMatch(c.html, /display\s*:\s*(flex|grid)/, tipo);
+    }
+});
+
+test('el recordatorio usa el mismo diseño con título «sigue sin responder»', () => {
+    const c = armarCorreo({ tipo: 'RECORDATORIO', ...base, duracionMs: 135 * MIN }, 'frontend');
+    assert.match(c.html, /sigue sin responder<\/h2>/);
+    assert.match(c.html, /Lleva 2 h 15 min sin responder/);
 });

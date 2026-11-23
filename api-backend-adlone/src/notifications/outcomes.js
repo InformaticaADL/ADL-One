@@ -15,6 +15,9 @@ export const OUTCOMES = {
     DERIVADA: { label: 'DERIVADA', color: '#7e3ff2', background: '#f3e8fd' },
     CANCELADA: { label: 'CANCELADA', color: '#787774', background: '#f1f1ef' },
     REPROGRAMADA: { label: 'REPROGRAMADA', color: '#0975a8', background: '#e9f4fb' },
+    // Avisos del vigilante (src/vigilante): el sistema dejó de responder / volvió a responder.
+    SIN_RESPUESTA: { label: 'SIN RESPUESTA', color: '#c0392b', background: '#fdecea' },
+    RECUPERADO: { label: 'RECUPERADO', color: '#1f8b4c', background: '#e3f6e8' },
     INFORMATIVA: null,
 };
 

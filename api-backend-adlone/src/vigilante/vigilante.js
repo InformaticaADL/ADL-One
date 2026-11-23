@@ -9,6 +9,8 @@
 //  · VIGILANTE_SIMULAR=1 no envía nada: solo escribe en el log lo que enviaría (para probar).
 import dotenv from 'dotenv';
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { getTransporter } from '../config/mailer.js';
 import { evaluar, estadoInicial } from './estado.js';
 import { armarCorreo } from './correos.js';
@@ -47,15 +49,22 @@ function guardarEstado(estados) {
     try { fs.mkdirSync(CARPETA_LOGS, { recursive: true }); fs.writeFileSync(ARCHIVO_ESTADO, JSON.stringify({ guardado: Date.now(), servicios: estados })); } catch (e) { registro('no se pudo guardar el estado:', e.message); }
 }
 
+// Logo de ADL ONE incrustado en el correo (el mismo archivo que usan las notificaciones). Si no está, el correo sale igual, sin logo.
+const RUTA_LOGO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../assets/logo-adlone.png');
+const LOGO = fs.existsSync(RUTA_LOGO) ? fs.readFileSync(RUTA_LOGO) : null;
+
 async function enviar(accion, servicio) {
-    const { subject, text, html } = armarCorreo(accion, servicio.id, { servidor: CONFIG.servidor });
+    const { subject, text, html, logoCid } = armarCorreo(accion, servicio.id, { servidor: CONFIG.servidor });
     if (CONFIG.simular || !CONFIG.destinatarios.length) {
         registro(CONFIG.simular ? '(SIMULADO)' : '(SIN DESTINATARIOS: define VIGILANTE_DESTINATARIOS)', 'correo:', subject);
         console.log(text);
         return CONFIG.simular; // simulado cuenta como enviado; sin destinatarios no (se reintenta como recordatorio)
     }
     try {
-        await getTransporter().sendMail({ from: process.env.EMAIL_FROM || process.env.SMTP_USER, to: CONFIG.destinatarios.join(','), subject, text, html });
+        await getTransporter().sendMail({
+            from: process.env.EMAIL_FROM || process.env.SMTP_USER, to: CONFIG.destinatarios.join(','), subject, text, html,
+            attachments: LOGO ? [{ filename: 'logo-adlone.png', content: LOGO, cid: logoCid }] : [],
+        });
         registro('correo enviado a', CONFIG.destinatarios.join(', '), '·', subject);
         return true;
     } catch (e) {

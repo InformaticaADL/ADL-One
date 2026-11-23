@@ -2,11 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { OUTCOMES, renderOutcomeBadge } from './outcomes.js';
 
-test('OUTCOMES catalog has the 8 approved states', () => {
+test('OUTCOMES catalog has the 8 approved states plus the 2 of the watchdog', () => {
     const keys = Object.keys(OUTCOMES);
     assert.deepEqual(keys.sort(), [
         'APROBADA', 'CANCELADA', 'DERIVADA', 'EN_REVISION',
-        'INFORMATIVA', 'NUEVA', 'RECHAZADA', 'REPROGRAMADA',
+        'INFORMATIVA', 'NUEVA', 'RECHAZADA', 'RECUPERADO', 'REPROGRAMADA', 'SIN_RESPUESTA',
     ]);
 });
 
