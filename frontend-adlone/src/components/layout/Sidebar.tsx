@@ -240,7 +240,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
 
     // Subcategorías fijas dentro de un módulo (hoy: G. Calidad → Medio Ambiente / Laboratorio).
     // Un enlace sin subgrupo propio, o de un módulo que no está acá, sigue mostrándose en la lista plana de siempre.
-    const SUBGRUPOS_POR_MODULO: Record<string, string[]> = { gestion_calidad: ['Medio Ambiente', 'Laboratorio'] };
+    // Laboratorio (G.C. LAB) no se muestra por ahora: todavía no tiene submódulos. Su pantalla sigue en 'gc-hub-lab'.
+    const SUBGRUPOS_POR_MODULO: Record<string, string[]> = { gestion_calidad: ['Medio Ambiente'] };
     // Cada subcategoría no lista sus enlaces en el árbol del sidebar: lleva a su propia pantalla con
     // tarjetas (una por submódulo), igual que los demás hubs de Admin. Información.
     const HUB_DESTINO_POR_SUBGRUPO: Record<string, Record<string, string>> = {
