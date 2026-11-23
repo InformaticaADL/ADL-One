@@ -34,6 +34,7 @@ const FacturacionSaludModule: React.FC = () => {
     const [programaElegido, setProgramaElegido] = useState<number>(4);
     // Factura que debe abrir la vista «Facturas» (por ejemplo, la que se acaba de crear)
     const [facturaInicial, setFacturaInicial] = useState<number | undefined>(undefined);
+    const [resetPrefacturas, setResetPrefacturas] = useState(0);
 
     useEffect(() => {
         if (!activeSubmodule || !TABS.some((t) => t.key === activeSubmodule)) {
@@ -45,6 +46,9 @@ const FacturacionSaludModule: React.FC = () => {
 
     const navegar = (v: string, idFactura?: number) => {
         setFacturaInicial(idFactura);
+        if (v === 'fs-prefacturas' && idFactura == null) {
+            setResetPrefacturas((n) => n + 1);
+        }
         setActiveSubmodule(v);
     };
 
@@ -56,7 +60,7 @@ const FacturacionSaludModule: React.FC = () => {
                         <h1 className="m-0 text-xl font-semibold text-foreground">Facturación área Salud</h1>
                         <p className="m-0 mt-1 text-sm text-muted-foreground">Valoriza los casos, crea y mantiene las facturas y prepara los archivos para el emisor electrónico.</p>
                     </div>
-                    <Badge variant="outline">Base local de pruebas</Badge>
+                    <Badge variant="outline">ADLFacturacion · lectura local</Badge>
                 </div>
 
                 <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-1">
@@ -82,7 +86,13 @@ const FacturacionSaludModule: React.FC = () => {
 
             {vista === 'fs-dashboard' && <FacturacionSaludDashboard onNavigate={navegar} onSelectPrograma={setProgramaElegido} />}
             {vista === 'fs-procesar' && <FacturacionSaludProcesar initialPrograma={programaElegido} onNavigate={navegar} />}
-            {vista === 'fs-prefacturas' && <FacturacionSaludPrefacturas key={facturaInicial ?? 'sin'} idInicial={facturaInicial} />}
+            {vista === 'fs-prefacturas' && (
+                <FacturacionSaludPrefacturas
+                    key={`${facturaInicial ?? 'sin'}-${resetPrefacturas}`}
+                    idInicial={facturaInicial}
+                    onLimpiarInicial={() => setFacturaInicial(undefined)}
+                />
+            )}
             {vista === 'fs-otras-ventas' && <FacturacionSaludOtrasVentas />}
             {vista === 'fs-dte' && <FacturacionSaludDte />}
         </div>

@@ -14,7 +14,9 @@ export const SUFIJO_SP_CRITERIO = {
   'Veterinario': 'veterinario',
   'Centro - Veterinario': 'centroveterinario',
   'Tipo de Agua': 'tagua',
-  'Tipo de Agua - Veterinario': 'taguaveterinario'
+  'Tipo de Agua - Veterinario': 'taguaveterinario',
+  'Lote': 'na',
+  'Especie': 'na'
 };
 
 // eligeprograma de la pantalla de facturación -> nombre del programa dentro del procedimiento.
@@ -32,7 +34,7 @@ const NOMBRE_SP_PROGRAMA = {
 // Combo "Programas Oficiales" (PVA, Screening, Cisa-PVS-SRS, SAMIC, Caligus) frente a "Programas Servicios y Otros"
 // (SDiag-ATV, I+D, ILab, Mamb). Cada combo muestra criterios distintos: los oficiales no ofrecen "Tipo de Agua".
 export const PROGRAMAS_OFICIALES = [1, 2, 3, 8, 9];
-export const CRITERIOS_OFICIALES = ['Na', 'Centro', 'Veterinario', 'Centro - Veterinario'];
+export const CRITERIOS_OFICIALES = ['Na', 'Centro', 'Veterinario', 'Centro - Veterinario', 'Lote', 'Especie'];
 export const CRITERIOS_PREFACTURA = Object.keys(SUFIJO_SP_CRITERIO);
 
 export function esProgramaOficial(eligeprograma) {
@@ -87,6 +89,8 @@ export function claveGrupoPrefactura(criterio, linea) {
     case 'Centro - Veterinario': return `C:${linea.id_centro}|V:${rt(linea.cliente_entrega)}`;
     case 'Tipo de Agua': return `A:${linea.id_tipoagua}`;
     case 'Tipo de Agua - Veterinario': return `A:${linea.id_tipoagua}|V:${rt(linea.cliente_entrega)}`;
+    case 'Lote': return `L:${rt(linea.lote)}`;
+    case 'Especie': return `E:${linea.id_especie ?? rt(linea.nombre_especie)}`;
     case 'Na':
     default: return `P:${linea.id_programa}`;
   }
@@ -97,12 +101,16 @@ export function etiquetaGrupoPrefactura(criterio, linea) {
   const vet = rt(linea.cliente_entrega) || 'Sin veterinario';
   const centro = rt(linea.nombre_centro) || `Centro ${linea.id_centro}`;
   const agua = rt(linea.nombre_tipoagua) || `Tipo de agua ${linea.id_tipoagua}`;
+  const lote = rt(linea.lote) || 'Sin lote';
+  const especie = rt(linea.nombre_especie) || `Especie ${linea.id_especie ?? ''}`.trim();
   switch (criterio) {
     case 'Centro': return centro;
     case 'Veterinario': return vet;
     case 'Centro - Veterinario': return `${centro} · ${vet}`;
     case 'Tipo de Agua': return agua;
     case 'Tipo de Agua - Veterinario': return `${agua} · ${vet}`;
+    case 'Lote': return lote;
+    case 'Especie': return especie;
     case 'Na':
     default: return rt(linea.nombre_programa) || `Programa ${linea.id_programa}`;
   }

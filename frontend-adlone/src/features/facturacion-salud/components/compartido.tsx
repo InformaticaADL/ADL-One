@@ -1,16 +1,41 @@
 import React from 'react';
+import { IconQuestionMark } from '@tabler/icons-react';
 import { Combobox, type ComboboxOption } from '@/components/ui/combobox';
 import { Label } from '@/components/ui/label';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 // ---------------------------------------------------------------------------------------------------------------------------
 // Componentes
 // ---------------------------------------------------------------------------------------------------------------------------
 
+/** Pequeño ícono circular con signo de interrogación que muestra una explicación breve al pasar el cursor. */
+export const InfoHelp: React.FC<{ texto: string }> = ({ texto }) => (
+    <TooltipProvider delayDuration={150}>
+        <Tooltip>
+            <TooltipTrigger asChild>
+                <span
+                    title={texto}
+                    tabIndex={0}
+                    className="inline-flex h-4 w-4 min-w-4 shrink-0 cursor-help items-center justify-center rounded-full bg-muted-foreground/80 text-background transition hover:bg-foreground"
+                >
+                    <IconQuestionMark size={11} stroke={2.6} />
+                </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs whitespace-normal text-left leading-relaxed">
+                {texto}
+            </TooltipContent>
+        </Tooltip>
+    </TooltipProvider>
+);
+
 /** Etiqueta + control, alineados y con el mismo ancho que su celda de la grilla. */
-export const Campo: React.FC<{ label: string; children: React.ReactNode; ayuda?: string; className?: string }> = ({ label, children, ayuda, className }) => (
+export const Campo: React.FC<{ label: string; children: React.ReactNode; ayuda?: string; info?: string; className?: string }> = ({ label, children, ayuda, info, className }) => (
     <div className={cn('flex min-w-0 flex-col gap-1.5', className)}>
-        <Label className="text-xs font-medium text-muted-foreground">{label}</Label>
+        <Label className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+            <span>{label}</span>
+            {info ? <InfoHelp texto={info} /> : null}
+        </Label>
         {children}
         {ayuda ? <p className="m-0 text-xs text-muted-foreground">{ayuda}</p> : null}
     </div>
@@ -54,9 +79,12 @@ export const Seccion: React.FC<{ titulo: string; descripcion?: string; acciones?
 );
 
 /** Dato de solo lectura: etiqueta arriba, valor abajo (con saltos de línea si es largo). */
-export const Dato: React.FC<{ label: string; children: React.ReactNode; className?: string }> = ({ label, children, className }) => (
+export const Dato: React.FC<{ label: string; info?: string; children: React.ReactNode; className?: string }> = ({ label, info, children, className }) => (
     <div className={cn('min-w-0', className)}>
-        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span>{label}</span>
+            {info ? <InfoHelp texto={info} /> : null}
+        </div>
         <div className="mt-0.5 whitespace-normal break-words text-sm font-medium text-foreground">{children}</div>
     </div>
 );

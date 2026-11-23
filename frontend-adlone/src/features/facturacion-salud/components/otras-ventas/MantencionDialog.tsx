@@ -49,8 +49,8 @@ const MantencionDialog: React.FC<Props> = ({ documento, onCerrar, onCambio, maes
         setNumeroSii(String(Number(documento.numero_documento) || ''));
         setFecha(aIso(documento.fecha_documento));
         setGlosa(String(documento.concepto_cobro ?? '').trim());
-        setUf(String(Number(documento.uf) || ''));
-        setMontoUf(String(Number(documento.monto_uf) || ''));
+        setUf(Number(documento.uf) ? fmtNum(documento.uf) : '');
+        setMontoUf(Number(documento.monto_uf) ? fmtNum(documento.monto_uf) : '');
         setNota(String(documento.nota ?? '').trim());
         setNuevaOc({ ocompra: '', fecha: '', referencia: '', tipo: 'OC' });
         cargarOrdenes();

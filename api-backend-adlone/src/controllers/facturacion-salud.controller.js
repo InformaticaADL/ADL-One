@@ -1,4 +1,5 @@
 import facturacionSaludService from '../services/facturacion-salud.service.js';
+import * as aprobacionSalud from '../services/facturacion-salud.aprobacion.js';
 import logger from '../utils/logger.js';
 
 class FacturacionSaludController {
@@ -56,7 +57,8 @@ class FacturacionSaludController {
                 fecha_proceso_ini = null,
                 fecha_proceso_fin = null,
                 ensilaje = 'false',
-                proa = 'false'
+                proa = 'false',
+                incluir_rezagados = 'false'
             } = req.query;
 
             const data = await facturacionSaludService.getCasosElegiblesPorEmpresa({
@@ -65,7 +67,8 @@ class FacturacionSaludController {
                 fecha_proceso_ini,
                 fecha_proceso_fin,
                 ensilaje: ensilaje === 'true' || ensilaje === '1',
-                proa: proa === 'true' || proa === '1'
+                proa: proa === 'true' || proa === '1',
+                incluir_rezagados: incluir_rezagados === 'true' || incluir_rezagados === '1'
             });
             return res.json({ success: true, data });
         } catch (error) {
@@ -345,11 +348,57 @@ class FacturacionSaludController {
 
     async cambiarEmpresaFactura(req, res) {
         try {
-            const data = await facturacionSaludService.cambiarEmpresaFacturaSalud({ id_facturacion: req.params.id, id_empresaservicio: req.body.id_empresaservicio, motivo: req.body.motivo, id_usuario: req.user ? (req.user.id_usuario || req.user.id) : 0 });
+            const data = await aprobacionSalud.solicitarCambioEmpresa({
+                id_facturacion: req.params.id,
+                id_empresaservicio_nueva: req.body.id_empresaservicio,
+                motivo: req.body.motivo,
+                usuario: req.user || {}
+            });
             return res.json({ success: true, data });
         } catch (error) {
             logger.error('Error in FacturacionSaludController.cambiarEmpresaFactura:', error);
-            return res.status(500).json({ success: false, message: error.message || 'Error al cambiar la empresa a facturar' });
+            return res.status(500).json({ success: false, message: error.message || 'Error al solicitar el cambio de empresa a facturar' });
+        }
+    }
+
+    async listarSolicitudesCambioEmpresa(req, res) {
+        try {
+            const data = await aprobacionSalud.listarSolicitudesCambioEmpresa({
+                estado: req.query.estado || 'ALL',
+                busqueda: req.query.busqueda || ''
+            });
+            return res.json({ success: true, data });
+        } catch (error) {
+            logger.error('Error in FacturacionSaludController.listarSolicitudesCambioEmpresa:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Error al listar solicitudes de cambio de empresa' });
+        }
+    }
+
+    async aprobarSolicitudCambioEmpresa(req, res) {
+        try {
+            const data = await aprobacionSalud.aprobarSolicitudCambioEmpresa({
+                id_aprobacion: req.params.idAprobacion,
+                comentario: req.body?.comentario || '',
+                usuario: req.user || {}
+            });
+            return res.json({ success: true, data });
+        } catch (error) {
+            logger.error('Error in FacturacionSaludController.aprobarSolicitudCambioEmpresa:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Error al aprobar la solicitud de cambio de empresa' });
+        }
+    }
+
+    async rechazarSolicitudCambioEmpresa(req, res) {
+        try {
+            const data = await aprobacionSalud.rechazarSolicitudCambioEmpresa({
+                id_aprobacion: req.params.idAprobacion,
+                comentario: req.body?.comentario || '',
+                usuario: req.user || {}
+            });
+            return res.json({ success: true, data });
+        } catch (error) {
+            logger.error('Error in FacturacionSaludController.rechazarSolicitudCambioEmpresa:', error);
+            return res.status(500).json({ success: false, message: error.message || 'Error al rechazar la solicitud de cambio de empresa' });
         }
     }
 
@@ -466,6 +515,9 @@ class FacturacionSaludController {
     async consultarFactura(req, res) {
         try {
             const data = await facturacionSaludService.consultarFacturaSalud({ id_facturacion: req.query.id_facturacion, factura: req.query.factura });
+            if (data?.encabezado?.id_facturacion) {
+                data.solicitudCambioEmpresaPendiente = await aprobacionSalud.obtenerSolicitudPendienteFactura(data.encabezado.id_facturacion);
+            }
             return res.json({ success: true, data });
         } catch (error) {
             logger.error('Error in FacturacionSaludController.consultarFactura:', error);

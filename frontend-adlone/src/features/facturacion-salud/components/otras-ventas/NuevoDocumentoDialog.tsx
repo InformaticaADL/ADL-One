@@ -93,8 +93,8 @@ const NuevoDocumentoDialog: React.FC<Props> = ({ abierto, onCerrar, onCreado, ma
             }
             setRef(r);
             setEmpresa(String(r.id_empresaservicio));
-            setUf(String(r.uf));
-            setMontoUf(String(r.uf_totalfac));
+            setUf(Number(r.uf) ? fmtNum(r.uf) : '');
+            setMontoUf(Number(r.uf_totalfac) ? fmtNum(r.uf_totalfac) : '');
             setMonto(String(Math.round(Number(r.peso_totalfac) || 0)));
         } catch (e) {
             showToast({ type: 'error', message: mensajeError(e) });

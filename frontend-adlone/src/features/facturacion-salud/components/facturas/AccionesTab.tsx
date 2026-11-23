@@ -37,7 +37,7 @@ const AccionesTab: React.FC<Props> = ({ ficha, maestros, onActualizada, onElimin
         setTrabajando(true);
         try {
             await facturacionSaludService.cambiarEmpresaFactura(id, { id_empresaservicio: Number(empresa), motivo });
-            showToast({ type: 'success', message: 'Se cambió la empresa a facturar.' });
+            showToast({ type: 'success', message: 'Solicitud enviada a Administración y Finanzas para su aprobación.' });
             setConfirmarCambio(false);
             setEmpresa('');
             setMotivo('');
@@ -73,15 +73,29 @@ const AccionesTab: React.FC<Props> = ({ ficha, maestros, onActualizada, onElimin
 
     return (
         <div className="flex flex-col gap-8">
-            <Seccion titulo="Cambiar la empresa a facturar" descripcion="Cambia la empresa de la factura y también la de todos sus casos. El motivo es obligatorio y queda registrado.">
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Campo label="Empresa actual"><div className="min-h-9 whitespace-normal break-words rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">{String(enc.nombre_empresaservicios).trim()}</div></Campo>
-                    <Campo label="Cambiar por"><SelectBuscable opciones={opcionesEmpresa} valor={empresa} onChange={setEmpresa} placeholder="Elegir empresa" buscar="Buscar por nombre o RUT…" /></Campo>
-                </div>
-                <Campo label="Motivo"><Textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Explica por qué se cambia la empresa" /></Campo>
-                <div className="flex justify-end">
-                    <Button variant="outline" disabled={!empresa || !motivo.trim()} onClick={() => setConfirmarCambio(true)}>Cambiar empresa</Button>
-                </div>
+            <Seccion
+                titulo="Solicitar cambio de empresa a facturar"
+                descripcion="Envía una solicitud a Administración y Finanzas para cambiar la empresa de la factura y de sus casos. El cambio se aplicará solo al ser aprobado."
+            >
+                {ficha.solicitudCambioEmpresaPendiente ? (
+                    <Alert variant="warning">
+                        <AlertTitle>Solicitud pendiente de aprobación (#{ficha.solicitudCambioEmpresaPendiente.id_aprobacion})</AlertTitle>
+                        <AlertDescription>
+                            Ya existe una solicitud para cambiar a <strong>{ficha.solicitudCambioEmpresaPendiente.nombre_empresa_nueva}</strong> ({ficha.solicitudCambioEmpresaPendiente.rut_empresa_nueva}), enviada por <strong>{ficha.solicitudCambioEmpresaPendiente.usuario_solicita}</strong>. Motivo: «{ficha.solicitudCambioEmpresaPendiente.motivo_solicitud}».
+                        </AlertDescription>
+                    </Alert>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            <Campo label="Empresa actual"><div className="min-h-9 whitespace-normal break-words rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">{String(enc.nombre_empresaservicios).trim()}</div></Campo>
+                            <Campo label="Empresa nueva solicitada"><SelectBuscable opciones={opcionesEmpresa} valor={empresa} onChange={setEmpresa} placeholder="Elegir empresa" buscar="Buscar por nombre o RUT…" /></Campo>
+                        </div>
+                        <Campo label="Motivo de la solicitud"><Textarea rows={2} value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Explica por qué se solicita cambiar la empresa" /></Campo>
+                        <div className="flex justify-end">
+                            <Button variant="outline" disabled={!empresa || !motivo.trim()} onClick={() => setConfirmarCambio(true)}>Solicitar cambio de empresa</Button>
+                        </div>
+                    </>
+                )}
             </Seccion>
 
             <Seccion titulo="Eliminar la factura" descripcion="Los casos vuelven a quedar disponibles para facturarse. No se puede deshacer.">
@@ -103,12 +117,12 @@ const AccionesTab: React.FC<Props> = ({ ficha, maestros, onActualizada, onElimin
             <Dialog open={confirmarCambio} onOpenChange={setConfirmarCambio}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>¿Cambiar la empresa a facturar?</DialogTitle>
-                        <DialogDescription>Se cambiará la empresa de la factura {id} y de todos sus casos.</DialogDescription>
+                        <DialogTitle>¿Enviar solicitud de cambio de empresa?</DialogTitle>
+                        <DialogDescription>Se enviará la solicitud de cambio de la factura #{id} a Administración y Finanzas para su revisión y aprobación.</DialogDescription>
                     </DialogHeader>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setConfirmarCambio(false)}>Cancelar</Button>
-                        <Button onClick={cambiarEmpresa} disabled={trabajando}>{trabajando ? 'Cambiando…' : 'Sí, cambiar'}</Button>
+                        <Button onClick={cambiarEmpresa} disabled={trabajando}>{trabajando ? 'Enviando…' : 'Sí, enviar solicitud'}</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

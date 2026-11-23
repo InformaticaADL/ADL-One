@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useToast } from '../../../../contexts/ToastContext';
 import { facturacionSaludService, mensajeError, type FichaFactura } from '../../services/facturacionSalud.service';
 import { Seccion } from '../compartido';
-import { celdaTexto, descargarCsv, fmtNum } from '../formatos';
+import { celdaTexto, fmtNum } from '../formatos';
 
 interface Props { ficha: FichaFactura }
 
@@ -35,13 +35,20 @@ const DetalleTab: React.FC<Props> = ({ ficha }) => {
         }
     };
 
-    const descargar = async (tipo: 'resumen' | 'detalle' | 'lote') => {
-        setDescargando(tipo);
+    const descargarExcel = async () => {
+        setDescargando('excel');
         try {
-            const datos = tipo === 'resumen' ? await facturacionSaludService.datosExcelResumen(id) : await facturacionSaludService.datosExcelDetalle(id, tipo === 'lote');
-            descargarCsv(`Factura ${tipo} ID${id}.csv`, datos.columnas, datos.filas);
+            const { blob, nombre } = await facturacionSaludService.descargarExcelUnificado(id);
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = nombre;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
         } catch (e) {
-            showToast({ type: 'error', message: mensajeError(e, 'No se pudo preparar el archivo.') });
+            showToast({ type: 'error', message: mensajeError(e, 'No se pudo generar el Excel.') });
         } finally {
             setDescargando(null);
         }
@@ -55,9 +62,7 @@ const DetalleTab: React.FC<Props> = ({ ficha }) => {
                 <>
                     <Button size="sm" disabled={descargando !== null} onClick={() => descargarPdf('resumen')}><IconFileTypePdf size={15} />Resumen PDF</Button>
                     <Button size="sm" disabled={descargando !== null} onClick={() => descargarPdf('detalle')}><IconFileTypePdf size={15} />Detalle PDF</Button>
-                    <Button variant="outline" size="sm" disabled={descargando !== null} onClick={() => descargar('resumen')}><IconDownload size={15} />Resumen</Button>
-                    <Button variant="outline" size="sm" disabled={descargando !== null} onClick={() => descargar('detalle')}><IconDownload size={15} />Detalle</Button>
-                    <Button variant="outline" size="sm" disabled={descargando !== null} onClick={() => descargar('lote')}><IconDownload size={15} />Detalle por lote</Button>
+                    <Button variant="outline" size="sm" disabled={descargando !== null} onClick={descargarExcel}><IconDownload size={15} />Excel (.xlsx)</Button>
                 </>
             }
         >

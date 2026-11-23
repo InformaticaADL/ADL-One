@@ -95,10 +95,13 @@ export async function leerDatosResumen(db, { id_facturacion }) {
 
 /** Texto por su línea base y líneas, comunes a los dos informes. Con «der» el x es el borde derecho del texto. */
 function herramientasPdf(doc) {
-  const texto = (s, x, base, { negrita = false, tam = 8, der = false, fuente } = {}) => {
+  const texto = (s, x, base, { negrita = false, tam = 8, der = false, fuente, anchoMax, lineGap = 1 } = {}) => {
     doc.font(fuente || (negrita ? 'Helvetica-Bold' : 'Helvetica')).fontSize(tam).fillColor('#000000');
     const ancho = doc.widthOfString(String(s));
-    doc.text(String(s), der ? x - ancho : x, base, { lineBreak: false, baseline: 'alphabetic' });
+    const opts = anchoMax
+      ? { width: anchoMax, lineBreak: true, lineGap, baseline: 'alphabetic' }
+      : { lineBreak: false, baseline: 'alphabetic' };
+    doc.text(String(s), der ? x - ancho : x, base, opts);
   };
   const linea = (x1, y, x2, grosor, color = '#000000') => doc.moveTo(x1, y).lineTo(x2, y).lineWidth(grosor).strokeColor(color).stroke();
   return { texto, linea };
@@ -430,8 +433,14 @@ export function crearPdfDetalle(d, { ahora = new Date() } = {}) {
       linea(X_IZQ, dis.naranja, X_DER, 4, NARANJA);
       texto('Empresa', 13.5, dis.empLabBase, { negrita: true, tam: 10 });
       texto(`: ${d.empresa}`, 81, dis.empValBase, { negrita: true, tam: 10 });
-      texto('Programa', 430.5, dis.progBase);
-      texto(`: ${d.programa}`, 467.3, dis.progBase);
+      const empFinX = 81 + doc.font('Helvetica-Bold').fontSize(10).widthOfString(`: ${d.empresa}`) + 14;
+      const anchoProg = doc.font('Helvetica').fontSize(8).widthOfString(`: ${d.programa}`);
+      const progLabX = 467.3 + anchoProg <= X_DER
+        ? 430.5
+        : Math.min(430.5, Math.max(Math.max(empFinX, 315), X_DER - anchoProg - 36.8));
+      const progValX = progLabX + 36.8;
+      texto('Programa', progLabX, dis.progBase);
+      texto(`: ${d.programa}`, progValX, dis.progBase, { anchoMax: X_DER - progValX });
       texto('Facturado por', 13.5, dis.facBase);
       texto(`: ${d.facturadoPor}`, 76.5, dis.facBase);
       linea(X_IZQ, dis.linea1, X_DER, 1);

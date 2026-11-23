@@ -44,7 +44,7 @@ const ParametrosCard: React.FC<Props> = (p) => {
                 acciones={<Button variant="outline" size="sm" onClick={p.onRecargar}><IconRefresh size={15} />Recargar empresas</Button>}
             >
                 <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    <Campo label="Programa" className="md:col-span-2">
+                    <Campo label="Programa" info="Programa sanitario o línea de servicio del área de Salud cuyos casos pendientes se van a consultar y valorizar." className="md:col-span-2">
                         <SelectBuscable
                             opciones={p.programas.map((x) => ({ value: String(x.eligeprograma), label: x.nombre }))}
                             valor={String(p.programa)}
@@ -52,16 +52,16 @@ const ParametrosCard: React.FC<Props> = (p) => {
                             placeholder="Elegir programa"
                         />
                     </Campo>
-                    <Campo label="Valor de la UF" ayuda="Obligatorio para valorizar.">
+                    <Campo label="Valor de la UF" info="Valor en pesos chilenos de la UF del día. Es obligatorio para calcular los montos en pesos y convertir gastos de terreno." ayuda="Obligatorio para valorizar.">
                         <Input inputMode="decimal" value={p.uf} onChange={(e) => p.onUf(e.target.value)} placeholder="Ej.: 39.500,00" />
                     </Campo>
-                    <Campo label="Valor del dólar" ayuda="Solo para la empresa que se factura también en dólares.">
+                    <Campo label="Valor del dólar" info="Tipo de cambio del dólar (USD) en pesos chilenos. Solo es obligatorio para clientes con tarifario en dólares (ej.: Benchmark Genetics)." ayuda="Solo para la empresa que se factura también en dólares.">
                         <Input inputMode="decimal" value={p.usd} onChange={(e) => p.onUsd(e.target.value)} placeholder="Opcional" />
                     </Campo>
-                    <Campo label="Datos a procesar · desde" ayuda="Fecha de informe de los casos."><DatePicker value={p.fechaIni} onChange={p.onFechaIni} placeholder="Elegir fecha" /></Campo>
-                    <Campo label="Datos a procesar · hasta"><DatePicker value={p.fechaFin} onChange={p.onFechaFin} placeholder="Elegir fecha" /></Campo>
-                    <Campo label="Informe al cliente · desde" ayuda="Solo se anota en la factura; no filtra."><DatePicker value={p.informeIni} onChange={p.onInformeIni} placeholder="Elegir fecha" /></Campo>
-                    <Campo label="Informe al cliente · hasta"><DatePicker value={p.informeFin} onChange={p.onInformeFin} placeholder="Elegir fecha" /></Campo>
+                    <Campo label="Datos a procesar · desde" info="Fecha de inicio del período (según Fecha de Informe del caso) para buscar casos con estado ENVIADO pendientes de facturar." ayuda="Fecha de informe de los casos."><DatePicker value={p.fechaIni} onChange={p.onFechaIni} placeholder="Elegir fecha" /></Campo>
+                    <Campo label="Datos a procesar · hasta" info="Fecha de término del período (según Fecha de Informe del caso) para buscar casos pendientes de facturar."><DatePicker value={p.fechaFin} onChange={p.onFechaFin} placeholder="Elegir fecha" /></Campo>
+                    <Campo label="Informe al cliente · desde" info="Fecha inicial referencial que se imprime/guarda como metadato en el encabezado de la factura (no filtra la búsqueda de casos)." ayuda="Solo se anota en la factura; no filtra."><DatePicker value={p.informeIni} onChange={p.onInformeIni} placeholder="Elegir fecha" /></Campo>
+                    <Campo label="Informe al cliente · hasta" info="Fecha final referencial que se guarda en el encabezado de la factura (no filtra la búsqueda de casos)."><DatePicker value={p.informeFin} onChange={p.onInformeFin} placeholder="Elegir fecha" /></Campo>
                 </div>
 
                 {actual?.soporta_ensilaje_proa && (

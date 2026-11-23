@@ -4,6 +4,7 @@ import { authenticate } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 
 const router = express.Router();
+const adminFinanzasGuard = [authenticate, verifyPermission(['ADM_ACCESO', 'AI_ACCESO', 'INF_ACCESO'])];
 
 // Ampliar límite JSON para envíos de valorización/agrupación de casos de salud
 router.use(express.json({ limit: '10mb' }));
@@ -39,6 +40,10 @@ router.delete('/prefacturas/:id/otros-descuentos/:item', authenticate, facturaci
 // Mantención de facturas creadas (réplica de ADLSOFT; ver docs/facturacion-salud-replica-adlsoft.md)
 router.delete('/facturas/numero/:factura', authenticate, facturacionSaludController.eliminarFacturaPorNumero);
 router.put('/prefacturas/:id/empresa', authenticate, facturacionSaludController.cambiarEmpresaFactura);
+router.post('/prefacturas/:id/solicitud-cambio-empresa', authenticate, facturacionSaludController.cambiarEmpresaFactura);
+router.get('/solicitudes-cambio-empresa', adminFinanzasGuard, facturacionSaludController.listarSolicitudesCambioEmpresa);
+router.post('/solicitudes-cambio-empresa/:idAprobacion/aprobar', adminFinanzasGuard, facturacionSaludController.aprobarSolicitudCambioEmpresa);
+router.post('/solicitudes-cambio-empresa/:idAprobacion/rechazar', adminFinanzasGuard, facturacionSaludController.rechazarSolicitudCambioEmpresa);
 router.get('/prefacturas/:id/ordenes-compra-oc', authenticate, facturacionSaludController.listarOc);
 router.post('/prefacturas/:id/ordenes-compra-oc', authenticate, facturacionSaludController.agregarOc);
 router.post('/prefacturas/:id/ordenes-compra-oc/eliminar', authenticate, facturacionSaludController.eliminarOc);
