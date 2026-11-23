@@ -1,3 +1,8 @@
+// DESACTIVADO: generaba INSERT con el id_equipo del Excel. Los ids de mae_equipo no se pueden reasignar
+// (otras tablas los guardan). Usa import_all_equipos.js, que une por CÓDIGO y no borra nada.
+console.error("generate_insert_sql.js está desactivado. Usa: node import_all_equipos.js <ruta.xlsx> [--aplicar]");
+process.exit(1);
+
 import './src/config/env.js';
 import { getConnection } from './src/config/database.js';
 import sql from 'mssql';
