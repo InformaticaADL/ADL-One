@@ -4920,10 +4920,11 @@ class FichaIngresoService {
                 SELECT 
                     ae.*,
                     e.nombre as nombre_equipo,
-                    e.codigo as codigo_equipo,
+                    e.codigo as codigo_actual_equipo,
                     e.tipoequipo as tipo_equipo
                 FROM App_Ma_Equipos_MUESTREOS ae
-                LEFT JOIN mae_equipo e ON ae.id_equipo = e.id_equipo
+                LEFT JOIN mae_equipo e ON (ae.codigo_equipo IS NOT NULL AND e.codigo = ae.codigo_equipo)
+                                      OR (ae.codigo_equipo IS NULL AND e.id_equipo = ae.id_equipo)
                 WHERE ae.id_fichaingresoservicio = @idFicha
                   AND ae.frecuencia_correlativo = @correlativo
                   AND ISNULL(ae.estado, 'ACTIVO') = 'ACTIVO'
@@ -5030,7 +5031,8 @@ class FichaIngresoService {
             .query(`
                 SELECT e.frecuencia_correlativo, eq.nombre, eq.codigo, e.usado_instalacion, e.usado_retiro
                 FROM App_Ma_Equipos_MUESTREOS e
-                INNER JOIN mae_equipo eq ON e.id_equipo = eq.id_equipo
+                INNER JOIN mae_equipo eq ON (e.codigo_equipo IS NOT NULL AND eq.codigo = e.codigo_equipo)
+                                        OR (e.codigo_equipo IS NULL AND eq.id_equipo = e.id_equipo)
                 WHERE e.id_fichaingresoservicio = @id 
                   AND e.seleccionado = 'S'
                   AND ISNULL(e.estado, 'ACTIVO') = 'ACTIVO'
@@ -5918,7 +5920,8 @@ class FichaIngresoService {
                     SELECT
                         eq.nombre, eq.codigo, e.usado_instalacion, e.usado_retiro
                     FROM App_Ma_Equipos_MUESTREOS e
-                    INNER JOIN mae_equipo eq ON e.id_equipo = eq.id_equipo
+                    INNER JOIN mae_equipo eq ON (e.codigo_equipo IS NOT NULL AND eq.codigo = e.codigo_equipo)
+                                            OR (e.codigo_equipo IS NULL AND eq.id_equipo = e.id_equipo)
                     WHERE e.id_fichaingresoservicio = @id
                       AND e.frecuencia_correlativo = @frecuencia
                       AND e.seleccionado = 'S'

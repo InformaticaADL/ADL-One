@@ -358,6 +358,17 @@ class UrsService {
             if (datos.fecha_ocurrencia && !datos.fecha_suceso) datos.fecha_suceso = datos.fecha_ocurrencia;
             if (datos.nombre_equipo_full && !datos.equipo_nombre) datos.equipo_nombre = datos.nombre_equipo_full;
             if (datos.nombre_equipo_full && !datos.nombre_equipo) datos.nombre_equipo = datos.nombre_equipo_full;
+
+            // El equipo se identifica por su CÓDIGO, no por el id (el id puede apuntar a otro equipo si el catálogo se recargó).
+            // Si la solicitud solo trae el id, se guarda también el código que ese id tiene AHORA, en el momento de crearla.
+            const idEquipoSol = Number(datos.id_equipo || datos.id_equipo_afectado || datos.id_equipo_original) || null;
+            const traeCodigo = String(datos.codigo_equipo || '').trim() || /\[[^\]]+\]\s*$/.test(String(datos.nombre_equipo_full || datos.equipo_nombre || ''));
+            if (idEquipoSol && !traeCodigo) {
+                const eqRes = await new sql.Request(transaction)
+                    .input('idEq', sql.Numeric(10, 0), idEquipoSol)
+                    .query('SELECT LTRIM(RTRIM(codigo)) AS codigo FROM mae_equipo WHERE id_equipo = @idEq');
+                if (eqRes.recordset[0]?.codigo) datos.codigo_equipo = eqRes.recordset[0].codigo;
+            }
             // -----------------------------------------------------------------
 
             if (!areaActual) {
