@@ -28,9 +28,11 @@ interface DataPaginationProps {
   onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
   className?: string;
+  /** Para paneles angostos o de poca altura: menos separación y el texto "Por página" en vez de "Filas por página", para que ocupe menos líneas. */
+  compact?: boolean;
 }
 
-export function DataPagination({ page, pageSize, total, onPageChange, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, className }: DataPaginationProps) {
+export function DataPagination({ page, pageSize, total, onPageChange, onPageSizeChange, pageSizeOptions = PAGE_SIZE_OPTIONS, className, compact = false }: DataPaginationProps) {
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   if (total === 0) return null;
 
@@ -45,15 +47,15 @@ export function DataPagination({ page, pageSize, total, onPageChange, onPageSize
     // mt-3/mt-4/px-4 y no había dos pies de tabla iguales.
     // @container: los cortes dependen del ancho del PROPIO bloque (no de la ventana): en un panel angosto el pie se apila y no se corta
     <div className="@container shrink-0">
-    <div className={cn('mt-4 flex flex-col items-center justify-between gap-3 @xl:flex-row', className)}>
-      <div className="flex flex-wrap items-center gap-3">
+    <div className={cn(compact ? 'mt-2 flex flex-col items-center justify-between gap-2 @xl:flex-row' : 'mt-4 flex flex-col items-center justify-between gap-3 @xl:flex-row', className)}>
+      <div className={cn('flex flex-wrap items-center', compact ? 'gap-x-3 gap-y-1' : 'gap-3')}>
         <span className="text-sm text-muted-foreground">
           Mostrando <span className="font-medium text-foreground">{from}–{to}</span> de{' '}
           <span className="font-medium text-foreground">{total}</span> resultados
         </span>
         {onPageSizeChange && (
           <div className="flex items-center gap-1.5">
-            <span className="text-sm text-muted-foreground">Filas por página</span>
+            <span className="text-sm text-muted-foreground">{compact ? 'Por página' : 'Filas por página'}</span>
             <Select value={String(pageSize)} onValueChange={(v) => onPageSizeChange(Number(v))}>
               <SelectTrigger className="h-8 w-[72px]">
                 <SelectValue />

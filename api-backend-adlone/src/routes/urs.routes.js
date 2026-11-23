@@ -46,6 +46,9 @@ const manejarEquipo = (fn, mensaje) => async (req, res) => {
 };
 router.get('/:id/plan-equipo', verifyPermission(permisoEquipos), manejarEquipo(async (req, res) =>
     successResponse(res, await solicitudEquipoService.plan(req.params.id), 'Cambios de la solicitud'), 'No se pudieron preparar los cambios del equipo'));
+// Seguimiento: si la solicitud ya quedó aplicada en los equipos (lo ve quien gestiona equipos, igual que el plan de cambios).
+router.get('/:id/verificacion-equipo', verifyPermission(permisoEquipos), manejarEquipo(async (req, res) =>
+    successResponse(res, await solicitudEquipoService.verificar(req.params.id), 'Verificación de la solicitud en los equipos'), 'No se pudo verificar la solicitud'));
 router.post('/:id/aplicar-equipo', verifyPermission('AI_MA_EDITAR_EQUIPO'), manejarEquipo(async (req, res) =>
     successResponse(res, await solicitudEquipoService.aplicar(req.params.id, req.user?.id), 'Solicitud aplicada en los equipos'), 'No se pudo aplicar la solicitud en los equipos'));
 

@@ -167,6 +167,18 @@ class UrsController {
                 }
             }
 
+            // «Realizada» solo si el cambio sobre el equipo ya se aplicó (el botón Aplicar de Gestión de Equipos cierra la solicitud solo).
+            if (estado === 'REALIZADA') {
+                const { default: solicitudEquipoService } = await import('../services/solicitudEquipo.service.js');
+                const v = await solicitudEquipoService.verificar(id);
+                if (v.aplica && !v.aplicada) {
+                    return res.status(409).json({
+                        error: 'Esta solicitud cambia un equipo y el cambio todavía no está aplicado. Aplícalo en Gestión de Equipos (botón Actualizar) antes de marcarla como realizada.',
+                        pendientes: v.pendientes,
+                    });
+                }
+            }
+
             const solicitud = await ursService.updateStatus(id, estado, idUsuario, observaciones);
             res.json(solicitud);
         } catch (error) {

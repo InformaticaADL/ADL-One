@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Combobox } from '@/components/ui/combobox';
+import { cn } from '@/lib/utils';
 import { Table, TableHeader, TableBody, TableRow, TableHead, SortableTableHead, TableCell } from '@/components/ui/table';
 import { DataPagination } from '@/components/ui/pagination';
 import { RowActionsMenu } from '@/components/ui/row-actions-menu';
@@ -452,7 +453,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                 <SortableTableHead {...sortProps('empresaServicio')}>Empresa de servicio</SortableTableHead>
                                 <TableHead>Centro</TableHead>
                                 <SortableTableHead {...sortProps('objetivo')}>Programa</SortableTableHead>
-                                <TableHead>Base Operaciones</TableHead>
+                                <TableHead className="max-[1600px]:hidden">Base Operaciones</TableHead>
                                 <TableHead className="w-16 text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -493,7 +494,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                     };
                                     return (
                                         <React.Fragment key={String(idFicha)}>
-                                        <TableRow className={esVisita ? 'cursor-pointer' : undefined} onClick={esVisita ? () => toggleVisita(idVisita) : undefined}>
+                                        <TableRow className={cn('[@media(max-width:1600px)]:[&>td]:py-2', esVisita && 'cursor-pointer')} onClick={esVisita ? () => toggleVisita(idVisita) : undefined}>
                                             {puedeCrearVisita && (
                                                 <TableCell onClick={(e) => e.stopPropagation()}>
                                                     {!esVisita && (
@@ -534,7 +535,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                             </TableCell>
                                             <TableCell className="whitespace-normal break-words font-medium" title={ficha.centro}>{ficha.centro || '-'}</TableCell>
                                             <TableCell className="whitespace-normal break-words" title={ficha.nombre_objetivomuestreo_ma}>{ficha.nombre_objetivomuestreo_ma || '-'}</TableCell>
-                                            <TableCell className="whitespace-normal break-words" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
+                                            <TableCell className="whitespace-normal break-words max-[1600px]:hidden" title={ficha.base_operaciones}>{ficha.base_operaciones || '-'}</TableCell>
                                             {/* La columna PDF se quitó: su descarga vive acá, junto a
                                                 "Ver ficha", en el menú de acciones estándar. */}
                                             <TableCell className="text-right">

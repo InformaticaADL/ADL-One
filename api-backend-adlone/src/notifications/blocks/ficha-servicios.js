@@ -12,11 +12,16 @@ function diffOrPlain(oldVal, newVal) {
 }
 
 function renderRows(rows) {
-    return rows.map((r, i) => `
-        <div style="display:flex; padding:8px 14px; ${i < rows.length - 1 ? 'border-bottom:1px solid #f1f1ef;' : ''} font-size:13px; font-family:${FONT};">
-          <div style="width:160px; flex-shrink:0; color:#9b9a97;">${r.icono} ${r.label}</div>
-          <div style="color:#1f1f1f; font-weight:500;">${r.valor}</div>
-        </div>`).join('');
+    // Tabla, no flexbox: Outlook de escritorio no entiende display:flex.
+    const filas = rows.map((r, i) => {
+        const borde = i < rows.length - 1 ? 'border-bottom:1px solid #f1f1ef;' : '';
+        return `
+        <tr>
+          <td width="160" valign="top" style="width:160px; padding:8px 14px; ${borde} font-size:13px; color:#9b9a97; font-family:${FONT};">${r.icono} ${r.label}</td>
+          <td valign="top" style="padding:8px 14px; ${borde} font-size:13px; color:#1f1f1f; font-weight:500; font-family:${FONT};">${r.valor}</td>
+        </tr>`;
+    }).join('');
+    return `<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%;">${filas}</table>`;
 }
 
 function renderServicioCard(servicio) {

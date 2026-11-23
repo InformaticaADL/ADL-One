@@ -27,6 +27,9 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // por debajo, la navegación pasa a panel deslizante en vez de columna fija.
     const isCompact = useMediaQuery('(max-width: 1200px)');
     const isPhone = useMediaQuery('(max-width: 768px)');
+    // Notebooks de 14-15" (1200-1500 px útiles): con el menú abierto la columna fija de 256 px le quitaba a la página casi un cuarto del ancho
+    // (tablas cortadas, textos con «…»). En ese rango el menú reserva solo el riel de 64 px y, abierto, se superpone al contenido como un panel.
+    const isMedio = useMediaQuery('(max-width: 1500px)') && !isCompact;
     const {
         activeModule,
         activeSubmodule,
@@ -145,7 +148,8 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     }, [user?.id, firmaAvisosSolicitudes, setSolicitudesClientePendientes]);
 
     // Medidas de la plantilla: 16 rem abierto y 4 rem contraído (3 rem del riel + el margen del diseño «inset»).
-    const siderWidth = sidebarCollapsed ? 64 : 256;
+    const siderWidth = (sidebarCollapsed || isMedio) ? 64 : 256;
+    const menuSuperpuesto = isMedio && !sidebarCollapsed;
 
     return (
         <div style={{ height: '100dvh', display: 'flex', flexDirection: 'column', background: 'var(--sc-sidebar)' }}>
@@ -200,15 +204,26 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 borderRight: '1px solid var(--app-border)',
                             }
                             : {
-                                width: siderWidth, flexShrink: 0, transition: 'width 200ms linear', padding: 8,
+                                width: siderWidth, flexShrink: 0, transition: 'width 200ms linear', padding: 8, position: 'relative',
                             }
                     }
                 >
-                    <Sidebar
-                        forceNotCollapsed={isCompact}
-                        onNavigate={close}
-                    />
+                    {menuSuperpuesto ? (
+                        // Menú abierto en pantalla mediana: flota sobre el contenido (la columna de 64 px sigue reservada debajo).
+                        <div style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: 256, padding: 8, zIndex: 220, background: 'var(--sc-sidebar)', boxShadow: '4px 0 16px rgba(0,0,0,0.12)' }}>
+                            <Sidebar forceNotCollapsed={isCompact} onNavigate={() => { close(); toggleSidebar(); }} />
+                        </div>
+                    ) : (
+                        <Sidebar
+                            forceNotCollapsed={isCompact}
+                            onNavigate={close}
+                        />
+                    )}
                 </div>
+
+                {menuSuperpuesto && (
+                    <div onClick={toggleSidebar} style={{ position: 'fixed', inset: 0, left: 256, zIndex: 215, background: 'transparent' }} />
+                )}
 
                 {isCompact && opened && (
                     <div onClick={close} style={{ position: 'fixed', inset: '60px 0 0 0', zIndex: 215, background: 'transparent' }} />
@@ -248,7 +263,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
                                 flexDirection: 'column',
                                 minHeight: 0,
                                 overflowY: isFullHeightModule ? 'hidden' : 'auto',
-                                padding: (isFullHeightModule && !esListadoConScrollPropio) ? 0 : (isCompact ? 8 : 16),
+                                padding: (isFullHeightModule && !esListadoConScrollPropio) ? 0 : ((isCompact || isMedio) ? 8 : 16),
                                 paddingBottom: 0,
                             }}
                         >

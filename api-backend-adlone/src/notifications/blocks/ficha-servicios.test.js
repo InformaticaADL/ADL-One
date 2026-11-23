@@ -79,7 +79,7 @@ test('omits "Muestreador Ret." and "Fecha Retiro" rows for Puntual fichas even w
     });
 
     assert.match(html, /Servicio 1/);
-    assert.match(html, /📥 Muestreador<\/div>/);
+    assert.match(html, /📥 Muestreador<\/td>/);
     assert.match(html, /Fecha Muestreo/);
     assert.doesNotMatch(html, /Muestreador Inst\./);
     assert.doesNotMatch(html, /Fecha Instalación/);

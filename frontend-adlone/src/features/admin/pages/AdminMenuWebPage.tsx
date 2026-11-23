@@ -49,7 +49,8 @@ const PermissionsRenderer = ({ permsStr, }: { permsStr: string }) => {
 };
 
 // Static — computed once at module load, not on every render
-const iconOptions = Object.keys(IconRegistry).map(k => ({ value: k, label: k }));
+// Cada opción muestra su ícono: antes la lista era solo texto («IconLeaf») y no se veía cómo quedaría en el menú.
+const iconOptions = Object.keys(IconRegistry).map(k => { const Icn = IconRegistry[k]; return { value: k, label: k, icon: <Icn size={16} /> }; });
 
 const emptyModForm = {
     id_modulo: '',

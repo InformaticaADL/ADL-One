@@ -4,81 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style type="text/css">
-        body { margin: 0; padding: 0; background-color: #f1f5f9 !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { margin: 0; padding: 0; background-color: #f1f5f9 !important; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
         table { border-spacing: 0; border-collapse: collapse; }
         td { padding: 0; }
         @media only screen and (max-width: 620px) {
             .main-card { border-radius: 0 !important; border: none !important; width: 100% !important; max-width: 100% !important; }
-            .body-content { padding: 30px 20px !important; }
-            .header { padding: 20px 20px !important; }
-            .footer { padding: 25px 20px !important; }
+            .body-content { padding: 22px 18px !important; }
+            .header { padding: 18px 18px 0 18px !important; }
+            .footer { padding: 18px !important; }
         }
     </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #f1f5f9;">
+    <!-- Mismo diseño que los correos de fichas y avisos (notifications/layout/base-layout.js): tarjeta clara, datos en filas, pie sobrio.
+         Solo tablas (sin flexbox): Outlook de escritorio no soporta flexbox. El color del tema marca el resultado (azul = aviso, verde = aprobado, rojo = rechazado). -->
     <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f1f5f9; width: 100%;">
         <tr>
-            <td align="center" style="padding: 40px 0;">
+            <td align="center" style="padding: 32px 12px;">
                 <!--[if mso]>
-                <table role="presentation" width="96%" align="center" style="width:96%;">
+                <table role="presentation" width="560" align="center" style="width:560px;">
                 <tr>
                 <td>
                 <![endif]-->
-                <table class="main-card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; max-width: 96%; width: 100%; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;">
-                    <thead>
-                        <tr>
-                            <td class="header" style="background-color: #ffffff; padding: 24px 40px; border-bottom: 5px solid {THEME_COLOR};">
-                                <img src="{LOGO_BASE64}" alt="ADL ONE" width="180" style="display: block; width: 180px; max-width: 180px; height: auto; border: 0;">
-                            </td>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td class="body-content" style="padding: 40px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-                                <h2 style="margin: 0 0 8px 0; color: {THEME_COLOR}; font-size: 22px; font-weight: 700; line-height: 1.3; font-family: Arial, sans-serif;">{TITLE}</h2>
-                                
-                                <table border="0" cellspacing="0" cellpadding="0" align="left" style="margin-bottom: 25px; border-bottom: 2px solid {THEME_COLOR};">
-                                    <tr>
-                                        <td style="padding-bottom: 6px; font-family: Arial, sans-serif; font-size: 14px; font-weight: 500; color: #64748b; white-space: nowrap;">
-                                            Ref Nº<strong style="color: #ff8c00; font-size: 16px; font-family: Arial, sans-serif; font-weight: bold;">: {CORRELATIVO}</strong>
-                                        </td>
-                                    </tr>
-                                </table>
-                                <div style="clear: both; height: 1px; font-size: 1px; line-height: 1px;"></div>
-                                
-                                <!-- BLOQUE UNIVERSAL -->
-                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; background-color: {THEME_BG}; border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; border: 1px solid {THEME_BORDER}; font-family: Arial, sans-serif;">
-                                    <tr><td style="width:1%; white-space:nowrap; padding:3px 16px 3px 0; color:{THEME_COLOR}; font-weight:bold; font-size:14px; font-family:Arial,sans-serif; line-height:1.2; vertical-align:middle;">Acción:</td><td style="padding:3px 0; color:#333333; font-size:14px; font-family:Arial,sans-serif; line-height:1.2; vertical-align:middle;">{ACCION_AREA}</td></tr>
-                                    <tr><td style="width:1%; white-space:nowrap; padding:3px 16px 3px 0; color:{THEME_COLOR}; font-weight:bold; font-size:14px; font-family:Arial,sans-serif; line-height:1.2; vertical-align:middle;">Responsable:</td><td style="padding:3px 0; color:#333333; font-size:14px; font-family:Arial,sans-serif; line-height:1.2; vertical-align:middle;">{USUARIO}</td></tr>
-                                    <tr><td style="width:1%; white-space:nowrap; padding:3px 16px 3px 0; color:{THEME_COLOR}; font-weight:bold; font-size:14px; font-family:Arial,sans-serif; line-height:1.2; vertical-align:middle;">Fecha:</td><td style="padding:3px 0; color:#333333; font-size:14px; font-family:Arial,sans-serif; line-height:1.2; vertical-align:middle;">{FECHA} {HORA}</td></tr>
-                                </table>
-                                
-                                <div style="color: #334155; font-size: 14px; line-height: 1.4; font-family: Arial, sans-serif;">
-                                    {EMAIL_CONTENT}
-                                </div>
-                            </td>
-                        </tr>
-                        <tr>
-                            <td class="footer" style="padding: 30px 40px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; font-family: Arial, sans-serif;">
-                                <table width="100%" border="0" cellspacing="0" cellpadding="0" style="table-layout:fixed;width:100%;">
-                                    <tr>
-                                        <td align="left" valign="top" style="width:70%;font-family: Arial, sans-serif;word-wrap:break-word;">
-                                            <strong style="color: {THEME_COLOR}; font-size: 13px; display: block; margin-bottom: 4px; letter-spacing: 0.5px; text-transform: uppercase;">ADL Diagnostic Chile SpA</strong>
-                                            <div style="color: #64748b; font-size: 11px; line-height: 1.5; margin-top: 4px;">
-                                                Laboratorio de Diagnóstico y Biotecnología<br>
-                                                Sector La Vara s/n, Camino a Alerce, Puerto Montt<br>
-                                                <a href="http://www.adldiagnostic.cl" style="color: {THEME_COLOR}; text-decoration: none; font-weight: 600;">www.adldiagnostic.cl</a>
-                                            </div>
-                                        </td>
-                                        <td align="right" valign="bottom" style="width:30%;font-family: Arial, sans-serif; color: #64748b; font-size: 11px; line-height: 1.5; text-align: right;word-wrap:break-word;">
-                                            Sistema de Gestión<br>
-                                            <strong style="color: {THEME_COLOR};">Empresarial</strong>
-                                        </td>
-                                    </tr>
-                                </table>
-                            </td>
-                        </tr>
-                    </tbody>
+                <table class="main-card" role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; max-width: 560px; width: 100%; border-radius: 14px; border: 1px solid #e5e7eb; border-top: 4px solid {THEME_COLOR};">
+                    <tr>
+                        <td class="header" style="padding: 22px 32px 0 32px;">
+                            <img src="{LOGO_BASE64}" alt="ADL ONE" width="150" style="display: block; width: 150px; max-width: 150px; height: auto; border: 0;">
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="body-content" style="padding: 22px 32px 28px 32px; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">
+                            <h2 style="margin: 0 0 10px 0; color: #1f1f1f; font-size: 19px; font-weight: 600; line-height: 1.35; font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;">{TITLE}</h2>
+
+                            <table role="presentation" border="0" cellspacing="0" cellpadding="0" style="margin: 0 0 20px 0;">
+                                <tr>
+                                    <td style="background-color: {THEME_BG}; border: 1px solid {THEME_BORDER}; border-radius: 6px; padding: 4px 10px; font-family: Arial, sans-serif; font-size: 12px; font-weight: bold; color: {THEME_COLOR}; white-space: nowrap;">
+                                        Ref Nº: {CORRELATIVO}
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- BLOQUE UNIVERSAL: quién, qué y cuándo -->
+                            <table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width: 100%; border: 1px solid #ededec; border-radius: 10px; border-collapse: separate; margin-bottom: 22px;">
+                                <tr>
+                                    <td width="130" valign="top" style="width: 130px; padding: 10px 14px; border-bottom: 1px solid #f1f1ef; font-size: 13px; color: #9b9a97; font-family: Arial, sans-serif;">Acción</td>
+                                    <td valign="top" style="padding: 10px 14px; border-bottom: 1px solid #f1f1ef; font-size: 13px; color: #1f1f1f; font-weight: 500; font-family: Arial, sans-serif;">{ACCION_AREA}</td>
+                                </tr>
+                                <tr>
+                                    <td width="130" valign="top" style="width: 130px; padding: 10px 14px; border-bottom: 1px solid #f1f1ef; font-size: 13px; color: #9b9a97; font-family: Arial, sans-serif;">Responsable</td>
+                                    <td valign="top" style="padding: 10px 14px; border-bottom: 1px solid #f1f1ef; font-size: 13px; color: #1f1f1f; font-weight: 500; font-family: Arial, sans-serif;">{USUARIO}</td>
+                                </tr>
+                                <tr>
+                                    <td width="130" valign="top" style="width: 130px; padding: 10px 14px; font-size: 13px; color: #9b9a97; font-family: Arial, sans-serif;">Fecha</td>
+                                    <td valign="top" style="padding: 10px 14px; font-size: 13px; color: #1f1f1f; font-weight: 500; font-family: Arial, sans-serif;">{FECHA} {HORA}</td>
+                                </tr>
+                            </table>
+
+                            <div style="color: #37352f; font-size: 14px; line-height: 1.5; font-family: Arial, sans-serif;">
+                                {EMAIL_CONTENT}
+                            </div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="footer" style="padding: 18px 32px; background-color: #fbfbfa; border-top: 1px solid #f1f1ef; border-radius: 0 0 14px 14px;">
+                            <div style="font-size: 11px; color: #9b9a97; line-height: 1.6; font-family: Arial, sans-serif;">
+                                <strong style="color: #787774;">ADL Diagnostic Chile SpA</strong><br>
+                                Laboratorio de Diagnóstico y Biotecnología<br>
+                                Sector La Vara s/n, Camino a Alerce, Puerto Montt &middot;
+                                <a href="http://www.adldiagnostic.cl" style="color: {THEME_COLOR}; text-decoration: none;">www.adldiagnostic.cl</a>
+                            </div>
+                        </td>
+                    </tr>
                 </table>
                 <!--[if mso]>
                 </td>

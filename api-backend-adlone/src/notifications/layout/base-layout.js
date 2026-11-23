@@ -9,13 +9,17 @@ const FONT = "-apple-system, 'Segoe UI', Helvetica, Arial, sans-serif";
 export function renderCamposList(rows) {
     if (!rows || rows.length === 0) return '';
 
-    const rowsHtml = rows.map((r, i) => `
-        <div style="display:flex; padding:10px 14px; ${i < rows.length - 1 ? 'border-bottom:1px solid #f1f1ef;' : ''} font-size:13px; font-family:${FONT};">
-          <div style="width:160px; flex-shrink:0; color:#9b9a97;">${r.icono} ${r.label}</div>
-          <div style="color:#1f1f1f; font-weight:500;">${r.valor}</div>
-        </div>`).join('');
+    // Tabla en vez de display:flex: Outlook de escritorio (2016) no soporta flexbox y apilaba etiqueta y valor desordenados.
+    const rowsHtml = rows.map((r, i) => {
+        const borde = i < rows.length - 1 ? 'border-bottom:1px solid #f1f1ef;' : '';
+        return `
+        <tr>
+          <td width="160" valign="top" style="width:160px; padding:10px 14px; ${borde} font-size:13px; color:#9b9a97; font-family:${FONT};">${r.icono} ${r.label}</td>
+          <td valign="top" style="padding:10px 14px; ${borde} font-size:13px; color:#1f1f1f; font-weight:500; font-family:${FONT};">${r.valor}</td>
+        </tr>`;
+    }).join('');
 
-    return `<div style="border:1px solid #ededec; border-radius:10px; overflow:hidden; margin-bottom:18px;">${rowsHtml}</div>`;
+    return `<table role="presentation" width="100%" border="0" cellspacing="0" cellpadding="0" style="width:100%; border:1px solid #ededec; border-radius:10px; border-collapse:separate; margin-bottom:18px;">${rowsHtml}</table>`;
 }
 
 /**

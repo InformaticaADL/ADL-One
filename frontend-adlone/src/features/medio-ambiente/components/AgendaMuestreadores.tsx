@@ -263,10 +263,11 @@ export const AgendaMuestreadores: React.FC<Props> = ({ muestreadores, hayAsignac
 
                 {vista === 'semana' ? (
                     <>
-                        <Table containerClassName="max-h-[460px]">
+                        {/* table-fixed: los 7 días se reparten el ancho por igual (la etiqueta de cada visita se corta con «…») en vez de que el contenido ensanche la tabla y deje sábado y domingo fuera de la vista. */}
+                        <Table className="table-fixed" containerClassName="max-h-[max(240px,calc(100dvh-415px))]">
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="sticky left-0 z-10 min-w-32 bg-background">Muestreador</TableHead>
+                                    <TableHead className="sticky left-0 z-10 w-32 min-w-32 bg-background">Muestreador</TableHead>
                                     {dias.map((d) => <TableHead key={d.fecha} className="min-w-[78px] px-2">{d.corto} {d.d.getDate()}</TableHead>)}
                                 </TableRow>
                             </TableHeader>

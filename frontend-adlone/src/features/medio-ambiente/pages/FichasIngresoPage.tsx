@@ -249,7 +249,7 @@ export const FichasIngresoPage = () => {
                 <div>
                     <PageHeader title="Fichas de Ingreso" subtitle="Gestión unificada según su nivel de acceso" />
 
-                    <div className="flex max-w-[640px] flex-col gap-2.5">
+                    <div className="grid max-w-[1100px] gap-2.5 lg:grid-cols-2">
                         {items.map((item) => (
                             <SelectionCard key={item.title} {...item} />
                         ))}
@@ -269,7 +269,7 @@ export const FichasIngresoPage = () => {
 
     return (
         <div
-            className={`shadcn-scope w-full p-4 md:p-6 ${
+            className={`shadcn-scope w-full p-4 md:p-6 [@media(max-width:1600px)]:md:px-4 [@media(max-width:1600px)]:md:py-3 ${
                 scrollPropio ? 'flex h-full min-h-0 flex-col' : ''
             }`}
         >

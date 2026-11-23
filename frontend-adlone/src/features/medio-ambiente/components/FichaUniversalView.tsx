@@ -661,9 +661,17 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
 
                                     <FieldGrid>
                                         <StaticField label="Fuente Emisora" value={data.nombre_centro} />
+                                        <StaticField label="Código Centro" value={data.codigo_centro} />
                                         <StaticField label="Comuna" value={data.nombre_comuna} />
                                         <StaticField label="Región" value={data.nombre_region} />
-                                        <StaticField label="Código Centro" value={data.codigo_centro} />
+                                    </FieldGrid>
+
+                                    {/* La dirección del centro (la del maestro de centros) faltaba en la ficha. Si la ficha trae otra dirección escrita a mano, se muestra aparte. */}
+                                    <FieldGrid min={260}>
+                                        <StaticField label="Dirección del centro" value={data.direccion_centro || 'Sin dirección registrada'} />
+                                        {data.ubicacion && String(data.ubicacion).trim() !== String(data.direccion_centro || '').trim() && (
+                                            <StaticField label="Dirección indicada en la ficha" value={data.ubicacion} />
+                                        )}
                                     </FieldGrid>
 
                                     <FieldGrid>

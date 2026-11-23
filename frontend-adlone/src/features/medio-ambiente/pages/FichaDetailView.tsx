@@ -182,14 +182,20 @@ export const FichaDetailView = () => {
 
     // Si este muestreo es parte de una visita con varios puntos, los otros puntos ya ejecutados quedan a un clic.
     const [otrosPuntosEjecutados, setOtrosPuntosEjecutados] = useState<{ id_ficha: number; punto: string | null; correlativo: string; hora?: string | null; observador?: boolean }[]>([]);
+    // Los puntos de la misma visita que todavía no se ejecutan: se ven en el selector, sin abrirse (aún no tienen datos)
+    const [puntosPendientesVisita, setPuntosPendientesVisita] = useState<{ id_ficha: number; punto: string | null; correlativo: string }[]>([]);
     const idAgendaActual = data?.ficha?.id_agendamam;
     useEffect(() => {
         setOtrosPuntosEjecutados([]);
+        setPuntosPendientesVisita([]);
         if (!idAgendaActual) return;
         let cancelado = false;
         fichaService.getPuntosVisita(Number(idAgendaActual), 'ejecutados')
             .then(lista => { if (!cancelado) setOtrosPuntosEjecutados(lista); })
             .catch(() => { /* sin la lista simplemente no se muestra el aviso */ });
+        fichaService.getPuntosVisita(Number(idAgendaActual), 'cancelables')
+            .then(lista => { if (!cancelado) setPuntosPendientesVisita(lista); })
+            .catch(() => { /* sin la lista no se muestran los pendientes */ });
         return () => { cancelado = true; };
     }, [idAgendaActual, refrescos]);
 
@@ -390,7 +396,7 @@ export const FichaDetailView = () => {
     return (
         <div className="shadcn-scope w-full max-w-full overflow-x-hidden p-4">
 
-            {otrosPuntosEjecutados.length > 0 && (() => {
+            {(otrosPuntosEjecutados.length > 0 || puntosPendientesVisita.length > 0) && (() => {
                 // Todos los puntos de la visita, ordenados por la hora en que se hicieron (el primero que se hizo es el Punto 1)
                 const claveActual = ficha?.ma_muestreo_fechai && ficha?.ma_muestreo_horai ? `${String(ficha.ma_muestreo_fechai).slice(0, 10)} ${String(ficha.ma_muestreo_horai).slice(0, 5)}` : null;
                 const puntos = [
@@ -404,7 +410,12 @@ export const FichaDetailView = () => {
                 return (
                     <div className="mb-3 flex flex-wrap items-center gap-3 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm">
                         <IconMapPin size={16} className="shrink-0 text-primary" />
-                        <span className="font-medium text-foreground">Visita con {puntos.length} puntos</span>
+                        <span className="font-medium text-foreground">
+                            Visita con {puntos.length + puntosPendientesVisita.length} puntos
+                            {puntosPendientesVisita.length > 0 && (
+                                <span className="font-normal text-muted-foreground"> · {puntos.length} ejecutado{puntos.length === 1 ? '' : 's'}, {puntosPendientesVisita.length} pendiente{puntosPendientesVisita.length === 1 ? '' : 's'}</span>
+                            )}
+                        </span>
                         <div className="flex flex-wrap gap-1.5" role="group" aria-label="Punto de la visita">
                             {puntos.map((p, i) => (
                                 <button
@@ -423,6 +434,19 @@ export const FichaDetailView = () => {
                                         {p.hora && <span className="block text-[11.5px] text-muted-foreground">{p.hora.slice(11)}</span>}
                                     </span>
                                 </button>
+                            ))}
+                            {puntosPendientesVisita.map((p, i) => (
+                                <div
+                                    key={`pendiente-${p.id_ficha}`}
+                                    title="Este punto todavía no se ejecuta: no tiene datos que ver"
+                                    className="flex cursor-default items-center gap-2 rounded-lg border border-dashed border-border bg-background px-3 py-1.5 text-left text-[13px] text-muted-foreground"
+                                >
+                                    <span className="grid h-[18px] w-[18px] place-items-center rounded-full border-[1.5px] border-border text-[10px] font-semibold" aria-hidden="true">{puntos.length + i + 1}</span>
+                                    <span>
+                                        <span className="block font-medium">Punto {puntos.length + i + 1}{p.punto ? ` · ${p.punto}` : ''}</span>
+                                        <span className="block text-[11.5px]">Pendiente</span>
+                                    </span>
+                                </div>
                             ))}
                         </div>
                         {acompananteVisita && (
@@ -1132,8 +1156,9 @@ export const FichaDetailView = () => {
                     const nombreObs = (n: any) => !!n && n !== 'S/D';
                     const hayObs = nombreObs(procesos?.instalacion?.nombreObservador) || nombreObs(procesos?.retiro?.nombreObservador) || otrosPuntosEjecutados.some((p) => p.observador);
                     const ejecutados = 1 + otrosPuntosEjecutados.length;
+                    const faltan = puntosPendientesVisita.length;
                     const pasos: { titulo: string; ok: boolean; detalle: string }[] = [
-                        { titulo: 'Puntos ejecutados', ok: true, detalle: `${ejecutados} ${ejecutados === 1 ? 'punto' : 'puntos'}` },
+                        { titulo: 'Puntos ejecutados', ok: faltan === 0, detalle: faltan > 0 ? `${ejecutados} de ${ejecutados + faltan} puntos` : `${ejecutados} ${ejecutados === 1 ? 'punto' : 'puntos'}` },
                         { titulo: 'Firma del observador', ok: hayObs, detalle: hayObs ? 'Registrada' : 'Falta registrarla' },
                         { titulo: 'Caso asignado', ok: !!ficha?.caso_adlab, detalle: ficha?.caso_adlab || 'Sin asignar' },
                         { titulo: 'Realizado por GEM', ok: !!realizadoGem?.realizado, detalle: realizadoGem?.realizado ? realizadoGem.userName : 'Pendiente' },

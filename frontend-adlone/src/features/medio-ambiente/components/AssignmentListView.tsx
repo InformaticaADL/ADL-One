@@ -1033,28 +1033,26 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
                                                     )}
 
                                                     <div className="min-w-0 flex-1 pl-1">
-                                                        <span className="block truncate text-sm font-medium" title={f.ma_punto_muestreo || undefined}>
+                                                        {/* El nombre del punto se parte en hasta 2 líneas (antes se cortaba con «…» porque las etiquetas de la derecha le quitaban el ancho). */}
+                                                        <span className="line-clamp-2 break-words text-sm font-medium leading-snug" title={f.ma_punto_muestreo || undefined}>
                                                             {f.ma_punto_muestreo || `Ficha #${f.fichaingresoservicio || id}`}
                                                         </span>
                                                         <span className="block truncate text-xs text-muted-foreground" title={f.nombre_objetivomuestreo_ma || undefined}>
                                                             #{f.fichaingresoservicio || id}
                                                             {f.nombre_objetivomuestreo_ma ? ` · ${f.nombre_objetivomuestreo_ma}` : ''}
                                                         </span>
-                                                    </div>
-
-                                                    <div className="hidden shrink-0 items-center gap-1.5 sm:flex">
-                                                        {corr ? (
-                                                            <Badge variant="outline" className="font-normal">servicio {corr.numero_servicio}/{total}</Badge>
-                                                        ) : (
-                                                            <Badge variant="outline" className="font-normal text-muted-foreground">{total}/{total} agendados</Badge>
-                                                        )}
-                                                        <Badge variant={esCompuesta(f) ? 'warning' : 'secondary'} className="font-normal">
-                                                            {f.tipo_fichaingresoservicio || '-'}
-                                                        </Badge>
-                                                    </div>
-
-                                                    <div className="hidden w-40 shrink-0 justify-end sm:flex">
-                                                        <Badge variant={getStatusVariant(status)}>{status || '-'}</Badge>
+                                                        {/* Etiquetas bajo el nombre, en su propia fila: así caben en cualquier ancho del panel. */}
+                                                        <div className="mt-1 flex flex-wrap items-center gap-1">
+                                                            {corr ? (
+                                                                <Badge variant="outline" className="px-1.5 text-[11px] font-normal">servicio {corr.numero_servicio}/{total}</Badge>
+                                                            ) : (
+                                                                <Badge variant="outline" className="px-1.5 text-[11px] font-normal text-muted-foreground">{total}/{total} agendados</Badge>
+                                                            )}
+                                                            <Badge variant={esCompuesta(f) ? 'warning' : 'secondary'} className="px-1.5 text-[11px] font-normal">
+                                                                {f.tipo_fichaingresoservicio || '-'}
+                                                            </Badge>
+                                                            <Badge variant={getStatusVariant(status)} className="px-1.5 text-[11px]">{status || '-'}</Badge>
+                                                        </div>
                                                     </div>
 
                                                     <Button
@@ -1083,6 +1081,7 @@ export const AssignmentListView: React.FC<Props> = ({ onBackToMenu, onViewAssign
             </Card>
 
             <DataPagination
+                compact
                 page={currentPage}
                 pageSize={gruposPorPagina}
                 total={grupos.length}

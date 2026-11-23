@@ -1,6 +1,20 @@
 import apiClient from '../config/axios.config';
 
+export interface VerificacionEquipo {
+    aplica: boolean;
+    aplicada: boolean;
+    estado?: string;
+    tipo?: string;
+    pendientes: { campo: string; etiqueta: string; actual: string; esperado: string; id_equipo: number; codigo: string; rol: string }[];
+}
+
 export const ursService = {
+    /** Seguimiento de una solicitud que cambia un equipo: ¿el equipo ya tiene el cambio? (lista lo que falta). */
+    async verificacionEquipo(id: number): Promise<VerificacionEquipo> {
+        const response = await apiClient.get(`/api/urs/${id}/verificacion-equipo`);
+        return response.data.data;
+    },
+
     async getRequestTypes(all = false): Promise<any[]> {
         const response = await apiClient.get(`/api/urs/types${all ? '?all=true' : ''}`);
         return response.data;
