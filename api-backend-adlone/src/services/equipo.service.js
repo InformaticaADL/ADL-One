@@ -724,7 +724,10 @@ export const equipoService = {
                         JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
                         WHERE s.estado IN ('PENDIENTE', 'ACEPTADA', 'EN_REVISION')
                           AND t.modulo_destino = 'EQUIPOS'
-                          AND JSON_VALUE(s.datos_json, '$.id_equipo') = CAST(e.id_equipo AS NVARCHAR(20))
+                          -- Se identifica por el CÓDIGO que nombra la solicitud: el id que guarda puede apuntar a otro equipo si el catálogo se recargó.
+                          AND (CASE WHEN ISNULL(JSON_VALUE(s.datos_json, '$.codigo_equipo'), '') <> ''
+                                    THEN CASE WHEN LTRIM(RTRIM(JSON_VALUE(s.datos_json, '$.codigo_equipo'))) = LTRIM(RTRIM(e.codigo)) THEN 1 ELSE 0 END
+                                    ELSE CASE WHEN JSON_VALUE(s.datos_json, '$.id_equipo') = CAST(e.id_equipo AS NVARCHAR(20)) THEN 1 ELSE 0 END END) = 1
                     ) THEN 0 ELSE 1 END) ASC,
                     ${sortBy === 'vigencia'
                         ? `CASE WHEN e.Siguiente_verificacion IS NULL THEN 1 ELSE 0 END ASC, e.Siguiente_verificacion ${direccionOrden},`
@@ -1660,6 +1663,16 @@ export const equipoService = {
                         SET equipo_asociado = @codigoNuevo
                         WHERE equipo_asociado = @codigoViejo AND id_equipo != @idActual
                     `);
+                // Lo mismo con los equipos de los muestreos: cada fila guarda el código del equipo (codigo_equipo) y los documentos
+                // unen por ese código. Sin esto, tras un traspaso de sede el equipo dejaría de aparecer en los muestreos ya creados.
+                await new sql.Request(transaction)
+                    .input('codigoViejo', sql.VarChar(100), current.codigo)
+                    .input('codigoNuevo', sql.VarChar(100), nuevoCodigo)
+                    .query(`
+                        UPDATE App_Ma_Equipos_MUESTREOS
+                        SET codigo_equipo = @codigoNuevo
+                        WHERE codigo_equipo = @codigoViejo
+                    `);
             }
 
             await requestMain.query(queryUpdate);
@@ -1876,7 +1889,12 @@ export const equipoService = {
                 (SELECT CASE WHEN OBJECT_ID('mae_puesta_marcha', 'U') IS NULL THEN 0 ELSE
                     (SELECT COUNT(*) FROM mae_puesta_marcha WHERE id_equipo = @id) END) +
                 (SELECT CASE WHEN OBJECT_ID('mae_gc_documento', 'U') IS NULL THEN 0 ELSE
-                    (SELECT COUNT(*) FROM mae_gc_documento WHERE entidad_tipo = 'EQUIPO' AND id_entidad = @id) END)
+                    (SELECT COUNT(*) FROM mae_gc_documento WHERE entidad_tipo = 'EQUIPO' AND id_entidad = @id) END) +
+                -- Muestreos, fichas de firma y errores del termómetro patrón: la base los protege con claves foráneas, así que se avisa antes
+                -- de intentar borrar en vez de dejar que falle con un error de base de datos.
+                (SELECT COUNT(*) FROM App_Ma_Equipos_MUESTREOS WHERE id_equipo = @id) +
+                (SELECT COUNT(*) FROM mae_ficha_firma WHERE id_equipo = @id) +
+                (SELECT COUNT(*) FROM mae_termometro_patron_errores WHERE id_equipo = @id)
                 AS total`)).recordset[0].total;
         if (asociados > 0) {
             throw err('Este equipo ya tiene verificaciones, puesta en marcha o fichas guardadas asociadas: no se puede eliminar definitivamente. Use "Dar de baja".', 409);

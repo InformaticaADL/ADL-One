@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import logger from '../utils/logger.js';
+import { redirigirCorreo, soloDominiosPermitidos } from './redireccionCorreo.js';
 
 dotenv.config();
 
@@ -20,6 +21,17 @@ export const getTransporter = () => {
                 rejectUnauthorized: process.env.NODE_ENV !== 'development',
             }
         });
+        // Modo pruebas: con EMAIL_REDIRECT_TO definida, todo correo sale solo a esa dirección (ver redireccionCorreo.js).
+        const enviarReal = transporter.sendMail.bind(transporter);
+        transporter.sendMail = (opciones, ...resto) => {
+            const redirigido = redirigirCorreo(opciones);
+            if (redirigido !== opciones) logger.warn(`[correo] MODO PRUEBAS: "${opciones && opciones.subject}" redirigido a ${redirigido.to} (destinatarios reales: ${opciones && opciones.to})`);
+            // Solo correos de ADL: se quitan los destinatarios de otros dominios; si no queda nadie, no se envía.
+            const { opciones: final, bloqueados, vacio } = soloDominiosPermitidos(redirigido);
+            if (bloqueados.length) logger.warn(`[correo] Destinatarios que NO son de ADL, quitados de "${opciones && opciones.subject}": ${bloqueados.join(', ')}${vacio ? ' (no quedó nadie: el correo NO se envió)' : ''}`);
+            if (vacio) return Promise.resolve({ messageId: null, accepted: [], rejected: bloqueados, bloqueadoPorDominio: true });
+            return enviarReal(final, ...resto);
+        };
     }
     return transporter;
 };

@@ -26,6 +26,9 @@ const STATIC_MODULE_LABELS: Record<string, string> = {
     '': 'Inicio',
     perfil: 'Configuración',
     notificaciones: 'Notificaciones',
+    // Los avisos abren Fichas con este id (con guion): sin etiqueta, la ruta mostraba el id crudo «medio-ambiente».
+    'medio-ambiente': 'Medio Ambiente',
+    medio_ambiente: 'Medio Ambiente',
     'bm-historico': 'Biología Molecular Histórico',
     'bm-consulta': 'Consulta de Muestras',
     // Gestión de Calidad: vistas que se abren desde su portada y no están en el menú lateral.
@@ -178,6 +181,9 @@ export function ThemeToggle({ compact }: CompactProp) {
 // muestra arriba del contenido — primero en los módulos fijos y dinámicos
 // del Sidebar, con un mapa estático de respaldo para vistas que no viven en
 // el menú (perfil, notificaciones).
+// Último recurso cuando un id no tiene etiqueta: «mi-modulo_x» → «Mi Modulo X» (mejor que mostrar el id tal cual).
+const humanizarId = (id: string) => id.replace(/[-_]+/g, ' ').replace(/w/g, (c) => c.toUpperCase());
+
 function useBreadcrumbLabels() {
     const { activeModule, activeSubmodule, dynamicModules: rawDynamicModules } = useNavStore();
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
@@ -192,7 +198,13 @@ function useBreadcrumbLabels() {
 
         const dynMod = dynamicModules.find((m) => m.id === activeModule);
         const fixedMod = FIXED_TOP_MODULES.find((m) => m.id === activeModule);
-        const moduleLabel = fixedMod?.label ?? dynMod?.label ?? STATIC_MODULE_LABELS[activeModule] ?? activeModule;
+        // Las páginas de Gestión de Calidad (submódulos «gc-…» y el inventario de equipos) también se abren desde Admin. Info: viven en el módulo «G. Calidad» del
+        // menú, así que su ruta es siempre «Inicio / G. Calidad / …» sin importar por dónde se entró (antes unas mostraban Admin. Info y otras G. Calidad).
+        const esDeCalidad = !!activeSubmodule && (activeSubmodule.startsWith('gc-') || activeSubmodule === 'admin-equipos-gestion');
+        const modCalidad = dynamicModules.find((m) => m.id === 'gestion_calidad');
+        const moduleLabel = esDeCalidad
+            ? (FIXED_TOP_MODULES.find((m) => m.id === 'gestion_calidad')?.label ?? modCalidad?.label ?? 'G. Calidad')
+            : (fixedMod?.label ?? dynMod?.label ?? STATIC_MODULE_LABELS[activeModule] ?? humanizarId(activeModule));
 
         let submoduleLabel: string | null = null;
         if (activeSubmodule) {
@@ -200,7 +212,7 @@ function useBreadcrumbLabels() {
                 .find((l) => l.id === activeSubmodule)
                 // Módulos fijos con links (ej. Facturación) — mismo lookup, otra fuente.
                 ?? FIXED_TOP_MODULES.flatMap((m) => m.links || []).find((l) => l.id === activeSubmodule);
-            submoduleLabel = link?.label ?? STATIC_MODULE_LABELS[activeSubmodule] ?? activeSubmodule;
+            submoduleLabel = link?.label ?? STATIC_MODULE_LABELS[activeSubmodule] ?? humanizarId(activeSubmodule);
         }
 
         return { moduleLabel, submoduleLabel };
@@ -213,24 +225,38 @@ function useBreadcrumbLabels() {
 // necesario acá: sin él el botón "Inicio" no recibe el reset de botones
 // (bg/border/padding nativos del navegador) y se ve encuadrado.
 export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
-    const { resetNavigation, pageBreadcrumb, toggleSidebar, activeSubmodule, setActiveSubmodule } = useNavStore();
+    const { resetNavigation, pageBreadcrumb: pageBreadcrumbCrudo, toggleSidebar, activeModule, activeSubmodule, setActiveSubmodule } = useNavStore();
     const { moduleLabel, submoduleLabel } = useBreadcrumbLabels();
+    // «Inicio» ya es el primer tramo fijo de esta barra: si una página lo repite en su propio breadcrumbItems (p. ej. Notificaciones), salía
+    // «Inicio / Notificaciones / Inicio / Notificaciones». Se descarta ese tramo sobrante.
+    const pageBreadcrumb = pageBreadcrumbCrudo.filter((i) => i.label.trim().toLowerCase() !== 'inicio');
 
     // Muchas páginas empiezan su propio breadcrumbItems con el nombre del módulo («Admin. Info», «Admin. Información»), que esta barra ya
     // muestra: sin esto salía duplicado («Inicio / Admin. Info / Admin. Info / Informática»). Si la página repite el módulo, se descarta
     // ese tramo y su onClick pasa al tramo del módulo, así «Admin. Info» es un enlace y vuelve a donde la página decía.
     const normalizar = (t: string) => t.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     const primero = pageBreadcrumb[0];
+    // «G. Calidad» (menú) y «Gestión de Calidad» (título de sus páginas) son el MISMO módulo: sin esto la ruta decía «Inicio / G. Calidad / Gestión de Calidad / …».
+    const esCalidad = (t: string) => normalizar(t).includes('calidad');
+    const aliasCalidad = !!primero && !!moduleLabel && esCalidad(primero.label) && esCalidad(moduleLabel);
+    // Las páginas de Gestión de Calidad también se abren desde Admin. Info: se muestran siempre bajo «G. Calidad» (donde viven en el menú), para que la
+    // ruta sea la misma sin importar por dónde se entró.
+    const calidadDesdeAdmin = !!primero && !!moduleLabel && esCalidad(primero.label) && !esCalidad(moduleLabel) && normalizar(moduleLabel).startsWith('admin');
     const repiteModulo = !!primero && !!moduleLabel && (() => {
         const a = normalizar(primero.label), b = normalizar(moduleLabel);
         return a === b || a.startsWith(b) || b.startsWith(a);
-    })();
+    })() || aliasCalidad || calidadDesdeAdmin;
+    const moduloMostrado = calidadDesdeAdmin ? 'G. Calidad' : moduleLabel;
     const tramosDeLaPagina = repiteModulo ? pageBreadcrumb.slice(1) : pageBreadcrumb;
     // El módulo es un enlace cuando hay algo más abajo: lleva a la portada del módulo (la que ven al elegirlo, sin submódulo). Si la página
     // dio su propio onClick para el módulo, se usa ese.
-    const alModulo = repiteModulo && primero?.onClick
-        ? primero.onClick
-        : (activeSubmodule ? () => setActiveSubmodule('') : undefined);
+    // Entrando desde Admin. Info, «G. Calidad» vuelve a la portada de Gestión de Calidad (no a la de Admin. Info).
+    const calidadViaAdmin = activeModule === 'admin_informacion' && !!activeSubmodule && (activeSubmodule.startsWith('gc-') || activeSubmodule === 'admin-equipos-gestion');
+    const alModulo = calidadViaAdmin
+        ? () => setActiveSubmodule('gestion_calidad')
+        : (repiteModulo && primero?.onClick
+            ? primero.onClick
+            : (activeSubmodule ? () => setActiveSubmodule('') : undefined));
     const moduloEsEnlace = !!alModulo && (pageBreadcrumb.length > 0 || !!submoduleLabel);
     // En la portada la ruta es solo «Inicio» (no «Inicio / Inicio»).
     const enInicio = pageBreadcrumb.length === 0 && !submoduleLabel && (!moduleLabel || normalizar(moduleLabel) === 'inicio');
@@ -266,9 +292,9 @@ export function RouteBreadcrumb({ scrolled }: { scrolled?: boolean }) {
                 </button>
                 {!enInicio && <span className="shrink-0 text-border">/</span>}
                 {enInicio ? null : moduloEsEnlace ? (
-                    <button type="button" onClick={alModulo} className="truncate hover:text-foreground">{moduleLabel || 'Inicio'}</button>
+                    <button type="button" onClick={alModulo} className="truncate hover:text-foreground">{moduloMostrado || 'Inicio'}</button>
                 ) : (
-                    <span className={cn('truncate', pageBreadcrumb.length === 0 && 'font-medium text-foreground')}>{moduleLabel || 'Inicio'}</span>
+                    <span className={cn('truncate', pageBreadcrumb.length === 0 && 'font-medium text-foreground')}>{moduloMostrado || 'Inicio'}</span>
                 )}
                 {submoduleLabel && pageBreadcrumb.length === 0 && (
                     <>

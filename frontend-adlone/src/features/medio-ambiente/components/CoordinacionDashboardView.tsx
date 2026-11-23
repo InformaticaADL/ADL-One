@@ -268,7 +268,7 @@ export const CoordinacionDashboardView: React.FC<Props> = ({ onBack }) => {
       )}
 
       {/* Indicadores */}
-      <div className="mb-5 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+      <div className="mb-5 grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(165px, 1fr))' }}>
         <Kpi icono={<IconCalendarEvent size={15} />} titulo="Visitas hoy" valor={hoyV.length}
           detalle={hoyV.length ? `${hoyV.filter((v) => v.realizada).length} realizadas · ${hoyV.filter((v) => !v.realizada).length} por hacer` : 'Sin visitas hoy'} />
         <Kpi icono={<IconCalendarWeek size={15} />} titulo="Esta semana" valor={semanaV.length}

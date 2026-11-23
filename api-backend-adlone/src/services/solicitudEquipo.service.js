@@ -125,17 +125,59 @@ export const cambiosPara = (tipo, d, eq) => {
     return { cambios, payload };
 };
 
+// ¿El equipo ya tiene lo que pide la solicitud? Compara cada campo del cambio con el valor actual del equipo (sin distinguir mayúsculas ni
+// espacios). Devuelve los campos que todavía NO coinciden. «vigencia» se ignora: la calcula el sistema a partir de la siguiente revisión.
+const igual = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+const VALOR_ACTUAL = {
+    id_muestreador: (eq) => eq.id_muestreador,
+    ubicacion: (eq) => eq.sede,
+    codigo: (eq) => eq.codigo,
+    estado_equipo: (eq) => eq.estado_equipo,
+    fecha_baja: (eq) => iso(eq.fecha_baja),
+    ultima_verificacion: (eq) => iso(eq.ultima_verificacion),
+    siguiente_verificacion: (eq) => iso(eq.siguiente_verificacion),
+};
+export const pendientesDe = (cambios, payload, eq) => cambios
+    .filter((c) => VALOR_ACTUAL[c.campo] && payload[c.campo] !== undefined && !igual(VALOR_ACTUAL[c.campo](eq), payload[c.campo]))
+    .map((c) => ({ campo: c.campo, etiqueta: c.etiqueta, actual: c.actual, esperado: c.nuevo }));
+
 const idEquipoDe = (d) => Number(d.id_equipo || d.id_equipo_afectado || d.id_equipo_original) || null;
+
+// El CÓDIGO del equipo que la solicitud nombra («MEDIDOR DE OXIGENO DISUELTO [MOD.11/MA.PM]»). El id numérico que guarda la solicitud no es
+// confiable: si los equipos se vuelven a cargar o renumerar, ese id pasa a apuntar a OTRO equipo (visto con las solicitudes #7 y #8: el id
+// guardado era un filtro y un cable, no el medidor de oxígeno que se había elegido). El código sí identifica al equipo y no se repite.
+export const codigoSolicitado = (d) => {
+    const directo = String(d.codigo_equipo || '').trim();
+    if (directo) return directo;
+    const m = /\[([^\]]+)\]\s*$/.exec(String(d.nombre_equipo_full || d.equipo_nombre || ''));
+    return m ? m[1].trim() : '';
+};
+
+// El equipo de la solicitud: primero por código; si el código ya no existe (un traspaso de sede lo cambia) se usa el id, pero solo si ese equipo
+// sigue siendo el mismo (mismo código o el código con la sede nueva). Si no, es mejor no encontrarlo que tocar otro equipo.
+const equipoPorCodigo = async (pool, codigo) => (await pool.request().input('c', sql.VarChar(100), codigo).query(`${EQUIPO_SQL} WHERE LTRIM(RTRIM(e.codigo)) = @c`)).recordset[0] || null;
+const resolverEquipo = async (pool, d) => {
+    const codigo = codigoSolicitado(d);
+    if (codigo) {
+        const porCodigo = await equipoPorCodigo(pool, codigo);
+        if (porCodigo) return porCodigo;
+    }
+    const id = idEquipoDe(d);
+    const porId = id ? await equipoPorId(pool, id) : null;
+    if (!porId) return null;
+    if (!codigo) return porId;
+    const conSedeNueva = d.id_centro_destino ? codigoConSede(codigo, d.id_centro_destino) : null;
+    return (porId.codigo === codigo || (conSedeNueva && porId.codigo === conSedeNueva)) ? porId : null;
+};
 
 const solicitudEquipoService = {
     async plan(id) {
         const pool = await getConnection();
         const s = await cargarSolicitud(pool, id);
         const tipo = s.datos._form_type || '';
-        const idEquipo = idEquipoDe(s.datos);
-        if (!idEquipo) throw error('Esta solicitud no indica un equipo.', 422);
-        const principal = await equipoPorId(pool, idEquipo);
-        if (!principal) throw error('El equipo de la solicitud ya no existe.', 404);
+        if (!idEquipoDe(s.datos) && !codigoSolicitado(s.datos)) throw error('Esta solicitud no indica un equipo.', 422);
+        const principal = await resolverEquipo(pool, s.datos);
+        if (!principal) throw error(`No se encontró el equipo de la solicitud${codigoSolicitado(s.datos) ? ` (${codigoSolicitado(s.datos)})` : ''}: ya no existe con ese código.`, 404);
 
         const equipos = [];
         const base = cambiosPara(tipo, s.datos, principal);
@@ -158,6 +200,21 @@ const solicitudEquipoService = {
             observacion_aceptacion: await observacionDeAceptacion(pool, id),
             equipos,
         };
+    },
+
+    // Seguimiento: ¿la solicitud ya se aplicó de verdad en los equipos? Sirve para avisar en la pantalla y para no dejar marcar como
+    // «realizada» una solicitud cuyo cambio (p. ej. el nuevo responsable del equipo) nunca se hizo.
+    async verificar(id) {
+        let p;
+        try { p = await this.plan(id); } catch (e) {
+            // Sin equipo en la solicitud, equipo borrado o tipo sin cambios: no hay nada que verificar.
+            if (e.statusCode === 422 || e.statusCode === 404) return { aplica: false, aplicada: true, pendientes: [] };
+            throw e;
+        }
+        const conCambios = p.equipos.filter((e) => e.cambios.length > 0);
+        if (!conCambios.length) return { aplica: false, estado: p.estado, aplicada: true, pendientes: [] };
+        const pendientes = conCambios.flatMap((e) => pendientesDe(e.cambios, e.payload, e).map((x) => ({ ...x, id_equipo: e.id_equipo, codigo: e.codigo, rol: e.rol })));
+        return { aplica: true, estado: p.estado, tipo: p.nombre_tipo, aplicada: pendientes.length === 0, pendientes };
     },
 
     async aplicar(id, idUsuario) {

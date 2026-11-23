@@ -86,6 +86,9 @@ function EtiquetaGrupo({ titulo, colapsado }: { titulo: string; colapsado: boole
 
 const INSIGNIA = 'rounded-full px-1.5 py-0 text-[0.75rem]';
 
+// Ver el efecto que fija el menú contraído por defecto en pantallas angostas.
+let defaultAplicado = false;
+
 export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
     const { user, hasPermission, token, logout } = useAuth();
     const {
@@ -118,6 +121,10 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
     // mobile, que ya maneja su propio ancho).
     useEffect(() => {
         if (forceNotCollapsed) return;
+        // Solo la primera vez que se monta el menú en esta carga de la página: el menú se vuelve a montar al cambiar de modo (columna fija ↔ panel
+        // flotante) y, sin esta guarda, volvía a cerrarse solo cada vez que el usuario lo abría.
+        if (defaultAplicado) return;
+        defaultAplicado = true;
         if (window.innerWidth < 1440 && !sidebarCollapsed) {
             setSidebarCollapsed(true);
         }
@@ -314,7 +321,8 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                             </TooltipTrigger>
                             <TooltipContent side="right" align="center">{label}</TooltipContent>
                         </Tooltip>
-                        <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56">
+                        {/* Al cerrarse el menú flotante, Radix devolvía el foco al ícono y su globo con el nombre del módulo (fondo negro) se quedaba pegado: no se devuelve el foco. */}
+                        <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-56" onCloseAutoFocus={(e) => e.preventDefault()}>
                             <DropdownMenuLabel>{label}</DropdownMenuLabel>
                             <DropdownMenuItem onSelect={() => { setActiveModule(id); setActiveSubmodule(''); onNavigate?.(); }}>
                                 Inicio de {label}

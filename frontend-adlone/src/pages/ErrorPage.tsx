@@ -3,6 +3,7 @@ import { IconAlertCircle, IconHome } from '@tabler/icons-react';
 import { AuthLayout, claseTarjetaAcceso, LogoAcceso } from '../features/auth/components/AuthLayout';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useNavStore } from '../store/navStore';
 
 interface ErrorPageProps {
     code?: string | number;
@@ -21,6 +22,9 @@ export const ErrorPage: React.FC<ErrorPageProps> = ({
         if (resetError) {
             resetError();
         }
+        // La navegación (módulo y submódulo abiertos) se guarda en el navegador: sin reiniciarla, al recargar volvía a abrirse la misma pantalla
+        // que falló y el botón parecía no hacer nada.
+        try { useNavStore.getState().resetNavigation(); } catch { /* si el estado no está disponible, igual se recarga */ }
         window.location.href = '/';
     };
 

@@ -1,4 +1,4 @@
-import { ursService } from '../../../services/urs.service';
+import { ursService, type VerificacionEquipo } from '../../../services/urs.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import FileIcon from './FileIcon';
@@ -111,6 +111,18 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
     const [actionLoading, setActionLoading] = useState(false);
     const [historyOpen, setHistoryOpen] = useState(false);
     const historyRef = useRef<HTMLDivElement>(null);
+    // Seguimiento: ¿el cambio que pide la solicitud ya está en el equipo? Solo para solicitudes que cambian un equipo y ya aceptadas o realizadas.
+    const [verificacion, setVerificacion] = useState<VerificacionEquipo | null>(null);
+    const idVerif = request?.id_solicitud;
+    const tipoVerif = String(request?.datos_json?._form_type || '');
+    const estadoVerif = request?.estado;
+    useEffect(() => {
+        setVerificacion(null);
+        if (!idVerif || !TIPOS_SOLICITUD_EQUIPO.includes(tipoVerif) || !['ACEPTADA', 'REALIZADA'].includes(estadoVerif)) return;
+        let vigente = true;
+        ursService.verificacionEquipo(idVerif).then((v) => { if (vigente) setVerificacion(v); }).catch(() => { /* sin acceso o sin equipo: no se muestra el seguimiento */ });
+        return () => { vigente = false; };
+    }, [idVerif, tipoVerif, estadoVerif]);
 
     useEffect(() => {
         if (historyOpen) {
@@ -181,7 +193,9 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             }
         } catch (error) {
             console.error('Error updating status:', error);
-            showToast({ message: 'Error al actualizar el estado', type: 'error' });
+            // El servidor explica por qué no se pudo (p. ej. «el cambio todavía no está aplicado en el equipo»).
+            const motivo = (error as { response?: { data?: { error?: string } } })?.response?.data?.error;
+            showToast({ message: motivo || 'Error al actualizar el estado', type: 'error' });
         } finally { setActionLoading(false); }
     };
 
@@ -226,6 +240,28 @@ const RequestDetailPanel: React.FC<RequestDetailPanelProps> = ({ request, onRequ
             </Card>
 
             {/* Observations */}
+            {/* Seguimiento del cambio sobre el equipo */}
+            {verificacion?.aplica && (
+                verificacion.aplicada ? (
+                    request.estado === 'REALIZADA' && (
+                        <AlertBox type="success" icon={<IconCheck />} message="Verificado: el equipo ya tiene el cambio" description="Lo que pedía la solicitud coincide con los datos actuales del equipo." />
+                    )
+                ) : (
+                    <AlertBox
+                        type={request.estado === 'REALIZADA' ? 'error' : 'warning'}
+                        icon={<IconAlertTriangle />}
+                        message={request.estado === 'REALIZADA' ? 'Marcada como realizada, pero el equipo no tiene el cambio' : 'Falta aplicar el cambio en el equipo'}
+                        description={(
+                            <ul className="mt-1 list-disc pl-4">
+                                {verificacion.pendientes.map((p, i) => (
+                                    <li key={i}><strong>{p.codigo}</strong> · {p.etiqueta}: hoy «{p.actual}», la solicitud pide «{p.esperado}»</li>
+                                ))}
+                            </ul>
+                        )}
+                    />
+                )
+            )}
+
             {request.observaciones && (
                 <AlertBox type="info" message="Observaciones del Solicitante" description={<span className="italic">&quot;{request.observaciones}&quot;</span>} />
             )}

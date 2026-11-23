@@ -279,12 +279,15 @@ export const NotificationHub: React.FC<{ onBack?: () => void }> = ({ onBack }) =
                 </div>
             )}
 
-            <RecipientModal
-                isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                event={selectedEvent}
-                onSaved={loadCatalog}
-            />
+            {/* El panel lee event.codigo: sin un evento elegido (estado inicial, null) rompía la pantalla con «Cannot read properties of null (reading 'codigo')». */}
+            {selectedEvent && (
+                <RecipientModal
+                    isOpen={isModalOpen}
+                    onClose={() => setIsModalOpen(false)}
+                    event={selectedEvent}
+                    onSaved={loadCatalog}
+                />
+            )}
         </div>
     );
 };

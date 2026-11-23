@@ -1442,7 +1442,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
     return (
         // En teléfono la página scrollea completa (ver isFullHeightModule en
         // MainLayout): fijar la cabecera dejaba la lista en una franja mínima.
-        <div className={cn('shadcn-scope adl-fade-in w-full p-4 md:p-6', !isMobile && 'flex h-full min-h-0 flex-col')}>
+        <div className={cn('shadcn-scope adl-fade-in w-full', !isMobile && 'flex h-full min-h-0 flex-col')}>
             {/* Desde tablet: encabezado, pestañas y filtros quedan fijos arriba. */}
             <div className={cn('flex flex-col gap-4 px-4 pt-4 md:px-6 md:pt-6', !isMobile && 'shrink-0')}>
                 {proximosAVencer.length > 0 && (
@@ -1961,10 +1961,10 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                 y el borde inferior viaja con ellas. */}
                             <TableHeader>
                                 <TableRow className="hover:bg-transparent">
-                                    <TableHead className="w-[5%] truncate px-2" title="Alerta">Alerta</TableHead>
-                                    <TableHead className="w-[10%]">Código</TableHead>
+                                    <TableHead className="w-[4%] truncate px-2" title="Alerta">Alerta</TableHead>
+                                    <TableHead className="w-[13%]">Código</TableHead>
                                     <TableHead
-                                        className="w-[15%] cursor-pointer select-none hover:text-foreground"
+                                        className="w-[14%] cursor-pointer select-none hover:text-foreground"
                                         onClick={handleClickNombre}
                                         title="Ordenar por nombre"
                                     >
@@ -1973,7 +1973,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             {sortBy === 'nombre' && (sortOrder === 'asc' ? <IconChevronUp size={13} /> : <IconChevronDown size={13} />)}
                                         </span>
                                     </TableHead>
-                                    <TableHead className="w-[12%]">Tipo</TableHead>
+                                    <TableHead className="w-[11%]">Tipo</TableHead>
                                     <TableHead
                                         className="w-[8%] cursor-pointer select-none hover:text-foreground"
                                         onClick={handleClickSede}
@@ -1995,8 +1995,8 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                         </span>
                                     </TableHead>
                                     <TableHead className="w-[9%]">Vigencia</TableHead>
-                                    <TableHead className="w-[14%]">Responsable</TableHead>
-                                    <TableHead className="w-[10%] px-2">Documento</TableHead>
+                                    <TableHead className="w-[15%]">Responsable</TableHead>
+                                    <TableHead className="w-[9%] px-2">Documento</TableHead>
                                     <TableHead className="w-[7%] px-2 text-right">Acciones</TableHead>
                                 </TableRow>
                             </TableHeader>

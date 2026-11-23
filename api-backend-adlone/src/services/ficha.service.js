@@ -1946,6 +1946,7 @@ class FichaIngresoService {
                         es2.nombre_empresaservicios,
                         c.nombre_centro,
                         c.codigo_centro,
+                        c.ubicacion AS direccion_centro,
                         com.nombre_comuna,
                         reg.nombre_region,
                         co.nombre_contacto,

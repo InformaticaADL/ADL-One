@@ -84,3 +84,25 @@ test('norte y este escritos al revés se corrigen y se avisa', () => {
     assert.equal(reves.lon, bien.lon);
     assert.equal(ubicacionDesdeUtm({ zona: '18G', utmNorte: '445522', utmEste: '336622' }), null); // ninguno es un norte creíble
 });
+
+// Valores de referencia calculados con proj4 (WGS84, UTM sur) para ciudades de Chile en los husos 18 y 19: la conversión debe coincidir
+// con una implementación independiente al nivel de milímetros, no solo ser coherente consigo misma.
+const REFERENCIA = [
+    { n: 'Arica', zona: '19', e: 361414.407, no: 7956392.694, lat: -18.4783, lon: -70.3126 },
+    { n: 'Santiago', zona: '19', e: 344846.72, no: 6297700.156, lat: -33.4489, lon: -70.6693 },
+    { n: 'Concepción', zona: '18', e: 674420.297, no: 5923299.914, lat: -36.8201, lon: -73.0444 },
+    { n: 'Puerto Montt', zona: '18', e: 671818.687, no: 5407100.532, lat: -41.4693, lon: -72.9424 },
+    { n: 'Punta Arenas', zona: '19', e: 371836.858, no: 4107791.467, lat: -53.1638, lon: -70.9171 },
+    { n: 'Castro (Chiloé)', zona: '18', e: 601718.028, no: 5295919.205, lat: -42.4824, lon: -73.7624 },
+];
+for (const r of REFERENCIA) {
+    test(`UTM → lat/lon coincide con proj4: ${r.n}`, () => {
+        const p = utmALatLon(r.zona, r.no, r.e);
+        assert.ok(cerca(p.lat, r.lat, 1e-7) && cerca(p.lon, r.lon, 1e-7), `${p.lat}, ${p.lon}`); // 1e-7° ≈ 1 cm
+    });
+}
+
+test('el enlace de Google Maps lleva latitud y longitud con 6 decimales', () => {
+    const p = ubicacionDesdeUtm({ zona: '18G', utmNorte: '5407100.532', utmEste: '671818.687' });
+    assert.equal(p.enlace, 'https://www.google.com/maps?q=-41.469300,-72.942400');
+});

@@ -7,6 +7,8 @@ import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover
 export interface ComboboxOption {
   value: string;
   label: string;
+  /** Ícono opcional que se muestra antes del texto (en la lista y en el valor elegido). */
+  icon?: React.ReactNode;
 }
 
 interface ComboboxProps {
@@ -84,7 +86,7 @@ export function Combobox({
           )}
         >
           <span className={cn(wrapSelected ? 'whitespace-normal break-words text-left' : 'truncate text-left', !selected && 'text-muted-foreground')} title={selected?.label}>
-            {selected ? selected.label : placeholder}
+            {selected ? (<>{selected.icon ? <span className="mr-2 inline-flex shrink-0 align-middle">{selected.icon}</span> : null}{selected.label}</>) : placeholder}
           </span>
           <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </button>
@@ -118,6 +120,7 @@ export function Combobox({
                 )}
               >
                 <Check className={cn('h-4 w-4 shrink-0', option.value === value ? 'opacity-100' : 'opacity-0')} />
+                {option.icon ? <span className="inline-flex shrink-0 text-muted-foreground">{option.icon}</span> : null}
                 <span className={wrapOptions ? 'break-words' : 'truncate'} title={option.label}>{option.label}</span>
               </button>
             ))

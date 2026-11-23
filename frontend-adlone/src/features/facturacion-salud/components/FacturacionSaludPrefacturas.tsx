@@ -219,7 +219,7 @@ const FacturacionSaludPrefacturas: React.FC<{ idInicial?: number; onLimpiarInici
                                                 </TableCell>
                                                 <TableCell className="text-right align-top tabular-nums">{Number(row.total_casos) || 0}</TableCell>
                                                 <TableCell className="text-right align-top font-semibold tabular-nums">{fmtNum(row.uf_totalfac)}</TableCell>
-                                                <TableCell className="text-right align-top tabular-nums">$ {fmtClp(row.peso_totalfac)}</TableCell>
+                                                <TableCell className="whitespace-nowrap text-right align-top tabular-nums">$ {fmtClp(row.peso_totalfac)}</TableCell>
                                                 <TableCell className="align-top">
                                                     <Badge variant={enArchivo ? 'secondary' : 'warning'}>
                                                         {enArchivo ? 'En archivo' : 'Pendiente'}

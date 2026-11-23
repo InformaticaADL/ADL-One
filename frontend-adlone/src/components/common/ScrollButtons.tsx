@@ -56,8 +56,9 @@ export const ScrollButtons: React.FC<ScrollButtonsProps> = ({ viewportRef }) => 
     // de la paginación, así que el toque caía en el flotante y parecía que la
     // paginación no respondía—. En pantalla táctil el gesto de desplazar ya cumple
     // esa función.
+    // bottom-20 y no bottom-5: más abajo tapaban «Siguiente» en la paginación (abajo a la derecha) también en notebooks.
     return (
-        <div className="shadcn-scope fixed bottom-5 right-5 z-[900] hidden flex-col gap-2 md:flex">
+        <div className="shadcn-scope fixed bottom-20 right-5 z-[900] hidden flex-col gap-2 md:flex">
             <Button
                 size="icon"
                 onClick={scrollToTop}

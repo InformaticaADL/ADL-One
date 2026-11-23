@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import logger from '../utils/logger.js';
+import { soloDominiosPermitidos } from '../config/redireccionCorreo.js';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -39,8 +40,13 @@ class EmailService {
             ...(html ? { html } : {})
         };
 
+        // Solo correos de ADL: se quitan los destinatarios de otros dominios; si no queda nadie, no se envía.
+        const { opciones: seguras, bloqueados, vacio } = soloDominiosPermitidos(mailOptions);
+        if (bloqueados.length) logger.warn(`[correo] Destinatarios que NO son de ADL, quitados: ${bloqueados.join(', ')}${vacio ? ' (no quedó nadie: el correo NO se envió)' : ''}`);
+        if (vacio) return null;
+
         try {
-            const info = await this.transporter.sendMail(mailOptions);
+            const info = await this.transporter.sendMail(seguras);
             logger.info(`Email sent: ${info.messageId}`);
             return info;
         } catch (error) {
