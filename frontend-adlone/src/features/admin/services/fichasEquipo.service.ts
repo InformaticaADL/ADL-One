@@ -1,4 +1,4 @@
-import apiClient from '../../../config/axios.config';
+﻿import apiClient from '../../../config/axios.config';
 
 // Formularios del equipo en PDF:
 //   OI-FoGe-22 Ficha técnica · OI-FoGe-24 Historial por año · OI-FoGe-36 Ficha de entrega
@@ -44,6 +44,8 @@ export interface DatosFichaTecnica {
     fecha_baja: string | null;
     observaciones: string;
     autorizacion_uso: string[];
+    /** Cargos del área de Medio Ambiente que se pueden marcar en «Autorización de uso». */
+    cargos_autorizacion?: string[];
     estado: string;
     /** Servicio anual del equipo (la próxima fecha se propone a un año): TPA/STP calibración, MAU/MOL mantención. */
     servicio_anual: 'calibracion' | 'mantencion' | null;
@@ -149,7 +151,7 @@ const comoPdf = (res: { data: Blob; headers: Record<string, unknown> }, porDefec
 };
 
 // --- FIRMAS DE LAS FICHAS: importar una registrada o firmar desde el celular (QR) ---
-export interface ResponsableEntrega { id_usuario: number; nombre: string; cargo: string | null; tiene_firma: boolean }
+export interface ResponsableEntrega { id_usuario: number; nombre: string; cargo: string | null; tiene_firma: boolean; puede_area?: boolean; puede_entrega?: boolean }
 export interface FirmaRegistrada { tipo: 'USUARIO' | 'MUESTREADOR'; id: number; nombre: string; cargo: string | null }
 export interface SesionFirmaFicha { token: string; url: string; qr: string; expira: string }
 export interface EstadoFirmaFicha {

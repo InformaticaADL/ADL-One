@@ -68,6 +68,7 @@ const emptyLinkForm = {
     label: '',
     permissions_str: '',
     sort_order: 0,
+    subgrupo: '',
     activo: true
 };
 
@@ -161,6 +162,7 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                 label: link.label,
                 permissions_str: link.permissions_str || '',
                 sort_order: link.sort_order,
+                subgrupo: link.subgrupo || '',
                 activo: link.activo
             });
         } else {
@@ -351,6 +353,7 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                                         <TableHead>Unidad Padre</TableHead>
                                         <TableHead>Permisos Opcionales</TableHead>
                                         <TableHead>Orden</TableHead>
+                                        <TableHead>Subgrupo</TableHead>
                                         <TableHead>Estado</TableHead>
                                         <TableHead className="w-[90px]">Acciones</TableHead>
                                     </TableRow>
@@ -371,6 +374,7 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                                                 </TableCell>
                                                 <TableCell><PermissionsRenderer permsStr={l.permissions_str} /></TableCell>
                                                 <TableCell>{l.sort_order}</TableCell>
+                                                <TableCell>{l.subgrupo ? <Badge variant="outline">{l.subgrupo}</Badge> : <span className="text-muted-foreground">—</span>}</TableCell>
                                                 <TableCell>
                                                     <Badge variant={l.activo ? 'success' : 'destructive'}>{l.activo ? 'Activo' : 'Inactivo'}</Badge>
                                                 </TableCell>
@@ -502,6 +506,13 @@ export const AdminMenuWebPage: React.FC<Props> = ({ onBack }) => {
                                 type="number"
                                 value={linkForm.sort_order}
                                 onChange={(e) => setLinkForm({ ...linkForm, sort_order: Number(e.target.value) || 0 })}
+                            />
+                        </Field>
+                        <Field label="Subgrupo (opcional)" hint="Subcategoría dentro del módulo padre, ej: Medio Ambiente / Laboratorio. Vacío = sin subcategoría.">
+                            <Input
+                                placeholder="Medio Ambiente"
+                                value={linkForm.subgrupo}
+                                onChange={(e) => setLinkForm({ ...linkForm, subgrupo: e.target.value })}
                             />
                         </Field>
                         {editingLink && (

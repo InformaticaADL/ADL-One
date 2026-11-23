@@ -43,7 +43,8 @@ const getVigenciaEstado = (str?: string): 'vigente' | 'por_vencer' | 'vencido' |
 // backend (incluye 'retirado': dados de baja / fuera de servicio, que no
 // cuentan como vencidos). Sin ella (Gestión de Equipos) se calcula acá.
 type EstadoVig = 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'sin_vencimiento' | 'retirado';
-const estadoVig = (e: Equipo): EstadoVig => e.estado_vigencia ?? getVigenciaEstado(e.vigencia || e.siguiente_verificacion);
+// Pendiente de su primera Puesta en Marcha: está Fuera de Servicio y todavía no vence, igual que un retirado.
+const estadoVig = (e: Equipo): EstadoVig => (e.estado_vigencia === 'pendiente_pm' ? 'retirado' : e.estado_vigencia) ?? getVigenciaEstado(e.vigencia || e.siguiente_verificacion);
 
 // ── KPI Card ──
 const KpiCard: React.FC<{

@@ -51,10 +51,10 @@ import { HistoricoBiologiaMolecularPage } from '../features/biologia-molecular/p
 
 
 const DashboardPage = () => {
-    const { 
-        activeModule, 
-        activeSubmodule, 
-        setActiveSubmodule, 
+    const {
+        activeModule,
+        activeSubmodule,
+        setActiveSubmodule,
         resetNavigation
     } = useNavStore();
     const { user, hasPermission } = useAuth();
@@ -125,39 +125,45 @@ const DashboardPage = () => {
             </ProtectedContent>
         );
         if (activeSubmodule === 'ma-calendario-replica') return <CalendarioReplicaPage onBack={() => setActiveSubmodule('medio_ambiente')} />;
-        if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('')} />;
-        if (activeSubmodule === 'gc-dashboard-equipos') return <GcEquiposDashboardPage onBack={() => setActiveSubmodule('')} />;
-        if (activeSubmodule === 'gc-calendario-vencimientos') return <GcCalendarioVencimientosPage onBack={() => setActiveSubmodule('')} />;
+        // Estos submódulos son todos de Medio Ambiente dentro de G. Calidad: "volver" lleva al hub
+        // de tarjetas de esa subcategoría (gc-hub-mam), no a una pantalla en blanco.
+        if (activeSubmodule === 'admin-equipos-gestion') return <EquiposPage onBack={() => setActiveSubmodule('gc-hub-mam')} />;
+        if (activeSubmodule === 'gc-dashboard-equipos') return <GcEquiposDashboardPage onBack={() => setActiveSubmodule('gc-hub-mam')} />;
+        if (activeSubmodule === 'gc-calendario-vencimientos') return <GcCalendarioVencimientosPage onBack={() => setActiveSubmodule('gc-hub-mam')} />;
         if (activeSubmodule === 'gc-verificacion-temperatura') return (
             <ProtectedContent permission="GC_VERIF_TEMP">
-                <GcVerificacionTemperaturaPage onBack={() => setActiveSubmodule('')} />
+                <GcVerificacionTemperaturaPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
         if (activeSubmodule === 'gc-archivo-fichas') return (
             <ProtectedContent permission={['MA_A_GEST_EQUIPO', 'GC_VERIF_TEMP', 'GC_EQUIPOS', 'GC_ACCESO']}>
-                <GcArchivoFichasPage onBack={() => setActiveSubmodule('')} />
+                <GcArchivoFichasPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
         if (activeSubmodule === 'gc-nuevo-equipo') return (
             <ProtectedContent permission="AI_MA_CREAR_EQUIPO">
-                <GcNuevoEquipoPage onBack={() => setActiveSubmodule('')} />
+                <GcNuevoEquipoPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
         if (activeSubmodule === 'gc-verificacion-caudal') return (
             <ProtectedContent permission={['MA_A_GEST_EQUIPO', 'GC_ACCESO']}>
-                <GcVerificacionCaudalPage onBack={() => setActiveSubmodule('')} />
+                <GcVerificacionCaudalPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
         if (activeSubmodule === 'gc-puesta-marcha') return (
             <ProtectedContent permission={['MA_A_GEST_EQUIPO', 'GC_ACCESO']}>
-                <GcPuestaMarchaPage onBack={() => setActiveSubmodule('')} />
+                <GcPuestaMarchaPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
         if (activeSubmodule === 'gc-revision-documental') return (
             <ProtectedContent permission={['MA_A_GEST_EQUIPO', 'GC_EQUIPOS', 'GC_ACCESO']}>
-                <GcRevisionDocumentalPage onBack={() => setActiveSubmodule('')} />
+                <GcRevisionDocumentalPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
+        // Destino de cada subcategoría del menú de G. Calidad: una pantalla propia con los
+        // submódulos como tarjetas, igual que los demás hubs de Admin. Información.
+        if (activeSubmodule === 'gc-hub-mam') return <AdminGcHub seccion="mam" onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
+        if (activeSubmodule === 'gc-hub-lab') return <AdminGcHub seccion="lab" onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-usuarios-gem') return <GemUsuariosPage onBack={() => setActiveSubmodule('')} />;
 if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => setActiveSubmodule('')} />;
@@ -204,7 +210,7 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (activeSubmodule === 'gestion_calidad') return <AdminGcHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
+            if (activeSubmodule === 'gestion_calidad') return <AdminGcHub seccion="mam" onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
 
             // RESTAURADO: Si estamos en Admin Info pero sin submódulo específico, mostrar el Hub original con las opciones
             return <AdminInfoHub onNavigate={(id) => setActiveSubmodule(id)} />;

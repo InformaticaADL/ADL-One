@@ -1,4 +1,4 @@
-import sql from 'mssql';
+﻿import sql from 'mssql';
 import { getConnection } from '../config/database.js';
 import { lineasObservacionConFecha as lineasConFecha, fechaNumATexto } from '../utils/observacionEquipo.js';
 import revisionDocumentalService, { anioDeHistorial } from './revisionDocumental.service.js';
@@ -226,6 +226,14 @@ const tipoRegistro = (eq) => {
     return null;
 };
 
+// Cargos del área de Medio Ambiente que autorizan el uso del equipo (ficha técnica OI-FoGe-22).
+export const CARGOS_AUTORIZACION_USO = [
+    'Jefe Técnico de Medio Ambiente',
+    'Jefe de Terreno de Medio Ambiente',
+    'Coordinador de Medio Ambiente',
+    'Muestreador de Medio Ambiente',
+];
+
 const datosTecnica = (eq) => ({
     id_equipo: eq.id_equipo,
     nombre: eq.nombre || '',
@@ -237,8 +245,10 @@ const datosTecnica = (eq) => ({
     frecuencia_mantencion: frecuenciaMantencionPorDefecto(eq),
     fecha_adquisicion: ymd(eq.fecha_compra),
     fecha_baja: ymd(eq.fecha_baja),
-    observaciones: '',
-    autorizacion_uso: eq.nombre_muestreador ? [eq.nombre_muestreador] : [],
+    observaciones: 'Responsable del Equipo, Jefe Técnico de Medio Ambiente',
+    // Por defecto, los cargos del área (definido por Gestión de Calidad); en la ficha se quitan los que no correspondan.
+    autorizacion_uso: [...CARGOS_AUTORIZACION_USO],
+    cargos_autorizacion: CARGOS_AUTORIZACION_USO,
     // N° Documento de la ficha del equipo: es el certificado / informe de cada fila (vacío si no tiene).
     // "N/I", "S/N", "-"… es que no lo tiene: queda en blanco.
     n_documento: /^(n\/?i|s\/?n|n\/?a|no informa|sin informaci[oó]n|-+)?$/i.test(String(eq.n_documento_compra || '').trim()) ? '' : String(eq.n_documento_compra).trim(),
@@ -619,6 +629,9 @@ const equipoBasico = async (id) => {
 // RESPONSABLES_PRUEBA (y no hace falta tocar nada más).
 const RESPONSABLES_PRUEBA = ['Roberto Díaz'];
 const RESPONSABLES_ENTREGA = ['Pablo Flores', 'Mario Jofré', 'Gastón Teneb', 'Carlos Gamboa', ...RESPONSABLES_PRUEBA];
+// Responsable de área (jefe del área): solo Pablo y Mario tienen esa jerarquía; Carlos y Gastón firman como
+// responsable de entrega (definido por Gestión de Calidad).
+const PUEDEN_JEFE_AREA = ['Pablo Flores', 'Mario Jofré', ...RESPONSABLES_PRUEBA];
 
 const responsablesEntrega = async () => {
     const pool = await getConnection();
@@ -635,7 +648,37 @@ const responsablesEntrega = async () => {
     return RESPONSABLES_ENTREGA
         .map((n) => r.recordset.find((u) => sinTildes(u.nombre) === sinTildes(n)))
         .filter(Boolean)
-        .map((u) => ({ id_usuario: Number(u.id_usuario), nombre: u.nombre, cargo: u.cargo || null, tiene_firma: conFirma.has(Number(u.id_usuario)) }));
+        .map((u) => {
+            return {
+                id_usuario: Number(u.id_usuario),
+                nombre: u.nombre,
+                cargo: u.cargo || null,
+                tiene_firma: conFirma.has(Number(u.id_usuario)),
+                puede_area: PUEDEN_JEFE_AREA.some((j) => sinTildes(j) === sinTildes(u.nombre)),
+                puede_entrega: true
+            };
+        });
 };
 
-export default { responsablesEntrega, historialAnios, historialPdf, agregarObservacionHistorial, fichaTecnicaDatos, fichaTecnicaPdf, entregaPdf, recepcionDatos, recepcionPdf, equipoBasico, firmasDocumento };
+/**
+ * Ficha de entrega firmada por quien recibe: deja en el historial del equipo la recepción (con su fecha) y que
+ * corresponde la Puesta en Marcha por recepción (definido por Gestión de Calidad). Sin equipo guardado o sin la
+ * firma de quien recibe, no hace nada. Si falla, solo queda en el log: la ficha ya se guardó.
+ */
+const registrarRecepcion = async (idEquipo, datos = {}, usuario = null) => {
+    if (!idEquipo || !datos.firma_equipo) return false;
+    try {
+        const f = /^\d{4}-\d{2}-\d{2}$/.test(String(datos.fecha_recepcion || '')) ? datos.fecha_recepcion : new Date().toISOString().slice(0, 10);
+        const fecha = `${f.slice(8, 10)}.${f.slice(5, 7)}.${f.slice(2, 4)}`;
+        const quien = String(datos.responsable_equipo || '').trim() || 'su responsable';
+        await equipoService.updateEquipo(Number(idEquipo), {
+            observacion_agregada: `${fecha} Recepción del equipo por ${quien} (Ficha de entrega OI-FoGe-36 firmada). Corresponde la Puesta en Marcha por recepción.`,
+        }, usuario?.id || null);
+        return true;
+    } catch (e) {
+        console.error(`No se pudo registrar la recepción del equipo ${idEquipo} en su historial:`, e);
+        return false;
+    }
+};
+
+export default { responsablesEntrega, historialAnios, historialPdf, agregarObservacionHistorial, fichaTecnicaDatos, fichaTecnicaPdf, entregaPdf, recepcionDatos, recepcionPdf, equipoBasico, firmasDocumento, registrarRecepcion };

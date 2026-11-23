@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatearFechaHoraCorta } from '@/lib/fechas';
 import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle, IconDeviceMobile, IconSend } from '@tabler/icons-react';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useNavStore } from '../../../store/navStore';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
@@ -249,6 +250,16 @@ const ListaResponsables: React.FC<{ label: string; valor: string; lista: Respons
 export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, onClose }) => {
     const { showToast } = useToast();
     const { user, hasPermission } = useAuth();
+    const { setPmRecepcionEquipoId, setActiveModule, setActiveSubmodule } = useNavStore();
+    // Ficha de entrega firmada por quien recibe: la recepción quedó en el historial y corresponde la Puesta en Marcha por recepción.
+    const [pmRecepcion, setPmRecepcion] = useState(false);
+    const irAPmRecepcion = () => {
+        if (!idEquipo) return;
+        setPmRecepcionEquipoId(idEquipo);
+        setActiveModule('gestion_calidad');
+        setActiveSubmodule('gc-puesta-marcha');
+        onClose();
+    };
     // Anular una ficha guardada: quien edita equipos o tiene G. Calidad > Equipos.
     const puedeAnular = hasPermission('AI_MA_EDITAR_EQUIPO') || hasPermission('GC_EQUIPOS');
     const [cargando, setCargando] = useState(false);
@@ -320,7 +331,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         setFirmasRecepcion({ recepcion: null, usarMiFirma: false, calidad: null });
         setFirmasSel({});
         setAniosExtra([]); setNuevoAnio(null);
-        setGuardada(null); setGuardadas([]); setBorradorRecuperado(false);
+        setGuardada(null); setGuardadas([]); setBorradorRecuperado(false); setPmRecepcion(false);
         borradorRevisado.current = false; estadoInicial.current = null;
         if (idEquipo) {
             api.guardadas(idEquipo, tipo).then((r) => { if (vigente) setGuardadas(r.fichas); }).catch(() => { /* sin tabla o sin permiso */ });
@@ -569,6 +580,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         try {
             const r = await api.guardar(tipo, idEquipo ?? null, cuerpo);
             setGuardada(r);
+            if (tipo === 'entrega' && idEquipo && (r as { recepcion_registrada?: boolean }).recepcion_registrada) setPmRecepcion(true);
             escribirBorrador(claveBorrador(tipo, idEquipo), null);
             setBorradorRecuperado(false);
             showToast({ type: 'success', message: 'Ficha guardada' });
@@ -826,9 +838,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         >
                             <span className="flex w-full items-center gap-1.5">
                                 <IconEye size={14} className="shrink-0 text-muted-foreground" />
-                                {tipo === 'tecnica' && (i === 0
-                                    ? <Badge variant="success">Ficha actual</Badge>
-                                    : <Badge variant="outline">Anterior</Badge>)}
+                                {tipo === 'tecnica' && (() => {
+                                    const esVigente = (g: FichaGuardada) => !g.codigo_equipo || !codigoEquipo || g.codigo_equipo === codigoEquipo;
+                                    if (!esVigente(f)) {
+                                        return <Badge variant="destructive" className="bg-destructive/15 text-destructive border-destructive/30">OBSOLETO</Badge>;
+                                    }
+                                    // La actual es la más reciente con el código vigente del equipo (la lista viene de la más nueva a la más antigua).
+                                    return guardadas.findIndex(esVigente) === i ? <Badge variant="success">Ficha actual</Badge> : <Badge variant="outline">Anterior</Badge>;
+                                })()}
                                 <span className="truncate">{fechaHora(f.fecha_creacion)}</span>
                             </span>
                             <span className="pl-[20px] text-xs text-muted-foreground">
@@ -986,9 +1003,44 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     <Campo label="Observaciones">
                                         <Textarea rows={3} value={tecnica.observaciones} onChange={setT('observaciones')} />
                                     </Campo>
-                                    <Campo label="Autorización de uso" ayuda="Una persona o grupo por línea.">
-                                        <Textarea rows={3} value={autorizados} onChange={(e) => setAutorizados(e.target.value)} />
-                                    </Campo>
+                                    {(() => {
+                                        // Se marcan los cargos del área; lo que no sea un cargo de la lista queda como «Otros», una línea cada uno.
+                                        const cargos = tecnica.cargos_autorizacion ?? [];
+                                        const lineas = autorizados.split('\n').map((s) => s.trim()).filter(Boolean);
+                                        // Sin recortar ni quitar líneas vacías: si no, no se podría escribir un salto de línea en «Otros».
+                                        const otros = autorizados.split('\n').filter((l) => !cargos.includes(l.trim()));
+                                        const marcados = cargos.filter((c) => lineas.includes(c));
+                                        const armar = (sel: string[], extra: string[]) => [...cargos.filter((c) => sel.includes(c)), ...extra].join('\n');
+                                        if (cargos.length === 0) {
+                                            return (
+                                                <Campo label="Autorización de uso" ayuda="Una persona o grupo por línea.">
+                                                    <Textarea rows={3} value={autorizados} onChange={(e) => setAutorizados(e.target.value)} />
+                                                </Campo>
+                                            );
+                                        }
+                                        return (
+                                            <Campo label="Autorización de uso" ayuda="Cargos del área que pueden usar el equipo.">
+                                                <div className="flex flex-col gap-1.5 rounded-md border border-border p-2">
+                                                    {cargos.map((c) => (
+                                                        <label key={c} className="flex items-center gap-2 text-sm">
+                                                            <Checkbox
+                                                                checked={marcados.includes(c)}
+                                                                onCheckedChange={(v) => setAutorizados(armar(v ? [...marcados, c] : marcados.filter((m) => m !== c), otros))}
+                                                            />
+                                                            {c}
+                                                        </label>
+                                                    ))}
+                                                    <Textarea
+                                                        rows={1}
+                                                        className="mt-1 min-h-[34px] text-sm"
+                                                        placeholder="Otros (una persona o grupo por línea)"
+                                                        value={otros.join('\n')}
+                                                        onChange={(e) => setAutorizados(armar(marcados, e.target.value.split('\n')))}
+                                                    />
+                                                </div>
+                                            </Campo>
+                                        );
+                                    })()}
                                 </div>
                                 <div className="flex flex-col gap-2">
                                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1107,22 +1159,25 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         {/* ── Ficha de entrega ──────────────────────────────── */}
                         {!cargando && tipo === 'entrega' && entrega && (
                             <div className="flex flex-col gap-4">
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    <Campo label="Nombre del equipo"><Input value={entrega.nombre} onChange={setE('nombre')} /></Campo>
-                                    <Campo label="Marca"><Input value={entrega.marca} onChange={setE('marca')} /></Campo>
-                                    <Campo label="Modelo"><Input value={entrega.modelo} onChange={setE('modelo')} /></Campo>
-                                    <Campo label="Serie"><Input value={entrega.serie} onChange={setE('serie')} /></Campo>
-                                    <Campo label="Código interno"><Input value={entrega.codigo} onChange={setE('codigo')} /></Campo>
-                                    <Campo label="Proveedor"><Input value={entrega.proveedor} onChange={setE('proveedor')} /></Campo>
-                                    <Campo label="N° de factura"><Input value={entrega.n_factura} onChange={setE('n_factura')} /></Campo>
-                                    <Campo label="Fecha factura"><Input type="date" value={entrega.fecha_factura} onChange={setE('fecha_factura')} /></Campo>
-                                    <Campo label="Valor"><Input value={entrega.valor} onChange={setE('valor')} /></Campo>
-                                    <Campo label="Frecuencia de mantención"><Input value={entrega.frecuencia_mantencion} onChange={setE('frecuencia_mantencion')} /></Campo>
-                                    <Campo label="Fecha de adquisición"><Input type="date" value={entrega.fecha_adquisicion} onChange={setE('fecha_adquisicion')} /></Campo>
-                                    <Campo label="Área"><Input value={entrega.area} onChange={setE('area')} /></Campo>
-                                    <Campo label="Sección / unidad"><Input value={entrega.seccion} onChange={setE('seccion')} /></Campo>
-                                    <Campo label="Responsable del equipo (recibe)"><Input value={entrega.responsable_equipo} onChange={setE('responsable_equipo')} /></Campo>
-                                    <Campo label="Fecha de recepción" ayuda="Vacía, para llenarla al firmar."><Input type="date" value={entrega.fecha_recepcion} onChange={setE('fecha_recepcion')} /></Campo>
+                                <div className="rounded-lg border border-border bg-muted/20 p-3">
+                                    <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del equipo (inventario)</p>
+                                    <div className="grid gap-3 sm:grid-cols-3">
+                                        <Campo label="Nombre del equipo"><Input value={entrega.nombre} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Marca"><Input value={entrega.marca} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Modelo"><Input value={entrega.modelo} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Serie"><Input value={entrega.serie} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Código interno"><Input value={entrega.codigo} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Proveedor"><Input value={entrega.proveedor} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="N° de factura"><Input value={entrega.n_factura} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Fecha factura"><Input type="date" value={entrega.fecha_factura} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Valor"><Input value={entrega.valor} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Frecuencia de mantención"><Input value={entrega.frecuencia_mantencion} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Fecha de adquisición"><Input type="date" value={entrega.fecha_adquisicion} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Área"><Input value={entrega.area} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Sección / unidad"><Input value={entrega.seccion} readOnly className="bg-muted/50 cursor-default" /></Campo>
+                                        <Campo label="Responsable del equipo (recibe)"><Input value={entrega.responsable_equipo} onChange={setE('responsable_equipo')} /></Campo>
+                                        <Campo label="Fecha de recepción" ayuda="Se completa automáticamente al firmar quien recibe o puede ingresarse a mano."><Input type="date" value={entrega.fecha_recepcion} onChange={setE('fecha_recepcion')} /></Campo>
+                                    </div>
                                 </div>
                                 <Campo label="Observaciones">
                                     <Textarea rows={3} value={entrega.observaciones} onChange={setE('observaciones')} placeholder="Ej.: Se envía en reemplazo de… / Equipo va sin pilas." />
@@ -1131,7 +1186,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     {responsablesEnt.length > 0 ? (
                                         <>
                                             <ListaResponsables label="Responsable de entrega" valor={entrega.responsable_entrega} lista={responsablesEnt} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_entrega: v } : p))} />
-                                            <ListaResponsables label="Responsable de área" valor={entrega.responsable_area} lista={responsablesEnt} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_area: v } : p))} />
+                                            <ListaResponsables label="Responsable de área" valor={entrega.responsable_area} lista={responsablesEnt.filter((r) => r.puede_area !== false)} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_area: v } : p))} />
                                         </>
                                     ) : (
                                         <>
@@ -1148,7 +1203,12 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                             ref={(r) => { firmaRefs.current['entrega:equipo'] = r; }}
                                             titulo="Responsable del equipo (recibe)"
                                             nombre={entrega.responsable_equipo}
-                                            onChange={(f) => setFirmasEntrega((p) => ({ ...p, equipo: f }))}
+                                            onChange={(f) => {
+                                                setFirmasEntrega((p) => ({ ...p, equipo: f }));
+                                                if (f && entrega && !entrega.fecha_recepcion) {
+                                                    setEntrega((prev) => (prev ? { ...prev, fecha_recepcion: hoy() } : prev));
+                                                }
+                                            }}
                                         />
                                         <CampoFirma
                                             ref={(r) => { firmaRefs.current['entrega:entrega'] = r; }}
@@ -1329,6 +1389,12 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                     )}
                     </div>
 
+                    {pmRecepcion && (
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                            <span>Recepción registrada en el historial del equipo. Corresponde su <b>Puesta en Marcha por recepción</b>.</span>
+                            <Button size="sm" onClick={irAPmRecepcion}>Registrar puesta en marcha</Button>
+                        </div>
+                    )}
                     <DialogFooter className="gap-2">
                         <Button variant="outline" onClick={onClose}>Cerrar</Button>
                         <Button variant="outline" disabled={!puedeGenerar || !!generando} onClick={() => accion('ver')}>

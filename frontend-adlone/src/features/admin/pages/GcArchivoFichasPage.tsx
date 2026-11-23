@@ -13,6 +13,7 @@ import { DataPagination } from '@/components/ui/pagination';
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
 import {
     fichasEquipoService as api,
@@ -55,6 +56,7 @@ const soloFecha = (v: string | null | undefined) => {
 const tamano = (b: number | null) => (b ? (b > 1024 * 1024 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`) : '');
 
 export const GcArchivoFichasPage: React.FC<Props> = ({ onBack }) => {
+    const { setActiveSubmodule } = useNavStore();
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
     const puedeAnular = hasPermission('AI_MA_EDITAR_EQUIPO') || hasPermission('GC_EQUIPOS');
@@ -160,7 +162,7 @@ export const GcArchivoFichasPage: React.FC<Props> = ({ onBack }) => {
                 title="Archivo de fichas de equipo"
                 subtitle="Fichas guardadas (OI-FoGe-22 / 24 / 36 / 42) de todos los equipos, consultables por año de vigencia."
                 onBack={onBack}
-                breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Archivo de fichas' }]}
+                breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Archivo de fichas' }]}
                 rightSection={(
                     <Button variant="outline" onClick={() => { cargar(); cargarAnios(); }} disabled={cargando}>
                         <IconRefresh size={16} className={cn(cargando && 'animate-spin')} /> Actualizar

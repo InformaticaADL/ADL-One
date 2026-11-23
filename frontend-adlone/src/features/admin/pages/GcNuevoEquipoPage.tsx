@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { EquipoForm } from '../components/EquipoForm';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 
 interface Props {
     onBack: () => void;
@@ -12,6 +13,14 @@ interface Props {
 // Al guardar, el equipo queda en el Inventario de Equipos (y el tipo nuevo, en el catálogo).
 export const GcNuevoEquipoPage: React.FC<Props> = ({ onBack }) => {
     const { showToast } = useToast();
+    const { setActiveSubmodule, setPageBreadcrumb } = useNavStore();
+    // EquipoForm dibuja su propio título/botón "Volver" (no usa PageHeader): la ruta de arriba
+    // se publica acá directo, igual que hacen las demás pantallas de Medio Ambiente en G. Calidad.
+    useEffect(() => {
+        setPageBreadcrumb([{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Nuevo Equipo' }]);
+        return () => setPageBreadcrumb([]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
     // Cambia al guardar, para empezar otro equipo con el formulario en blanco.
     const [version, setVersion] = useState(0);
 

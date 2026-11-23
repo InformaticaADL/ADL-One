@@ -2,15 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { EquiposDashboard } from '../components/EquiposDashboard';
 import { equipoService, type ResumenCalidad } from '../services/equipo.service';
+import { useNavStore } from '../../../store/navStore';
 
 interface Props {
     onBack: () => void;
 }
 
 export const GcEquiposDashboardPage: React.FC<Props> = ({ onBack }) => {
+    const { setActiveSubmodule, setPageBreadcrumb } = useNavStore();
     const [resumen, setResumen] = useState<ResumenCalidad | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Se publica apenas entra, sin esperar a que carguen los KPIs: mientras tanto se muestra el
+    // mensaje "Cargando..." sin PageHeader, así que si no se hacía acá la ruta de arriba (G.C. MAM)
+    // tardaba en aparecer hasta que terminara de cargar.
+    useEffect(() => {
+        setPageBreadcrumb([{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Dashboard de Equipos' }]);
+        return () => setPageBreadcrumb([]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // Vigencia y KPIs vienen calculados del backend, con las mismas reglas que la
     // revisión diaria (los dados de baja / fuera de servicio no cuentan como vencidos).
@@ -46,7 +57,7 @@ export const GcEquiposDashboardPage: React.FC<Props> = ({ onBack }) => {
                     title="Dashboard de Equipos"
                     subtitle="KPIs, gráficos y análisis del inventario de equipos de calidad."
                     onBack={onBack}
-                    breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Dashboard de Equipos' }]}
+                    breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Dashboard de Equipos' }]}
                 />
             </div>
             <EquiposDashboard

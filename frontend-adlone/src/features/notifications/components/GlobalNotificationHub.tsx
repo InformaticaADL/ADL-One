@@ -9,7 +9,7 @@ const GlobalNotificationHub: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, setFirmaPendienteId, setPuestaMarchaPendienteId, selectedRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, setFirmaPendienteId, setPuestaMarchaPendienteId, setPmRecepcionEquipoId, selectedRequestId } = useNavStore();
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -61,6 +61,15 @@ const GlobalNotificationHub: React.FC = () => {
         // Calidad > Puesta en Marcha directo en esa puesta en marcha.
         if (notif.id_referencia && notif.area === 'PuestaMarcha') {
             setPuestaMarchaPendienteId(notif.id_referencia);
+            setActiveModule('gestion_calidad');
+            setActiveSubmodule('gc-puesta-marcha');
+            return;
+        }
+
+        // Un muestreador recibió un equipo (ficha de entrega firmada): abre la Puesta en Marcha por recepción de ese
+        // equipo (id_referencia = id del equipo), lista para registrarla.
+        if (notif.id_referencia && notif.area === 'PuestaMarchaRecepcion') {
+            setPmRecepcionEquipoId(notif.id_referencia);
             setActiveModule('gestion_calidad');
             setActiveSubmodule('gc-puesta-marcha');
             return;

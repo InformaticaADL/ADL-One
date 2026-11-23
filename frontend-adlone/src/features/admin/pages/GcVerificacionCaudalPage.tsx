@@ -11,6 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import { firmaUsuarioService } from '../../../services/firmaUsuario.service';
 import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
 import { CampoFirma } from '../components/CampoFirma';
@@ -58,6 +59,7 @@ const CeldaFicha: React.FC<{ etiqueta: string; children: React.ReactNode; classN
 // molinete. Se llena en borrador; con el V°B° se aplica al equipo (próxima verificación o Fuera de Servicio), queda en su
 // historial y el PDF firmado va al Archivo de Fichas.
 export const GcVerificacionCaudalPage: React.FC<Props> = ({ onBack }) => {
+    const { setActiveSubmodule } = useNavStore();
     const { showToast } = useToast();
     const [filas, setFilas] = useState<VerificacionCaudal[]>([]);
     const [cargando, setCargando] = useState(true);
@@ -92,7 +94,7 @@ export const GcVerificacionCaudalPage: React.FC<Props> = ({ onBack }) => {
                 title="Verificación Sonda Caudal"
                 subtitle="Formulario OI-FoGe-30 · Verificación intermedia semestral (±10 %) contra el equipo de referencia."
                 onBack={onBack}
-                breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Verificación Sonda Caudal' }]}
+                breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Verificación Sonda Caudal' }]}
                 rightSection={<Button onClick={() => setFormulario({})}><IconPlus size={16} /> Nueva verificación</Button>}
             />
 

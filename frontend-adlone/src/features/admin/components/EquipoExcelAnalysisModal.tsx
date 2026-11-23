@@ -1153,6 +1153,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                                         <div key={`form-${itemVer.rowNumber}`} className="min-h-0 flex-1 overflow-y-auto pr-1">
                                             <EquipoForm
                                                 initialData={buildInitialData(itemVer, reglasControl)}
+                                                inventarioExistente
                                                 onCancel={() => setPestanaVer(itemVer.status === 'difiere' ? 'diferencias' : 'excel')}
                                                 onSave={() => {
                                                     setFilaVer(null);
@@ -1220,6 +1221,7 @@ export const EquipoExcelAnalysisModal: React.FC<Props> = ({ isOpen, onClose, onD
                         </Button>
                         <EquipoForm
                             initialData={buildInitialData(itemSeleccionado, reglasControl)}
+                            inventarioExistente
                             onCancel={() => setVista('resultados')}
                             onSave={() => {
                                 setVista('resultados');

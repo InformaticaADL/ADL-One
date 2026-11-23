@@ -1,4 +1,4 @@
-import fs from 'fs';
+﻿import fs from 'fs';
 import path from 'path';
 import sql from 'mssql';
 import { getConnection } from '../config/database.js';
@@ -11,6 +11,7 @@ import { equipoService } from './equipo.service.js';
 import auditService from './audit.service.js';
 import { areasPorRoles } from '../utils/areasRoles.js';
 import { PERMISOS_GC, permisosGc, puedeGc } from '../utils/permisosCalidad.js';
+import { calcularSiguiente, resolverModalidad } from '../utils/reglasControlEquipo.js';
 
 // Puesta en Marcha de equipos (OI-FoGe-42) como registro propio (migrations/add_puesta_en_marcha.sql).
 //
@@ -47,8 +48,9 @@ const TABLA_ADJ = 'mae_puesta_marcha_adjunto';
 // firmar la otra, la envía a una persona concreta que sí tiene el permiso; esa persona firma con el mismo endpoint
 // de siempre desde su propia sesión. Esta tabla solo registra a quién se le pidió cada firma.
 const TABLA_ASIG = 'mae_puesta_marcha_asignacion_firma';
-export const TIPOS = ['EQUIPO_NUEVO', 'RETORNO_SERVICIO', 'CAMBIO_SEDE', 'REACTIVACION'];
-const NOMBRE_TIPO = { EQUIPO_NUEVO: 'equipo nuevo', RETORNO_SERVICIO: 'retorno de servicio externo', CAMBIO_SEDE: 'cambio de sede', REACTIVACION: 'reactivación tras Fuera de Servicio' };
+// ASIGNACION: puesta en marcha preventiva por recepción, cuando a un muestreador se le asigna un equipo (Gestión de Calidad).
+export const TIPOS = ['EQUIPO_NUEVO', 'RETORNO_SERVICIO', 'CAMBIO_SEDE', 'REACTIVACION', 'ASIGNACION'];
+const NOMBRE_TIPO = { EQUIPO_NUEVO: 'equipo nuevo', RETORNO_SERVICIO: 'retorno de servicio externo', CAMBIO_SEDE: 'cambio de sede', REACTIVACION: 'reactivación tras Fuera de Servicio', ASIGNACION: 'recepción por asignación a muestreador' };
 const AREAS = ['TECNICA', 'CALIDAD'];
 const NOMBRE_AREA = { TECNICA: 'Área Técnica de Medio Ambiente', CALIDAD: 'Gestión de Calidad' };
 
@@ -215,6 +217,7 @@ const filaPublica = (p) => ({
         CALIDAD: { firmada: !!p.firma_calidad, nombre: p.nombre_calidad, fecha: p.fecha_firma_calidad },
     },
     en_historial: !!p.en_historial,
+    fecha_calibracion: p.fecha_calibracion || null,
     motivo_anulacion: p.motivo_anulacion,
     nombre_crea: p.nombre_crea,
     fecha_creacion: p.fecha_creacion,
@@ -229,7 +232,21 @@ const COLUMNAS = `p.id_puesta_marcha, p.id_equipo, p.codigo_equipo, p.nombre_equ
     p.estado, p.firma_tecnica, p.nombre_tecnica, p.fecha_firma_tecnica, p.firma_calidad, p.nombre_calidad, p.fecha_firma_calidad,
     p.en_historial, p.motivo_anulacion, p.id_usuario_crea, p.nombre_crea, p.fecha_creacion`;
 
-const columnas = async (pool) => `${COLUMNAS}${(await hayColumnasItems(pool)) ? ', p.items, p.otros' : ''}`;
+// Fecha de calibración del informe del proveedor (migrations/add_mejoras_calidad_observaciones.sql).
+let columnaFechaCal = false;
+const hayColumnaFechaCalibracion = async (pool) => {
+    if (columnaFechaCal) return true;
+    const r = await pool.request().query("SELECT COL_LENGTH('mae_puesta_marcha', 'fecha_calibracion') AS f");
+    columnaFechaCal = !!r.recordset[0].f;
+    return columnaFechaCal;
+};
+// Del equipo: control de fechas y la marca de «pendiente de puesta en marcha» (si existen las columnas).
+const columnasControlEquipo = async (pool) => {
+    const r = await pool.request().query("SELECT COL_LENGTH('mae_equipo', 'modalidad_control') AS m, COL_LENGTH('mae_equipo', 'pendiente_pm') AS p");
+    return { modalidad: !!r.recordset[0].m, pendiente: !!r.recordset[0].p };
+};
+
+const columnas = async (pool) => `${COLUMNAS}${(await hayColumnasItems(pool)) ? ', p.items, p.otros' : ''}${(await hayColumnaFechaCalibracion(pool)) ? ', CONVERT(VARCHAR(10), p.fecha_calibracion, 23) AS fecha_calibracion' : ''}`;
 
 const cargar = async (pool, id) => {
     const r = await pool.request().input('id', sql.Int, Number(id)).query(`SELECT ${await columnas(pool)} FROM ${TABLA} p WHERE p.id_puesta_marcha = @id`);
@@ -289,10 +306,14 @@ const puestaMarchaService = {
     /** Equipo con los datos que se rellenan solos en el formulario, y las verificaciones de T° firmadas que se pueden vincular. */
     async datosEquipo(idEquipo) {
         const pool = await getConnection();
+        const ctl = await columnasControlEquipo(pool);
         const r = await pool.request().input('id', sql.Int, Number(idEquipo)).query(`
-            SELECT id_equipo, codigo, nombre, tipoequipo, sede, marca, modelo, n_serie, Estado AS estado_equipo FROM mae_equipo WHERE id_equipo = @id`);
+            SELECT id_equipo, codigo, nombre, tipoequipo, sede, marca, modelo, n_serie, Estado AS estado_equipo
+                ${ctl.modalidad ? ', modalidad_control' : ''}${ctl.pendiente ? ', CAST(ISNULL(pendiente_pm, 0) AS BIT) AS pendiente_pm' : ''}
+            FROM mae_equipo WHERE id_equipo = @id`);
         const e = r.recordset[0];
         if (!e) throw error('Equipo no encontrado.', 404);
+        if (!e.modalidad_control) e.modalidad_control = resolverModalidad(e.nombre) || null;
         const v = await pool.request().input('id', sql.Int, Number(idEquipo)).query(`
             IF OBJECT_ID('mae_verificacion_temperatura') IS NOT NULL
                 SELECT id_verificacion, CONVERT(VARCHAR(10), fecha_verificacion, 23) AS fecha, cumple, patron_codigo, patron_nombre
@@ -321,6 +342,9 @@ const puestaMarchaService = {
         const funcionamiento = funcionamientoDe(body.estado_recepcion, body.funcionamiento);
         const patron = texto(body.patron_referencia, 300);
         if (funcionamiento === 'OPERATIVO' && !patron) throw error('Cite el patrón de referencia: el equipo o el buffer que se usó (ej. Buffer 4.0 / 7.0 / 10.0).');
+        if (body.fecha_calibracion && (!esFecha(body.fecha_calibracion) || body.fecha_calibracion > hoyYmd())) {
+            throw error('La fecha de calibración del informe del proveedor no es válida o es futura.');
+        }
 
         const eq = (await pool.request().input('id', sql.Int, idEquipo).query('SELECT id_equipo, codigo, nombre, sede FROM mae_equipo WHERE id_equipo = @id')).recordset[0];
         if (!eq) throw error('Equipo no encontrado.', 404);
@@ -368,6 +392,12 @@ const puestaMarchaService = {
                     OUTPUT INSERTED.id_puesta_marcha
                     VALUES (@eq, @cod, @nom, @sede, @tipo, @fecha, @area, @rec, @fun, @pat, @obs, @vt, @vi, @vc, @vf, @u, @un)`);
         const id = r.recordset[0].id_puesta_marcha;
+        // Calibración anual de patrón: la fecha que manda es la del informe del proveedor; la puesta en marcha solo
+        // respalda que el equipo volvió bien del servicio. Al aprobarse, la vigencia se cuenta desde esa fecha.
+        if (esFecha(body.fecha_calibracion) && (await hayColumnaFechaCalibracion(pool))) {
+            await pool.request().input('id', sql.Int, id).input('fc', sql.Date, body.fecha_calibracion)
+                .query(`UPDATE ${TABLA} SET fecha_calibracion = @fc WHERE id_puesta_marcha = @id`);
+        }
         if (await hayColumnasItems(pool)) {
             await pool.request().input('id', sql.Int, id)
                 .input('items', sql.NVarChar(1000), JSON.stringify(itemsValidos(body.items)))
@@ -539,13 +569,52 @@ const puestaMarchaService = {
         }
     },
 
-    /** Con las dos firmas: queda aprobada y entra al historial del equipo. El estado del equipo no se toca. */
+    /**
+     * La vigencia nace con la Puesta en Marcha (definido por Gestión de Calidad). Al aprobarse:
+     *   · Mantención anual / Contrastación semestral: se cuenta desde la fecha de la puesta en marcha (12 / 6 meses).
+     *   · Calibración anual de patrón: desde la fecha del informe de calibración del proveedor (12 meses).
+     *   · Verificación trimestral de T°: la fija la Verificación de Temperatura firmada después (3 meses).
+     *   · Sin vencimiento: no hay fecha.
+     * Solo para los equipos creados en la app (pendientes de su primera puesta en marcha) o cuando se informa la fecha
+     * de calibración; los equipos anteriores a la app conservan sus fechas. El estado (Operativo / Fuera de Servicio)
+     * se sigue decidiendo en el inventario.
+     */
+    async _aplicarVigencia(pool, p, usuario) {
+        const ctl = await columnasControlEquipo(pool);
+        const eq = (await pool.request().input('id', sql.Int, Number(p.id_equipo)).query(`
+            SELECT nombre${ctl.modalidad ? ', modalidad_control' : ''}${ctl.pendiente ? ', CAST(ISNULL(pendiente_pm, 0) AS BIT) AS pendiente_pm' : ''}
+            FROM mae_equipo WHERE id_equipo = @id`)).recordset[0];
+        if (!eq) return;
+        const modalidad = eq.modalidad_control || resolverModalidad(eq.nombre);
+        const pendiente = !!eq.pendiente_pm;
+        let base = null;
+        if (modalidad === 'CALIBRACION_ANUAL' && esFecha(p.fecha_calibracion)) base = p.fecha_calibracion;
+        else if (pendiente && (modalidad === 'MANTENCION_ANUAL' || modalidad === 'CONTRASTACION_SEMESTRAL')) base = p.fecha;
+        const siguiente = base ? calcularSiguiente(base, modalidad) : null;
+        if (!pendiente && !siguiente) return;
+        const payload = {};
+        if (siguiente) {
+            payload.ultima_verificacion = base;
+            payload.siguiente_verificacion = siguiente;
+            // updateEquipo no acepta una vigencia ya vencida: en ese caso solo se mueve la siguiente revisión.
+            if (siguiente >= hoyYmd()) payload.vigencia = siguiente;
+        }
+        if (pendiente) payload.pendiente_pm = false;
+        await equipoService.updateEquipo(Number(p.id_equipo), payload, Number(usuario.id));
+    },
+
+    /** Con las dos firmas: queda aprobada, entra al historial del equipo y, si corresponde, fija su vigencia. El estado del equipo no se toca. */
     async _aprobar(pool, p, usuario) {
         const marca = await pool.request().input('id', sql.Int, p.id_puesta_marcha).query(
             `UPDATE ${TABLA} SET estado = 'APROBADA', en_historial = 1, fecha_modificacion = GETDATE()
              WHERE id_puesta_marcha = @id AND estado = 'PENDIENTE_FIRMA' AND en_historial = 0`);
         if (!marca.rowsAffected[0]) return;
         await this._escribirHistorial(pool, p, usuario);
+        try {
+            await this._aplicarVigencia(pool, p, usuario);
+        } catch (e) {
+            logger.error(`Puesta en marcha ${p.id_puesta_marcha} aprobada, pero no se pudo fijar la vigencia del equipo:`, e);
+        }
         // El formulario OI-FoGe-42 firmado queda también en el Archivo de Fichas de Gestión de Calidad, como las demás fichas.
         try {
             const eq = (await pool.request().input('id', sql.Int, Number(p.id_equipo)).query('SELECT id_equipo, codigo, nombre, sede FROM mae_equipo WHERE id_equipo = @id')).recordset[0]
@@ -726,7 +795,7 @@ const puestaMarchaService = {
         const pool = await getConnection();
         const r = await pool.request().query(`
             SELECT id_equipo, codigo, nombre, tipoequipo, sede FROM mae_equipo
-            WHERE tipoequipo IN ('Termometro patrón', 'Molinete', 'MUESTREADOR AUTOMÁTICO')
+            WHERE tipoequipo IN ('Termometro patrón', 'Molinete')
               AND ISNULL(Estado, '') NOT LIKE '%baja%'
             ORDER BY tipoequipo, codigo`);
         return r.recordset;

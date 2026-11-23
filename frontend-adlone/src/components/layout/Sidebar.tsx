@@ -238,6 +238,34 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
         );
     };
 
+    // Subcategorías fijas dentro de un módulo (hoy: G. Calidad → Medio Ambiente / Laboratorio).
+    // Un enlace sin subgrupo propio, o de un módulo que no está acá, sigue mostrándose en la lista plana de siempre.
+    const SUBGRUPOS_POR_MODULO: Record<string, string[]> = { gestion_calidad: ['Medio Ambiente', 'Laboratorio'] };
+    // Cada subcategoría no lista sus enlaces en el árbol del sidebar: lleva a su propia pantalla con
+    // tarjetas (una por submódulo), igual que los demás hubs de Admin. Información.
+    const HUB_DESTINO_POR_SUBGRUPO: Record<string, Record<string, string>> = {
+        gestion_calidad: { 'Medio Ambiente': 'gc-hub-mam', Laboratorio: 'gc-hub-lab' },
+    };
+    // Nombre que se muestra en el menú; el subgrupo guardado en mae_menu_link sigue siendo "Medio Ambiente" / "Laboratorio".
+    const ETIQUETA_SUBGRUPO: Record<string, string> = { 'Medio Ambiente': 'G.C. MAM', Laboratorio: 'G.C. LAB' };
+
+    const renderLinkItem = (moduleId: string, link: DynamicModuleLink, isOpen: boolean) => {
+        const active = activeSubmodule === link.id && activeModule === moduleId;
+        return (
+            <li key={link.id}>
+                <button
+                    type="button"
+                    tabIndex={isOpen ? 0 : -1}
+                    data-active={active ? 'true' : undefined}
+                    onClick={() => { setActiveModule(moduleId); handleLeafClick(link.id); }}
+                    className="relative flex min-h-7 w-full min-w-0 data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:-left-[10px] data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary -translate-x-px items-center gap-2 rounded-md px-2 py-1 text-left text-[0.875rem] leading-5 text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-[inset_2px_0_0_var(--sc-mark)]"
+                >
+                    <span>{link.label}</span>
+                </button>
+            </li>
+        );
+    };
+
     // Núcleo compartido por los módulos dinámicos (backend) y los fijos que
     // declaran `links` (ej. Facturación) — ambos son "grupo desplegable con
     // ítems", solo cambia de dónde sale el ícono ya resuelto.
@@ -246,12 +274,23 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
         label: string,
         Icon: ReturnType<typeof getIconComponent>,
         filteredLinks: DynamicModuleLink[],
-        forceOpen: boolean
+        forceOpen: boolean,
+        subgrupos?: string[]
     ) => {
-        const hasSubItems = filteredLinks.length > 0;
+        const hasSubItems = filteredLinks.length > 0 || !!subgrupos?.length;
         const isOpen = isCollapsed ? false : (forceOpen || openedModule === id);
         const isActiveParent = activeModule === id;
         const padreActivo = isActiveParent && !activeSubmodule;
+
+        // Sin subgrupos, exactamente como antes. Con ellos, el resto de los enlaces (si queda alguno sin
+        // subgrupo asignado) se muestra primero, plano; cada subcategoría se muestra como un solo ítem que
+        // lleva a su propia pantalla de tarjetas, no a una lista anidada de enlaces.
+        const sinGrupo = subgrupos?.length ? filteredLinks.filter((l) => !l.subgrupo || !subgrupos.includes(l.subgrupo)) : filteredLinks;
+        const destinoDe = (nombre: string) => HUB_DESTINO_POR_SUBGRUPO[id]?.[nombre];
+        const irASubgrupo = (nombre: string) => {
+            const destino = destinoDe(nombre);
+            if (destino) { setActiveModule(id); handleLeafClick(destino); }
+        };
 
         // Contraído: no hay espacio para el árbol, así que las subopciones se
         // muestran en un menú flotante a la derecha del ícono.
@@ -280,7 +319,16 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                                 Inicio de {label}
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
-                            {filteredLinks.map((link) => {
+                            {subgrupos?.map((nombre) => (
+                                <DropdownMenuItem
+                                    key={nombre}
+                                    className={activeSubmodule === destinoDe(nombre) ? 'bg-primary/10 font-medium text-primary shadow-[inset_2px_0_0_var(--sc-mark)]' : undefined}
+                                    onSelect={() => irASubgrupo(nombre)}
+                                >
+                                    {ETIQUETA_SUBGRUPO[nombre] ?? nombre}
+                                </DropdownMenuItem>
+                            ))}
+                            {sinGrupo.map((link) => {
                                 const active = activeSubmodule === link.id;
                                 return (
                                     <DropdownMenuItem
@@ -319,22 +367,25 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                 {!isCollapsed && hasSubItems && (
                     <Colapsable abierto={isOpen}>
                         <ul className="mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-s border-sidebar-border/60 px-2.5 py-0.5">
-                            {filteredLinks.map((link) => {
-                                const active = activeSubmodule === link.id && activeModule === id;
+                            {!subgrupos?.length && sinGrupo.map((link) => renderLinkItem(id, link, isOpen))}
+                            {subgrupos?.map((nombre) => {
+                                const active = activeSubmodule === destinoDe(nombre);
                                 return (
-                                    <li key={link.id}>
+                                    <li key={nombre}>
                                         <button
                                             type="button"
                                             tabIndex={isOpen ? 0 : -1}
                                             data-active={active ? 'true' : undefined}
-                                            onClick={() => { setActiveModule(id); handleLeafClick(link.id); }}
+                                            onClick={() => irASubgrupo(nombre)}
                                             className="relative flex min-h-7 w-full min-w-0 data-[active=true]:before:absolute data-[active=true]:before:inset-y-1 data-[active=true]:before:-left-[10px] data-[active=true]:before:w-0.5 data-[active=true]:before:rounded-full data-[active=true]:before:bg-primary -translate-x-px items-center gap-2 rounded-md px-2 py-1 text-left text-[0.875rem] leading-5 text-sidebar-foreground outline-none transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring data-[active=true]:bg-primary/10 data-[active=true]:text-primary data-[active=true]:shadow-[inset_2px_0_0_var(--sc-mark)]"
                                         >
-                                            <span>{link.label}</span>
+                                            <span>{ETIQUETA_SUBGRUPO[nombre] ?? nombre}</span>
                                         </button>
                                     </li>
                                 );
                             })}
+                            {/* Con subcategorías, los enlaces directos del módulo (ej. Muestreadores) van después de ellas. */}
+                            {!!subgrupos?.length && sinGrupo.map((link) => renderLinkItem(id, link, isOpen))}
                         </ul>
                     </Colapsable>
                 )}
@@ -344,7 +395,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
 
     const renderDynamicModule = (mod: DynamicModule & { forceOpen?: boolean }) => {
         const filteredLinks = (mod.links || []).filter((link: DynamicModuleLink) => hasAccess(link.permission, hasPermission));
-        return renderExpandableModule(mod.id, mod.label, getIconComponent(mod.icon), filteredLinks, !!mod.forceOpen);
+        return renderExpandableModule(mod.id, mod.label, getIconComponent(mod.icon), filteredLinks, !!mod.forceOpen, SUBGRUPOS_POR_MODULO[mod.id]);
     };
 
     const renderFixedItem = (item: FixedModule & { forceOpen?: boolean }, badgeCount?: number) => {

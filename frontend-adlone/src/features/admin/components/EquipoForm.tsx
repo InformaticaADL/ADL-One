@@ -121,7 +121,30 @@ interface Props {
     onRefreshSolicitudes?: () => void;
     /** Solo al crear. 'nuevo': tipo de equipo que aún no existe (se escribe el código a mano y de él sale la sigla); si no, el código es correlativo automático. */
     modoCreacion?: 'existente' | 'nuevo';
+    /**
+     * Equipo que ya existía antes de la app (se carga desde el inventario en Excel): conserva su estado y sus fechas.
+     * Sin esto, un equipo creado en la app nace Fuera de Servicio, sin vigencia y pendiente de su Puesta en Marcha.
+     */
+    inventarioExistente?: boolean;
 }
+
+// Requisitos del equipo al crearlo (definidos por Gestión de Calidad). Las verificaciones de Cloro y Oxígeno son
+// las diarias que hace el muestreador en terreno: solo se registra que el equipo las requiere.
+const TIPOS_VERIFICACION = [
+    { id: 'TEMPERATURA', label: 'Temperatura (verificación inicial)' },
+    { id: 'CAUDAL', label: 'Caudal' },
+    { id: 'CLORO', label: 'Cloro' },
+    { id: 'OXIGENO', label: 'Oxígeno / Saturación de oxígeno' },
+    { id: 'FUNCIONAMIENTO', label: 'Funcionamiento' },
+] as const;
+interface RequisitosEquipo { puesta_marcha: boolean; mantencion_anual: boolean; verificaciones: string[] }
+const leerRequisitos = (v: unknown): RequisitosEquipo | null => {
+    if (!v) return null;
+    try {
+        const o = typeof v === 'string' ? JSON.parse(v) : v;
+        return { puesta_marcha: o?.puesta_marcha !== false, mantencion_anual: !!o?.mantencion_anual, verificaciones: Array.isArray(o?.verificaciones) ? o.verificaciones : [] };
+    } catch { return null; }
+};
 
 // Grid helper: 12-col layout that collapses to full-width on mobile.
 const colSpanClass = (md: number): string => {
@@ -145,7 +168,7 @@ const PASOS_EQ: Record<PasoEq, { titulo: string; descripcion: string; subtitulo:
     inventario: { titulo: 'Inventario y compra', descripcion: 'Marca, modelo y compra', subtitulo: 'Datos del inventario (OI-FoGe-21), compra y baja del equipo.', ayuda: 'Todo es opcional en este paso, pero ayuda a la ficha técnica y a las fichas de entrega.' },
     documento: { titulo: 'Documento de la revisión', descripcion: 'Informe o certificado', subtitulo: 'Adjunte el informe de la mantención o el certificado de calibración.', ayuda: 'El archivo se guarda junto con el equipo, al presionar Actualizar.' },
     cantidad: { titulo: 'Cantidad y resumen', descripcion: 'Revise y cree el equipo', subtitulo: 'Revise los datos y elija cuántas unidades crear.', ayuda: 'Si necesita varias unidades iguales, indique la cantidad: en el paso siguiente confirma cada código.' },
-    revision: { titulo: 'Revisión masiva', descripcion: 'Confirmar códigos', subtitulo: 'Confirme el código, la sede y la vigencia de cada unidad.', ayuda: 'Puede ajustar los códigos y sedes de cada unidad antes de crearlas.' },
+    revision: { titulo: 'Revisión masiva', descripcion: 'Confirmar códigos', subtitulo: 'Confirme el código, la sede y el N° de serie de cada unidad.', ayuda: 'Puede ajustar los códigos y sedes de cada unidad antes de crearlas.' },
 };
 // Qué paso contiene cada campo obligatorio (data-campo → paso).
 const PASO_DE_CAMPO: Record<string, PasoEq> = {
@@ -190,7 +213,12 @@ const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) 
 // Estados del equipo (columna ESTADO del inventario OI-FoGe-21).
 const ESTADOS_EQUIPO = ['Operativo', 'Fuera de Servicio', 'Dado de Baja'];
 
-export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes, modoCreacion }) => {
+export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pendingRequests = [], onRefreshSolicitudes, modoCreacion, inventarioExistente = false }) => {
+    // Alta en la app (no un equipo del inventario anterior): nace Fuera de Servicio, sin vigencia y pendiente de su
+    // Puesta en Marcha, que es la que fija la vigencia según el control de fechas del equipo.
+    const altaNueva = !initialData?.id_equipo && !inventarioExistente;
+    // Sin vigencia todavía: el alta nueva y el equipo que espera su primera Puesta en Marcha.
+    const sinVigenciaPorPm = altaNueva || !!initialData?.pendiente_pm;
     // --- Helpers for default dates ---
     const getTodayString = () => {
         const today = new Date();
@@ -247,7 +275,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         nombre: '',
         tipo: '',
         ubicacion: '',
-        estado: '',
+        estado: 'Inactivo',
         vigencia: initialSiguiente,
         id_muestreador: '',
         sigla: '',
@@ -268,7 +296,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         ultima_verificacion: initialRevision,
         siguiente_verificacion: initialSiguiente,
         plazo_vigencia: '',
-        estado_equipo: '',
+        estado_equipo: 'Fuera de Servicio',
         proveedor: '',
         fecha_compra: '',
         documento_compra: '',
@@ -282,6 +310,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         justificacion_influencia: ''
     });
 
+    // Solo al dar de alta en la app: qué requiere el equipo (va aparte de formData para no reenviarlo al editar).
+    const [requisitosAlta, setRequisitosAlta] = useState<RequisitosEquipo>({ puesta_marcha: true, mantencion_anual: false, verificaciones: [] });
+    const requisitosGuardados = leerRequisitos(initialData?.requisitos);
     const [loading, setLoading] = useState(false);
     const [loadingHistory, setLoadingHistory] = useState(false);
     // Formularios del equipo en PDF. La ficha de entrega toma lo que hay en el
@@ -356,6 +387,37 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     );
     // El nombre escrito no está registrado (y el catálogo ya cargó).
     const nombreSinRegistrar = esCreacionForm && !!String(formData.nombre || '').trim() && fullCatalogItems.length > 0 && !nombreEnCatalogo;
+    // Influencia significativa y justificación las define el tipo de equipo (catálogo, hoja «Influencia» del
+    // inventario OI-FoGe-21): se rellenan solas y no se editan. Solo un tipo nuevo, o uno que aún no las tiene, se escriben a mano.
+    const influenciaDelTipo: { influencia: string; justificacion: string } | null = nombreEnCatalogo?.influencia_significativa
+        ? { influencia: String(nombreEnCatalogo.influencia_significativa), justificacion: String(nombreEnCatalogo.justificacion_influencia || '') }
+        : null;
+    // Marca, modelo y proveedor: sugerencias con los valores ya cargados en el inventario, para no tipear variantes
+    // del mismo valor. Las que solo difieren en mayúsculas o tildes se juntan y queda la forma más usada.
+    const opcionesInventario = useMemo(() => {
+        const de = (campo: 'marca' | 'modelo' | 'proveedor') => {
+            const grupos = new Map<string, Map<string, number>>();
+            for (const e of allEquipos) {
+                const v = String(e?.[campo] ?? '').replace(/\s+/g, ' ').trim();
+                if (!v) continue;
+                const clave = normNombre(v);
+                const formas = grupos.get(clave) ?? new Map<string, number>();
+                formas.set(v, (formas.get(v) ?? 0) + 1);
+                grupos.set(clave, formas);
+            }
+            return [...grupos.values()]
+                .map((formas) => [...formas.entries()].sort((a, b) => b[1] - a[1])[0][0])
+                .sort((a, b) => a.localeCompare(b, 'es'));
+        };
+        return { marca: de('marca'), modelo: de('modelo'), proveedor: de('proveedor') };
+    }, [allEquipos]);
+
+    useEffect(() => {
+        if (!influenciaDelTipo) return;
+        if (formData.influencia_significativa === influenciaDelTipo.influencia && (formData.justificacion_influencia || '') === influenciaDelTipo.justificacion) return;
+        setFormData((p: Record<string, unknown>) => ({ ...p, influencia_significativa: influenciaDelTipo.influencia, justificacion_influencia: influenciaDelTipo.justificacion }));
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [influenciaDelTipo?.influencia, influenciaDelTipo?.justificacion]);
     // Tipo nuevo: marcado y con un nombre que de verdad no está (si se elige uno registrado, vuelve a «existente»).
     const esNuevoTipo = esCreacionForm && tipoNuevoMarcado && !nombreEnCatalogo;
     // La sigla de un tipo nuevo la define Gestión de Calidad: permiso «Nuevo Equipo: registrar un tipo de equipo nuevo».
@@ -699,6 +761,18 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
     const esSinVencimiento = !!control?.sinVencimiento;
     const mesesControl = control?.meses ?? null;
 
+    // Alta nueva: los requisitos se proponen según el control de fechas (se pueden cambiar).
+    useEffect(() => {
+        if (!altaNueva || !control?.modalidad) return;
+        setRequisitosAlta((r) => ({
+            ...r,
+            mantencion_anual: control.modalidad === 'MANTENCION_ANUAL',
+            verificaciones: control.modalidad === 'VERIFICACION_TRIMESTRAL'
+                ? [...new Set([...r.verificaciones, 'TEMPERATURA'])]
+                : r.verificaciones,
+        }));
+    }, [altaNueva, control?.modalidad]);
+
     // Guarda la modalidad que rige y recalcula la siguiente fecha (última + frecuencia)
     // solo cuando cambia la modalidad o la última fecha: al abrir un equipo existente
     // se respeta la fecha guardada.
@@ -1013,7 +1087,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 formData.estado_equipo &&
                 formData.codigo &&
                 formData.id_muestreador &&
-                (formData.siguiente_verificacion || esSinVencimiento) &&
+                (sinVigenciaPorPm || formData.siguiente_verificacion || esSinVencimiento) &&
                 !generatingCode &&
                 !docUploading
             );
@@ -1034,11 +1108,11 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
             formData.que_mide &&
             formData.observacion &&
             String(formData.n_documento_compra || '').trim() &&
-            (formData.siguiente_verificacion || esSinVencimiento) &&
+            (sinVigenciaPorPm || formData.siguiente_verificacion || esSinVencimiento) &&
             !generatingCode &&
             !docUploading
         );
-    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading, esSinVencimiento, errorCodigoNuevo, faltaControlNuevo, esNuevoTipo, nombreSinRegistrar]);
+    }, [formData, generatingCode, initialData, originalUltimaVerificacion, originalDocumentoRuta, docFile, docUploading, esSinVencimiento, errorCodigoNuevo, faltaControlNuevo, esNuevoTipo, nombreSinRegistrar, sinVigenciaPorPm]);
 
     // Lo que falta para poder guardar. `campo` es el data-campo del bloque del
     // formulario: el aviso junto al botón lo usa para llevar al usuario ahí.
@@ -1063,9 +1137,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
         if (!isEdit && !formData.observacion) missing.push({ label: 'Observación', campo: 'observacion' });
         // Sin Adquisiciones en la aplicación, Calidad ingresa el N° de documento de compra al crear el equipo.
         if (!isEdit && !String(formData.n_documento_compra || '').trim()) missing.push({ label: 'N° Documento (compra)', campo: 'n_documento_compra' });
-        if (!formData.siguiente_verificacion && !esSinVencimiento) missing.push({ label: 'Siguiente Revisión (Vigente hasta:)', campo: 'siguiente_verificacion' });
+        if (!sinVigenciaPorPm && !formData.siguiente_verificacion && !esSinVencimiento) missing.push({ label: 'Siguiente Revisión (Vigente hasta:)', campo: 'siguiente_verificacion' });
         return missing;
-    }, [formData, initialData, esSinVencimiento, errorCodigoNuevo, errorSigla, faltaControlNuevo, esNuevoTipo, nombreSinRegistrar]);
+    }, [formData, initialData, esSinVencimiento, errorCodigoNuevo, errorSigla, faltaControlNuevo, esNuevoTipo, nombreSinRegistrar, sinVigenciaPorPm]);
 
     // Lleva al campo que falta, lo enfoca y enciende las marcas rojas.
     const irACampo = (campo?: string) => {
@@ -1228,8 +1302,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                 updatedFormData = {
                     ...formData,
                     ultima_verificacion: fechaDeObs,
-                    siguiente_verificacion: next,
-                    vigencia: next
+                    ...(altaNueva ? {} : { siguiente_verificacion: next, vigencia: next }),
                 };
                 setFormData(updatedFormData);
             }
@@ -1308,6 +1381,17 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                     equipo_asociado: (it.equipo_asociado === 'No Aplica' || !it.equipo_asociado) ? '0' : String(it.equipo_asociado),
                     // Tipo nuevo: el servidor valida la sigla y deja el tipo en el catálogo para los siguientes equipos iguales.
                     ...(esNuevoTipo ? { tipo_nuevo: true } : {}),
+                    // Alta en la app: Fuera de Servicio y sin vigencia; queda pendiente de su Puesta en Marcha si la requiere.
+                    ...(altaNueva ? {
+                        estado_equipo: 'Fuera de Servicio',
+                        estado: 'Inactivo',
+                        siguiente_verificacion: null,
+                        vigencia: null,
+                        pendiente_pm: requisitosAlta.puesta_marcha,
+                        requisitos: JSON.stringify(requisitosAlta),
+                    } : {}),
+                    // Equipo del inventario anterior a la app: se carga con su estado y fechas.
+                    ...(inventarioExistente ? { origen_excel: true } : {}),
                 }));
                 if (items.length > 1) await equipoService.createEquiposBulk(items);
                 else await equipoService.createEquipo(items[0]);
@@ -1747,6 +1831,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 <div className={colSpanClass(4)} data-campo="estado">
                                     {/* Estado del equipo (columna ESTADO del inventario). Activo/Inactivo
                                         se deriva: Operativo → Activo; Fuera de Servicio o Dado de Baja → Inactivo. */}
+                                    {altaNueva ? (
+                                        <>
+                                            <div className="mb-1"><FieldLabel label="Estado" help="Un equipo nuevo nace Fuera de Servicio: pasa a Operativo después de su Puesta en Marcha y de los documentos que requiera (verificaciones, certificados, informes)." /></div>
+                                            <Input value="Fuera de Servicio" readOnly className="cursor-default bg-muted/50" />
+                                            <p className="mt-1 text-xs text-muted-foreground">Pendiente de puesta en marcha.</p>
+                                        </>
+                                    ) : (
                                     <HybridSelect
                                         label={<FieldLabel label="Estado *" help="Operativo: en uso. Fuera de Servicio: no disponible por ahora (falla, mantención o calibración). Dado de Baja: retirado definitivamente. Fuera de Servicio y Dado de Baja dejan el equipo inactivo." />}
                                         placeholder="Seleccione..."
@@ -1761,6 +1852,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         required
                                         error={mostrarErrores && !formData.estado_equipo && "Obligatorio"}
                                     />
+                                    )}
                                 </div>
                                 <div className={colSpanClass(6)} data-campo="nombre">
                                     <HybridSelect
@@ -2022,6 +2114,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                 </div>
                                 <div className="col-span-12">
                                     <div className="flex flex-wrap gap-6 rounded-lg bg-muted/40 p-4">
+                                        {/* Al crear, en su lugar se pregunta «¿Requiere verificación?» (paso Verificación y vigencia):
+                                            el factor de corrección sale de la Verificación de Temperatura, que un equipo nuevo aún no tiene. */}
+                                        {!altaNueva && (
                                         <label className="flex items-center gap-2">
                                             <Checkbox
                                                 checked={formData.tiene_fc === 'SI'}
@@ -2029,6 +2124,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                             />
                                             <FieldLabel label="Tiene Factor de Corrección" help="Indica si se debe aplicar una constante de corrección a los valores medidos por el equipo. Si está activo, el FC de cada punto (Error con signo invertido) aparece debajo de Error 0/15/30 y se calcula solo — no es editable directamente." />
                                         </label>
+                                        )}
                                         <label className="flex items-center gap-2">
                                             <Checkbox
                                                 checked={formData.visible_muestreador === 'SI'}
@@ -2045,6 +2141,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         </label>
                                     </div>
                                 </div>
+                                {!esCreacion && (
+                                    <>
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="Error 0" help="Desviación o error detectado en la medición del punto de calibración cero. Si 'Tiene Factor de Corrección' está activo, el FC (valor con signo invertido) se calcula y guarda automáticamente al guardar el equipo." /></div>
                                     <Input type="number" step="0.01" value={formData.error0} onChange={(e) => setFormData((p: any) => ({ ...p, error0: e.target.value === '' ? null : Number(e.target.value) }))} />
@@ -2066,6 +2164,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         <p className="mt-1 text-xs text-muted-foreground">FC: {formData.error30 === null || formData.error30 === '' ? '—' : (-Number(formData.error30)).toFixed(1)}</p>
                                     )}
                                 </div>
+                                    </>
+                                )}
                                 <div className="col-span-12" data-campo="observacion">
                                     <div className="mb-1"><FieldLabel label={esCreacion ? 'Observación *' : 'Observación'} help="Comentarios adicionales, historial de fallas, reparaciones o detalles relevantes del equipo." /></div>
                                     <textarea
@@ -2083,8 +2183,8 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                     ...p,
                                                     observacion: ordenada,
                                                     ultima_verificacion: fObs,
-                                                    siguiente_verificacion: next,
-                                                    vigencia: next
+                                                    // Un equipo nuevo no tiene vigencia hasta su Puesta en Marcha.
+                                                    ...(altaNueva ? {} : { siguiente_verificacion: next, vigencia: next }),
                                                 }));
                                             } else if (ordenada !== val.trim()) {
                                                 setFormData((p: any) => ({ ...p, observacion: ordenada }));
@@ -2145,7 +2245,83 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                     )}
                                 </div>
                             )}
-                            <div className={cn('grid grid-cols-12 gap-4', esSinVencimiento && 'hidden')}>
+                            {altaNueva && (
+                                <div className="flex flex-col gap-4">
+                                    <div className="flex items-start gap-2 rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+                                        <IconInfoCircle size={18} className="mt-0.5 shrink-0 text-primary" />
+                                        <span>
+                                            La vigencia se calcula sola al aprobar la <b>Puesta en Marcha</b>
+                                            {control?.modalidad === 'CALIBRACION_ANUAL' ? ', desde la fecha del informe de calibración del proveedor'
+                                                : control?.modalidad === 'VERIFICACION_TRIMESTRAL' ? ', con la Verificación de Temperatura que se firme después'
+                                                    : esSinVencimiento ? ' (este tipo no vence)'
+                                                        : mesesControl ? `: ${mesesControl} meses desde esa fecha` : ''}.
+                                            {' '}Mientras tanto el equipo queda Fuera de Servicio.
+                                        </span>
+                                    </div>
+                                    <div className="rounded-lg border border-border p-3">
+                                        <p className="mb-2 text-sm font-medium">¿Qué requiere este equipo?</p>
+                                        <div className="flex flex-col gap-2.5">
+                                            {([
+                                                ['puesta_marcha', '¿Requiere Puesta en Marcha?'],
+                                                ['mantencion_anual', '¿Requiere Mantención anual?'],
+                                            ] as const).map(([clave, texto]) => (
+                                                <div key={clave} className="flex flex-wrap items-center justify-between gap-2">
+                                                    <span className="text-sm">{texto}</span>
+                                                    <div className="flex gap-1">
+                                                        {[true, false].map((v) => (
+                                                            <Button key={String(v)} type="button" size="sm" variant={requisitosAlta[clave] === v ? 'default' : 'outline'}
+                                                                onClick={() => setRequisitosAlta((r) => ({ ...r, [clave]: v }))}>
+                                                                {v ? 'Sí' : 'No'}
+                                                            </Button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <span className="text-sm">¿Requiere verificación?</span>
+                                                <div className="flex gap-1">
+                                                    {[true, false].map((v) => (
+                                                        <Button key={String(v)} type="button" size="sm" variant={(requisitosAlta.verificaciones.length > 0) === v ? 'default' : 'outline'}
+                                                            onClick={() => setRequisitosAlta((r) => ({ ...r, verificaciones: v ? (r.verificaciones.length ? r.verificaciones : ['FUNCIONAMIENTO']) : [] }))}>
+                                                            {v ? 'Sí' : 'No'}
+                                                        </Button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {requisitosAlta.verificaciones.length > 0 && (
+                                                <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-md bg-muted/40 p-3">
+                                                    {TIPOS_VERIFICACION.map((t) => (
+                                                        <label key={t.id} className="flex items-center gap-2 text-sm">
+                                                            <Checkbox
+                                                                checked={requisitosAlta.verificaciones.includes(t.id)}
+                                                                onCheckedChange={(c) => setRequisitosAlta((r) => {
+                                                                    const sin = r.verificaciones.filter((x) => x !== t.id);
+                                                                    const lista = c ? [...sin, t.id] : sin;
+                                                                    return { ...r, verificaciones: lista };
+                                                                })}
+                                                            />
+                                                            {t.label}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="mt-2 text-xs text-muted-foreground">Certificados, manuales e informes se adjuntan en la Puesta en Marcha o al editar el equipo.</p>
+                                    </div>
+                                </div>
+                            )}
+                            {!altaNueva && requisitosGuardados && (
+                                <div className="mb-4 rounded-md border bg-muted/30 p-3 text-sm">
+                                    <p className="mb-1 font-medium">Requisitos definidos al crear el equipo</p>
+                                    <p className="text-muted-foreground">
+                                        Puesta en Marcha: {requisitosGuardados.puesta_marcha ? 'Sí' : 'No'} · Mantención anual: {requisitosGuardados.mantencion_anual ? 'Sí' : 'No'} · Verificación: {requisitosGuardados.verificaciones.length
+                                            ? requisitosGuardados.verificaciones.map((v) => TIPOS_VERIFICACION.find((t) => t.id === v)?.label ?? v).join(', ')
+                                            : 'No'}
+                                    </p>
+                                    {initialData?.pendiente_pm && <p className="mt-1 text-xs text-warning">Pendiente de su primera Puesta en Marcha: la vigencia se fija al aprobarla.</p>}
+                                </div>
+                            )}
+                            <div className={cn('grid grid-cols-12 gap-4', (esSinVencimiento || altaNueva) && 'hidden')}>
                                 <div className={colSpanClass(6)} data-campo="siguiente_verificacion">
                                     <div className="mb-1 inline-flex flex-wrap items-center gap-1.5">
                                         <FieldLabel label="Siguiente Revisión (Vigente hasta:) *" help={`Fecha programada para la próxima revisión técnica (${mesesControl ? `${control?.info.nombre}, cada ${mesesControl} meses` : 'por defecto 90 días'} después de la última). Corresponde también a la fecha de vigencia.`} />
@@ -2157,9 +2333,9 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         type="date"
                                         value={formData.siguiente_verificacion}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, siguiente_verificacion: e.target.value }))}
-                                        className={cn(mostrarErrores && !formData.siguiente_verificacion && 'border-destructive')}
+                                        className={cn(mostrarErrores && !sinVigenciaPorPm && !formData.siguiente_verificacion && 'border-destructive')}
                                     />
-                                    {mostrarErrores && !formData.siguiente_verificacion && <p className="text-xs text-destructive">Obligatorio</p>}
+                                    {mostrarErrores && !sinVigenciaPorPm && !formData.siguiente_verificacion && <p className="text-xs text-destructive">Obligatorio</p>}
                                 </div>
                                 <div className="col-span-12">
                                     <div className="mb-1">
@@ -2190,52 +2366,79 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
 <SectionDivider>Datos del Inventario</SectionDivider>
                             <div className="grid grid-cols-12 gap-4">
                                 <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="Marca" help="Fabricante del equipo (columna MARCA del inventario OI-FoGe-21)." /></div>
-                                    <Input value={formData.marca || ''} onChange={(e) => setFormData((p: any) => ({ ...p, marca: e.target.value }))} />
+                                    <HybridSelect
+                                        label={<FieldLabel label="Marca" help="Fabricante del equipo (columna MARCA del inventario OI-FoGe-21). Elija una de la lista o escriba una nueva." />}
+                                        placeholder="Seleccione o escriba..."
+                                        value={formData.marca || ''}
+                                        options={opcionesInventario.marca}
+                                        onChange={(val) => setFormData((p: Record<string, unknown>) => ({ ...p, marca: val || '' }))}
+                                    />
                                 </div>
                                 <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="Modelo" help="Modelo del equipo según el fabricante." /></div>
-                                    <Input value={formData.modelo || ''} onChange={(e) => setFormData((p: any) => ({ ...p, modelo: e.target.value }))} />
+                                    <HybridSelect
+                                        label={<FieldLabel label="Modelo" help="Modelo del equipo según el fabricante. Elija uno de la lista o escriba uno nuevo." />}
+                                        placeholder="Seleccione o escriba..."
+                                        value={formData.modelo || ''}
+                                        options={opcionesInventario.modelo}
+                                        onChange={(val) => setFormData((p: Record<string, unknown>) => ({ ...p, modelo: val || '' }))}
+                                    />
                                 </div>
                                 <div className={colSpanClass(4)}>
                                     <div className="mb-1"><FieldLabel label="N° de Serie" help="Número de serie del fabricante (S/N si no tiene)." /></div>
                                     <Input value={formData.n_serie || ''} onChange={(e) => setFormData((p: any) => ({ ...p, n_serie: e.target.value }))} />
                                 </div>
                                 <div className={colSpanClass(4)}>
-                                    <HybridSelect
-                                        label={<FieldLabel label="Influencia Significativa" help="Cuánto influye el equipo en los resultados que se informan: Alta, Media o Baja." />}
-                                        placeholder="Seleccione..."
-                                        value={formData.influencia_significativa || null}
-                                        options={INFLUENCIAS}
-                                        onChange={(val: any) => setFormData((p: any) => ({ ...p, influencia_significativa: val || '' }))}
-                                        strict
-                                    />
+                                    {influenciaDelTipo ? (
+                                        <>
+                                            <div className="mb-1"><FieldLabel label="Influencia Significativa" help="La define el tipo de equipo (hoja «Influencia» del inventario OI-FoGe-21): se completa sola." /></div>
+                                            <Input value={influenciaDelTipo.influencia} readOnly className="cursor-default bg-muted/50" />
+                                        </>
+                                    ) : (
+                                        <HybridSelect
+                                            label={<FieldLabel label="Influencia Significativa" help="Cuánto influye el equipo en los resultados que se informan: Alta, Media o Baja." />}
+                                            placeholder="Seleccione..."
+                                            value={formData.influencia_significativa || null}
+                                            options={INFLUENCIAS}
+                                            onChange={(val: any) => setFormData((p: any) => ({ ...p, influencia_significativa: val || '' }))}
+                                            strict
+                                        />
+                                    )}
                                 </div>
                                 <div className="col-span-12 md:col-span-8">
-                                    <div className="mb-1"><FieldLabel label="Justificación" help="Por qué el equipo tiene esa influencia significativa (columna JUSTIFICACIÓN del inventario)." /></div>
+                                    <div className="mb-1"><FieldLabel label="Justificación" help={influenciaDelTipo ? 'La define el tipo de equipo: se completa sola.' : 'Por qué el equipo tiene esa influencia significativa (columna JUSTIFICACIÓN del inventario).'} /></div>
                                     <textarea
                                         value={formData.justificacion_influencia || ''}
+                                        readOnly={!!influenciaDelTipo}
                                         onChange={(e) => setFormData((p: any) => ({ ...p, justificacion_influencia: e.target.value }))}
                                         rows={2}
                                         maxLength={1000}
-                                        className="flex min-h-[56px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                                        className={cn(
+                                            'flex min-h-[56px] w-full rounded-md border border-border bg-background px-3 py-2 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50',
+                                            influenciaDelTipo && 'cursor-default bg-muted/50',
+                                        )}
                                     />
+                                    {influenciaDelTipo && <p className="mt-1 text-xs text-muted-foreground">Definidas por el tipo «{nombreEnCatalogo?.nombre}».</p>}
                                 </div>
                             </div>
 
                             <SectionDivider>Compra y Baja</SectionDivider>
                             <div className="grid grid-cols-12 gap-4">
                                 <div className={colSpanClass(6)}>
-                                    <div className="mb-1"><FieldLabel label="Proveedor" help="Empresa o distribuidor al que se le compró el equipo." /></div>
-                                    <Input value={formData.proveedor || ''} onChange={(e) => setFormData((p: any) => ({ ...p, proveedor: e.target.value }))} />
+                                    <HybridSelect
+                                        label={<FieldLabel label="Proveedor" help="Empresa o distribuidor al que se le compró el equipo. Elija uno de la lista o escriba uno nuevo." />}
+                                        placeholder="Seleccione o escriba..."
+                                        value={formData.proveedor || ''}
+                                        options={opcionesInventario.proveedor}
+                                        onChange={(val) => setFormData((p: Record<string, unknown>) => ({ ...p, proveedor: val || '' }))}
+                                    />
                                 </div>
                                 <div className={colSpanClass(6)}>
                                     <div className="mb-1"><FieldLabel label="Fecha de Compra" help="Fecha en que se adquirió el equipo." /></div>
                                     <Input type="date" value={formData.fecha_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, fecha_compra: e.target.value }))} />
                                 </div>
                                 <div className={colSpanClass(4)}>
-                                    <div className="mb-1"><FieldLabel label="Documento" help="Tipo de documento de la compra (ej: Factura, Boleta, Guía)." /></div>
-                                    <Input value={formData.documento_compra || ''} onChange={(e) => setFormData((p: any) => ({ ...p, documento_compra: e.target.value }))} />
+                                    <div className="mb-1"><FieldLabel label="Documento" help="Tipo de documento de la compra (ej: Factura, Guía de Despacho, Orden de Compra)." /></div>
+                                    <Input value={formData.documento_compra || ''} onChange={(e) => setFormData((p: Record<string, unknown>) => ({ ...p, documento_compra: e.target.value }))} />
                                 </div>
                                 <div className={colSpanClass(4)} data-campo="n_documento_compra">
                                     <div className="mb-1"><FieldLabel label={esCreacion ? 'N° Documento *' : 'N° Documento'} help="Número de la factura u orden de compra del equipo. Es obligatorio al crear el equipo (lo ingresa Gestión de Calidad)." /></div>
@@ -2259,10 +2462,12 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                         />
                                     </div>
                                 </div>
+                                {!esCreacion && (
                                 <div className={colSpanClass(6)}>
                                     <div className="mb-1"><FieldLabel label="Fecha Dado de Baja" help="Fecha en que el equipo dejó de estar operativo, si corresponde." /></div>
                                     <Input type="date" value={formData.fecha_baja || ''} onChange={(e) => setFormData((p: any) => ({ ...p, fecha_baja: e.target.value }))} />
                                 </div>
+                                )}
                             </div>
 
                             </div>
@@ -2435,7 +2640,7 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                 <TableHead className="w-10">#</TableHead>
                                                 <TableHead>Código</TableHead>
                                                 <TableHead>Ubicación</TableHead>
-                                                <TableHead>Vigencia</TableHead>
+                                                <TableHead>N° Serie</TableHead>
                                                 <TableHead className="w-16">Obs.</TableHead>
                                             </TableRow>
                                         </TableHeader>
@@ -2467,13 +2672,13 @@ export const EquipoForm: React.FC<Props> = ({ onCancel, onSave, initialData, pen
                                                         />
                                                     </TableCell>
                                                     <TableCell>
+                                                        {/* Cada unidad tiene su propia serie, aunque compartan tipo. La vigencia no va acá: nace con la Puesta en Marcha. */}
                                                         <Input
-                                                            type="date"
-                                                            value={item.vigencia}
+                                                            value={item.n_serie || ''}
+                                                            placeholder="S/N"
                                                             onChange={(e) => {
                                                                 const n = [...bulkItems];
-                                                                n[idx].vigencia = e.target.value;
-                                                                n[idx].siguiente_verificacion = e.target.value;
+                                                                n[idx].n_serie = e.target.value;
                                                                 setBulkItems(n);
                                                             }}
                                                         />

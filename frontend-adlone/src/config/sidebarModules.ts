@@ -8,6 +8,8 @@ export interface DynamicModuleLink {
     id: string;
     label: string;
     permission?: string | string[];
+    /** Subcategoría dentro del módulo padre (ej. G. Calidad: "Medio Ambiente" / "Laboratorio"). Sin ella, el enlace se muestra en la lista plana de siempre. */
+    subgrupo?: string;
 }
 
 export interface DynamicModule {

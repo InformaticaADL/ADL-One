@@ -66,7 +66,55 @@ let invColumnsExist = false;
 let modalidadColumnsExist = false;
 let CAMPOS_ACTIVOS = []; // los de inventario y/o la modalidad que existen en la BD
 let invColumnsRevisadas = 0; // si faltan, se vuelve a revisar (y avisar) cada 5 min
+
+// Alta desde la app (migrations/add_mejoras_calidad_observaciones.sql): un equipo creado en la app nace
+// «pendiente de puesta en marcha» (pendiente_pm = 1), Fuera de Servicio y sin vigencia; la vigencia la
+// calcula la aprobación de su Puesta en Marcha. `requisitos` guarda (JSON) lo que el equipo requiere.
+// Los equipos anteriores a la app (cargados del inventario) no tienen la marca y quedan como estaban.
+let altaColumnsExist = false;
+let altaColumnsRevisadas = 0;
+const hasAltaColumns = async (pool) => {
+    if (altaColumnsExist) return true;
+    if (Date.now() - altaColumnsRevisadas < 5 * 60 * 1000) return false;
+    altaColumnsRevisadas = Date.now();
+    try {
+        const r = await pool.request().query("SELECT COL_LENGTH('mae_equipo', 'pendiente_pm') AS p, COL_LENGTH('mae_equipo', 'requisitos') AS r");
+        altaColumnsExist = !!(r.recordset[0].p && r.recordset[0].r);
+        if (!altaColumnsExist) logger.warn('Faltan pendiente_pm / requisitos en equipos — ejecute migrations/add_mejoras_calidad_observaciones.sql');
+    } catch (e) {
+        logger.warn('No se pudieron verificar las columnas de alta de equipos: ' + e.message);
+    }
+    return altaColumnsExist;
+};
+const altaCols = (alias = 'e') => (altaColumnsExist ? `, CAST(ISNULL(${alias}.pendiente_pm, 0) AS BIT) AS pendiente_pm, ${alias}.requisitos` : '');
+/** Marca de alta y requisitos de un equipo recién creado o editado (solo si existen las columnas). */
+const guardarAlta = async (transaction, id, data) => {
+    if (!altaColumnsExist) return;
+    const tienePend = Object.prototype.hasOwnProperty.call(data, 'pendiente_pm');
+    const tieneReq = Object.prototype.hasOwnProperty.call(data, 'requisitos');
+    if (!tienePend && !tieneReq) return;
+    const req = new sql.Request(transaction).input('id', sql.Numeric(10, 0), Number(id));
+    const sets = [];
+    if (tienePend) { req.input('pend', sql.Bit, data.pendiente_pm ? 1 : 0); sets.push('pendiente_pm = @pend'); }
+    if (tieneReq) {
+        const v = data.requisitos === null || data.requisitos === undefined || data.requisitos === '' ? null
+            : (typeof data.requisitos === 'string' ? data.requisitos : JSON.stringify(data.requisitos));
+        req.input('req', sql.NVarChar(500), v ? v.slice(0, 500) : null);
+        sets.push('requisitos = @req');
+    }
+    await req.query(`UPDATE mae_equipo SET ${sets.join(', ')} WHERE id_equipo = @id`);
+};
+/** Un equipo creado en la app nace sin vigencia y Fuera de Servicio hasta su Puesta en Marcha. */
+const prepararAltaPendiente = (data) => {
+    if (!data.pendiente_pm) return;
+    data.estado_equipo = 'Fuera de Servicio';
+    data.estado = 'Inactivo';
+    data.vigencia = null;
+    data.siguiente_verificacion = null;
+};
+
 const hasInvColumns = async (pool) => {
+    await hasAltaColumns(pool);
     if (invColumnsExist && modalidadColumnsExist) return true;
     if (Date.now() - invColumnsRevisadas < 5 * 60 * 1000) return invColumnsExist || modalidadColumnsExist;
     invColumnsRevisadas = Date.now();
@@ -237,6 +285,7 @@ const vencidoCondition = (a) => `(
 // por_vencer / vigente). Una sola definición para la lista, el resumen de calidad y el
 // filtro "Estado de vigencia", así los tres siempre coinciden.
 const estadoVigenciaCase = (a) => `CASE
+                        ${altaColumnsExist ? `WHEN ISNULL(${a}.pendiente_pm, 0) = 1 AND ISNULL(${a}.Estado, '') NOT LIKE '%baja%' THEN 'pendiente_pm'` : ''}
                         WHEN ISNULL(${a}.Estado, '') LIKE '%baja%' OR ISNULL(${a}.Estado, '') LIKE '%fuera de servicio%' THEN 'retirado'
                         ${sinVencimientoWhen(a)}
                         WHEN ${a}.Siguiente_verificacion IS NULL THEN 'sin_fecha'
@@ -245,7 +294,7 @@ const estadoVigenciaCase = (a) => `CASE
                         WHEN DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(${a}.Siguiente_verificacion AS DATE)) <= 30 THEN 'por_vencer'
                         ELSE 'vigente'
                     END`;
-const VIGENCIAS_FILTRO = ['vencido', 'por_vencer', 'vigente', 'sin_fecha', 'sin_vencimiento'];
+const VIGENCIAS_FILTRO = ['vencido', 'por_vencer', 'vigente', 'sin_fecha', 'sin_vencimiento', 'pendiente_pm'];
 
 // El código de un equipo no se repite (el correlativo es único por tipo y sede, ver hoja NMCL
 // del inventario). Se revisa al crear, dentro de la misma transacción, y vale aunque el otro
@@ -310,6 +359,14 @@ const validarTipoNuevo = async (transaction, data, userId = null) => {
     data.sigla = sigla;
     data.correlativo = partesCodigo(data.codigo).correlativo;
 };
+// Influencia significativa y justificación por tipo (migrations/add_mejoras_calidad_observaciones.sql).
+let catalogoConInfluencia = false;
+const hayInfluenciaEnCatalogo = async (pool) => {
+    if (catalogoConInfluencia) return true;
+    const r = await pool.request().query("SELECT COL_LENGTH('mae_equipo_catalogo', 'influencia_significativa') AS i");
+    catalogoConInfluencia = !!r.recordset[0].i;
+    return catalogoConInfluencia;
+};
 const registrarTipoEnCatalogo = async (pool, data) => {
     try {
         const nombre = String(data.nombre || '').trim();
@@ -317,6 +374,7 @@ const registrarTipoEnCatalogo = async (pool, data) => {
         const ya = await pool.request().input('n', sql.NVarChar(200), nombre).query('SELECT TOP 1 1 AS x FROM mae_equipo_catalogo WHERE LTRIM(RTRIM(nombre)) = @n');
         if (ya.recordset[0]) return;
         const conSigla = await hayColumnasCatalogo(pool);
+        const conInfluencia = await hayInfluenciaEnCatalogo(pool);
         await pool.request()
             .input('nombre', sql.NVarChar(200), nombre)
             .input('que_mide', sql.NVarChar(500), data.que_mide || null)
@@ -325,8 +383,10 @@ const registrarTipoEnCatalogo = async (pool, data) => {
             .input('tipo', sql.NVarChar(200), data.tipo || null)
             .input('sigla', sql.VarChar(10), String(data.sigla || '').trim() || null)
             .input('mod', sql.VarChar(30), data.modalidad_control || null)
-            .query(`INSERT INTO mae_equipo_catalogo (nombre, que_mide, unidad_medida_textual, unidad_medida_sigla, tipo_equipo${conSigla ? ', sigla, modalidad_control' : ''})
-                    VALUES (@nombre, @que_mide, @umt, @ums, @tipo${conSigla ? ', @sigla, @mod' : ''})`);
+            .input('infl', sql.NVarChar(20), String(data.influencia_significativa || '').trim() || null)
+            .input('just', sql.NVarChar(1000), String(data.justificacion_influencia || '').trim().slice(0, 1000) || null)
+            .query(`INSERT INTO mae_equipo_catalogo (nombre, que_mide, unidad_medida_textual, unidad_medida_sigla, tipo_equipo${conSigla ? ', sigla, modalidad_control' : ''}${conInfluencia ? ', influencia_significativa, justificacion_influencia' : ''})
+                    VALUES (@nombre, @que_mide, @umt, @ums, @tipo${conSigla ? ', @sigla, @mod' : ''}${conInfluencia ? ', @infl, @just' : ''})`);
         logger.info(`Tipo de equipo nuevo agregado al catálogo: ${nombre}`);
     } catch (e) {
         logger.error('No se pudo registrar el tipo nuevo en el catálogo:', e);
@@ -625,7 +685,7 @@ export const equipoService = {
                     e.documento_compra,
                     e.n_documento_compra,
                     e.valor_unitario,
-                    e.fecha_baja${invCols('e')},
+                    e.fecha_baja${invCols('e')}${altaCols('e')},
                     e.version,
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
@@ -655,6 +715,10 @@ export const equipoService = {
                     ${sortBy === 'ultimas_modificaciones'
                         // Lo más reciente primero; los nunca editados al final (por id, los nuevos antes).
                         ? 'CASE WHEN um.ultima_modificacion IS NULL THEN 1 ELSE 0 END ASC, um.ultima_modificacion DESC, e.id_equipo DESC'
+                        : sortBy === 'recien_creados'
+                        // mae_equipo no guarda fecha de creación propia; el id es correlativo y creciente,
+                        // así que el id más alto es el equipo creado más recientemente.
+                        ? 'e.id_equipo DESC'
                         : `(CASE WHEN EXISTS (
                         SELECT 1 FROM mae_solicitud s
                         JOIN mae_solicitud_tipo t ON s.id_tipo = t.id_tipo
@@ -813,7 +877,7 @@ export const equipoService = {
                 FORMAT(e.Siguiente_verificacion, 'dd/MM/yyyy') AS vigencia,
                 CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) AS ultima_verificacion,
                 CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) AS siguiente_verificacion,
-                e.Plazo_Vigencia AS plazo_vigencia,
+                e.Plazo_Vigencia AS plazo_vigencia${altaCols('e')},
                 e.tienefc AS tiene_fc, e.error0, e.error15, e.error30, e.fc0, e.fc15, e.fc30,
                 CONVERT(VARCHAR(10), e.fecha_compra, 23) AS fecha_compra,
                 DATEDIFF(day, CAST(GETDATE() AS DATE), CAST(e.Siguiente_verificacion AS DATE)) AS dias_restantes,
@@ -1006,7 +1070,7 @@ export const equipoService = {
                     e.documento_compra,
                     e.n_documento_compra,
                     e.valor_unitario,
-                    e.fecha_baja${invCols('e')},
+                    e.fecha_baja${invCols('e')}${altaCols('e')},
                     e.version,
                     CONVERT(VARCHAR(10), e.Ultima_verificacion, 23) as ultima_verificacion,
                     CONVERT(VARCHAR(10), e.Siguiente_verificacion, 23) as siguiente_verificacion,
@@ -1088,6 +1152,7 @@ export const equipoService = {
 
     createEquipo: async (data, userId = null) => {
         exigirDocumentoCompra(data);
+        prepararAltaPendiente(data);
         // Validate Vigencia (no aplica si el equipo queda fuera de servicio o dado de baja, ni a los equipos que se crean
         // desde la subida del inventario en Excel: esos se cargan tal como vienen, aunque su vigencia ya esté vencida).
         if (data.vigencia && !estadoSinVigenciaExigida(data.estado_equipo) && !data.origen_excel) {
@@ -1198,6 +1263,7 @@ export const equipoService = {
             `;
 
             await request.query(queryMain);
+            await guardarAlta(transaction, newId, data);
 
             await transaction.commit();
             if (data.tipo_nuevo) await registrarTipoEnCatalogo(pool, data);
@@ -1215,6 +1281,7 @@ export const equipoService = {
             throw new Error('No hay equipos para crear');
         }
         equiposData.forEach(exigirDocumentoCompra);
+        equiposData.forEach(prepararAltaPendiente);
 
         const pool = await getConnection();
         await hasInvColumns(pool);
@@ -1302,6 +1369,7 @@ export const equipoService = {
                 `;
 
                 await request.query(queryMain);
+                await guardarAlta(transaction, currentId, data);
                 results.push({ id: currentId, ...data });
             }
 
@@ -1595,6 +1663,8 @@ export const equipoService = {
             }
 
             await requestMain.query(queryUpdate);
+            // Requisitos del equipo y la marca de «pendiente de puesta en marcha» (la limpia la aprobación de la PM).
+            await guardarAlta(transaction, id, data);
 
             // La versión nueva también queda en el historial con su documento
             // (documento_nombre/ruta/fecha), no solo en mae_equipo: hasta ahora

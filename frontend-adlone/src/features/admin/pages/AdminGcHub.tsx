@@ -2,14 +2,17 @@ import React from 'react';
 import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
+import { Card } from '@/components/ui/card';
 import { HubGrid, type HubOption } from '../components/HubGrid';
 
 interface Props {
     onNavigate: (view: string) => void;
     onBack: () => void;
+    /** Qué subcategoría de G. Calidad mostrar: Medio Ambiente (con sus submódulos) o Laboratorio (sin los suyos propios todavía). */
+    seccion: 'mam' | 'lab';
 }
 
-export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
+export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => {
     const { hasPermission } = useAuth();
 
     const GC_ACCESS = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
@@ -25,54 +28,63 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
                 </div>
             ),
             description: 'Inventario, configuración y mantenimiento preventivo de equipos.',
+            grupo: 'Equipos',
         },
         {
             id: 'gc-nuevo-equipo',
             label: 'Nuevo Equipo',
             icon: <IconPackageImport size={20} stroke={1.75} />,
             description: 'Ingreso de un equipo al inventario: tipo existente (código automático) o equipo nuevo.',
-        },
-        {
-            id: 'gc-puesta-marcha',
-            label: 'Puesta en Marcha',
-            icon: <IconPlayerPlay size={20} stroke={1.75} />,
-            description: 'Recepción, puesta en marcha y verificación de equipos (OI-FoGe-42), con firma de Área Técnica y Calidad.',
+            grupo: 'Equipos',
         },
         {
             id: 'gc-dashboard-equipos',
             label: 'Dashboard de Equipos',
             icon: <IconChartBar size={20} stroke={1.75} />,
             description: 'KPIs, gráficos y análisis del inventario de equipos de calidad.',
+            grupo: 'Equipos',
         },
         {
             id: 'gc-calendario-vencimientos',
             label: 'Calendario de Vencimientos',
             icon: <IconCalendarEvent size={20} stroke={1.75} />,
             description: 'Vista mensual de vencimientos de equipos con alertas por proximidad.',
+            grupo: 'Equipos',
+        },
+        {
+            id: 'gc-puesta-marcha',
+            label: 'Puesta en Marcha',
+            icon: <IconPlayerPlay size={20} stroke={1.75} />,
+            description: 'Recepción, puesta en marcha y verificación de equipos (OI-FoGe-42), con firma de Área Técnica y Calidad.',
+            grupo: 'Verificaciones',
         },
         {
             id: 'gc-verificacion-temperatura',
             label: 'Verificación de Temperatura',
             icon: <IconTemperature size={20} stroke={1.75} />,
             description: 'Formulario OI-FoGe-39: mediciones, firma del muestreador y PDF en el equipo.',
+            grupo: 'Verificaciones',
         },
         {
             id: 'gc-verificacion-caudal',
             label: 'Verificación Sonda Caudal',
             icon: <IconDroplet size={20} stroke={1.75} />,
             description: 'Formulario OI-FoGe-30: verificación semestral (±10 %) de sondas de caudal contra el molinete, con V°B°.',
+            grupo: 'Verificaciones',
         },
         {
             id: 'gc-archivo-fichas',
             label: 'Archivo de Fichas',
             icon: <IconArchive size={20} stroke={1.75} />,
             description: 'Fichas guardadas de los equipos (OI-FoGe-22/24/36/42) por año de vigencia, formulario y sede.',
+            grupo: 'Documentación',
         },
         {
             id: 'gc-revision-documental',
             label: 'Revisión documental',
             icon: <IconCalendarCheck size={20} stroke={1.75} />,
             description: 'Fechas de revisión anual que llevan los formularios de equipos.',
+            grupo: 'Documentación',
         },
     ];
 
@@ -89,18 +101,30 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack }) => {
         return false;
     });
 
+    if (seccion === 'lab') {
+        return (
+            <div className="shadcn-scope w-full p-4 md:p-6">
+                <PageHeader
+                    title="Gestión de Calidad · Laboratorio"
+                    subtitle="Sección pendiente de definir."
+                    onBack={onBack}
+                    breadcrumbItems={[{ label: 'G.C. LAB' }]}
+                />
+                <Card className="mt-2 bg-muted/40 p-5">
+                    <p className="text-center text-sm text-muted-foreground">Sección pendiente de definir.</p>
+                </Card>
+            </div>
+        );
+    }
+
     return (
         <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
-                title="Gestión de Calidad"
+                title="Gestión de Calidad · Medio Ambiente"
                 subtitle="Gestión de inventarios, validación de equipos y control de calidad ADL."
                 onBack={onBack}
-                breadcrumbItems={[
-                    { label: 'Admin. Info', onClick: onBack },
-                    { label: 'Gestión de Calidad' }
-                ]}
+                breadcrumbItems={[{ label: 'G.C. MAM' }]}
             />
-
             <HubGrid options={visibleOptions} onNavigate={onNavigate} emptyText="No tiene permisos para acceder a las funcionalidades de este hub." />
         </div>
     );

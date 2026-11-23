@@ -844,6 +844,20 @@ frontend-adlone/
 - **N° de documento de compra obligatorio**: mientras no se trabaje con Adquisiciones, Gestión de Calidad ingresa el N° de documento (factura u orden de compra) al crear un equipo; el formulario y el servidor lo exigen (la subida del inventario en Excel carga lo que traiga).
 - **🔜 A mejorar en el futuro**: la secuencia que se escribe en el historial al aprobar una puesta en marcha (fecha, acción, conector, vinculación) es una primera versión y se detallará más adelante; toda su redacción está en `lineaHistorial` (`puestaMarcha.service.js`). Tampoco está definido cómo se registran las modificaciones posteriores (hoy los documentos adjuntados después no entran al historial). Otras ideas del documento sin implementar: conexión con Adquisiciones (que el equipo tome los datos de la factura u orden de compra) y apartado documental ampliado a todos los documentos de Medio Ambiente.
 
+### 88. G. Calidad por subcategorías y mejoras según «Observaciones app» (Noviembre 2026) 🧭🧰📋
+
+- **Menú de G. Calidad por subcategorías** (migración `add_menu_link_subgrupo.sql`): nueva columna `subgrupo` en `mae_menu_link` (editable en la administración del menú). En el sidebar, G. Calidad muestra **G.C. MAM** (Medio Ambiente) y **G.C. LAB** (Laboratorio), cada una con su pantalla de tarjetas (`gc-hub-mam` / `gc-hub-lab`, `AdminGcHub.tsx`), y **Muestreadores** como enlace directo. Las tarjetas de G.C. MAM se agrupan en Equipos, Verificaciones y Documentación (`HubGrid` acepta `grupo`, en dos columnas en pantallas anchas). Laboratorio queda pendiente de definir.
+- **Ruta y «Volver» en G.C. MAM**: las pantallas de Medio Ambiente (Inventario, Nuevo Equipo, Puesta en Marcha, Dashboard, Calendario, Verificaciones, Archivo de Fichas y Revisión documental) muestran «Inicio / G. Calidad / G.C. MAM / …» y «Volver» lleva al panel de tarjetas.
+- **Inventario de Equipos**: orden «Últimos equipos creados». **Revisión documental**: la confirmación de eliminar una revisión usa un diálogo propio en vez del del navegador.
+- **Alta de equipo según Gestión de Calidad** (migración `add_mejoras_calidad_observaciones.sql`):
+  - Al crear ya no se piden Error 0/15/30 ni Fecha dado de baja; el «Factor de corrección» se reemplaza por **¿Requiere verificación?** (Temperatura, Caudal, Cloro, Oxígeno, Funcionamiento). Cloro y Oxígeno son la verificación diaria en terreno: solo se registra.
+  - **La vigencia nace con la Puesta en Marcha**: un equipo creado en la app nace Fuera de Servicio, sin vigencia y «pendiente de puesta en marcha» (`mae_equipo.pendiente_pm`), con sus requisitos (`mae_equipo.requisitos`). Al aprobar la Puesta en Marcha se calcula la vigencia: mantención anual y contrastación semestral desde la fecha de la PM; calibración anual de patrón desde la fecha del informe del proveedor (`mae_puesta_marcha.fecha_calibracion`); la trimestral la fija la Verificación de Temperatura. Los equipos anteriores a la app (y los importados desde Excel) conservan su estado y fechas.
+  - Inventario, dashboard y calendario muestran «Pendiente de PM» y no lo cuentan como vencido; nuevo filtro de vigencia.
+  - **Influencia y justificación por tipo** en `mae_equipo_catalogo`, cargadas desde la hoja «Influencia» del OI-FoGe-21 (37 tipos): se completan solas y no se editan, salvo en un tipo nuevo. Marca, modelo y proveedor sugieren los valores del inventario (variantes unificadas). El documento de compra sigue siendo texto libre.
+  - Creación masiva: N° de serie por equipo, sin vigencia.
+- **Puesta en Marcha**: patrón de referencia solo termómetros patrón y molinetes (o «No aplica»); los buffers se escriben en la Observación; nuevo tipo **Recepción por asignación a muestreador**.
+- **Fichas**: ficha técnica con observación por defecto «Responsable del Equipo, Jefe Técnico de Medio Ambiente» y autorización de uso por cargos de Medio Ambiente; la de un código anterior aparece como **OBSOLETO**. Ficha de entrega con los datos del inventario de solo lectura; la fecha de recepción se completa con la firma de quien recibe (también al enviar a firmar); la recepción queda en el historial y se ofrece registrar la Puesta en Marcha por recepción (aviso `PuestaMarchaRecepcion`). Responsable de área: solo Pablo Flores y Mario Jofré (el backend lo exige).
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -946,6 +960,8 @@ npm run dev       # Puerto 5173
 | **Dashboard y Calendario GC + Filtro GEM** | Dashboard de equipos GC, calendario de vencimientos y filtrado de muestreos por empresas asignadas GEM | ✅ Implementado |
 | **Modalidades de Control de Equipos** | Ciclos mantención anual / contrastación semestral / verificación trimestral / calibración anual de patrón / sin vencimiento por tipo, con opción excluyente en sonda de caudal y molinete + migración `modalidad_control` | ✅ Implementado (requiere migración) |
 | **Filtros de Gestión de Equipos** | Filtros por control de fechas, estado de vigencia, familia y documento + pestañas segmentadas; Dashboard y Calendario independientes de los filtros | ✅ Implementado |
+| **Subcategorías de G. Calidad** | Menú G.C. MAM / G.C. LAB con paneles de tarjetas, Muestreadores directo y ruta «G.C. MAM» + migración `add_menu_link_subgrupo.sql` | ✅ Implementado |
+| **Vigencia desde la Puesta en Marcha** | Alta pendiente de PM, requisitos del equipo, vigencia al aprobar la PM, influencia por tipo, recepción por asignación + migración `add_mejoras_calidad_observaciones.sql` | ✅ Implementado |
 
 ---
 

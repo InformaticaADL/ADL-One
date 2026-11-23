@@ -5,7 +5,7 @@ import apiClient from '../../../config/axios.config';
 
 const BASE = '/api/puestas-marcha';
 
-export type TipoPuestaMarcha = 'EQUIPO_NUEVO' | 'RETORNO_SERVICIO' | 'CAMBIO_SEDE' | 'REACTIVACION';
+export type TipoPuestaMarcha = 'EQUIPO_NUEVO' | 'RETORNO_SERVICIO' | 'CAMBIO_SEDE' | 'REACTIVACION' | 'ASIGNACION';
 export type AreaPuestaMarcha = 'TECNICA' | 'CALIDAD';
 export type EstadoPuestaMarcha = 'PENDIENTE_FIRMA' | 'APROBADA' | 'ANULADA';
 
@@ -14,6 +14,8 @@ export const TIPOS_PUESTA_MARCHA: { value: TipoPuestaMarcha; label: string }[] =
     { value: 'RETORNO_SERVICIO', label: 'Retorno de servicio externo (diagnóstico, reparación o mantención)' },
     { value: 'CAMBIO_SEDE', label: 'Cambio de sede' },
     { value: 'REACTIVACION', label: 'Reactivación tras Fuera de Servicio' },
+    // Puesta en marcha preventiva: el muestreador recibe conforme el equipo que se le asignó (ficha de entrega firmada).
+    { value: 'ASIGNACION', label: 'Recepción por asignación a muestreador' },
 ];
 export const NOMBRE_AREA: Record<AreaPuestaMarcha, string> = { TECNICA: 'Área Técnica de Medio Ambiente', CALIDAD: 'Gestión de Calidad' };
 
@@ -47,6 +49,8 @@ export interface PuestaMarcha {
     n_adjuntos?: number;
     items?: Record<string, string>;
     otros?: string;
+    /** Calibración anual de patrón: fecha del informe de calibración del proveedor. */
+    fecha_calibracion?: string | null;
 }
 
 export interface AdjuntoPuestaMarcha { id_adjunto: number; documento: string; archivo_nombre: string; nombre_usuario: string | null; fecha: string; observacion?: string | null }
@@ -85,7 +89,13 @@ export interface EdicionPuestaMarcha {
 }
 
 export interface DatosEquipoPuesta {
-    equipo: { id_equipo: number; codigo: string; nombre: string; tipoequipo: string | null; sede: string | null; marca: string | null; modelo: string | null; n_serie: string | null; estado_equipo: string | null };
+    equipo: {
+        id_equipo: number; codigo: string; nombre: string; tipoequipo: string | null; sede: string | null; marca: string | null; modelo: string | null; n_serie: string | null; estado_equipo: string | null;
+        /** Control de fechas del equipo. */
+        modalidad_control?: string | null;
+        /** Equipo creado en la app que espera su primera Puesta en Marcha (al aprobarla se fija su vigencia). */
+        pendiente_pm?: boolean;
+    };
     verificaciones_temperatura: { id_verificacion: number; fecha: string; cumple: string | null; patron_codigo: string | null; patron_nombre: string | null }[];
     /** Verificaciones de caudal (OI-FoGe-30) con V°B° de esta sonda. */
     verificaciones_caudal?: { id_verificacion: number; fecha: string; cumple: boolean | null; equipo_referencia: string | null }[];
@@ -108,6 +118,8 @@ export interface NuevaPuestaMarcha {
     /** Opción elegida de cada ítem del OI-FoGe-42 (caja, embalaje, manual, cable, accesorios, interruptor, comandos, encendido). */
     items?: Record<string, string>;
     otros?: string;
+    /** Calibración anual de patrón: fecha del informe de calibración del proveedor (la vigencia se cuenta desde ahí). */
+    fecha_calibracion?: string;
 }
 
 export const puestaMarchaService = {

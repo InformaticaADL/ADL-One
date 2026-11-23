@@ -112,10 +112,13 @@ export const fichasEquipoController = {
     entregaGuardar: manejar(async (req, res) => {
         const pdf = await fichasEquipoService.entregaPdf(req.body, req.user);
         const equipo = await equipoDelCuerpo(req.body);
-        successResponse(res, await gcDocumentosService.guardarFichaEquipo({
+        const guardada = await gcDocumentosService.guardarFichaEquipo({
             tipo: 'entrega', equipo, ...pdf, datos: req.body, usuario: req.user,
             firmas: await fichasEquipoService.firmasDocumento('entrega', req.body, req.user),
-        }), 'Ficha guardada');
+        });
+        // Firmada por quien recibe: la recepción queda en el historial y corresponde la Puesta en Marcha por recepción.
+        const recepcion = await fichasEquipoService.registrarRecepcion(equipo?.id_equipo, req.body, req.user);
+        successResponse(res, { ...guardada, recepcion_registrada: recepcion }, 'Ficha guardada');
     }, 'Error al guardar la ficha de entrega'),
 
     recepcionGuardar: manejar(async (req, res) => {

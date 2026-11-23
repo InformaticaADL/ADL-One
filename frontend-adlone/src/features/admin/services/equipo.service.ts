@@ -56,7 +56,11 @@ export interface Equipo {
     plazo_vigencia?: string;           // VARCHAR(500) - texto con el plazo
     estado_equipo?: string;            // VARCHAR(100) - Estado textual (Operativo, Dado de Baja, etc.)
     // Solo en /equipos/resumen-calidad: vigencia calculada en el backend.
-    estado_vigencia?: 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'sin_vencimiento' | 'retirado';
+    estado_vigencia?: 'vigente' | 'por_vencer' | 'vencido' | 'sin_fecha' | 'sin_vencimiento' | 'retirado' | 'pendiente_pm';
+    /** Equipo creado en la app que espera su primera Puesta en Marcha (la que fija la vigencia). */
+    pendiente_pm?: boolean;
+    /** Requisitos definidos al crearlo (JSON). */
+    requisitos?: string | null;
     dias_restantes?: number | null;
     ultima_modificacion?: string | null;  // última fecha de cambio en mae_equipo_historial
     usuario_modificacion?: string | null; // quién hizo ese cambio

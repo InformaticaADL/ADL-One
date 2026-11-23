@@ -9,6 +9,7 @@ import { Combobox } from '@/components/ui/combobox';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import PdfViewerModal from '../../facturacion/components/PdfViewerModal';
 import { FichasEquipoDialog } from '../components/FichasEquipoDialog';
 import { verificacionTemperaturaService as api, type VerificacionResumen, type EstadoVerificacion } from '../services/verificacionTemperatura.service';
@@ -32,6 +33,7 @@ const MAX_MESA = 6;
 // Temperatura <mes>.xlsx": cada fila es una ficha OI-FoGe-39 (lo que antes era
 // una hoja por equipo) y la tabla hace de hoja "Resumen".
 export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
+    const { setActiveSubmodule } = useNavStore();
     const { showToast } = useToast();
     const [periodos, setPeriodos] = useState<{ periodo: string; total: number; firmadas: number }[]>([]);
     const [periodo, setPeriodo] = useState(hoyYmd().slice(0, 7));
@@ -156,7 +158,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                 title="Verificación de Temperatura"
                 subtitle="Formulario OI-FoGe-39 · Verificación intermedia de temperatura de los equipos de medición."
                 onBack={onBack}
-                breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Verificación de Temperatura' }]}
+                breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Verificación de Temperatura' }]}
                 rightSection={(
                     <Button onClick={() => setCrearAbierto(true)}>
                         <IconFilePlus size={16} /> Crear fichas

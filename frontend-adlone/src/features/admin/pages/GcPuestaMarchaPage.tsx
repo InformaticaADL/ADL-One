@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+﻿import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { formatearFechaHoraCorta } from '@/lib/fechas';
 import { IconPlus, IconSearch, IconFileTypePdf, IconPaperclip, IconTrash, IconDownload, IconBan, IconCircleCheck, IconClock, IconEdit, IconSend, IconDeviceMobile } from '@tabler/icons-react';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -60,10 +60,20 @@ export const GcPuestaMarchaPage: React.FC<Props> = ({ onBack }) => {
     const [cargando, setCargando] = useState(true);
     const [busqueda, setBusqueda] = useState('');
     const [estado, setEstado] = useState('');
-    const [nueva, setNueva] = useState(false);
+    // Nueva puesta en marcha; desde una ficha de entrega firmada llega con el equipo y el tipo «por recepción» ya elegidos.
+    const [nueva, setNueva] = useState<{ idEquipo?: number; tipo?: TipoPuestaMarcha } | null>(null);
     const [abierta, setAbierta] = useState<number | null>(null);
     const [pdf, setPdf] = useState<{ url: string; titulo: string } | null>(null);
-    const { puestaMarchaPendienteId, setPuestaMarchaPendienteId } = useNavStore();
+    const { puestaMarchaPendienteId, setPuestaMarchaPendienteId, setActiveSubmodule, pmRecepcionEquipoId, setPmRecepcionEquipoId } = useNavStore();
+
+    // Llegó desde el aviso de una ficha de entrega firmada: se abre la Puesta en Marcha por recepción de ese equipo.
+    useEffect(() => {
+        if (pmRecepcionEquipoId) {
+            setNueva({ idEquipo: pmRecepcionEquipoId, tipo: 'ASIGNACION' });
+            setPmRecepcionEquipoId(null);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pmRecepcionEquipoId]);
 
     // Llegó desde el aviso de "Enviar a firmar" (o de que ya firmó la otra parte): se abre directo.
     useEffect(() => {
@@ -102,8 +112,8 @@ export const GcPuestaMarchaPage: React.FC<Props> = ({ onBack }) => {
                 title="Puesta en Marcha"
                 subtitle="Recepción, puesta en marcha y verificación de equipos (OI-FoGe-42)."
                 onBack={onBack}
-                breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Puesta en Marcha' }]}
-                rightSection={<Button onClick={() => setNueva(true)}><IconPlus size={16} /> Nueva puesta en marcha</Button>}
+                breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Puesta en Marcha' }]}
+                rightSection={<Button onClick={() => setNueva({})}><IconPlus size={16} /> Nueva puesta en marcha</Button>}
             />
 
 
@@ -195,7 +205,7 @@ export const GcPuestaMarchaPage: React.FC<Props> = ({ onBack }) => {
                 </Table>
             </div>
 
-            {nueva && <NuevaPuestaDialog onClose={() => setNueva(false)} onCreada={(id) => { setNueva(false); cargar(); setAbierta(id); }} />}
+            {nueva && <NuevaPuestaDialog idEquipoInicial={nueva.idEquipo} tipoInicial={nueva.tipo} onClose={() => setNueva(null)} onCreada={(id) => { setNueva(null); cargar(); setAbierta(id); }} />}
             {abierta !== null && <DetalleDialog key={abierta} id={abierta} onClose={() => { setAbierta(null); cargar(); }} onCambio={cargar} verPdf={verPdf} />}
             <PdfViewerModal open={!!pdf} onClose={() => setPdf(null)} url={pdf?.url ?? null} title={pdf?.titulo} />
         </div>
@@ -243,14 +253,14 @@ const FilaFormulario: React.FC<{ label: string; children: React.ReactNode }> = (
     </div>
 );
 
-export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: number) => void; idEquipoInicial?: number }> = ({ onClose, onCreada, idEquipoInicial }) => {
+export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: number) => void; idEquipoInicial?: number; tipoInicial?: TipoPuestaMarcha }> = ({ onClose, onCreada, idEquipoInicial, tipoInicial }) => {
     const { showToast } = useToast();
     const { hasPermission } = useAuth();
     const [equipos, setEquipos] = useState<OpcionEquipo[]>([]);
     const [idEquipo, setIdEquipo] = useState('');
     const [datos, setDatos] = useState<DatosEquipoPuesta | null>(null);
     const [fecha, setFecha] = useState(hoyYmd());
-    const [tipo, setTipo] = useState<TipoPuestaMarcha>('EQUIPO_NUEVO');
+    const [tipo, setTipo] = useState<TipoPuestaMarcha>(tipoInicial ?? 'EQUIPO_NUEVO');
     // Quién la realiza: se detecta por el perfil de quien la está registrando (permisos
     // «Puesta en Marcha: firmar por…», ver permisosCalidad.js). Si el perfil firma solo por
     // una parte, esa queda fija y no se puede cambiar a la otra (no tendría sentido registrar
@@ -259,6 +269,7 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
     const puedeCalidad = hasPermission('GC_PM_FIRMA_CALIDAD');
     const puedeTecnica = hasPermission('GC_PM_FIRMA_TECNICA');
     const areaFija: AreaPuestaMarcha | null = puedeCalidad !== puedeTecnica ? (puedeCalidad ? 'CALIDAD' : 'TECNICA') : null;
+    // Por recepción la realiza el muestreador que recibió el equipo (Área Técnica), salvo que el perfil fije otra.
     const [area, setArea] = useState<AreaPuestaMarcha>(areaFija ?? 'TECNICA');
     const [items, setItems] = useState<Items>({});
     const [otros, setOtros] = useState('');
@@ -268,11 +279,13 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
     const [funcionamientoSel, setFuncionamientoSel] = useState<'' | 'OPERATIVO' | 'NO_OPERATIVO'>('');
     const [patron, setPatron] = useState('');
     const [patrones, setPatrones] = useState<PatronReferencia[]>([]);
-    const [observacion, setObservacion] = useState('');
+    const [observacion, setObservacion] = useState(tipoInicial === 'ASIGNACION' ? 'Puesta en marcha preventiva por recepción del equipo asignado al muestreador, que lo recibe conforme.' : '');
     const [vinculo, setVinculo] = useState<'' | 'TEMPERATURA' | 'CAUDAL'>('');
     const [verifId, setVerifId] = useState('');
     const [caudalCodigo, setCaudalCodigo] = useState('');
     const [caudalFecha, setCaudalFecha] = useState('');
+    // Calibración anual de patrón: la fecha que manda es la del informe del proveedor (la vigencia se cuenta desde ahí).
+    const [fechaCalibracion, setFechaCalibracion] = useState('');
     const [guardando, setGuardando] = useState(false);
     // Vista previa del formulario (derecha): se regenera un instante después de cada cambio.
     const [previa, setPrevia] = useState<string | null>(null);
@@ -301,6 +314,7 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
 
     const funcionamientoCod = funcionamientoSel || (recepcion === 'CUMPLE' ? 'OPERATIVO' : recepcion === 'NO_CUMPLE' ? 'NO_OPERATIVO' : '');
     const verifElegida = datos?.verificaciones_temperatura.find((v) => String(v.id_verificacion) === verifId);
+    const esCalibracion = datos?.equipo.modalidad_control === 'CALIBRACION_ANUAL';
 
     // «Se registra»: Gestión de Calidad definió que las tres partes se marcan siempre, sea cual sea el caso.
     const registra = { recepcion: true, puesta: true, verificacion: true };
@@ -328,6 +342,7 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
         ...(vinculo === 'TEMPERATURA' ? { verificacion_id: Number(verifId) } : {}),
         // Caudal: una verificación OI-FoGe-30 con V°B° del sistema, o (respaldo) una hecha fuera, con código y fecha.
         ...(vinculo === 'CAUDAL' ? (verifId ? { verificacion_id: Number(verifId) } : { verificacion_codigo: caudalCodigo.trim(), verificacion_fecha: caudalFecha }) : {}),
+        ...(esCalibracion && fechaCalibracion ? { fecha_calibracion: fechaCalibracion } : {}),
     });
 
     useEffect(() => {
@@ -458,6 +473,18 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
                                     <div key={k}><p className="text-[11px] text-muted-foreground">{k}</p><p className="truncate font-medium">{v || '—'}</p></div>
                                 ))}
                             </div>
+                            {datos?.equipo.pendiente_pm && (
+                                <p className="rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-xs">
+                                    Equipo nuevo, pendiente de su primera Puesta en Marcha: al aprobarla se fija su vigencia según su control de fechas.
+                                </p>
+                            )}
+                            {esCalibracion && (
+                                <label className="flex flex-col gap-1 text-xs text-muted-foreground sm:max-w-[260px]">
+                                    Fecha de calibración (informe del proveedor)
+                                    <Input type="date" value={fechaCalibracion} max={hoyYmd()} onChange={(e) => setFechaCalibracion(e.target.value)} />
+                                    <span className="text-[11px]">La vigencia (12 meses) se cuenta desde esta fecha al aprobar la puesta en marcha.</span>
+                                </label>
+                            )}
                             <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-2">
                                 {casilla('Recepción', registra.recepcion)}
                                 {casilla('Puesta en Marcha', registra.puesta)}
@@ -505,13 +532,11 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
                                         if (e) setPatron(`${e.tipoequipo} ${e.codigo}`);
                                     }}
                                     options={patrones.map((e) => ({ value: String(e.id_equipo), label: `${e.codigo} · ${e.tipoequipo}${e.sede ? ` (${e.sede})` : ''}` }))}
-                                    placeholder="Elegir equipo patrón (termómetro patrón, molinete, muestreador automático)…"
+                                    placeholder="Elegir equipo patrón (termómetro patrón o molinete, o No aplica)…"
                                 />
                                 <Input value={patron} maxLength={300} placeholder="Equipo elegido o buffer usado" onChange={(e) => setPatron(e.target.value)} />
                                 <div className="flex flex-wrap gap-1">
-                                    {BUFFERS.map((b) => (
-                                        <button key={b} type="button" onClick={() => setPatron((p) => (p.includes(b) ? p : [p.trim(), b].filter(Boolean).join(' / ')))} className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted">{b}</button>
-                                    ))}
+                                    <button type="button" onClick={() => setPatron('No aplica')} className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted">No aplica</button>
                                     {verifElegida?.patron_codigo && !patron.includes(verifElegida.patron_codigo) && (
                                         <button type="button" className="rounded-full border border-primary/40 px-2 py-0.5 text-[11px] text-primary hover:bg-primary/10" onClick={() => setPatron([verifElegida.patron_codigo, verifElegida.patron_nombre].filter(Boolean).join(' – '))}>
                                             Patrón de la verificación ({verifElegida.patron_codigo})
@@ -561,7 +586,13 @@ export const NuevaPuestaDialog: React.FC<{ onClose: () => void; onCreada: (id: n
                         </SeccionFormulario>
 
                         <SeccionFormulario titulo="Observaciones *">
-                            <div className="px-3 py-2">
+                            <div className="space-y-2 px-3 py-2">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="text-xs text-muted-foreground mr-1">Buffers probados:</span>
+                                    {BUFFERS.map((b) => (
+                                        <button key={b} type="button" onClick={() => setObservacion((obs) => (obs.includes(b) ? obs : [obs.trim(), b].filter(Boolean).join(' - ')))} className="rounded-full border border-border px-2 py-0.5 text-[11px] hover:bg-muted">{b}</button>
+                                    ))}
+                                </div>
                                 <Textarea rows={3} maxLength={1500} value={observacion} placeholder="Es lo que queda escrito en el historial del equipo." onChange={(e) => setObservacion(e.target.value)} />
                             </div>
                         </SeccionFormulario>
@@ -730,6 +761,9 @@ export const DetalleDialog: React.FC<{ id: number; onClose: () => void; onCambio
                         <p><span className="text-muted-foreground">La realiza:</span> {NOMBRE_AREA[p.area_realiza]} <span className="text-muted-foreground">· la valida {NOMBRE_AREA[valida]}</span></p>
                         <p><span className="text-muted-foreground">Recepción:</span> {p.estado_recepcion === 'CUMPLE' ? 'Cumple' : 'No cumple'} · <span className="text-muted-foreground">Funcionamiento:</span> {p.funcionamiento === 'OPERATIVO' ? 'Operativo' : 'No operativo'}</p>
                         <p className="sm:col-span-2"><span className="text-muted-foreground">Patrón de referencia:</span> {p.patron_referencia || '—'}</p>
+                        {p.fecha_calibracion && (
+                            <p className="sm:col-span-2"><span className="text-muted-foreground">Fecha de calibración (informe del proveedor):</span> {dmy(p.fecha_calibracion)}</p>
+                        )}
                         {p.verificacion_tipo && (
                             <p className="sm:col-span-2"><span className="text-muted-foreground">Verificación vinculada:</span> {p.verificacion_tipo === 'TEMPERATURA' ? 'Temperatura' : 'Sonda caudal'} {p.verificacion_codigo} · {dmy(p.verificacion_fecha)}</p>
                         )}

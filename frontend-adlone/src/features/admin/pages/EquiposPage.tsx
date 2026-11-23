@@ -131,7 +131,7 @@ const isDateExpired = (dateStr?: string): boolean => {
     return d.getTime() < today.getTime();
 };
 
-type OrdenEquipos = 'vigencia' | 'nombre' | 'activos_primero' | 'ultimas_modificaciones';
+type OrdenEquipos = 'vigencia' | 'nombre' | 'activos_primero' | 'ultimas_modificaciones' | 'recien_creados';
 
 // "Modificado 02-11-2026 17:19 · Usuario", al ordenar por últimas modificaciones.
 // La fecha viene de un DATETIME de SQL Server (hora local del servidor) que el
@@ -1420,7 +1420,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                     title="Inventario de Equipos"
                     subtitle="Administra y supervisa los equipos de medición del sistema."
                     onBack={onBack}
-                    breadcrumbItems={[{ label: 'Inventario de Equipos' }]}
+                    breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Inventario de Equipos' }]}
                 />
 
                 {/* Misma botonera segmentada que el resto de los listados (borde, fondo
@@ -1545,6 +1545,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                             { value: 'nombre', label: 'Nombre (A-Z)' },
                             { value: 'activos_primero', label: 'Activos primero' },
                             { value: 'ultimas_modificaciones', label: 'Últimas modificaciones' },
+                            { value: 'recien_creados', label: 'Últimos equipos creados' },
                         ]}
                     />
 
@@ -1650,6 +1651,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             { value: 'vigente', label: 'Vigente' },
                                             { value: 'sin_fecha', label: 'Sin fecha' },
                                             { value: 'sin_vencimiento', label: 'Sin vencimiento (complementos)' },
+                                            { value: 'pendiente_pm', label: 'Pendiente de puesta en marcha' },
                                         ]}
                                     />
                                 </div>
@@ -1866,7 +1868,7 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
                                                 <span>Tipo: {equipo.tipo}</span>
                                                 <span>Sede: {equipo.ubicacion}</span>
-                                                <span className={cn(expired && 'font-bold text-foreground')}>Vigencia: {equipo.vigencia}</span>
+                                                <span className={cn(expired && 'font-bold text-foreground')}>Vigencia: {equipo.estado_vigencia === 'pendiente_pm' ? 'Pendiente de puesta en marcha' : equipo.vigencia}</span>
                                                 <span>
                                                     Resp.: {equipo.nombre_asignado || '---'}
                                                     {equipo.habilitado_muestreador === 'N' && <Badge variant="destructive" className="ml-1">Inactivo</Badge>}
@@ -1991,7 +1993,9 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
                                                     )}</TableCell>
                                                 <TableCell className="truncate">
                                                     <span className={cn('text-sm text-foreground', (expired || expiringSoon) && 'font-bold')}>
-                                                        {equipo.vigencia || (equipo.modalidad_control === 'SIN_VENCIMIENTO' ? '—' : '')}
+                                                        {equipo.estado_vigencia === 'pendiente_pm'
+                                                            ? <Badge variant="warning" className="whitespace-nowrap font-normal" title="Equipo nuevo: la vigencia se fija al aprobar su Puesta en Marcha">Pendiente de PM</Badge>
+                                                            : (equipo.vigencia || (equipo.modalidad_control === 'SIN_VENCIMIENTO' ? '—' : ''))}
                                                     </span>
                                                     {equipo.modalidad_control && (
                                                         <span className="block truncate text-xs text-muted-foreground" title={reglasControl?.modalidades?.[equipo.modalidad_control]?.nombre}>

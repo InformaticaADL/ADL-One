@@ -20,8 +20,12 @@ class MenuService {
             `);
 
             // 2. Fetch Links
+            // subgrupo (migrations/add_menu_link_subgrupo.sql) agrupa los enlaces de un módulo en subcategorías
+            // (hoy: G. Calidad → Medio Ambiente / Laboratorio); si la migración no corrió, la columna no existe
+            // y se envía null para todos (el frontend sigue mostrando la lista plana de siempre).
+            const subgrupoExiste = !!(await pool.request().query("SELECT COL_LENGTH('mae_menu_link', 'subgrupo') AS c")).recordset[0].c;
             const linksResult = await pool.request().query(`
-                SELECT id_link, id_modulo, id_accion, label, permissions_str, sort_order
+                SELECT id_link, id_modulo, id_accion, label, permissions_str, sort_order${subgrupoExiste ? ', subgrupo' : ', CAST(NULL AS NVARCHAR(50)) AS subgrupo'}
                 FROM mae_menu_link
                 WHERE activo = 1
                 ORDER BY sort_order ASC
@@ -57,7 +61,8 @@ class MenuService {
                                 id: link.id_accion,
                                 label: link.label,
                                 // Enviar permisos al frontend por consistencia
-                                permission: link.permissions_str ? link.permissions_str.split(',').map(p => p.trim()) : undefined
+                                permission: link.permissions_str ? link.permissions_str.split(',').map(p => p.trim()) : undefined,
+                                subgrupo: link.subgrupo || undefined,
                             });
                         }
                     }
@@ -179,7 +184,7 @@ class MenuService {
     async createLink(data) {
         try {
             const pool = await getConnection();
-            const { id_modulo, id_accion, label, permissions_str, sort_order } = data;
+            const { id_modulo, id_accion, label, permissions_str, sort_order, subgrupo } = data;
 
             // Validate parent module exists
             const modCheck = await pool.request()
@@ -200,9 +205,10 @@ class MenuService {
                 .input('lbl', sql.NVarChar(100), label)
                 .input('perm', sql.NVarChar(500), permissions_str || null)
                 .input('srt', sql.Int, sort_order || 0)
+                .input('sub', sql.NVarChar(50), subgrupo || null)
                 .query(`
-                    INSERT INTO mae_menu_link (id_modulo, id_accion, label, permissions_str, sort_order, activo)
-                    VALUES (@mid, @aid, @lbl, @perm, @srt, 1)
+                    INSERT INTO mae_menu_link (id_modulo, id_accion, label, permissions_str, sort_order, subgrupo, activo)
+                    VALUES (@mid, @aid, @lbl, @perm, @srt, @sub, 1)
                 `);
             return { success: true };
         } catch (error) {
@@ -214,7 +220,7 @@ class MenuService {
     async updateLink(id_link, data) {
         try {
             const pool = await getConnection();
-            const { id_modulo, id_accion, label, permissions_str, sort_order, activo } = data;
+            const { id_modulo, id_accion, label, permissions_str, sort_order, activo, subgrupo } = data;
 
             // Validate parent module exists
             const modCheck = await pool.request()
@@ -230,9 +236,10 @@ class MenuService {
                 .input('perm', sql.NVarChar(500), permissions_str || null)
                 .input('srt', sql.Int, sort_order)
                 .input('act', sql.Bit, activo ? 1 : 0)
+                .input('sub', sql.NVarChar(50), subgrupo || null)
                 .query(`
-                    UPDATE mae_menu_link 
-                    SET id_modulo=@mid, id_accion=@aid, label=@lbl, permissions_str=@perm, sort_order=@srt, activo=@act
+                    UPDATE mae_menu_link
+                    SET id_modulo=@mid, id_accion=@aid, label=@lbl, permissions_str=@perm, sort_order=@srt, activo=@act, subgrupo=@sub
                     WHERE id_link = @id
                 `);
             return { success: true };

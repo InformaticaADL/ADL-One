@@ -8,6 +8,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { equipoService, type Equipo } from '../services/equipo.service';
+import { useNavStore } from '../../../store/navStore';
 import dayjs from 'dayjs';
 import 'dayjs/locale/es';
 
@@ -96,7 +97,7 @@ function getEstado(vigencia: string | null | undefined): EstadoVig {
 // reglas que la revisión diaria y los avisos; getEstado queda de respaldo.
 function estadoDe(e: Equipo): EstadoVig {
     const v = e.estado_vigencia;
-    return v && v !== 'retirado' && v !== 'sin_vencimiento' ? v : getEstado(getVigencia(e));
+    return v && v !== 'retirado' && v !== 'sin_vencimiento' && v !== 'pendiente_pm' ? v : getEstado(getVigencia(e));
 }
 
 function getVigencia(e: Equipo): string | null {
@@ -221,6 +222,15 @@ const DetallePanel: React.FC<{ eq: Equipo; onClose: () => void; onEdit?: (eq: Eq
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHeader = false, onEditEquipo, recargar = 0 }) => {
+    const { setActiveSubmodule, setPageBreadcrumb } = useNavStore();
+    // Pantalla propia (no embebida en la pestaña Calendario del inventario, ver hideHeader): publica
+    // su propia ruta de arriba, igual que las demás pantallas de Medio Ambiente en G. Calidad.
+    useEffect(() => {
+        if (hideHeader) return;
+        setPageBreadcrumb([{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Calendario de Vencimientos' }]);
+        return () => setPageBreadcrumb([]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hideHeader]);
     const [equipos, setEquipos] = useState<Equipo[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -235,7 +245,8 @@ export const GcCalendarioVencimientosPage: React.FC<Props> = ({ onBack, hideHead
         equipoService.getResumenCalidad()
             .then(r => {
                 // Los complementos (baterías, botellas…) no vencen: tampoco entran al calendario.
-                const lista = r.equipos.filter(e => e.estado_vigencia !== 'retirado' && e.estado_vigencia !== 'sin_vencimiento');
+                // Tampoco los que esperan su primera Puesta en Marcha: aún no tienen vigencia.
+                const lista = r.equipos.filter(e => e.estado_vigencia !== 'retirado' && e.estado_vigencia !== 'sin_vencimiento' && e.estado_vigencia !== 'pendiente_pm');
                 setEquipos(lista);
                 // El detalle abierto se actualiza con los datos recién guardados.
                 setSeleccionado(prev => (prev ? lista.find(e => e.id_equipo === prev.id_equipo) ?? null : prev));

@@ -34,6 +34,7 @@ const exigirTablas = async (pool) => {
 };
 
 const esImagen = (v) => /^data:image\/(png|jpeg);base64,/.test(String(v || '')) && String(v).length <= MAX_IMAGEN;
+const hoyYmd = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 
 const notificar = async (idUsuario, titulo, mensaje, idFicha) => {
     try {
@@ -69,13 +70,18 @@ const fichaFirmaService = {
         const entrega = lista.find((r) => r.id_usuario === idEntrega);
         const area = lista.find((r) => r.id_usuario === idArea);
         if (!entrega || !area) throw error('Solo pueden firmar las personas de la lista de responsables de la ficha de entrega.');
+        if (area.puede_area === false) throw error(`${area.nombre} firma como responsable de entrega, no como responsable de área (jefe del área).`);
 
         const datos = {};
         for (const c of CAMPOS) datos[c] = body[c] === undefined || body[c] === null ? '' : String(body[c]).slice(0, c === 'observaciones' ? 2000 : 300);
         datos.responsable_entrega = entrega.nombre;
         datos.responsable_area = area.nombre;
         // La firma de quien recibe el equipo (un muestreador) puede venir hecha; las demás se firman después.
-        if (esImagen(body.firma_equipo)) datos.firma_equipo = body.firma_equipo;
+        // La fecha de recepción es la de esa firma (si no se escribió otra).
+        if (esImagen(body.firma_equipo)) {
+            datos.firma_equipo = body.firma_equipo;
+            if (!datos.fecha_recepcion) datos.fecha_recepcion = hoyYmd();
+        }
         // Se comprueba que la ficha se puede generar antes de enviarla a nadie.
         await fichasEquipoService.entregaPdf({ ...datos }, null);
 
@@ -254,10 +260,13 @@ const fichaFirmaService = {
         }
         if (!esImagen(img)) throw error('La firma debe ser una imagen PNG o JPG de tamaño razonable.');
 
-        // La firma de quien recibe queda en los datos de la ficha (va en el PDF final).
+        // La firma de quien recibe queda en los datos de la ficha (va en el PDF final), y la fecha de recepción
+        // se completa sola con la de su firma.
         if (pideEquipo) {
-            await pool.request().input('id', sql.Int, Number(id)).input('datos', sql.NVarChar(sql.MAX), JSON.stringify({ ...f.datos, firma_equipo: imagenEquipo }))
+            const conRecepcion = { ...f.datos, firma_equipo: imagenEquipo, fecha_recepcion: f.datos.fecha_recepcion || hoyYmd() };
+            await pool.request().input('id', sql.Int, Number(id)).input('datos', sql.NVarChar(sql.MAX), JSON.stringify(conRecepcion))
                 .query('UPDATE mae_ficha_firma SET datos = @datos WHERE id_ficha_firma = @id');
+            f.datos = conRecepcion;
         }
         for (const m of mios) {
             await pool.request()
@@ -302,6 +311,18 @@ const fichaFirmaService = {
             .query("UPDATE mae_ficha_firma SET estado = 'COMPLETA', fecha_completa = GETDATE(), id_documento = @doc WHERE id_ficha_firma = @id");
         await notificar(creador.id, 'Ficha de entrega firmada',
             `Todos firmaron la ficha de entrega de ${f.codigo_equipo || f.nombre_equipo}. Quedó guardada en el archivo de fichas del equipo.`, Number(id));
+        // Recepción en el historial y aviso de que corresponde la Puesta en Marcha por recepción (lleva directo a
+        // registrarla, con el equipo ya elegido).
+        if (await fichasEquipoService.registrarRecepcion(f.id_equipo, f.datos, creador)) {
+            try {
+                const { default: uns } = await import('./uns.service.js');
+                await uns.sendWebNotification(creador.id, 'Puesta en marcha por recepción',
+                    `${f.datos.responsable_equipo || 'El responsable'} recibió el equipo ${f.codigo_equipo || f.nombre_equipo}: corresponde registrar su Puesta en Marcha por recepción.`,
+                    'INFO', Number(f.id_equipo), 'PuestaMarchaRecepcion');
+            } catch (e) {
+                logger.warn(`No se pudo avisar la puesta en marcha por recepción del equipo ${f.id_equipo}: ${e.message}`);
+            }
+        }
     },
 
     /** La anula quien la envió (mientras falten firmas). */

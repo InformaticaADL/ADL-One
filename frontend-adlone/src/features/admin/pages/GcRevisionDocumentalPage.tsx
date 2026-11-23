@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { cn } from '@/lib/utils';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useToast } from '../../../contexts/ToastContext';
+import { useNavStore } from '../../../store/navStore';
 import { revisionDocumentalService as api, type RevisionDocumental, type RevisionesDocumentales, type DocumentoControlado } from '../services/revisionDocumental.service';
 
 interface Props {
@@ -23,6 +24,7 @@ const mensajeError = (e: unknown) => (e as { response?: { data?: { message?: str
 // que genera la aplicación. La Fecha Revisión es la revisión anual que rige (cada año inicia en su fecha y dura hasta el
 // día anterior a la siguiente) o, si el documento se modificó a mitad de año, su revisión propia.
 export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
+    const { setActiveSubmodule } = useNavStore();
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
     const [filas, setFilas] = useState<RevisionDocumental[]>([]);
@@ -35,6 +37,8 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
     const [documentos, setDocumentos] = useState<DocumentoControlado[]>([]);
     const [docsEditables, setDocsEditables] = useState(false);
     const [editando, setEditando] = useState<DocumentoControlado | null>(null);
+    const [aEliminar, setAEliminar] = useState<number | null>(null);
+    const [eliminando, setEliminando] = useState(false);
     const puede = hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
 
     const aplicar = (r: RevisionesDocumentales) => {
@@ -70,12 +74,15 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
     };
 
     const eliminar = async (a: number) => {
-        if (!window.confirm(`¿Eliminar la revisión ${a}? Los formularios de ese año usarán la revisión anterior.`)) return;
+        setEliminando(true);
         try {
             aplicar(await api.eliminar(a));
             showToast({ type: 'success', message: `Revisión ${a} eliminada` });
+            setAEliminar(null);
         } catch (e) {
             showToast({ type: 'error', message: mensajeError(e) || 'No se pudo eliminar la revisión' });
+        } finally {
+            setEliminando(false);
         }
     };
 
@@ -87,7 +94,7 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
                 title="Revisión documental"
                 subtitle="Versión, fecha de vigencia y fecha de revisión del encabezado de cada documento."
                 onBack={onBack}
-                breadcrumbItems={[{ label: 'Gestión de Calidad', onClick: onBack }, { label: 'Revisión documental' }]}
+                breadcrumbItems={[{ label: 'G.C. MAM', onClick: () => setActiveSubmodule('gc-hub-mam') }, { label: 'Revisión documental' }]}
             />
 
             {/* Documentos: el encabezado que sale hoy en cada PDF */}
@@ -189,7 +196,7 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
                             {f.motivo && <p className="text-xs text-muted-foreground">{f.motivo}</p>}
                         </div>
                         {puede && editable && (
-                            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => eliminar(f.anio)} title="Eliminar esta revisión">
+                            <Button size="icon" variant="ghost" className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setAEliminar(f.anio)} title="Eliminar esta revisión">
                                 <IconTrash size={15} />
                             </Button>
                         )}
@@ -216,7 +223,7 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
                                 <TableCell className="text-muted-foreground">{f.motivo || ''}</TableCell>
                                 <TableCell>
                                     {puede && editable && (
-                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => eliminar(f.anio)} title="Eliminar esta revisión">
+                                        <Button size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => setAEliminar(f.anio)} title="Eliminar esta revisión">
                                             <IconTrash size={15} />
                                         </Button>
                                     )}
@@ -252,6 +259,23 @@ export const GcRevisionDocumentalPage: React.FC<Props> = ({ onBack }) => {
             )}
 
             {editando && <EditarDocumentoDialog doc={editando} onClose={() => setEditando(null)} onGuardado={aplicar} />}
+
+            <Dialog open={aEliminar !== null} onOpenChange={(o) => { if (!o && !eliminando) setAEliminar(null); }}>
+                <DialogContent className="shadcn-scope sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>¿Eliminar la revisión {aEliminar}?</DialogTitle>
+                        <DialogDescription>
+                            Los formularios de ese año usarán la revisión anterior. Esta acción no se puede deshacer.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter className="gap-2">
+                        <Button variant="outline" onClick={() => setAEliminar(null)} disabled={eliminando}>Cancelar</Button>
+                        <Button variant="destructive" onClick={() => aEliminar !== null && eliminar(aEliminar)} disabled={eliminando}>
+                            <IconTrash size={15} /> Eliminar
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 };

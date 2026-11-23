@@ -23,8 +23,8 @@ test('los documentos adjuntos al aprobar se nombran en la línea', () => {
     assert.match(l, /Se asocian documentos: Informe del proveedor, Certificado\.$/);
 });
 
-test('los tipos de puesta en marcha son los cuatro del procedimiento y hay aviso de mejora futura', () => {
-    assert.deepEqual(TIPOS, ['EQUIPO_NUEVO', 'RETORNO_SERVICIO', 'CAMBIO_SEDE', 'REACTIVACION']);
+test('los tipos de puesta en marcha son los cuatro del procedimiento más la recepción por asignación, y hay aviso de mejora futura', () => {
+    assert.deepEqual(TIPOS, ['EQUIPO_NUEVO', 'RETORNO_SERVICIO', 'CAMBIO_SEDE', 'REACTIVACION', 'ASIGNACION']);
     assert.match(AVISO_FUTURO, /mejorar/);
 });
 
