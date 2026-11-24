@@ -80,6 +80,11 @@ export const fichaService = {
         const response = await apiClient.get(`/api/fichas/${id}/grupo`);
         return response.data;
     },
+    // Programación y ejecución de la ficha: un renglón por servicio con su estado y fechas, más un resumen.
+    getProgramacion: async (id: number) => {
+        const response = await apiClient.get(`/api/fichas/${id}/programacion`);
+        return response.data?.data;
+    },
     // Acompañante (opcional) de la visita a la que pertenece la ficha; id_grupo null si la ficha va sola.
     getAcompanante: async (id: number): Promise<{ id_grupo: number | null; id_muestreador: number | null; nombre: string | null }> => {
         const response = await apiClient.get(`/api/fichas/${id}/acompanante`);

@@ -18,6 +18,8 @@ export interface ExploradorFiltros {
     searchObjetivo: string;
     searchSubArea: string;
     searchUsuario: string;
+    /** todas | completadas | sin_agendar | atrasadas (avance de ejecución). */
+    searchAvance: string;
 }
 
 export interface AsignacionFiltros {
@@ -47,7 +49,7 @@ export interface CalendarioFiltros {
 const exploradorDefaults: ExploradorFiltros = {
     searchId: '', dateFrom: '', dateTo: '', searchEstado: '', searchTipo: '',
     searchEmpresaFacturar: '', searchEmpresaServicio: '', searchCentro: '',
-    searchObjetivo: '', searchSubArea: '', searchUsuario: '',
+    searchObjetivo: '', searchSubArea: '', searchUsuario: '', searchAvance: '',
 };
 
 const asignacionDefaults: AsignacionFiltros = {
