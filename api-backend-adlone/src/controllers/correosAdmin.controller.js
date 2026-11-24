@@ -7,10 +7,12 @@ import sql from 'mssql';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import auditService from '../services/audit.service.js';
-import destinatariosService from '../services/destinatarios.service.js';
+import destinatariosService, { silenciosDelAviso } from '../services/destinatarios.service.js';
 
 const idsValidos = (v) => (Array.isArray(v) ? [...new Set(v.map(Number).filter((n) => Number.isInteger(n) && n > 0))] : null);
 const codigoValido = (c) => typeof c === 'string' && /^[A-Z0-9_]{3,50}$/.test(c);
+// Para silencios: un aviso exacto o una familia («SOL_*»: todos los que empiezan con ese prefijo, también los futuros).
+const codigoDeSilencioValido = (c) => codigoValido(c) || (typeof c === 'string' && /^[A-Z0-9_]{2,48}\*$/.test(c));
 const actor = (req) => Number(req.user?.id || req.user?.id_usuario || 0) || null;
 const falla = (res, error, mensaje) => { logger.error(`${mensaje}:`, error); return res.status(500).json({ message: mensaje }); };
 
@@ -44,9 +46,7 @@ export const getDestinatarios = async (req, res) => {
     try {
         const pool = await getConnection();
         const personas = await destinatariosService.previsualizar(pool, codigo, { idTipo: Number(req.query.idTipo) || null });
-        const silencios = (await pool.request().input('c', sql.VarChar(50), codigo)
-            .query('SELECT id_usuario, codigo_evento, canal FROM cfg_notificacion_silencio WHERE codigo_evento = @c OR codigo_evento IS NULL')).recordset
-            .map((s) => ({ id_usuario: Number(s.id_usuario), codigo_evento: s.codigo_evento, canal: s.canal }));
+        const silencios = await silenciosDelAviso(pool, codigo);
         const canales = await destinatariosService.canalesDelEvento(pool, codigo);
         const requisitos = await destinatariosService.requisitos(pool, codigo, Number(req.query.idTipo) || null);
         res.json({ codigo, personas, silencios, canales, requisitos });
@@ -135,7 +135,7 @@ export const getVistaPorPersona = async (req, res) => {
 export const putSilencio = async (req, res) => {
     const idUsuario = Number(req.body?.id_usuario);
     const codigo = req.body?.codigo_evento ?? null;
-    if (!Number.isInteger(idUsuario) || idUsuario <= 0 || (codigo !== null && !codigoValido(codigo))) return res.status(400).json({ message: 'Datos inválidos' });
+    if (!Number.isInteger(idUsuario) || idUsuario <= 0 || (codigo !== null && !codigoDeSilencioValido(codigo))) return res.status(400).json({ message: 'Datos inválidos' });
     const email = !!req.body?.silenciar_email;
     const web = !!req.body?.silenciar_web;
     const pool = await getConnection();

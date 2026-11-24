@@ -60,12 +60,26 @@ export const correosAdminService = {
     },
 };
 
-/** ¿Qué canales tiene silenciados una persona en un evento? (también cuenta el silencio global, de todos los eventos) */
+/** Familias de avisos que se pueden apagar de una vez. Un patrón «SOL_*» alcanza a todos los avisos que empiezan así, también a los que se creen después. */
+export const GRUPOS_DE_AVISOS: { id: string; nombre: string; detalle: string; patrones: string[] }[] = [
+    { id: 'solicitudes', nombre: 'Solicitudes', detalle: 'Equipos, traspasos, muestreadores y avisos desde terreno', patrones: ['SOL_*', 'SOLICITUD_*', 'AVISO_*'] },
+    { id: 'fichas', nombre: 'Medio Ambiente: fichas y muestreos', detalle: 'Fichas, visitas, asignaciones y documentos al cliente', patrones: ['FICHA_*', 'ENV_*'] },
+    { id: 'chat', nombre: 'Chat', detalle: 'Mensajes y grupos', patrones: ['GCHAT_*'] },
+];
+
+/** ¿Un silencio guardado como `codigo` alcanza al aviso `evento`? (aviso exacto, familia «PREFIJO_*» o todos) */
+export const silencioAlcanza = (codigo: string | null, evento: string | null): boolean => {
+    if (codigo === null) return true;
+    if (evento === null) return false;
+    return codigo.endsWith('*') ? evento.startsWith(codigo.slice(0, -1)) : codigo === evento;
+};
+
+/** ¿Qué canales tiene silenciados una persona en un evento? (cuenta el silencio del aviso, el de su familia y el de todos los avisos) */
 export function canalesSilenciados(silencios: Silencio[], idUsuario: number, codigo: string | null): { email: boolean; web: boolean } {
     let email = false; let web = false;
     for (const s of silencios) {
         if (s.id_usuario !== idUsuario) continue;
-        if (s.codigo_evento !== null && s.codigo_evento !== codigo) continue;
+        if (!silencioAlcanza(s.codigo_evento, codigo)) continue;
         if (s.canal === 'TODOS' || s.canal === 'EMAIL') email = true;
         if (s.canal === 'TODOS' || s.canal === 'WEB') web = true;
     }

@@ -4,7 +4,7 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 import { useToast } from '../../../contexts/ToastContext';
 import { rbacService, type User } from '../services/rbac.service';
 import {
-    correosAdminService, canalesSilenciados, MOTIVO_TEXTO,
+    correosAdminService, canalesSilenciados, MOTIVO_TEXTO, GRUPOS_DE_AVISOS,
     type EventoCorreo, type TipoSolicitud, type PersonaDestino, type Silencio, type CanalesAviso, type RequisitosAviso, type RolDelAviso, type AvisoDePersona, type MotivoNoRecibe,
 } from '../services/correosAdmin.service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -229,7 +229,7 @@ const PorAviso: React.FC = () => {
                                         <TableBody>
                                             {personas.map((p) => {
                                                 const sil = canalesSilenciados(silencios, p.id_usuario, codigo);
-                                                const global = canalesSilenciados(silencios.filter((s) => s.codigo_evento === null), p.id_usuario, codigo);
+                                                const global = canalesSilenciados(silencios.filter((s) => s.codigo_evento === null || s.codigo_evento.endsWith('*')), p.id_usuario, codigo);
                                                 const editable = p.motivo !== 'sin_acceso' && p.motivo !== 'fuera_de_la_seleccion_del_rol';
                                                 const celda = (canal: 'email' | 'web') => {
                                                     if (!canales[canal]) return <span className="text-muted-foreground">—</span>;
@@ -245,7 +245,7 @@ const PorAviso: React.FC = () => {
                                                         <TableCell>
                                                             <Estado recibe={p.recibe} motivo={p.motivo} />
                                                             {p.motivo && <span className="mt-0.5 block text-[11px] text-muted-foreground">{MOTIVO_TEXTO[p.motivo]}</span>}
-                                                            {(global.email || global.web) && <span className="mt-0.5 block text-[11px] text-muted-foreground">Tiene silencios en todos los avisos (ver «Por persona»)</span>}
+                                                            {(global.email || global.web) && <span className="mt-0.5 block text-[11px] text-muted-foreground">Apagado para toda su familia de avisos (ver «Por persona»)</span>}
                                                         </TableCell>
                                                     </TableRow>
                                                 );
@@ -337,6 +337,27 @@ const PorPersona: React.FC = () => {
 
                     <Card>
                         <CardHeader>
+                            <CardTitle>Por grupo de avisos</CardTitle>
+                            <CardDescription>Apaga o enciende de una vez toda una familia de avisos, también los que se creen después en ella (correo y aviso web).</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex flex-col gap-3">
+                            {GRUPOS_DE_AVISOS.map((g) => {
+                                const apagado = g.patrones.every((p) => silencios.some((s) => s.codigo_evento === p && s.canal === 'TODOS'));
+                                return (
+                                    <label key={g.id} className="flex items-start gap-3 text-sm">
+                                        <Switch checked={!apagado} onCheckedChange={async (v) => {
+                                            try { for (const p of g.patrones) await correosAdminService.guardarSilencio(idUsuario, p, !v, !v); await cargar(); }
+                                            catch { showToast({ type: 'error', message: 'No se pudo guardar el cambio' }); }
+                                        }} />
+                                        <span><span className="block font-medium">{g.nombre}</span><span className="block text-xs text-muted-foreground">{g.detalle}</span></span>
+                                    </label>
+                                );
+                            })}
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
                             <CardTitle>Avisos que le llegan</CardTitle>
                             <CardDescription>{cargando ? 'Calculando…' : `${avisos.filter((a) => a.recibe).length} activos · ${avisos.filter((a) => !a.recibe).length} apagados o sin acceso`}</CardDescription>
                         </CardHeader>
@@ -354,6 +375,7 @@ const PorPersona: React.FC = () => {
                                     <TableBody>
                                         {avisos.map((a) => {
                                             const ev = canalesSilenciados(silencios.filter((s) => s.codigo_evento === a.codigo_evento), idUsuario, a.codigo_evento);
+                                            const porGrupo = canalesSilenciados(silencios.filter((s) => s.codigo_evento !== null && s.codigo_evento.endsWith('*')), idUsuario, a.codigo_evento);
                                             const editable = a.motivo !== 'sin_acceso' && a.motivo !== 'fuera_de_la_seleccion_del_rol';
                                             // El canal se ofrece si el aviso lo trae, o si ya está silenciado (en ese caso no sabemos si lo traía y se deja corregir)
                                             const ofrece = (canal: 'email' | 'web') => (a.recibe ? a[canal] || (canal === 'email' ? ev.email : ev.web) : true);
@@ -366,8 +388,8 @@ const PorPersona: React.FC = () => {
                                                     {(['email', 'web'] as const).map((canal) => (
                                                         <TableCell key={canal} className="text-center">
                                                             {ofrece(canal)
-                                                                ? <Switch checked={canal === 'email' ? !ev.email && !global.email : !ev.web && !global.web}
-                                                                    disabled={!editable || (canal === 'email' ? global.email : global.web)}
+                                                                ? <Switch checked={canal === 'email' ? !ev.email && !global.email && !porGrupo.email : !ev.web && !global.web && !porGrupo.web}
+                                                                    disabled={!editable || (canal === 'email' ? global.email || porGrupo.email : global.web || porGrupo.web)}
                                                                     onCheckedChange={(v) => fijar(a.codigo_evento, canal === 'email' ? !v : ev.email, canal === 'web' ? !v : ev.web)} aria-label={`${canal === 'email' ? 'Correo' : 'Aviso web'}: ${a.descripcion}`} />
                                                                 : <span className="text-muted-foreground">—</span>}
                                                         </TableCell>

@@ -9,6 +9,18 @@ const num = (v) => Number(v);
 // Una consulta con una lista de números ya validada (solo enteros) dentro del IN.
 const lista = (ids) => ids.map(num).filter((n) => Number.isInteger(n) && n > 0).join(',') || '0';
 
+/**
+ * Silencios que alcanzan a un aviso: los de ese aviso, los de una familia que lo incluye («SOL_*») y los de todos los avisos (codigo_evento NULL).
+ * En el patrón el guion bajo se escapa para que no valga «cualquier letra» (si no, «SOL_*» alcanzaría también a «SOLICITUD_…»).
+ */
+export async function silenciosDelAviso(pool, codigoEvento) {
+    const filas = (await pool.request().input('c', sql.VarChar(50), codigoEvento).query(`
+        SELECT id_usuario, codigo_evento, canal FROM cfg_notificacion_silencio
+        WHERE codigo_evento = @c OR codigo_evento IS NULL
+           OR (codigo_evento LIKE '%*' AND @c LIKE REPLACE(REPLACE(codigo_evento, '_', '[_]'), '*', '%'))`)).recordset;
+    return filas.map((r) => ({ id_usuario: num(r.id_usuario), codigo_evento: r.codigo_evento, canal: r.canal }));
+}
+
 /** Roles y personas por los que un evento llega, según la configuración (administrador, reglas, destinatarios fijos) y los gestores del tipo de solicitud. */
 async function origenesDelEvento(pool, codigoEvento, idTipo) {
     const rolesDelEvento = new Set();
@@ -88,9 +100,7 @@ async function reunirEntrada(pool, codigoEvento, context, destinatarios) {
     (await pool.request().input('c', sql.VarChar(50), codigoEvento).query(`SELECT id_rol, id_usuario FROM cfg_notificacion_rol_limite WHERE codigo_evento = @c`)).recordset
         .forEach((r) => { const rol = num(r.id_rol); if (!limites.has(rol)) limites.set(rol, new Set()); limites.get(rol).add(num(r.id_usuario)); });
 
-    const silencios = (await pool.request().input('c', sql.VarChar(50), codigoEvento)
-        .query(`SELECT id_usuario, canal FROM cfg_notificacion_silencio WHERE codigo_evento = @c OR codigo_evento IS NULL`)).recordset
-        .map((r) => ({ id_usuario: num(r.id_usuario), canal: r.canal }));
+    const silencios = (await silenciosDelAviso(pool, codigoEvento)).map((r) => ({ id_usuario: r.id_usuario, canal: r.canal }));
 
     const porPermiso = await accesoPorPermiso(pool, codigoEvento);
     const acceso = combinarAcceso(await accesoAlTipo(pool, idTipo, context), porPermiso ? porPermiso.personas : null);

@@ -135,3 +135,16 @@ test('el techo por permiso saca a quien no tiene el permiso del aviso de una fic
     assert.deepEqual(ids(r), [1, 2]);
     assert.equal(motivo(r, 3), MOTIVOS.SIN_ACCESO);
 });
+
+import { silencioAlcanza } from './destinatarios.js';
+
+test('un silencio por familia alcanza a todos los avisos que empiezan igual, también a los futuros', () => {
+    assert.equal(silencioAlcanza('SOL_*', 'SOL_EQUIPO_BAJA_NUEVA'), true);
+    assert.equal(silencioAlcanza('SOL_*', 'SOL_UN_AVISO_QUE_AUN_NO_EXISTE'), true);
+    assert.equal(silencioAlcanza('SOL_*', 'SOLICITUD_NUEVA'), false);   // «SOL_» no es «SOLI…»
+    assert.equal(silencioAlcanza('SOLICITUD_*', 'SOLICITUD_NUEVA'), true);
+    assert.equal(silencioAlcanza('FICHA_*', 'AVISO_PERDIDO_NUEVO'), false);
+    assert.equal(silencioAlcanza('GCHAT_NUEVO_MENSAJE', 'GCHAT_NUEVO_MENSAJE'), true);
+    assert.equal(silencioAlcanza('GCHAT_NUEVO_MENSAJE', 'GCHAT_GRUPO_CREADO'), false);
+    assert.equal(silencioAlcanza(null, 'CUALQUIERA'), true);
+});

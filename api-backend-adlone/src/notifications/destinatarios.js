@@ -11,6 +11,16 @@
 //
 // Es una función pura (no toca la base de datos) para poder probarla a fondo; uns.service reúne los datos y la usa.
 
+/**
+ * ¿Un silencio guardado como `codigo` alcanza al aviso `evento`? El silencio puede ser de un aviso exacto, de una familia («SOL_*» = todos los que
+ * empiezan con «SOL_», incluso los que se creen después) o de todos (null). Es la misma regla que aplica la consulta SQL de destinatarios.service.
+ */
+export function silencioAlcanza(codigo, evento) {
+    if (codigo === null || codigo === undefined) return true;
+    if (codigo.endsWith('*')) return evento.startsWith(codigo.slice(0, -1));
+    return codigo === evento;
+}
+
 export const MOTIVOS = Object.freeze({
     SIN_ACCESO: 'sin_acceso',
     FUERA_DE_LA_SELECCION: 'fuera_de_la_seleccion_del_rol',
