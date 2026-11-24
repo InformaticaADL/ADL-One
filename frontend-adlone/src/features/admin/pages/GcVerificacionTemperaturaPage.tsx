@@ -26,7 +26,8 @@ type FiltroEstado = '' | EstadoVerificacion | 'NO_CUMPLE';
 const SEDES = ['PM', 'VI', 'AY', 'PA'];
 // Fichas que se pueden llevar a la mesa de trabajo (las que aún se llenan o firman).
 const ABIERTA = (e: EstadoVerificacion) => e === 'BORRADOR' || e === 'PENDIENTE_FIRMA';
-const MAX_MESA = 6;
+// La mesa se desplaza hacia el lado, así que caben varias; sobre este máximo se abren las primeras.
+const MAX_MESA = 12;
 
 // Sección de G. Calidad que reemplaza la planilla "Guia - Verificación
 // Temperatura <mes>.xlsx": cada fila es una ficha OI-FoGe-39 (lo que antes era
@@ -246,9 +247,13 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
                         <Button
                             size="sm"
                             className="h-7"
-                            onClick={() => setMesa(seleccion)}
-                            disabled={seleccion.length > MAX_MESA}
-                            title={seleccion.length > MAX_MESA ? `Para llenar a la vez se admiten hasta ${MAX_MESA} fichas` : 'Abrir las seleccionadas lado a lado'}
+                            onClick={() => {
+                                if (seleccion.length > MAX_MESA) {
+                                    showToast({ type: 'info', message: `Se abren las primeras ${MAX_MESA} de ${seleccion.length}; las demás quedan seleccionadas para la siguiente tanda` });
+                                }
+                                setMesa(seleccion.slice(0, MAX_MESA));
+                            }}
+                            title={seleccion.length > MAX_MESA ? `Se abren las primeras ${MAX_MESA} fichas lado a lado` : 'Abrir las seleccionadas lado a lado'}
                         >
                             <IconLayoutColumns size={14} /> Llenar a la vez
                         </Button>
@@ -274,7 +279,89 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             </div>
 
             <div className="overflow-x-auto rounded-xl border border-border bg-card">
-                <Table>
+                {/* Celular: una tarjeta por ficha (tocarla la marca o la abre, igual que la fila). */}
+                <ul className="divide-y divide-border lg:hidden">
+                    {visibles.length > 0 && seleccionables.length > 0 && (
+                        <li className="flex items-center gap-2 bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                            <Checkbox
+                                checked={todasMarcadas ? true : algunaMarcada ? 'indeterminate' : false}
+                                onCheckedChange={() => {
+                                    const ids = seleccionables.map((f) => f.id_verificacion);
+                                    setSeleccion((prev) => (todasMarcadas ? prev.filter((id) => !ids.includes(id)) : [...new Set([...prev, ...ids])]));
+                                }}
+                                aria-label="Seleccionar todas las fichas visibles"
+                            />
+                            Seleccionar todas
+                        </li>
+                    )}
+                    {visibles.map((f) => {
+                        const meta = ESTADO_META[f.estado];
+                        const marcada = seleccion.includes(f.id_verificacion);
+                        const fuera = (e: number | null) => e !== null && Math.abs(e) > 0.5;
+                        return (
+                            <li
+                                key={f.id_verificacion}
+                                className={cn('flex flex-col gap-2 p-3', f.estado === 'ANULADA' && 'opacity-60', marcada && 'bg-primary/5')}
+                                onClick={() => (ABIERTA(f.estado) ? alternar(f.id_verificacion) : setAbierta(f.id_verificacion))}
+                            >
+                                <div className="flex items-start gap-3">
+                                    {ABIERTA(f.estado) && (
+                                        <Checkbox
+                                            className="mt-0.5"
+                                            checked={marcada}
+                                            onClick={(e) => e.stopPropagation()}
+                                            onCheckedChange={() => alternar(f.id_verificacion)}
+                                            aria-label={`Seleccionar ${f.codigo_equipo}`}
+                                        />
+                                    )}
+                                    <div className="min-w-0 flex-1">
+                                        <p className="font-semibold">{f.codigo_equipo}</p>
+                                        <p className="truncate text-xs text-muted-foreground">{f.nombre_equipo}</p>
+                                    </div>
+                                    <Badge variant={meta.badge}>{meta.label}</Badge>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                    <Badge variant="outline">{f.sede}</Badge>
+                                    <span>{fmtFecha(f.fecha_verificacion)}</span>
+                                    <span className="min-w-0 truncate">{f.muestreador_nombre || 'Sin muestreador'}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className="grid flex-1 grid-cols-3 gap-1.5">
+                                        {([['0 °C', f.error0], ['15 °C', f.error15], ['30 °C', f.error30]] as const).map(([l, e]) => (
+                                            <div key={l} className="rounded-md border border-border bg-background px-2 py-1 text-center">
+                                                <p className="text-[10px] text-muted-foreground">{l}</p>
+                                                <p className={cn('text-sm tabular-nums', fuera(e) && 'font-semibold text-destructive')}>{fmtNum(e) || '—'}</p>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {f.cumple === null ? <span className="w-[72px] text-center text-xs text-muted-foreground">Incompleta</span>
+                                        : <Badge variant={f.cumple === 'S' ? 'success' : 'destructive'}>{f.cumple === 'S' ? 'Cumple' : 'No cumple'}</Badge>}
+                                </div>
+                                <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                                    {f.estado === 'BORRADOR' && (
+                                        <Button size="icon" variant="ghost" className="h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive" onClick={() => setAEliminar(f)} aria-label="Eliminar ficha en borrador">
+                                            <IconTrash size={16} />
+                                        </Button>
+                                    )}
+                                    <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => setFichaTecnica({ id: f.id_equipo, codigo: f.codigo_equipo })} aria-label="Ficha técnica del equipo">
+                                        <IconFileDescription size={16} className="text-muted-foreground" />
+                                    </Button>
+                                    {f.estado !== 'ANULADA' && (
+                                        <Button size="icon" variant="ghost" className="h-9 w-9" onClick={() => verPdf(f)} aria-label="Ver PDF">
+                                            <IconFileTypePdf size={16} className="text-red-600" />
+                                        </Button>
+                                    )}
+                                    <Button size="sm" className="ml-1" variant={f.estado === 'PENDIENTE_FIRMA' ? 'default' : 'outline'} onClick={() => setAbierta(f.id_verificacion)}>
+                                        {f.estado === 'BORRADOR' ? <><IconPencil size={14} /> Llenar</>
+                                            : f.estado === 'PENDIENTE_FIRMA' ? <><IconSignature size={14} /> Firmar</>
+                                                : <><IconEye size={14} /> Ver</>}
+                                    </Button>
+                                </div>
+                            </li>
+                        );
+                    })}
+                </ul>
+                <Table containerClassName="hidden lg:block">
                     <TableHeader>
                         <TableRow className="hover:bg-transparent">
                             <TableHead className="w-10">
@@ -391,7 +478,7 @@ export const GcVerificacionTemperaturaPage: React.FC<Props> = ({ onBack }) => {
             <VerificacionTempEditor idVerificacion={abierta} onClose={() => setAbierta(null)} onChanged={cargar} />
             <MesaVerificacionTemp
                 ids={mesa}
-                onClose={() => { setMesa([]); setSeleccion([]); }}
+                onClose={() => { setSeleccion((prev) => prev.filter((id) => !mesa.includes(id))); setMesa([]); }}
                 onChanged={cargar}
                 onQuitar={(id) => { setMesa((prev) => prev.filter((x) => x !== id)); setSeleccion((prev) => prev.filter((x) => x !== id)); }}
             />

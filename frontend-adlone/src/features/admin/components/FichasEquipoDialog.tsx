@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { formatearFechaHoraCorta } from '@/lib/fechas';
-import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle, IconDeviceMobile, IconSend } from '@tabler/icons-react';
+import { IconDownload, IconEye, IconInfoCircle, IconCalendarEvent, IconChecks, IconPlus, IconTrash, IconDeviceFloppy, IconCircleCheck, IconFileText, IconBan, IconAlertTriangle, IconDeviceMobile, IconSend, IconPackage } from '@tabler/icons-react';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
 import { PuestasMarchaEquipo } from './PuestasMarchaEquipo';
 import { CampoFirma, type CampoFirmaHandle } from './CampoFirma';
@@ -225,9 +225,35 @@ const Campo: React.FC<{ label: string; className?: string; children: React.React
     </label>
 );
 
+// Bloque numerado del formulario (paso n), con una acción opcional a la derecha.
+const Seccion: React.FC<{ n: number; titulo: string; descripcion?: string; accion?: React.ReactNode; children: React.ReactNode }> = ({ n, titulo, descripcion, accion, children }) => (
+    <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
+        <header className="flex flex-wrap items-start justify-between gap-2">
+            <div className="flex items-start gap-2.5">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary">{n}</span>
+                <div className="flex flex-col">
+                    <h3 className="text-sm font-semibold leading-6">{titulo}</h3>
+                    {descripcion && <p className="text-xs text-muted-foreground">{descripcion}</p>}
+                </div>
+            </div>
+            {accion}
+        </header>
+        {children}
+    </section>
+);
+
+// Dato de solo lectura (vacío sale «N/I», igual que en la hoja).
+const Dato: React.FC<{ label: string; valor?: string | null }> = ({ label, valor }) => (
+    <div className="flex min-w-0 flex-col gap-0.5">
+        <dt className="text-[11px] text-muted-foreground">{label}</dt>
+        <dd className={cn('truncate text-sm', !valor && 'text-muted-foreground/70')} title={valor || undefined}>{valor || 'N/I'}</dd>
+    </div>
+);
+const fechaCorta = (ymd?: string | null) => (ymd && /^\d{4}-\d{2}-\d{2}/.test(ymd) ? ymd.slice(0, 10).split('-').reverse().join('/') : '');
+
 // Lista para elegir quién es responsable de entrega o de área: solo las personas registradas del área.
-const ListaResponsables: React.FC<{ label: string; valor: string; lista: ResponsableEntrega[]; onCambio: (nombre: string) => void }> = ({ label, valor, lista, onCambio }) => (
-    <div className="flex flex-col gap-1.5">
+const ListaResponsables: React.FC<{ label: string; valor: string; lista: ResponsableEntrega[]; onCambio: (nombre: string) => void; className?: string }> = ({ label, valor, lista, onCambio, className }) => (
+    <div className={cn('flex flex-col gap-1.5', className)}>
         <span className="text-xs font-medium text-muted-foreground">{label}</span>
         <Select value={valor || undefined} onValueChange={onCambio}>
             <SelectTrigger><SelectValue placeholder="Seleccione la persona" /></SelectTrigger>
@@ -463,25 +489,27 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         }
         return [];
     };
-    const cabeceraFirmas = (() => {
-        const lista = slotsCelular();
-        const listas = lista.filter((x) => x.firmada).length;
-        return (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">Firmas</span>
-                    {lista.length > 0 && (
-                        <Badge variant={listas === lista.length ? 'success' : 'outline'} className={listas === lista.length ? '' : 'text-muted-foreground'}>
-                            {listas} de {lista.length} listas
-                        </Badge>
-                    )}
-                </div>
-                <Button type="button" size="sm" variant="outline" onClick={() => setCelularAbierto(true)} disabled={tipo === 'tecnica' && lista.length === 0}>
-                    <IconDeviceMobile size={14} /> Firmar con el celular
-                </Button>
+    const slotsFirma = slotsCelular();
+    const firmasListas = slotsFirma.filter((x) => x.firmada).length;
+    const estadoFirmas = slotsFirma.length > 0 && (
+        <Badge variant={firmasListas === slotsFirma.length ? 'success' : 'outline'} className={firmasListas === slotsFirma.length ? '' : 'text-muted-foreground'}>
+            {firmasListas} de {slotsFirma.length} listas
+        </Badge>
+    );
+    const botonCelular = (
+        <Button type="button" size="sm" variant="outline" onClick={() => setCelularAbierto(true)} disabled={tipo === 'tecnica' && slotsFirma.length === 0}>
+            <IconDeviceMobile size={14} /> Firmar con el celular
+        </Button>
+    );
+    const cabeceraFirmas = (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold">Firmas</span>
+                {estadoFirmas}
             </div>
-        );
-    })();
+            {botonCelular}
+        </div>
+    );
 
     const puedeGenerar = !cargando && (
         (tipo === 'historial' && !!anio)
@@ -821,11 +849,15 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     // del equipo que esté abierta ahora, así que es la misma lista sin importar desde dónde se entre.
     const listaGuardadas = (
         <div className="flex h-full flex-col rounded-lg border border-border">
-            <div className="flex w-full items-center gap-1.5 border-b border-border px-3 py-2 text-left text-sm font-medium">
-                <IconFileText size={15} /> Guardadas de este equipo ({guardadas.length})
+            <div className="flex w-full items-center justify-between gap-1.5 border-b border-border px-3 py-2.5 text-left text-sm font-medium">
+                <span className="flex items-center gap-1.5"><IconFileText size={15} className="text-muted-foreground" /> Guardadas de este equipo</span>
+                <Badge variant="secondary" className="tabular-nums">{guardadas.length}</Badge>
             </div>
             {guardadas.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-muted-foreground">Todavía no hay fichas guardadas de este equipo.</p>
+                <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground"><IconFileText size={20} /></span>
+                    <p className="text-xs text-muted-foreground">Todavía no hay fichas guardadas. Al presionar «Guardar» aparecen aquí.</p>
+                </div>
             ) : (
                 <div className="max-h-[220px] min-h-0 flex-1 divide-y divide-border overflow-y-auto lg:max-h-none">
                     {guardadas.map((f, i) => (
@@ -1159,45 +1191,54 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         {/* ── Ficha de entrega ──────────────────────────────── */}
                         {!cargando && tipo === 'entrega' && entrega && (
                             <div className="flex flex-col gap-4">
-                                <div className="rounded-lg border border-border bg-muted/20 p-3">
-                                    <p className="mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Datos del equipo (inventario)</p>
-                                    <div className="grid gap-3 sm:grid-cols-3">
-                                        <Campo label="Nombre del equipo"><Input value={entrega.nombre} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Marca"><Input value={entrega.marca} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Modelo"><Input value={entrega.modelo} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Serie"><Input value={entrega.serie} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Código interno"><Input value={entrega.codigo} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Proveedor"><Input value={entrega.proveedor} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="N° de factura"><Input value={entrega.n_factura} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Fecha factura"><Input type="date" value={entrega.fecha_factura} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Valor"><Input value={entrega.valor} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Frecuencia de mantención"><Input value={entrega.frecuencia_mantencion} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Fecha de adquisición"><Input type="date" value={entrega.fecha_adquisicion} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Área"><Input value={entrega.area} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Sección / unidad"><Input value={entrega.seccion} readOnly className="bg-muted/50 cursor-default" /></Campo>
-                                        <Campo label="Responsable del equipo (recibe)"><Input value={entrega.responsable_equipo} onChange={setE('responsable_equipo')} /></Campo>
-                                        <Campo label="Fecha de recepción" ayuda="Se completa automáticamente al firmar quien recibe o puede ingresarse a mano."><Input type="date" value={entrega.fecha_recepcion} onChange={setE('fecha_recepcion')} /></Campo>
+                                <Seccion n={1} titulo="Equipo" descripcion="Datos del inventario; se cambian en la ficha del equipo.">
+                                    <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><IconPackage size={20} /></span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-baseline gap-x-2">
+                                                <span className="font-mono text-base font-semibold">{entrega.codigo || 'Sin código'}</span>
+                                                <span className="truncate text-sm">{entrega.nombre}</span>
+                                            </div>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                {[entrega.marca, entrega.modelo && `Modelo ${entrega.modelo}`, entrega.serie && `Serie ${entrega.serie}`].filter(Boolean).join(' · ') || 'Sin marca, modelo ni serie'}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
-                                <Campo label="Observaciones">
-                                    <Textarea rows={3} value={entrega.observaciones} onChange={setE('observaciones')} placeholder="Ej.: Se envía en reemplazo de… / Equipo va sin pilas." />
-                                </Campo>
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    {responsablesEnt.length > 0 ? (
-                                        <>
+                                    <dl className="grid grid-cols-2 gap-x-4 gap-y-3 px-1">
+                                        <Dato label="Proveedor" valor={entrega.proveedor} />
+                                        <Dato label="N° de factura" valor={entrega.n_factura} />
+                                        <Dato label="Fecha factura" valor={fechaCorta(entrega.fecha_factura)} />
+                                        <Dato label="Valor" valor={entrega.valor} />
+                                        <Dato label="Fecha de adquisición" valor={fechaCorta(entrega.fecha_adquisicion)} />
+                                        <Dato label="Frecuencia de mantención" valor={entrega.frecuencia_mantencion} />
+                                        <Dato label="Área" valor={entrega.area} />
+                                        <Dato label="Sección / unidad" valor={entrega.seccion} />
+                                    </dl>
+                                </Seccion>
+
+                                <Seccion n={2} titulo="Entrega" descripcion="Quién recibe el equipo, quién lo entrega y cuándo.">
+                                    <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,11rem)]">
+                                        <Campo label="Responsable del equipo (recibe)"><Input value={entrega.responsable_equipo} onChange={setE('responsable_equipo')} placeholder="Nombre de quien recibe" /></Campo>
+                                        <Campo label="Fecha de recepción" ayuda="Se llena sola al firmar quien recibe."><Input type="date" value={entrega.fecha_recepcion} onChange={setE('fecha_recepcion')} /></Campo>
+                                        {responsablesEnt.length > 0 ? (
                                             <ListaResponsables label="Responsable de entrega" valor={entrega.responsable_entrega} lista={responsablesEnt} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_entrega: v } : p))} />
-                                            <ListaResponsables label="Responsable de área" valor={entrega.responsable_area} lista={responsablesEnt.filter((r) => r.puede_area !== false)} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_area: v } : p))} />
-                                        </>
-                                    ) : (
-                                        <>
+                                        ) : (
                                             <Campo label="Responsable de entrega"><Input value={entrega.responsable_entrega} onChange={setE('responsable_entrega')} /></Campo>
-                                            <Campo label="Responsable de área"><Input value={entrega.responsable_area} onChange={setE('responsable_area')} /></Campo>
-                                        </>
-                                    )}
-                                    <Campo label="Fecha de entrega"><Input type="date" value={entrega.fecha_entrega} onChange={setE('fecha_entrega')} /></Campo>
-                                </div>
-                                <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                                    {cabeceraFirmas}
+                                        )}
+                                        <Campo label="Fecha de entrega"><Input type="date" value={entrega.fecha_entrega} onChange={setE('fecha_entrega')} /></Campo>
+                                        {responsablesEnt.length > 0 ? (
+                                            <ListaResponsables className="sm:col-span-2" label="Responsable de área" valor={entrega.responsable_area} lista={responsablesEnt.filter((r) => r.puede_area !== false)} onCambio={(v) => setEntrega((p) => (p ? { ...p, responsable_area: v } : p))} />
+                                        ) : (
+                                            <Campo className="sm:col-span-2" label="Responsable de área"><Input value={entrega.responsable_area} onChange={setE('responsable_area')} /></Campo>
+                                        )}
+                                    </div>
+                                </Seccion>
+
+                                <Seccion n={3} titulo="Observaciones" descripcion="Opcional.">
+                                    <Textarea rows={3} value={entrega.observaciones} onChange={setE('observaciones')} placeholder="Ej.: Se envía en reemplazo de… / Equipo va sin pilas." />
+                                </Seccion>
+
+                                <Seccion n={4} titulo="Firmas" accion={<div className="flex flex-wrap items-center gap-2">{estadoFirmas}{botonCelular}</div>}>
                                     <div className={cn('grid gap-3', pantallaAncha ? 'grid-cols-1' : 'sm:grid-cols-3')}>
                                         <CampoFirma
                                             ref={(r) => { firmaRefs.current['entrega:equipo'] = r; }}
@@ -1228,8 +1269,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                     <span className="text-[11px] text-muted-foreground">
                                         Se puede firmar en pantalla, importar la firma registrada de la persona (si la tiene) o firmar con el celular (solo se piden las que faltan). Lo que no se firme queda en blanco para firmar en papel.
                                     </span>
-                                </div>
-                                <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                                </Seccion>
+                                <p className="flex items-start gap-1.5 px-1 text-xs text-muted-foreground">
                                     <IconInfoCircle size={14} className="mt-px shrink-0" />
                                     Los campos vacíos salen como “N/I”, igual que en el formato. Generar la ficha no cambia el equipo.
                                 </p>
@@ -1395,8 +1436,9 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                             <Button size="sm" onClick={irAPmRecepcion}>Registrar puesta en marcha</Button>
                         </div>
                     )}
-                    <DialogFooter className="gap-2">
-                        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+                    <DialogFooter className="gap-2 border-t border-border pt-4 sm:justify-between">
+                        <Button variant="ghost" onClick={onClose}>Cerrar</Button>
+                        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
                         <Button variant="outline" disabled={!puedeGenerar || !!generando} onClick={() => accion('ver')}>
                             <IconEye size={16} /> {generando === 'ver' ? 'Generando…' : 'Vista previa'}
                         </Button>
@@ -1418,6 +1460,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         <Button disabled={!puedeGenerar || !!generando} onClick={() => accion('bajar')}>
                             <IconDownload size={16} /> {generando === 'bajar' ? 'Generando…' : 'Descargar PDF'}
                         </Button>
+                        </div>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

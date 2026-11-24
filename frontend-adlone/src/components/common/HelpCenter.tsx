@@ -535,7 +535,7 @@ const getContextHelp = (
             queHace: 'Reemplaza la planilla Excel: crea una ficha por equipo y periodo, registra las 15 lecturas contra el termómetro patrón, calcula el error y si cumple (±0,5 °C), y al firmar guarda el PDF en el equipo y actualiza su revisión.',
             comoFunciona: [
                 '1. CREAR FICHAS: elige periodo y sede y marca los equipos. Los dados de baja aparecen al final con la etiqueta «Dado de baja».',
-                '2. LLENAR: abre una ficha con «Llenar». Para llenar varios equipos a la vez, marca sus casillas en la lista y presiona «Llenar a la vez»: se abren lado a lado (hasta 6).',
+                '2. LLENAR: abre una ficha con «Llenar». Para llenar varios equipos a la vez, marca sus casillas en la lista y presiona «Llenar a la vez»: se abren lado a lado (hasta 12; si marcas más, se abren las primeras 12 y las demás quedan marcadas para la siguiente tanda).',
                 '3. ANTECEDENTES: el patrón se elige solo según la sede y trae marca, modelo, N° de serie, fecha de calibración y empresa. La máxima división es siempre 5 y no se modifica.',
                 '4. LECTURAS: escribe la temperatura del patrón (TP) y presiona Enter. En ese momento se marca la hora y la TP queda bloqueada (🔒); Enter salta a la siguiente TP. Luego anota la TC (temperatura del equipo). Si te equivocas en una TP, bórrala con la × y escríbela de nuevo.',
                 '5. OBSERVACIÓN: al completar las 15 lecturas se agrega la fecha («- dd/mm/aaaa»), que no se puede borrar, y hay que escribir la observación a continuación. Es obligatoria.',
