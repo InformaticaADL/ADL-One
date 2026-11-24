@@ -6,7 +6,8 @@ import {
     IconMail,
     IconLayoutSidebar,
     IconDatabase,
-    IconGitMerge
+    IconGitMerge,
+    IconMailCog
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -40,6 +41,13 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             label: 'Notificaciones',
             icon: <IconBell size={19} stroke={1.75} />,
             description: 'Configurar eventos y destinatarios de correo.',
+            permission: 'INF_NOTIF'
+        },
+        {
+            id: 'admin-correos',
+            label: 'Administrador de correos',
+            icon: <IconMailCog size={19} stroke={1.75} />,
+            description: 'Quién recibe cada aviso: por rol, por persona y por canal.',
             permission: 'INF_NOTIF'
         },
         {

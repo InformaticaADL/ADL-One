@@ -3,6 +3,7 @@ import sql from 'mssql';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
 import gemUsuariosService, { ROL_GEM } from './gemUsuarios.service.js';
+import destinatariosService from './destinatarios.service.js';
 import { getIo } from '../utils/socketManager.js';
 
 // Eventos cuyo aviso a las personas del rol GEM se limita a las empresas que cada una ve (la selección se administra en ADL WEB GO).
@@ -169,6 +170,9 @@ class UnsService {
             }
 
             await this._filtrarGemPorEmpresa(pool, recipientsById, context, codigoEvento);
+
+            // Techo de acceso a la solicitud, selección de personas dentro de un rol y silencios por persona y canal (ver notifications/destinatarios.js).
+            await destinatariosService.aplicar(pool, codigoEvento, context, recipientsById);
 
             const recipients = Array.from(recipientsById.values()).map(r => {
                 if (!r.regla && primaryRule) {

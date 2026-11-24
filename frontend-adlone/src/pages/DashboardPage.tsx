@@ -42,6 +42,7 @@ import FacturacionSaludModule from '../features/facturacion-salud/components/Fac
 import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
+import { CorreosAdminPage } from '../features/admin/pages/CorreosAdminPage';
 import { BiologiaMolecularPage } from '../features/biologia-molecular/pages/BiologiaMolecularPage';
 import { HistoricoBiologiaMolecularPage } from '../features/biologia-molecular/pages/HistoricoBiologiaMolecularPage';
 
@@ -69,7 +70,7 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'informatica'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-correos', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'informatica'];
     // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
     // y NO dependen de los permisos de Admin. Información
 
@@ -188,10 +189,11 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-correos', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
+                if (activeSubmodule === 'admin-correos') return <CorreosAdminPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-urs') return <AdminUrsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-maestros') return <MaestrosHub onBack={() => setActiveSubmodule('informatica')} />;

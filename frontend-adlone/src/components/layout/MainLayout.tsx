@@ -92,7 +92,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // gestión, por eso el filtro va por submódulo y no por módulo.
     const ADMIN_INFO_SCREENS = [
         '', 'informatica', 'medio_ambiente', 'gestion_calidad',
-        'admin-roles', 'admin-users', 'admin-notifications', 'admin-urs',
+        'admin-roles', 'admin-users', 'admin-notifications', 'admin-correos', 'admin-urs',
         'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados',
         'gc-dashboard-equipos',
     ];
