@@ -2,9 +2,41 @@ import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
+import gemUsuariosService, { ROL_GEM } from './gemUsuarios.service.js';
 import { getIo } from '../utils/socketManager.js';
 
+// Eventos cuyo aviso a las personas del rol GEM se limita a las empresas que cada una ve (la selección se administra en ADL WEB GO).
+// «Muestreo completado» avisaba a las 13 personas del rol por cada muestreo y solo se leía el 8,5%.
+const EVENTOS_GEM_POR_EMPRESA = new Set(['FICHA_MUESTREO_COMPLETADO']);
+
 class UnsService {
+    /**
+     * Quita de los destinatarios a las personas GEM que no ven la empresa de la ficha. Quien no tiene empresas asignadas ve todas (igual que en
+     * Muestreos Ejecutados) y se queda. Las personas que no son GEM no se tocan.
+     */
+    async _filtrarGemPorEmpresa(pool, recipientsById, context, codigoEvento) {
+        if (!EVENTOS_GEM_POR_EMPRESA.has(codigoEvento) || recipientsById.size === 0) return;
+        try {
+            const idFicha = Number(context.ID_FICHA || context.id_ficha || 0);
+            if (!idFicha) return;
+            const f = await pool.request().input('f', sql.Numeric(10, 0), idFicha)
+                .query('SELECT id_empresa FROM App_Ma_FichaIngresoServicio_ENC WHERE id_fichaingresoservicio = @f');
+            const idEmpresa = Number(f.recordset[0]?.id_empresa || 0);
+            if (!idEmpresa) return;
+            const ids = Array.from(recipientsById.keys());
+            const gem = await pool.request().input('rol', sql.Numeric(10, 0), ROL_GEM)
+                .query(`SELECT id_usuario FROM rel_usuario_rol WHERE id_rol = @rol AND id_usuario IN (${ids.join(',')})`);
+            let quitados = 0;
+            for (const { id_usuario } of gem.recordset) {
+                const v = await gemUsuariosService.getEmpresasVisibles(id_usuario);
+                if (v.restringido && !v.ids.includes(idEmpresa)) { recipientsById.delete(Number(id_usuario)); quitados++; }
+            }
+            if (quitados) logger.info(`UNS: ${codigoEvento} no avisa a ${quitados} persona(s) GEM que no ven la empresa ${idEmpresa}`);
+        } catch (e) {
+            logger.warn(`UNS: no se pudo filtrar a las personas GEM por empresa (${e.message}); se avisa como antes`);
+        }
+    }
+
     /**
      * Dispara una notificación basada en un evento y datos contextuales
      * @param {string} codigoEvento - Código del evento (ej: 'SOLICITUD_NUEVA')
@@ -135,6 +167,8 @@ class UnsService {
                     logger.warn('UNS: Error en fallback de comentario:', fbErr.message);
                 }
             }
+
+            await this._filtrarGemPorEmpresa(pool, recipientsById, context, codigoEvento);
 
             const recipients = Array.from(recipientsById.values()).map(r => {
                 if (!r.regla && primaryRule) {
@@ -300,20 +334,20 @@ class UnsService {
                     mensaje: 'El muestreo agendado para la ficha #{{correlativo}} ha sido cancelado.'
                 },
                 'FICHA_MUESTREO_REPROGRAMADO': {
-                    titulo: 'Muestreo Reprogramado: #{{correlativo}}',
-                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reprogramado para una nueva fecha.'
+                    titulo: 'Cambio en el muestreo: #{{correlativo}}',
+                    mensaje: 'Se modificó la programación de un muestreo de la ficha #{{correlativo}}.'
                 },
                 'FICHA_MUESTREO_REAGENDADO': {
-                    titulo: 'Cambio de Fecha: #{{correlativo}}',
-                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reagendado para una nueva fecha.'
+                    titulo: 'Cambio en el muestreo: #{{correlativo}}',
+                    mensaje: 'Se cambió la fecha de un muestreo de la ficha #{{correlativo}}.'
                 },
                 'FICHA_MUESTREO_REASIGNADO': {
-                    titulo: 'Reasignación: #{{correlativo}}',
-                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha sido reasignado a un nuevo responsable.'
+                    titulo: 'Cambio en el muestreo: #{{correlativo}}',
+                    mensaje: 'Se cambió el responsable de un muestreo de la ficha #{{correlativo}}.'
                 },
                 'FICHA_MUESTREO_REAGENDADO_REASIGNADO': {
-                    titulo: 'Cambio Integral: #{{correlativo}}',
-                    mensaje: 'El muestreo de la ficha #{{correlativo}} ha cambiado de fecha y de responsable.'
+                    titulo: 'Cambio en el muestreo: #{{correlativo}}',
+                    mensaje: 'Se cambiaron la fecha y el responsable de un muestreo de la ficha #{{correlativo}}.'
                 },
                 'GCHAT_NUEVO_MENSAJE': {
                     titulo: '{{titulo_notificacion}}',

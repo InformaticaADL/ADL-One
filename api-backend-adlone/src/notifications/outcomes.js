@@ -10,6 +10,7 @@
 export const OUTCOMES = {
     NUEVA: { label: 'NUEVA', color: '#1a56b0', background: '#e8f0fe' },
     APROBADA: { label: 'APROBADA', color: '#1f8b4c', background: '#e3f6e8' },
+    REALIZADA: { label: 'REALIZADA', color: '#1f8b4c', background: '#e3f6e8' },
     RECHAZADA: { label: 'RECHAZADA', color: '#c0392b', background: '#fdecea' },
     EN_REVISION: { label: 'EN REVISIÓN', color: '#b35900', background: '#fff4e5' },
     DERIVADA: { label: 'DERIVADA', color: '#7e3ff2', background: '#f3e8fd' },

@@ -6,6 +6,12 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getTransporter } from '../config/mailer.js';
+import { renderPreFacturaCliente } from '../notifications/system-emails.js';
+import { fileURLToPath as _urlAArchivoPf } from 'url';
+
+// Logo de ADL que va dentro del correo de la pre-factura (si el archivo falta, el correo sale sin logo).
+const _rutaLogoAdl = path.resolve(path.dirname(_urlAArchivoPf(import.meta.url)), '../assets/logo_adl_diagnostic.png');
+const LOGO_ADL = fs.existsSync(_rutaLogoAdl) ? fs.readFileSync(_rutaLogoAdl) : null;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const UPLOAD_PATH = process.env.UPLOAD_PATH || path.join(__dirname, '../../uploads');
@@ -1090,30 +1096,26 @@ class FacturacionService {
             throw new Error('El cliente no tiene un email de facturación configurado (ni en fac_cliente_config ni en mae_empresaservicios). Complétalo en Facturación → Configuración → Clientes.');
         }
 
+        const cuerpo = renderPreFacturaCliente({ numero: pf.numero_id, empresa: pf.nombre_empresaservicios, totalUf: fmtUf(pf.total_uf), totalClp: fmtClp(pf.total_clp), requiereOc: cfg.requiere_oc, portalPublicado: !!pf.portal_publicado });
         const transporter = getTransporter();
         const envio = await transporter.sendMail({
             from: process.env.SMTP_FROM || '"Facturación ADL" <no-reply@adldiagnostic.cl>',
             to: destino,
+            headers: { 'X-ADL-Tipo': 'PRE_FACTURA' },
             subject: `Pre-Factura N° ${pf.numero_id} - ${pf.nombre_empresaservicios || ''}`,
-            html: `
-                <p>Estimado(a),</p>
-                <p>Adjuntamos la pre-factura N° <b>${pf.numero_id}</b> por un total de
-                   <b>${fmtUf(pf.total_uf)} U.F.</b> ($ ${fmtClp(pf.total_clp)}).</p>
-                <p>${cfg.requiere_oc === 'N'
-                    ? 'Este documento se procesará directamente para su facturación.'
-                    : pf.portal_publicado
-                        // Si la pre-factura ya está publicada en el portal, ahí puede
-                        // cargar la OC y queda vinculada sola. Si no lo está, ofrecer
-                        // esa vía sería mandarlo a buscar un documento que no verá.
-                        ? 'Para proceder con la facturación, agradecemos remitir su Orden de Compra (y HES si corresponde). Puede cargarla directamente en el portal ADL WEB GO, en la sección Archivos junto a esta pre-factura, o responder a este correo.'
-                        : 'Para proceder con la facturación, agradecemos remitir su Orden de Compra (y HES si corresponde) en respuesta a este correo.'}</p>
-                <p>Saludos,<br/>Facturación ADL Diagnostic</p>
-            `,
+            html: cuerpo.html,
+            text: cuerpo.text,
             attachments: [
                 { filename: `PF_${pf.numero_id}_resumen.pdf`, path: path.join(UPLOAD_PATH, 'facturacion', String(pf.numero_id), 'resumen.pdf') },
                 { filename: `PF_${pf.numero_id}_detalle.pdf`, path: path.join(UPLOAD_PATH, 'facturacion', String(pf.numero_id), 'detalle.pdf') },
+                ...(LOGO_ADL ? [{ filename: 'logo_adl.png', content: LOGO_ADL, cid: 'logo_adl' }] : []),
             ],
         });
+
+        // Si el correo no salió (el destinatario no es de ADL y ya no hay modo pruebas), la pre-factura NO debe quedar marcada como enviada.
+        if (envio && envio.bloqueadoPorDominio) {
+            throw new Error('El correo no se envió: el destinatario no es de ADL. Mientras ADL ONE no esté en producción, solo se envía a direcciones de ADL.');
+        }
 
         const nuevoEstado = cfg.requiere_oc === 'N' ? 'ENVIADA' : 'PENDIENTE_OC';
         const req = pool.request();

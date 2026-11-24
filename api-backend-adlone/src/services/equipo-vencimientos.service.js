@@ -3,6 +3,7 @@ import sql from 'mssql';
 import unsService from './uns.service.js';
 import logger from '../utils/logger.js';
 import { excluirSinVencimiento } from '../utils/sinVencimientoSql.js';
+import emailService from './email.service.js';
 
 // Avisos de vencimiento de equipos para Gestión de Calidad, como notificaciones
 // recientes (campana). Dos tramos: 30 y 7 días antes de la Siguiente revisión.
@@ -36,13 +37,13 @@ export const equipoVencimientosService = {
         const req = pool.request();
         PERMISOS_DESTINO.forEach((p, i) => req.input(`p${i}`, sql.VarChar(50), p));
         const usuarios = (await req.query(`
-            SELECT DISTINCT u.id_usuario
+            SELECT DISTINCT u.id_usuario, u.correo_electronico
             FROM mae_usuario u
             JOIN rel_usuario_rol ur ON ur.id_usuario = u.id_usuario
             JOIN rel_rol_permiso rp ON rp.id_rol = ur.id_rol
             JOIN mae_permiso p ON p.id_permiso = rp.id_permiso
             WHERE u.habilitado = 'S' AND p.codigo IN (${PERMISOS_DESTINO.map((_, i) => `@p${i}`).join(', ')})
-        `)).recordset.map((r) => Number(r.id_usuario));
+        `)).recordset.map((r) => ({ id: Number(r.id_usuario), correo: String(r.correo_electronico || '').trim() }));
         if (!usuarios.length) return { enviadas: 0 };
 
         // Solo equipos en uso: activos y operativos (no dados de baja ni fuera de servicio).
@@ -73,7 +74,7 @@ export const equipoVencimientosService = {
         for (const tramo of TRAMOS) {
             const delTramo = equipos.filter((e) => e.dias >= tramo.min && e.dias <= tramo.max);
             if (!delTramo.length) continue;
-            for (const idUsuario of usuarios) {
+            for (const { id: idUsuario, correo } of usuarios) {
                 const avisados = previos
                     .filter((n) => Number(n.id_usuario) === idUsuario && n.titulo?.startsWith(tramo.titulo))
                     .map((n) => n.mensaje || '');
@@ -87,6 +88,11 @@ export const equipoVencimientosService = {
                 try {
                     await unsService.sendWebNotification(idUsuario, titulo.slice(0, 200), mensaje, tramo.tipo, null, AREA_VENCIMIENTOS);
                     enviadas++;
+                    // También por correo (a quien gestiona equipos, que se elige por permiso, o sea por rol). Si falla, el aviso web ya quedó.
+                    if (correo) {
+                        emailService.sendEquiposPorVencer({ to: correo, tramo: tramo.id, equipos: nuevos })
+                            .catch((e) => logger.warn(`[Vencimientos] No se pudo enviar el correo a ${correo}: ${e.message}`));
+                    }
                 } catch (err) {
                     logger.error(`[Vencimientos] No se pudo notificar al usuario ${idUsuario}:`, err);
                 }

@@ -2,6 +2,7 @@ import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 import logger from '../utils/logger.js';
 import { redirigirCorreo, soloDominiosPermitidos } from './redireccionCorreo.js';
+import { registrarCorreo, tipoDeCorreo } from './registroCorreos.js';
 
 dotenv.config();
 
@@ -29,8 +30,9 @@ export const getTransporter = () => {
             // Solo correos de ADL: se quitan los destinatarios de otros dominios; si no queda nadie, no se envía.
             const { opciones: final, bloqueados, vacio } = soloDominiosPermitidos(redirigido);
             if (bloqueados.length) logger.warn(`[correo] Destinatarios que NO son de ADL, quitados de "${opciones && opciones.subject}": ${bloqueados.join(', ')}${vacio ? ' (no quedó nadie: el correo NO se envió)' : ''}`);
-            if (vacio) return Promise.resolve({ messageId: null, accepted: [], rejected: bloqueados, bloqueadoPorDominio: true });
-            return enviarReal(final, ...resto);
+            const anotar = (estado, error) => registrarCorreo({ tipo: tipoDeCorreo(opciones), asunto: opciones && opciones.subject, reales: [opciones && opciones.to, opciones && opciones.cc, opciones && opciones.bcc].filter(Boolean).flat(), final: final && final.to, redirigido: redirigido !== opciones, estado, error });
+            if (vacio) { anotar('bloqueado', 'ningún destinatario de ADL'); return Promise.resolve({ messageId: null, accepted: [], rejected: bloqueados, bloqueadoPorDominio: true }); }
+            return enviarReal(final, ...resto).then((r) => { anotar('enviado'); return r; }, (e) => { anotar('fallido', e && e.message); throw e; });
         };
     }
     return transporter;

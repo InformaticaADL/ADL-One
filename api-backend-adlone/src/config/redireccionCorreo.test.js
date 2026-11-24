@@ -1,12 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { redirigirCorreo, soloDominiosPermitidos } from './redireccionCorreo.js';
+import { redirigirCorreo, soloDominiosPermitidos, destinoRedireccion, REDIRECCION_POR_DEFECTO } from './redireccionCorreo.js';
 
 const original = { to: 'cliente@empresa.cl, otro@empresa.cl', cc: 'jefe@adl.cl', bcc: 'oculto@adl.cl', subject: 'Ficha 123', html: '<p>Hola</p>' };
 
-test('sin variable configurada el correo sale igual que siempre', () => {
+test('con la redirección explícitamente vacía el correo sale igual (así se declara producción)', () => {
     assert.equal(redirigirCorreo(original, ''), original);
-    assert.equal(redirigirCorreo(original, undefined), original);
+});
+
+test('por defecto todo va a la dirección de pruebas, aunque la variable falte o esté vacía', () => {
+    assert.equal(destinoRedireccion({}), REDIRECCION_POR_DEFECTO);
+    assert.equal(destinoRedireccion({ EMAIL_REDIRECT_TO: '' }), REDIRECCION_POR_DEFECTO);
+    assert.equal(destinoRedireccion({ EMAIL_REDIRECT_TO: '  ' }), REDIRECCION_POR_DEFECTO);
+    assert.equal(destinoRedireccion({ EMAIL_REDIRECT_TO: 'otra@adldiagnostic.cl' }), 'otra@adldiagnostic.cl');
+});
+
+test('solo EMAIL_PRODUCCION=1 apaga la redirección', () => {
+    assert.equal(destinoRedireccion({ EMAIL_PRODUCCION: '1' }), '');
+    assert.equal(destinoRedireccion({ EMAIL_PRODUCCION: '1', EMAIL_REDIRECT_TO: 'x@adl.cl' }), '');
+    assert.equal(destinoRedireccion({ EMAIL_PRODUCCION: '0' }), REDIRECCION_POR_DEFECTO);
 });
 
 test('con redirección, solo llega a la dirección de pruebas y no queda ni Cc ni Cco reales', () => {

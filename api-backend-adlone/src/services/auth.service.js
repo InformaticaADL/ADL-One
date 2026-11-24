@@ -343,6 +343,19 @@ class AuthService {
         }
     }
 
+    // Avisa por correo que la contraseña cambió. Nunca bloquea ni hace fallar el cambio.
+    _avisarClaveCambiada(userId, motivo) {
+        (async () => {
+            const pool = await getConnection();
+            const r = await pool.request().input('u', sql.Numeric(10, 0), userId)
+                .query('SELECT correo_electronico, nombre_usuario FROM mae_usuario WHERE id_usuario = @u');
+            const u = r.recordset[0];
+            if (!u || !u.correo_electronico) return;
+            const { default: emailService } = await import('./email.service.js');
+            await emailService.sendPasswordChanged({ to: u.correo_electronico, nombreUsuario: u.nombre_usuario, motivo });
+        })().catch((e) => logger.warn(`No se pudo avisar el cambio de contraseña: ${e.message}`));
+    }
+
     async changePassword(userId, currentPassword, newPassword) {
         try {
             const pool = await getConnection();
@@ -390,6 +403,7 @@ class AuthService {
                 descripcion_humana: `El usuario con ID ${userId} ha cambiado su contraseña`,
                 severidad: 1
             });
+            this._avisarClaveCambiada(userId, 'cambio');
 
             return true;
         } catch (error) {
@@ -593,6 +607,7 @@ class AuthService {
             descripcion_humana: `Contraseña restablecida vía link de reset para ${validation.nombreUsuario}`,
             severidad: 1
         });
+        this._avisarClaveCambiada(validation.idUsuario, 'recuperacion');
         return { success: true };
     }
 }

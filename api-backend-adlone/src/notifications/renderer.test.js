@@ -18,8 +18,8 @@ const BASE_CONTEXT = {
 };
 
 test('returns null for an event with no config (not yet migrated)', () => {
-    assert.equal(renderEmail('SOL_EQUIPO_NUEVA', BASE_CONTEXT), null);
-    assert.equal(getEventConfig('SOL_EQUIPO_NUEVA'), null);
+    assert.equal(renderEmail('GCHAT_NUEVO_MENSAJE', BASE_CONTEXT), null);
+    assert.equal(getEventConfig('GCHAT_NUEVO_MENSAJE'), null);
 });
 
 test('renders FICHA_CREADA: subject, title, badge, fields and CTA', () => {
