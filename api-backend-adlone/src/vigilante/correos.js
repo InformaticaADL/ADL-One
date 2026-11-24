@@ -21,6 +21,13 @@ const SERVICIOS = {
         puerto: 8002,
         detalle: 'Sin esto ADL ONE no carga datos y no se puede trabajar en él.',
     },
+    sampling: {
+        corto: 'La API de ADL SAMPLING',
+        nombre: 'API de ADL SAMPLING (app de terreno)',
+        proceso: 'api-mam-adl',
+        puerto: 8001,
+        detalle: 'Sin esto la app de terreno no puede iniciar sesión, bajar fichas ni subir muestreos.',
+    },
 };
 
 export const servicioDe = (id) => SERVICIOS[id] || { corto: id, nombre: id, proceso: id, puerto: '', detalle: '' };

@@ -1,5 +1,5 @@
 // Vigilante de ADL ONE: proceso APARTE (no vive dentro del backend, porque si el backend se cae no podría avisar).
-// Cada minuto pide la pantalla web (5174) y el servidor (8002) y, si uno deja de responder varias veces seguidas, manda un correo.
+// Cada minuto pide la pantalla web (5174), el servidor (8002) y la API de ADL SAMPLING (8001) y, si uno deja de responder varias veces seguidas, manda un correo.
 //
 //  · No avisa por paradas a propósito: un proceso que pm2 muestra como «stopped» (parada manual o despliegue con scripts/deploy-produccion.ps1) se ignora.
 //  · Sí avisa cuando pm2 lo muestra «online» pero no contesta (lo que pasó el 2026-11-19), o cuando el proceso ya no existe en pm2.
@@ -31,10 +31,14 @@ export const CONFIG = {
     servicios: [
         { id: 'frontend', proceso: 'adl-one-frontend', url: process.env.VIGILANTE_URL_FRONTEND || 'http://127.0.0.1:5174/', debeContener: 'id="root"' },
         { id: 'backend', proceso: 'adl-one-backend', url: process.env.VIGILANTE_URL_BACKEND || 'http://127.0.0.1:8002/', debeContener: null },
+        // /health de ADL SAMPLING también comprueba su conexión a la base de datos (responde error si la BD no contesta).
+        { id: 'sampling', proceso: 'api-mam-adl', url: process.env.VIGILANTE_URL_SAMPLING || 'http://127.0.0.1:8001/health', debeContener: null },
     ],
 };
 
-const registro = (...partes) => console.log(new Date().toISOString().replace('T', ' ').slice(0, 19), '[vigilante]', ...partes);
+// Hora de Chile (el servidor guarda UTC y el log quedaba 3-4 horas adelantado respecto al reloj de la gente).
+const horaLog = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'America/Santiago', dateStyle: 'short', timeStyle: 'medium' }).format(new Date());
+const registro = (...partes) => console.log(horaLog(), '[vigilante]', ...partes);
 
 // El estado se guarda en disco para que, si el propio vigilante se reinicia en plena caída, no vuelva a avisar como si fuera nueva.
 const MAX_EDAD_ESTADO_MS = 6 * 60 * 60 * 1000;

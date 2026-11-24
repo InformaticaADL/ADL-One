@@ -103,3 +103,12 @@ test('el recordatorio usa el mismo diseño con título «sigue sin responder»',
     assert.match(c.html, /sigue sin responder<\/h2>/);
     assert.match(c.html, /Lleva 2 h 15 min sin responder/);
 });
+
+test('aviso de caída de ADL SAMPLING: nombra su proceso y su puerto', () => {
+    const c = armarCorreo({ tipo: 'CAIDO', ...base }, 'sampling');
+    assert.match(c.subject, /ADL SAMPLING/);
+    assert.match(c.text, /pm2 stop api-mam-adl/);
+    assert.match(c.text, /pm2 start api-mam-adl/);
+    assert.match(c.text, /8001/);
+    assert.doesNotMatch(c.text, /adl-one-frontend|adl-one-backend/);
+});
