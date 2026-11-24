@@ -2,14 +2,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNotificationStore } from '../../../store/notificationStore';
 import type { Notification } from '../../../store/notificationStore';
 import { useNavStore } from '../../../store/navStore';
-import { esNotificacionSolicitudCliente } from '../utils/notificationNavigation';
 import './GlobalNotificationHub.css';
 
 const GlobalNotificationHub: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [showToast, setShowToast] = useState(false);
     const { notifications, fetchNotifications, markAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingSolicitudClienteId, setFirmaPendienteId, setPuestaMarchaPendienteId, setPmRecepcionEquipoId, selectedRequestId } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setFirmaPendienteId, setPuestaMarchaPendienteId, setPmRecepcionEquipoId, selectedRequestId } = useNavStore();
     const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -42,13 +41,6 @@ const GlobalNotificationHub: React.FC = () => {
         setIsOpen(false);
         await markAsRead(notif.id_notificacion);
         
-        if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
-            setPendingSolicitudClienteId(notif.id_referencia);
-            setActiveModule('solicitudes-clientes');
-            setActiveSubmodule('');
-            return;
-        }
-
         // Firma pendiente de una ficha (o aviso de que ya firmaron todos): abre Solicitudes > Firmas pendientes.
         if (notif.id_referencia && notif.area === 'Firmas') {
             setFirmaPendienteId(notif.id_referencia);

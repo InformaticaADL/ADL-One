@@ -1,11 +1,6 @@
 import apiClient from '../../../config/axios.config';
 import type { User, CreateUserData, UpdateUserData } from './rbac.service';
 
-export interface EmpresaAsignada {
-    id_empresa: number;
-    nombre_empresa: string;
-}
-
 class GemUsuariosService {
     async getUsuarios(): Promise<User[]> {
         const response = await apiClient.get('/api/admin/gem-usuarios');
@@ -29,14 +24,6 @@ class GemUsuariosService {
         await apiClient.put(`/api/admin/gem-usuarios/${userId}/status`, { habilitado });
     }
 
-    async getEmpresas(userId: number): Promise<EmpresaAsignada[]> {
-        const response = await apiClient.get(`/api/admin/gem-usuarios/${userId}/empresas`);
-        return response.data.data;
-    }
-
-    async setEmpresas(userId: number, empresaIds: number[]): Promise<void> {
-        await apiClient.put(`/api/admin/gem-usuarios/${userId}/empresas`, { empresaIds });
-    }
 }
 
 export const gemUsuariosService = new GemUsuariosService();

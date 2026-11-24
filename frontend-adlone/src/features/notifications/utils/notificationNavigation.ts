@@ -5,7 +5,6 @@ interface NavActions {
     setActiveSubmodule: (submoduleId: string) => void;
     setPendingRequestId: (id: number | null) => void;
     setPendingChatId: (id: number | null) => void;
-    setPendingSolicitudClienteId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
     setFichasMode: (mode: 'list_ejecutados' | 'list_fichas') => void;
     hasPermission: (permission: string | string[]) => boolean;
@@ -58,7 +57,6 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
         setActiveSubmodule,
         setPendingRequestId,
         setPendingChatId,
-        setPendingSolicitudClienteId,
         setSelectedRequestId,
         setFichasMode,
         hasPermission,
@@ -81,13 +79,8 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
         return;
     }
 
-    // Solicitudes de clientes del portal
-    if (notif.id_referencia && esNotificacionSolicitudCliente(notif)) {
-        setPendingSolicitudClienteId(notif.id_referencia);
-        setActiveModule('solicitudes-clientes');
-        setActiveSubmodule('');
-        return;
-    }
+    // Las solicitudes de clientes del portal se atienden solo en ADL WEB GO: aquí no hay a dónde llevarlas.
+    if (esNotificacionSolicitudCliente(notif)) return;
 
     // Muestreo Completado: lleva al listado de Muestreos Ejecutados, no al detalle de la ficha
     if (titulo.includes('muestreo completado')) {

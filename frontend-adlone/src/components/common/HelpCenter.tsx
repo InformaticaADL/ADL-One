@@ -595,26 +595,6 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // MÓDULO: SOLICITUDES DE CLIENTES (portal ADL WEB GO)
-    // ─────────────────────────────────────────────────────────────────────────
-    if (activeSubmodule === 'solicitudes-clientes' || activeModule === 'solicitudes-clientes') {
-        return {
-            title: 'Solicitudes de Clientes',
-            queEs: 'Bandeja de lo que los clientes piden desde su portal (ADL WEB GO).',
-            queHace: 'Reúne las solicitudes de las empresas que tienes asignadas para que las tomes, converses con el cliente y les des seguimiento. La bandeja se actualiza sola.',
-            comoFunciona: [
-                '1. Usa los filtros rápidos «Por atender» (pendientes) y «Sin tomar» (aún sin responsable), y filtra por empresa, área, estado o busca por texto.',
-                '2. Selecciona una solicitud para ver la conversación con el cliente.',
-                '3. «Tomar» la deja a tu cargo, para que el resto sepa quién la atiende.',
-                '4. Escribe tu respuesta y envíala con el botón o con Ctrl + Enter.'
-            ],
-            tips: [
-                'Solo ves las empresas que tienes asignadas. Las asignaciones se configuran en Informática → Solicitudes de clientes.'
-            ]
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: GESTIÓN DE MUESTREADORES (Calidad)
     // ─────────────────────────────────────────────────────────────────────────
     if (activeSubmodule === 'admin-muestreadores') {
@@ -792,7 +772,7 @@ const getContextHelp = (
             queEs: 'Administración de las cuentas del área GEM MaM.',
             queHace: 'Permite al jefe técnico crear y editar las cuentas de su área y definir qué empresas tiene a cargo cada una.',
             comoFunciona: [
-                '1. La lista muestra las cuentas GEM con sus empresas a cargo.',
+                '1. La lista muestra las cuentas GEM del área.',
                 '2. Crea o edita una cuenta con sus datos personales y su contraseña.',
                 '3. Marca las empresas que esa persona atiende.',
                 '4. Activa o desactiva cuentas; se pide confirmación.'

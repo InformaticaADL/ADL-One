@@ -15,7 +15,6 @@ import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
-import { SolicitudesClientesPage } from '../features/solicitudes-clientes/pages/SolicitudesClientesPage';
 import { AdminMenuWebPage } from '../features/admin/pages/AdminMenuWebPage';
 import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
@@ -170,12 +169,6 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
             if (!hasPermission('BM_ACCESO') && !hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
             return <BiologiaMolecularPage onBack={() => setActiveSubmodule('')} />;
         }
-        // Cualquier usuario autenticado puede entrar: lo que ve queda acotado por sus propias
-        // empresas asignadas (o por ser del grupo de respaldo) — ver rel_usuario_empresa_asignada.
-        if (activeSubmodule === 'solicitudes-clientes') {
-            return <SolicitudesClientesPage onBack={() => setActiveSubmodule('')} />;
-        }
-
         if (activeSubmodule === 'bm-historico') {
             const isFernandoB = (user?.username || '').trim().toUpperCase() === 'FERNANDOB';
             const isInformatica = hasPermission('INF_ACCESO') || (user?.permissions || []).includes('INF_ACCESO');
@@ -225,7 +218,6 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
         if (!activeSubmodule) {
             // Módulos que SI tienen su propia vista de aterrizaje directa (Stand-alone)
             if (activeModule === 'solicitudes') return <UniversalInbox />;
-            if (activeModule === 'solicitudes-clientes') return <SolicitudesClientesPage onBack={() => resetNavigation()} />;
             if (activeModule === 'notificaciones') return <UserNotificationsPage />;
             if (activeModule === 'chat') return <ChatModule />;
             if (activeModule === 'perfil') return <ProfilePage />;
