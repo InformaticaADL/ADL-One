@@ -2,7 +2,7 @@
 // destinatarios de un evento. Si algo falla al leer, NO se bloquea el aviso: se envía como antes y queda una advertencia en el log.
 import sql from 'mssql';
 import logger from '../utils/logger.js';
-import { decidirDestinatarios, explicarDestinatarios } from '../notifications/destinatarios.js';
+import { decidirDestinatarios, explicarDestinatarios, combinarAcceso } from '../notifications/destinatarios.js';
 
 const num = (v) => Number(v);
 
@@ -57,6 +57,21 @@ async function accesoAlTipo(pool, idTipo, context) {
     return acceso;
 }
 
+/** Permisos que declara un aviso (basta uno) y las personas que tienen alguno por sus roles. null si el aviso no declara permisos (sin techo por permiso). */
+async function accesoPorPermiso(pool, codigoEvento) {
+    const permisos = (await pool.request().input('c', sql.VarChar(50), codigoEvento).query('SELECT permiso FROM cfg_evento_permiso WHERE codigo_evento = @c')).recordset.map((r) => r.permiso);
+    if (!permisos.length) return null;
+    const req = pool.request();
+    const nombres = permisos.map((p, i) => { req.input(`p${i}`, sql.VarChar(100), p); return `@p${i}`; });
+    // Igual que el inicio de sesión: usuario → roles → permisos del rol.
+    const personas = (await req.query(`
+        SELECT DISTINCT ur.id_usuario FROM rel_usuario_rol ur
+        JOIN rel_rol_permiso rp ON rp.id_rol = ur.id_rol
+        JOIN mae_permiso p ON p.id_permiso = rp.id_permiso
+        WHERE p.codigo IN (${nombres.join(',')})`)).recordset;
+    return { permisos, personas: new Set(personas.map((r) => num(r.id_usuario))) };
+}
+
 /** Todo lo que decidirDestinatarios necesita, leído de la base, para un evento y un conjunto de personas candidatas. */
 async function reunirEntrada(pool, codigoEvento, context, destinatarios) {
     const idTipo = num(context.id_tipo || 0) || null;
@@ -77,7 +92,8 @@ async function reunirEntrada(pool, codigoEvento, context, destinatarios) {
         .query(`SELECT id_usuario, canal FROM cfg_notificacion_silencio WHERE codigo_evento = @c OR codigo_evento IS NULL`)).recordset
         .map((r) => ({ id_usuario: num(r.id_usuario), canal: r.canal }));
 
-    const acceso = await accesoAlTipo(pool, idTipo, context);
+    const porPermiso = await accesoPorPermiso(pool, codigoEvento);
+    const acceso = combinarAcceso(await accesoAlTipo(pool, idTipo, context), porPermiso ? porPermiso.personas : null);
     return { destinatarios, rolesDe, rolesDelEvento, directos, limites, acceso, silencios };
 }
 
@@ -102,6 +118,21 @@ export const destinatariosService = {
             logger.warn(`UNS: no se pudieron aplicar los límites de avisos a ${codigoEvento} (${e.message}); se avisa como antes`);
             return [];
         }
+    },
+
+    /** Qué exige un aviso para recibirlo: permisos (basta uno) y, si es de solicitud, acceso al tipo. Para mostrarlo en el administrador. */
+    async requisitos(pool, codigoEvento, idTipo = null) {
+        const p = await accesoPorPermiso(pool, codigoEvento);
+        let permisos = [];
+        if (p) {
+            const req = pool.request();
+            const ph = p.permisos.map((c, i) => { req.input(`p${i}`, sql.VarChar(100), c); return `@p${i}`; });
+            permisos = (await req.query(`SELECT codigo, nombre FROM mae_permiso WHERE codigo IN (${ph.join(',')}) ORDER BY codigo`)).recordset
+                .map((r) => ({ codigo: r.codigo, nombre: r.nombre }));
+            const conocidos = new Set(permisos.map((x) => x.codigo));
+            p.permisos.filter((c) => !conocidos.has(c)).forEach((c) => permisos.push({ codigo: c, nombre: c }));
+        }
+        return { permisos, tipoDeSolicitud: !!idTipo };
     },
 
     /** Canales que ofrece un aviso según su configuración (correo y/o aviso web). */

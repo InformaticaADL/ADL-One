@@ -5,7 +5,7 @@ import { useToast } from '../../../contexts/ToastContext';
 import { rbacService, type User } from '../services/rbac.service';
 import {
     correosAdminService, canalesSilenciados, MOTIVO_TEXTO,
-    type EventoCorreo, type TipoSolicitud, type PersonaDestino, type Silencio, type CanalesAviso, type RolDelAviso, type AvisoDePersona, type MotivoNoRecibe,
+    type EventoCorreo, type TipoSolicitud, type PersonaDestino, type Silencio, type CanalesAviso, type RequisitosAviso, type RolDelAviso, type AvisoDePersona, type MotivoNoRecibe,
 } from '../services/correosAdmin.service';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -98,6 +98,7 @@ const PorAviso: React.FC = () => {
     const [personas, setPersonas] = useState<PersonaDestino[]>([]);
     const [silencios, setSilencios] = useState<Silencio[]>([]);
     const [canales, setCanales] = useState<CanalesAviso>({ email: true, web: true });
+    const [requisitos, setRequisitos] = useState<RequisitosAviso>({ permisos: [], tipoDeSolicitud: false });
     const [roles, setRoles] = useState<RolDelAviso[]>([]);
     const [cargando, setCargando] = useState(false);
 
@@ -113,7 +114,7 @@ const PorAviso: React.FC = () => {
         setCargando(true);
         try {
             const [d, r] = await Promise.all([correosAdminService.getDestinatarios(codigo, idTipo), correosAdminService.getRoles(codigo, idTipo)]);
-            setPersonas(d.personas); setSilencios(d.silencios); setCanales(d.canales); setRoles(r);
+            setPersonas(d.personas); setSilencios(d.silencios); setCanales(d.canales); setRequisitos(d.requisitos); setRoles(r);
         } catch {
             showToast({ type: 'error', message: 'No se pudo calcular quién recibe este aviso' });
         } finally { setCargando(false); }
@@ -189,6 +190,14 @@ const PorAviso: React.FC = () => {
                                 <CardTitle>{evento.descripcion || evento.codigo}</CardTitle>
                                 <CardDescription>{evento.codigo}</CardDescription>
                             </CardHeader>
+                            <CardContent className="pb-3 text-xs text-muted-foreground">
+                                <p className="mb-0.5 font-medium text-foreground">Para recibir este aviso hay que tener acceso:</p>
+                                {requisitos.permisos.length > 0 && <p>· Alguno de estos permisos: {requisitos.permisos.map((p) => p.nombre).join(', ')}.</p>}
+                                {requisitos.tipoDeSolicitud && <p>· Acceso al tipo de solicitud elegido abajo (haberla creado, poder verla o gestionarla, o que se la hayan derivado).</p>}
+                                {requisitos.permisos.length === 0 && !requisitos.tipoDeSolicitud && (
+                                    <p>{esDeSolicitud(evento.codigo) ? '· Elige abajo el tipo de solicitud para comprobar quién tiene acceso.' : '· Este aviso no exige ningún permiso: lo recibe quien esté en la lista.'}</p>
+                                )}
+                            </CardContent>
                             {esDeSolicitud(evento.codigo) && (
                                 <CardContent>
                                     <p className="mb-1.5 text-xs font-medium text-muted-foreground">Tipo de solicitud (para comprobar quién tiene acceso)</p>

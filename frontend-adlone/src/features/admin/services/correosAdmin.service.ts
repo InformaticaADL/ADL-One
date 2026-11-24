@@ -20,6 +20,7 @@ export interface PersonaDestino {
     motivo: MotivoNoRecibe | null;
 }
 export interface CanalesAviso { email: boolean; web: boolean }
+export interface RequisitosAviso { permisos: { codigo: string; nombre: string }[]; tipoDeSolicitud: boolean }
 export interface Silencio { id_usuario: number; codigo_evento: string | null; canal: CanalSilencio }
 export interface MiembroRol { id_usuario: number; nombre: string; tiene_acceso: boolean | null; elegido: boolean }
 export interface RolDelAviso { id_rol: number; nombre_rol: string; limitado: boolean; miembros: MiembroRol[] }
@@ -33,7 +34,7 @@ export interface AvisoDePersona {
 }
 
 export const MOTIVO_TEXTO: Record<MotivoNoRecibe, string> = {
-    sin_acceso: 'Sin acceso a la solicitud',
+    sin_acceso: 'Sin acceso: le falta el permiso o el acceso a la solicitud',
     fuera_de_la_seleccion_del_rol: 'No está entre las personas elegidas del rol',
     silenciado: 'Silenciado',
 };
@@ -42,7 +43,7 @@ export const correosAdminService = {
     async getCatalogo(): Promise<{ eventos: EventoCorreo[]; tipos: TipoSolicitud[] }> {
         return (await apiClient.get('/api/notifications/events/catalogo')).data;
     },
-    async getDestinatarios(codigo: string, idTipo?: number | null): Promise<{ personas: PersonaDestino[]; silencios: Silencio[]; canales: CanalesAviso }> {
+    async getDestinatarios(codigo: string, idTipo?: number | null): Promise<{ personas: PersonaDestino[]; silencios: Silencio[]; canales: CanalesAviso; requisitos: RequisitosAviso }> {
         return (await apiClient.get(`/api/notifications/events/${codigo}/destinatarios`, { params: idTipo ? { idTipo } : {} })).data;
     },
     async getRoles(codigo: string, idTipo?: number | null): Promise<RolDelAviso[]> {

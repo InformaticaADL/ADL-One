@@ -48,7 +48,8 @@ export const getDestinatarios = async (req, res) => {
             .query('SELECT id_usuario, codigo_evento, canal FROM cfg_notificacion_silencio WHERE codigo_evento = @c OR codigo_evento IS NULL')).recordset
             .map((s) => ({ id_usuario: Number(s.id_usuario), codigo_evento: s.codigo_evento, canal: s.canal }));
         const canales = await destinatariosService.canalesDelEvento(pool, codigo);
-        res.json({ codigo, personas, silencios, canales });
+        const requisitos = await destinatariosService.requisitos(pool, codigo, Number(req.query.idTipo) || null);
+        res.json({ codigo, personas, silencios, canales, requisitos });
     } catch (e) { falla(res, e, 'No se pudo calcular quién recibe este aviso'); }
 };
 

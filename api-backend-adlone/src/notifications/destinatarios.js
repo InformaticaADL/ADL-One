@@ -1,7 +1,8 @@
 // Quién recibe de verdad un aviso. El sistema junta los destinatarios de un evento desde varios lugares (configuración del administrador, reglas,
 // destinatarios fijos, gestores de la solicitud) y esta función aplica, EN ESTE ORDEN, las tres reglas que los hacen coherentes entre sí:
 //
-//  1) EL ACCESO ES EL TECHO. Si el aviso es de una solicitud y la persona no tiene acceso a ella, no recibe nada (aunque alguien la haya puesto en la lista).
+//  1) EL ACCESO ES EL TECHO. Si la persona no tiene acceso a lo que el aviso cuenta, no recibe nada (aunque alguien la haya puesto en la lista):
+//     en una solicitud, acceso al tipo de solicitud; en una ficha u otro aviso, alguno de los permisos que ese aviso declara (cfg_evento_permiso).
 //  2) LA SELECCIÓN DENTRO DEL ROL. Un rol puede limitarse a «solo estas personas». Una persona se descarta por esa limitación solo si TODOS los caminos
 //     por los que le llegaría el aviso están limitados y la dejan fuera: si también está nombrada directamente, es la propietaria, o llega por otro rol
 //     sin limitar, se queda.
@@ -17,13 +18,24 @@ export const MOTIVOS = Object.freeze({
 });
 
 /**
+ * Junta los dos techos posibles de un aviso: el acceso al tipo de solicitud y los permisos que el aviso declara. Si hay los dos, hay que cumplir ambos
+ * (intersección); si hay uno solo, ese; si no hay ninguno, no hay techo (null).
+ */
+export function combinarAcceso(porTipoDeSolicitud, porPermiso) {
+    if (!porTipoDeSolicitud && !porPermiso) return null;
+    if (!porTipoDeSolicitud) return porPermiso;
+    if (!porPermiso) return porTipoDeSolicitud;
+    return new Set([...porTipoDeSolicitud].filter((u) => porPermiso.has(u)));
+}
+
+/**
  * @param {object} p
  * @param {Map<number,{id_usuario:number,web:boolean,email:boolean}>} p.destinatarios  ya resueltos por el sistema
  * @param {Map<number,number[]>} p.rolesDe              roles de cada persona (id_usuario → ids de rol)
  * @param {Set<number>} p.rolesDelEvento                roles por los que el evento llega (configuración + reglas + permisos del tipo de solicitud)
  * @param {Set<number>} p.directos                      personas nombradas directamente + propietaria (no las alcanza la limitación de un rol)
  * @param {Map<number,Set<number>>} p.limites           rol → «solo estas personas»
- * @param {Set<number>|null} p.acceso                   quién tiene acceso (null = el evento no es de una solicitud: no aplica)
+ * @param {Set<number>|null} p.acceso                   quién tiene acceso (null = el aviso no tiene techo: no aplica)
  * @param {Array<{id_usuario:number, canal:'EMAIL'|'WEB'|'TODOS'}>} p.silencios   ya filtrados para este evento
  * @returns {{aceptados: Map<number,object>, descartados: Array<{id_usuario:number, motivo:string, detalle?:string}>}}
  */

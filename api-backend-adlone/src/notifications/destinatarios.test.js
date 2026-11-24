@@ -118,3 +118,20 @@ test('explicarDestinatarios ordena primero a quien recibe y trae el motivo de qu
     const filas = explicarDestinatarios({ destinatarios: dest(1, 2), acceso: new Set([2]) }, new Map([[1, 'Ana'], [2, 'Beto']]));
     assert.deepEqual(filas.map((f) => [f.nombre, f.recibe, f.motivo]), [['Beto', true, null], ['Ana', false, MOTIVOS.SIN_ACCESO]]);
 });
+
+import { combinarAcceso } from './destinatarios.js';
+
+test('combinarAcceso: sin ningún techo no hay techo; con uno, ese; con dos, se cumplen ambos', () => {
+    assert.equal(combinarAcceso(null, null), null);
+    assert.deepEqual([...combinarAcceso(new Set([1, 2]), null)], [1, 2]);
+    assert.deepEqual([...combinarAcceso(null, new Set([2, 3]))], [2, 3]);
+    assert.deepEqual([...combinarAcceso(new Set([1, 2, 3]), new Set([2, 3, 4]))].sort(), [2, 3]);
+    assert.equal(combinarAcceso(new Set([1]), new Set([2])).size, 0);
+});
+
+test('el techo por permiso saca a quien no tiene el permiso del aviso de una ficha', () => {
+    // Aviso de ficha: solo 1 y 2 tienen un permiso para verla. La 3 estaba en la lista.
+    const r = decidirDestinatarios({ destinatarios: dest(1, 2, 3), acceso: combinarAcceso(null, new Set([1, 2])) });
+    assert.deepEqual(ids(r), [1, 2]);
+    assert.equal(motivo(r, 3), MOTIVOS.SIN_ACCESO);
+});
