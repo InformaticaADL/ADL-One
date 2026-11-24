@@ -10,6 +10,9 @@ const ROL_GEM = 20;
 const AREA = 'MAM';
 
 class GemUsuariosService {
+    _cacheVisibles = new Map();
+    _webCaidaHasta = 0; // mientras dure, no se intenta llamar a ADL WEB GO (acaba de fallar)
+
     async isGemUser(userId) {
         const pool = await getConnection();
         const result = await pool.request()
@@ -53,6 +56,52 @@ class GemUsuariosService {
         }
     }
 
+    /**
+     * Empresas del laboratorio que puede ver un usuario GEM (p. ej. en Muestreos Ejecutados).
+     * La fuente es ADL WEB GO (Administración → Resp. solicitudes): se le pregunta por su API.
+     * Si la web no responde o aún no autoriza esta llave, se usa la asignación antigua de ADL ONE.
+     * Devuelve { restringido: boolean, ids: number[] }. Sin restricción = ve todas las empresas.
+     */
+    async getEmpresasVisibles(userId) {
+        // Caché corta: un aviso a todo el rol GEM pregunta por cada persona y la respuesta casi no cambia (se administra en ADL WEB GO).
+        const ahora = Date.now();
+        const guardado = this._cacheVisibles.get(Number(userId));
+        if (guardado && ahora - guardado.en < guardado.ttl) return guardado.valor;
+        const valor = await this._leerEmpresasVisibles(userId);
+        // Si ADL WEB GO no respondió y se usó la asignación antigua, se recuerda solo 1 minuto: así un corte de la web no hace esperar su tiempo de espera por cada persona.
+        this._cacheVisibles.set(Number(userId), { en: ahora, ttl: valor.fuente === 'web' ? 5 * 60 * 1000 : 60 * 1000, valor });
+        return valor;
+    }
+
+    async _leerEmpresasVisibles(userId) {
+        try {
+            const pool = await getConnection();
+            const r = await pool.request()
+                .input('userId', sql.Numeric(10, 0), userId)
+                .query('SELECT correo_electronico FROM mae_usuario WHERE id_usuario = @userId');
+            const email = (r.recordset[0]?.correo_electronico || '').trim().toLowerCase();
+            if (email && process.env.WEBCLIENTES_API_URL && process.env.WEBCLIENTES_API_KEY && Date.now() >= this._webCaidaHasta) {
+                const resp = await fetch(
+                    `${process.env.WEBCLIENTES_API_URL}/api/v1/equipo/empresas-visibles?email=${encodeURIComponent(email)}`,
+                    { headers: { Authorization: `Bearer ${process.env.WEBCLIENTES_API_KEY}` }, signal: AbortSignal.timeout(8000) });
+                if (resp.ok) {
+                    const data = await resp.json();
+                    return data.restringido
+                        ? { restringido: true, ids: (data.ids_empresa || []).map(Number).filter(Boolean), fuente: 'web' }
+                        : { restringido: false, ids: [], fuente: 'web' };
+                }
+                this._webCaidaHasta = Date.now() + 60 * 1000;
+                logger.warn(`ADL WEB GO respondió ${resp.status} al pedir las empresas visibles; se usa la asignación antigua (se reintenta en 1 minuto).`);
+            }
+        } catch (error) {
+            this._webCaidaHasta = Date.now() + 60 * 1000;
+            logger.warn(`No se pudo consultar ADL WEB GO (${error.message}); se usa la asignación antigua (se reintenta en 1 minuto).`);
+        }
+        const antiguas = await this.getEmpresasAsignadas(userId);
+        const ids = antiguas.map(e => Number(e.id_empresa)).filter(Boolean);
+        return { restringido: ids.length > 0, ids, fuente: 'antigua' };
+    }
+
     async getEmpresasAsignadas(userId) {
         try {
             const pool = await getConnection();
@@ -73,40 +122,6 @@ class GemUsuariosService {
         }
     }
 
-    async setEmpresasAsignadas(userId, empresaIds, asignadoPorUserId) {
-        try {
-            const pool = await getConnection();
-            const transaction = new sql.Transaction(pool);
-            await transaction.begin();
-            try {
-                await new sql.Request(transaction)
-                    .input('userId', sql.Numeric(10, 0), userId)
-                    .input('area', sql.VarChar(10), AREA)
-                    .query('DELETE FROM rel_usuario_empresa_asignada WHERE id_usuario = @userId AND area = @area');
-
-                for (const idEmpresa of empresaIds) {
-                    await new sql.Request(transaction)
-                        .input('userId', sql.Numeric(10, 0), userId)
-                        .input('idEmpresa', sql.Int, idEmpresa)
-                        .input('area', sql.VarChar(10), AREA)
-                        .input('asignadoPor', sql.Numeric(10, 0), asignadoPorUserId)
-                        .query(`
-                            INSERT INTO rel_usuario_empresa_asignada (id_usuario, id_empresa, area, asignado_en, asignado_por)
-                            VALUES (@userId, @idEmpresa, @area, GETDATE(), @asignadoPor)
-                        `);
-                }
-
-                await transaction.commit();
-                return { success: true };
-            } catch (err) {
-                await transaction.rollback();
-                throw err;
-            }
-        } catch (error) {
-            logger.error('Error setting empresas asignadas:', error);
-            throw error;
-        }
-    }
 }
 
 export default new GemUsuariosService();

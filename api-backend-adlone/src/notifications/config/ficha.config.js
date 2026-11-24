@@ -38,6 +38,20 @@ const CTA_CALENDARIO = { label: 'Ver Calendario en ADL ONE', ruta: '/?vista=cale
 // donde se ve el avance/resultado del proceso recién finalizado.
 const CTA_EJECUTADOS = { label: 'Ver Muestreos Ejecutados', ruta: '/?vista=ejecutados' };
 
+const cambioMuestreo = (codigo, resumen) => ({
+    codigo,
+    categoria: 'FICHA',
+    outcome: 'REPROGRAMADA',
+    asunto: 'Cambio en el muestreo: {REGISTRO}',
+    titulo: 'Cambio en el muestreo',
+    resumen,
+    campos: FICHA_CAMPOS_BASE,
+    eventoMeta: EVENTO_META,
+    bloqueEspecial: 'fichaServicios',
+    observacion: OBSERVACION_DEFAULT,
+    cta: CTA_CALENDARIO,
+});
+
 export const FICHA_CONFIG = [
     {
         codigo: 'FICHA_CREADA',
@@ -160,58 +174,13 @@ export const FICHA_CONFIG = [
         observacion: { etiqueta: 'Motivo de Cancelación', variable: '{OBSERVACION}' },
         cta: CTA_CALENDARIO,
     },
-    {
-        codigo: 'FICHA_MUESTREO_REPROGRAMADO',
-        categoria: 'FICHA',
-        outcome: 'REPROGRAMADA',
-        asunto: 'Muestreo Reprogramado: {REGISTRO}',
-        titulo: 'Muestreo Reprogramado',
-        resumen: 'Se reprogramó un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.',
-        campos: FICHA_CAMPOS_BASE,
-        eventoMeta: EVENTO_META,
-        bloqueEspecial: 'fichaServicios',
-        observacion: OBSERVACION_DEFAULT,
-        cta: CTA_CALENDARIO,
-    },
-    {
-        codigo: 'FICHA_MUESTREO_REASIGNADO',
-        categoria: 'FICHA',
-        outcome: 'REPROGRAMADA',
-        asunto: 'ADL ONE: {TITULO_CORREO}: {REGISTRO}',
-        titulo: 'Muestreo Reasignado',
-        resumen: 'Se reasignó el responsable de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.',
-        campos: FICHA_CAMPOS_BASE,
-        eventoMeta: EVENTO_META,
-        bloqueEspecial: 'fichaServicios',
-        observacion: OBSERVACION_DEFAULT,
-        cta: CTA_CALENDARIO,
-    },
-    {
-        codigo: 'FICHA_MUESTREO_REAGENDADO',
-        categoria: 'FICHA',
-        outcome: 'REPROGRAMADA',
-        asunto: 'ADL ONE: {TITULO_CORREO}: {REGISTRO}',
-        titulo: 'Muestreo Reagendado',
-        resumen: 'Se reagendó la fecha de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.',
-        campos: FICHA_CAMPOS_BASE,
-        eventoMeta: EVENTO_META,
-        bloqueEspecial: 'fichaServicios',
-        observacion: OBSERVACION_DEFAULT,
-        cta: CTA_CALENDARIO,
-    },
-    {
-        codigo: 'FICHA_MUESTREO_REAGENDADO_REASIGNADO',
-        categoria: 'FICHA',
-        outcome: 'REPROGRAMADA',
-        asunto: 'ADL ONE: {TITULO_CORREO}: {REGISTRO}',
-        titulo: 'Muestreo Reagendado y Reasignado',
-        resumen: 'Se reagendó la fecha y se reasignó el responsable de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.',
-        campos: FICHA_CAMPOS_BASE,
-        eventoMeta: EVENTO_META,
-        bloqueEspecial: 'fichaServicios',
-        observacion: OBSERVACION_DEFAULT,
-        cta: CTA_CALENDARIO,
-    },
+    // Los cuatro avisos de cambio de un muestreo son un solo correo, «Cambio en el muestreo»; solo cambia la frase que dice qué se modificó.
+    // Se mantienen cuatro códigos porque cada uno decide a quién se avisa (destinatarios en la base de datos).
+    cambioMuestreo('FICHA_MUESTREO_REAGENDADO', 'Se cambió la fecha de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.'),
+    cambioMuestreo('FICHA_MUESTREO_REASIGNADO', 'Se cambió el responsable de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.'),
+    cambioMuestreo('FICHA_MUESTREO_REAGENDADO_REASIGNADO', 'Se cambiaron la fecha y el responsable de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.'),
+    cambioMuestreo('FICHA_MUESTREO_REPROGRAMADO', 'Se modificó la programación de un muestreo de la {TIPO_REGISTRO_MIN} {REGISTRO}.'),
+
     {
         codigo: 'FICHA_MUESTREO_COMPLETADO',
         categoria: 'FICHA',

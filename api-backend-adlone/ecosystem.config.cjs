@@ -68,5 +68,27 @@ module.exports = {
       log_date_format: "YYYY-MM-DD HH:mm:ss",
       merge_logs: true,
     },
+    {
+      // Vigilante: manda un correo si la pantalla web (5174) o el servidor (8002) dejan de responder. Es un proceso APARTE a propósito: si
+      // viviera dentro del backend, no podría avisar cuando el backend se cae. Ignora los procesos que pm2 muestra «stopped» (paradas manuales
+      // y despliegues). Se levanta una sola vez con:  pm2 start ecosystem.config.cjs --only adl-one-vigilante  y luego  pm2 save
+      // (scripts/deploy-produccion.ps1 reinicia backend y frontend por nombre y no lo toca). Ver src/vigilante/vigilante.js.
+      name: "adl-one-vigilante",
+      script: "src/vigilante/vigilante.js",
+
+      instances: 1,
+      exec_mode: "fork",
+
+      autorestart: true,
+      watch: false,
+      max_restarts: 50,
+      restart_delay: 5000,
+      max_memory_restart: "300M",
+
+      error_file: "./logs/adl-one-vigilante-error.log",
+      out_file: "./logs/adl-one-vigilante-out.log",
+      log_date_format: "YYYY-MM-DD HH:mm:ss",
+      merge_logs: true,
+    },
   ],
 };

@@ -7,8 +7,7 @@ import {
     IconLayoutSidebar,
     IconDatabase,
     IconGitMerge,
-    IconBuilding,
-    IconUserCheck
+    IconMailCog
 } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
@@ -45,6 +44,13 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             permission: 'INF_NOTIF'
         },
         {
+            id: 'admin-correos',
+            label: 'Administrador de correos',
+            icon: <IconMailCog size={19} stroke={1.75} />,
+            description: 'Quién recibe cada aviso: por rol, por persona y por canal.',
+            permission: 'INF_NOTIF'
+        },
+        {
             id: 'admin-urs',
             label: 'Administración URS',
             icon: <IconMail size={19} stroke={1.75} />,
@@ -71,20 +77,6 @@ export const InformaticaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             icon: <IconGitMerge size={19} stroke={1.75} />,
             description: 'Empresas, servicios y centros posiblemente repetidos en la base nueva.',
             permission: 'INF_ACCESO'
-        },
-        {
-            id: 'admin-solicitudes-clientes',
-            label: 'Solicitudes de clientes',
-            icon: <IconBuilding size={19} stroke={1.75} />,
-            description: 'Asignar qué persona atiende las solicitudes de cada empresa, por área.',
-            permission: 'AI_SOLICITUDES_CLIENTES_CONFIG'
-        },
-        {
-            id: 'admin-verificadores-solicitudes',
-            label: 'Verificadores de Solicitudes',
-            icon: <IconUserCheck size={19} stroke={1.75} />,
-            description: 'Usuarios que reciben copia informativa de todas las solicitudes de clientes.',
-            permission: 'AI_SOLICITUDES_VERIFICADORES_CONFIG'
         },
     ];
 

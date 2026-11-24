@@ -158,46 +158,6 @@ class GemUsuariosController {
             return errorResponse(res, 'Error al cambiar estado del usuario', 500);
         }
     }
-
-    async getEmpresas(req, res) {
-        try {
-            const { id } = req.params;
-            if (!(await assertIsGemUser(res, id))) return;
-
-            const empresas = await gemUsuariosService.getEmpresasAsignadas(id);
-            return successResponse(res, empresas);
-        } catch (error) {
-            return errorResponse(res, 'Error al obtener empresas asignadas', 500);
-        }
-    }
-
-    async setEmpresas(req, res) {
-        try {
-            const { id } = req.params;
-            if (!(await assertIsGemUser(res, id))) return;
-
-            const { empresaIds } = req.body;
-            if (!Array.isArray(empresaIds)) return errorResponse(res, 'empresaIds must be an array', 400);
-
-            await gemUsuariosService.setEmpresasAsignadas(id, empresaIds, actorId(req));
-
-            auditService.log({
-                usuario_id: actorId(req),
-                area_key: 'medio_ambiente',
-                modulo_nombre: 'Usuarios GEM',
-                evento_tipo: 'GEM_USER_EMPRESAS_ASSIGN',
-                entidad_nombre: 'mae_usuario',
-                entidad_id: id,
-                descripcion_humana: `${actorName(req)} actualizó las empresas a cargo del usuario GEM ID:${id}`,
-                datos_nuevos: { empresa_ids: empresaIds },
-                severidad: 1
-            });
-
-            return successResponse(res, null, 'Empresas asignadas exitosamente');
-        } catch (error) {
-            return errorResponse(res, 'Error al asignar empresas', 500);
-        }
-    }
 }
 
 export default new GemUsuariosController();

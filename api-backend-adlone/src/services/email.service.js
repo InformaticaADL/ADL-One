@@ -1,7 +1,12 @@
 import nodemailer from 'nodemailer';
 import logger from '../utils/logger.js';
-import { soloDominiosPermitidos } from '../config/redireccionCorreo.js';
+import { soloDominiosPermitidos, redirigirCorreo } from '../config/redireccionCorreo.js';
+import { registrarCorreo } from '../config/registroCorreos.js';
 import dotenv from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { renderRecuperacionClave, renderClaveCambiada, renderEquiposPorVencer, LOGO_CID } from '../notifications/system-emails.js';
 
 dotenv.config();
 
@@ -17,6 +22,10 @@ export const escapeHtml = (str) => {
         .replace(/'/g, '&#39;');
 };
 
+// Logo de ADL ONE incrustado en los correos con el diseño nuevo (el mismo archivo que usan las notificaciones). Si falta, el correo sale sin logo.
+const RUTA_LOGO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../assets/logo-adlone.png');
+const LOGO = fs.existsSync(RUTA_LOGO) ? fs.readFileSync(RUTA_LOGO) : null;
+
 class EmailService {
     constructor() {
         this.transporter = nodemailer.createTransport({
@@ -30,27 +39,34 @@ class EmailService {
         });
     }
 
-    async sendEmail({ to, subject, text, html, bcc }) {
+    async sendEmail({ to, subject, text, html, bcc, attachments, tipo = null }) {
         const mailOptions = {
             from: process.env.EMAIL_FROM,
             to,
             bcc,
             subject,
             text,
-            ...(html ? { html } : {})
+            ...(html ? { html } : {}),
+            ...(attachments && attachments.length ? { attachments } : {})
         };
 
+        // Modo pruebas (mientras no estemos en producción): todo llega solo a la dirección de pruebas. Ver config/redireccionCorreo.js.
+        const redirigido = redirigirCorreo(mailOptions);
+        const fueRedirigido = redirigido !== mailOptions;
         // Solo correos de ADL: se quitan los destinatarios de otros dominios; si no queda nadie, no se envía.
-        const { opciones: seguras, bloqueados, vacio } = soloDominiosPermitidos(mailOptions);
+        const { opciones: seguras, bloqueados, vacio } = soloDominiosPermitidos(redirigido);
+        const anotar = (estado, error) => registrarCorreo({ tipo, asunto: subject, reales: [to, bcc].filter(Boolean).flat(), final: seguras && seguras.to, redirigido: fueRedirigido, estado, error });
         if (bloqueados.length) logger.warn(`[correo] Destinatarios que NO son de ADL, quitados: ${bloqueados.join(', ')}${vacio ? ' (no quedó nadie: el correo NO se envió)' : ''}`);
-        if (vacio) return null;
+        if (vacio) { anotar('bloqueado', 'ningún destinatario de ADL'); return null; }
 
         try {
             const info = await this.transporter.sendMail(seguras);
             logger.info(`Email sent: ${info.messageId}`);
+            anotar('enviado');
             return info;
         } catch (error) {
             logger.error('Error sending email:', error);
+            anotar('fallido', error && error.message);
             // We log but don't throw to prevent blocking the main process if email fails
             return null;
         }
@@ -58,143 +74,23 @@ class EmailService {
 
     // S-14: enviar correo de recuperación de contraseña con enlace de un solo uso.
     async sendPasswordReset({ to, nombreUsuario, resetUrl, expiresInMinutes }) {
-        const subject = 'ADL ONE — Recuperación de contraseña';
-        const text = `Hola ${nombreUsuario || ''},\n\n` +
-            `Recibimos una solicitud para restablecer tu contraseña de ADL ONE.\n\n` +
-            `Para crear una nueva clave, abre el siguiente enlace dentro de los próximos ${expiresInMinutes} minutos:\n\n` +
-            `${resetUrl}\n\n` +
-            `Si no fuiste tú quien solicitó este cambio, puedes ignorar este mensaje y tu clave actual seguirá siendo válida.\n\n` +
-            `Saludos,\nEquipo ADL ONE`;
-        const html = `
-            <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; background: #f8fafc;">
-                <div style="background: white; border-radius: 12px; padding: 28px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);">
-                    <h2 style="color: #1e3a8a; margin-top: 0;">Recuperación de contraseña</h2>
-                    <p>Hola <strong>${escapeHtml(nombreUsuario || 'usuario')}</strong>,</p>
-                    <p>Recibimos una solicitud para restablecer tu contraseña de <strong>ADL ONE</strong>.</p>
-                    <p>Haz clic en el botón para crear una nueva clave. El enlace caduca en <strong>${expiresInMinutes} minutos</strong> y solo puede usarse una vez.</p>
-                    <p style="text-align: center; margin: 32px 0;">
-                        <a href="${resetUrl}" style="display: inline-block; background: #1e40af; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 600;">Restablecer contraseña</a>
-                    </p>
-                    <p style="color: #64748b; font-size: 13px;">Si el botón no funciona, copia y pega este enlace en tu navegador:<br><span style="color: #1e40af; word-break: break-all;">${resetUrl}</span></p>
-                    <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 24px 0;">
-                    <p style="color: #64748b; font-size: 12px;">Si no fuiste tú quien hizo esta solicitud, ignora este correo: tu clave actual seguirá siendo válida.</p>
-                </div>
-            </div>`;
-        return this.sendEmail({ to, subject, text, html });
+        const { subject, text, html } = renderRecuperacionClave({ nombreUsuario, resetUrl, expiresInMinutes });
+        const attachments = LOGO ? [{ filename: 'logo-adlone.png', content: LOGO, cid: LOGO_CID }] : [];
+        return this.sendEmail({ to, subject, text, html, attachments, tipo: 'recuperacion_clave' });
     }
 
-    /**
-     * Send notification for Approved Ficha (Legacy FoxPro Logic)
-     * @param {Object} params
-     * @param {number} params.id - Ficha ID
-     * @param {string} params.usuario - Updated by User Name (Approver)
-     * @param {string} params.observaciones - Technical Observations
-     */
-    async sendFichaAceptada({ id, usuario, observaciones }) {
-        const recipients = process.env.EMAIL_TO_LIST; // List from .env
-        const bcc = process.env.EMAIL_BCC_LIST;       // BCC List from .env
-
-        const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLOne: ACEPTADA Ficha Comercial N°: ${id} - ${timestamp}`;
-
-        const body =
-            `FICHA COMERCIAL N°: ${id}
-ESTADO            : ACEPTADA
-USUARIO           : ${usuario}
-OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
-
-Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
-
-        logger.info(`Sending Approval Email for Ficha ${id} to ${recipients}`);
-        return this.sendEmail({ to: recipients, bcc, subject, text: body });
+    // Aviso a quien gestiona los equipos: los que vencen pronto (tramo 7 o 30 días).
+    async sendEquiposPorVencer({ to, tramo, equipos }) {
+        const { subject, text, html } = renderEquiposPorVencer({ tramo, equipos, appUrl: process.env.APP_URL || process.env.FRONTEND_URL || 'http://localhost:5173' });
+        const attachments = LOGO ? [{ filename: 'logo-adlone.png', content: LOGO, cid: LOGO_CID }] : [];
+        return this.sendEmail({ to, subject, text, html, attachments, tipo: 'equipos_por_vencer' });
     }
 
-    /**
-     * Send notification for Rejected Ficha
-     * @param {Object} params
-     * @param {number} params.id - Ficha ID
-     * @param {string} params.usuario - Updated by User Name (Rejecter)
-     * @param {string} params.observaciones - Rejection Reason
-     * @param {string} params.emailCreador - Email of the ficha creator
-     */
-    async sendFichaRechazada({ id, usuario, observaciones, emailCreador }) {
-        if (!emailCreador) {
-            logger.warn(`No creator email provided for rejected ficha ${id}. Email not sent.`);
-            return;
-        }
-
-        const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLOne: RECHAZADA Ficha Comercial N°: ${id} - ${timestamp}`;
-
-        const body =
-            `FICHA COMERCIAL N°: ${id}
-ESTADO            : RECHAZADA
-USUARIO           : ${usuario}
-OBSERVACIONES     : ${observaciones}
-
-Por favor revise las observaciones y corrija la ficha.
-
-Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
-
-        logger.info(`Sending Rejection Email for Ficha ${id} to Creator ${emailCreador}`);
-        // We probably don't need the extensive BCC list for individual rejections, but can add if needed
-        return this.sendEmail({ to: emailCreador, subject, text: body });
-    }
-
-    /**
-     * Send notification for Coordination Accepted Ficha
-     * @param {Object} params
-     * @param {number} params.id - Ficha ID
-     * @param {string} params.usuario - Coordinator Name
-     * @param {string} params.observaciones - Coordination Observations
-     */
-    async sendCoordinacionAceptada({ id, usuario, observaciones }) {
-        const recipients = process.env.EMAIL_TO_LIST; // Development: vremolcoy@adldiagnostic.cl
-        const bcc = process.env.EMAIL_BCC_LIST;
-
-        const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLOne: ACEPTADA Ficha Comercial N°: ${id} - Usuario: ${usuario} - ${timestamp}`;
-
-        const body =
-            `FICHA COMERCIAL N°: ${id}
-
-ESTADO            : ACEPTADA
-USUARIO           : ${usuario}
-OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
-
-Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
-
-        logger.info(`Sending Coordination Approval Email for Ficha ${id}`);
-        return this.sendEmail({ to: recipients, bcc, subject, text: body });
-    }
-
-    /**
-     * Send notification for Coordination Review (Send to Technical)
-     * @param {Object} params
-     * @param {number} params.id - Ficha ID
-     * @param {string} params.usuario - Coordinator Name
-     * @param {string} params.observaciones - Coordination Observations
-     */
-    async sendCoordinacionRevisar({ id, usuario, observaciones }) {
-        // In production: pflores@adldiagnostic.cl (Technical Manager)
-        // In development: vremolcoy@adldiagnostic.cl
-        const recipients = process.env.EMAIL_TO_LIST;
-        const bcc = process.env.EMAIL_BCC_LIST;
-
-        const timestamp = new Date().toLocaleString('es-CL');
-        const subject = `ADLOne: REVISAR Ficha Comercial N°: ${id} - ${timestamp}`;
-
-        const body =
-            `FICHA COMERCIAL N°: ${id}
-
-ESTADO            : REVISAR
-USUARIO           : ${usuario}
-OBSERVACIONES     : ${observaciones || 'Sin observaciones'}
-
-Correo automático Sistema ADLOne - ADL Diagnostic Chile SpA`;
-
-        logger.info(`Sending Coordination Review Email for Ficha ${id}`);
-        return this.sendEmail({ to: recipients, bcc, subject, text: body });
+    // Confirmación a la persona de que su contraseña cambió. motivo: 'cambio' (lo hizo ella) o 'recuperacion' (enlace de recuperación).
+    async sendPasswordChanged({ to, nombreUsuario, motivo = 'cambio' }) {
+        const { subject, text, html } = renderClaveCambiada({ nombreUsuario, motivo });
+        const attachments = LOGO ? [{ filename: 'logo-adlone.png', content: LOGO, cid: LOGO_CID }] : [];
+        return this.sendEmail({ to, subject, text, html, attachments, tipo: 'clave_cambiada' });
     }
 }
 

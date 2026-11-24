@@ -1,6 +1,7 @@
-// Modo pruebas de correo: si EMAIL_REDIRECT_TO está definida, TODO correo que salga por el transporte compartido (notificaciones, facturación, fichas)
-// llega solo a esa(s) dirección(es), nunca a los destinatarios reales. Arriba del mensaje se anota a quién habría llegado.
-// Sin la variable no cambia nada. Se usa para desarrollar y probar con la base real sin avisarle a nadie por error.
+// Modo pruebas de correo: TODO correo que salga por el transporte compartido (notificaciones, facturación, fichas) llega solo a la dirección de pruebas,
+// nunca a los destinatarios reales. Arriba del mensaje se anota a quién habría llegado.
+// Está ENCENDIDO siempre (mientras ADL ONE no esté en producción): va a EMAIL_REDIRECT_TO o, si no está definida o está vacía, a vremolcoy@adldiagnostic.cl.
+// Se apaga SOLO con EMAIL_PRODUCCION=1 (el día de salir a producción). Una variable vacía NO lo apaga: así no se desactiva por descuido.
 
 const comoLista = (v) => {
     if (!v) return [];
@@ -44,8 +45,13 @@ export const soloDominiosPermitidos = (opciones, dominios = process.env.EMAIL_AL
     return { opciones: bloqueados.length ? filtradas : opciones, bloqueados, vacio };
 };
 
-/** Devuelve las opciones de envío ya redirigidas, o las mismas si no hay redirección configurada. */
-export const redirigirCorreo = (opciones, redirigirA = process.env.EMAIL_REDIRECT_TO) => {
+export const REDIRECCION_POR_DEFECTO = 'vremolcoy@adldiagnostic.cl';
+
+/** Dirección(es) a las que va todo el correo ahora mismo; '' si se declaró producción (EMAIL_PRODUCCION=1). */
+export const destinoRedireccion = (env = process.env) => (env.EMAIL_PRODUCCION === '1' ? '' : (String(env.EMAIL_REDIRECT_TO || '').trim() || REDIRECCION_POR_DEFECTO));
+
+/** Devuelve las opciones de envío ya redirigidas, o las mismas si ya se declaró producción. */
+export const redirigirCorreo = (opciones, redirigirA = destinoRedireccion()) => {
     const destino = comoLista(redirigirA);
     if (!destino.length || !opciones) return opciones;
 

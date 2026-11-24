@@ -4,12 +4,15 @@ import { renderBaseLayout, renderCamposList, renderMetaInfo, renderObservacion, 
 import { renderFichaServicios } from './blocks/ficha-servicios.js';
 import { FICHA_CONFIG } from './config/ficha.config.js';
 import { AVISO_CONFIG } from './config/aviso.config.js';
+import { configSolicitud } from './config/solicitud.config.js';
+import { renderDetalleSolicitud } from './blocks/solicitud-detalle.js';
 
 const ALL_CONFIGS = [...FICHA_CONFIG, ...AVISO_CONFIG];
 const CONFIG_BY_CODE = new Map(ALL_CONFIGS.map((c) => [c.codigo, c]));
 
 const SPECIAL_BLOCKS = {
     fichaServicios: renderFichaServicios,
+    detalleSolicitud: renderDetalleSolicitud,
 };
 
 const DEFAULT_APP_URL = 'http://localhost:5173';
@@ -20,7 +23,7 @@ const DEFAULT_LOGO_CID = 'logo_adlone';
  * hasn't been migrated to the new renderer yet.
  */
 export function getEventConfig(codigoEvento) {
-    return CONFIG_BY_CODE.get(codigoEvento) || null;
+    return CONFIG_BY_CODE.get(codigoEvento) || configSolicitud(codigoEvento) || null;
 }
 
 /**
@@ -41,10 +44,13 @@ export function renderEmail(codigoEvento, context = {}, options = {}) {
 
     const logoCid = options.logoCid || DEFAULT_LOGO_CID;
 
-    const titulo = resolveTemplate(config.titulo, context);
-    const asunto = resolveTemplate(config.asunto, context);
-    const resumen = config.resumen ? resolveTemplate(config.resumen, context) : '';
-    const badgeHtml = renderOutcomeBadge(config.outcome);
+    // Un texto de la configuración puede ser una plantilla con {VARIABLES} o una función que recibe el contexto (cuando depende de los datos).
+    const texto = (v) => (typeof v === 'function' ? v(context) : resolveTemplate(v, context));
+
+    const titulo = texto(config.titulo);
+    const asunto = texto(config.asunto);
+    const resumen = config.resumen ? texto(config.resumen) : '';
+    const badgeHtml = renderOutcomeBadge(typeof config.outcome === 'function' ? config.outcome(context) : config.outcome);
 
     let metaInfoHtml = '';
     if (config.eventoMeta) {
@@ -72,7 +78,7 @@ export function renderEmail(codigoEvento, context = {}, options = {}) {
     let observacionHtml = '';
     if (config.observacion) {
         const valor = resolveTemplate(config.observacion.variable, context);
-        observacionHtml = renderObservacion(config.observacion.etiqueta, valor);
+        observacionHtml = renderObservacion(texto(config.observacion.etiqueta), valor);
     }
 
     let ctaHtml = '';

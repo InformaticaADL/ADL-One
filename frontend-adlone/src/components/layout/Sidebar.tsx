@@ -103,7 +103,6 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
         dynamicModules: rawDynamicModules,
         setDynamicModules,
         ursUnreadCount,
-        solicitudesClientePendientes,
     } = useNavStore();
     const dynamicModules = rawDynamicModules as unknown as DynamicModule[];
 
@@ -498,7 +497,7 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
                 <div className="flex min-h-0 flex-1 flex-col gap-0 overflow-y-auto overflow-x-hidden">
                     {renderGroup(
                         'Principal',
-                        visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : item.id === 'solicitudes-clientes' ? solicitudesClientePendientes : undefined)),
+                        visibleTop.map((item) => renderFixedItem(item, item.id === 'solicitudes' ? ursUnreadCount : undefined)),
                         visibleTop.length > 0
                     )}
                     {menuCargando && unidades.length === 0 && gestionOp.length === 0 && (

@@ -20,6 +20,8 @@ import { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetFooter
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CrearVisitaDialog } from './CrearVisitaDialog';
+import { AvanceFichaCelda } from './AvanceFichaCelda';
+import { avanceDeFila, avanceDeVisita, avanceAplica, estadoVisible, estaCompletada, faltaProgramar, proximoAtrasado } from '../utils/avanceFicha';
 import { useToast } from '../../../contexts/ToastContext';
 import {
     IconDownload,
@@ -49,7 +51,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     // para no tener que tocar el resto del JSX de abajo.
     const {
         searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar,
-        searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario,
+        searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, searchAvance,
     } = useFichasFiltersStore((s) => s.explorador);
     const setExplorador = useFichasFiltersStore((s) => s.setExplorador);
     const resetExplorador = useFichasFiltersStore((s) => s.resetExplorador);
@@ -58,6 +60,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const setDateTo = (v: string) => setExplorador({ dateTo: v });
     const setSearchEstado = (v: string) => setExplorador({ searchEstado: v });
     const setSearchTipo = (v: string) => setExplorador({ searchTipo: v });
+    const setSearchAvance = (v: string) => setExplorador({ searchAvance: v });
     const setSearchEmpresaFacturar = (v: string) => setExplorador({ searchEmpresaFacturar: v });
     const setSearchEmpresaServicio = (v: string) => setExplorador({ searchEmpresaServicio: v });
     const setSearchCentro = (v: string) => setExplorador({ searchCentro: v });
@@ -103,7 +106,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
 
     useEffect(() => {
         setPage(1);
-    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario]);
+    }, [searchId, dateFrom, dateTo, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, searchAvance]);
 
     const getUniqueValues = (key: string) => {
         const values = new Set<string>();
@@ -143,6 +146,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         setSearchObjetivo('');
         setSearchSubArea('');
         setSearchUsuario('');
+        setSearchAvance('');
     };
 
     const filteredFichas = fichas.filter(f => {
@@ -158,6 +162,19 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
         const matchObjetivo = check(f.nombre_objetivomuestreo_ma, searchObjetivo);
         const matchSubArea = check(f.nombre_subarea, searchSubArea);
         const matchUsuario = check(f.nombre_usuario, searchUsuario);
+
+        // Avance de ejecución: el de la ficha, o el más atrasado de sus puntos si es una visita.
+        let matchAvance = true;
+        if (searchAvance) {
+            const g = Number(f.id_grupo);
+            const av = g ? avanceDeVisita(fichas.filter((x) => Number(x.id_grupo) === g)) : avanceDeFila(f);
+            const aplica = avanceAplica(f.estado_ficha, av);
+            matchAvance = !!aplica && (
+                (searchAvance === 'completadas' && estaCompletada(av)) ||
+                (searchAvance === 'sin_agendar' && faltaProgramar(av)) ||
+                (searchAvance === 'atrasadas' && proximoAtrasado(av))
+            );
+        }
 
         let matchDate = true;
         if (dateFrom || dateTo) {
@@ -179,12 +196,13 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                 }
             }
         }
-        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario;
+        return matchId && matchDate && matchEstado && matchTipo && matchEmpresaFacturar && matchEmpresaServicio && matchCentro && matchObjetivo && matchSubArea && matchUsuario && matchAvance;
     });
 
     const getStatusProps = (status: string): { variant: BadgeVariant; label: string } => {
         const s = (status || '').toUpperCase();
         if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { variant: 'destructive', label: s };
+        if (s.includes('COMPLETADA')) return { variant: 'success', label: s };
         if (s.includes('COORDINACIÓN')) return { variant: 'info', label: s };
         if (s.includes('PROGRAMACIÓN')) return { variant: 'secondary', label: s };
         if (s.includes('PENDIENTE') || s.includes('ÁREA TÉCNICA')) return { variant: 'warning', label: 'PENDIENTE TÉCNICA' };
@@ -249,7 +267,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
     const fichasDeVisita = (idsVisita || []).map((id) => fichas.find((x) => idDe(x) === id)).filter(Boolean) as any[];
     const ejecutadas = fichasDeVisita.filter((x) => /EJECUTAD|COMPLET/.test(String(x.estado_ficha || '').toUpperCase())).length;
 
-    const panelFilterCount = [searchId, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, dateFrom, dateTo].filter(Boolean).length;
+    const panelFilterCount = [searchId, searchEstado, searchTipo, searchEmpresaFacturar, searchEmpresaServicio, searchCentro, searchObjetivo, searchSubArea, searchUsuario, searchAvance, dateFrom, dateTo].filter(Boolean).length;
 
     // Una visita con varios puntos se muestra como UNA fila (la del primer punto que cumple los filtros) que se despliega con todos
     // sus puntos. Los puntos de una misma visita siempre se ven completos al desplegar, aunque un filtro deje fuera a alguno.
@@ -343,6 +361,20 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                     <div>
                                         <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Estado</Label>
                                         <Combobox placeholder="Todos" searchPlaceholder="Buscar estado..." options={uniqueEstados} value={searchEstado} onValueChange={setSearchEstado} />
+                                    </div>
+                                    <div>
+                                        <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Avance de ejecución</Label>
+                                        <Combobox
+                                            placeholder="Todos"
+                                            searchPlaceholder="Buscar..."
+                                            options={[
+                                                { value: 'completadas', label: 'Completadas (todos sus servicios ejecutados)' },
+                                                { value: 'sin_agendar', label: 'Con servicios sin agendar' },
+                                                { value: 'atrasadas', label: 'Con el próximo servicio atrasado' },
+                                            ]}
+                                            value={searchAvance}
+                                            onValueChange={setSearchAvance}
+                                        />
                                     </div>
                                     <div>
                                         <Label className="mb-1.5 block text-xs font-medium text-muted-foreground">Tipo</Label>
@@ -449,6 +481,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                 {puedeCrearVisita && <TableHead className="w-10"><span className="sr-only">Seleccionar</span></TableHead>}
                                 <SortableTableHead {...sortProps('id')} className="w-20">ID</SortableTableHead>
                                 <SortableTableHead {...sortProps('estado')} className="text-center">Estado</SortableTableHead>
+                                <TableHead>Avance</TableHead>
                                 <SortableTableHead {...sortProps('fecha')}>Fecha</SortableTableHead>
                                 <SortableTableHead {...sortProps('empresaServicio')}>Empresa de servicio</SortableTableHead>
                                 <TableHead>Centro</TableHead>
@@ -460,13 +493,15 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                         <TableBody>
                             {paginatedFichas.length === 0 ? (
                                 <TableRow className="hover:bg-transparent">
-                                    <TableCell colSpan={9} className="py-10 text-center text-sm text-muted-foreground">
+                                    <TableCell colSpan={10} className="py-10 text-center text-sm text-muted-foreground">
                                         {loading ? 'Cargando...' : 'No se encontraron fichas.'}
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 paginatedFichas.map((ficha) => {
-                                    const status = getStatusProps(ficha.estado_ficha);
+                                    const idGrupoFila = Number(ficha.id_grupo) || 0;
+                                    const avanceFila = idGrupoFila ? avanceDeVisita(puntosPorVisita.get(idGrupoFila) || [ficha]) : avanceDeFila(ficha);
+                                    const status = getStatusProps(estadoVisible(ficha.estado_ficha, avanceFila));
                                     const isRejected = (ficha.estado_ficha || '').toUpperCase().includes('RECHAZADA');
                                     const idFicha = ficha.id_fichaingresoservicio || ficha.fichaingresoservicio;
                                     const idVisita = Number(ficha.id_grupo) || 0;
@@ -526,6 +561,9 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                                     return <Badge variant="secondary" title={desglose}>Mixto</Badge>;
                                                 })()}
                                             </TableCell>
+                                            <TableCell>
+                                                {avanceAplica(ficha.estado_ficha, avanceFila) ? <AvanceFichaCelda avance={avanceFila!} /> : <span className="text-muted-foreground">—</span>}
+                                            </TableCell>
                                             <TableCell className="whitespace-nowrap">{ficha.fecha || '-'}</TableCell>
                                             <TableCell className="whitespace-normal break-words" title={ficha.empresa_servicio}>
                                                 <span className="block font-medium">{ficha.empresa_servicio || '-'}</span>
@@ -553,7 +591,7 @@ export const FichasExploradorView: React.FC<Props> = ({ onBackToMenu, onViewDeta
                                         </TableRow>
                                         {abierta && (
                                             <TableRow className="bg-muted/30 hover:bg-muted/30">
-                                                <TableCell colSpan={puedeCrearVisita ? 9 : 8} className="py-2.5 pl-9">
+                                                <TableCell colSpan={puedeCrearVisita ? 10 : 9} className="py-2.5 pl-9">
                                                     <div className="flex flex-wrap gap-1.5">
                                                         {puntos.map((p, i) => {
                                                             const st = getStatusProps(p.estado_ficha);

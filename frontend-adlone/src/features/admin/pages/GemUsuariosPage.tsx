@@ -19,7 +19,6 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Combobox } from '@/components/ui/combobox';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -37,11 +36,6 @@ import { PageHeader } from '../../../components/layout/PageHeader';
 
 interface Props {
     onBack?: () => void;
-}
-
-interface Empresa {
-    id_empresa: number;
-    nombre_empresa: string;
 }
 
 const PAGE_SIZE = 10;
@@ -63,16 +57,14 @@ const EMPTY_FORM: CreateUserData = {
 const initials = (name: string) => (name || '?').trim().charAt(0).toUpperCase();
 
 // Gestión acotada para el Jefe Técnico: solo usuarios del rol "Área GEM MaM"
-// (el backend ya filtra la lista) — crear, editar, deshabilitar/habilitar, y
-// asignar una o más empresas a cargo. Calcada de UsersManagementPage.tsx, sin
-// selector de roles (siempre GEM) y con "Empresas a cargo" en su lugar.
+// (el backend ya filtra la lista) — crear, editar y deshabilitar/habilitar. Calcada de
+// UsersManagementPage.tsx, sin selector de roles (siempre GEM).
 export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { showToast } = useToast();
 
     const [users, setUsers] = useState<User[]>([]);
     const [cargos, setCargos] = useState<any[]>([]);
-    const [empresas, setEmpresas] = useState<Empresa[]>([]);
     const [loading, setLoading] = useState(false);
 
     // Lista
@@ -86,8 +78,6 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
     const [view, setView] = useState<'list' | 'form'>('list');
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [formData, setFormData] = useState<CreateUserData>(EMPTY_FORM);
-    const [selectedEmpresas, setSelectedEmpresas] = useState<number[]>([]);
-    const [empresaSearchTerm, setEmpresaSearchTerm] = useState('');
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [saving, setSaving] = useState(false);
@@ -97,7 +87,6 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
     useEffect(() => {
         loadUsers();
         loadCargos();
-        loadEmpresas();
     }, []);
 
     const loadCargos = async () => {
@@ -106,15 +95,6 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
             setCargos((all as any[]).filter((c) => c.id_cargo === CARGO_GEM_ID));
         } catch (error) {
             console.error('Error loading cargos:', error);
-        }
-    };
-
-    const loadEmpresas = async () => {
-        try {
-            const data = await catalogosService.getClientes();
-            setEmpresas((data as any[]).map((item) => ({ id_empresa: item.id_empresa, nombre_empresa: item.nombre_empresa })));
-        } catch (error) {
-            console.error('Error loading empresas:', error);
         }
     };
 
@@ -194,8 +174,6 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
 
     const resetForm = () => {
         setFormData(EMPTY_FORM);
-        setSelectedEmpresas([]);
-        setEmpresaSearchTerm('');
         setNewPassword('');
         setConfirmPassword('');
         setEditingUser(null);
@@ -216,12 +194,6 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
             id_cargo: user.id_cargo,
             clave_usuario: '',
         });
-        try {
-            const asignadas = await gemUsuariosService.getEmpresas(user.id_usuario);
-            setSelectedEmpresas(asignadas.map((e) => e.id_empresa));
-        } catch (error) {
-            console.error('Error loading empresas asignadas:', error);
-        }
         setView('form');
     };
 
@@ -229,14 +201,6 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
         resetForm();
         setView('list');
     };
-
-    const toggleEmpresa = (idEmpresa: number) =>
-        setSelectedEmpresas((prev) => (prev.includes(idEmpresa) ? prev.filter((id) => id !== idEmpresa) : [...prev, idEmpresa]));
-
-    const visibleEmpresas = useMemo(() => {
-        const term = empresaSearchTerm.toLowerCase();
-        return empresas.filter((e) => (e.nombre_empresa ?? '').toLowerCase().includes(term));
-    }, [empresas, empresaSearchTerm]);
 
     const handleSubmit = async () => {
         if (!formData.nombre_real || !formData.nombre_usuario) {
@@ -259,16 +223,12 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
                     id_cargo: formData.id_cargo,
                 };
                 await gemUsuariosService.updateUsuario(editingUser.id_usuario, updateData);
-                await gemUsuariosService.setEmpresas(editingUser.id_usuario, selectedEmpresas);
                 if (newPassword) {
                     await gemUsuariosService.updatePassword(editingUser.id_usuario, newPassword);
                 }
                 showToast({ type: 'success', message: 'Usuario actualizado exitosamente' });
             } else {
-                const newUser = await gemUsuariosService.createUsuario({ ...formData, clave_usuario: newPassword });
-                if (selectedEmpresas.length > 0) {
-                    await gemUsuariosService.setEmpresas(newUser.id_usuario, selectedEmpresas);
-                }
+                await gemUsuariosService.createUsuario({ ...formData, clave_usuario: newPassword });
                 showToast({ type: 'success', message: 'Usuario creado exitosamente' });
             }
             closeForm();
@@ -291,7 +251,7 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
             <div className="shadcn-scope w-full p-4 md:p-6">
                 <PageHeader
                     title={formTitle}
-                    subtitle={isEdit ? 'Actualiza los datos, la contraseña y las empresas a cargo del usuario.' : 'Crea una cuenta de acceso para el área GEM MaM.'}
+                    subtitle={isEdit ? 'Actualiza los datos y la contraseña del usuario.' : 'Crea una cuenta de acceso para el área GEM MaM.'}
                     breadcrumbItems={[
                         { label: 'Medio Ambiente', onClick: onBack },
                         { label: 'Usuarios GEM', onClick: closeForm },
@@ -392,55 +352,12 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
 
                     <Card className="h-fit lg:sticky lg:top-4">
                         <CardHeader>
-                            <div className="flex items-start justify-between gap-2">
-                                <div className="flex flex-col gap-1.5">
-                                    <CardTitle>Empresas a cargo</CardTitle>
-                                    <CardDescription>{selectedEmpresas.length} de {empresas.length} empresas asignadas</CardDescription>
-                                </div>
-                                {selectedEmpresas.length > 0 && (
-                                    <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setSelectedEmpresas([])}>
-                                        Quitar todas
-                                    </Button>
-                                )}
-                            </div>
+                            <CardTitle>Empresas que ve</CardTitle>
+                            <CardDescription>
+                                Las empresas que este usuario ve en Muestreos Ejecutados se definen en ADL WEB GO, en Administración → Resp. solicitudes.
+                                Si no tiene empresas asignadas allí, ve todas.
+                            </CardDescription>
                         </CardHeader>
-                        <CardContent className="flex flex-col gap-3">
-                            <div className="relative">
-                                <IconSearch size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                                <Input
-                                    placeholder="Buscar empresa..."
-                                    value={empresaSearchTerm}
-                                    onChange={(e) => setEmpresaSearchTerm(e.target.value)}
-                                    className="pl-8"
-                                />
-                            </div>
-                            <div className="max-h-[440px] overflow-y-auto rounded-lg border border-border">
-                                {visibleEmpresas.length === 0 ? (
-                                    <p className="p-6 text-center text-sm text-muted-foreground">Sin empresas que coincidan</p>
-                                ) : (
-                                    visibleEmpresas.map((empresa) => {
-                                        const checked = selectedEmpresas.includes(empresa.id_empresa);
-                                        return (
-                                            <label
-                                                key={empresa.id_empresa}
-                                                htmlFor={`empresa-${empresa.id_empresa}`}
-                                                className={cn(
-                                                    'flex cursor-pointer items-center gap-3 border-b border-border px-3 py-2.5 transition-colors last:border-b-0',
-                                                    checked ? 'bg-primary/5' : 'hover:bg-muted/60'
-                                                )}
-                                            >
-                                                <Checkbox
-                                                    id={`empresa-${empresa.id_empresa}`}
-                                                    checked={checked}
-                                                    onCheckedChange={() => toggleEmpresa(empresa.id_empresa)}
-                                                />
-                                                <span className="min-w-0 truncate text-sm font-medium text-foreground">{empresa.nombre_empresa}</span>
-                                            </label>
-                                        );
-                                    })
-                                )}
-                            </div>
-                        </CardContent>
                     </Card>
                 </div>
 
@@ -530,7 +447,7 @@ export const GemUsuariosPage: React.FC<Props> = ({ onBack }) => {
         <div className="shadcn-scope w-full p-4 md:p-6">
             <PageHeader
                 title="Usuarios GEM"
-                subtitle="Administra las cuentas del área GEM MaM y las empresas a cargo de cada una."
+                subtitle="Administra las cuentas del área GEM MaM."
                 onBack={onBack}
                 breadcrumbItems={[{ label: 'Medio Ambiente', onClick: onBack }, { label: 'Usuarios GEM' }]}
                 rightSection={

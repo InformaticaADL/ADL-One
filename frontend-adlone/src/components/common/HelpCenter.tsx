@@ -595,26 +595,6 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // MÓDULO: SOLICITUDES DE CLIENTES (portal ADL WEB GO)
-    // ─────────────────────────────────────────────────────────────────────────
-    if (activeSubmodule === 'solicitudes-clientes' || activeModule === 'solicitudes-clientes') {
-        return {
-            title: 'Solicitudes de Clientes',
-            queEs: 'Bandeja de lo que los clientes piden desde su portal (ADL WEB GO).',
-            queHace: 'Reúne las solicitudes de las empresas que tienes asignadas para que las tomes, converses con el cliente y les des seguimiento. La bandeja se actualiza sola.',
-            comoFunciona: [
-                '1. Usa los filtros rápidos «Por atender» (pendientes) y «Sin tomar» (aún sin responsable), y filtra por empresa, área, estado o busca por texto.',
-                '2. Selecciona una solicitud para ver la conversación con el cliente.',
-                '3. «Tomar» la deja a tu cargo, para que el resto sepa quién la atiende.',
-                '4. Escribe tu respuesta y envíala con el botón o con Ctrl + Enter.'
-            ],
-            tips: [
-                'Solo ves las empresas que tienes asignadas. Las asignaciones se configuran en Informática → Solicitudes de clientes.'
-            ]
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: GESTIÓN DE MUESTREADORES (Calidad)
     // ─────────────────────────────────────────────────────────────────────────
     if (activeSubmodule === 'admin-muestreadores') {
@@ -784,41 +764,6 @@ const getContextHelp = (
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // MÓDULO: ADMINISTRACIÓN — Solicitudes de clientes (empresas asignadas)
-    // ─────────────────────────────────────────────────────────────────────────
-    if (activeSubmodule === 'admin-solicitudes-clientes') {
-        return {
-            title: 'Solicitudes de Clientes — Asignaciones',
-            queEs: 'Configuración de quién atiende las solicitudes de cada empresa cliente.',
-            queHace: 'Asigna, por empresa y por área, la persona que recibe y atiende lo que esa empresa pide desde su portal.',
-            comoFunciona: [
-                '1. La lista muestra cada empresa con las personas asignadas por área.',
-                '2. Agrega una asignación eligiendo empresa, área y persona.',
-                '3. Quita una asignación con el ícono de papelera; se pide confirmación.'
-            ],
-            tips: [
-                'Cada persona ve en su bandeja de Solicitudes de clientes solo las empresas que tiene asignadas.'
-            ]
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // MÓDULO: ADMINISTRACIÓN — Verificadores de solicitudes
-    // ─────────────────────────────────────────────────────────────────────────
-    if (activeSubmodule === 'admin-verificadores-solicitudes') {
-        return {
-            title: 'Verificadores de Solicitudes',
-            queEs: 'Usuarios que reciben copia de todas las solicitudes de clientes.',
-            queHace: 'Agrega o quita verificadores: personas que quedan informadas de todas las solicitudes, sin importar la empresa. No aprueban ni bloquean nada.',
-            comoFunciona: [
-                '1. La lista muestra los verificadores actuales.',
-                '2. Agrega uno eligiendo el usuario.',
-                '3. Quítalo con el ícono de papelera; se pide confirmación.'
-            ]
-        };
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // MÓDULO: USUARIOS GEM
     // ─────────────────────────────────────────────────────────────────────────
     if (activeSubmodule === 'admin-usuarios-gem') {
@@ -827,7 +772,7 @@ const getContextHelp = (
             queEs: 'Administración de las cuentas del área GEM MaM.',
             queHace: 'Permite al jefe técnico crear y editar las cuentas de su área y definir qué empresas tiene a cargo cada una.',
             comoFunciona: [
-                '1. La lista muestra las cuentas GEM con sus empresas a cargo.',
+                '1. La lista muestra las cuentas GEM del área.',
                 '2. Crea o edita una cuenta con sus datos personales y su contraseña.',
                 '3. Marca las empresas que esa persona atiende.',
                 '4. Activa o desactiva cuentas; se pide confirmación.'

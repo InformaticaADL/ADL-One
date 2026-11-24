@@ -2027,6 +2027,9 @@ class FichaIngresoService {
                     ficha.id_dispositivohidraulico = ficha.id_dispositivohidraulico ?? raw.id_dispositivohidraulico;
 
                     ficha.codigo_centro = ficha.codigo_centro ?? raw.codigo_centro;
+                    // Dirección del maestro de centros (mae_centro.ubicacion): la consulta de arriba la pedía, pero sin esta línea nunca llegaba a la
+                    // pantalla y la ficha decía «Sin dirección registrada» aunque el centro la tuviera.
+                    ficha.direccion_centro = ficha.direccion_centro ?? raw.direccion_centro;
 
                     // Helper to choose truthy and non-placeholder value
                     const val = (fVal, rVal) => {
@@ -3221,11 +3224,93 @@ class FichaIngresoService {
             // Operaciones (mae_lugaranalisis) — se resuelve aparte y se mezcla por id.
             await this._mergeBaseOperaciones(pool, result.recordset);
             await this._mergeGrupos(pool, result.recordset);
+            await this._mergeAvance(pool, result.recordset);
             return result.recordset;
         } catch (error) {
             logger.error('SP MAM_FichaComercial_ConsultaComercial failed in getAllFichas', error);
             throw error;
         }
+    }
+
+    // Fecha real de un servicio de la agenda como texto AAAA-MM-DD (ignora las fechas «vacías» de 1900). Para los ejecutados: la de término del
+    // trabajo (fecha_completado casi nunca se guarda, por eso se usa de respaldo la de término del muestreo y por último la programada).
+    _sqlFechaReal = `CASE WHEN a.fecha_completado > '19010101' THEN CONVERT(varchar(10), a.fecha_completado, 23)
+                          WHEN a.ma_muestreo_fechat > '19010101' THEN CONVERT(varchar(10), a.ma_muestreo_fechat, 23)
+                          WHEN a.fecha_muestreo > '19010101' THEN CONVERT(varchar(10), a.fecha_muestreo, 23) END`;
+    _sqlFechaProgramada = `CASE WHEN a.fecha_muestreo > '19010101' THEN CONVERT(varchar(10), a.fecha_muestreo, 23) END`;
+
+    // Agrega a cada ficha del listado su avance de ejecución: cuántos de sus servicios están ejecutados, suspendidos o cancelados, la fecha del
+    // último ejecutado y la del próximo agendado. «Ejecutado» (id_estadomuestreo 3) es lo único que cuenta como realizado. Los cancelados (6, 7)
+    // no cuentan dentro del total. Si no se puede leer la agenda, el listado queda como antes.
+    async _mergeAvance(pool, recordset) {
+        if (!recordset || recordset.length === 0) return;
+        try {
+            const res = await pool.request().query(`
+                SELECT a.id_fichaingresoservicio AS id,
+                       SUM(CASE WHEN a.id_estadomuestreo NOT IN (6, 7) THEN 1 ELSE 0 END) AS total,
+                       SUM(CASE WHEN a.id_estadomuestreo = 3 THEN 1 ELSE 0 END) AS ejecutados,
+                       SUM(CASE WHEN a.id_estadomuestreo IN (4, 5) THEN 1 ELSE 0 END) AS suspendidos,
+                       SUM(CASE WHEN a.id_estadomuestreo IN (6, 7) THEN 1 ELSE 0 END) AS cancelados,
+                       MAX(CASE WHEN a.id_estadomuestreo = 3 THEN ${this._sqlFechaReal} END) AS ultimo,
+                       MIN(CASE WHEN a.id_estadomuestreo IN (0, 1) THEN ${this._sqlFechaProgramada} END) AS proximo
+                FROM App_Ma_Agenda_MUESTREOS a
+                GROUP BY a.id_fichaingresoservicio`);
+            const mapa = new Map(res.recordset.map((r) => [Number(r.id), r]));
+            const idDe = (r) => parseInt(r.id_fichaingresoservicio || r.fichaingresoservicio || r.id);
+            recordset.forEach((row) => {
+                const a = mapa.get(idDe(row));
+                row.avance_total = a ? a.total : null;
+                row.avance_ejecutados = a ? a.ejecutados : null;
+                row.avance_suspendidos = a ? a.suspendidos : null;
+                row.avance_cancelados = a ? a.cancelados : null;
+                row.avance_ultimo = a ? a.ultimo : null;
+                row.avance_proximo = a ? a.proximo : null;
+            });
+        } catch (e) {
+            logger.warn(`[avance] no se pudo leer el avance de las fichas: ${e.message}`);
+        }
+    }
+
+    // Programación y ejecución de una ficha: un renglón por servicio (el 1.º, 2.º… de la frecuencia) con su estado, la fecha programada, la fecha
+    // en que se hizo, quién lo hizo y el caso del laboratorio, más un resumen. En una visita, cada punto tiene su propia agenda pero los servicios
+    // se ejecutan juntos, así que se muestra la de la ficha consultada.
+    async getProgramacionFicha(idFicha) {
+        const pool = await getConnection();
+        const res = await pool.request().input('f', sql.Numeric(10, 0), idFicha).query(`
+            SELECT a.id_agendamam, a.frecuencia_correlativo, a.id_estadomuestreo, e.nombre_estadomuestreo AS estado, a.total_servicios,
+                   ${this._sqlFechaProgramada} AS fecha_programada,
+                   CASE WHEN a.id_estadomuestreo = 3 THEN ${this._sqlFechaReal} END AS fecha_ejecucion,
+                   NULLIF(LTRIM(RTRIM(COALESCE(m2.nombre_muestreador, m1.nombre_muestreador))), '') AS muestreador,
+                   NULLIF(LTRIM(RTRIM(a.caso_adlab)), '') AS caso_adlab, a.realizado_por_gem
+            FROM App_Ma_Agenda_MUESTREOS a
+            LEFT JOIN mae_estadomuestreo e ON e.id_estadomuestreo = a.id_estadomuestreo
+            LEFT JOIN mae_muestreador m1 ON m1.id_muestreador = a.id_muestreador
+            LEFT JOIN mae_muestreador m2 ON m2.id_muestreador = a.id_muestreador2
+            WHERE a.id_fichaingresoservicio = @f`);
+        const servicios = res.recordset.map((r) => ({
+            id_agendamam: r.id_agendamam,
+            numero: this._numeroDeServicio(r.frecuencia_correlativo),
+            correlativo: r.frecuencia_correlativo,
+            id_estado: r.id_estadomuestreo,
+            estado: r.estado || 'Sin estado',
+            fecha_programada: r.fecha_programada,
+            fecha_ejecucion: r.fecha_ejecucion,
+            muestreador: r.muestreador,
+            caso_adlab: r.caso_adlab,
+            realizado_por_gem: r.realizado_por_gem === true || r.realizado_por_gem === 1 || r.realizado_por_gem === 'S',
+        })).sort((x, y) => (x.numero ?? 9999) - (y.numero ?? 9999));
+        const vivos = servicios.filter((s) => ![6, 7].includes(s.id_estado));
+        const ejecutados = servicios.filter((s) => s.id_estado === 3);
+        const fechas = (lista, campo) => lista.map((s) => s[campo]).filter(Boolean).sort();
+        const resumen = {
+            total: vivos.length,
+            ejecutados: ejecutados.length,
+            suspendidos: servicios.filter((s) => [4, 5].includes(s.id_estado)).length,
+            cancelados: servicios.filter((s) => [6, 7].includes(s.id_estado)).length,
+            ultimo: fechas(ejecutados, 'fecha_ejecucion').pop() || null,
+            proximo: fechas(servicios.filter((s) => [0, 1].includes(s.id_estado)), 'fecha_programada')[0] || null,
+        };
+        return { servicios, resumen };
     }
 
     // ── Grupos de muestreo: una visita con varios puntos. Cada punto sigue siendo una ficha completa y el vínculo vive en
@@ -5537,10 +5622,10 @@ class FichaIngresoService {
         if (user && user.id) {
             const isGem = await gemUsuariosService.isGemUser(user.id);
             if (isGem) {
-                const empresas = await gemUsuariosService.getEmpresasAsignadas(user.id);
-                if (empresas.length > 0) {
-                    const ids = empresas.map(e => Number(e.id_empresa)).filter(Boolean).join(',');
-                    empresaFilter = `AND f.id_empresa IN (${ids})`;
+                const { restringido, ids } = await gemUsuariosService.getEmpresasVisibles(user.id);
+                if (restringido) {
+                    // Lista vacía con restricción = no ve ninguna empresa (no debe caer en «ve todo»).
+                    empresaFilter = ids.length ? `AND f.id_empresa IN (${ids.join(',')})` : 'AND 1 = 0';
                 }
             }
         }
@@ -6169,8 +6254,12 @@ class FichaIngresoService {
             const rootFotosPath = process.env.RUTA_FOTOS || 'C:\\Users\\vremolcoy\\Documents\\FOTOS APP';
 
             // Logo
-            const logoPath = path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo_adl.png');
-            if (fs.existsSync(logoPath)) {
+            // El logo del frontend (si el servidor tiene esa carpeta) o, si no, el que viene con el backend.
+            const logoPath = [
+                path.resolve(process.cwd(), '../frontend-adlone/src/assets/images/logo_adl.png'),
+                path.resolve(process.cwd(), 'src/assets/logo_adl_diagnostic.png'),
+            ].find((p) => fs.existsSync(p));
+            if (logoPath) {
                 attachments.push({
                     filename: 'logo.png',
                     path: logoPath,
@@ -6204,7 +6293,8 @@ class FichaIngresoService {
                 to: finalTo,
                 subject: asunto,
                 html: html,
-                attachments: attachments
+                attachments: attachments,
+                headers: { 'X-ADL-Tipo': documento.tipo === 'FoMa' ? 'ENV_FOMA_MAM' : 'ENV_CADENA_MAM' }
             };
 
             const info = await transporter.sendMail(mailOptions);

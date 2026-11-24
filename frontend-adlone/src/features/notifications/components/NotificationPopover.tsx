@@ -33,7 +33,7 @@ interface NotificationPopoverProps {
 export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened, onClose, children }) => {
     const isMobile = useMediaQuery('(max-width: 768px)');
     const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
-    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setPendingSolicitudClienteId, setSelectedRequestId, setFichasMode } = useNavStore();
+    const { setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode } = useNavStore();
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
 
@@ -56,7 +56,7 @@ export const NotificationPopover: React.FC<NotificationPopoverProps> = ({ opened
         }
         // Misma lógica de destino que la página de notificaciones (una sola copia)
         handleNotificationNavigation(notif, {
-            setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId, setPendingSolicitudClienteId,
+            setActiveModule, setActiveSubmodule, setPendingRequestId, setPendingChatId,
             setSelectedRequestId, setFichasMode, hasPermission, showToast,
         });
         if (isMobile) window.dispatchEvent(new CustomEvent('close-mobile-sidebar'));

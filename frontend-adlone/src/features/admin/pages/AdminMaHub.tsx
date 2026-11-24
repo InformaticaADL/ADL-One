@@ -23,7 +23,7 @@ export const AdminMaHub: React.FC<Props> = ({ onNavigate, onBack }) => {
             id: 'admin-usuarios-gem',
             label: 'Usuarios GEM',
             icon: <IconUserCog size={19} stroke={1.75} />,
-            description: 'Administra las cuentas del área GEM MaM y las empresas a cargo de cada una.',
+            description: 'Administra las cuentas del área GEM MaM.',
         },
     ];
 

@@ -179,7 +179,8 @@ class NotificationService {
                 bcc: bcc,
                 subject: subject,
                 html: htmlBody,
-                attachments: attachments || [] 
+                attachments: attachments || [],
+                headers: { 'X-ADL-Tipo': eventCode } // para el registro de envíos; no lo ve quien lee el correo
             };
 
             // Non-blocking email send

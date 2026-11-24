@@ -13,6 +13,9 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { ProtectedContent } from '../../../components/auth/ProtectedContent';
 import { mapToAntecedentes } from '../utils/fichaMapping';
+import { useNavStore } from '../../../store/navStore';
+import { ProgramacionEjecucion, type ProgramacionFicha, type ServicioProgramado } from './ProgramacionEjecucion';
+import { estadoVisible, estaCompletada } from '../utils/avanceFicha';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 
 import { Checkbox } from '@/components/ui/checkbox';
@@ -39,7 +42,8 @@ import {
     IconRotate,
     IconMessageDots,
     IconFileDownload,
-    IconListDetails
+    IconListDetails,
+    IconCalendarEvent
 } from '@tabler/icons-react';
 
 interface Props {
@@ -100,6 +104,7 @@ const DeferredTextarea = React.memo(({ value, onChange, placeholder, minRows }: 
 
 const getStatusProps = (status: string): { variant: BadgeVariant; label: string } => {
     const s = (status || '').toUpperCase();
+    if (s.includes('COMPLETADA')) return { variant: 'success', label: s };
     if (s.includes('RECHAZADA') || s.includes('CANCELADO') || s.includes('REVISAR')) return { variant: 'destructive', label: s };
     if (s.includes('COORDINACIÓN')) return { variant: 'info', label: s };
     if (s.includes('PROGRAMACIÓN')) return { variant: 'secondary', label: s };
@@ -110,41 +115,23 @@ const getStatusProps = (status: string): { variant: BadgeVariant; label: string 
     return { variant: 'outline', label: s || 'SIN ESTADO' };
 };
 
-const gridMinClass: Record<number, string> = {
-    200: 'grid-cols-[repeat(auto-fit,minmax(200px,1fr))]',
-    180: 'grid-cols-[repeat(auto-fit,minmax(180px,1fr))]',
-    160: 'grid-cols-[repeat(auto-fit,minmax(160px,1fr))]',
-};
-
-// Grid responsivo genérico para los bloques de campos estáticos — reemplaza
-// los SimpleGrid de Mantine con distintos cols={{base,sm,md}} por bloque.
-function FieldGrid({ min = 200, children }: { min?: number; children: React.ReactNode }) {
-    return (
-        <div className={cn('grid gap-3', gridMinClass[min] ?? gridMinClass[200])}>
-            {children}
-        </div>
-    );
-}
-
-const SectionDivider: React.FC<{ children?: React.ReactNode }> = ({ children }) => (
-    <div className="my-1 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
-        {children && <span className="shrink-0 text-xs text-muted-foreground">{children}</span>}
-        <div className="h-px flex-1 bg-border" />
+// Datos de solo lectura: etiqueta chica arriba y el valor completo debajo (sin cortarlo con «…»).
+const Dato = ({ label, value, ancho }: { label: string; value: any; ancho?: boolean }) => (
+    <div className={cn('min-w-0', ancho && 'sm:col-span-2')}>
+        <dt className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+        <dd className="mt-0.5 break-words text-sm font-medium leading-snug text-foreground">
+            {value === undefined || value === null || String(value).trim() === '' ? <span className="font-normal text-muted-foreground">—</span> : value}
+        </dd>
     </div>
 );
 
-const StaticField = ({ label, value, span }: { label: string; value: any; span?: number }) => (
-    <div className={span === 2 ? 'col-span-2' : undefined}>
-        <span className="block whitespace-nowrap text-[11px] font-bold uppercase text-muted-foreground">
-            {label}
-        </span>
-        <div className="mt-0.5 rounded-lg border border-border bg-muted/40 px-2.5 py-1.5">
-            <span className="block truncate text-[13.5px] font-medium" title={String(value || '-')}>
-                {value || '-'}
-            </span>
-        </div>
-    </div>
+// Bloque con título para agrupar datos relacionados; los datos van en dos columnas cuando hay espacio.
+const Seccion = ({ titulo, children, pie, className }: { titulo: string; children: React.ReactNode; pie?: React.ReactNode; className?: string }) => (
+    <section className={cn('rounded-xl border border-border bg-card p-4 md:p-5', className)}>
+        <h3 className="mb-3.5 border-b border-border pb-2 text-[13px] font-semibold text-foreground">{titulo}</h3>
+        <dl className="grid grid-cols-1 gap-x-6 gap-y-3.5 sm:grid-cols-2">{children}</dl>
+        {pie}
+    </section>
 );
 
 export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiarFicha }) => {
@@ -214,6 +201,25 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         return () => { cancelado = true; };
     }, [fichaId]);
     const esVisita = !!grupo && grupo.total > 1;
+
+    // Programación y ejecución de la ficha (un renglón por servicio). Se vuelve a leer al cambiar de ficha.
+    const [programacion, setProgramacion] = useState<ProgramacionFicha | null>(null);
+    const [cargandoProg, setCargandoProg] = useState(false);
+    const [errorProg, setErrorProg] = useState(false);
+    const [reintentoProg, setReintentoProg] = useState(0);
+    useEffect(() => {
+        if (!fichaId) return;
+        let cancelado = false;
+        setCargandoProg(true); setErrorProg(false);
+        fichaService.getProgramacion(fichaId)
+            .then((p: ProgramacionFicha) => { if (!cancelado) setProgramacion(p ?? null); })
+            .catch(() => { if (!cancelado) { setProgramacion(null); setErrorProg(true); } })
+            .finally(() => { if (!cancelado) setCargandoProg(false); });
+        return () => { cancelado = true; };
+    }, [fichaId, reintentoProg]);
+    const { setSelectedFicha, setActiveSubmodule } = useNavStore();
+    const puedeAbrirMuestreo = hasPermission(['MA_COMERCIAL_HISTORIAL_DETALLE', 'FI_VER', 'FI_APROBAR_TEC', 'FI_APROBAR_COO']);
+    const abrirMuestreo = (s: ServicioProgramado) => { setSelectedFicha(Number(fichaId), s.correlativo); setActiveSubmodule('ma-ficha-detalle'); };
     // Datos de todos los puntos de la visita (se leen una vez y los usan la pestaña de puntos y la de análisis y precio).
     const [versionPuntos, setVersionPuntos] = useState(0);
     const datosVisita = useDatosVisita(esVisita && grupo ? grupo.puntos : [], versionPuntos);
@@ -504,7 +510,7 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
         return <EditarVisitaView fichaId={fichaId} grupo={esVisita && grupo ? grupo : { total: 1, puntos: [{ id_fichaingresoservicio: Number(fichaId), punto: String(data?.ma_punto_muestreo || ''), estado: String(data?.estado_ficha || '') }] }} data={data} onVolver={() => setEditarVisita(false)} onGuardado={alGuardarVisita} />;
     }
 
-    const statusObj = getStatusProps(data?.estado_ficha);
+    const statusObj = getStatusProps(estadoVisible(data?.estado_ficha, estaCompletada(programacion?.resumen ?? null) ? programacion!.resumen : null));
 
     // Capabilities
     const canEdit = hasPermission('FI_EDITAR') && !isEditing && [1, 2, 3, 4, 5, 6].includes(Number(data?.id_validaciontecnica));
@@ -627,6 +633,11 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             <TabsTrigger value="analisis" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                                 <IconFlask size={tabIconSize} />{esVisita && showUfColumn ? 'Análisis y precio' : 'Análisis'}
                             </TabsTrigger>
+                            {!isEditing && (
+                                <TabsTrigger value="programacion" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
+                                    <IconCalendarEvent size={tabIconSize} />{isVerySmall ? 'Prog.' : 'Programación'}
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger value="observaciones" className="gap-1.5 px-3 py-2 text-sm font-semibold data-[state=active]:bg-transparent data-[state=active]:shadow-none">
                                 <IconHistory size={tabIconSize} />{isVerySmall ? 'Historial/Valid.' : 'Validación e Historial'}
                             </TabsTrigger>
@@ -651,114 +662,102 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                             {isEditing ? (
                                 <AntecedentesForm ref={antecedentesRef} initialData={mappedInitialDataRef.current} />
                             ) : (
-                                <div className="flex flex-col gap-5">
-                                    <FieldGrid>
-                                        <StaticField label="Monitoreo" value={data.tipo_fichaingresoservicio} />
-                                        <StaticField label="Base Operaciones" value={data.id_lugaranalisis === 0 ? 'No Aplica' : data.nombre_lugaranalisis} />
-                                        <StaticField label="Cliente" value={data.nombre_empresa} />
-                                        <StaticField label="Empresa Servicio" value={data.nombre_empresaservicios} />
-                                    </FieldGrid>
-
-                                    <FieldGrid>
-                                        <StaticField label="Fuente Emisora" value={data.nombre_centro} />
-                                        <StaticField label="Código Centro" value={data.codigo_centro} />
-                                        <StaticField label="Comuna" value={data.nombre_comuna} />
-                                        <StaticField label="Región" value={data.nombre_region} />
-                                    </FieldGrid>
-
-                                    {/* La dirección del centro (la del maestro de centros) faltaba en la ficha. Si la ficha trae otra dirección escrita a mano, se muestra aparte. */}
-                                    <FieldGrid min={260}>
-                                        <StaticField label="Dirección del centro" value={data.direccion_centro || 'Sin dirección registrada'} />
-                                        {data.ubicacion && String(data.ubicacion).trim() !== String(data.direccion_centro || '').trim() && (
-                                            <StaticField label="Dirección indicada en la ficha" value={data.ubicacion} />
-                                        )}
-                                    </FieldGrid>
-
-                                    <FieldGrid>
-                                        <StaticField label="Tipo Agua" value={data.nombre_tipoagua || data.tipo_agua} />
-                                        <StaticField label="Contacto" value={data.nombre_contacto} />
-                                        <StaticField label="E-mail" value={data.email_contacto} />
-                                        <StaticField label="Objetivo" value={data.nombre_objetivomuestreo_ma} />
-                                    </FieldGrid>
-
-                                    <StaticField label="Tabla / Glosa" value={data.nombre_tabla_largo} />
-
-                                    <FieldGrid>
-                                        <StaticField label="Es ETFA" value={data.etfa === 'S' ? 'Sí' : 'No'} />
-                                        <StaticField label="Inspector" value={data.agenda?.nombre_inspector} />
-                                        {!esVisita && <StaticField label="Punto de Muestreo" value={data.ma_punto_muestreo} span={2} />}
-                                    </FieldGrid>
-
-                                    <SectionDivider>Frecuencia y Programación</SectionDivider>
-
-                                    <FieldGrid min={160}>
-                                        <StaticField label="Frecuencia" value={data.agenda?.frecuencia} />
-                                        <StaticField label="Periodo" value={data.agenda?.nombre_frecuencia} />
-                                        <StaticField label="Factor" value={data.agenda?.frecuencia_factor} />
-                                        <StaticField label="Total Servicios" value={data.agenda?.total_servicios} />
-                                    </FieldGrid>
-                                    <p className="block text-center text-sm italic text-muted-foreground">
-                                        {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
-                                    </p>
-
-                                    <SectionDivider>Detalles del Servicio</SectionDivider>
-
-                                    <FieldGrid min={180}>
-                                        <StaticField label="Componente" value={data.nombre_tipomuestra} />
-                                        <StaticField label="Sub Área" value={data.nombre_subarea} />
-                                        <StaticField label="Instrumento" value={data.instrumento_ambiental} />
-                                    </FieldGrid>
-
+                                <div className="flex flex-col gap-4">
                                     {(() => {
                                         const coord = String(data.ma_coordenadas || '').trim();
                                         const m = coord.match(/^(.*?) UTM ([\d.,]*)E ([\d.,]*)S/);
                                         const zona = m ? m[1] : coord;
                                         const noCaudal = !data.medicion_caudal || /no\s*aplica/i.test(String(data.medicion_caudal));
                                         const medida = (n: any, u: any) => [n, u].filter((x) => x !== undefined && x !== null && String(x).trim() !== '').join(' ');
+                                        const hayOtraDireccion = data.ubicacion && String(data.ubicacion).trim() !== String(data.direccion_centro || '').trim();
                                         return (
-                                            <>
-                                                <SectionDivider>Muestreo</SectionDivider>
-                                                <FieldGrid min={180}>
-                                                    <StaticField label="Tipo de muestra" value={data.nombre_tipomuestra_ma} />
-                                                    <StaticField label="Tipo de descarga" value={data.nombre_tipodescarga} />
-                                                    {String(data.tipo_fichaingresoservicio || '').toLowerCase() !== 'puntual' && (
-                                                        <StaticField label="Duración del muestreo" value={data.ma_duracion_muestreo ? `${data.ma_duracion_muestreo} h` : ''} />
+                                            <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+                                                <div className="flex flex-col gap-4">
+                                                    <Seccion titulo="Servicio">
+                                                        <Dato label="Monitoreo agua/RIL" value={data.tipo_fichaingresoservicio} />
+                                                        <Dato label="Objetivo" value={data.nombre_objetivomuestreo_ma} />
+                                                        <Dato label="Tipo de agua" value={data.nombre_tipoagua || data.tipo_agua} />
+                                                        <Dato label="Base de operaciones" value={data.id_lugaranalisis === 0 ? 'No aplica' : data.nombre_lugaranalisis} />
+                                                        <Dato label="Es ETFA" value={data.etfa === 'S' ? 'Sí' : 'No'} />
+                                                        <Dato label="Inspector" value={data.agenda?.nombre_inspector} />
+                                                        <Dato label="Tabla / Glosa" value={data.nombre_tabla_largo} ancho />
+                                                        {!esVisita && <Dato label="Punto de muestreo" value={data.ma_punto_muestreo} ancho />}
+                                                    </Seccion>
+
+                                                    <Seccion
+                                                        titulo="Frecuencia y programación"
+                                                        pie={(
+                                                            <p className="mt-3.5 rounded-lg bg-muted/50 px-3 py-2 text-xs italic leading-relaxed text-muted-foreground">
+                                                                {`Se realizarán ${data.agenda?.total_servicios || '—'} muestreo(s) en total, con una frecuencia de ${data.agenda?.frecuencia || '—'} vez/veces cada periodo ${(data.agenda?.nombre_frecuencia || '—').toLowerCase()}, multiplicado por un factor de ${data.agenda?.frecuencia_factor || '—'}.`}
+                                                            </p>
+                                                        )}
+                                                    >
+                                                        <Dato label="Frecuencia" value={data.agenda?.frecuencia} />
+                                                        <Dato label="Periodo" value={data.agenda?.nombre_frecuencia} />
+                                                        <Dato label="Factor" value={data.agenda?.frecuencia_factor} />
+                                                        <Dato label="Total de servicios" value={data.agenda?.total_servicios} />
+                                                    </Seccion>
+
+                                                    <Seccion titulo="Responsable del muestreo">
+                                                        <Dato label="Responsable" value={data.responsablemuestreo} />
+                                                        <Dato label="Cargo" value={data.nombre_cargo} />
+                                                        <Dato label="Tipo de muestreo" value={data.nombre_tipomuestreo} />
+                                                        <Dato label="Actividad" value={data.nombre_actividadmuestreo} />
+                                                    </Seccion>
+                                                </div>
+
+                                                <div className="flex flex-col gap-4">
+                                                    <Seccion titulo="Cliente y centro">
+                                                        <Dato label="Empresa a facturar" value={data.nombre_empresa} />
+                                                        <Dato label="Empresa de servicio" value={data.nombre_empresaservicios} />
+                                                        <Dato label="Fuente emisora" value={data.nombre_centro} />
+                                                        <Dato label="Código del centro" value={data.codigo_centro} />
+                                                        <Dato label="Comuna" value={data.nombre_comuna} />
+                                                        <Dato label="Región" value={data.nombre_region} />
+                                                        {/* La dirección del centro es la del maestro de centros. Si la ficha trae otra escrita a mano, se muestra aparte. */}
+                                                        <Dato label="Dirección del centro" value={data.direccion_centro || 'Sin dirección registrada'} ancho />
+                                                        {hayOtraDireccion && <Dato label="Ubicación / Dirección indicada en la ficha" value={data.ubicacion} ancho />}
+                                                    </Seccion>
+
+                                                    <Seccion titulo="Contacto">
+                                                        <Dato label="Contacto" value={data.nombre_contacto} />
+                                                        <Dato label="Correo electrónico" value={data.email_contacto} />
+                                                    </Seccion>
+
+                                                    <Seccion titulo="Detalles del servicio y del muestreo">
+                                                        <Dato label="Componente" value={data.nombre_tipomuestra} />
+                                                        <Dato label="Sub área" value={data.nombre_subarea} />
+                                                        <Dato label="Instrumento ambiental" value={data.instrumento_ambiental} />
+                                                        <Dato label="Tipo de muestra" value={data.nombre_tipomuestra_ma} />
+                                                        <Dato label="Tipo de descarga" value={data.nombre_tipodescarga} />
+                                                        {String(data.tipo_fichaingresoservicio || '').toLowerCase() !== 'puntual' && (
+                                                            <Dato label="Duración del muestreo" value={data.ma_duracion_muestreo ? `${data.ma_duracion_muestreo} h` : ''} />
+                                                        )}
+                                                    </Seccion>
+
+                                                    <Seccion titulo="Medición de caudal">
+                                                        <Dato label="Medición de caudal" value={data.medicion_caudal || 'No aplica'} />
+                                                        {!noCaudal && <Dato label="Modalidad" value={data.nombre_modalidad} />}
+                                                        {!noCaudal && <Dato label="Forma del canal" value={data.nombre_formacanal ? medida(data.nombre_formacanal, '') + (data.formacanal_medida ? ` · ${medida(data.formacanal_medida, data.nombre_um_formacanal)}` : '') : ''} />}
+                                                        {!noCaudal && <Dato label="Dispositivo hidráulico" value={data.nombre_dispositivohidraulico ? medida(data.nombre_dispositivohidraulico, '') + (data.dispositivohidraulico_medida ? ` · ${medida(data.dispositivohidraulico_medida, data.nombre_um_dispositivohidraulico)}` : '') : ''} />}
+                                                    </Seccion>
+
+                                                    {!esVisita && (
+                                                        <Seccion titulo="Ubicación del punto">
+                                                            <Dato label="Zona UTM" value={zona || 'Sin zona'} />
+                                                            <Dato label="UTM Norte" value={m?.[2]} />
+                                                            <Dato label="UTM Este" value={m?.[3]} />
+                                                        </Seccion>
                                                     )}
-                                                </FieldGrid>
-
-                                                {!esVisita && (
-                                                    <>
-                                                        <SectionDivider>Ubicación del punto</SectionDivider>
-                                                        <FieldGrid min={180}>
-                                                            <StaticField label="Zona UTM" value={zona || 'Sin zona'} />
-                                                            <StaticField label="UTM Norte" value={m?.[2] || '—'} />
-                                                            <StaticField label="UTM Este" value={m?.[3] || '—'} />
-                                                        </FieldGrid>
-                                                    </>
-                                                )}
-
-                                                <SectionDivider>Medición de caudal</SectionDivider>
-                                                <FieldGrid min={180}>
-                                                    <StaticField label="Medición de caudal" value={data.medicion_caudal || 'No aplica'} />
-                                                    {!noCaudal && <StaticField label="Modalidad" value={data.nombre_modalidad} />}
-                                                    {!noCaudal && <StaticField label="Forma del canal" value={data.nombre_formacanal ? medida(data.nombre_formacanal, '') + (data.formacanal_medida ? ` · ${medida(data.formacanal_medida, data.nombre_um_formacanal)}` : '') : '—'} />}
-                                                    {!noCaudal && <StaticField label="Dispositivo hidráulico" value={data.nombre_dispositivohidraulico ? medida(data.nombre_dispositivohidraulico, '') + (data.dispositivohidraulico_medida ? ` · ${medida(data.dispositivohidraulico_medida, data.nombre_um_dispositivohidraulico)}` : '') : '—'} />}
-                                                </FieldGrid>
-                                            </>
+                                                </div>
+                                            </div>
                                         );
                                     })()}
 
-                                    <FieldGrid min={160}>
-                                        <StaticField label="Responsable" value={data.responsablemuestreo} />
-                                        <StaticField label="Cargo" value={data.nombre_cargo} />
-                                        <StaticField label="Tipo Muestreo" value={data.nombre_tipomuestreo} />
-                                        <StaticField label="Actividad" value={data.nombre_actividadmuestreo} />
-                                    </FieldGrid>
-
                                     {/* F-24/F-25: Referencia Google Maps + mapa */}
                                     {!esVisita && (data.referencia_googlemaps || (data.ubicacion_lat && data.ubicacion_lon)) && (
-                                        <>
-                                            <SectionDivider>Ubicación</SectionDivider>
+                                        <section className="rounded-xl border border-border bg-card p-4 md:p-5">
+                                            <h3 className="mb-3.5 border-b border-border pb-2 text-[13px] font-semibold text-foreground">Ubicación</h3>
                                             <div className="flex flex-col gap-2">
                                                 {data.referencia_googlemaps && (
                                                     <div className="flex flex-nowrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 p-2">
@@ -791,12 +790,28 @@ export const FichaUniversalView: React.FC<Props> = ({ fichaId, onBack, onCambiar
                                                     </span>
                                                 ) : null}
                                             </div>
-                                        </>
+                                        </section>
                                     )}
                                 </div>
                             )}
                         </div>
                     </TabsContent>
+
+                    {!isEditing && (
+                        <TabsContent value="programacion" className="mt-0">
+                            <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>
+                                <ProgramacionEjecucion
+                                    programacion={programacion}
+                                    cargando={cargandoProg}
+                                    error={errorProg}
+                                    visita={esVisita ? { punto: String(data?.ma_punto_muestreo || '').trim(), puntos: grupo!.total } : null}
+                                    puedeAbrir={puedeAbrirMuestreo}
+                                    onAbrir={abrirMuestreo}
+                                    onReintentar={() => setReintentoProg((n) => n + 1)}
+                                />
+                            </div>
+                        </TabsContent>
+                    )}
 
                     <TabsContent value="analisis" className="mt-0">
                         <div style={{ padding: `${isMobile ? 16 : 32}px ${panelPad}px` }}>

@@ -38,7 +38,7 @@ export const UserNotificationsPage = () => {
     const { notifications, loading, fetchNotifications, markAsRead, markAllAsRead } = useNotificationStore();
     const {
         setActiveModule, setActiveSubmodule,
-        setPendingRequestId, setPendingChatId, setPendingSolicitudClienteId, setSelectedRequestId, setFichasMode
+        setPendingRequestId, setPendingChatId, setSelectedRequestId, setFichasMode
     } = useNavStore();
     const { hasPermission } = useAuth();
     const { showToast } = useToast();
@@ -62,7 +62,6 @@ export const UserNotificationsPage = () => {
             setActiveSubmodule,
             setPendingRequestId,
             setPendingChatId,
-            setPendingSolicitudClienteId,
             setSelectedRequestId,
             setFichasMode,
             hasPermission,

@@ -226,6 +226,18 @@ class FichaIngresoController {
         }
     }
 
+    async getProgramacion(req, res) {
+        try {
+            const id = Number(req.params.id);
+            if (!Number.isInteger(id) || id <= 0) return errorResponse(res, 'ID de ficha inválido', 400);
+            const result = await fichaService.getProgramacionFicha(id);
+            return successResponse(res, result, 'Programación y ejecución de la ficha');
+        } catch (err) {
+            logger.error('Error in getProgramacion controller:', err);
+            return errorResponse(res, 'Error al obtener la programación de la ficha', 500, err.message);
+        }
+    }
+
     async getGrupo(req, res) {
         try {
             const result = await fichaService.getGrupoDeFicha(req.params.id);

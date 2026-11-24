@@ -342,12 +342,16 @@ export const EquiposPage: React.FC<Props> = ({ onBack }) => {
             .then(res => setProximosAVencer(res?.data || []))
             .catch(() => setProximosAVencer([]));
     };
+    // La vigencia puede llegar como «2026-11-24» o como «24/11/2026» (día/mes/año): con el segundo formato el cálculo daba NaN («vence en NaN días»).
     const diasParaVencer = (vigencia: string) => {
-        const [y, m, d] = String(vigencia).slice(0, 10).split('-').map(Number);
+        const txt = String(vigencia ?? '').trim();
+        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(txt);
+        const dmy = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})/.exec(txt);
+        const [y, m, d] = iso ? [+iso[1], +iso[2], +iso[3]] : dmy ? [+dmy[3], +dmy[2], +dmy[1]] : [NaN, NaN, NaN];
         const [ty, tm, td] = todayStr.split('-').map(Number);
         return Math.round((Date.UTC(y, m - 1, d) - Date.UTC(ty, tm - 1, td)) / 86400000);
     };
-    const textoDias = (dias: number) => dias <= 0 ? 'vence hoy' : dias === 1 ? 'vence mañana' : `vence en ${dias} días`;
+    const textoDias = (dias: number) => Number.isNaN(dias) ? 'vence pronto' : dias <= 0 ? 'vence hoy' : dias === 1 ? 'vence mañana' : `vence en ${dias} días`;
     const verProximosAVencer = () => {
         setActiveView('list');
         setFilterExpired(false);

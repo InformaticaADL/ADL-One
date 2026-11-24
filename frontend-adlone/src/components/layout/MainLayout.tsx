@@ -9,8 +9,6 @@ import { RouteBreadcrumb } from './TopBar';
 
 import logoAdl from '../../assets/images/logo-adlone.png';
 import { useNotificationStore } from '../../store/notificationStore';
-import { solicitudesClientesService } from '../../services/solicitudesClientes.service';
-import { esNotificacionSolicitudCliente } from '../../features/notifications/utils/notificationNavigation';
 import { useAuth } from '../../contexts/AuthContext';
 import ContextualNotificationPanel from '../../features/notifications/components/ContextualNotificationPanel';
 import { ScrollButtons } from '../common/ScrollButtons';
@@ -94,7 +92,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // gestión, por eso el filtro va por submódulo y no por módulo.
     const ADMIN_INFO_SCREENS = [
         '', 'informatica', 'medio_ambiente', 'gestion_calidad',
-        'admin-roles', 'admin-users', 'admin-notifications', 'admin-urs',
+        'admin-roles', 'admin-users', 'admin-notifications', 'admin-correos', 'admin-urs',
         'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados',
         'gc-dashboard-equipos',
     ];
@@ -120,7 +118,7 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
     // Global Notifications listener (Toast logic)
     const { user, token } = useAuth();
     const { fetchNotifications, initSocket, disconnectSocket, socketStatus } = useNotificationStore();
-    const { setUrsUnreadCount, setSolicitudesClientePendientes } = useNavStore();
+    const { setUrsUnreadCount } = useNavStore();
 
     // Socket Initialization + global counters fetch
     useEffect(() => {
@@ -134,18 +132,6 @@ export const MainLayout = ({ children }: MainLayoutProps) => {
             disconnectSocket();
         };
     }, [user?.id, token, initSocket, disconnectSocket, fetchNotifications, setUrsUnreadCount]);
-
-    // Contador de "Solicitudes de clientes": las que siguen pendientes de atender (no las que alguien solo abrió).
-    // Se recalcula al iniciar, cada 30 s y apenas llega un aviso nuevo de una solicitud (socket).
-    const firmaAvisosSolicitudes = useNotificationStore((s) => s.notifications
-        .filter((n) => esNotificacionSolicitudCliente(n)).map((n) => n.id_notificacion).join(','));
-    useEffect(() => {
-        if (!user?.id) return;
-        const actualizar = () => { solicitudesClientesService.pendientes().then(setSolicitudesClientePendientes).catch(() => {}); };
-        actualizar();
-        const t = setInterval(() => { if (!document.hidden) actualizar(); }, 30000);
-        return () => clearInterval(t);
-    }, [user?.id, firmaAvisosSolicitudes, setSolicitudesClientePendientes]);
 
     // Medidas de la plantilla: 16 rem abierto y 4 rem contraído (3 rem del riel + el margen del diseño «inset»).
     const siderWidth = (sidebarCollapsed || isMedio) ? 64 : 256;

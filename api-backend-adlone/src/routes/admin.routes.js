@@ -138,8 +138,6 @@ router.post('/gem-usuarios', verifyToken, verifyPermission('GEM_USUARIOS'), gemU
 router.put('/gem-usuarios/:id', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.updateUsuario);
 router.put('/gem-usuarios/:id/password', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.updatePassword);
 router.put('/gem-usuarios/:id/status', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.toggleStatus);
-router.get('/gem-usuarios/:id/empresas', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.getEmpresas);
-router.put('/gem-usuarios/:id/empresas', verifyToken, verifyPermission('GEM_USUARIOS'), gemUsuariosController.setEmpresas);
 
 // --- DASHBOARD ---
 router.get('/dashboard/stats', verifyToken, verifyPermission('MA_A_GEST_EQUIPO'), adminController.getDashboardStats);

@@ -15,9 +15,6 @@ import AdminUrsPage from '../features/admin/pages/AdminUrsPage';
 import { AdminInfoHub } from '../features/admin/pages/AdminInfoHub';
 import { InformaticaHub } from '../features/admin/pages/InformaticaHub';
 import { UsersManagementPage } from '../features/admin/pages/UsersManagementPage';
-import { EmpresasAsignadasPage } from '../features/admin/pages/EmpresasAsignadasPage';
-import { VerificadoresSolicitudesPage } from '../features/admin/pages/VerificadoresSolicitudesPage';
-import { SolicitudesClientesPage } from '../features/solicitudes-clientes/pages/SolicitudesClientesPage';
 import { AdminMenuWebPage } from '../features/admin/pages/AdminMenuWebPage';
 import { MaestrosHub } from '../features/admin/pages/MaestrosHub';
 import { AdminMaHub } from '../features/admin/pages/AdminMaHub';
@@ -47,6 +44,7 @@ import FacturacionSaludModule from '../features/facturacion-salud/components/Fac
 import { WelcomePage } from './WelcomePage';
 
 import { NotificationsPage } from '../features/admin/pages/NotificationsPage';
+import { CorreosAdminPage } from '../features/admin/pages/CorreosAdminPage';
 import { BiologiaMolecularPage } from '../features/biologia-molecular/pages/BiologiaMolecularPage';
 import { HistoricoBiologiaMolecularPage } from '../features/biologia-molecular/pages/HistoricoBiologiaMolecularPage';
 
@@ -74,7 +72,7 @@ const DashboardPage = () => {
             ].some(p => hasPermission(p));
     };
 
-    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'admin-solicitudes-clientes', 'admin-verificadores-solicitudes', 'informatica'];
+    const ADMIN_SUBMODULES = ['admin-roles', 'admin-users', 'admin-notifications', 'admin-correos', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'informatica'];
     // Nota: 'admin-equipos-gestion' y 'admin-muestreadores' se verifican con sus propios permisos
     // y NO dependen de los permisos de Admin. Información
 
@@ -180,12 +178,6 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
             if (!hasPermission('BM_ACCESO') && !hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
             return <BiologiaMolecularPage onBack={() => setActiveSubmodule('')} />;
         }
-        // Cualquier usuario autenticado puede entrar: lo que ve queda acotado por sus propias
-        // empresas asignadas (o por ser del grupo de respaldo) — ver rel_usuario_empresa_asignada.
-        if (activeSubmodule === 'solicitudes-clientes') {
-            return <SolicitudesClientesPage onBack={() => setActiveSubmodule('')} />;
-        }
-
         if (activeSubmodule === 'bm-historico') {
             const isFernandoB = (user?.username || '').trim().toUpperCase() === 'FERNANDOB';
             const isInformatica = hasPermission('INF_ACCESO') || (user?.permissions || []).includes('INF_ACCESO');
@@ -205,16 +197,15 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
             if (!hasAdminAccess()) return <div className="dashboard-content" style={{ textAlign: 'center', padding: '3rem' }}><h1>🚫 Denegado</h1></div>;
 
             if (activeSubmodule === 'informatica') return <InformaticaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
-            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados', 'admin-solicitudes-clientes', 'admin-verificadores-solicitudes'].includes(activeSubmodule)) {
+            if (['admin-roles', 'admin-users', 'admin-notifications', 'admin-correos', 'admin-urs', 'admin-menu-web', 'admin-maestros', 'admin-revision-duplicados'].includes(activeSubmodule)) {
                 if (activeSubmodule === 'admin-roles') return <RolesPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-users') return <UsersManagementPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-notifications') return <NotificationsPage onBack={() => setActiveSubmodule('informatica')} />;
+                if (activeSubmodule === 'admin-correos') return <CorreosAdminPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-urs') return <AdminUrsPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-menu-web') return <AdminMenuWebPage onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-maestros') return <MaestrosHub onBack={() => setActiveSubmodule('informatica')} />;
                 if (activeSubmodule === 'admin-revision-duplicados') return <RevisionDuplicadosPage onBack={() => setActiveSubmodule('informatica')} />;
-                if (activeSubmodule === 'admin-solicitudes-clientes') return <EmpresasAsignadasPage onBack={() => setActiveSubmodule('informatica')} />;
-                if (activeSubmodule === 'admin-verificadores-solicitudes') return <VerificadoresSolicitudesPage onBack={() => setActiveSubmodule('informatica')} />;
             }
 
             if (activeSubmodule === 'medio_ambiente') return <AdminMaHub onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
@@ -237,7 +228,6 @@ if (activeSubmodule === 'urs-new-request') return <NewRequestPage onBack={() => 
         if (!activeSubmodule) {
             // Módulos que SI tienen su propia vista de aterrizaje directa (Stand-alone)
             if (activeModule === 'solicitudes') return <UniversalInbox />;
-            if (activeModule === 'solicitudes-clientes') return <SolicitudesClientesPage onBack={() => resetNavigation()} />;
             if (activeModule === 'notificaciones') return <UserNotificationsPage />;
             if (activeModule === 'chat') return <ChatModule />;
             if (activeModule === 'perfil') return <ProfilePage />;
