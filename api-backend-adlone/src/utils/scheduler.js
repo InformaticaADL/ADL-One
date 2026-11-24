@@ -1,5 +1,6 @@
 import { equipoService } from '../services/equipo.service.js';
 import { equipoVencimientosService } from '../services/equipo-vencimientos.service.js';
+import { notificarPlazosQuejasApelaciones } from '../services/quejasApelaciones.alertas.js';
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from '../services/uns.service.js';
@@ -38,6 +39,13 @@ export const initScheduler = () => {
             if (r.enviadas > 0) logger.info(`Daily Check: sent ${r.enviadas} expiration notice(s).`);
         } catch (error) {
             logger.error('Error sending expiration notices:', error);
+        }
+        // Quejas y apelaciones por vencer o vencidas (base de ADLWeb) → aviso a Gestión de Calidad.
+        try {
+            const r = await notificarPlazosQuejasApelaciones();
+            if (r.enviadas > 0) logger.info(`Daily Check: sent ${r.enviadas} complaint/appeal deadline notice(s).`);
+        } catch (error) {
+            logger.error('Error sending complaint/appeal deadline notices:', error);
         }
     };
 

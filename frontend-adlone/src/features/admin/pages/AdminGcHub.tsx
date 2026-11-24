@@ -1,19 +1,46 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet, IconMessageReport, IconGavel } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Card } from '@/components/ui/card';
 import { HubGrid, type HubOption } from '../components/HubGrid';
+import { esAreaCalidad } from '../utils/areasRoles';
 
 interface Props {
     onNavigate: (view: string) => void;
     onBack: () => void;
-    /** Qué subcategoría de G. Calidad mostrar: Medio Ambiente (con sus submódulos) o Laboratorio (sin los suyos propios todavía). */
-    seccion: 'mam' | 'lab';
+    /** Qué subcategoría de G. Calidad mostrar: Medio Ambiente (con sus submódulos), Calidad (quejas y apelaciones) o Laboratorio (sin los suyos propios todavía). */
+    seccion: 'mam' | 'cal' | 'lab';
 }
 
+// Calidad: submódulos del sistema de gestión de calidad. Sus datos viven en la base de ADLWeb
+// y también se administran desde el panel de ADLWeb.
+const OPCIONES_CALIDAD: HubOption[] = [
+    {
+        id: 'gc-quejas',
+        label: 'Quejas',
+        icon: <IconMessageReport size={20} stroke={1.75} />,
+        description: 'Registro de quejas con su historial: evaluación, tratamiento, acciones correctivas y notificaciones (OI-FoGe-05).',
+        grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
+    },
+    {
+        id: 'gc-apelaciones',
+        label: 'Apelaciones',
+        icon: <IconGavel size={20} stroke={1.75} />,
+        description: 'Registro de apelaciones con su historial: reunión de análisis, evaluación, tratamiento y notificaciones (OI-FoGe-05).',
+        grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
+    },
+    {
+        id: 'gc-qa-dashboard',
+        label: 'Dashboard',
+        icon: <IconChartBar size={20} stroke={1.75} />,
+        description: 'Plazos por vencer y vencidos, tendencia mensual, causas, tiempos y carga por responsable. Exporta a Excel.',
+        grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
+    },
+];
+
 export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => {
-    const { hasPermission } = useAuth();
+    const { hasPermission, user } = useAuth();
 
     const GC_ACCESS = hasPermission('GC_ACCESO') || hasPermission('GC_EQUIPOS') || hasPermission('MA_A_GEST_EQUIPO');
 
@@ -100,6 +127,24 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => 
         }
         return false;
     });
+
+    if (seccion === 'cal') {
+        return (
+            <div className="shadcn-scope w-full p-4 md:p-6">
+                <PageHeader
+                    title="Gestión de Calidad · Calidad"
+                    subtitle="Sistema de gestión de calidad del laboratorio."
+                    onBack={onBack}
+                    breadcrumbItems={[{ label: 'Calidad' }]}
+                />
+                <HubGrid
+                    options={esAreaCalidad(user?.roles) ? OPCIONES_CALIDAD : []}
+                    onNavigate={onNavigate}
+                    emptyText="Esta sección es exclusiva del área de Gestión de Calidad."
+                />
+            </div>
+        );
+    }
 
     if (seccion === 'lab') {
         return (

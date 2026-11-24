@@ -12,6 +12,7 @@ import axios from 'axios';
 import { getIconComponent } from '../../config/iconRegistry';
 import { FIXED_TOP_MODULES, hasAccess, canAccessModule, type DynamicModule, type DynamicModuleLink, type FixedModule } from '../../config/sidebarModules';
 import { cn } from '@/lib/utils';
+import { esAreaCalidad } from '../../features/admin/utils/areasRoles';
 import { CommandMenu } from './CommandMenu';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -245,17 +246,21 @@ export function Sidebar({ forceNotCollapsed, onNavigate }: SidebarProps) {
         );
     };
 
-    // Subcategorías fijas dentro de un módulo (hoy: G. Calidad → Medio Ambiente / Laboratorio).
+    // Subcategorías fijas dentro de un módulo (hoy: G. Calidad → Medio Ambiente / Calidad / Laboratorio).
     // Un enlace sin subgrupo propio, o de un módulo que no está acá, sigue mostrándose en la lista plana de siempre.
     // Laboratorio (G.C. LAB) no se muestra por ahora: todavía no tiene submódulos. Su pantalla sigue en 'gc-hub-lab'.
-    const SUBGRUPOS_POR_MODULO: Record<string, string[]> = { gestion_calidad: ['Medio Ambiente'] };
+    // Calidad (quejas y apelaciones) no tiene filas en mae_menu_link: se muestra solo al área de Gestión de
+    // Calidad (e Informática), la misma regla con que el backend protege sus datos.
+    const SUBGRUPOS_POR_MODULO: Record<string, string[]> = {
+        gestion_calidad: ['Medio Ambiente', ...(esAreaCalidad(user?.roles) ? ['Calidad'] : [])],
+    };
     // Cada subcategoría no lista sus enlaces en el árbol del sidebar: lleva a su propia pantalla con
     // tarjetas (una por submódulo), igual que los demás hubs de Admin. Información.
     const HUB_DESTINO_POR_SUBGRUPO: Record<string, Record<string, string>> = {
-        gestion_calidad: { 'Medio Ambiente': 'gc-hub-mam', Laboratorio: 'gc-hub-lab' },
+        gestion_calidad: { 'Medio Ambiente': 'gc-hub-mam', Calidad: 'gc-hub-cal', Laboratorio: 'gc-hub-lab' },
     };
     // Nombre que se muestra en el menú; el subgrupo guardado en mae_menu_link sigue siendo "Medio Ambiente" / "Laboratorio".
-    const ETIQUETA_SUBGRUPO: Record<string, string> = { 'Medio Ambiente': 'G.C. MAM', Laboratorio: 'G.C. LAB' };
+    const ETIQUETA_SUBGRUPO: Record<string, string> = { 'Medio Ambiente': 'G.C. MAM', Calidad: 'Calidad', Laboratorio: 'G.C. LAB' };
 
     const renderLinkItem = (moduleId: string, link: DynamicModuleLink, isOpen: boolean) => {
         const active = activeSubmodule === link.id && activeModule === moduleId;

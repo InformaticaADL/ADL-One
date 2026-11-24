@@ -25,6 +25,7 @@ interface NavState {
     setEquiposKpiPendiente: (filtro: 'all' | 'activos' | 'vencidos' | 'por_vencer' | 'sin_asignar' | null) => void;
     pendingChatId: number | null; // For deep-linking to specific chat
     pendingSolicitudClienteId: number | null; // Solicitud de cliente (WebClientesV2) a abrir al llegar desde una notificación
+    pendingQaCasoId: number | null; // Caso de quejas y apelaciones a abrir al llegar desde un aviso de plazo
     selectedRequestId: number | null; // Phase 27
     selectedFichaId: number | null;
     selectedCorrelativo: string | null;
@@ -48,6 +49,7 @@ interface NavState {
     setPendingRequestId: (id: number | null) => void;
     setPendingChatId: (id: number | null) => void;
     setPendingSolicitudClienteId: (id: number | null) => void;
+    setPendingQaCasoId: (id: number | null) => void;
     setSelectedRequestId: (id: number | null) => void;
     setSelectedFicha: (id: number | null, correlativo: string | null) => void;
     // Cotización que originó la ficha que se está creando: el formulario la lee
@@ -97,6 +99,7 @@ export const useNavStore = create<NavState>()(
             equiposKpiPendiente: null,
             pendingChatId: null,
             pendingSolicitudClienteId: null,
+            pendingQaCasoId: null,
             selectedRequestId: null,
             selectedFichaId: null,
             selectedCorrelativo: null,
@@ -142,6 +145,7 @@ export const useNavStore = create<NavState>()(
             setEquiposKpiPendiente: (filtro) => set({ equiposKpiPendiente: filtro }),
             setPendingChatId: (id) => set({ pendingChatId: id }),
             setPendingSolicitudClienteId: (id) => set({ pendingSolicitudClienteId: id }),
+            setPendingQaCasoId: (id) => set({ pendingQaCasoId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),
             setSelectedFicha: (id, correlativo) => set({ selectedFichaId: id, selectedCorrelativo: correlativo }),
             setCotizacionParaFicha: (id) => set({ cotizacionParaFicha: id }),

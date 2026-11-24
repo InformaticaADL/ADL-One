@@ -128,6 +128,11 @@ export async function pendientes(req, res) {
         }
         successResponse(res, { pendientes: total });
     } catch (e) {
+        // El contador de la barra lateral se pide cada pocos segundos en todas las pantallas. Si WebClientesV2 no está
+        // disponible (apagado, o no se levantó en el equipo de desarrollo) no es un error de la pantalla actual: el
+        // contador queda en 0. La página de Solicitudes de clientes sí muestra el error al listarlas.
+        const caido = e?.message === 'fetch failed' || ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(e?.cause?.code);
+        if (caido) return successResponse(res, { pendientes: 0, disponible: false });
         errorResponse(res, e.message, 500);
     }
 }
