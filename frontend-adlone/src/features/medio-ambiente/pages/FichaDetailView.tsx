@@ -6,6 +6,8 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
+import { Radio } from '@/components/ui/radio';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -91,6 +93,22 @@ export const FichaDetailView = () => {
     const [oiError, setOiError] = useState('');
     const [generarFoma, setGenerarFoma] = useState(true);
     const [generarCadena, setGenerarCadena] = useState(true);
+    // A qué puntos de la visita va el OI: solo este, toda la visita o los que se elijan. El valor por defecto depende del programa
+    // (Certificación ASC: un OI para toda la visita; el resto, un OI por punto).
+    const [oiOpciones, setOiOpciones] = useState<{ programa: string | null; modoPorDefecto: 'punto' | 'visita'; puntos: { id_agenda: number; id_ficha: number; punto: string | null; retiro_completado: boolean; caso_adlab: string | null }[] } | null>(null);
+    const [oiAlcance, setOiAlcance] = useState<'punto' | 'visita' | 'puntos'>('punto');
+    const [oiIdsElegidos, setOiIdsElegidos] = useState<number[]>([]);
+
+    useEffect(() => {
+        if (!confirmModalOpen || !data?.ficha?.id_agendamam) return;
+        let cancelado = false;
+        setOiOpciones(null);
+        setOiIdsElegidos([]);
+        fichaService.getOpcionesOi(Number(data.ficha.id_agendamam))
+            .then((o) => { if (cancelado) return; setOiOpciones(o); setOiAlcance(o?.modoPorDefecto === 'visita' ? 'visita' : 'punto'); })
+            .catch(() => { if (!cancelado) setOiOpciones(null); }); // sin las opciones el OI se asigna como siempre (valor por defecto del servidor)
+        return () => { cancelado = true; };
+    }, [confirmModalOpen, data?.ficha?.id_agendamam]);
 
     const toggleDoc = (docId: string) => {
         setExpandedDocs(prev =>
@@ -242,7 +260,11 @@ export const FichaDetailView = () => {
             await fichaService.updateRealizadoGem(Number(ficha.id_agendamam), true);
             // 2. Asignar el código OI (debe quedar guardado en BD antes de regenerar
             // documentos, porque el PDF lee caso_adlab en vivo desde la base de datos)
-            const oiRes = await fichaService.updateCasoAdlab(Number(ficha.id_agendamam), fullCode);
+            const hayOtrosPuntos = !!oiOpciones && oiOpciones.puntos.length > 0;
+            const oiRes = await fichaService.updateCasoAdlab(
+                Number(ficha.id_agendamam), fullCode,
+                hayOtrosPuntos ? { alcance: oiAlcance, idsAgenda: oiAlcance === 'puntos' ? oiIdsElegidos : [] } : undefined,
+            );
             // En una visita con varios puntos el OI se aplica al mismo muestreo de los demás puntos que ya tienen el retiro completado.
             const oiAplicados: number = oiRes?.data?.aplicados ?? 1;
             const oiPendientes: { punto: string | null; id_ficha: number }[] = oiRes?.data?.pendientes ?? [];
@@ -384,6 +406,8 @@ export const FichaDetailView = () => {
     const equiposRetiro = equipos?.filter((e: any) => e.usado_retiro === 'S') || [];
 
     const analisisTerreno = analisis?.filter((item: any) => item.tipo_analisis !== 'Laboratorio' && item.tipo_analisis !== 'CostoOperativo') || [];
+    // La columna «Observación» solo aparece si algún parámetro de terreno trae una (la escribe el muestreador en Olor, Color, Sólidos flotantes…)
+    const hayObservacionesTerreno = analisisTerreno.some((item: any) => String(item.observacion || '').trim() !== '');
     const analisisLaboratorio = analisis?.filter((item: any) => item.tipo_analisis === 'Laboratorio') || [];
 
     const fotosPuntual = media?.ma_fotografia?.split(';').filter((p: string) => p.toLowerCase().includes('instalacion') || p.toLowerCase().includes('retiro'))
@@ -603,6 +627,43 @@ export const FichaDetailView = () => {
                             )}
                         </div>
 
+                        {/* A qué puntos de la visita va este OI (solo si la visita tiene más puntos) */}
+                        {oiOpciones && oiOpciones.puntos.length > 0 && (
+                            <div>
+                                <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">¿A qué puntos de la visita aplica este OI?</span>
+                                <div className="flex flex-col gap-2">
+                                    {([
+                                        { v: 'punto', t: 'Solo este punto', d: 'Cada punto tiene su propio OI y su propio informe.' },
+                                        { v: 'visita', t: `Toda la visita (${oiOpciones.puntos.length + 1} puntos)`, d: 'Un solo OI y un informe con todos los puntos.' },
+                                        { v: 'puntos', t: 'Elegir puntos', d: 'Agrupa en este OI solo los puntos que elijas.' },
+                                    ] as const).map((o) => (
+                                        <label key={o.v} className="flex cursor-pointer items-start gap-2">
+                                            <Radio checked={oiAlcance === o.v} onChange={() => setOiAlcance(o.v)} className="mt-0.5" />
+                                            <div>
+                                                <span className="block text-[13px]">{o.t}{o.v === oiOpciones.modoPorDefecto ? <span className="ml-1.5 text-[11px] font-normal text-muted-foreground">(lo habitual en {oiOpciones.programa || 'este programa'})</span> : null}</span>
+                                                <span className="text-[11px] text-muted-foreground">{o.d}</span>
+                                            </div>
+                                        </label>
+                                    ))}
+                                </div>
+                                {oiAlcance === 'puntos' && (
+                                    <div className="mt-2 flex max-h-40 flex-col gap-1.5 overflow-y-auto rounded-md border border-border p-2.5">
+                                        {oiOpciones.puntos.map((p) => (
+                                            <label key={p.id_agenda} className="flex cursor-pointer items-center gap-2 text-[13px]">
+                                                <Checkbox
+                                                    checked={oiIdsElegidos.includes(p.id_agenda)}
+                                                    onCheckedChange={(c) => setOiIdsElegidos((prev) => c === true ? [...prev, p.id_agenda] : prev.filter((x) => x !== p.id_agenda))}
+                                                />
+                                                <span>{p.punto || `Ficha ${p.id_ficha}`}</span>
+                                                {p.caso_adlab ? <span className="text-[11px] text-muted-foreground">· ya tiene {p.caso_adlab}</span> : null}
+                                                {!p.retiro_completado ? <span className="text-[11px] text-warning">· retiro pendiente</span> : null}
+                                            </label>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div>
                             <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Regenerar documentos con este Caso</span>
                             <div className="flex flex-col gap-2">
@@ -635,7 +696,7 @@ export const FichaDetailView = () => {
                         </Button>
                         <Button
                             className="bg-primary text-white hover:bg-primary/90"
-                            disabled={realizadoLoading || !oiNumero.trim()}
+                            disabled={realizadoLoading || !oiNumero.trim() || (oiAlcance === 'puntos' && !!oiOpciones && oiOpciones.puntos.length > 0 && oiIdsElegidos.length === 0)}
                             onClick={handleConfirmRealizado}
                         >
                             {realizadoLoading && <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />}
@@ -829,6 +890,7 @@ export const FichaDetailView = () => {
                                                         <TableRow className="bg-primary/5 hover:bg-primary/5">
                                                             <TableHead>Parámetro</TableHead>
                                                             <TableHead className="text-center">Valor</TableHead>
+                                                            {hayObservacionesTerreno && <TableHead>Observación</TableHead>}
                                                             {showUf && <TableHead className="text-center">UF</TableHead>}
                                                         </TableRow>
                                                     </TableHeader>
@@ -837,6 +899,7 @@ export const FichaDetailView = () => {
                                                             <TableRow key={i}>
                                                                 <TableCell className="font-semibold">{item.parametro}</TableCell>
                                                                 <TableCell className="text-center"><Badge variant="outline">{item.valor}</Badge></TableCell>
+                                                                {hayObservacionesTerreno && <TableCell className="max-w-[320px] whitespace-normal text-[13px] text-muted-foreground">{item.observacion ? String(item.observacion) : '—'}</TableCell>}
                                                                 {showUf && (
                                                                     <TableCell className="text-center font-semibold">{item.uf_individual > 0 ? Number(item.uf_individual).toFixed(2) : '—'}</TableCell>
                                                                 )}
@@ -844,7 +907,7 @@ export const FichaDetailView = () => {
                                                         ))}
                                                         {analisisTerreno.length === 0 && (
                                                             <TableRow>
-                                                                <TableCell colSpan={showUf ? 3 : 2} className="text-center">
+                                                                <TableCell colSpan={2 + (showUf ? 1 : 0) + (hayObservacionesTerreno ? 1 : 0)} className="text-center">
                                                                     <span className="text-[13px] italic text-muted-foreground">No hay parámetros de terreno registrados.</span>
                                                                 </TableCell>
                                                             </TableRow>

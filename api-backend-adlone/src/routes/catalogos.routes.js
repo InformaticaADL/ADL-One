@@ -35,6 +35,7 @@ router.get('/motivos-cancelacion', authenticate, catalogosController.getMotivosC
 router.get('/estados-equipo', authenticate, catalogosController.getEstadosEquipo);
 
 // Maestros CRUD — require INF_ACCESO (Informática module permission) for writes
+router.get('/maestros/:tableName/uso', authenticate, catalogosController.getUsoMaestro);
 router.get('/maestros/:tableName', authenticate, catalogosController.getMaestroData);
 router.post('/maestros', authenticate, verifyPermission('INF_ACCESO'), catalogosController.createMaestro);
 router.put('/maestros', authenticate, verifyPermission('INF_ACCESO'), catalogosController.updateMaestro);

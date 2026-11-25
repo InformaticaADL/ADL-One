@@ -35,6 +35,17 @@ class FacturacionService {
         return /^\d+$/.test(n || '') ? Number(n) : null;
     }
 
+    /**
+     * Identifica la unidad de cobro dentro de una visita: el N° de servicio más el OI. Los puntos que comparten OI se cobran juntos (una visita ASC,
+     * con un OI para todos); los que tienen cada uno el suyo se cobran por separado (Seguimiento Ambiental, un OI por punto). Sin OI, solo el servicio.
+     */
+    _claveServicio(frecuencia, oi) {
+        const n = this._servicioDe(frecuencia);
+        if (n === null) return null;
+        const codigo = String(oi || '').trim();
+        return codigo ? `${n}#${codigo}` : String(n);
+    }
+
     _esCancelada(fila) {
         return String(fila.estado_caso || '').toUpperCase() === 'CANCELADO' || /ANULA/i.test(String(fila.frecuencia_correlativo || ''));
     }
@@ -45,12 +56,12 @@ class FacturacionService {
         const lista = [...new Set((ids || []).map(Number).filter((n) => Number.isInteger(n) && n > 0))];
         if (lista.length === 0) return out;
         const res = await new sql.Request(exec).query(`
-            SELECT a.id_agendamam, a.frecuencia_correlativo, gf.id_grupo
+            SELECT a.id_agendamam, a.frecuencia_correlativo, a.caso_adlab, gf.id_grupo
             FROM App_Ma_Agenda_MUESTREOS a
             LEFT JOIN App_Ma_GrupoMuestreo_Ficha gf ON gf.id_fichaingresoservicio = a.id_fichaingresoservicio
             WHERE a.id_agendamam IN (${lista.join(',')})`);
         for (const r of res.recordset) {
-            out.set(Number(r.id_agendamam), { id_grupo: r.id_grupo == null ? null : Number(r.id_grupo), servicio: this._servicioDe(r.frecuencia_correlativo) });
+            out.set(Number(r.id_agendamam), { id_grupo: r.id_grupo == null ? null : Number(r.id_grupo), servicio: this._claveServicio(r.frecuencia_correlativo, r.caso_adlab) });
         }
         return out;
     }
@@ -67,7 +78,7 @@ class FacturacionService {
             JOIN App_Ma_Agenda_MUESTREOS a ON a.id_fichaingresoservicio = gf.id_fichaingresoservicio
             WHERE gf.id_grupo IN (${grupos.join(',')})`);
         for (const r of res.recordset) {
-            const k = r.id_grupo + '|' + this._servicioDe(r.frecuencia_correlativo);
+            const k = r.id_grupo + '|' + this._claveServicio(r.frecuencia_correlativo, r.caso_adlab);
             if (!out.has(k)) out.set(k, []);
             out.get(k).push(r);
         }

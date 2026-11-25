@@ -16,6 +16,38 @@ const ALLOWED_TABLES = new Set([
   'mae_normativa', 'mae_normativareferencia', 'App_Ma_ReferenciaAnalisis', 'mae_motivocancelacion'
 ]);
 
+// Catálogos que solo se LEEN (para mostrar el nombre en vez del número de una clave foránea en los formularios de Maestros). No están en la lista
+// de arriba a propósito: así no se pueden crear, editar ni deshabilitar por la API genérica.
+const LOOKUP_ONLY_TABLES = new Set(['mae_region', 'mae_tipoagua', 'mae_barrio', 'mae_zonas', 'mae_zonageografica']);
+
+// Dónde se usa cada registro de un maestro: [tabla, columna] que lo referencian. Se cuentan las filas de esas tablas por valor (solo columnas que existan).
+const FICHA = 'App_Ma_FichaIngresoServicio_ENC';
+const USO_DE_MAESTROS = {
+  mae_tipomuestra_ma: [[FICHA, 'id_tipomuestra_ma']],
+  mae_tipomuestra: [[FICHA, 'id_tipomuestra'], ['mae_subarea', 'id_tipomuestra']],
+  mae_subarea: [[FICHA, 'id_subarea']],
+  mae_objetivomuestreo_ma: [[FICHA, 'id_objetivomuestreo_ma']],
+  mae_tipomuestreo: [[FICHA, 'id_tipomuestreo']],
+  mae_actividadmuestreo: [[FICHA, 'id_actividadmuestreo']],
+  mae_tipodescarga: [[FICHA, 'id_tipodescarga']],
+  mae_modalidad: [[FICHA, 'id_modalidad']],
+  mae_centro: [[FICHA, 'id_centro']],
+  mae_empresa: [[FICHA, 'id_empresa'], ['mae_centro', 'id_empresa'], ['mae_contacto', 'id_empresa']],
+  mae_empresaservicios: [['mae_empresa', 'id_empresaservicio'], ['mae_contacto', 'id_empresaservicio']],
+  mae_cargo: [['mae_usuario', 'id_cargo'], ['mae_contacto', 'id_cargo']],
+  mae_muestreador: [['App_Ma_Agenda_MUESTREOS', 'id_muestreador'], ['App_Ma_Agenda_MUESTREOS', 'id_muestreador2']],
+  mae_umedida: [['mae_tecnica', 'id_umedida']],
+  mae_comuna: [['mae_centro', 'id_comuna'], ['mae_empresaservicios', 'id_comuna']],
+  mae_region: [['mae_centro', 'id_region']],
+  mae_tipoagua: [['mae_centro', 'id_tipoagua']],
+  mae_barrio: [['mae_centro', 'id_barrio']],
+  mae_zonas: [['mae_centro', 'id_zona']],
+  mae_zonageografica: [['mae_centro', 'id_zonageografica']],
+  mae_normativa: [['App_Ma_ReferenciaAnalisis', 'id_normativa'], ['mae_NormativaReferencia', 'id_normativa']],
+  mae_normativareferencia: [['App_Ma_ReferenciaAnalisis', 'id_normativareferencia']],
+  mae_tecnica: [['App_Ma_Resultados', 'id_tecnica'], ['App_Ma_FichaIngresoServicio_DET', 'id_tecnica'], ['App_Ma_ReferenciaAnalisis', 'id_tecnica']],
+};
+
 // Columns that must never be returned by the generic getMaestroData endpoint
 const SENSITIVE_COLUMNS = {
   mae_usuario: new Set(['clave_usuario']),
@@ -31,6 +63,8 @@ function assertTable(name) {
   if (!ALLOWED_TABLES.has(name)) throw new Error(`Table not allowed: ${name}`);
 }
 export const isMaestroTableAllowed = (name) => ALLOWED_TABLES.has(name);
+// Lectura: las tablas editables más los catálogos de solo lectura
+export const isMaestroTableReadable = (name) => ALLOWED_TABLES.has(name) || LOOKUP_ONLY_TABLES.has(name);
 
 export const catalogosService = {
   // Bloque 1: Identificación
@@ -452,7 +486,7 @@ export const catalogosService = {
 
   getMaestroData: async (tableName) => {
     try {
-      assertTable(tableName);
+      if (!isMaestroTableReadable(tableName)) throw new Error(`Table not allowed: ${tableName}`);
       const pool = await getConnection();
       const result = await pool.request().query(`SELECT * FROM ${tableName}`);
       const blocked = SENSITIVE_COLUMNS[tableName];
@@ -468,6 +502,34 @@ export const catalogosService = {
     }
   },
   
+  // Cuántos registros usan cada fila de un maestro: { referencias: [{ tabla, columna }], usos: { [id]: n } }. Sin referencias conocidas: listas vacías.
+  getUsoMaestro: async (tableName) => {
+    try {
+      if (!isMaestroTableReadable(tableName)) throw new Error(`Table not allowed: ${tableName}`);
+      const candidatas = USO_DE_MAESTROS[tableName.toLowerCase()] || [];
+      if (candidatas.length === 0) return { referencias: [], usos: {} };
+      const pool = await getConnection();
+      const referencias = [];
+      const usos = {};
+      for (const [tabla, columna] of candidatas) {
+        assertIdentifier(tabla, 'table'); assertIdentifier(columna, 'column');
+        const existe = await pool.request().input('t', sql.VarChar(128), tabla).input('c', sql.VarChar(128), columna)
+          .query('SELECT 1 AS ok FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @t AND COLUMN_NAME = @c');
+        if (existe.recordset.length === 0) continue; // la columna no existe en esta base: no se cuenta
+        const r = await pool.request().query(`SELECT [${columna}] AS id, COUNT(*) AS n FROM [${tabla}] WHERE [${columna}] IS NOT NULL GROUP BY [${columna}]`);
+        referencias.push({ tabla, columna });
+        for (const fila of r.recordset) {
+          const clave = String(fila.id).trim();
+          usos[clave] = (usos[clave] || 0) + Number(fila.n);
+        }
+      }
+      return { referencias, usos };
+    } catch (error) {
+      logger.error(`Error in getUsoMaestro (${tableName}):`, error);
+      throw error;
+    }
+  },
+
   // Generic CRUD for Maestros
   createMaestro: async (tableName, data) => {
     try {

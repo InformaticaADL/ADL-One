@@ -1481,7 +1481,7 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
                 <Row className="mb-4">
                     <Select
                         size="md"
-                        label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Ejemplos: Agua Superficial, Agua Marina, Sedimento, Atmósfera. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
+                        label={<FieldLabel label="Componente Ambiental *" help="Componente del medio ambiente al que corresponde la muestra. Opciones: Agua, Agua superficial, Suelo. Al seleccionarlo se cargarán las Sub Áreas disponibles." />}
                         data={componentesData}
                         value={selectedComponente}
                         onChange={handleComponenteChange}
@@ -1526,14 +1526,14 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
                 <Row className="mb-4">
                     <Select
                         size="sm"
-                        label={<FieldLabel label="Tipo Muestreo *" help="Metodología general de recolección de la muestra. Ejemplos: Simple (grab), Integrado, Compuesto. Al seleccionarlo se cargarán los Tipos de Muestra disponibles." />}
+                        label={<FieldLabel label="Tipo Muestreo *" help="Metodología general de toma de la muestra. Ejemplos: Manual, Automático, Dirigido, Azar." />}
                         data={tiposMuestreoData}
                         value={selectedTipoMuestreo}
                         onChange={handleTipoMuestreoChange}
                     />
                     <Select
                         size="sm"
-                        label={<FieldLabel label="Tipo Muestra *" help="Material físico que se recolectará. Ejemplos: Agua Superficial, Sedimento, Biota, Efluente. Depende del Tipo de Muestreo seleccionado." />}
+                        label={<FieldLabel label="Tipo Muestra *" help="Tipo de muestra que se tomará. Ejemplos: Puntual, Compuesta, Agua Residual. Se habilita al elegir el Tipo Muestreo." />}
                         data={tiposMuestraData}
                         value={selectedTipoMuestra}
                         onChange={handleTipoMuestraChange}

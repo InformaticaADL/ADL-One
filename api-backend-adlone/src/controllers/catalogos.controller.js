@@ -1,4 +1,4 @@
-import { catalogosService, isMaestroTableAllowed } from '../services/catalogos.service.js';
+import { catalogosService, isMaestroTableAllowed, isMaestroTableReadable } from '../services/catalogos.service.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
 export const catalogosController = {
@@ -235,12 +235,24 @@ export const catalogosController = {
             if (!tableName) return errorResponse(res, 'Missing tableName', 400);
             
             // Only tables in the service whitelist are exposed (not every one starts with 'mae_')
-            if (!isMaestroTableAllowed(tableName)) {
+            if (!isMaestroTableReadable(tableName)) {
                 return errorResponse(res, 'Access denied for this table', 403);
             }
 
             const data = await catalogosService.getMaestroData(tableName);
             return successResponse(res, data, 'Maestro data retrieved successfully');
+        } catch (error) {
+            return errorResponse(res, error.message, 500);
+        }
+    },
+
+    // Cuántos registros usan cada fila del maestro (para el contador «En uso» y el aviso antes de deshabilitar)
+    getUsoMaestro: async (req, res) => {
+        try {
+            const { tableName } = req.params;
+            if (!tableName || !isMaestroTableReadable(tableName)) return errorResponse(res, 'Access denied for this table', 403);
+            const data = await catalogosService.getUsoMaestro(tableName);
+            return successResponse(res, data, 'Uso del maestro');
         } catch (error) {
             return errorResponse(res, error.message, 500);
         }

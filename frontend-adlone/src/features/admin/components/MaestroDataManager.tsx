@@ -155,9 +155,15 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
     const firmaFileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
     // Fetch primary data
+    // Cuántos registros usan cada fila de este maestro (fichas, centros, técnicas…). Vacío si no hay referencias conocidas o falla la consulta.
+    const [uso, setUso] = useState<{ referencias: { tabla: string; columna: string }[]; usos: Record<string, number> }>({ referencias: [], usos: {} });
+    const usoDe = (item: any): number => Number(uso.usos[String(item[config.idName] ?? '').trim()] || 0);
+    const hayConteoDeUso = uso.referencias.length > 0;
+
     const fetchData = async () => {
         setLoading(true);
         setFetchError(null);
+        catalogosService.getUsoMaestro(config.tableName).then(setUso).catch(() => setUso({ referencias: [], usos: {} }));
         try {
             const data = await catalogosService.getMaestroData(config.tableName);
             setData(data || []);
@@ -387,7 +393,11 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
             const displayName = config.displayColumn ? item[config.displayColumn] : `#${idValue}`;
             const ok = await confirmar({
                 titulo: `Deshabilitar "${displayName}"`,
-                mensaje: 'Si este registro está en uso por fichas activas, podría afectar su visualización. Las fichas existentes mantendrán el valor, pero ya no podrá seleccionarse para fichas nuevas.',
+                mensaje: hayConteoDeUso
+                    ? (usoDe(item) > 0
+                        ? `Este registro está en uso en ${usoDe(item)} registro${usoDe(item) === 1 ? '' : 's'} (${uso.referencias.map((r) => r.tabla).join(', ')}). Los registros existentes mantendrán el valor, pero ya no podrá seleccionarse para fichas nuevas.`
+                        : 'Este registro no está en uso en ningún registro. Ya no podrá seleccionarse para fichas nuevas.')
+                    : 'Si este registro está en uso por fichas activas, podría afectar su visualización. Las fichas existentes mantendrán el valor, pero ya no podrá seleccionarse para fichas nuevas.',
                 textoConfirmar: 'Deshabilitar',
                 peligro: true,
             });
@@ -1154,6 +1164,20 @@ export const MaestroDataManager: React.FC<Props> = ({ config, onBack, extraTab }
                 },
             };
         }),
+        ...(hayConteoDeUso ? [{
+            id: 'en_uso',
+            meta: { titulo: 'En uso' },
+            enableHiding: true,
+            header: ({ column }: any) => <DataTableColumnHeader column={column} title="En uso" />,
+            accessorFn: (item: any) => usoDe(item),
+            sortingFn: (a: any, b: any) => Number(a.getValue('en_uso')) - Number(b.getValue('en_uso')),
+            cell: ({ row }: any) => {
+                const n = usoDe(row.original);
+                return n > 0
+                    ? <span className="ps-2 text-sm font-medium tabular-nums" title={`Usado en ${n} registro${n === 1 ? '' : 's'}: ${uso.referencias.map((r) => r.tabla).join(', ')}`}>{n.toLocaleString('es-CL')}</span>
+                    : <span className="ps-2 text-sm text-muted-foreground">—</span>;
+            },
+        } as ColumnDef<any>] : []),
         ...(hasStatusColumn ? [{
             id: 'estado',
             meta: { titulo: 'Estado' },

@@ -751,10 +751,16 @@ class FichaIngresoController {
     async updateCasoAdlab(req, res) {
         try {
             const { idAgendamam } = req.params;
-            const { casoAdlab } = req.body;
+            const { casoAdlab, alcance, idsAgenda } = req.body;
 
             if (!idAgendamam) {
                 return errorResponse(res, 'ID de agenda requerido', 400);
+            }
+            if (alcance !== undefined && !['punto', 'visita', 'puntos'].includes(alcance)) {
+                return errorResponse(res, 'El alcance del OI debe ser punto, visita o puntos', 400);
+            }
+            if (idsAgenda !== undefined && !(Array.isArray(idsAgenda) && idsAgenda.every((n) => Number.isInteger(Number(n))))) {
+                return errorResponse(res, 'idsAgenda debe ser una lista de números', 400);
             }
             if (!casoAdlab || typeof casoAdlab !== 'string' || casoAdlab.trim().length === 0) {
                 return errorResponse(res, 'El código de caso (caso_adlab) es obligatorio', 400);
@@ -763,11 +769,22 @@ class FichaIngresoController {
                 return errorResponse(res, 'El código de caso no puede superar los 10 caracteres', 400);
             }
 
-            const result = await fichaService.updateCasoAdlab(idAgendamam, casoAdlab.trim());
+            const result = await fichaService.updateCasoAdlab(idAgendamam, casoAdlab.trim(), { alcance, idsAgenda });
             return successResponse(res, result, 'Código de caso asignado exitosamente');
         } catch (err) {
             logger.error('Error in updateCasoAdlab controller:', err);
             return errorResponse(res, err.message || 'Error al asignar el código de caso', 500, err.message);
+        }
+    }
+
+    // Valor por defecto del programa y otros puntos de la visita, para preguntar a qué puntos va el OI
+    async getOpcionesOi(req, res) {
+        try {
+            const result = await fichaService.getOpcionesOi(req.params.idAgendamam);
+            return successResponse(res, result, 'Opciones de OI');
+        } catch (err) {
+            logger.error('Error in getOpcionesOi controller:', err);
+            return errorResponse(res, err.message || 'Error al leer las opciones del OI', err.status || 500, err.message);
         }
     }
 
