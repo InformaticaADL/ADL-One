@@ -73,9 +73,9 @@ export function HubGrid({ options, onNavigate, emptyText = 'No tiene permisos pa
         else grupos.push({ nombre, items: [opt] });
     }
 
-    // Desde pantallas anchas los grupos van en dos columnas, para que el hub entre completo sin scroll.
+    // Desde pantallas anchas los grupos van en tres columnas para distribución equilibrada.
     return (
-        <div className="mt-4 grid items-start gap-x-6 gap-y-6 lg:grid-cols-2">
+        <div className="mt-4 grid items-start gap-x-6 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
             {grupos.map((g, i) => (
                 <div key={g.nombre || i}>
                     {g.nombre && <h3 className="mb-2 px-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.nombre}</h3>}
