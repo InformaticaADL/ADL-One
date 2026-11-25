@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet, IconMessageReport, IconGavel, IconListDetails, IconClipboardCheck, IconClipboardList } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet, IconMessageReport, IconGavel, IconListDetails, IconClipboardCheck, IconClipboardList, IconFlask, IconDeviceAnalytics, IconChecklist } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Card } from '@/components/ui/card';
@@ -128,6 +128,27 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => 
             grupo: 'Verificaciones',
         },
         {
+            id: 'gc-verif-equipos-campo',
+            label: 'Verificación pH, Oxígeno y Cloro',
+            icon: <IconFlask size={20} stroke={1.75} />,
+            description: 'Formulario OI-FoGe-26: se llena desde el folio OI-FoMa-01, que trae el equipo usado y su error de temperatura.',
+            grupo: 'Verificaciones',
+        },
+        {
+            id: 'gc-verif-mau',
+            label: 'Muestreador Automático',
+            icon: <IconDeviceAnalytics size={20} stroke={1.75} />,
+            description: 'Formulario OI-FoMa-03: lista de verificación del MAU y la sonda de caudal, con los códigos y errores del muestreo.',
+            grupo: 'Verificaciones',
+        },
+        {
+            id: 'gc-lista-materiales',
+            label: 'Materiales y EPP',
+            icon: <IconChecklist size={20} stroke={1.75} />,
+            description: 'Formulario OI-FoMa-19: chequeo de seguridad, RILES e implementos antes de salir a terreno.',
+            grupo: 'Verificaciones',
+        },
+        {
             id: 'gc-archivo-fichas',
             label: 'Archivo de Fichas',
             icon: <IconArchive size={20} stroke={1.75} />,
@@ -149,6 +170,10 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => 
         if (opt.id === 'gc-archivo-fichas') return GC_ACCESS || hasPermission('GC_VERIF_TEMP');
         if (opt.id === 'gc-nuevo-equipo') return GC_ACCESS && hasPermission('AI_MA_CREAR_EQUIPO');
         if (opt.id === 'gc-revision-documental' || opt.id === 'gc-puesta-marcha' || opt.id === 'gc-verificacion-caudal') return GC_ACCESS;
+        // Verificaciones de terreno: mientras la migración no cree el permiso, basta el acceso de G. Calidad.
+        if (opt.id === 'gc-verif-equipos-campo' || opt.id === 'gc-verif-mau' || opt.id === 'gc-lista-materiales') {
+            return hasPermission('MA_VERIF_TERRENO') || GC_ACCESS;
+        }
         if (opt.id === 'admin-equipos-gestion' || opt.id === 'gc-dashboard-equipos' || opt.id === 'gc-calendario-vencimientos') {
             // RB-08: removido AI_MA_ADMIN_ACCESO
             return GC_ACCESS;
