@@ -36,6 +36,9 @@ export interface FichaFirmaEnviada {
     firmantes: FirmanteFicha[];
 }
 
+/** Seguimiento de Gestión de Calidad: cualquier solicitud de firma, con quién la envió. */
+export interface FichaFirmaSeguimiento extends FichaFirmaEnviada { nombre_crea: string | null }
+
 export interface DetalleFichaFirma {
     id_ficha_firma: number;
     tipo_ficha: string;
@@ -68,6 +71,10 @@ export const fichaFirmaService = {
     pendientes: async () => (await apiClient.get(`${BASE}/pendientes`)).data.data as FirmaPendiente[],
     contar: async () => (await apiClient.get(`${BASE}/pendientes/contar`)).data.data.total as number,
     enviadas: async () => (await apiClient.get(`${BASE}/enviadas`)).data.data as FichaFirmaEnviada[],
+    /** ¿Tiene el permiso de seguimiento de firmas (GC_SEGUIMIENTO_FIRMAS)? Lo decide el backend. */
+    accesoSeguimiento: async () => (await apiClient.get(`${BASE}/seguimiento/acceso`)).data.data.puede as boolean,
+    /** Todas las solicitudes de firma (permiso GC_SEGUIMIENTO_FIRMAS). */
+    seguimiento: async () => (await apiClient.get(`${BASE}/seguimiento`)).data.data as FichaFirmaSeguimiento[],
     obtener: async (id: number) => (await apiClient.get(`${BASE}/${id}`)).data.data as DetalleFichaFirma,
     /** El PDF se baja con el token y se muestra con una url local (solo para ver). */
     pdfUrl: async (id: number) => URL.createObjectURL((await apiClient.get(`${BASE}/${id}/pdf`, { responseType: 'blob' })).data as Blob),

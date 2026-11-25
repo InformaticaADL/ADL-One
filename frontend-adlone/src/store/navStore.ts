@@ -25,6 +25,10 @@ interface NavState {
     setEquiposKpiPendiente: (filtro: 'all' | 'activos' | 'vencidos' | 'por_vencer' | 'sin_asignar' | null) => void;
     pendingChatId: number | null; // For deep-linking to specific chat
     pendingQaCasoId: number | null; // Caso de quejas y apelaciones a abrir al llegar desde un aviso de plazo
+    pendingAuditoriaId: number | null; // Auditoría interna a abrir al llegar desde el Programa Anual
+    setPendingAuditoriaId: (id: number | null) => void;
+    pendingAccionId: number | null; // Acción correctiva a abrir al llegar desde un hallazgo de auditoría
+    setPendingAccionId: (id: number | null) => void;
     selectedRequestId: number | null; // Phase 27
     selectedFichaId: number | null;
     selectedCorrelativo: string | null;
@@ -95,6 +99,8 @@ export const useNavStore = create<NavState>()(
             equiposKpiPendiente: null,
             pendingChatId: null,
             pendingQaCasoId: null,
+            pendingAuditoriaId: null,
+            pendingAccionId: null,
             selectedRequestId: null,
             selectedFichaId: null,
             selectedCorrelativo: null,
@@ -140,6 +146,8 @@ export const useNavStore = create<NavState>()(
             setEquiposKpiPendiente: (filtro) => set({ equiposKpiPendiente: filtro }),
             setPendingChatId: (id) => set({ pendingChatId: id }),
             setPendingQaCasoId: (id) => set({ pendingQaCasoId: id }),
+            setPendingAuditoriaId: (id) => set({ pendingAuditoriaId: id }),
+            setPendingAccionId: (id) => set({ pendingAccionId: id }),
             setSelectedRequestId: (id) => set({ selectedRequestId: id }),
             setSelectedFicha: (id, correlativo) => set({ selectedFichaId: id, selectedCorrelativo: correlativo }),
             setCotizacionParaFicha: (id) => set({ cotizacionParaFicha: id }),

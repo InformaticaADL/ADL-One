@@ -858,6 +858,33 @@ frontend-adlone/
 - **Puesta en Marcha**: patrón de referencia solo termómetros patrón y molinetes (o «No aplica»); los buffers se escriben en la Observación; nuevo tipo **Recepción por asignación a muestreador**.
 - **Fichas**: ficha técnica con observación por defecto «Responsable del Equipo, Jefe Técnico de Medio Ambiente» y autorización de uso por cargos de Medio Ambiente; la de un código anterior aparece como **OBSOLETO**. Ficha de entrega con los datos del inventario de solo lectura; la fecha de recepción se completa con la firma de quien recibe (también al enviar a firmar); la recepción queda en el historial y se ofrece registrar la Puesta en Marcha por recepción (aviso `PuestaMarchaRecepcion`). Responsable de área: solo Pablo Flores y Mario Jofré (el backend lo exige).
 
+### 89. Módulo Integral de Auditorías Internas ISO 17020 y Seguimiento de Firmas (Noviembre 2026) 📑🔍✅
+
+- **Seguimiento de Firmas de Fichas de Entrega (`FirmasPendientesView.tsx`, `UniversalInbox.tsx`)**:
+  - Nueva carpeta y pestaña de **Seguimiento de firmas** en Solicitudes (URS) exclusiva para usuarios con permiso `GC_SEGUIMIENTO_FIRMAS` (o rol Calidad/Informática).
+  - Permite monitorear el estado global de firmas de todas las fichas emitidas, con buscador en tiempo real, filtro por estado (*Todas*, *Pendientes*, *Completas*, *Canceladas*) y panel resumen de firmas pendientes por persona.
+  - Endpoints backend en `fichaFirma.routes.js` y `fichaFirma.service.js`: `GET /api/firmas-fichas/seguimiento` y `GET /api/firmas-fichas/seguimiento/acceso`. Migración SQL: `add_permiso_seguimiento_firmas.sql`.
+- **Programa Anual de Auditorías Internas (OI-FoGe-07) (`GcProgramaAuditoriaPage.tsx`, `calidadPrograma.service.js`)**:
+  - Matriz anual por elemento del sistema de calidad (ISO 17020) vs. meses (Enero a Diciembre).
+  - Catálogo de elementos ISO en `mae_gc_iso_elemento` (referencias 4.1 a 8.8) con soporte para agregar elementos propios o dar seguimiento a auditorías previas.
+  - Guardado del programa anual (`mae_gc_programa_auditoria` y `mae_gc_programa_item`), generación de PDF oficial OI-FoGe-07 y vista previa interactiva en vivo sin guardar.
+  - Creación directa de auditoría interna a partir de un mes programado con bloqueo del ítem.
+- **Auditorías Internas — Plan, Reunión y Hallazgos (`GcAuditoriasPage.tsx`, `calidadAuditoria.service.js`)**:
+  - **Plan de Auditoría (OI-FoGe-08)**: Folio correlativo anual (`AI-AAAA-NN`), objetivos, alcance, auditor líder, fecha y agenda detallada por horario, área, criterio y auditor. Generación de PDF y vista previa.
+  - **Reunión Inicial y Final (OI-FoGe-10)**: Registro de fechas, aspectos tratados y lista de participantes/asistentes con opción de firma digitalizada y generación de PDF.
+  - **Hallazgos de Auditoría (OI-FoGe-09)**: Hojas de trabajo por área/proceso con evaluación de requisitos (Conforme, No Conforme, Observación), detalle de evidencias y generación de PDF oficial.
+  - **Informe de Auditoría (OI-FoGe-11)**: Conclusiones, resumen cuantitativo de conformidades / NC / observaciones y emisión de informe final en PDF.
+- **Acciones Correctivas (OI-FoGe-02) (`GcAccionesCorrectivasPage.tsx`, `calidadAccionCorrectiva.service.js`)**:
+  - Apertura automática de Acción Correctiva (`mae_gc_accion_correctiva`) directamente desde una No Conformidad (NC) detectada en hallazgos de auditoría (o apertura manual independiente con folio `AC-AAAA-NNN`).
+  - Metodología de análisis de causa raíz (técnica aplicada, 5 Porqués, espina de pescado), corrección inmediata, plan de acción propuesto, responsable y plazos.
+  - Seguimiento periódico con evaluación de cumplimiento de plazos, evaluación de eficacia, verificación de eliminación de causa raíz, levantamiento de la NC y cierre formal con PDF oficial OI-FoGe-02.
+- **Archivo y Listado de Quejas y Apelaciones (OI-FoGe-06) (`GcListadoQaPage.tsx`, `calidadArchivo.service.js`)**:
+  - Sincronización y archivo local en `mae_gc_qa_archivo` de quejas y apelaciones que se cierran en ADLWeb.
+  - Generación del Listado Oficial consolidado OI-FoGe-06 en PDF con filtros por año y tipo (Queja o Apelación).
+- **Seguridad RBAC y Migraciones SQL**:
+  - Nuevos permisos atómicos en `permisosCalidad.js`: `GC_AUDITORIAS` (ver) y `GC_AUDITORIAS_EDITAR` (crear/modificar).
+  - Migración completa idempotente `add_calidad_auditorias.sql` con las 10 tablas del sistema de calidad. Rutas montadas en `/api/calidad`.
+
 ---
 
 ## 🔧 Configuración para Desarrollo
@@ -962,6 +989,11 @@ npm run dev       # Puerto 5173
 | **Filtros de Gestión de Equipos** | Filtros por control de fechas, estado de vigencia, familia y documento + pestañas segmentadas; Dashboard y Calendario independientes de los filtros | ✅ Implementado |
 | **Subcategorías de G. Calidad** | Menú G.C. MAM / G.C. LAB con paneles de tarjetas, Muestreadores directo y ruta «G.C. MAM» + migración `add_menu_link_subgrupo.sql` | ✅ Implementado |
 | **Vigencia desde la Puesta en Marcha** | Alta pendiente de PM, requisitos del equipo, vigencia al aprobar la PM, influencia por tipo, recepción por asignación + migración `add_mejoras_calidad_observaciones.sql` | ✅ Implementado |
+| **Seguimiento de Firmas URS** | Carpeta y pestaña de seguimiento global de firmas en Solicitudes con buscador y filtros por persona + permiso `GC_SEGUIMIENTO_FIRMAS` | ✅ Implementado |
+| **Programa Anual Auditorías (OI-FoGe-07)** | Matriz anual ISO 17020 vs meses, edición de elementos, generación PDF oficial y vista previa | ✅ Implementado |
+| **Auditorías Internas (OI-FoGe-08/09/10/11)** | Plan de auditoría, reunión inicial/final con firmas, hojas de hallazgos (C/NC/OBS) e informe final en PDF | ✅ Implementado |
+| **Acciones Correctivas (OI-FoGe-02)** | Apertura desde NC de auditoría, 5 Porqués / espina de pescado, seguimiento de eficacia y cierre formal con PDF | ✅ Implementado |
+| **Archivo Quejas y Apelaciones (OI-FoGe-06)** | Sincronización y archivo local de casos cerrados en ADLWeb + emisión de listado consolidado PDF | ✅ Implementado |
 
 ---
 

@@ -1,5 +1,5 @@
 import React from 'react';
-import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet, IconMessageReport, IconGavel } from '@tabler/icons-react';
+import { IconDeviceDesktop, IconSettings, IconChartBar, IconCalendarEvent, IconTemperature, IconArchive, IconCalendarCheck, IconPackageImport, IconPlayerPlay, IconDroplet, IconMessageReport, IconGavel, IconListDetails, IconClipboardCheck, IconClipboardList } from '@tabler/icons-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { PageHeader } from '../../../components/layout/PageHeader';
 import { Card } from '@/components/ui/card';
@@ -36,6 +36,34 @@ const OPCIONES_CALIDAD: HubOption[] = [
         icon: <IconChartBar size={20} stroke={1.75} />,
         description: 'Plazos por vencer y vencidos, tendencia mensual, causas, tiempos y carga por responsable. Exporta a Excel.',
         grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
+    },
+    {
+        id: 'gc-listado-qa',
+        label: 'Listado',
+        icon: <IconListDetails size={20} stroke={1.75} />,
+        description: 'Listado de quejas y apelaciones internas y externas (OI-FoGe-06) en PDF. Los casos cerrados se archivan en ADL-One.',
+        grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
+    },
+    {
+        id: 'gc-programa-auditoria',
+        label: 'Programa Anual',
+        icon: <IconCalendarCheck size={20} stroke={1.75} />,
+        description: 'Programa Anual de Auditorías Internas (OI-FoGe-07): qué elemento del sistema de calidad se audita cada mes.',
+        grupo: 'Auditorías Internas (ISO 17020)',
+    },
+    {
+        id: 'gc-auditorias',
+        label: 'Auditorías',
+        icon: <IconClipboardCheck size={20} stroke={1.75} />,
+        description: 'Plan (OI-FoGe-08), Reunión Inicial y Final (OI-FoGe-10), Hallazgos (OI-FoGe-09) e Informe (OI-FoGe-11) de cada auditoría.',
+        grupo: 'Auditorías Internas (ISO 17020)',
+    },
+    {
+        id: 'gc-acciones',
+        label: 'Acciones Correctivas',
+        icon: <IconClipboardList size={20} stroke={1.75} />,
+        description: 'Acción Correctiva (OI-FoGe-02): de una no conformidad de auditoría u otro origen, con sus seguimientos y eficacia.',
+        grupo: 'Auditorías Internas (ISO 17020)',
     },
 ];
 

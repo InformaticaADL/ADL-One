@@ -34,6 +34,10 @@ import { GcVerificacionCaudalPage } from '../features/admin/pages/GcVerificacion
 import { GcRevisionDocumentalPage } from '../features/admin/pages/GcRevisionDocumentalPage';
 import { GcQuejasApelacionesPage } from '../features/admin/pages/GcQuejasApelacionesPage';
 import { GcQaDashboardPage } from '../features/admin/pages/GcQaDashboardPage';
+import { GcListadoQaPage } from '../features/admin/pages/GcListadoQaPage';
+import { GcProgramaAuditoriaPage } from '../features/admin/pages/GcProgramaAuditoriaPage';
+import { GcAuditoriasPage } from '../features/admin/pages/GcAuditoriasPage';
+import { GcAccionesCorrectivasPage } from '../features/admin/pages/GcAccionesCorrectivasPage';
 import NewRequestPage from '../features/urs/pages/NewRequestPage';
 import UniversalInbox from '../features/urs/components/UniversalInbox';
 import { UserNotificationsPage } from '../features/notifications/pages/UserNotificationsPage';
@@ -169,6 +173,10 @@ const DashboardPage = () => {
         if (activeSubmodule === 'gc-quejas' || activeSubmodule === 'gc-quejas-apelaciones') return <GcQuejasApelacionesPage key="queja" tipo="queja" onBack={() => setActiveSubmodule('gc-hub-cal')} />;
         if (activeSubmodule === 'gc-apelaciones') return <GcQuejasApelacionesPage key="apelacion" tipo="apelacion" onBack={() => setActiveSubmodule('gc-hub-cal')} />;
         if (activeSubmodule === 'gc-qa-dashboard') return <GcQaDashboardPage onBack={() => setActiveSubmodule('gc-hub-cal')} />;
+        if (activeSubmodule === 'gc-listado-qa') return <GcListadoQaPage onBack={() => setActiveSubmodule('gc-hub-cal')} />;
+        if (activeSubmodule === 'gc-programa-auditoria') return <GcProgramaAuditoriaPage onBack={() => setActiveSubmodule('gc-hub-cal')} />;
+        if (activeSubmodule === 'gc-auditorias') return <GcAuditoriasPage onBack={() => setActiveSubmodule('gc-hub-cal')} />;
+        if (activeSubmodule === 'gc-acciones') return <GcAccionesCorrectivasPage onBack={() => setActiveSubmodule('gc-hub-cal')} />;
         if (activeSubmodule === 'gc-hub-lab') return <AdminGcHub seccion="lab" onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-muestreadores') return <MuestreadoresPage onBack={() => setActiveSubmodule('')} />;
         if (activeSubmodule === 'admin-usuarios-gem') return <GemUsuariosPage onBack={() => setActiveSubmodule('')} />;

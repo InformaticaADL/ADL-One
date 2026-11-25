@@ -2,6 +2,7 @@ import sql from 'mssql';
 import { getConnection } from '../config/database.js';
 import { pdfFichaTecnica, pdfHistorial, pdfEntrega, pdfRecepcion, pdfCaudal } from './fichasEquipo.pdf.js';
 import { generarPdfVerificacion } from './verificacionTemperatura.pdf.js';
+import { pdfListadoQa, pdfPrograma, pdfPlan, pdfReunion, pdfHallazgos, pdfInforme, pdfAccionCorrectiva } from './calidad.pdf.js';
 
 // Fechas de revisión documental de los formularios de Gestión de Calidad (la que va en el encabezado de cada
 // ficha, "Fecha Revisión"). Cada año tiene una fecha de inicio y rige hasta el día anterior a la del año siguiente.
@@ -26,6 +27,14 @@ export const DOCUMENTOS_BASE = [
     { codigo: 'OI-FoGe-36', nombre: 'Ficha Entrega de Equipo', version: 'Versión 01', fecha_vigencia: '2013-03-10', fecha_revision: null },
     { codigo: 'OI-FoGe-39', nombre: 'Verificación Intermedia de Temperatura', version: 'Versión 03', fecha_vigencia: '2016-06-20', fecha_revision: null },
     { codigo: 'OI-FoGe-42', nombre: 'Recepción, Puesta en Marcha y Verificación de Equipo', version: 'Versión 01', fecha_vigencia: '2020-12-28', fecha_revision: null },
+    // G. Calidad → Calidad (migrations/add_calidad_auditorias.sql)
+    { codigo: 'OI-FoGe-02', nombre: 'Acción Correctiva', version: 'Versión 02', fecha_vigencia: '2016-06-20', fecha_revision: null },
+    { codigo: 'OI-FoGe-06', nombre: 'Listado de Quejas y Apelaciones', version: 'Versión 01', fecha_vigencia: '2016-06-20', fecha_revision: null },
+    { codigo: 'OI-FoGe-07', nombre: 'Programa Anual de Auditorías Internas', version: 'Versión 02', fecha_vigencia: '2016-06-20', fecha_revision: null },
+    { codigo: 'OI-FoGe-08', nombre: 'Plan de Auditoría Interna', version: 'Versión 01', fecha_vigencia: '2016-06-20', fecha_revision: null },
+    { codigo: 'OI-FoGe-09', nombre: 'Hallazgos de Auditoría', version: 'Versión 01', fecha_vigencia: '2016-06-20', fecha_revision: null },
+    { codigo: 'OI-FoGe-10', nombre: 'Reunión Inicial y Final Auditoría Interna', version: 'Versión 01', fecha_vigencia: '2016-06-20', fecha_revision: null },
+    { codigo: 'OI-FoGe-11', nombre: 'Informe de Auditorías Internas', version: 'Versión 01', fecha_vigencia: '2016-06-20', fecha_revision: null },
 ];
 
 const error = (mensaje, statusCode = 400) => Object.assign(new Error(mensaje), { statusCode });
@@ -113,6 +122,13 @@ const FORMULARIO_EN_BLANCO = {
     'OI-FoGe-36': (encabezado) => pdfEntrega({ encabezado }),
     'OI-FoGe-39': (encabezado) => generarPdfVerificacion({ encabezado }),
     'OI-FoGe-42': (encabezado) => pdfRecepcion({ encabezado }),
+    'OI-FoGe-06': (encabezado) => pdfListadoQa({ encabezado }),
+    'OI-FoGe-07': (encabezado) => pdfPrograma({ encabezado, filas: [] }),
+    'OI-FoGe-08': (encabezado) => pdfPlan({ encabezado, auditoria: {}, agenda: [] }),
+    'OI-FoGe-09': (encabezado) => pdfHallazgos({ encabezado, hojas: [] }),
+    'OI-FoGe-10': (encabezado) => pdfReunion({ encabezado, auditoria: {}, inicial: [], final: [] }),
+    'OI-FoGe-11': (encabezado) => pdfInforme({ encabezado, auditoria: {}, noConformidades: [], observacionesAuditoria: [] }),
+    'OI-FoGe-02': (encabezado) => pdfAccionCorrectiva({ encabezado, ac: {} }),
 };
 export const CODIGOS_CON_FORMULARIO = Object.keys(FORMULARIO_EN_BLANCO);
 

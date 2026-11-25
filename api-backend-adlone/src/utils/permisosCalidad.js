@@ -10,6 +10,9 @@ export const PERMISOS_GC = {
     EDITAR_PM: 'GC_PM_EDITAR',            // Puesta en Marcha: editar, documentos de una aprobada y registro interno
     VOBO_CAUDAL: 'GC_CAUDAL_VOBO',        // Verificación de caudal: dar el V°B°
     CREAR_TIPO: 'GC_CREAR_TIPO',          // Nuevo Equipo: registrar un tipo de equipo nuevo (define la sigla)
+    SEGUIMIENTO_FIRMAS: 'GC_SEGUIMIENTO_FIRMAS', // Solicitudes: seguimiento de todas las fichas enviadas a firmar
+    AUDITORIAS: 'GC_AUDITORIAS',                  // Calidad: ver auditorías, acciones correctivas y listado de quejas
+    AUDITORIAS_EDITAR: 'GC_AUDITORIAS_EDITAR',    // Calidad: crear y editar programa, auditorías, informes y acciones
 };
 
 // Mientras la migración no cree un permiso, rige la regla anterior por nombre de rol, para no dejar a nadie afuera.
@@ -19,6 +22,9 @@ const RESPALDO = {
     [PERMISOS_GC.EDITAR_PM]: (a) => a.CALIDAD,
     [PERMISOS_GC.VOBO_CAUDAL]: (a) => a.CALIDAD || a.TECNICA,
     [PERMISOS_GC.CREAR_TIPO]: (a) => a.CALIDAD,
+    [PERMISOS_GC.SEGUIMIENTO_FIRMAS]: (a) => a.CALIDAD,
+    [PERMISOS_GC.AUDITORIAS]: (a) => a.CALIDAD,
+    [PERMISOS_GC.AUDITORIAS_EDITAR]: (a) => a.CALIDAD,
 };
 
 /**
