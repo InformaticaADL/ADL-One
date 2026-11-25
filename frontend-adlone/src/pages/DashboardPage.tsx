@@ -32,6 +32,9 @@ import { GcNuevoEquipoPage } from '../features/admin/pages/GcNuevoEquipoPage';
 import { GcPuestaMarchaPage } from '../features/admin/pages/GcPuestaMarchaPage';
 import { GcVerificacionCaudalPage } from '../features/admin/pages/GcVerificacionCaudalPage';
 import { GcRevisionDocumentalPage } from '../features/admin/pages/GcRevisionDocumentalPage';
+import { GcVerifEquiposPage } from '../features/admin/pages/GcVerifEquiposPage';
+import { GcVerifMauPage } from '../features/admin/pages/GcVerifMauPage';
+import { GcListaMaterialesPage } from '../features/admin/pages/GcListaMaterialesPage';
 import { GcQuejasApelacionesPage } from '../features/admin/pages/GcQuejasApelacionesPage';
 import { GcDashboardPage } from '../features/admin/pages/GcDashboardPage';
 import { GcQaDashboardPage } from '../features/admin/pages/GcQaDashboardPage';
@@ -158,6 +161,22 @@ const DashboardPage = () => {
         if (activeSubmodule === 'gc-puesta-marcha') return (
             <ProtectedContent permission={['MA_A_GEST_EQUIPO', 'GC_ACCESO']}>
                 <GcPuestaMarchaPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
+            </ProtectedContent>
+        );
+        // G.C. MAM → verificaciones de terreno: se llenan desde el folio de la planilla OI-FoMa-01.
+        if (activeSubmodule === 'gc-verif-equipos-campo') return (
+            <ProtectedContent permission={['MA_VERIF_TERRENO', 'GC_ACCESO', 'MA_A_GEST_EQUIPO']}>
+                <GcVerifEquiposPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
+            </ProtectedContent>
+        );
+        if (activeSubmodule === 'gc-verif-mau') return (
+            <ProtectedContent permission={['MA_VERIF_TERRENO', 'GC_ACCESO', 'MA_A_GEST_EQUIPO']}>
+                <GcVerifMauPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
+            </ProtectedContent>
+        );
+        if (activeSubmodule === 'gc-lista-materiales') return (
+            <ProtectedContent permission={['MA_VERIF_TERRENO', 'GC_ACCESO', 'MA_A_GEST_EQUIPO']}>
+                <GcListaMaterialesPage onBack={() => setActiveSubmodule('gc-hub-mam')} />
             </ProtectedContent>
         );
         if (activeSubmodule === 'gc-revision-documental') return (

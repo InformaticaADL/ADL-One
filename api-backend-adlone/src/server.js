@@ -51,6 +51,7 @@ import puestaMarchaRoutes from './routes/puestaMarcha.routes.js';
 import verificacionCaudalRoutes from './routes/verificacionCaudal.routes.js';
 import quejasApelacionesRoutes from './routes/quejasApelaciones.routes.js';
 import calidadRoutes from './routes/calidad.routes.js';
+import verificacionTerrenoRoutes from './routes/verificacionTerreno.routes.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -249,6 +250,7 @@ app.use('/api/puestas-marcha', puestaMarchaRoutes); // puestas en marcha de equi
 app.use('/api/revision-documental', revisionDocumentalRoutes); // fechas de revisión documental de los formularios
 app.use('/api/calidad/quejas-apelaciones', quejasApelacionesRoutes); // G. Calidad → Calidad: quejas y apelaciones (datos en la base de ADLWeb)
 app.use('/api/calidad', calidadRoutes); // G. Calidad → Calidad: archivo de quejas cerradas, listado OI-FoGe-06 y auditorías internas (base ADL-One)
+app.use('/api/verificaciones-terreno', verificacionTerrenoRoutes); // G.C. MAM: OI-FoGe-26, OI-FoMa-03 y OI-FoMa-19, llenados desde el folio del muestreo
 app.use('/api/firmas-fichas', fichaFirmaRoutes); // fichas de equipo enviadas a firmar (Solicitudes > Firmas pendientes)
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/analysis', kpiAnalystRoutes);
