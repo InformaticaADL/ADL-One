@@ -7,6 +7,7 @@ import gemUsuariosController from '../controllers/gemUsuarios.controller.js';
 
 import { authenticate as verifyToken } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
+import { permisoFirmasRegistradas } from '../middlewares/permisoFirmasRegistradas.js';
 import { validateRequest, adminValidationSchemas } from '../middlewares/validate.middleware.js';
 // Note: Middleware path usually plural 'middlewares' or 'middleware'. Checking file list earlier showed 'middlewares' dir.
 import multer from 'multer';
@@ -194,8 +195,9 @@ router.get('/equipos/:id/documento', verifyToken, verifyPermission('MA_A_GEST_EQ
 const permisoFichas = [verifyToken, verifyPermission(['MA_A_GEST_EQUIPO', 'GC_VERIF_TEMP'])];
 // Firmas de las fichas: importar una registrada o firmar desde el celular con un QR.
 router.get('/equipos/fichas/responsables-entrega', ...permisoFichas, fichasEquipo.responsablesEntrega);
-router.get('/equipos/fichas/firmas-registradas', ...permisoFichas, fichasEquipo.firmasRegistradas);
-router.get('/equipos/fichas/firmas-registradas/:tipo/:id', ...permisoFichas, fichasEquipo.firmaRegistrada);
+// Importar una firma registrada también lo necesita quien solo firma la ficha, no únicamente quien las prepara.
+router.get('/equipos/fichas/firmas-registradas', verifyToken, permisoFirmasRegistradas, fichasEquipo.firmasRegistradas);
+router.get('/equipos/fichas/firmas-registradas/:tipo/:id', verifyToken, permisoFirmasRegistradas, fichasEquipo.firmaRegistrada);
 router.post('/equipos/fichas/firma-remota', ...permisoFichas, fichasEquipo.firmaRemotaCrear);
 router.get('/equipos/fichas/firma-remota/:token', ...permisoFichas, fichasEquipo.firmaRemotaEstado);
 router.post('/equipos/fichas/entrega/pdf', ...permisoFichas, fichasEquipo.entregaPdf);
