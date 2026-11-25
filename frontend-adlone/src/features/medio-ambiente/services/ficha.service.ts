@@ -38,9 +38,15 @@ export const fichaService = {
         const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/realizado-gem`, { isRealizado });
         return response.data;
     },
-    updateCasoAdlab: async (idAgendamam: number, casoAdlab: string) => {
-        const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/caso-adlab`, { casoAdlab });
+    // alcance: 'punto' (solo este), 'visita' (todos los puntos) o 'puntos' (los de idsAgenda). Sin él, el valor por defecto del programa.
+    updateCasoAdlab: async (idAgendamam: number, casoAdlab: string, opciones?: { alcance?: 'punto' | 'visita' | 'puntos'; idsAgenda?: number[] }) => {
+        const response = await apiClient.patch(`/api/fichas/agenda/${idAgendamam}/caso-adlab`, { casoAdlab, ...(opciones || {}) });
         return response.data;
+    },
+    // Valor por defecto del programa y otros puntos de la visita, para preguntar a qué puntos va el OI
+    getOpcionesOi: async (idAgendamam: number): Promise<{ programa: string | null; modoPorDefecto: 'punto' | 'visita'; puntos: { id_agenda: number; id_ficha: number; punto: string | null; retiro_completado: boolean; caso_adlab: string | null }[] }> => {
+        const response = await apiClient.get(`/api/fichas/agenda/${idAgendamam}/oi-opciones`);
+        return response.data?.data;
     },
     regenerarDocumentos: async (idAgendamam: number, opts: { foma: boolean; cadena: boolean }) => {
         const response = await apiClient.post('/api/fichas/regenerar-documentos', {

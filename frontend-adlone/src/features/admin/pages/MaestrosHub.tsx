@@ -115,6 +115,9 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             area: 'general',
             displayColumn: 'nombre_empresaservicios',
             summaryColumns: ['nombre_empresaservicios', 'email_empresaservicios'],
+            lookups: {
+                id_comuna: { tableName: 'mae_comuna', idColumn: 'id_comuna', displayColumn: 'nombre_comuna', noCreate: true }
+            },
             statusColumn: 'habilitado'
         },
         {
@@ -179,10 +182,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         // AREA: MEDIO AMBIENTE
         {
             id: 'componentes',
-            label: 'Componentes Ambientales',
+            label: 'Tipo de Muestra',
             icon: <IconFlask size={24} />,
             color: 'green',
-            description: 'Matrices ambientales (Agua, RIL, etc).',
+            description: 'Opciones del campo «Tipo Muestra» de la ficha (Puntual, Compuesta, Agua Residual…). Se guarda en id_tipomuestra_ma.',
             tableName: 'mae_tipomuestra_ma',
             idName: 'id_tipomuestra_ma',
             area: 'medio-ambiente',
@@ -194,7 +197,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Sub Áreas',
             icon: <IconHierarchy2 size={24} />,
             color: 'cyan',
-            description: 'Divisiones por componente ambiental.',
+            description: 'Opciones del campo «Sub Área» de la ficha: divisiones de cada Componente Ambiental. Se guarda en id_subarea.',
             tableName: 'mae_subarea',
             idName: 'id_subarea',
             area: 'medio-ambiente',
@@ -203,7 +206,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'activo',
             summaryColumns: ['nombre_subarea', 'id_tipomuestra', 'metodologia'],
             lookups: {
-                id_tipomuestra: { tableName: 'mae_tipomuestra_ma', idColumn: 'id_tipomuestra_ma', displayColumn: 'nombre_tipomuestra_ma' }
+                id_tipomuestra: { tableName: 'mae_tipomuestra', idColumn: 'id_tipomuestra', displayColumn: 'nombre_tipomuestra' }
             }
         },
         {
@@ -211,7 +214,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Objetivos de Muestreo',
             icon: <IconTarget size={24} />,
             color: 'red',
-            description: 'Finalidades del monitoreo y cumplimiento.',
+            description: 'Opciones del campo «Objetivo del Muestreo» de la ficha: los programas de monitoreo. Se guarda en id_objetivomuestreo_ma.',
             tableName: 'mae_objetivomuestreo_ma',
             idName: 'id_objetivomuestreo_ma',
             area: 'medio-ambiente',
@@ -223,7 +226,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Tipos de Muestreo',
             icon: <IconTable size={24} />,
             color: 'grape',
-            description: 'Modalidades de toma de muestra.',
+            description: 'Opciones del campo «Tipo Muestreo» de la ficha (Manual, Automático, Dirigido…). Se guarda en id_tipomuestreo.',
             tableName: 'mae_tipomuestreo',
             idName: 'id_tipomuestreo',
             area: 'medio-ambiente',
@@ -233,10 +236,10 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
         },
         {
             id: 'tipos-muestra',
-            label: 'Tipos de Muestra',
+            label: 'Componentes Ambientales',
             icon: <IconDroplet size={24} />,
             color: 'blue',
-            description: 'Clasificación de la muestra según su origen (Potable, RIL, etc).',
+            description: 'Opciones del campo «Componente Ambiental» de la ficha (Agua, Agua superficial, Suelo). De cada uno dependen las Sub Áreas. Se guarda en id_tipomuestra.',
             tableName: 'mae_tipomuestra',
             idName: 'id_tipomuestra',
             area: 'medio-ambiente',
@@ -257,7 +260,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Actividades de Muestreo',
             icon: <IconRun size={24} />,
             color: 'pink',
-            description: 'Acciones específicas durante el terreno.',
+            description: 'Opciones del campo «Actividad» de la ficha (Muestreo, Medición, Muestreo y Medición). Se guarda en id_actividadmuestreo.',
             tableName: 'mae_actividadmuestreo',
             idName: 'id_actividadmuestreo',
             area: 'medio-ambiente',
@@ -269,7 +272,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Tipos de Descarga',
             icon: <IconDroplet size={24} />,
             color: 'blue',
-            description: 'Categorización de puntos de vertido.',
+            description: 'Opciones del campo «Tipo Descarga» de la ficha. Se guarda en id_tipodescarga.',
             tableName: 'mae_tipodescarga',
             idName: 'id_tipodescarga',
             area: 'medio-ambiente',
@@ -345,7 +348,13 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             statusColumn: 'vigente',
             summaryColumns: ['codigo_centro', 'nombre_centro', 'ubicacion', 'id_empresa'],
             lookups: {
-                id_empresa: { tableName: 'mae_empresa', idColumn: 'id_empresa', displayColumn: 'nombre_empresa' }
+                id_empresa: { tableName: 'mae_empresa', idColumn: 'id_empresa', displayColumn: 'nombre_empresa' },
+                id_comuna: { tableName: 'mae_comuna', idColumn: 'id_comuna', displayColumn: 'nombre_comuna', noCreate: true },
+                id_region: { tableName: 'mae_region', idColumn: 'id_region', displayColumn: 'nombre_region', noCreate: true },
+                id_tipoagua: { tableName: 'mae_tipoagua', idColumn: 'id_tipoagua', displayColumn: 'nombre_tipoagua', noCreate: true },
+                id_barrio: { tableName: 'mae_barrio', idColumn: 'id_barrio', displayColumn: 'nombre_barrio', noCreate: true },
+                id_zona: { tableName: 'mae_zonas', idColumn: 'id_zona', displayColumn: 'nombre_zona', noCreate: true },
+                id_zonageografica: { tableName: 'mae_zonageografica', idColumn: 'id_zonageografica', displayColumn: 'nombre_zonageografica', noCreate: true }
             }
         },
         {
@@ -353,7 +362,7 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             label: 'Modalidades',
             icon: <IconLayoutGrid size={24} />,
             color: 'indigo',
-            description: 'Formas de ejecución del servicio.',
+            description: 'Opciones del campo «Modalidad» de la ficha (Volumétrico, Área velocidad…). Se guarda en id_modalidad.',
             tableName: 'mae_modalidad',
             idName: 'id_modalidad',
             area: 'logistica',
@@ -532,7 +541,13 @@ export const MaestrosHub: React.FC<Props> = ({ onBack }) => {
             tableName: 'App_Ma_ReferenciaAnalisis',
             idName: 'id_referenciaanalisis',
             area: 'tecnica',
-            displayColumn: 'id_tecnica'
+            displayColumn: 'id_tecnica',
+            summaryColumns: ['id_tecnica', 'id_normativa', 'id_normativareferencia', 'limitemax_d', 'limitemax_h'],
+            lookups: {
+                id_tecnica: { tableName: 'mae_tecnica', idColumn: 'id_tecnica', displayColumn: 'nombre_tecnica', noCreate: true },
+                id_normativa: { tableName: 'mae_normativa', idColumn: 'id_normativa', displayColumn: 'nombre_normativa', noCreate: true },
+                id_normativareferencia: { tableName: 'mae_normativareferencia', idColumn: 'id_normativareferencia', displayColumn: 'nombre_normativareferencia', noCreate: true }
+            }
         },
         {
             id: 'lugares-analisis',

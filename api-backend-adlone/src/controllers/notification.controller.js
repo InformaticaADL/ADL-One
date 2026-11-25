@@ -417,9 +417,11 @@ export const previewIndex = async (req, res) => {
             <div class="grid">
         `;
         
+        // El visor se abre desde el navegador: el token viaja en la dirección, así que los enlaces de cada correo lo arrastran.
+        const conToken = req.query.token ? `?token=${encodeURIComponent(String(req.query.token))}` : '';
         for (const row of result.recordset) {
             html += `
-                <a href="/api/notifications/preview/${row.codigo_evento}" class="card" target="_blank">
+                <a href="/api/notifications/preview/${encodeURIComponent(row.codigo_evento)}${conToken}" class="card" target="_blank">
                     <div class="code">${row.codigo_evento}</div>
                     <div class="subject">${row.asunto_template || 'Sin asunto'}</div>
                 </a>

@@ -331,6 +331,11 @@ export const catalogosService = {
     },
 
     // CRUD Methods for Maestros
+    // Cuántos registros usan cada fila del maestro: { referencias: [{ tabla, columna }], usos: { [id]: n } }
+    getUsoMaestro: async (tableName: string): Promise<{ referencias: { tabla: string; columna: string }[]; usos: Record<string, number> }> => {
+        const response = await axiosInstance.get(`/maestros/${tableName}/uso`);
+        return response.data?.data ?? { referencias: [], usos: {} };
+    },
     getMaestroData: async (tableName: string): Promise<any[]> => {
         const response = await axiosInstance.get(`/maestros/${tableName}`);
         return response.data.data;

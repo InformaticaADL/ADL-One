@@ -1,4 +1,5 @@
 import sql from '../config/database.js';
+import { modoOiDePrograma, repartirOi } from '../utils/modoOi.js';
 import { getConnection } from '../config/database.js';
 import logger from '../utils/logger.js';
 import notificationService from './notification.service.js';
@@ -5768,7 +5769,43 @@ class FichaIngresoService {
         }
     }
 
-    async updateCasoAdlab(idAgendamam, casoAdlab) {
+    // Programa (objetivo de muestreo) de una ficha: de él depende el valor por defecto del reparto del OI (ver utils/modoOi.js).
+    async _programaDeFicha(pool, idFicha) {
+        const r = await pool.request().input('f', sql.Numeric, idFicha).query(`
+            SELECT LTRIM(RTRIM(o.nombre_objetivomuestreo_ma)) AS programa
+            FROM App_Ma_FichaIngresoServicio_ENC f
+            LEFT JOIN mae_objetivomuestreo_ma o ON o.id_objetivomuestreo_ma = f.id_objetivomuestreo_ma
+            WHERE f.id_fichaingresoservicio = @f`);
+        return r.recordset[0]?.programa || null;
+    }
+
+    // Lo que la pantalla necesita para preguntar a qué puntos va el OI: el valor por defecto del programa y los otros puntos de la visita.
+    async getOpcionesOi(idAgendamam) {
+        const pool = await getConnection();
+        const { propio, hermanos } = await this._agendasHermanas(pool, idAgendamam);
+        if (!propio) throw this._errorDatos('El muestreo no existe', 404);
+        const programa = await this._programaDeFicha(pool, propio.id_fichaingresoservicio);
+        let oiDe = new Map();
+        if (hermanos.length > 0) {
+            const filas = (await pool.request().query(`SELECT id_agendamam, caso_adlab FROM App_Ma_Agenda_MUESTREOS WHERE id_agendamam IN (${hermanos.map((h) => Number(h.id_agendamam)).join(',')})`)).recordset;
+            oiDe = new Map(filas.map((f) => [Number(f.id_agendamam), String(f.caso_adlab || '').trim() || null]));
+        }
+        return {
+            programa,
+            modoPorDefecto: modoOiDePrograma(programa),
+            puntos: hermanos.map((h) => ({
+                id_agenda: Number(h.id_agendamam),
+                id_ficha: Number(h.id_fichaingresoservicio),
+                punto: h.punto || null,
+                retiro_completado: h.retiro_completado === 'S',
+                caso_adlab: oiDe.get(Number(h.id_agendamam)) || null,
+            })),
+        };
+    }
+
+    // `opciones.alcance`: 'punto' (solo este), 'visita' (todos los puntos) o 'puntos' (los de `opciones.idsAgenda`). Sin él, el valor por defecto del
+    // programa: un OI por punto, salvo Certificación ASC (un OI para toda la visita, ver utils/modoOi.js).
+    async updateCasoAdlab(idAgendamam, casoAdlab, opciones = {}) {
         const pool = await getConnection();
         const request = pool.request();
 
@@ -5784,11 +5821,16 @@ class FichaIngresoService {
         const idCaso = idCasoStr ? parseInt(idCasoStr, 10) : null;
         const oi = casoAdlab.trim();
 
-        // Una visita con varios puntos tiene UN solo OI: el mismo muestreo (mismo N° de servicio, el 2.º segmento de
-        // frecuencia_correlativo) de los demás puntos del grupo lleva el mismo código. Una ficha sin grupo va sola, como siempre.
+        // El OI se aplica a este punto, a toda la visita o solo a los puntos elegidos (el mismo muestreo: mismo N° de servicio, el 2.º segmento de
+        // frecuencia_correlativo, de los otros puntos del grupo). Una ficha sin grupo va sola, como siempre.
         const { propio, hermanos } = await this._agendasHermanas(pool, idAgendamam);
         if (!propio) throw new Error('No se encontró el muestreo.');
-        const idsConjunto = [Number(propio.id_agendamam), ...hermanos.map((h) => Number(h.id_agendamam))];
+        const programa = await this._programaDeFicha(pool, propio.id_fichaingresoservicio);
+        const reparto = repartirOi({
+            propio: propio.id_agendamam, hermanos, alcance: opciones.alcance, idsElegidos: opciones.idsAgenda,
+            modoPorDefecto: modoOiDePrograma(programa),
+        });
+        const idsConjunto = reparto.ids;
 
         // Validar que el caso_adlab no esté ya asignado a un muestreo ajeno a este conjunto
         const dupCheck = await pool.request()
@@ -5824,10 +5866,10 @@ class FichaIngresoService {
             if (propia.rowsAffected[0] === 0) {
                 throw new Error('No se encontró el muestreo o no cumple la condición retiro_completado = S.');
             }
-            // Los demás puntos reciben el mismo OI si ya tienen el retiro completado; los que aún no, quedan pendientes.
-            const listos = hermanos.filter((h) => h.retiro_completado === 'S');
-            const pendientes = hermanos.filter((h) => h.retiro_completado !== 'S');
-            if (listos.length > 0) await asignar(listos.map((h) => Number(h.id_agendamam)));
+            // Los demás puntos elegidos reciben el mismo OI si ya tienen el retiro completado; los que aún no, quedan pendientes.
+            const listos = reparto.ids.filter((id) => id !== Number(propio.id_agendamam));
+            const pendientes = reparto.pendientes;
+            if (listos.length > 0) await asignar(listos);
 
             await transaction.commit();
 
@@ -5843,8 +5885,8 @@ class FichaIngresoService {
                     punto: nombres.find((n) => Number(n.id) === Number(h.id_fichaingresoservicio))?.punto || null,
                 }));
             }
-            logger.info(`[updateCasoAdlab] id_agendamam=${idAgendamam} caso_adlab="${oi}" → PROCESO (+${listos.length} del grupo, ${pendientes.length} pendientes)`);
-            return { success: true, aplicados: 1 + listos.length, pendientes: puntosPendientes };
+            logger.info(`[updateCasoAdlab] id_agendamam=${idAgendamam} caso_adlab="${oi}" alcance=${reparto.alcance} → PROCESO (+${listos.length} del grupo, ${pendientes.length} pendientes)`);
+            return { success: true, aplicados: 1 + listos.length, alcance: reparto.alcance, pendientes: puntosPendientes };
         } catch (error) {
             try { await transaction.rollback(); } catch (e) { /* ya revertida */ }
             logger.error('Error updating caso_adlab:', error);
@@ -5977,6 +6019,7 @@ class FichaIngresoService {
                             ELSE ISNULL(r.estado, '')
                         END AS valor,
                         r.tipo_analisis,
+                        r.observacion,
                         r.id_laboratorioensayo,
                         l.nombre_laboratorioensayo,
                         COALESCE(detSuplente.id_laboratorioensayo_2, 0) AS id_laboratorioensayo_2,
@@ -6341,6 +6384,26 @@ class FichaIngresoService {
         };
         const resultado = { foma: null, cadena: null };
 
+        // Si el muestreo es parte de una visita con varios puntos, los documentos que cambian con el OI son los DE LA VISITA (un FoMa y una cadena por
+        // laboratorio, cada punto con su OI): se regeneran todos juntos. Los del punto individual, que en una visita casi no existen, siguen abajo.
+        let visita = null;
+        if ((foma || cadena) && await this._esPuntoDeVisita(idAgendamam)) {
+            try {
+                const response = await fetch(`${baseUrl}/ficha/interno/regenerar-documentos-visita`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({ id_agendamam: Number(idAgendamam) }),
+                    signal: AbortSignal.timeout(60000),
+                });
+                const body = await response.json().catch(() => ({}));
+                if (!response.ok) throw new Error(body.message || `HTTP ${response.status}`);
+                visita = { ok: true, regenerados: !!body.regenerados };
+            } catch (e) {
+                logger.warn('Error regenerando los documentos de la visita:', e.message);
+                visita = { ok: false, error: e.message };
+            }
+        }
+
         if (foma) {
             try {
                 const response = await fetch(`${baseUrl}/ficha/interno/generar-foma`, {
@@ -6379,7 +6442,25 @@ class FichaIngresoService {
             }
         }
 
+        // Si fallaron los documentos de la visita, se avisa por cada documento pedido (la pantalla muestra el motivo)
+        if (visita && !visita.ok) {
+            if (foma) resultado.foma = { ok: false, error: `FoMa de la visita: ${visita.error}` };
+            if (cadena) resultado.cadena = { ok: false, error: `Cadena de la visita: ${visita.error}` };
+        }
+        resultado.visita = visita;
         return resultado;
+    }
+
+    // ¿Este muestreo es parte de una visita con otros puntos (mismo grupo y mismo N° de servicio, sin cancelados)?
+    async _esPuntoDeVisita(idAgendamam) {
+        try {
+            const pool = await getConnection();
+            const { propio, hermanos } = await this._agendasHermanas(pool, idAgendamam);
+            return !!propio && hermanos.length > 0;
+        } catch (e) {
+            logger.warn('No se pudo saber si el muestreo es parte de una visita:', e.message);
+            return false;
+        }
     }
 }
 
