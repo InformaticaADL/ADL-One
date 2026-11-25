@@ -5,6 +5,7 @@ import revisionDocumentalService, { anioDeHistorial } from './revisionDocumental
 import { pdfFichaTecnica, pdfHistorial, pdfEntrega, pdfRecepcion, ITEMS_RECEPCION } from './fichasEquipo.pdf.js';
 import firmaDigitalService from './firmaDigital.service.js';
 import equipoService from './equipo.service.js';
+import { hoyChile } from '../utils/fechaChile.js';
 
 // Datos de los formularios de equipo (OI-FoGe-22 / 24 / 36) y su PDF.
 // Todo es de solo lectura: generar una ficha no cambia el equipo.
@@ -386,6 +387,8 @@ const entregaPdf = async (body = {}, usuario = null) => {
     for (const c of CAMPOS_ENTREGA) d[c] = body[c] === undefined || body[c] === null ? '' : String(body[c]).slice(0, c === 'observaciones' ? 2000 : 300);
     if (!d.codigo.trim() && !d.nombre.trim()) throw error('Indique al menos el nombre o el código del equipo');
     d.firma_equipo = imagenFirma(body.firma_equipo);
+    // Quien recibe el equipo firma el día que lo recibe: esa es la fecha de recepción, salvo que se escriba otra.
+    if (d.firma_equipo && !d.fecha_recepcion.trim()) d.fecha_recepcion = hoyChile();
     d.firma_area = imagenFirma(body.firma_area);
     d.firma_entrega = body.usar_mi_firma_entrega && usuario?.id
         ? await firmaDigitalService.obtener('USUARIO', usuario.id)
