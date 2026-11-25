@@ -39,6 +39,11 @@ export const FORMATOS = {
     hallazgos: { codigo: 'OI-FoGe-09', nombre: 'Hallazgos de Auditoría', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
     reunion: { codigo: 'OI-FoGe-10', nombre: 'Reunión Inicial y Final Auditoría Interna', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
     informe: { codigo: 'OI-FoGe-11', nombre: 'Informe de Auditorías Internas', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    // G.C. Medio Ambiente: verificaciones que se llenan en terreno a partir de un muestreo. Las dos OI-FoMa
+    // llevan el encabezado «FORMULARIO OPERACIONAL» del área de Medio Ambiente, no el general de gestión.
+    verif_equipos: { codigo: 'OI-FoGe-26', nombre: 'Lista de Verificación intermedia de equipo pH, Temperatura oxígeno y cloro', version: 'Versión 07', vigencia: '13/08/2021', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    verif_mau: { codigo: 'OI-FoMa-03', nombre: 'Lista de Verificación Muestreador Automático', version: 'Versión 06', vigencia: '18/07/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true, titulo: 'FORMULARIO\nOPERACIONAL', area: 'Medio Ambiente' },
+    lista_materiales: { codigo: 'OI-FoMa-19', nombre: 'Lista de Verificación Materiales y equipos de muestreo', version: 'Versión 00', vigencia: '18/07/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true, titulo: 'FORMULARIO\nOPERACIONAL', area: 'Medio Ambiente' },
 };
 
 // Ítems del OI-FoGe-42 con sus tres opciones, en el orden del formato.
@@ -139,7 +144,7 @@ const encabezado = (doc, formato, x, y, w, enc) => {
         doc.font(negritaTitulo ? 'Helvetica-Bold' : 'Helvetica').fontSize(7).fillColor(NEGRO).text(titulo, xx + 3, yy + 3, { width: ww - 6, lineBreak: false });
         doc.font('Helvetica').fontSize(7).text(valor, xx + 3, yy + 11, { width: ww - 6, lineGap: 0 });
     };
-    encCampo(xA, y, wCol, h1, 'Área', 'Gestión de Calidad');
+    encCampo(xA, y, wCol, h1, 'Área', f.area || 'Gestión de Calidad');
     encCampo(xB, y, wCol, h1, 'Unidad', 'No Aplica');
     rect(doc, xA, y + h1, wCol * 2, h2);
     textoEnCaja(doc, xA, y + h1, wCol * 2, h2, e.version || f.version, { size: 10 });
