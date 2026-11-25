@@ -157,6 +157,27 @@ export const pdfPrograma = (d = {}) => {
         y += 8;
         doc.font('Helvetica').fontSize(7.5).fillColor(NEGRO).text(`Observaciones: ${d.observaciones}`, X, y, { width: W });
     }
+
+    // Sección de firmas
+    y += 20;
+    const wFirma = W / 3;
+    const hEncabezado = 18;
+    const hFirma = 50;
+
+    // Encabezados: Elaborado, Revisado, Aprobado
+    for (let i = 0; i < 3; i++) {
+        rect(doc, X + wFirma * i, y, wFirma, hEncabezado);
+        const labels = ['Elaborado por:', 'Revisado por:', 'Aprobado por:'];
+        textoEnCaja(doc, X + wFirma * i, y, wFirma, hEncabezado, labels[i], { size: 8.5, bold: true, align: 'center' });
+    }
+    y += hEncabezado;
+
+    // Área de firmas (vacía para firmar)
+    for (let i = 0; i < 3; i++) {
+        rect(doc, X + wFirma * i, y, wFirma, hFirma);
+        textoEnCaja(doc, X + wFirma * i, y, wFirma, hFirma, 'Firma:', { size: 7, align: 'left', pad: 4 });
+    }
+
     pie(doc, 'programa');
     doc.end();
     return listo;
