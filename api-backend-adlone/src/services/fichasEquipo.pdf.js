@@ -82,9 +82,9 @@ export const fechaLarga = (v) => {
 
 const texto = (v) => (v === null || v === undefined ? '' : String(v).trim());
 
-const nuevoDoc = (titulo, horizontal = false) => {
+const nuevoDoc = (titulo, horizontal = false, tamano = 'A4') => {
     const doc = new PDFDocument({
-        size: 'A4',
+        size: tamano,
         layout: horizontal ? 'landscape' : 'portrait',
         margins: { top: 0, bottom: 0, left: 0, right: 0 },
         info: { Title: titulo, Author: 'ADL One' },

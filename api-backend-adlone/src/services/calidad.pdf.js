@@ -5,7 +5,10 @@ import { nuevoDoc, rect, textoEnCaja, encabezado, pie, fechaCorta, texto, NEGRO,
 //   OI-FoGe-06  Listado de Quejas y Apelaciones (Internas y Externas)
 // Los de auditorías internas (07, 08, 09, 10, 11) y la acción correctiva (02) se agregan aquí.
 
-const MARGEN_X = 40;
+// Los formatos de Gestión de Calidad son tamaño carta, no A4, y sus márgenes laterales salen de los
+// propios documentos: el ancho útil es 442 pt en los verticales, 650 en el programa y 622 en hallazgos.
+const CARTA = 'LETTER';
+const MARGEN_X = 85;
 const MARGEN_INF = 80; // espacio del pie de documento controlado
 const AZUL = '#1f3a93';
 
@@ -23,8 +26,8 @@ const NOTA_COPIA = 'La copia original administrada por Gestión de Calidad posee
  */
 const firmasControl = (doc, x, y, w) => {
     const wCol = w / 3;
-    const hNombre = 26;
-    const hFirma = 30;
+    const hNombre = 31; // alturas del formato: 0,4333 in y 0,5354 in
+    const hFirma = 38;
     CONTROL.forEach(([etiqueta, nombre], i) => {
         const xx = x + wCol * i;
         rect(doc, xx, y, wCol, hNombre);
@@ -90,7 +93,7 @@ const tablaPaginada = (doc, { columnas, filas, nuevaHoja, minFilas = 0, size = 8
  * }
  */
 export const pdfListadoQa = (d = {}) => {
-    const { doc, listo } = nuevoDoc(`OI-FoGe-06 Listado de Quejas y Apelaciones ${d.anio || ''}`.trim());
+    const { doc, listo } = nuevoDoc(`OI-FoGe-06 Listado de Quejas y Apelaciones ${d.anio || ''}`.trim(), false, CARTA);
     const W = doc.page.width - MARGEN_X * 2;
     let primera = true;
     const nuevaHoja = () => {
@@ -138,21 +141,24 @@ const MESES_LETRA = ['E', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D']
  * }
  */
 export const pdfPrograma = (d = {}) => {
-    const { doc, listo } = nuevoDoc(`OI-FoGe-07 Programa de Auditorías Internas ${d.anio || ''}`.trim(), true);
-    const X = 36;
-    const W = doc.page.width - 72;
+    const { doc, listo } = nuevoDoc(`OI-FoGe-07 Programa de Auditorías Internas ${d.anio || ''}`.trim(), true, CARTA);
+    const X = 71; // margen del formato en horizontal: deja 650 pt útiles
+    const W = doc.page.width - X * 2;
     let y = firmasControl(doc, X, encabezado(doc, 'programa', X, 30, W, d.encabezado) + 6, W);
+    // Como en el formato: el título centrado y, en su propia línea, la fecha de actualización a la izquierda.
     y += 14;
     doc.font('Helvetica-Bold').fontSize(11).fillColor(NEGRO)
-        .text(`Programa de Auditorías Internas Año ${d.anio || ''}`, X, y, { width: W * 0.7 });
-    doc.font('Helvetica').fontSize(8)
-        .text(`Fecha actualización: ${d.fecha_actualizacion ? fechaCorta(d.fecha_actualizacion, '/') : ''}`, X + W * 0.7, y + 2, { width: W * 0.3, align: 'right' });
-    y += 20;
+        .text(`Programa de Auditorías Internas Año ${d.anio || ''}`, X, y, { width: W, align: 'center' });
+    y += 30;
+    doc.font('Helvetica-Bold').fontSize(9)
+        .text(`Fecha actualización: ${d.fecha_actualizacion ? fechaCorta(d.fecha_actualizacion, '/') : ''}`, X, y, { width: W });
+    y += 19;
 
-    const wRef = W * 0.06;
-    const wElem = W * 0.38;
+    // Proporciones y alto de fila del formato: Ref. 45,8 pt · Elemento 255 pt · cada mes 25,5 pt · filas de 19,8 pt.
+    const wRef = W * 0.0755;
+    const wElem = W * 0.42;
     const wMes = (W - wRef - wElem) / 12;
-    const hFila = 15;
+    const hFila = 19.8;
 
     // Cabeceras: "Ref. ISO17020" / "Elemento del Sistema de Calidad a ser Auditado" / letras de los meses.
     rect(doc, X, y, wRef, hFila * 2);
@@ -169,7 +175,7 @@ export const pdfPrograma = (d = {}) => {
 
     const COLOR_ESTADO = { REALIZADA: '#2e7d32', REPROGRAMADA: '#b8860b', CANCELADA: '#999' };
     for (const f of d.filas || []) {
-        if (y + hFila > doc.page.height - 72) { pie(doc, 'programa'); doc.addPage(); y = encabezado(doc, 'programa', X, 30, W, d.encabezado) + 10; }
+        if (y + hFila > doc.page.height - 100) { pie(doc, 'programa'); doc.addPage(); y = encabezado(doc, 'programa', X, 30, W, d.encabezado) + 10; }
         rect(doc, X, y, wRef, hFila);
         textoEnCaja(doc, X, y, wRef, hFila, f.referencia || '', { size: 7 });
         rect(doc, X + wRef, y, wElem, hFila);
@@ -199,7 +205,7 @@ export const pdfPrograma = (d = {}) => {
 
 /** @param d { encabezado, auditoria: { folio, fecha, objetivos, alcance, auditor_lider }, agenda: [{horario,area,criterio,auditor,observacion}] } */
 export const pdfPlan = (d = {}) => {
-    const { doc, listo } = nuevoDoc(`OI-FoGe-08 Plan de Auditoría ${d.auditoria?.folio || ''}`.trim());
+    const { doc, listo } = nuevoDoc(`OI-FoGe-08 Plan de Auditoría ${d.auditoria?.folio || ''}`.trim(), false, CARTA);
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const a = d.auditoria || {};
@@ -246,7 +252,7 @@ export const pdfPlan = (d = {}) => {
 
 /** @param d { encabezado, auditoria: {fecha, fecha_reunion_inicial, fecha_reunion_final}, inicial: [{nombre,firma}], final: [{nombre,firma}] } */
 export const pdfReunion = (d = {}) => {
-    const { doc, listo } = nuevoDoc('OI-FoGe-10 Reunión Inicial y Final');
+    const { doc, listo } = nuevoDoc('OI-FoGe-10 Reunión Inicial y Final', false, CARTA);
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const a = d.auditoria || {};
@@ -304,7 +310,7 @@ export const pdfReunion = (d = {}) => {
 
 /** @param d { encabezado, hojas: [{area,auditor,fecha,observaciones_oportunidades,hallazgos:[{requisito,que_verificar,evidencia,resultado,observaciones}]}] } */
 export const pdfHallazgos = (d = {}) => {
-    const { doc, listo } = nuevoDoc('OI-FoGe-09 Hallazgos de Auditoría');
+    const { doc, listo } = nuevoDoc('OI-FoGe-09 Hallazgos de Auditoría', true, CARTA);
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const hojas = d.hojas?.length ? d.hojas : [{}];
@@ -369,7 +375,7 @@ export const pdfHallazgos = (d = {}) => {
  * }
  */
 export const pdfInforme = (d = {}) => {
-    const { doc, listo } = nuevoDoc(`OI-FoGe-11 Informe de Auditoría ${d.auditoria?.folio || ''}`.trim());
+    const { doc, listo } = nuevoDoc(`OI-FoGe-11 Informe de Auditoría ${d.auditoria?.folio || ''}`.trim(), false, CARTA);
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const a = d.auditoria || {};
@@ -411,7 +417,8 @@ export const pdfInforme = (d = {}) => {
     y += 58;
 
     const tabla = (titulo, filas, columnas) => {
-        if (y + 40 > doc.page.height - 44) { pie(doc, 'informe'); doc.addPage(); y = encabezado(doc, 'informe', X, 36, W, d.encabezado) + 14; }
+        // El anexo necesita su título (16), la fila de cabecera (20) y al menos una fila (18) antes del pie.
+        if (y + 54 > doc.page.height - MARGEN_INF) { pie(doc, 'informe'); doc.addPage(); y = encabezado(doc, 'informe', X, 36, W, d.encabezado) + 14; }
         doc.font('Helvetica-Bold').fontSize(10).text(titulo, X, y, { width: W });
         y += 16;
         let primera = true;
@@ -448,7 +455,7 @@ export const pdfInforme = (d = {}) => {
 /** @param d { encabezado, ac: <fila de mae_gc_accion_correctiva, con seguimientos ya parseado como array> } */
 export const pdfAccionCorrectiva = (d = {}) => {
     const a = d.ac || {};
-    const { doc, listo } = nuevoDoc(`OI-FoGe-02 Acción Correctiva ${a.folio || ''}`.trim());
+    const { doc, listo } = nuevoDoc(`OI-FoGe-02 Acción Correctiva ${a.folio || ''}`.trim(), false, CARTA);
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     let y = firmasControl(doc, X, encabezado(doc, 'accion', X, 36, W, d.encabezado) + 6, W);
@@ -510,14 +517,15 @@ export const pdfAccionCorrectiva = (d = {}) => {
         rect(doc, xx, yy, wOri, hOri);
         rect(doc, xx + 5, yy + hOri / 2 - 4.5, 9, 9, 0.6);
         if (a.origen === clave) textoEnCaja(doc, xx + 5, yy + hOri / 2 - 4.5, 9, 9, 'X', { size: 7.5, bold: true, pad: 0 });
-        doc.font('Helvetica').fontSize(7.5).fillColor(NEGRO).text(etiqueta, xx + 18, yy + hOri / 2 - 4, { width: wOri - 22, lineBreak: false });
+        doc.font('Helvetica').fontSize(6.8).fillColor(NEGRO).text(etiqueta, xx + 17, yy + hOri / 2 - 3.5, { width: wOri - 20, lineBreak: false });
     });
     y += 8;
 
     const bloque = (titulo, pares) => {
         if (y + 30 > doc.page.height - 70) { pie(doc, 'accion'); doc.addPage(); y = encabezado(doc, 'accion', X, 36, W, d.encabezado) + 14; }
-        doc.font('Helvetica-Bold').fontSize(9.5).text(titulo, X, y, { width: W });
-        y += 14;
+        doc.font('Helvetica-Bold').fontSize(9.5);
+        doc.text(titulo, X, y, { width: W });
+        y += doc.heightOfString(titulo, { width: W }) + 4;
         for (const [et, val, esSiNo] of pares) {
             const txt = esSiNo ? '' : texto(val);
             doc.font('Helvetica-Bold').fontSize(8);
