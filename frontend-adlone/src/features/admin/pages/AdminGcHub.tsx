@@ -38,13 +38,6 @@ const OPCIONES_CALIDAD: HubOption[] = [
         grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
     },
     {
-        id: 'gc-qa-dashboard',
-        label: 'Dashboard QA',
-        icon: <IconChartBar size={20} stroke={1.75} />,
-        description: 'Plazos por vencer y vencidos, tendencia mensual, causas, tiempos y carga por responsable. Exporta a Excel.',
-        grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
-    },
-    {
         id: 'gc-listado-qa',
         label: 'Listado',
         icon: <IconListDetails size={20} stroke={1.75} />,
