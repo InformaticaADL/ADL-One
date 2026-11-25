@@ -35,7 +35,7 @@ const StatCard: React.FC<{
   </Card>
 );
 
-export const GcDashboardPage: React.FC<{ onNavigate?: (view: string) => void }> = () => {
+export const GcDashboardPage: React.FC<{ onNavigate?: (view: string) => void; onBack?: () => void }> = ({ onBack }) => {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -157,6 +157,7 @@ export const GcDashboardPage: React.FC<{ onNavigate?: (view: string) => void }> 
       <PageHeader
         title="Dashboard · Calidad"
         subtitle={`Auditorías Internas, Acciones Correctivas y Quejas & Apelaciones ${anioActual}`}
+        onBack={onBack}
       />
 
       <div className="space-y-6">

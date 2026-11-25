@@ -171,7 +171,7 @@ const DashboardPage = () => {
         if (activeSubmodule === 'gc-hub-cal') return <AdminGcHub seccion="cal" onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('')} />;
         // Calidad → Quejas y apelaciones (datos en la base de ADLWeb). El acceso lo valida el backend por rol
         // (Gestión de Calidad e Informática); la página muestra el aviso si el servidor lo rechaza.
-        if (activeSubmodule === 'gc-dashboard') return <GcDashboardPage onNavigate={(v) => setActiveSubmodule(v)} />;
+        if (activeSubmodule === 'gc-dashboard') return <GcDashboardPage onNavigate={(v) => setActiveSubmodule(v)} onBack={() => setActiveSubmodule('gc-hub-cal')} />;
         if (activeSubmodule === 'gc-quejas' || activeSubmodule === 'gc-quejas-apelaciones') return <GcQuejasApelacionesPage key="queja" tipo="queja" onBack={() => setActiveSubmodule('gc-hub-cal')} />;
         if (activeSubmodule === 'gc-apelaciones') return <GcQuejasApelacionesPage key="apelacion" tipo="apelacion" onBack={() => setActiveSubmodule('gc-hub-cal')} />;
         if (activeSubmodule === 'gc-qa-dashboard') return <GcQaDashboardPage onBack={() => setActiveSubmodule('gc-hub-cal')} />;
