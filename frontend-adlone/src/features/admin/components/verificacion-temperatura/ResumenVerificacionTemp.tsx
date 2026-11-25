@@ -337,13 +337,13 @@ export const ResumenVerificacionTemp: React.FC<{ periodo: string; onAbrirFicha: 
         <div className="flex flex-col gap-4">
             {/* Filtros de la estadística */}
             <div className="flex flex-wrap items-center gap-2">
-                <div className="flex gap-1">
+                <div className="flex max-w-full gap-1 overflow-x-auto">
                     {['', ...sedes].map((s) => (
                         <button
                             key={s || 'todas'}
                             type="button"
                             onClick={() => cambiar('sede', s)}
-                            className={cn('h-8 rounded-md border px-3 text-sm transition-colors', sede === s ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted')}
+                            className={cn('h-8 shrink-0 whitespace-nowrap rounded-md border px-3 text-sm transition-colors', sede === s ? 'border-primary bg-primary text-primary-foreground' : 'border-border bg-background hover:bg-muted')}
                         >
                             {s || 'Todas las sedes'}
                         </button>

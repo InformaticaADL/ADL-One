@@ -19,6 +19,7 @@ import {
 import { RANGOS, TOLERANCIA, calcular, fmtNum, fmtFecha, nombrePeriodo, parseNum, hoyYmd, ESTADO_META } from '../../utils/verificacionTemperatura';
 import { FirmaMuestreadorDialog } from './FirmaMuestreadorDialog';
 import { useAccionesVerifTemp } from './useAccionesVerifTemp';
+import { useMediaQuery } from '../../../../hooks/useMediaQuery';
 
 // Máxima división del termómetro verificado y del patrón: siempre 5 (el backend la fija igual).
 const MAXIMA_DIVISION_FIJA = '5';
@@ -76,12 +77,24 @@ export interface FichaTempPanelHandle {
     guardar: () => Promise<void>;
 }
 
+// Avance de una ficha, para la tira de navegación de la mesa.
+export interface ProgresoFicha {
+    codigo: string;
+    nombre: string;
+    lecturas: number;
+    estado: VerificacionDetalle['estado'];
+    cumple: boolean | null;
+    // Borrador con todo lo necesario para firmar.
+    lista: boolean;
+}
+
 interface PanelProps {
     idVerificacion: number;
     // Mesa de trabajo: varias fichas lado a lado, antecedentes plegados.
     compacto?: boolean;
     onChanged: () => void;
     onSucioChange?: (sucio: boolean) => void;
+    onProgreso?: (p: ProgresoFicha) => void;
     onAnulada?: () => void;
     // Ficha en borrador eliminada (descartada): quien la abrió la saca de pantalla.
     onEliminada?: () => void;
@@ -93,7 +106,7 @@ interface PanelProps {
 //
 // Cada lectura se registra al escribir su temperatura TP: se marca la hora y
 // minuto de ese momento y la TP queda bloqueada (se guarda sola en segundos).
-export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ idVerificacion, compacto, onChanged, onSucioChange, onAnulada, onEliminada }, ref) => {
+export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ idVerificacion, compacto, onChanged, onSucioChange, onProgreso, onAnulada, onEliminada }, ref) => {
     const { showToast } = useToast();
     const raizRef = useRef<HTMLDivElement>(null);
     const [v, setV] = useState<VerificacionDetalle | null>(null);
@@ -343,6 +356,14 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                     : !textoObservacion ? 'Escriba la observación después de la fecha'
                         : null;
 
+    // Lecturas completas: TP registrada (con hora) y TC escrita.
+    const lecturasHechas = lecturas ? RANGOS.reduce<number>((s, r) => s + lecturas[String(r) as Rango].filter((f) => !!f.hora && parseNum(f.tc) !== null).length, 0) : 0;
+    const cumpleCalc = calc?.cumple ?? null;
+    useEffect(() => {
+        if (!v || !onProgreso) return;
+        onProgreso({ codigo: v.codigo_equipo, nombre: v.nombre_equipo, lecturas: lecturasHechas, estado: v.estado, cumple: cumpleCalc, lista: v.estado === 'BORRADOR' && !faltaParaFirmar });
+    }, [v, lecturasHechas, cumpleCalc, faltaParaFirmar, onProgreso]);
+
     if (cargando || !v || !lecturas || !calc) {
         return (
             <div className="flex h-full min-h-[200px] flex-1 items-center justify-center">
@@ -372,7 +393,7 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                     </p>
                     <p className="truncate text-xs text-muted-foreground">
                         {compacto
-                            ? `${v.nombre_equipo} · Sede ${v.sede} · Ficha N° ${v.id_verificacion}`
+                            ? `${v.nombre_equipo} · Sede ${v.sede} · ${lecturasHechas}/15 lecturas`
                             : `${v.codigo_equipo} · ${v.nombre_equipo} · Sede ${v.sede} · ${nombrePeriodo(v.periodo)} · Ficha N° ${v.id_verificacion}`}
                     </p>
                 </div>
@@ -380,6 +401,14 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                 {meta && <Badge variant={meta.badge}>{meta.label}</Badge>}
                 {sucio && editable && <span className="text-xs text-warning">Sin guardar</span>}
             </div>
+            {compacto && (
+                <div className="h-1 shrink-0 bg-muted" title={`${lecturasHechas} de 15 lecturas`}>
+                    <div
+                        className={cn('h-full transition-all', calc.cumple === false ? 'bg-destructive' : lecturasHechas === 15 ? 'bg-success' : 'bg-primary')}
+                        style={{ width: `${(lecturasHechas / 15) * 100}%` }}
+                    />
+                </div>
+            )}
 
             <div className={cn('min-h-0 flex-1 overflow-y-auto bg-muted/30', compacto ? 'p-3' : 'p-4 md:p-5')}>
                 {v.estado === 'ANULADA' && (
@@ -529,7 +558,9 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                                         <span className="text-sm font-semibold">{r.toFixed(1)}°C</span>
                                     </div>
                                     {/* Mismas columnas y orden que la hoja Excel (C31:H31); en gris las que se calculan. */}
-                                    <table className="w-full table-fixed text-sm">
+                                    {/* En celular la tabla se desplaza hacia el lado en vez de apretar las celdas. */}
+                                    <div className="overflow-x-auto">
+                                    <table className="w-full min-w-[480px] table-fixed text-sm">
                                         <colgroup>
                                             <col className="w-6" />
                                             <col />
@@ -583,6 +614,7 @@ export const FichaTempPanel = forwardRef<FichaTempPanelHandle, PanelProps>(({ id
                                             })}
                                         </tbody>
                                     </table>
+                                    </div>
                                     <div className={cn('flex items-center justify-between border-t px-3 py-2', d.cumple === false ? 'border-destructive/30 bg-destructive/5' : d.cumple ? 'border-success/20 bg-success/5' : 'border-border bg-muted/40')}>
                                         <span className="text-xs text-muted-foreground">Promedio · FC {fmtNum(d.fc)}</span>
                                         <span className="flex items-center gap-2">
@@ -921,12 +953,35 @@ export const VerificacionTempEditor: React.FC<Props> = ({ idVerificacion, onClos
 // Mesa de trabajo: varias fichas lado a lado para llenar los equipos que están
 // en la mesa al mismo tiempo. Cada ficha se guarda y se firma por separado; al
 // firmar una, las demás siguen abiertas.
+// Cuántas fichas se ven a la vez en la mesa (se recuerda en este navegador).
+const CLAVE_POR_VISTA = 'adlone:mesa-temp:por-vista';
+const leerPorVista = () => {
+    try { const n = Number(localStorage.getItem(CLAVE_POR_VISTA)); return [1, 2, 3, 4].includes(n) ? n : 3; } catch { return 3; }
+};
+const GAP_MESA = 12;
+
+// Color del avance de una ficha en la tira de la mesa.
+const tonoFicha = (p?: ProgresoFicha) => {
+    if (!p) return { punto: 'bg-muted-foreground/30', barra: 'bg-primary', texto: 'Cargando' };
+    if (p.estado === 'FIRMADA') return { punto: 'bg-success', barra: 'bg-success', texto: 'Firmada' };
+    if (p.estado === 'ANULADA') return { punto: 'bg-muted-foreground/40', barra: 'bg-muted-foreground/40', texto: 'Anulada' };
+    if (p.cumple === false) return { punto: 'bg-destructive', barra: 'bg-destructive', texto: 'No cumple' };
+    if (p.estado === 'PENDIENTE_FIRMA') return { punto: 'bg-warning', barra: 'bg-warning', texto: 'Pendiente de firma' };
+    if (p.lista) return { punto: 'bg-primary', barra: 'bg-success', texto: 'Lista para firmar' };
+    return { punto: p.lecturas > 0 ? 'bg-primary/60' : 'bg-muted-foreground/30', barra: 'bg-primary', texto: p.lecturas > 0 ? 'En curso' : 'Sin empezar' };
+};
+
 export const MesaVerificacionTemp: React.FC<{ ids: number[]; onClose: () => void; onChanged: () => void; onQuitar: (id: number) => void }> = ({ ids, onClose, onChanged, onQuitar }) => {
     const { showToast } = useToast();
     const refs = useRef<Record<number, FichaTempPanelHandle | null>>({});
+    const columnas = useRef<Record<number, HTMLDivElement | null>>({});
     const [sucias, setSucias] = useState<Record<number, boolean>>({});
+    const [progreso, setProgreso] = useState<Record<number, ProgresoFicha>>({});
+    const [activa, setActiva] = useState<number | null>(null);
+    const [porVista, setPorVista] = useState(leerPorVista);
     const [confirmar, setConfirmar] = useState(false);
     const [guardando, setGuardando] = useState(false);
+    const [guardandoTodo, setGuardandoTodo] = useState(false);
 
     useEffect(() => { setSucias({}); setConfirmar(false); }, [ids]);
 
@@ -934,8 +989,40 @@ export const MesaVerificacionTemp: React.FC<{ ids: number[]; onClose: () => void
         () => Object.fromEntries(ids.map((id) => [id, (s: boolean) => setSucias((prev) => (prev[id] === s ? prev : { ...prev, [id]: s }))])),
         [ids],
     ) as Record<number, (s: boolean) => void>;
+    const reportar = useMemo(
+        () => Object.fromEntries(ids.map((id) => [id, (p: ProgresoFicha) => setProgreso((prev) => ({ ...prev, [id]: p }))])),
+        [ids],
+    ) as Record<number, (p: ProgresoFicha) => void>;
+
+    // En celular, una ficha a la vez a todo el ancho (se pasa de una a otra con la tira o deslizando).
+    const ancho = useMediaQuery('(min-width: 640px)');
+    const vista = ancho ? Math.min(porVista, Math.max(ids.length, 1)) : 1;
+    const elegirVista = (n: number) => {
+        setPorVista(n);
+        try { localStorage.setItem(CLAVE_POR_VISTA, String(n)); } catch { /* sin almacenamiento */ }
+    };
+    const ir = (id: number) => {
+        columnas.current[id]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+        setActiva(id);
+    };
+
+    const avances = ids.map((id) => progreso[id]);
+    const firmadas = avances.filter((p) => p?.estado === 'FIRMADA').length;
+    const listas = avances.filter((p) => p?.lista).length;
+    const lecturasTotal = avances.reduce((s, p) => s + (p?.lecturas ?? 0), 0);
 
     const pendientes = ids.filter((id) => sucias[id]);
+    const guardarTodo = async () => {
+        setGuardandoTodo(true);
+        try {
+            for (const id of pendientes) await refs.current[id]?.guardar();
+            showToast({ type: 'success', message: `${pendientes.length} ficha${pendientes.length === 1 ? '' : 's'} guardada${pendientes.length === 1 ? '' : 's'}` });
+        } catch (err) {
+            showToast({ type: 'error', message: mensajeError(err, 'No se pudo guardar una de las fichas') });
+        } finally {
+            setGuardandoTodo(false);
+        }
+    };
     const cerrar = () => { if (pendientes.length) setConfirmar(true); else onClose(); };
     const guardarYCerrar = async () => {
         setGuardando(true);
@@ -954,27 +1041,110 @@ export const MesaVerificacionTemp: React.FC<{ ids: number[]; onClose: () => void
         <Dialog open={ids.length > 0} onOpenChange={(open) => { if (!open) cerrar(); }}>
             <DialogContent className="flex h-[96vh] w-[99vw] max-w-none flex-col gap-0 overflow-hidden p-0 sm:max-w-none">
                 <DialogHeader className="shrink-0 space-y-0 border-b border-border px-5 py-3 pr-12">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                             <IconLayoutColumns size={20} />
                         </div>
-                        <div className="min-w-0 text-left">
+                        <div className="min-w-0 flex-1 text-left">
                             <DialogTitle className="text-base">Mesa de verificación · {ids.length} equipo{ids.length === 1 ? '' : 's'}</DialogTitle>
                             <DialogDescription className="text-xs">
-                                Llene las fichas en paralelo. Cada TP marca su hora al escribirla y se guarda sola; cada equipo se firma por separado.
+                                Cada TP marca su hora al escribirla y se guarda sola; cada equipo se firma por separado.
                             </DialogDescription>
                         </div>
+                        {/* Avance general */}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                            <div className="flex flex-col items-end gap-1">
+                                <span className="text-muted-foreground"><b className="tabular-nums text-foreground">{lecturasTotal}</b> de {ids.length * 15} lecturas</span>
+                                <span className="h-1.5 w-36 overflow-hidden rounded-full bg-muted">
+                                    <span className="block h-full rounded-full bg-primary transition-all" style={{ width: `${ids.length ? (lecturasTotal / (ids.length * 15)) * 100 : 0}%` }} />
+                                </span>
+                            </div>
+                            <span className="hidden h-8 w-px bg-border sm:block" />
+                            <span className="text-muted-foreground"><b className="tabular-nums text-foreground">{listas}</b> lista{listas === 1 ? '' : 's'} para firmar</span>
+                            <span className="text-muted-foreground"><b className="tabular-nums text-success">{firmadas}</b> firmada{firmadas === 1 ? '' : 's'}</span>
+                        </div>
+                        {ids.length > 1 && ancho && (
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-muted-foreground">Ver</span>
+                                <div className="flex rounded-md border border-border p-0.5">
+                                    {[1, 2, 3, 4].filter((n) => n <= ids.length).map((n) => (
+                                        <button
+                                            key={n}
+                                            type="button"
+                                            onClick={() => elegirVista(n)}
+                                            aria-pressed={vista === n}
+                                            title={`Ver ${n} ficha${n === 1 ? '' : 's'} a la vez`}
+                                            className={cn('h-7 min-w-7 rounded px-2 text-xs font-medium tabular-nums transition-colors', vista === n ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}
+                                        >
+                                            {n}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {pendientes.length > 0 && (
+                            <Button size="sm" variant="outline" onClick={guardarTodo} disabled={guardandoTodo}>
+                                {guardandoTodo ? <Spinner /> : <IconDeviceFloppy size={15} />} Guardar todo ({pendientes.length})
+                            </Button>
+                        )}
                     </div>
                 </DialogHeader>
-                <div className="flex min-h-0 flex-1 gap-3 overflow-x-auto bg-muted/40 p-3">
+
+                {/* Tira de fichas: avance de cada una; al presionarla se va a su columna. */}
+                {ids.length > 1 && (
+                    <div className="flex shrink-0 gap-2 overflow-x-auto border-b border-border bg-background px-5 py-2">
+                        {ids.map((id) => {
+                            const p = progreso[id];
+                            const t = tonoFicha(p);
+                            return (
+                                <button
+                                    key={id}
+                                    type="button"
+                                    onClick={() => ir(id)}
+                                    title={`${p ? `${p.codigo} · ${p.nombre}` : `Ficha N° ${id}`} — ${t.texto}${sucias[id] ? ' · sin guardar' : ''}`}
+                                    className={cn(
+                                        'flex shrink-0 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-colors hover:bg-muted',
+                                        activa === id ? 'border-primary bg-primary/5' : 'border-border',
+                                    )}
+                                >
+                                    <span className={cn('h-2 w-2 shrink-0 rounded-full', t.punto)} />
+                                    <span className="flex flex-col gap-1">
+                                        <span className="font-mono text-xs font-semibold leading-none">{p?.codigo ?? `Ficha ${id}`}</span>
+                                        <span className="flex items-center gap-1.5">
+                                            <span className="h-1 w-14 overflow-hidden rounded-full bg-muted">
+                                                <span className={cn('block h-full rounded-full transition-all', t.barra)} style={{ width: `${((p?.lecturas ?? 0) / 15) * 100}%` }} />
+                                            </span>
+                                            <span className="text-[10px] leading-none tabular-nums text-muted-foreground">
+                                                {p?.estado === 'FIRMADA' ? 'Firmada' : `${p?.lecturas ?? 0}/15`}
+                                            </span>
+                                        </span>
+                                    </span>
+                                    {sucias[id] && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-warning" />}
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+
+                <div className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto bg-muted/40 p-3 scroll-pl-3" style={{ gap: GAP_MESA }}>
                     {ids.map((id) => (
-                        <div key={id} className="flex min-h-0 min-w-[520px] flex-1 flex-col overflow-hidden rounded-xl border border-border bg-background shadow-sm">
+                        <div
+                            key={id}
+                            ref={(el) => { columnas.current[id] = el; }}
+                            onFocusCapture={() => setActiva(id)}
+                            style={{ width: `calc((100% - ${(vista - 1) * GAP_MESA}px) / ${vista})` }}
+                            className={cn(
+                                'flex min-h-0 shrink-0 snap-start flex-col sm:min-w-[440px] overflow-hidden rounded-xl border bg-background shadow-sm transition-shadow',
+                                activa === id ? 'border-primary/50 ring-2 ring-primary/15' : 'border-border',
+                            )}
+                        >
                             <FichaTempPanel
                                 ref={(h) => { refs.current[id] = h; }}
                                 idVerificacion={id}
                                 compacto
                                 onChanged={onChanged}
                                 onSucioChange={cambiar[id]}
+                                onProgreso={reportar[id]}
                                 onEliminada={() => onQuitar(id)}
                             />
                         </div>

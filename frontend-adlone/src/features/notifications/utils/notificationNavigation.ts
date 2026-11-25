@@ -1,4 +1,5 @@
 import { type Notification } from '../../../store/notificationStore';
+import { useNavStore } from '../../../store/navStore';
 
 interface NavActions {
     setActiveModule: (moduleId: string) => void;
@@ -25,6 +26,8 @@ export const esNotificacionSolicitudCliente = (n: { tipo?: unknown; titulo?: str
 // Avisos de vencimiento de equipos (scheduler del backend, 30 y 7 días antes):
 // no traen id_referencia y llevan al Calendario de Vencimientos de Calidad.
 export const AREA_VENCIMIENTOS_EQUIPOS = 'Vencimientos de equipos';
+// Avisos de plazo de quejas y apelaciones (scheduler del backend): id_referencia = id del caso (base de ADLWeb).
+export const AREA_QUEJAS_APELACIONES = 'Quejas y apelaciones';
 const CALENDARIO_PERMS = ['GC_ACCESO', 'GC_EQUIPOS', 'MA_A_GEST_EQUIPO'];
 
 export const abrirCalendarioVencimientos = (actions: Pick<NavActions, 'setActiveModule' | 'setActiveSubmodule' | 'hasPermission' | 'showToast'>) => {
@@ -65,6 +68,15 @@ export const handleNotificationNavigation = (notif: Notification, actions: NavAc
 
     if (notif.area === AREA_VENCIMIENTOS_EQUIPOS) {
         abrirCalendarioVencimientos(actions);
+        return;
+    }
+
+    // Quejas y apelaciones: abre la sección del tipo del caso (el título dice «Queja…» o «Apelación…») y, con el id,
+    // el caso mismo. El acceso lo valida el backend (área de Gestión de Calidad).
+    if (notif.area === AREA_QUEJAS_APELACIONES) {
+        if (notif.id_referencia) useNavStore.getState().setPendingQaCasoId(Number(notif.id_referencia));
+        setActiveModule('gestion_calidad');
+        setActiveSubmodule(/^apelaci/i.test((notif.titulo || '').trim()) ? 'gc-apelaciones' : 'gc-quejas');
         return;
     }
 
