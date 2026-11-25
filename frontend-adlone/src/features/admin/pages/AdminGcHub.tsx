@@ -17,6 +17,13 @@ interface Props {
 // y también se administran desde el panel de ADLWeb.
 const OPCIONES_CALIDAD: HubOption[] = [
     {
+        id: 'gc-dashboard',
+        label: 'Dashboard',
+        icon: <IconChartBar size={20} stroke={1.75} />,
+        description: 'Resumen ejecutivo: auditorías, acciones correctivas, quejas y apelaciones con métricas clave.',
+        grupo: 'Visión General',
+    },
+    {
         id: 'gc-quejas',
         label: 'Quejas',
         icon: <IconMessageReport size={20} stroke={1.75} />,
@@ -32,7 +39,7 @@ const OPCIONES_CALIDAD: HubOption[] = [
     },
     {
         id: 'gc-qa-dashboard',
-        label: 'Dashboard',
+        label: 'Dashboard QA',
         icon: <IconChartBar size={20} stroke={1.75} />,
         description: 'Plazos por vencer y vencidos, tendencia mensual, causas, tiempos y carga por responsable. Exporta a Excel.',
         grupo: 'Quejas y apelaciones (NCh-ISO/IEC 17025 cl. 7.9)',
