@@ -978,16 +978,18 @@ export const AntecedentesForm = forwardRef<AntecedentesFormHandle, {
 
             setUnidadesMedida((umeds || []).map((u: any) => ({ value: String(u.id_umedida || u.id || ''), label: u.nombre_umedida || u.nombre || '-' })).filter(u => u.label !== 'NA' && u.label !== 'No Aplica'));
             setZonasUTMList((zonasUTMListRes || []).map((z: any) => ({ value: z.nombre_zonautm, label: z.nombre_zonautm })));
-            setComponentes((comps || []).map((c: any) => ({ value: String(c.id_tipomuestra || c.id), label: c.nombre_tipomuestra || c.nombre })));
-            setInspectores((insp || []).map((i: any) => ({ value: String(i.id_inspectorambiental || i.id), label: i.nombre_inspector || i.nombre })));
-            setTiposMuestreo((tMuestreo || []).map((t: any) => ({ value: String(t.id_tipomuestreo || t.id), label: t.nombre_tipomuestreo || t.nombre })));
+            // OJO: los ids se comparan con ?? y no con ||: «No aplica» tiene id 0, y con || el 0 cae a m.id (undefined) y el valor queda como el texto "undefined"
+            // (el formulario lo tomaba como campo vacío: «Falta: Modalidad de Medición» aun con «No aplica» elegido).
+            setComponentes((comps || []).map((c: any) => ({ value: String(c.id_tipomuestra ?? c.id), label: c.nombre_tipomuestra || c.nombre })));
+            setInspectores((insp || []).map((i: any) => ({ value: String(i.id_inspectorambiental ?? i.id), label: i.nombre_inspector || i.nombre })));
+            setTiposMuestreo((tMuestreo || []).map((t: any) => ({ value: String(t.id_tipomuestreo ?? t.id), label: t.nombre_tipomuestreo || t.nombre })));
             setTiposDescarga((tDescarga || []).map((t: any) => ({ value: String(t.id || t.id_tipodescarga), label: t.nombre || t.nombre_tipodescarga })));
-            setModalidades((mods || []).map((m: any) => ({ value: String(m.id_modalidad || m.id), label: m.nombre_modalidad || m.nombre })));
+            setModalidades((mods || []).map((m: any) => ({ value: String(m.id_modalidad ?? m.id), label: m.nombre_modalidad || m.nombre })));
             setInstrumentosAmbientales((instrs || []).map((i: any) => ({ value: i.nombre, label: i.nombre })));
             setCargos((cargosList || []).map((c: any, index: number) => ({ id: String(c.id_cargo || c.id || `cargo-${index}`), nombre: c.nombre_cargo || 'Sin Nombre', cliente: c.cliente })));
             setFrecuenciasOptions((freqsList || []).map((f: any, index: number) => ({ id: String(f.id_frecuencia || f.id_frecuenciaperiodo || f.id || `freq-${index}`), nombre: f.nombre_frecuencia || f.nombre, cantidad: f.cantidad, multiplicadopor: f.multiplicadopor })));
-            setFormasCanal((formasCanalList || []).map((f: any) => ({ value: String(f.id_formacanal || f.id), label: f.nombre_formacanal || f.nombre })));
-            setDispositivos((dispositivosList || []).map((d: any) => ({ value: String(d.id_dispositivohidraulico || d.id), label: d.nombre_dispositivohidraulico || d.nombre })));
+            setFormasCanal((formasCanalList || []).map((f: any) => ({ value: String(f.id_formacanal ?? f.id), label: f.nombre_formacanal || f.nombre })));
+            setDispositivos((dispositivosList || []).map((d: any) => ({ value: String(d.id_dispositivohidraulico ?? d.id), label: d.nombre_dispositivohidraulico || d.nombre })));
 
             if (isHydrating.current && initialData) {
                 const depLoads: Promise<any>[] = [];
