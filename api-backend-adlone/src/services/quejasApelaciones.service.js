@@ -432,7 +432,7 @@ async function listar(query = {}) {
     const r = await request.query(`
         SELECT id, folio, tipo, origen, canal, empresa, nombre, correo, telefono, fecha_recepcion, hora_recepcion,
                fecha_tratamiento, area, numero_informe, estado, procede, responsable, plazo_vence, cerrado_en, creado_en, actualizado_en,
-               emisor, via_ingreso, causa, jefe_area,
+               emisor, via_ingreso, causa, jefe_area, motivo,
                (SELECT COUNT(*) FROM dbo.qa_acciones_correctivas a WHERE a.caso_id = quejas_apelaciones.id AND a.estado = 'abierta') AS acciones_abiertas,
                (SELECT COUNT(*) FROM dbo.quejas_apelaciones_notificaciones n WHERE n.caso_id = quejas_apelaciones.id) AS notificaciones
         FROM dbo.quejas_apelaciones

@@ -1,6 +1,7 @@
 import { equipoService } from '../services/equipo.service.js';
 import { equipoVencimientosService } from '../services/equipo-vencimientos.service.js';
 import { notificarPlazosQuejasApelaciones } from '../services/quejasApelaciones.alertas.js';
+import calidadArchivoService from '../services/calidadArchivo.service.js';
 import { getConnection } from '../config/database.js';
 import sql from 'mssql';
 import unsService from '../services/uns.service.js';
@@ -415,8 +416,18 @@ export const initScheduler = () => {
         }
     };
 
+    // --- Quejas y apelaciones cerradas en ADLWeb → archivo de ADL-One (cada 15 min; solo copia lo nuevo o cambiado) ---
+    const archivarQuejasCerradas = async () => {
+        try {
+            await calidadArchivoService.sincronizar();
+        } catch (error) {
+            logger.error('[Archivo quejas] Error en la copia periódica:', error);
+        }
+    };
+
     // --- Startup Execution ---
     setTimeout(() => {
+        archivarQuejasCerradas();
         runDailyCheck();
         pollNewRequests();
         pollMuestreosCompletados();
@@ -449,6 +460,9 @@ export const initScheduler = () => {
 
     // Cada 10 minutos (equipos nuevos de los muestreadores en sus muestreos asignados)
     setInterval(sincronizarEquiposMuestreos, 10 * 60 * 1000);
+
+    // Cada 15 minutos (quejas y apelaciones cerradas en ADLWeb → archivo de ADL-One)
+    setInterval(archivarQuejasCerradas, 15 * 60 * 1000);
 
     // Every 20 seconds (Vigilante poll)
     setInterval(pollNewRequests, 20 * 1000);

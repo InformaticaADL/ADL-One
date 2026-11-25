@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 import {
     IconPlus, IconSearch, IconFolderOpen, IconCalendarEvent,
     IconClock, IconArrowLeft, IconInbox, IconSend, IconStarFilled,
-  IconSignature,
+  IconSignature, IconChartBar,
 } from '@tabler/icons-react';
 import { ursService } from '../../../services/urs.service';
 import { useNavStore } from '../../../store/navStore';
@@ -62,7 +62,8 @@ const UniversalInbox: React.FC = () => {
     } = useNavStore();
 
     // Solicitudes normales o Firmas pendientes (fichas de equipo que le enviaron a firmar).
-    const [vista, setVista] = useState<'solicitudes' | 'firmas'>(() => (useNavStore.getState().firmaPendienteId ? 'firmas' : 'solicitudes'));
+    // 'seguimiento': todas las fichas enviadas a firmar (solo Gestión de Calidad).
+    const [vista, setVista] = useState<'solicitudes' | 'firmas' | 'seguimiento'>(() => (useNavStore.getState().firmaPendienteId ? 'firmas' : 'solicitudes'));
     const [firmasPendientes, setFirmasPendientes] = useState(0);
     const contarFirmas = useCallback(() => { fichaFirmaService.contar().then(setFirmasPendientes).catch(() => setFirmasPendientes(0)); }, []);
     useEffect(() => {
@@ -70,6 +71,9 @@ const UniversalInbox: React.FC = () => {
         const t = setInterval(contarFirmas, 60000);
         return () => clearInterval(t);
     }, [contarFirmas]);
+    // Carpeta «Seguimiento de firmas»: con el permiso GC_SEGUIMIENTO_FIRMAS (lo responde el backend).
+    const [puedeSeguimiento, setPuedeSeguimiento] = useState(false);
+    useEffect(() => { fichaFirmaService.accesoSeguimiento().then(setPuedeSeguimiento).catch(() => setPuedeSeguimiento(false)); }, []);
     // Una notificación de firma abre directamente esa sección.
     useEffect(() => { if (firmaPendienteId) setVista('firmas'); }, [firmaPendienteId]);
 
@@ -219,6 +223,12 @@ const UniversalInbox: React.FC = () => {
                     <span className="flex items-center gap-2"><IconSignature size={16} /> Firmas pendientes</span>
                     {firmasPendientes > 0 && <span className="text-xs font-semibold">{firmasPendientes}</span>}
                 </button>
+                {puedeSeguimiento && (
+                    <button type="button" onClick={() => setVista('seguimiento')}
+                        className={cn(FOLDER_ROW, vista === 'seguimiento' ? FOLDER_ROW_ACTIVE : FOLDER_ROW_INACTIVE)}>
+                        <span className="flex items-center gap-2"><IconChartBar size={16} /> Seguimiento de firmas</span>
+                    </button>
+                )}
             </div>
 
             <div className="flex flex-col gap-0.5">
@@ -273,14 +283,15 @@ const UniversalInbox: React.FC = () => {
                 )}
 
                 {/* Firmas pendientes: fichas de equipo que le enviaron a firmar (o que usted envió) */}
-                {vista === 'firmas' ? (
+                {vista === 'firmas' || vista === 'seguimiento' ? (
                     <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
                         {isMobile && (
                             <div className="border-b border-border px-3 py-2">
                                 <Button variant="ghost" onClick={() => setVista('solicitudes')}><IconArrowLeft size={18} /> Solicitudes</Button>
                             </div>
                         )}
-                        <FirmasPendientesView abrirId={firmaPendienteId} onAbierta={() => setFirmaPendienteId(null)} onCambio={contarFirmas} />
+                        <FirmasPendientesView key={vista} pestanaInicial={vista === 'seguimiento' ? 'seguimiento' : 'firmar'} seguimiento={puedeSeguimiento}
+                            abrirId={firmaPendienteId} onAbierta={() => setFirmaPendienteId(null)} onCambio={contarFirmas} />
                     </div>
                 ) : (<>
                 {/* COLUMNA · Bandeja */}

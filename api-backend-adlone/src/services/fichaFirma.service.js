@@ -4,6 +4,7 @@ import logger from '../utils/logger.js';
 import fichasEquipoService from './fichasEquipo.service.js';
 import gcDocumentosService from './gcDocumentos.service.js';
 import firmaDigitalService from './firmaDigital.service.js';
+import { PERMISOS_GC, puedeGc } from '../utils/permisosCalidad.js';
 
 // Fichas de equipo que se envían a firmar (migrations/add_firmas_pendientes_fichas.sql).
 //
@@ -55,7 +56,15 @@ const cargarFicha = async (pool, id) => {
     return { ...f, datos, firmantes };
 };
 
-const puedeVer = (f, idUsuario) => Number(f.id_usuario_crea) === Number(idUsuario) || f.firmantes.some((x) => Number(x.id_usuario) === Number(idUsuario));
+const puedeVerPropia = (f, idUsuario) => Number(f.id_usuario_crea) === Number(idUsuario) || f.firmantes.some((x) => Number(x.id_usuario) === Number(idUsuario));
+
+// Seguimiento de todas las solicitudes de firma: permiso GC_SEGUIMIENTO_FIRMAS (Configurar rol / permisos). Mientras
+// la migración add_permiso_seguimiento_firmas.sql no lo cree, rige el rol de Gestión de Calidad (e Informática).
+// Se lee de la base en cada consulta, así un cambio de permisos rige de inmediato.
+const puedeSeguimiento = (pool, idUsuario) => puedeGc(pool, idUsuario, PERMISOS_GC.SEGUIMIENTO_FIRMAS);
+
+/** Quien la envió, quien debe firmarla o quien lleva el seguimiento (solo para ver: firmar sigue siendo de cada firmante). */
+const puedeVer = async (pool, f, idUsuario) => puedeVerPropia(f, idUsuario) || puedeSeguimiento(pool, idUsuario);
 
 const fichaFirmaService = {
     /** Prepara y envía la ficha a firmar. body = datos de la ficha de entrega + id_equipo + id_firmante_entrega + id_firmante_area. */
@@ -170,12 +179,37 @@ const fichaFirmaService = {
         return fichas.map((f) => ({ ...f, firmantes: firmantes.filter((x) => x.id_ficha_firma === f.id_ficha_firma) }));
     },
 
-    /** Detalle para quien debe firmar o quien la envió (sin imágenes de firma). */
+    /**
+     * Seguimiento para Gestión de Calidad: todas las solicitudes de firma (de cualquiera que las haya enviado),
+     * con el estado de cada firma. Solo lectura.
+     */
+    /** ¿Ve esta persona el seguimiento de firmas? (decide si Solicitudes muestra la carpeta). */
+    async accesoSeguimiento(usuario) {
+        const pool = await getConnection();
+        return !!(await puedeSeguimiento(pool, usuario.id));
+    },
+
+    async seguimiento(usuario) {
+        const pool = await getConnection();
+        await exigirTablas(pool);
+        if (!(await puedeSeguimiento(pool, usuario.id))) throw error('No tiene el permiso de seguimiento de firmas (GC_SEGUIMIENTO_FIRMAS).', 403);
+        const fichas = (await pool.request().query(`
+            SELECT TOP 500 id_ficha_firma, tipo_ficha, codigo_equipo, nombre_equipo, estado, fecha_creacion, fecha_completa,
+                   id_documento, motivo_cancelacion, nombre_crea
+            FROM mae_ficha_firma ORDER BY fecha_creacion DESC`)).recordset;
+        if (!fichas.length) return [];
+        const ids = fichas.map((f) => Number(f.id_ficha_firma)).join(',');
+        const firmantes = (await pool.request().query(`
+            SELECT id_ficha_firma, rol, nombre, cargo, estado, fecha_firma FROM mae_ficha_firma_firmante WHERE id_ficha_firma IN (${ids}) ORDER BY id_firmante`)).recordset;
+        return fichas.map((f) => ({ ...f, firmantes: firmantes.filter((x) => x.id_ficha_firma === f.id_ficha_firma) }));
+    },
+
+    /** Detalle para quien debe firmar, quien la envió o Gestión de Calidad (sin imágenes de firma). */
     async obtener(id, usuario) {
         const pool = await getConnection();
         await exigirTablas(pool);
         const f = await cargarFicha(pool, id);
-        if (!puedeVer(f, usuario.id)) throw error('No tiene acceso a esta solicitud de firma.', 403);
+        if (!(await puedeVer(pool, f, usuario.id))) throw error('No tiene acceso a esta solicitud de firma.', 403);
         const mios = f.firmantes.filter((x) => Number(x.id_usuario) === Number(usuario.id) && x.estado === 'PENDIENTE');
         const mio = mios[0];
         return {
@@ -207,7 +241,7 @@ const fichaFirmaService = {
         const pool = await getConnection();
         await exigirTablas(pool);
         const f = await cargarFicha(pool, id);
-        if (!puedeVer(f, usuario.id)) throw error('No tiene acceso a esta solicitud de firma.', 403);
+        if (!(await puedeVer(pool, f, usuario.id))) throw error('No tiene acceso a esta solicitud de firma.', 403);
         if (f.estado === 'COMPLETA' && f.id_documento) return gcDocumentosService.pdf(f.id_documento);
         const imagen = (rol) => f.firmantes.find((x) => x.rol === rol && x.estado === 'FIRMADA')?.imagen || '';
         return fichasEquipoService.entregaPdf({ ...f.datos, firma_entrega: imagen('ENTREGA'), firma_area: imagen('RESPONSABLE_AREA') }, null);
@@ -221,7 +255,7 @@ const fichaFirmaService = {
         const pool = await getConnection();
         await exigirTablas(pool);
         const f = await cargarFicha(pool, id);
-        if (!puedeVer(f, usuario.id)) throw error('No tiene acceso a esta solicitud de firma.', 403);
+        if (!(await puedeVer(pool, f, usuario.id))) throw error('No tiene acceso a esta solicitud de firma.', 403);
         if (f.estado !== 'PENDIENTE') return this.pdf(id, usuario);
         const mios = f.firmantes.filter((x) => Number(x.id_usuario) === Number(usuario.id) && x.estado === 'PENDIENTE');
         let propia = '';

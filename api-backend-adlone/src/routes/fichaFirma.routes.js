@@ -34,6 +34,11 @@ router.get('/pendientes/contar', manejar(async (req, res) =>
     successResponse(res, { total: await fichaFirmaService.contar(req.user) }), 'No se pudo contar las firmas pendientes'));
 router.get('/enviadas', manejar(async (req, res) =>
     successResponse(res, await fichaFirmaService.enviadas(req.user)), 'No se pudieron leer las fichas enviadas'));
+// Todas las solicitudes de firma, para el seguimiento (permiso GC_SEGUIMIENTO_FIRMAS; lo valida el servicio).
+router.get('/seguimiento/acceso', manejar(async (req, res) =>
+    successResponse(res, { puede: await fichaFirmaService.accesoSeguimiento(req.user) }), 'No se pudo revisar el acceso al seguimiento'));
+router.get('/seguimiento', manejar(async (req, res) =>
+    successResponse(res, await fichaFirmaService.seguimiento(req.user)), 'No se pudo leer el seguimiento de firmas'));
 
 // QR del celular: el estado se consulta con el token (antes que /:id para que no lo tome como id).
 router.get('/qr/:token', manejar(async (req, res) => {

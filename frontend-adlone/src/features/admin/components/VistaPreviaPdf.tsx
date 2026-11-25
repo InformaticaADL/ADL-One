@@ -1,5 +1,5 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { IconAlertTriangle, IconFileText } from '@tabler/icons-react';
+import { IconAlertTriangle, IconExternalLink, IconFileText, IconMaximize, IconMinimize } from '@tabler/icons-react';
 import { cn } from '@/lib/utils';
 import type { PdfGenerado } from '../services/fichasEquipo.service';
 
@@ -14,6 +14,9 @@ interface Props {
     /** Sin datos suficientes: se muestra este aviso en vez del documento. */
     aviso?: string | null;
     className?: string;
+    /** Si se pasa, aparece el botón Ampliar/Reducir (el contenedor decide cuánto espacio le da). */
+    ampliada?: boolean;
+    onAmpliar?: () => void;
 }
 
 const ESPERA_MS = 700;
@@ -23,7 +26,7 @@ const ESPERA_MS = 700;
  * generado por el backend, que se actualiza al editar. Mientras se genera la
  * nueva versión se sigue viendo la anterior (sin parpadeo).
  */
-export const VistaPreviaPdf: React.FC<Props> = ({ generar, clave, aviso, className }) => {
+export const VistaPreviaPdf: React.FC<Props> = ({ generar, clave, aviso, className, ampliada, onAmpliar }) => {
     const [url, setUrl] = useState<string | null>(null);
     const [cargando, setCargando] = useState(false);
     const [falla, setFalla] = useState(false);
@@ -60,16 +63,31 @@ export const VistaPreviaPdf: React.FC<Props> = ({ generar, clave, aviso, classNa
         <div className={cn('relative flex min-h-[320px] flex-col overflow-hidden rounded-lg border border-border bg-muted/40', className)}>
             <div className="flex items-center justify-between gap-2 border-b border-border bg-card px-3 py-1.5">
                 <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground"><IconFileText size={14} /> Vista previa del documento</span>
-                {cargando && !aviso && (
-                    <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                        <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Actualizando…
-                    </span>
-                )}
+                <div className="flex items-center gap-1">
+                    {cargando && !aviso && (
+                        <span className="mr-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span className="h-3 w-3 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Actualizando…
+                        </span>
+                    )}
+                    {url && !aviso && (
+                        <button type="button" onClick={() => window.open(url, '_blank', 'noopener')} title="Abrir el documento en otra pestaña"
+                            className="flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                            <IconExternalLink size={14} /> Abrir
+                        </button>
+                    )}
+                    {onAmpliar && (
+                        <button type="button" onClick={onAmpliar} title={ampliada ? 'Volver al formulario' : 'Ver el documento a todo el ancho'}
+                            className="flex h-7 items-center gap-1 rounded-md border border-border bg-background px-2 text-xs font-medium transition-colors hover:bg-muted">
+                            {ampliada ? <><IconMinimize size={14} /> Reducir</> : <><IconMaximize size={14} /> Ampliar</>}
+                        </button>
+                    )}
+                </div>
             </div>
             {aviso ? (
                 <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-muted-foreground">{aviso}</div>
             ) : url ? (
-                <iframe title="Vista previa del documento" src={`${url}#toolbar=0&navpanes=0&view=FitH`} className="min-h-0 w-full flex-1 bg-white" />
+                // Con la barra del visor: botones de zoom (+/−) y ajustar al ancho. La página abre ajustada al ancho.
+                <iframe key={url} title="Vista previa del documento" src={`${url}#toolbar=1&navpanes=0&view=FitH&zoom=page-width`} className="min-h-0 w-full flex-1 bg-white" />
             ) : (
                 <div className="flex flex-1 items-center justify-center">
                     {falla

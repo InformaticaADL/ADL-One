@@ -31,6 +31,14 @@ export const FORMATOS = {
     entrega: { codigo: 'OI-FoGe-36', nombre: 'Ficha Entrega de Equipo', version: 'Versión 01', vigencia: '10/03/2013', revision: '12/01/2026', colorTitulo: NEGRO, pie: false },
     caudal: { codigo: 'OI-FoGe-30', nombre: 'Verificación Intermedia Sonda Caudal', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
     recepcion: { codigo: 'OI-FoGe-42', nombre: 'Recepción, Puesta en Marcha y Verificación de Equipo', version: 'Versión 01', vigencia: '28/12/2020', revision: '12/01/2026', colorTitulo: NEGRO, pie: false, titulo: 'FORMULARIO\nDE\nGENERAL DE GESTIÓN' },
+    // G. Calidad → Calidad (calidad.pdf.js): quejas, auditorías internas y acciones correctivas.
+    accion: { codigo: 'OI-FoGe-02', nombre: 'Acción Correctiva', version: 'Versión 02', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    listado_qa: { codigo: 'OI-FoGe-06', nombre: 'Listado de Quejas y Apelaciones', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    programa: { codigo: 'OI-FoGe-07', nombre: 'Programa Anual de Auditorías Internas', version: 'Versión 02', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    plan: { codigo: 'OI-FoGe-08', nombre: 'Plan de Auditoría Interna', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    hallazgos: { codigo: 'OI-FoGe-09', nombre: 'Hallazgos de Auditoría', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    reunion: { codigo: 'OI-FoGe-10', nombre: 'Reunión Inicial y Final Auditoría Interna', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
+    informe: { codigo: 'OI-FoGe-11', nombre: 'Informe de Auditorías Internas', version: 'Versión 01', vigencia: '20/06/2016', revision: '12/01/2026', colorTitulo: NEGRO, pie: true },
 };
 
 // Ítems del OI-FoGe-42 con sus tres opciones, en el orden del formato.
@@ -740,3 +748,6 @@ export const pdfCaudal = (d) => {
     doc.end();
     return listo;
 };
+
+// Piezas comunes para los demás formularios de Gestión de Calidad (calidad.pdf.js): mismo encabezado, cajas y pie.
+export { nuevoDoc, rect, textoEnCaja, encabezado, pie, dibujarFirma, imagenFirma, texto, NEGRO };

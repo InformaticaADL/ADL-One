@@ -27,19 +27,19 @@ const Fila: React.FC<{ opt: HubOption; onNavigate: (id: string) => void }> = ({ 
     <button
         type="button"
         onClick={() => onNavigate(opt.id)}
-        className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/60"
+        className="group flex w-full items-start gap-3 px-4 py-2.5 text-left transition-colors hover:bg-muted/60"
     >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary transition-transform duration-150 group-hover:scale-105">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary transition-transform duration-150 group-hover:scale-105 mt-0.5">
             {opt.icon}
         </div>
         <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground">
+            <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-foreground leading-tight">
                 {opt.label}
                 {opt.badge}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{opt.description}</p>
+            <p className="truncate text-xs text-muted-foreground leading-snug">{opt.description}</p>
         </div>
-        <IconChevronRight size={16} className="shrink-0 text-muted-foreground/60 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground" />
+        <IconChevronRight size={16} className="shrink-0 text-muted-foreground/60 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-foreground mt-0.5" />
     </button>
 );
 
@@ -73,12 +73,12 @@ export function HubGrid({ options, onNavigate, emptyText = 'No tiene permisos pa
         else grupos.push({ nombre, items: [opt] });
     }
 
-    // Desde pantallas anchas los grupos van en dos columnas, para que el hub entre completo sin scroll.
+    // Desde pantallas anchas los grupos van en tres columnas para distribución equilibrada.
     return (
-        <div className="mt-4 grid items-start gap-x-5 gap-y-4 lg:grid-cols-2">
+        <div className="mt-4 grid items-start gap-x-6 gap-y-6 md:grid-cols-2 lg:grid-cols-3">
             {grupos.map((g, i) => (
                 <div key={g.nombre || i}>
-                    {g.nombre && <h3 className="mb-1.5 px-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.nombre}</h3>}
+                    {g.nombre && <h3 className="mb-2 px-0.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g.nombre}</h3>}
                     <Card className={cn('divide-y divide-border overflow-hidden p-0')}>
                         {g.items.map((opt) => <Fila key={opt.id} opt={opt} onNavigate={onNavigate} />)}
                     </Card>

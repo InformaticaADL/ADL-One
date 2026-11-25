@@ -334,6 +334,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
     const [recepcion, setRecepcion] = useState<DatosFichaRecepcion | null>(null);
 
     // Guardado de la ficha y fichas ya guardadas de este equipo.
+    // Vista previa del PDF a todo el ancho del diálogo (oculta la lista y el formulario).
+    const [previaAmpliada, setPreviaAmpliada] = useState(false);
     const [guardada, setGuardada] = useState<{ id_ficha: number; fecha_creacion: string } | null>(null);
     const [guardando, setGuardando] = useState(false);
     const [guardadas, setGuardadas] = useState<FichaGuardada[]>([]);
@@ -916,9 +918,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         </DialogDescription>
                     </DialogHeader>
 
-                    <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[minmax(0,2.2fr)_minmax(0,4.8fr)_minmax(0,6fr)]">
-                    {!cargando && <div className="hidden min-h-0 lg:block">{listaGuardadas}</div>}
-                    <div className="min-h-0 overflow-y-auto pr-1">
+                    {/* Con la vista previa ampliada, la lista y el formulario se ocultan (sin desmontarlos: las firmas dibujadas se conservan). */}
+                    {/* Sin fichas guardadas la columna de la lista no se muestra: ese espacio pasa al formulario. */}
+                    <div className={cn('grid min-h-0 flex-1 gap-4',
+                        previaAmpliada && pantallaAncha ? 'lg:grid-cols-[minmax(0,1fr)]'
+                            : guardadas.length === 0 ? 'lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]'
+                                : 'lg:grid-cols-[minmax(0,1.6fr)_minmax(0,4.4fr)_minmax(0,7fr)]')}>
+                    {!cargando && guardadas.length > 0 && <div className={cn('hidden min-h-0', !(previaAmpliada && pantallaAncha) && 'lg:block')}>{listaGuardadas}</div>}
+                    <div className={cn('min-h-0 overflow-y-auto pr-1', previaAmpliada && pantallaAncha && 'hidden')}>
                         {!cargando && borradorRecuperado && (
                             <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200">
                                 <span className="flex items-center gap-1.5"><IconInfoCircle size={15} /> Se recuperó lo que habías escrito antes (sin las firmas).</span>
@@ -927,7 +934,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         )}
                         {/* En pantallas angostas, donde no hay una tercera columna para la lista de guardadas,
                             se ve aquí arriba del formulario (en pantallas anchas vive en su propia columna). */}
-                        {!cargando && <div className="mb-3 lg:hidden">{listaGuardadas}</div>}
+                        {!cargando && guardadas.length > 0 && <div className="mb-3 lg:hidden">{listaGuardadas}</div>}
                         {cargando && (
                             <div className="flex items-center justify-center py-12">
                                 <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
@@ -1011,29 +1018,44 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         {/* ── Ficha técnica ─────────────────────────────────── */}
                         {!cargando && tipo === 'tecnica' && tecnica && (
                             <div className="flex flex-col gap-4">
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-lg border border-border bg-muted/30 px-3 py-2.5 text-sm sm:grid-cols-3">
-                                    <span><span className="text-muted-foreground">Nombre:</span> {tecnica.nombre || '—'}</span>
-                                    <span><span className="text-muted-foreground">Marca:</span> {tecnica.marca || '—'}</span>
-                                    <span><span className="text-muted-foreground">Modelo:</span> {tecnica.modelo || '—'}</span>
-                                    <span><span className="text-muted-foreground">Serie:</span> {tecnica.serie || '—'}</span>
-                                    <span><span className="text-muted-foreground">Código:</span> {tecnica.codigo || '—'}</span>
-                                    <span><span className="text-muted-foreground">Estado:</span> {tecnica.estado || '—'}</span>
-                                </div>
-                                <div className="grid gap-3 sm:grid-cols-2">
-                                    <Campo label="Frecuencia de calibración">
-                                        <Input value={tecnica.frecuencia_calibracion} onChange={setT('frecuencia_calibracion')} />
-                                    </Campo>
-                                    <Campo label="Frecuencia de mantención">
-                                        <Input value={tecnica.frecuencia_mantencion} onChange={setT('frecuencia_mantencion')} />
-                                    </Campo>
-                                    <Campo label="Fecha de adquisición">
-                                        <Input type="date" value={tecnica.fecha_adquisicion || ''} onChange={setT('fecha_adquisicion')} />
-                                    </Campo>
-                                    <Campo label="Fecha de baja" ayuda="Vacía se imprime como “-------”.">
-                                        <Input type="date" value={tecnica.fecha_baja || ''} onChange={setT('fecha_baja')} />
-                                    </Campo>
+                                <Seccion n={1} titulo="Equipo" descripcion="Datos del inventario; se cambian en la ficha del equipo.">
+                                    <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><IconPackage size={20} /></span>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex flex-wrap items-baseline gap-x-2">
+                                                <span className="font-mono text-base font-semibold">{tecnica.codigo || 'Sin código'}</span>
+                                                <span className="truncate text-sm">{tecnica.nombre}</span>
+                                            </div>
+                                            <p className="truncate text-xs text-muted-foreground">
+                                                {[tecnica.marca, tecnica.modelo && `Modelo ${tecnica.modelo}`, tecnica.serie && `Serie ${tecnica.serie}`].filter(Boolean).join(' · ') || 'Sin marca, modelo ni serie'}
+                                            </p>
+                                        </div>
+                                        {tecnica.estado && (
+                                            <Badge variant={/operativo/i.test(tecnica.estado) ? 'success' : 'destructive'} className="shrink-0">{tecnica.estado}</Badge>
+                                        )}
+                                    </div>
+                                </Seccion>
+
+                                <Seccion n={2} titulo="Frecuencias y fechas">
+                                    <div className="grid gap-3 sm:grid-cols-2">
+                                        <Campo label="Frecuencia de calibración">
+                                            <Input value={tecnica.frecuencia_calibracion} onChange={setT('frecuencia_calibracion')} />
+                                        </Campo>
+                                        <Campo label="Frecuencia de mantención">
+                                            <Input value={tecnica.frecuencia_mantencion} onChange={setT('frecuencia_mantencion')} />
+                                        </Campo>
+                                        <Campo label="Fecha de adquisición">
+                                            <Input type="date" value={tecnica.fecha_adquisicion || ''} onChange={setT('fecha_adquisicion')} />
+                                        </Campo>
+                                        <Campo label="Fecha de baja" ayuda="Vacía se imprime como “-------”.">
+                                            <Input type="date" value={tecnica.fecha_baja || ''} onChange={setT('fecha_baja')} />
+                                        </Campo>
+                                    </div>
+                                </Seccion>
+
+                                <Seccion n={3} titulo="Observaciones y autorización de uso">
                                     <Campo label="Observaciones">
-                                        <Textarea rows={3} value={tecnica.observaciones} onChange={setT('observaciones')} />
+                                        <Textarea rows={2} value={tecnica.observaciones} onChange={setT('observaciones')} />
                                     </Campo>
                                     {(() => {
                                         // Se marcan los cargos del área; lo que no sea un cargo de la lista queda como «Otros», una línea cada uno.
@@ -1051,21 +1073,26 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                             );
                                         }
                                         return (
-                                            <Campo label="Autorización de uso" ayuda="Cargos del área que pueden usar el equipo.">
-                                                <div className="flex flex-col gap-1.5 rounded-md border border-border p-2">
-                                                    {cargos.map((c) => (
-                                                        <label key={c} className="flex items-center gap-2 text-sm">
-                                                            <Checkbox
-                                                                checked={marcados.includes(c)}
-                                                                onCheckedChange={(v) => setAutorizados(armar(v ? [...marcados, c] : marcados.filter((m) => m !== c), otros))}
-                                                            />
-                                                            {c}
-                                                        </label>
-                                                    ))}
+                                            <Campo label={`Autorización de uso · ${marcados.length} de ${cargos.length} cargos`} ayuda="Cargos del área que pueden usar el equipo.">
+                                                <div className="flex flex-col gap-2">
+                                                    <div className="grid gap-1.5 2xl:grid-cols-2">
+                                                        {cargos.map((c) => {
+                                                            const on = marcados.includes(c);
+                                                            return (
+                                                                <label key={c} className={cn('flex cursor-pointer items-center gap-2.5 rounded-md border px-2.5 py-2 text-sm transition-colors', on ? 'border-primary/50 bg-primary/5' : 'border-border hover:bg-muted/50')}>
+                                                                    <Checkbox
+                                                                        checked={on}
+                                                                        onCheckedChange={(v) => setAutorizados(armar(v ? [...marcados, c] : marcados.filter((m) => m !== c), otros))}
+                                                                    />
+                                                                    <span className="leading-tight">{c}</span>
+                                                                </label>
+                                                            );
+                                                        })}
+                                                    </div>
                                                     <Textarea
-                                                        rows={1}
-                                                        className="mt-1 min-h-[34px] text-sm"
-                                                        placeholder="Otros (una persona o grupo por línea)"
+                                                        rows={2}
+                                                        className="text-sm"
+                                                        placeholder="Otros: una persona o grupo por línea"
                                                         value={otros.join('\n')}
                                                         onChange={(e) => setAutorizados(armar(marcados, e.target.value.split('\n')))}
                                                     />
@@ -1073,14 +1100,14 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                             </Campo>
                                         );
                                     })()}
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                        <span className="text-sm font-semibold">Calibraciones y mantenciones</span>
-                                        <Button type="button" size="sm" variant="outline" onClick={agregarFila}>
-                                            <IconPlus size={14} /> Agregar fila
-                                        </Button>
-                                    </div>
+                                </Seccion>
+
+                                <Seccion
+                                    n={4}
+                                    titulo="Calibraciones y mantenciones"
+                                    descripcion={filas.length ? `${filas.length} ${filas.length === 1 ? 'fila' : 'filas'} en la tabla del documento.` : undefined}
+                                    accion={<Button type="button" size="sm" variant="outline" onClick={agregarFila}><IconPlus size={14} /> Agregar fila</Button>}
+                                >
                                     {filas.length === 0 ? (
                                         <p className="rounded-lg border border-dashed border-border px-3 py-6 text-center text-sm text-muted-foreground">
                                             Agrega una fila por cada calibración o mantención. Si no agregas ninguna, la tabla sale en blanco para completarla en papel.
@@ -1141,10 +1168,10 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                             ))}
                                         </div>
                                     )}
+                                </Seccion>
                                     {filas.length > 0 && (
-                                        <div className="flex flex-col gap-3 rounded-lg border border-border p-3">
-                                            {cabeceraFirmas}
-                                            <span className="text-[11px] text-muted-foreground">Marca las firmas que van en la columna FIRMA. Cada una puede usar la firma guardada de esa persona, dibujarse en el momento o firmarse desde el celular.</span>
+                                        <Seccion n={5} titulo="Firmas" descripcion="Las marcadas van en la columna FIRMA de las filas marcadas." accion={<div className="flex flex-wrap items-center gap-2">{estadoFirmas}{botonCelular}</div>}>
+                                            <span className="text-[11px] text-muted-foreground">Cada una puede usar la firma guardada de esa persona, dibujarse en el momento o firmarse desde el celular.</span>
                                             <div className="flex flex-col gap-2">
                                                 {tecnica.firmantes_ficha.map((p) => {
                                                     const sel = firmasSel[p.id_usuario];
@@ -1178,13 +1205,12 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                                                     );
                                                 })}
                                             </div>
-                                        </div>
+                                        </Seccion>
                                     )}
-                                    <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                                        <IconInfoCircle size={14} className="mt-px shrink-0" />
-                                        La columna FIRMA lleva las firmas marcadas, una sobre otra, en las filas marcadas. Lo que no se firme queda en blanco para firmar en papel. Lo escrito aquí no se guarda en el equipo.
-                                    </p>
-                                </div>
+                                <p className="flex items-start gap-1.5 px-1 text-xs text-muted-foreground">
+                                    <IconInfoCircle size={14} className="mt-px shrink-0" />
+                                    La columna FIRMA lleva las firmas marcadas, una sobre otra, en las filas marcadas. Lo que no se firme queda en blanco para firmar en papel. Lo escrito aquí no se guarda en el equipo.
+                                </p>
                             </div>
                         )}
 
@@ -1426,7 +1452,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                         )}
                     </div>
                     {pantallaAncha && (
-                        <VistaPreviaPdf key={tipo || ''} generar={generar} clave={clavePrevia} aviso={avisoPrevia} />
+                        <VistaPreviaPdf key={tipo || ''} generar={generar} clave={clavePrevia} aviso={avisoPrevia} ampliada={previaAmpliada} onAmpliar={() => setPreviaAmpliada((v) => !v)} />
                     )}
                     </div>
 
