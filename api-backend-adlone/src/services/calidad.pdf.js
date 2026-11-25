@@ -7,6 +7,36 @@ import { nuevoDoc, rect, textoEnCaja, encabezado, pie, fechaCorta, texto, NEGRO,
 
 const MARGEN_X = 40;
 const MARGEN_INF = 80; // espacio del pie de documento controlado
+const AZUL = '#1f3a93';
+
+// Quienes elaboran, revisan y aprueban los formularios de Gestión de Calidad; igual en los ocho documentos.
+const CONTROL = [
+    ['Elaborado por:', 'Alejandra Poblete'],
+    ['Revisado por:', 'Patricio Bustos'],
+    ['Aprobado por:', 'Patricio Bustos'],
+];
+const NOTA_COPIA = 'La copia original administrada por Gestión de Calidad posee las firmas correspondientes.';
+
+/**
+ * Tabla de Elaborado / Revisado / Aprobado con sus casillas de firma, tal como viene en el formato:
+ * va bajo el encabezado y solo en la primera hoja. Devuelve la y donde termina.
+ */
+const firmasControl = (doc, x, y, w) => {
+    const wCol = w / 3;
+    const hNombre = 26;
+    const hFirma = 30;
+    CONTROL.forEach(([etiqueta, nombre], i) => {
+        const xx = x + wCol * i;
+        rect(doc, xx, y, wCol, hNombre);
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(AZUL).text(etiqueta, xx + 5, y + 4, { width: wCol - 10, lineBreak: false });
+        doc.font('Helvetica-BoldOblique').fontSize(8.5).text(nombre, xx + 5, y + 14, { width: wCol - 10, lineBreak: false });
+        rect(doc, xx, y + hNombre, wCol, hFirma);
+        doc.font('Helvetica-Bold').fontSize(8).text('Firma:', xx + 5, y + hNombre + 4, { width: wCol - 10, lineBreak: false });
+    });
+    const yNota = y + hNombre + hFirma + 2;
+    doc.font('Helvetica-Oblique').fontSize(7).fillColor(NEGRO).text(NOTA_COPIA, x, yNota, { width: w, align: 'center' });
+    return yNota + 11;
+};
 
 /**
  * Tabla que continúa en hojas nuevas: repite el encabezado del formulario y la fila de títulos.
@@ -62,8 +92,10 @@ const tablaPaginada = (doc, { columnas, filas, nuevaHoja, minFilas = 0, size = 8
 export const pdfListadoQa = (d = {}) => {
     const { doc, listo } = nuevoDoc(`OI-FoGe-06 Listado de Quejas y Apelaciones ${d.anio || ''}`.trim());
     const W = doc.page.width - MARGEN_X * 2;
+    let primera = true;
     const nuevaHoja = () => {
         let y = encabezado(doc, 'listado_qa', MARGEN_X, 36, W, d.encabezado);
+        if (primera) { primera = false; y = firmasControl(doc, MARGEN_X, y + 6, W); }
         y += 18;
         doc.font('Helvetica-Bold').fontSize(11).fillColor(NEGRO)
             .text('Listado de Quejas y Apelaciones (Internas y Externas)', MARGEN_X, y, { width: W, align: 'center' });
@@ -109,7 +141,7 @@ export const pdfPrograma = (d = {}) => {
     const { doc, listo } = nuevoDoc(`OI-FoGe-07 Programa de Auditorías Internas ${d.anio || ''}`.trim(), true);
     const X = 36;
     const W = doc.page.width - 72;
-    let y = encabezado(doc, 'programa', X, 30, W, d.encabezado);
+    let y = firmasControl(doc, X, encabezado(doc, 'programa', X, 30, W, d.encabezado) + 6, W);
     y += 14;
     doc.font('Helvetica-Bold').fontSize(11).fillColor(NEGRO)
         .text(`Programa de Auditorías Internas Año ${d.anio || ''}`, X, y, { width: W * 0.7 });
@@ -158,26 +190,6 @@ export const pdfPrograma = (d = {}) => {
         doc.font('Helvetica').fontSize(7.5).fillColor(NEGRO).text(`Observaciones: ${d.observaciones}`, X, y, { width: W });
     }
 
-    // Sección de firmas
-    y += 20;
-    const wFirma = W / 3;
-    const hEncabezado = 18;
-    const hFirma = 50;
-
-    // Encabezados: Elaborado, Revisado, Aprobado
-    for (let i = 0; i < 3; i++) {
-        rect(doc, X + wFirma * i, y, wFirma, hEncabezado);
-        const labels = ['Elaborado por:', 'Revisado por:', 'Aprobado por:'];
-        textoEnCaja(doc, X + wFirma * i, y, wFirma, hEncabezado, labels[i], { size: 8.5, bold: true, align: 'center' });
-    }
-    y += hEncabezado;
-
-    // Área de firmas (vacía para firmar)
-    for (let i = 0; i < 3; i++) {
-        rect(doc, X + wFirma * i, y, wFirma, hFirma);
-        textoEnCaja(doc, X + wFirma * i, y, wFirma, hFirma, 'Firma:', { size: 7, align: 'left', pad: 4 });
-    }
-
     pie(doc, 'programa');
     doc.end();
     return listo;
@@ -191,7 +203,7 @@ export const pdfPlan = (d = {}) => {
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const a = d.auditoria || {};
-    let y = encabezado(doc, 'plan', X, 36, W, d.encabezado);
+    let y = firmasControl(doc, X, encabezado(doc, 'plan', X, 36, W, d.encabezado) + 6, W);
     y += 16;
     doc.font('Helvetica-Bold').fontSize(11).text('PLAN DE AUDITORIA INTERNA', X, y, { width: W, align: 'center' });
     y += 20;
@@ -209,9 +221,13 @@ export const pdfPlan = (d = {}) => {
     campo('Auditor', a.auditor_lider);
     y += 14;
 
+    let primeraPlan = true;
     tablaPaginada(doc, {
         formato: 'plan',
-        nuevaHoja: () => y,
+        nuevaHoja: () => {
+            if (primeraPlan) { primeraPlan = false; return y; }
+            return encabezado(doc, 'plan', X, 36, W, d.encabezado) + 14;
+        },
         columnas: [
             { titulo: 'Horario', ancho: 0.11, align: 'center', valor: (f) => f.horario },
             { titulo: 'Área', ancho: 0.20, valor: (f) => f.area },
@@ -234,7 +250,7 @@ export const pdfReunion = (d = {}) => {
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const a = d.auditoria || {};
-    let y = encabezado(doc, 'reunion', X, 36, W, d.encabezado);
+    let y = firmasControl(doc, X, encabezado(doc, 'reunion', X, 36, W, d.encabezado) + 6, W);
     y += 14;
     const wFecha = W / 2;
     rect(doc, X, y, wFecha, 18);
@@ -294,7 +310,7 @@ export const pdfHallazgos = (d = {}) => {
     const hojas = d.hojas?.length ? d.hojas : [{}];
     hojas.forEach((h, i) => {
         if (i > 0) { pie(doc, 'hallazgos'); doc.addPage(); }
-        let y = encabezado(doc, 'hallazgos', X, 36, W, d.encabezado);
+        let y = firmasControl(doc, X, encabezado(doc, 'hallazgos', X, 36, W, d.encabezado) + 6, W);
         y += 14;
         doc.font('Helvetica-Bold').fontSize(10.5).text('HALLAZGOS DE AUDITORIA', X, y, { width: W, align: 'center' });
         y += 18;
@@ -357,7 +373,7 @@ export const pdfInforme = (d = {}) => {
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
     const a = d.auditoria || {};
-    let y = encabezado(doc, 'informe', X, 36, W, d.encabezado);
+    let y = firmasControl(doc, X, encabezado(doc, 'informe', X, 36, W, d.encabezado) + 6, W);
     y += 16;
     doc.font('Helvetica-Bold').fontSize(11).text('INFORME DE AUDITORIA INTERNA', X, y, { width: W, align: 'center' });
     y += 20;
@@ -428,11 +444,6 @@ export const pdfInforme = (d = {}) => {
 
 // ─── OI-FoGe-02 · Acción Correctiva ──────────────────────────────────────────
 
-const ORIGEN_LABEL = {
-    AUDITORIA_INTERNA: 'Auditoría Interna', AUDITORIA_EXTERNA_2: 'Auditoría Externa (2ª Parte)', AUDITORIA_EXTERNA_3: 'Auditoría Externa (3ª Parte)',
-    QUEJA: 'Queja', APELACION: 'Apelación', REVISION_GERENCIA: 'Revisiones de Gerencia', AUTODETECTADA: 'Autodetectada',
-};
-const siNo = (v) => (v === true ? 'SI' : v === false ? 'NO' : '');
 
 /** @param d { encabezado, ac: <fila de mae_gc_accion_correctiva, con seguimientos ya parseado como array> } */
 export const pdfAccionCorrectiva = (d = {}) => {
@@ -440,7 +451,7 @@ export const pdfAccionCorrectiva = (d = {}) => {
     const { doc, listo } = nuevoDoc(`OI-FoGe-02 Acción Correctiva ${a.folio || ''}`.trim());
     const X = MARGEN_X;
     const W = doc.page.width - MARGEN_X * 2;
-    let y = encabezado(doc, 'accion', X, 36, W, d.encabezado);
+    let y = firmasControl(doc, X, encabezado(doc, 'accion', X, 36, W, d.encabezado) + 6, W);
     y += 14;
     rect(doc, X, y, W * 0.7, 18);
     textoEnCaja(doc, X, y, W * 0.7, 18, 'ACCIÓN CORRECTIVA', { size: 10.5, bold: true, align: 'left', pad: 6 });
@@ -448,7 +459,7 @@ export const pdfAccionCorrectiva = (d = {}) => {
     textoEnCaja(doc, X + W * 0.7, y, W * 0.3, 18, `N°: ${a.folio || ''}`, { size: 9, bold: true });
     y += 18;
 
-    const fila = (pares, alto = 18) => {
+    const fila = (pares, alto = 23) => {
         const w = W / pares.length;
         pares.forEach((p, i) => {
             rect(doc, X + w * i, y, w, alto);
@@ -458,9 +469,49 @@ export const pdfAccionCorrectiva = (d = {}) => {
         });
         y += alto;
     };
-    fila([{ et: 'Origen', val: a.origen === 'OTRO' ? (a.origen_otro || 'Otro') : ORIGEN_LABEL[a.origen] || a.origen }, { et: 'Área en que se detecta', val: a.area }]);
-    fila([{ et: 'Fecha de Detección', val: fechaCorta(a.fecha_deteccion, '-') }, { et: 'Fecha inicio Tratamiento', val: fechaCorta(a.fecha_inicio, '-') }]);
-    fila([{ et: 'Nombre y Cargo persona que detecta', val: a.detectado_por }, { et: 'Requisito afectado', val: a.requisito }]);
+
+    // Bloque «Detalle | Origen» del formato: a la izquierda los datos, a la derecha el origen marcado con una X.
+    const wDet = W * 0.5;
+    const wOri = (W - wDet) / 2;
+    const hCab = 15;
+    rect(doc, X, y, wDet, hCab);
+    textoEnCaja(doc, X, y, wDet, hCab, 'Detalle', { size: 8.5, bold: true });
+    rect(doc, X + wDet, y, wOri * 2, hCab);
+    textoEnCaja(doc, X + wDet, y, wOri * 2, hCab, 'Origen', { size: 8.5, bold: true });
+    y += hCab;
+
+    const hOri = 23;
+    const yOrigen = y;
+    const campoDet = (etiqueta, valor, x, w) => {
+        rect(doc, x, y, w, hOri);
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor(NEGRO).text(etiqueta, x + 4, y + 2, { width: w - 8, lineBreak: false });
+        doc.font('Helvetica').fontSize(8).text(texto(valor), x + 4, y + 11, { width: w - 8, lineBreak: false });
+    };
+    campoDet('Área en que se detecta:', a.area, X, wDet);
+    y += hOri;
+    campoDet('Fecha de Detección:', fechaCorta(a.fecha_deteccion, '-'), X, wDet / 2);
+    campoDet('Fecha inicio Tratamiento:', fechaCorta(a.fecha_inicio, '-'), X + wDet / 2, wDet / 2);
+    y += hOri;
+    campoDet('Nombre y Cargo persona que detecta:', a.detectado_por, X, wDet);
+    y += hOri;
+    campoDet('Requisito afectado:', a.requisito, X, wDet);
+    y += hOri;
+
+    // Casillas del origen, en el orden del formato.
+    const ORIGENES = [
+        ['AUDITORIA_INTERNA', 'Auditoría Interna'], ['QUEJA', 'Queja'],
+        ['AUDITORIA_EXTERNA_2', 'Auditoría Externa (2ª Parte)'], ['REVISION_GERENCIA', 'Revisiones de Gerencia'],
+        ['AUDITORIA_EXTERNA_3', 'Auditoría Externa (3ª Parte)'], ['AUTODETECTADA', 'Auto detectada'],
+        ['APELACION', 'Apelación'], ['OTRO', a.origen === 'OTRO' && a.origen_otro ? `Otro: ${a.origen_otro}` : 'Otro…'],
+    ];
+    ORIGENES.forEach(([clave, etiqueta], i) => {
+        const xx = X + wDet + wOri * (i % 2);
+        const yy = yOrigen + hOri * Math.floor(i / 2);
+        rect(doc, xx, yy, wOri, hOri);
+        rect(doc, xx + 5, yy + hOri / 2 - 4.5, 9, 9, 0.6);
+        if (a.origen === clave) textoEnCaja(doc, xx + 5, yy + hOri / 2 - 4.5, 9, 9, 'X', { size: 7.5, bold: true, pad: 0 });
+        doc.font('Helvetica').fontSize(7.5).fillColor(NEGRO).text(etiqueta, xx + 18, yy + hOri / 2 - 4, { width: wOri - 22, lineBreak: false });
+    });
     y += 8;
 
     const bloque = (titulo, pares) => {
@@ -468,19 +519,33 @@ export const pdfAccionCorrectiva = (d = {}) => {
         doc.font('Helvetica-Bold').fontSize(9.5).text(titulo, X, y, { width: W });
         y += 14;
         for (const [et, val, esSiNo] of pares) {
-            const txt = esSiNo ? siNo(val) : texto(val);
-            const alto = Math.max(16, doc.heightOfString(txt || ' ', { width: W * 0.68 - 10 }) + 8);
+            const txt = esSiNo ? '' : texto(val);
+            doc.font('Helvetica-Bold').fontSize(8);
+            const altoEt = doc.heightOfString(et, { width: W * 0.32 - 10 }) + 8;
+            doc.font('Helvetica').fontSize(8.5);
+            const alto = Math.max(16, altoEt, doc.heightOfString(txt || ' ', { width: W * 0.68 - 10 }) + 8);
             if (y + alto > doc.page.height - 70) { pie(doc, 'accion'); doc.addPage(); y = encabezado(doc, 'accion', X, 36, W, d.encabezado) + 14; }
             rect(doc, X, y, W * 0.32, alto);
             textoEnCaja(doc, X, y, W * 0.32, alto, et, { size: 8, bold: true, align: 'left', pad: 5 });
             rect(doc, X + W * 0.32, y, W * 0.68, alto);
-            textoEnCaja(doc, X + W * 0.32, y, W * 0.68, alto, txt, { size: 8.5, align: 'left', pad: 5 });
+            if (esSiNo) casillasSiNo(X + W * 0.32 + 8, y + alto / 2 - 4.5, val);
+            else textoEnCaja(doc, X + W * 0.32, y, W * 0.68, alto, txt, { size: 8.5, align: 'left', pad: 5 });
             y += alto;
         }
         y += 10;
     };
 
-    bloque('SECCIÓN I: Descripción de la No Conformidad', [
+    /** Par de casillas SI / NO; marca la que corresponda cuando el valor es booleano. */
+    function casillasSiNo(x, yy, val) {
+        [['SI', true], ['NO', false]].forEach(([txt, esperado], i) => {
+            const xx = x + i * 52;
+            doc.font('Helvetica-Bold').fontSize(8).fillColor(NEGRO).text(txt, xx, yy + 0.5, { lineBreak: false });
+            rect(doc, xx + 16, yy, 9, 9, 0.6);
+            if (val === esperado) textoEnCaja(doc, xx + 16, yy, 9, 9, 'X', { size: 7.5, bold: true, pad: 0 });
+        });
+    }
+
+    bloque('SECCIÓN I: Descripción de la No Conformidad  (Adjunte las evidencias necesarias, documentos, fotografías, etc.)', [
         ['Descripción del hallazgo encontrado', a.hallazgo], ['Justificación de por qué es una No Conformidad', a.justificacion],
         ['Corrección Inmediata', a.correccion_inmediata], ['¿Procede una acción correctiva?', a.procede_ac, true],
     ]);
@@ -503,7 +568,7 @@ export const pdfAccionCorrectiva = (d = {}) => {
         rect(doc, X, y, W, 14);
         textoEnCaja(doc, X, y, W, 14, nombre, { size: 8, bold: true });
         y += 14;
-        fila([{ et: 'Fecha', val: fechaCorta(s.fecha, '-') }, { et: 'Cumplimiento', val: s.cumplimiento }, { et: 'Responsable', val: s.responsable }], 16);
+        fila([{ et: 'Fecha', val: fechaCorta(s.fecha, '-') }, { et: 'Cumplimiento', val: s.cumplimiento }, { et: 'Responsable', val: s.responsable }], 23);
         const altoObs = Math.max(16, doc.heightOfString(texto(s.observaciones) || ' ', { width: W - 10 }) + 8);
         rect(doc, X, y, W, altoObs);
         textoEnCaja(doc, X, y, W, altoObs, s.observaciones ? `Observaciones: ${s.observaciones}` : 'Observaciones:', { size: 8, align: 'left', pad: 5 });
