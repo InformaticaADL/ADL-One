@@ -28,6 +28,11 @@ export interface Muestreo {
     folio: number; id_agendamam: number; fecha: string; hora: string | null; hora_termino: string | null;
     empresa: string | null; lugar_muestreo: string | null; muestreador: string | null;
     tipo_agua: string | null; caracteristica: string | null;
+    /** Lo medido en el agua. Es referencia: no son las lecturas de los buffers del formulario. */
+    medicion: {
+        ph: string | null; temperatura: string | null; temperatura_corregida: string | null;
+        factor_correccion: number | null; observacion: string | null;
+    };
     equipos: EquipoMuestreo[];
     sugerencias: Record<string, EquipoMuestreo | null>;
 }

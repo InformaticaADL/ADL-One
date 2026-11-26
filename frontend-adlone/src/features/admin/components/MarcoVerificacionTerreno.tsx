@@ -13,7 +13,7 @@ import { CampoFirma } from './CampoFirma';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
 import {
     verificacionTerrenoService as svc, mensajeError,
-    type TipoFormulario, type FilaListado, type Formulario, type ItemsApi, type MuestreoListado,
+    type TipoFormulario, type FilaListado, type Formulario, type ItemsApi, type MuestreoListado, type Muestreo,
 } from '../services/verificacionTerreno.service';
 
 // Armazón de los tres formularios de terreno: a la izquierda la lista y el formulario, a la derecha el
@@ -42,6 +42,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
     const [items, setItems] = useState<ItemsApi | null>(null);
     const [elegido, setElegido] = useState<number | null>(null);
     const [datos, setDatos] = useState<Formulario | null>(null);
+    const [refMuestreo, setRefMuestreo] = useState<Muestreo | null>(null);
     const [muestreos, setMuestreos] = useState<MuestreoListado[]>([]);
     const [busqueda, setBusqueda] = useState('');
     const [buscando, setBuscando] = useState(false);
@@ -74,7 +75,16 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
         if (!elegido) { setDatos(null); return; }
         let vigente = true;
         svc.obtener(tipo, elegido)
-            .then((d) => { if (vigente) setDatos(d); })
+            .then((d) => {
+                if (!vigente) return;
+                setDatos(d);
+                setRefMuestreo(null);
+                if (d.folio_foma) {
+                    svc.previo(tipo, d.folio_foma)
+                        .then((r) => { if (vigente) setRefMuestreo(r.muestreo); })
+                        .catch(() => { /* sin referencia, el formulario funciona igual */ });
+                }
+            })
             .catch((e) => showToast({ type: 'error', message: mensajeError(e) || 'No se pudo abrir el formulario.' }));
         return () => { vigente = false; };
     }, [tipo, elegido, showToast]);
@@ -151,7 +161,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
             <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[320px_1fr]">
                 {/* Izquierda: crear desde el folio, lista y formulario */}
                 <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-                    <section className="flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-sm">
+                    <section className="shrink-0 rounded-xl border border-border bg-card shadow-sm">
                         <div className="border-b border-border p-2">
                             <div className="relative">
                                 <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -166,7 +176,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                         <p className="px-3 py-1.5 text-[11px] text-muted-foreground">
                             {buscando ? 'Buscando…' : `Muestreos disponibles (${muestreos.length})`}
                         </p>
-                        <div className="max-h-60 min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+                        <div className="max-h-56 divide-y divide-border overflow-y-auto">
                             {!buscando && muestreos.length === 0 && (
                                 <p className="p-3 text-xs text-muted-foreground">
                                     {busqueda ? 'Ningún muestreo coincide con la búsqueda.' : 'No hay muestreos con folio.'}
@@ -200,9 +210,9 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                         </div>
                     </section>
 
-                    <section className="flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-sm">
+                    <section className="shrink-0 rounded-xl border border-border bg-card shadow-sm">
                         <p className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">Formularios ({lista.length})</p>
-                        <div className="min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+                        <div className="max-h-44 divide-y divide-border overflow-y-auto">
                             {lista.length === 0 && <p className="p-3 text-xs text-muted-foreground">Todavía no hay formularios.</p>}
                             {lista.map((f) => (
                                 <button
@@ -223,12 +233,28 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                     </section>
 
                     {datos && items && (
-                        <section className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
+                        <section className="flex shrink-0 flex-col gap-3 rounded-xl border border-border bg-card p-3 shadow-sm">
                             {!editable && (
                                 <p className={cn('rounded-md px-2 py-1 text-[11px]',
                                     datos.estado === 'ANULADA' ? 'bg-destructive/10 text-destructive' : 'bg-success/10 text-success')}>
                                     {datos.estado === 'ANULADA' ? `Anulado: ${datos.motivo_anulacion || ''}` : `Firmado por ${datos.nombre_firma || ''}`}
                                 </p>
+                            )}
+                            {refMuestreo?.medicion && (refMuestreo.medicion.ph || refMuestreo.medicion.temperatura) && (
+                                <div className="rounded-md border border-border bg-muted/40 p-2">
+                                    <p className="text-[11px] font-semibold text-muted-foreground">Medido en terreno (referencia del FoMa)</p>
+                                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11px]">
+                                        {refMuestreo.medicion.ph && <span>pH <strong>{refMuestreo.medicion.ph}</strong></span>}
+                                        {refMuestreo.medicion.temperatura && <span>T° <strong>{refMuestreo.medicion.temperatura}</strong></span>}
+                                        {refMuestreo.medicion.temperatura_corregida && <span>T° corregida <strong>{refMuestreo.medicion.temperatura_corregida}</strong></span>}
+                                    </div>
+                                    {refMuestreo.medicion.observacion && (
+                                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">{refMuestreo.medicion.observacion}</p>
+                                    )}
+                                    <p className="mt-1 text-[10px] italic text-muted-foreground">
+                                        Son lecturas del agua, no de los buffers: no se copian al formulario.
+                                    </p>
+                                </div>
                             )}
                             {children({ datos, items, editable, set })}
                             <div>

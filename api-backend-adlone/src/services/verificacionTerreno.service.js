@@ -49,7 +49,9 @@ const datosDeFolio = async (folio) => {
             LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto,
             LTRIM(RTRIM(ta.nombre_tipoagua)) AS tipo_agua, ta.agrupa,
             LTRIM(RTRIM(m.nombre_muestreador)) AS muestreador,
-            LTRIM(RTRIM(f.responsablemuestreo)) AS responsable_ficha
+            LTRIM(RTRIM(f.responsablemuestreo)) AS responsable_ficha,
+            a.ma_phi, a.ma_temperaturai, a.temperatura_corregidai, a.temperatura_fc,
+            a.observaciones_muestreador
         FROM App_Ma_Agenda_MUESTREOS a
         JOIN App_Ma_FichaIngresoServicio_ENC f ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
         LEFT JOIN mae_empresa e ON e.id_empresa = f.id_empresa
@@ -90,6 +92,16 @@ const datosDeFolio = async (folio) => {
         muestreador: m.muestreador || m.responsable_ficha || null,
         tipo_agua: m.tipo_agua || null,
         caracteristica: caracteristicaDe(m.tipo_agua, m.agrupa),
+        // Lo que el muestreador midió en el agua. No se vuelca al formulario: las tablas de «Control
+        // Medición» son lecturas de los buffers de calibración, no de la muestra. Va a la vista como
+        // referencia, para tenerlo delante al verificar el equipo.
+        medicion: {
+            ph: m.ma_phi || null,
+            temperatura: m.ma_temperaturai || null,
+            temperatura_corregida: m.temperatura_corregidai || null,
+            factor_correccion: m.temperatura_fc === null || m.temperatura_fc === undefined ? null : Number(m.temperatura_fc),
+            observacion: m.observaciones_muestreador || null,
+        },
         equipos,
         // Atajos para cada formulario: el primero de cada familia es el que se propone.
         sugerencias: {
