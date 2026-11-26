@@ -26,6 +26,10 @@ interface Props {
     titulo: string;
     subtitulo: string;
     onBack: () => void;
+    /** Solo consulta: no se eligen muestreos ni se crea nada, y lo abierto no se edita. */
+    soloVista?: boolean;
+    /** Aviso que explica por qué está en solo consulta. */
+    avisoSoloVista?: string;
     /** Los campos propios del formulario; recibe lo cargado y cómo cambiarlo. */
     children: (ctx: {
         datos: Formulario;
@@ -35,7 +39,7 @@ interface Props {
     }) => React.ReactNode;
 }
 
-export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtitulo, onBack, children }) => {
+export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtitulo, onBack, soloVista = false, avisoSoloVista, children }) => {
     const { setActiveSubmodule } = useNavStore();
     const { showToast } = useToast();
     const [lista, setLista] = useState<FilaListado[]>([]);
@@ -59,6 +63,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
 
     useEffect(() => { cargarLista(); }, [cargarLista]);
     useEffect(() => {
+        if (soloVista) return;
         let vigente = true;
         setBuscando(true);
         const t = setTimeout(() => {
@@ -68,7 +73,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                 .finally(() => { if (vigente) setBuscando(false); });
         }, 300);
         return () => { vigente = false; clearTimeout(t); };
-    }, [tipo, busqueda]);
+    }, [tipo, busqueda, soloVista]);
     useEffect(() => { svc.items().then(setItems).catch(() => { /* sin ítems no se puede marcar */ }); }, []);
 
     useEffect(() => {
@@ -105,7 +110,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
     };
 
     const idDe = (d: Formulario) => d.id_verificacion ?? d.id_lista ?? 0;
-    const editable = datos?.estado === 'BORRADOR';
+    const editable = !soloVista && datos?.estado === 'BORRADOR';
     const set = (cambios: Partial<Formulario>) => setDatos((d) => (d ? { ...d, ...cambios } : d));
 
     const guardar = async () => {
@@ -161,6 +166,14 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
             <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[320px_1fr]">
                 {/* Izquierda: crear desde el folio, lista y formulario */}
                 <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+                    {soloVista ? (
+                        <section className="shrink-0 rounded-xl border border-dashed border-border bg-muted/30 p-3">
+                            <p className="text-xs font-medium">Solo consulta</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                                {avisoSoloVista || "Este formulario todavía no se completa desde aquí."}
+                            </p>
+                        </section>
+                    ) : (
                     <section className="shrink-0 rounded-xl border border-border bg-card shadow-sm">
                         <div className="border-b border-border p-2">
                             <div className="relative">
@@ -209,6 +222,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                             ))}
                         </div>
                     </section>
+                    )}
 
                     <section className="shrink-0 rounded-xl border border-border bg-card shadow-sm">
                         <p className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">Formularios ({lista.length})</p>

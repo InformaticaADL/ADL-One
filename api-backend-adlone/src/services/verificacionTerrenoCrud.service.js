@@ -49,6 +49,9 @@ export const TIPOS = {
     materiales: {
         tabla: 'mae_ma_lista_materiales', pk: 'id_lista', formato: 'lista_materiales', codigo: 'OI-FoMa-19',
         pdf: pdfListaMateriales, fecha: 'fecha',
+        // Pendiente: el chequeo se hace antes de salir a terreno, cuando el muestreo todavía no tiene folio
+        // OI-FoMa-01, así que no se crea desde aquí. Lo ya registrado se puede consultar e imprimir.
+        soloConsulta: true,
         columnas: [...COMUNES, 'fecha', 'muestreador', 'lote_lavado', 'caracteristica', 'caracteristica_otro'],
         json: ['items'],
         desdeFolio: (m) => ({
@@ -59,6 +62,11 @@ export const TIPOS = {
 };
 
 const tipoDe = (nombre) => TIPOS[nombre] || (() => { throw error('Formulario desconocido.', 404); })();
+
+/** Los tipos en solo consulta se leen y se imprimen, pero no se crean ni se modifican. */
+const exigirEditable = (t) => {
+    if (t.soloConsulta) throw error(`${t.codigo} está en solo consulta: todavía no se completa desde aquí.`, 409);
+};
 
 const existeTabla = async (pool, tabla) =>
     !!(await pool.request().query(`SELECT OBJECT_ID('${tabla}', 'U') AS id`)).recordset[0].id;
@@ -128,6 +136,7 @@ const servicio = {
     /** Crea el formulario ya rellenado con lo que trae el muestreo. */
     async crear(nombre, folio, usuario) {
         const t = tipoDe(nombre);
+        exigirEditable(t);
         const pool = await getConnection();
         await exigirTabla(pool, t);
         const { campos } = await this.previo(nombre, folio);
@@ -145,6 +154,7 @@ const servicio = {
 
     async guardar(nombre, id, datos = {}) {
         const t = tipoDe(nombre);
+        exigirEditable(t);
         const pool = await getConnection();
         await exigirTabla(pool, t);
         const actual = await this.obtener(nombre, id);
@@ -170,6 +180,7 @@ const servicio = {
 
     async firmar(nombre, id, { nombre: quien, firma } = {}) {
         const t = tipoDe(nombre);
+        exigirEditable(t);
         const pool = await getConnection();
         await exigirTabla(pool, t);
         const actual = await this.obtener(nombre, id);

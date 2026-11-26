@@ -145,7 +145,7 @@ export const AdminGcHub: React.FC<Props> = ({ onNavigate, onBack, seccion }) => 
             id: 'gc-lista-materiales',
             label: 'Materiales y EPP',
             icon: <IconChecklist size={20} stroke={1.75} />,
-            description: 'Formulario OI-FoMa-19: chequeo de seguridad, RILES e implementos antes de salir a terreno.',
+            description: 'Formulario OI-FoMa-19: chequeo de seguridad, RILES e implementos. Solo consulta — se completará desde la preparación de la salida.',
             grupo: 'Verificaciones',
         },
         {

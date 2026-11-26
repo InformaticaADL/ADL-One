@@ -3,8 +3,12 @@ import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { MarcoVerificacionTerreno } from '../components/MarcoVerificacionTerreno';
 
-// OI-FoMa-19 · Lista de chequeo de materiales y EPP. Del muestreo llegan empresa, fecha, muestreador y la
-// característica de la muestra (según el tipo de agua); el resto se marca antes de salir a terreno.
+// OI-FoMa-19 · Lista de chequeo de materiales y EPP.
+//
+// De momento queda en solo consulta: se puede mirar el formato y lo ya registrado, pero no se crea nada
+// desde aquí. El chequeo se hace ANTES de salir a terreno y en ese momento el muestreo todavía no tiene
+// folio OI-FoMa-01 (el folio se asigna al ejecutarlo), así que atarlo al folio como los otros dos no
+// corresponde. Se implementará en la sección que acompañe la preparación de la salida.
 
 export const GcListaMaterialesPage: React.FC<{ onBack: () => void }> = ({ onBack }) => (
     <MarcoVerificacionTerreno
@@ -12,6 +16,8 @@ export const GcListaMaterialesPage: React.FC<{ onBack: () => void }> = ({ onBack
         titulo="Materiales y EPP"
         subtitulo="Formulario OI-FoMa-19: chequeo de seguridad, RILES e implementos de muestreo."
         onBack={onBack}
+        soloVista
+        avisoSoloVista="Este chequeo se llena antes de salir a terreno, cuando el muestreo aún no tiene folio OI-FoMa-01. Se habilitará en la sección de preparación de la salida; por ahora solo se consulta el formato y lo ya registrado."
     >
         {({ datos, items, editable, set }) => {
             const marcados = (datos.items || {}) as Record<string, boolean>;
