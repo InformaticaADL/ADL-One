@@ -102,5 +102,49 @@ const datosDeFolio = async (folio) => {
     };
 };
 
-export default { datosDeFolio, familiaDe, caracteristicaDe };
-export { datosDeFolio, familiaDe, caracteristicaDe };
+
+/**
+ * Muestreos con folio para elegir en la pantalla, del más reciente al más antiguo.
+ * `texto` busca por folio, empresa o punto. `tabla` (opcional) marca los que ya tienen el formulario hecho.
+ */
+const buscarMuestreos = async ({ texto = '', limite = 40, tabla = null } = {}) => {
+    const pool = await getConnection();
+    const req = pool.request().input('top', sql.Int, Math.min(Number(limite) || 40, 200));
+    const filtros = ['a.Folio IS NOT NULL'];
+    const t = String(texto || '').trim();
+    if (t) {
+        req.input('txt', sql.NVarChar(200), `%${t}%`);
+        filtros.push(`(CONVERT(VARCHAR(20), a.Folio) LIKE @txt OR e.nombre_empresa LIKE @txt OR f.ma_punto_muestreo LIKE @txt)`);
+    }
+    // Sólo se marca «ya hecho» con un nombre de tabla propio, nunca con algo que venga de afuera.
+    const TABLAS = { equipos: 'mae_ma_verif_equipos', mau: 'mae_ma_verif_mau', materiales: 'mae_ma_lista_materiales' };
+    const nombreTabla = TABLAS[tabla] || null;
+    const yaHecho = nombreTabla
+        ? `(SELECT COUNT(*) FROM ${nombreTabla} x WHERE x.folio_foma = a.Folio AND x.estado <> 'ANULADA')`
+        : '0';
+
+    const r = await req.query(`
+        SELECT TOP (@top)
+            a.Folio AS folio,
+            CONVERT(VARCHAR(10), a.fecha_muestreo, 23) AS fecha,
+            a.ma_muestreo_horai AS hora,
+            LTRIM(RTRIM(e.nombre_empresa)) AS empresa,
+            LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto,
+            LTRIM(RTRIM(m.nombre_muestreador)) AS muestreador,
+            ${yaHecho} AS hechos
+        FROM App_Ma_Agenda_MUESTREOS a
+        JOIN App_Ma_FichaIngresoServicio_ENC f ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
+        LEFT JOIN mae_empresa e ON e.id_empresa = f.id_empresa
+        LEFT JOIN mae_muestreador m ON m.id_muestreador = a.id_muestreador
+        WHERE ${filtros.join(' AND ')}
+        ORDER BY a.fecha_muestreo DESC, a.Folio DESC`);
+
+    return r.recordset.map((x) => ({
+        folio: Number(x.folio), fecha: x.fecha, hora: x.hora || null,
+        empresa: x.empresa || null, punto: x.punto || null, muestreador: x.muestreador || null,
+        hechos: Number(x.hechos) || 0,
+    }));
+};
+
+export default { datosDeFolio, buscarMuestreos, familiaDe, caracteristicaDe };
+export { datosDeFolio, buscarMuestreos, familiaDe, caracteristicaDe };

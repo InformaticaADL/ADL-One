@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticate } from '../middlewares/auth.middleware.js';
 import { verifyPermission } from '../middlewares/verifyPermission.js';
 import crud from '../services/verificacionTerrenoCrud.service.js';
+import { buscarMuestreos } from '../services/verificacionTerreno.service.js';
 import { ITEMS_VERIF_EQUIPOS, BUFFERS_PH, ITEMS_MAU, ITEMS_MATERIALES, CARACTERISTICAS } from '../services/verificacionTerreno.items.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 import logger from '../utils/logger.js';
@@ -36,6 +37,11 @@ router.get('/items', permiso, (req, res) => successResponse(res, {
     equipos: ITEMS_VERIF_EQUIPOS, buffers: BUFFERS_PH, mau: ITEMS_MAU,
     materiales: ITEMS_MATERIALES, caracteristicas: CARACTERISTICAS,
 }));
+
+// Muestreos para elegir, del más reciente al más antiguo; `q` busca por folio, empresa o punto.
+router.get('/:tipo/muestreos', permiso, manejar(async (req, res) =>
+    successResponse(res, await buscarMuestreos({ texto: req.query.q, limite: req.query.limite, tabla: req.params.tipo })),
+'No se pudieron leer los muestreos'));
 
 // Lo que trae el muestreo, antes de crear nada.
 router.get('/:tipo/previo/:folio', permiso, manejar(async (req, res) =>

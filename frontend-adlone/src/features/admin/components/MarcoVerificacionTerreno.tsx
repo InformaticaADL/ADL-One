@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { IconPlus, IconDeviceFloppy, IconBan, IconCircleCheck, IconSearch } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconBan, IconCircleCheck, IconSearch, IconFilePlus } from '@tabler/icons-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +13,7 @@ import { CampoFirma } from './CampoFirma';
 import { VistaPreviaPdf } from './VistaPreviaPdf';
 import {
     verificacionTerrenoService as svc, mensajeError,
-    type TipoFormulario, type FilaListado, type Formulario, type Muestreo, type ItemsApi,
+    type TipoFormulario, type FilaListado, type Formulario, type ItemsApi, type MuestreoListado,
 } from '../services/verificacionTerreno.service';
 
 // Armazón de los tres formularios de terreno: a la izquierda la lista y el formulario, a la derecha el
@@ -30,7 +30,6 @@ interface Props {
     children: (ctx: {
         datos: Formulario;
         items: ItemsApi;
-        muestreo: Muestreo | null;
         editable: boolean;
         set: (cambios: Partial<Formulario>) => void;
     }) => React.ReactNode;
@@ -43,9 +42,10 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
     const [items, setItems] = useState<ItemsApi | null>(null);
     const [elegido, setElegido] = useState<number | null>(null);
     const [datos, setDatos] = useState<Formulario | null>(null);
-    const [muestreo, setMuestreo] = useState<Muestreo | null>(null);
-    const [folio, setFolio] = useState('');
-    const [creando, setCreando] = useState(false);
+    const [muestreos, setMuestreos] = useState<MuestreoListado[]>([]);
+    const [busqueda, setBusqueda] = useState('');
+    const [buscando, setBuscando] = useState(false);
+    const [creando, setCreando] = useState<number | null>(null);
     const [guardando, setGuardando] = useState(false);
     const [firmando, setFirmando] = useState(false);
     const [firma, setFirma] = useState<{ nombre: string; imagen: string | null }>({ nombre: '', imagen: null });
@@ -57,10 +57,21 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
     }, [tipo]);
 
     useEffect(() => { cargarLista(); }, [cargarLista]);
+    useEffect(() => {
+        let vigente = true;
+        setBuscando(true);
+        const t = setTimeout(() => {
+            svc.muestreos(tipo, busqueda.trim())
+                .then((m) => { if (vigente) setMuestreos(m); })
+                .catch(() => { if (vigente) setMuestreos([]); })
+                .finally(() => { if (vigente) setBuscando(false); });
+        }, 300);
+        return () => { vigente = false; clearTimeout(t); };
+    }, [tipo, busqueda]);
     useEffect(() => { svc.items().then(setItems).catch(() => { /* sin ítems no se puede marcar */ }); }, []);
 
     useEffect(() => {
-        if (!elegido) { setDatos(null); setMuestreo(null); return; }
+        if (!elegido) { setDatos(null); return; }
         let vigente = true;
         svc.obtener(tipo, elegido)
             .then((d) => { if (vigente) setDatos(d); })
@@ -68,34 +79,18 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
         return () => { vigente = false; };
     }, [tipo, elegido, showToast]);
 
-    const crear = async () => {
-        const n = Number(folio);
-        if (!n) { showToast({ type: 'error', message: 'Escriba el folio de la planilla OI-FoMa-01.' }); return; }
-        setCreando(true);
+    const crear = async (folio: number) => {
+        setCreando(folio);
         try {
-            const r = await svc.crear(tipo, n);
+            const r = await svc.crear(tipo, folio);
             showToast({ type: 'success', message: `Formulario creado desde el folio ${r.folio}.` });
-            setFolio('');
             await cargarLista();
             setElegido(r.id);
+            setMuestreos((m) => m.map((x) => (x.folio === folio ? { ...x, hechos: x.hechos + 1 } : x)));
         } catch (e) {
             showToast({ type: 'error', message: mensajeError(e) || 'No se pudo crear el formulario.' });
         } finally {
-            setCreando(false);
-        }
-    };
-
-    /** Vista del muestreo antes de crear: confirma que el folio existe y qué traerá. */
-    const mirarFolio = async () => {
-        const n = Number(folio);
-        if (!n) return;
-        try {
-            const r = await svc.previo(tipo, n);
-            setMuestreo(r.muestreo);
-            showToast({ type: 'success', message: `Folio ${n}: ${r.muestreo.empresa || ''} · ${r.muestreo.lugar_muestreo || ''}` });
-        } catch (e) {
-            setMuestreo(null);
-            showToast({ type: 'error', message: mensajeError(e) || 'No se encontró el folio.' });
+            setCreando(null);
         }
     };
 
@@ -156,33 +151,53 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
             <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[320px_1fr]">
                 {/* Izquierda: crear desde el folio, lista y formulario */}
                 <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
-                    <section className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-sm">
-                        <span className="text-xs font-medium text-muted-foreground">Nuevo desde el folio de la planilla OI-FoMa-01</span>
-                        <div className="flex gap-2">
-                            <Input
-                                value={folio}
-                                onChange={(e) => setFolio(e.target.value.replace(/\D/g, ''))}
-                                placeholder="Folio (ej. 500471)"
-                                className="h-8 text-xs"
-                                inputMode="numeric"
-                            />
-                            <Button size="sm" variant="outline" onClick={mirarFolio} disabled={!folio} title="Ver qué trae ese folio">
-                                <IconSearch size={14} />
-                            </Button>
-                        </div>
-                        {muestreo && (
-                            <div className="rounded-md border border-border bg-muted/40 p-2 text-[11px] leading-relaxed">
-                                <p className="font-medium">{muestreo.empresa}</p>
-                                <p className="text-muted-foreground">{muestreo.lugar_muestreo}</p>
-                                <p className="text-muted-foreground">{muestreo.fecha} {muestreo.hora} · {muestreo.muestreador}</p>
-                                {muestreo.equipos.length > 0 && (
-                                    <p className="mt-1 text-muted-foreground">
-                                        Equipos: {muestreo.equipos.map((e) => e.codigo).join(', ')}
-                                    </p>
-                                )}
+                    <section className="flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-sm">
+                        <div className="border-b border-border p-2">
+                            <div className="relative">
+                                <IconSearch size={14} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                                <Input
+                                    value={busqueda}
+                                    onChange={(e) => setBusqueda(e.target.value)}
+                                    placeholder="Buscar muestreo por folio, empresa o punto"
+                                    className="h-8 pl-7 text-xs"
+                                />
                             </div>
-                        )}
-                        <Button size="sm" onClick={crear} disabled={creando || !folio}><IconPlus size={14} /> Crear</Button>
+                        </div>
+                        <p className="px-3 py-1.5 text-[11px] text-muted-foreground">
+                            {buscando ? 'Buscando…' : `Muestreos disponibles (${muestreos.length})`}
+                        </p>
+                        <div className="max-h-60 min-h-0 flex-1 divide-y divide-border overflow-y-auto">
+                            {!buscando && muestreos.length === 0 && (
+                                <p className="p-3 text-xs text-muted-foreground">
+                                    {busqueda ? 'Ningún muestreo coincide con la búsqueda.' : 'No hay muestreos con folio.'}
+                                </p>
+                            )}
+                            {muestreos.map((m) => (
+                                <div key={m.folio} className="flex items-center gap-2 px-3 py-2">
+                                    <div className="min-w-0 flex-1">
+                                        <p className="flex items-center gap-1.5 text-xs font-semibold">
+                                            Folio {m.folio}
+                                            {m.hechos > 0 && <Badge variant="success" className="text-[10px]">Hecho</Badge>}
+                                        </p>
+                                        <p className="truncate text-[11px] text-muted-foreground" title={`${m.empresa || ''} · ${m.punto || ''}`}>
+                                            {m.empresa || 'Sin empresa'}{m.punto ? ` · ${m.punto}` : ''}
+                                        </p>
+                                        <p className="truncate text-[11px] text-muted-foreground">
+                                            {m.fecha}{m.hora ? ` ${m.hora}` : ''}{m.muestreador ? ` · ${m.muestreador}` : ''}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant={m.hechos > 0 ? 'outline' : 'default'}
+                                        onClick={() => crear(m.folio)}
+                                        disabled={creando !== null}
+                                        title={m.hechos > 0 ? 'Ya tiene un formulario; crea otro' : 'Crear el formulario con los datos de este muestreo'}
+                                    >
+                                        <IconFilePlus size={14} />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
                     </section>
 
                     <section className="flex min-h-0 flex-col rounded-xl border border-border bg-card shadow-sm">
@@ -215,7 +230,7 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                                     {datos.estado === 'ANULADA' ? `Anulado: ${datos.motivo_anulacion || ''}` : `Firmado por ${datos.nombre_firma || ''}`}
                                 </p>
                             )}
-                            {children({ datos, items, muestreo, editable, set })}
+                            {children({ datos, items, editable, set })}
                             <div>
                                 <label className="text-xs font-medium">Observaciones</label>
                                 <Textarea

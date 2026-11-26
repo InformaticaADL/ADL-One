@@ -32,6 +32,13 @@ export interface Muestreo {
     sugerencias: Record<string, EquipoMuestreo | null>;
 }
 
+export interface MuestreoListado {
+    folio: number; fecha: string; hora: string | null;
+    empresa: string | null; punto: string | null; muestreador: string | null;
+    /** Cuántos formularios de este tipo ya existen para ese folio (0 = ninguno). */
+    hechos: number;
+}
+
 export interface FilaListado {
     id: number; folio_foma: number | null; empresa: string | null; fecha: string | null;
     estado: EstadoFormulario; nombre_crea: string | null; nombre_firma: string | null; fecha_creacion: string;
@@ -64,6 +71,10 @@ export const mensajeError = (e: unknown) => (e as { response?: { data?: { messag
 
 export const verificacionTerrenoService = {
     items: async () => (await apiClient.get(`${BASE}/items`)).data.data as ItemsApi,
+
+    /** Muestreos para elegir; `q` busca por folio, empresa o punto. */
+    muestreos: async (tipo: TipoFormulario, q = '') =>
+        (await apiClient.get(`${BASE}/${tipo}/muestreos`, { params: q ? { q } : {} })).data.data as MuestreoListado[],
 
     /** Lo que trae el muestreo, para mostrarlo antes de crear el formulario. */
     previo: async (tipo: TipoFormulario, folio: number | string) =>
