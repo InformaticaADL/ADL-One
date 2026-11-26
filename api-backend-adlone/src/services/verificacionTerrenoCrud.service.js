@@ -115,10 +115,13 @@ const servicio = {
         const t = tipoDe(nombre);
         const pool = await getConnection();
         await exigirTabla(pool, t);
+        // Ojo: no se puede pedir `SELECT *` y además un CONVERT con el mismo alias que la columna de fecha;
+        // serían dos columnas con un nombre y el driver las devuelve juntas en un array. La fecha se formatea aquí.
         const r = await pool.request().input('id', sql.Int, Number(id))
-            .query(`SELECT *, CONVERT(VARCHAR(10), ${t.fecha}, 23) AS ${t.fecha} FROM ${t.tabla} WHERE ${t.pk} = @id`);
+            .query(`SELECT * FROM ${t.tabla} WHERE ${t.pk} = @id`);
         const fila = r.recordset[0];
         if (!fila) throw error('No se encontró el formulario.', 404);
+        if (fila[t.fecha] instanceof Date) fila[t.fecha] = fila[t.fecha].toISOString().slice(0, 10);
         return parsear(t, fila);
     },
 
