@@ -131,9 +131,34 @@ const buscarMuestreos = async ({ texto = '', limite = 40, tabla = null } = {}) =
     // Sólo se marca «ya hecho» con un nombre de tabla propio, nunca con algo que venga de afuera.
     const TABLAS = { equipos: 'mae_ma_verif_equipos', mau: 'mae_ma_verif_mau', materiales: 'mae_ma_lista_materiales' };
     const nombreTabla = TABLAS[tabla] || null;
+
+    // Cada formulario verifica unos equipos: no tiene sentido ofrecer muestreos donde no se usaron.
+    // Los prefijos son los del código del equipo (MAU.05/MA.PM), fijos en el código, nunca de fuera.
+    const PREFIJOS = {
+        mau: ['MAU'],
+        equipos: ['pHp', 'MpH', 'pHs', 'MOD', 'SOD', 'MCL'],
+    };
+    const prefijos = PREFIJOS[tabla];
+    if (prefijos) {
+        const like = prefijos.map((x) => `q.codigo LIKE '${x}.%'`).join(' OR ');
+        filtros.push(`EXISTS (
+            SELECT 1 FROM App_Ma_Equipos_MUESTREOS x
+            JOIN mae_equipo q ON q.id_equipo = x.id_equipo
+            WHERE x.id_fichaingresoservicio = a.id_fichaingresoservicio
+              AND x.frecuencia_correlativo = a.frecuencia_correlativo
+              AND (${like}))`);
+    }
+    const pk = nombreTabla === 'mae_ma_lista_materiales' ? 'id_lista' : 'id_verificacion';
     const yaHecho = nombreTabla
         ? `(SELECT COUNT(*) FROM ${nombreTabla} x WHERE x.folio_foma = a.Folio AND x.estado <> 'ANULADA')`
         : '0';
+    // El formulario vigente de ese folio, si ya existe, para abrirlo sin crear otro.
+    const idHecho = nombreTabla
+        ? `(SELECT TOP 1 x.${pk} FROM ${nombreTabla} x WHERE x.folio_foma = a.Folio AND x.estado <> 'ANULADA' ORDER BY x.${pk} DESC)`
+        : 'NULL';
+    const estadoHecho = nombreTabla
+        ? `(SELECT TOP 1 x.estado FROM ${nombreTabla} x WHERE x.folio_foma = a.Folio AND x.estado <> 'ANULADA' ORDER BY x.${pk} DESC)`
+        : 'NULL';
 
     const r = await req.query(`
         SELECT TOP (@top)
@@ -143,7 +168,7 @@ const buscarMuestreos = async ({ texto = '', limite = 40, tabla = null } = {}) =
             LTRIM(RTRIM(e.nombre_empresa)) AS empresa,
             LTRIM(RTRIM(f.ma_punto_muestreo)) AS punto,
             LTRIM(RTRIM(m.nombre_muestreador)) AS muestreador,
-            ${yaHecho} AS hechos
+            ${yaHecho} AS hechos, ${idHecho} AS id_formulario, ${estadoHecho} AS estado_formulario
         FROM App_Ma_Agenda_MUESTREOS a
         JOIN App_Ma_FichaIngresoServicio_ENC f ON f.id_fichaingresoservicio = a.id_fichaingresoservicio
         LEFT JOIN mae_empresa e ON e.id_empresa = f.id_empresa
@@ -155,6 +180,8 @@ const buscarMuestreos = async ({ texto = '', limite = 40, tabla = null } = {}) =
         folio: Number(x.folio), fecha: x.fecha, hora: x.hora || null,
         empresa: x.empresa || null, punto: x.punto || null, muestreador: x.muestreador || null,
         hechos: Number(x.hechos) || 0,
+        id_formulario: x.id_formulario === null ? null : Number(x.id_formulario),
+        estado_formulario: x.estado_formulario || null,
     }));
 };
 

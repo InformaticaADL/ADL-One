@@ -152,6 +152,21 @@ const servicio = {
         return { id: r.recordset[0].id, folio: Number(folio) };
     },
 
+    /**
+     * Abre el formulario de un muestreo: si ya existe lo devuelve, y si no lo crea con los datos del folio.
+     * Así no hay un paso manual de «crear»: se elige el muestreo y el formulario aparece ya rellenado.
+     */
+    async abrir(nombre, folio, usuario) {
+        const t = tipoDe(nombre);
+        const pool = await getConnection();
+        await exigirTabla(pool, t);
+        const r = await pool.request().input('folio', sql.Numeric(10, 0), Number(folio)).query(
+            `SELECT TOP 1 ${t.pk} AS id FROM ${t.tabla} WHERE folio_foma = @folio AND estado <> 'ANULADA' ORDER BY ${t.pk} DESC`);
+        if (r.recordset.length) return { id: r.recordset[0].id, folio: Number(folio), creado: false };
+        const nuevo = await this.crear(nombre, folio, usuario);
+        return { ...nuevo, creado: true };
+    },
+
     async guardar(nombre, id, datos = {}) {
         const t = tipoDe(nombre);
         exigirEditable(t);

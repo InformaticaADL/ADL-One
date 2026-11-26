@@ -43,6 +43,10 @@ router.get('/:tipo/muestreos', permiso, manejar(async (req, res) =>
     successResponse(res, await buscarMuestreos({ texto: req.query.q, limite: req.query.limite, tabla: req.params.tipo })),
 'No se pudieron leer los muestreos'));
 
+// Abrir el formulario de un muestreo: lo devuelve si existe, o lo crea con los datos del folio.
+router.post('/:tipo/abrir/:folio', permiso, manejar(async (req, res) =>
+    successResponse(res, await crud.abrir(req.params.tipo, req.params.folio, req.user)), 'No se pudo abrir el formulario'));
+
 // Lo que trae el muestreo, antes de crear nada.
 router.get('/:tipo/previo/:folio', permiso, manejar(async (req, res) =>
     successResponse(res, await crud.previo(req.params.tipo, req.params.folio)), 'No se pudo leer el muestreo'));

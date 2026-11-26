@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { IconDeviceFloppy, IconBan, IconCircleCheck, IconSearch, IconFilePlus } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconBan, IconCircleCheck, IconSearch } from '@tabler/icons-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -94,16 +94,21 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
         return () => { vigente = false; };
     }, [tipo, elegido, showToast]);
 
-    const crear = async (folio: number) => {
+    /** Un solo gesto: se elige el muestreo y el formulario aparece; si no existía, se crea con sus datos. */
+    const abrir = async (folio: number) => {
         setCreando(folio);
         try {
-            const r = await svc.crear(tipo, folio);
-            showToast({ type: 'success', message: `Formulario creado desde el folio ${r.folio}.` });
-            await cargarLista();
+            const r = await svc.abrir(tipo, folio);
+            if (r.creado) {
+                showToast({ type: 'success', message: `Formulario del folio ${r.folio} listo con los datos del muestreo.` });
+                await cargarLista();
+                setMuestreos((m) => m.map((x) => (x.folio === folio
+                    ? { ...x, hechos: x.hechos + 1, id_formulario: r.id, estado_formulario: 'BORRADOR' as const }
+                    : x)));
+            }
             setElegido(r.id);
-            setMuestreos((m) => m.map((x) => (x.folio === folio ? { ...x, hechos: x.hechos + 1 } : x)));
         } catch (e) {
-            showToast({ type: 'error', message: mensajeError(e) || 'No se pudo crear el formulario.' });
+            showToast({ type: 'error', message: mensajeError(e) || 'No se pudo abrir el formulario.' });
         } finally {
             setCreando(null);
         }
@@ -181,53 +186,51 @@ export const MarcoVerificacionTerreno: React.FC<Props> = ({ tipo, titulo, subtit
                                 <Input
                                     value={busqueda}
                                     onChange={(e) => setBusqueda(e.target.value)}
-                                    placeholder="Buscar muestreo por folio, empresa o punto"
+                                    placeholder="Buscar por folio, empresa o punto"
                                     className="h-8 pl-7 text-xs"
                                 />
                             </div>
                         </div>
                         <p className="px-3 py-1.5 text-[11px] text-muted-foreground">
-                            {buscando ? 'Buscando…' : `Muestreos disponibles (${muestreos.length})`}
+                            {buscando ? 'Buscando…' : `Muestreos a verificar (${muestreos.length})`}
                         </p>
                         <div className="max-h-56 divide-y divide-border overflow-y-auto">
                             {!buscando && muestreos.length === 0 && (
                                 <p className="p-3 text-xs text-muted-foreground">
-                                    {busqueda ? 'Ningún muestreo coincide con la búsqueda.' : 'No hay muestreos con folio.'}
+                                    {busqueda ? 'Ningún muestreo coincide con la búsqueda.' : 'No hay muestreos que usen este equipo.'}
                                 </p>
                             )}
                             {muestreos.map((m) => (
-                                <div key={m.folio} className="flex items-center gap-2 px-3 py-2">
-                                    <div className="min-w-0 flex-1">
-                                        <p className="flex items-center gap-1.5 text-xs font-semibold">
-                                            Folio {m.folio}
-                                            {m.hechos > 0 && <Badge variant="success" className="text-[10px]">Hecho</Badge>}
-                                        </p>
-                                        <p className="truncate text-[11px] text-muted-foreground" title={`${m.empresa || ''} · ${m.punto || ''}`}>
-                                            {m.empresa || 'Sin empresa'}{m.punto ? ` · ${m.punto}` : ''}
-                                        </p>
-                                        <p className="truncate text-[11px] text-muted-foreground">
-                                            {m.fecha}{m.hora ? ` ${m.hora}` : ''}{m.muestreador ? ` · ${m.muestreador}` : ''}
-                                        </p>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        variant={m.hechos > 0 ? 'outline' : 'default'}
-                                        onClick={() => crear(m.folio)}
-                                        disabled={creando !== null}
-                                        title={m.hechos > 0 ? 'Ya tiene un formulario; crea otro' : 'Crear el formulario con los datos de este muestreo'}
-                                    >
-                                        <IconFilePlus size={14} />
-                                    </Button>
-                                </div>
+                                <button
+                                    key={m.folio}
+                                    type="button"
+                                    onClick={() => abrir(m.folio)}
+                                    disabled={creando !== null}
+                                    className={cn('flex w-full flex-col gap-0.5 px-3 py-2 text-left transition-colors hover:bg-muted/60 disabled:opacity-60',
+                                        m.id_formulario && elegido === m.id_formulario && 'bg-muted')}
+                                >
+                                    <span className="flex items-center justify-between gap-2 text-xs font-semibold">
+                                        Folio {m.folio}
+                                        {m.estado_formulario
+                                            ? <Badge variant={ESTADO_VARIANT[m.estado_formulario]} className="text-[10px]">{m.estado_formulario}</Badge>
+                                            : <span className="text-[10px] font-normal text-muted-foreground">sin iniciar</span>}
+                                    </span>
+                                    <span className="truncate text-[11px] text-muted-foreground" title={`${m.empresa || ''} · ${m.punto || ''}`}>
+                                        {m.empresa || 'Sin empresa'}{m.punto ? ` · ${m.punto}` : ''}
+                                    </span>
+                                    <span className="truncate text-[11px] text-muted-foreground">
+                                        {m.fecha}{m.hora ? ` ${m.hora}` : ''}{m.muestreador ? ` · ${m.muestreador}` : ''}
+                                    </span>
+                                </button>
                             ))}
                         </div>
                     </section>
                     )}
 
                     <section className="shrink-0 rounded-xl border border-border bg-card shadow-sm">
-                        <p className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">Formularios ({lista.length})</p>
+                        <p className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">Ya registrados ({lista.length})</p>
                         <div className="max-h-44 divide-y divide-border overflow-y-auto">
-                            {lista.length === 0 && <p className="p-3 text-xs text-muted-foreground">Todavía no hay formularios.</p>}
+                            {lista.length === 0 && <p className="p-3 text-xs text-muted-foreground">Todavía no hay ninguno.</p>}
                             {lista.map((f) => (
                                 <button
                                     key={f.id}

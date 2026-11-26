@@ -42,6 +42,9 @@ export interface MuestreoListado {
     empresa: string | null; punto: string | null; muestreador: string | null;
     /** Cuántos formularios de este tipo ya existen para ese folio (0 = ninguno). */
     hechos: number;
+    /** El formulario vigente de ese folio, si ya se abrió alguna vez. */
+    id_formulario: number | null;
+    estado_formulario: EstadoFormulario | null;
 }
 
 export interface FilaListado {
@@ -90,6 +93,10 @@ export const verificacionTerrenoService = {
 
     crear: async (tipo: TipoFormulario, folio: number | string) =>
         (await apiClient.post(`${BASE}/${tipo}`, { folio })).data.data as { id: number; folio: number },
+
+    /** Abre el formulario de un muestreo; lo crea con los datos del folio si todavía no existe. */
+    abrir: async (tipo: TipoFormulario, folio: number | string) =>
+        (await apiClient.post(`${BASE}/${tipo}/abrir/${folio}`)).data.data as { id: number; folio: number; creado: boolean },
 
     obtener: async (tipo: TipoFormulario, id: number) =>
         (await apiClient.get(`${BASE}/${tipo}/${id}`)).data.data as Formulario,
