@@ -72,10 +72,15 @@ const COLUMNAS = [
     'informe', 'id_historial_actual', 'version', 'id_equipocatalogo', 'es_fijo', 'esta_ocupado',
     'ocupado_por_frecuencia', 'Ultima_verificacion', 'Siguiente_verificacion', 'Plazo_Vigencia', 'Estado'
 ];
-const SQL_INSERT = `INSERT INTO mae_equipo (id_equipo, ${COLUMNAS.join(', ')}) VALUES (@id_equipo, ${COLUMNAS.map((c) => '@' + c).join(', ')})`;
+// Si el Excel no dice si un equipo es visible para muestreadores, se conserva lo que ya tiene (y un equipo nuevo queda en 'N'): esta marca decide qué
+// equipos puede elegir un muestreador en ADL SAMPLING y se administra en ADL ONE.
+const CONSERVAR_SI_VACIO = new Set(['visible_muestreador']);
+const valorInsert = (c) => (CONSERVAR_SI_VACIO.has(c) ? `ISNULL(@${c}, 'N')` : `@${c}`);
+const valorUpdate = (c) => (CONSERVAR_SI_VACIO.has(c) ? `ISNULL(@${c}, ${c})` : `@${c}`);
+const SQL_INSERT = `INSERT INTO mae_equipo (id_equipo, ${COLUMNAS.join(', ')}) VALUES (@id_equipo, ${COLUMNAS.map(valorInsert).join(', ')})`;
 // Al actualizar no se pisan id_historial_actual ni la versión de calibración que ya lleva la base
 const NO_ACTUALIZAR = new Set(['id_historial_actual']);
-const SQL_UPDATE = `UPDATE mae_equipo SET ${COLUMNAS.filter((c) => !NO_ACTUALIZAR.has(c)).map((c) => `${c} = @${c}`).join(', ')} WHERE id_equipo = @id_equipo`;
+const SQL_UPDATE = `UPDATE mae_equipo SET ${COLUMNAS.filter((c) => !NO_ACTUALIZAR.has(c)).map((c) => `${c} = ${valorUpdate(c)}`).join(', ')} WHERE id_equipo = @id_equipo`;
 
 async function run() {
     try {
@@ -195,9 +200,9 @@ async function run() {
                 request.input('equipo_asociado', sql.VarChar(200), parseString(getCellValue(row.getCell(18))));
                 request.input('observacion', sql.VarChar(1000), parseString(getCellValue(row.getCell(19))));
 
-                // Normalizing visible_muestreador
-                const rawVisible = getCellValue(row.getCell(20));
-                request.input('visible_muestreador', sql.VarChar(10), (rawVisible === 'S' || rawVisible === 'SI' || rawVisible === 'SÍ') ? 'S' : 'N');
+                // Visible para muestreadores: solo cambia si la celda dice Sí o No (en cualquier escritura); vacía u otra cosa = se conserva
+                const rawVisible = String(getCellValue(row.getCell(20)) ?? '').trim().toUpperCase();
+                request.input('visible_muestreador', sql.VarChar(10), ['S', 'SI', 'SÍ'].includes(rawVisible) ? 'S' : ['N', 'NO'].includes(rawVisible) ? 'N' : null);
 
                 request.input('que_mide', sql.VarChar(250), parseString(match ? match.que_mide : getCellValue(row.getCell(21))));
                 request.input('unidad_medida_textual', sql.VarChar(250), parseString(match ? match.unidad_medida_textual : getCellValue(row.getCell(22))));

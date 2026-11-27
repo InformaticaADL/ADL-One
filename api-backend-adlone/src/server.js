@@ -46,6 +46,7 @@ import biologiaMolecularRoutes from './routes/biologia-molecular.routes.js';
 import verificacionTemperaturaRoutes from './routes/verificacionTemperatura.routes.js';
 import firmaRemotaRoutes from './routes/firmaRemota.routes.js';
 import fichaFirmaRoutes from './routes/fichaFirma.routes.js';
+import fichaFirmaInternaRoutes from './routes/fichaFirmaInterna.routes.js';
 import revisionDocumentalRoutes from './routes/revisionDocumental.routes.js';
 import puestaMarchaRoutes from './routes/puestaMarcha.routes.js';
 import verificacionCaudalRoutes from './routes/verificacionCaudal.routes.js';
@@ -251,6 +252,7 @@ app.use('/api/revision-documental', revisionDocumentalRoutes); // fechas de revi
 app.use('/api/calidad/quejas-apelaciones', quejasApelacionesRoutes); // G. Calidad → Calidad: quejas y apelaciones (datos en la base de ADLWeb)
 app.use('/api/calidad', calidadRoutes); // G. Calidad → Calidad: archivo de quejas cerradas, listado OI-FoGe-06 y auditorías internas (base ADL-One)
 app.use('/api/verificaciones-terreno', verificacionTerrenoRoutes); // G.C. MAM: OI-FoGe-26, OI-FoMa-03 y OI-FoMa-19, llenados desde el folio del muestreo
+app.use('/api/firmas-fichas-interno', fichaFirmaInternaRoutes); // quien recibe un equipo, desde ADL SAMPLING (clave interna)
 app.use('/api/firmas-fichas', fichaFirmaRoutes); // fichas de equipo enviadas a firmar (Solicitudes > Firmas pendientes)
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/analysis', kpiAnalystRoutes);

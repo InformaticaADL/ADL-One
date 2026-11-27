@@ -554,7 +554,7 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
         if (!entrega || !firmanteEntrega || !firmanteArea) return;
         setEnviando(true);
         try {
-            await fichaFirmaService.crear({
+            const enviada = await fichaFirmaService.crear({
                 ...entrega,
                 id_equipo: idEquipo ?? null,
                 // La firma de quien recibe puede venir hecha; las de entrega y de área las hacen sus responsables.
@@ -562,7 +562,8 @@ export const FichasEquipoDialog: React.FC<Props> = ({ tipo, idEquipo, equipo, on
                 id_firmante_entrega: firmanteEntrega.id_usuario,
                 id_firmante_area: firmanteArea.id_usuario,
             });
-            showToast({ type: 'success', message: firmanteEntrega.id_usuario === firmanteArea.id_usuario ? `Ficha enviada a firmar a ${firmanteEntrega.nombre}` : `Ficha enviada a firmar a ${firmanteEntrega.nombre} y ${firmanteArea.nombre}` });
+            const aQuienes = firmanteEntrega.id_usuario === firmanteArea.id_usuario ? firmanteEntrega.nombre : `${firmanteEntrega.nombre} y ${firmanteArea.nombre}`;
+            showToast({ type: 'success', message: `Ficha enviada a firmar a ${aQuienes}${enviada.pide_en_app ? `. A ${enviada.pide_en_app} se le pidió aceptar el equipo en ADL SAMPLING` : ''}` });
             setEnvioAbierto(false);
             onClose();
         } catch (e) {

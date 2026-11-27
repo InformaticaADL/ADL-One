@@ -18,7 +18,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 // que ella envió (Enviadas). Al elegir una se ve la ficha sin opción de guardarla ni imprimirla y se firma dibujando,
 // con la firma registrada o con el celular (QR). Cuando firman todos, la ficha queda guardada en el archivo del equipo.
 
-const TEXTO_ROL = { ENTREGA: 'Responsable de entrega', RESPONSABLE_AREA: 'Responsable de área' } as const;
+const TEXTO_ROL = { ENTREGA: 'Responsable de entrega', RESPONSABLE_AREA: 'Responsable de área', RECIBE: 'Recibe el equipo' } as const;
 // Hora guardada por la base (hora local de Chile): se muestra tal cual, sin convertir de zona.
 const fechaHora = (v?: string | null) => formatearFechaHoraCorta(v);
 const mensajeError = (e: unknown) => (e as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -400,6 +400,9 @@ const DetalleFirma: React.FC<DetalleProps> = ({ id, nombreUsuario, onCambio, sho
     useEffect(() => { firmaUsuarioService.obtener().then((f) => setMiFirma(f.firma)).catch(() => setMiFirma(null)); }, []);
 
     const pideEquipo = !!d?.requiere_firma_equipo;
+    // Si se le pidió en ADL SAMPLING no es obligatoria aquí, pero estando presente puede firmar igual.
+    const equipoOpcional = !!d?.firma_equipo_en_app && !!d?.mis_roles?.includes('ENTREGA');
+    const muestraEquipo = pideEquipo || equipoOpcional;
     const miFirmaLista = firma.usarRegistrada || !!firma.imagen;
 
     // Apenas se hace una firma (dibujada, importada o del celular) la ficha de arriba la muestra: se espera un instante
@@ -422,7 +425,7 @@ const DetalleFirma: React.FC<DetalleProps> = ({ id, nombreUsuario, onCambio, sho
         try {
             const r = await fichaFirmaService.firmar(d.id_ficha_firma, {
                 ...(firma.usarRegistrada ? { usar_registrada: true } : { imagen: firma.imagen as string }),
-                ...(pideEquipo && firmaEquipo ? { imagen_equipo: firmaEquipo } : {}),
+                ...(muestraEquipo && firmaEquipo ? { imagen_equipo: firmaEquipo } : {}),
             });
             if (r.error) showToast({ type: 'warning', message: r.error });
             else showToast({ type: 'success', message: r.completa ? 'Firmó la ficha. Con su firma quedó completa y guardada.' : 'Firma registrada. Faltan otras firmas.' });
@@ -476,12 +479,15 @@ const DetalleFirma: React.FC<DetalleProps> = ({ id, nombreUsuario, onCambio, sho
                         </span>
                         <div className="min-w-0">
                             <p className="m-0 text-sm font-medium leading-tight">{TEXTO_ROL[f.rol]}</p>
-                            <p className="m-0 truncate text-xs text-muted-foreground">{f.nombre}{f.cargo ? ` · ${f.cargo}` : ''} — {f.estado === 'FIRMADA' ? `firmó ${fechaHora(f.fecha_firma)}` : 'falta firmar'}</p>
+                            <p className="m-0 truncate text-xs text-muted-foreground">{f.nombre}{f.cargo ? ` · ${f.cargo}` : ''} — {f.estado === 'FIRMADA' ? `${f.rol === 'RECIBE' ? 'aceptó' : 'firmó'} ${fechaHora(f.fecha_firma)}` : f.estado === 'RECHAZADA' ? 'rechazó' : f.rol === 'RECIBE' ? 'falta que acepte en ADL SAMPLING' : 'falta firmar'}</p>
                         </div>
                     </li>
                 ))}
             </ul>
 
+            {d.firma_equipo_en_app && (
+                <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">A {d.responsable_equipo} se le pidió aceptar el equipo en ADL SAMPLING; la ficha se completa cuando responda. Si está presente, quien entrega también puede pedirle la firma aquí.</p>
+            )}
             {d.estado === 'CANCELADA' && <p className="rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">Cancelada: {d.motivo_cancelacion}</p>}
             {d.estado === 'COMPLETA' && <p className="rounded-md border border-success/30 bg-success/5 px-3 py-2 text-sm text-success">Firmaron todos. La ficha quedó guardada en el archivo de fichas del equipo.</p>}
 
@@ -502,7 +508,7 @@ const DetalleFirma: React.FC<DetalleProps> = ({ id, nombreUsuario, onCambio, sho
                         <span className="text-sm font-semibold">Su firma como {(d.mis_roles?.length ? d.mis_roles : [d.mi_rol]).map((r) => TEXTO_ROL[r].toLowerCase()).join(' y ')}</span>
                         <Button type="button" size="sm" variant="outline" onClick={() => setCelular(true)}><IconDeviceMobile size={14} /> Firmar con el celular</Button>
                     </div>
-                    <div className={cn('grid gap-3', pideEquipo ? 'md:grid-cols-2' : 'max-w-md')}>
+                    <div className={cn('grid gap-3', muestraEquipo ? 'md:grid-cols-2' : 'max-w-md')}>
                         <CampoFirma
                             ref={campo}
                             titulo={(d.mis_roles?.length ? d.mis_roles : [d.mi_rol]).map((r) => TEXTO_ROL[r]).join(' y ')}
@@ -512,10 +518,10 @@ const DetalleFirma: React.FC<DetalleProps> = ({ id, nombreUsuario, onCambio, sho
                             onChange={(f, usar) => setFirma({ imagen: f, usarRegistrada: usar })}
                         />
                         {/* Quien entrega le pide la firma a quien recibe el equipo: con el QR firma en el celular */}
-                        {pideEquipo && (
+                        {muestraEquipo && (
                             <CampoFirma
                                 ref={campoEquipo}
-                                titulo="Responsable del equipo (recibe)"
+                                titulo={equipoOpcional ? 'Responsable del equipo (recibe) · opcional' : 'Responsable del equipo (recibe)'}
                                 nombre={d.responsable_equipo}
                                 onChange={(f) => setFirmaEquipo(f)}
                             />
@@ -537,7 +543,7 @@ const DetalleFirma: React.FC<DetalleProps> = ({ id, nombreUsuario, onCambio, sho
                         subtitulo={`Equipo ${d.codigo_equipo}`}
                         slots={[
                             { id: 'firma', titulo: (d.mis_roles?.length ? d.mis_roles : [d.mi_rol]).map((r) => TEXTO_ROL[r]).join(' y '), nombre: nombreUsuario, firmada: miFirmaLista },
-                            ...(pideEquipo ? [{ id: 'equipo', titulo: 'Responsable del equipo (recibe)', nombre: d.responsable_equipo, firmada: !!firmaEquipo }] : []),
+                            ...(muestraEquipo ? [{ id: 'equipo', titulo: 'Responsable del equipo (recibe)', nombre: d.responsable_equipo, firmada: !!firmaEquipo }] : []),
                         ]}
                         onFirma={(slot, imagen) => (slot === 'equipo' ? campoEquipo.current : campo.current)?.fijar(imagen)}
                         crearSesion={(cuerpo) => fichaFirmaService.crearQr(d.id_ficha_firma, cuerpo.slots)}

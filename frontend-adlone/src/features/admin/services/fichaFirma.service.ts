@@ -7,7 +7,8 @@ const BASE = '/api/firmas-fichas';
 
 export type EstadoFichaFirma = 'PENDIENTE' | 'COMPLETA' | 'CANCELADA';
 
-export interface FirmanteFicha { rol: 'ENTREGA' | 'RESPONSABLE_AREA'; nombre: string; cargo: string | null; estado: 'PENDIENTE' | 'FIRMADA'; modo?: string | null; fecha_firma?: string | null }
+/** RECIBE = el muestreador que recibe el equipo y lo acepta (o rechaza) desde ADL SAMPLING. */
+export interface FirmanteFicha { rol: 'ENTREGA' | 'RESPONSABLE_AREA' | 'RECIBE'; nombre: string; cargo: string | null; estado: 'PENDIENTE' | 'FIRMADA' | 'RECHAZADA'; modo?: string | null; fecha_firma?: string | null }
 
 export interface FirmaPendiente {
     id_ficha_firma: number;
@@ -56,6 +57,8 @@ export interface DetalleFichaFirma {
     mis_roles: ('ENTREGA' | 'RESPONSABLE_AREA')[];
     /** Quien firma como responsable de entrega debe pedir también la firma de quien recibe el equipo. */
     requiere_firma_equipo: boolean;
+    /** La firma de quien recibe se le pidió en ADL SAMPLING y aún no responde. */
+    firma_equipo_en_app?: boolean;
     responsable_equipo: string;
     fecha_entrega: string;
     observaciones: string;
@@ -67,7 +70,7 @@ export interface EstadoQrFirma { estado: 'pendiente' | 'completo'; expira: strin
 
 export const fichaFirmaService = {
     /** Envía la ficha de entrega a firmar. `datos` = lo del formulario (sin las firmas de entrega y de área). */
-    crear: async (datos: Record<string, unknown>) => (await apiClient.post(BASE, datos)).data.data as { id_ficha_firma: number },
+    crear: async (datos: Record<string, unknown>) => (await apiClient.post(BASE, datos)).data.data as { id_ficha_firma: number; pide_en_app?: string | null },
     pendientes: async () => (await apiClient.get(`${BASE}/pendientes`)).data.data as FirmaPendiente[],
     contar: async () => (await apiClient.get(`${BASE}/pendientes/contar`)).data.data.total as number,
     enviadas: async () => (await apiClient.get(`${BASE}/enviadas`)).data.data as FichaFirmaEnviada[],
